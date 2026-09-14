@@ -2,12 +2,12 @@
     "schema": "fsusblog.correctness-attempt-producers.v1",
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
-        "config/testing/release-reliability-scenario-catalog.json": "sha256:24e92ab9756b894767fdeacde64b34d1728b51d1349cf1aa07b1e78fba2a1995",
-        "tests/matrix.yml": "sha256:fb7a063b3685617a78690b7eea0c5cdd0eeb5ff2494dea89ffe055313b68b9df",
+        "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
+        "tests/matrix.yml": "sha256:93351f2f33b7531fa3cef5663ad6978333d402145312ae4a3ea1e1f002835019",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:f0947a0e1ddcc9ac11bab1e1ff0926408c6f546de9b364fc7aba733067c953f7",
-        "tools/test/attempt-runner.mjs": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:5339bdd5ab937638809d38ab0a61eefd364dd814e016fce3c4f916808fda32c0",
+        "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
     },
     "entries": [
@@ -210,35 +210,6 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-build-governance",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-cache-invalidation-batch",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh cache-invalidation-batch",
-            "logicalTierIds": [
-                "backend-cache-invalidation-batch"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-cache-invalidation-batch",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -471,412 +442,6 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-property",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh aggregate",
-            "logicalTierIds": [
-                "backend-qps"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-article-detail-miss",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh article-detail-miss",
-            "logicalTierIds": [
-                "backend-qps-article-detail-miss"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-article-detail-miss",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-cache-hit",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh cache-hit",
-            "logicalTierIds": [
-                "backend-qps-cache-hit"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-cache-hit",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-cache-miss-singleflight",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh cache-miss-singleflight",
-            "logicalTierIds": [
-                "backend-qps-cache-miss-singleflight"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-cache-miss-singleflight",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-cache-registry",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh cache-registry",
-            "logicalTierIds": [
-                "backend-qps-cache-registry"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-cache-registry",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-comment-cursor",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh comment-cursor",
-            "logicalTierIds": [
-                "backend-qps-comment-cursor"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-comment-cursor",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-hotread",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh hotread",
-            "logicalTierIds": [
-                "backend-qps-hotread"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-hotread",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-index-plan",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh index-plan",
-            "logicalTierIds": [
-                "backend-qps-index-plan"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-index-plan",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-list-pagination",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh list-pagination",
-            "logicalTierIds": [
-                "backend-qps-list-pagination"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-list-pagination",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-related-reading",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh related-reading",
-            "logicalTierIds": [
-                "backend-qps-related-reading"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-related-reading",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-risk-filter",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh risk-filter",
-            "logicalTierIds": [
-                "backend-qps-risk-filter"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-risk-filter",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-runtime-sequential",
-            "domain": "test-producers",
-            "producerKind": "integration",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh backend-qps-runtime-sequential",
-            "logicalTierIds": [
-                "backend-qps-runtime-sequential"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-runtime-sequential",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-view-count-flush",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh view-count-flush",
-            "logicalTierIds": [
-                "backend-qps-view-count-flush"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-view-count-flush",
-                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
-                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
-            }
-        },
-        {
-            "producerId": "matrix:backend-qps-visitlog-invalidation",
-            "domain": "test-producers",
-            "producerKind": "unit",
-            "sourceAuthority": "tests/matrix.yml",
-            "canonicalCommand": "tools/test/lanes/backend-qps.sh visitlog-invalidation",
-            "logicalTierIds": [
-                "backend-qps-visitlog-invalidation"
-            ],
-            "policyId": "correctness-first-attempt",
-            "allowedRetries": 0,
-            "firstFailureBlocksQualification": true,
-            "frameworkRetrySetting": 0,
-            "artifactOwner": "ServerContractAgent",
-            "executionOwner": "tools/run-test-matrix.mjs",
-            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
-            "migrationState": "migrated",
-            "qualificationEligible": true,
-            "externalAuthorityKinds": [
-                "execution-envelope",
-                "replay-plan",
-                "temporal-context"
-            ],
-            "authorityBindings": {
-                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:backend-qps-visitlog-invalidation",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -3110,6 +2675,412 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:risk-control-test-matrix",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-article-detail-l1",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario article-detail-l1",
+            "logicalTierIds": [
+                "runtime-cache-article-detail-l1"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-article-detail-l1",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-cache-miss-singleflight",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario cache-miss-singleflight",
+            "logicalTierIds": [
+                "runtime-cache-cache-miss-singleflight"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-cache-miss-singleflight",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-distributed-invalidation",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario distributed-invalidation",
+            "logicalTierIds": [
+                "runtime-cache-distributed-invalidation"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-distributed-invalidation",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-evidence",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/check-runtime-cache-evidence.mjs",
+            "logicalTierIds": [
+                "runtime-cache-evidence"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-evidence",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-hot-featured-frame",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario hot-featured-frame",
+            "logicalTierIds": [
+                "runtime-cache-hot-featured-frame"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-hot-featured-frame",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-l1-residency",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario l1-residency",
+            "logicalTierIds": [
+                "runtime-cache-l1-residency"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-l1-residency",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-pagination",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario pagination",
+            "logicalTierIds": [
+                "runtime-cache-pagination"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-pagination",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-public-hot-read",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario public-hot-read",
+            "logicalTierIds": [
+                "runtime-cache-public-hot-read"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-public-hot-read",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-redis-fault-classes",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario redis-fault-classes",
+            "logicalTierIds": [
+                "runtime-cache-redis-fault-classes"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-redis-fault-classes",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-related-reading",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario related-reading",
+            "logicalTierIds": [
+                "runtime-cache-related-reading"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-related-reading",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-revocation",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario revocation",
+            "logicalTierIds": [
+                "runtime-cache-revocation"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-revocation",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-security-projections",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario security-projections",
+            "logicalTierIds": [
+                "runtime-cache-security-projections"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-security-projections",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-sitemap",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario sitemap",
+            "logicalTierIds": [
+                "runtime-cache-sitemap"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-sitemap",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-cache-telemetry",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-cache-evidence.mjs --scenario telemetry",
+            "logicalTierIds": [
+                "runtime-cache-telemetry"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-cache-telemetry",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -6258,5 +6229,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:2f8b1a4acefee41c40438fb04201125c98a5c7f6fb6e9a53f80e4f392c477096"
+    "contentDigest": "sha256:6fb1734b68fb0baa20c88611cc37ee87519481b402ff966cc9f90c0dde22b52c"
 }

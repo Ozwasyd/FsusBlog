@@ -515,77 +515,6 @@
             }
         },
         {
-            "producerId": "backend-cache-invalidation-batch",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "runtime",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
             "producerId": "backend-concurrency",
             "sourceKind": "matrix-tier",
             "policyId": "correctness-hermetic-v1",
@@ -1072,992 +1001,6 @@
                     "status": "not-applicable",
                     "observerId": null,
                     "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "coordination",
-            "allowedEnvironment": [
-                "PATH"
-            ],
-            "requiredServices": [],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-article-detail-miss",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-cache-hit",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-cache-miss-singleflight",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-cache-registry",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-comment-cursor",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-hotread",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-index-plan",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-list-pagination",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-related-reading",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-risk-filter",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-runtime-sequential",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-view-count-flush",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
-                },
-                "directories": {
-                    "status": "required",
-                    "observerId": "run-owned-directory-postflight",
-                    "notApplicableReason": null
-                },
-                "network": {
-                    "status": "required",
-                    "observerId": "sandbox-network-runtime",
-                    "notApplicableReason": null
-                },
-                "fontsLocale": {
-                    "status": "required",
-                    "observerId": "font-locale-runtime",
-                    "notApplicableReason": null
-                },
-                "identity": {
-                    "status": "required",
-                    "observerId": "planned-actual-envelope",
-                    "notApplicableReason": null
-                }
-            }
-        },
-        {
-            "producerId": "backend-qps-visitlog-invalidation",
-            "sourceKind": "matrix-tier",
-            "policyId": "correctness-hermetic-v1",
-            "evidenceClass": "correctness",
-            "executionClass": "load",
-            "allowedEnvironment": [
-                "DOTNET_ROOT",
-                "FSUSBLOG_POSTGRES_PORT",
-                "FSUSBLOG_REDIS_PORT",
-                "PATH"
-            ],
-            "requiredServices": [
-                "backend",
-                "frontend",
-                "postgres",
-                "redis"
-            ],
-            "fieldApplicability": {
-                "platform": {
-                    "status": "required",
-                    "observerId": "platform-runtime",
-                    "notApplicableReason": null
-                },
-                "resources": {
-                    "status": "required",
-                    "observerId": "resource-limit-runtime",
-                    "notApplicableReason": null
-                },
-                "environment": {
-                    "status": "required",
-                    "observerId": "minimal-child-environment",
-                    "notApplicableReason": null
-                },
-                "toolchain": {
-                    "status": "required",
-                    "observerId": "executable-chain-identity",
-                    "notApplicableReason": null
-                },
-                "browserRendering": {
-                    "status": "not-applicable",
-                    "observerId": null,
-                    "notApplicableReason": "matrix-requires-playwright-none"
-                },
-                "services": {
-                    "status": "required",
-                    "observerId": "service-topology-runtime",
-                    "notApplicableReason": null
                 },
                 "directories": {
                     "status": "required",
@@ -7681,6 +6624,992 @@
                     "status": "not-applicable",
                     "observerId": null,
                     "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-article-detail-l1",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-cache-miss-singleflight",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-distributed-invalidation",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-evidence",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "coordination",
+            "allowedEnvironment": [
+                "PATH"
+            ],
+            "requiredServices": [],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-declares-no-services-or-coordination-store"
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-hot-featured-frame",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-l1-residency",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-pagination",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-public-hot-read",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-redis-fault-classes",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-related-reading",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-revocation",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-security-projections",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-sitemap",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
+                },
+                "directories": {
+                    "status": "required",
+                    "observerId": "run-owned-directory-postflight",
+                    "notApplicableReason": null
+                },
+                "network": {
+                    "status": "required",
+                    "observerId": "sandbox-network-runtime",
+                    "notApplicableReason": null
+                },
+                "fontsLocale": {
+                    "status": "required",
+                    "observerId": "font-locale-runtime",
+                    "notApplicableReason": null
+                },
+                "identity": {
+                    "status": "required",
+                    "observerId": "planned-actual-envelope",
+                    "notApplicableReason": null
+                }
+            }
+        },
+        {
+            "producerId": "runtime-cache-telemetry",
+            "sourceKind": "matrix-tier",
+            "policyId": "correctness-hermetic-v1",
+            "evidenceClass": "correctness",
+            "executionClass": "runtime",
+            "allowedEnvironment": [
+                "DOTNET_ROOT",
+                "FSUSBLOG_POSTGRES_PORT",
+                "FSUSBLOG_REDIS_PORT",
+                "PATH"
+            ],
+            "requiredServices": [
+                "backend",
+                "frontend",
+                "postgres",
+                "redis"
+            ],
+            "fieldApplicability": {
+                "platform": {
+                    "status": "required",
+                    "observerId": "platform-runtime",
+                    "notApplicableReason": null
+                },
+                "resources": {
+                    "status": "required",
+                    "observerId": "resource-limit-runtime",
+                    "notApplicableReason": null
+                },
+                "environment": {
+                    "status": "required",
+                    "observerId": "minimal-child-environment",
+                    "notApplicableReason": null
+                },
+                "toolchain": {
+                    "status": "required",
+                    "observerId": "executable-chain-identity",
+                    "notApplicableReason": null
+                },
+                "browserRendering": {
+                    "status": "not-applicable",
+                    "observerId": null,
+                    "notApplicableReason": "matrix-requires-playwright-none"
+                },
+                "services": {
+                    "status": "required",
+                    "observerId": "service-topology-runtime",
+                    "notApplicableReason": null
                 },
                 "directories": {
                     "status": "required",

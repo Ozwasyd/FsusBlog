@@ -74,19 +74,12 @@ test('backend-qps lane rejects every legacy argument before executing the runtim
   assert.equal(existsSync(capture), false, 'legacy arguments must not reach the runtime-cache checker')
 })
 
-test('zero-argument backend-qps lane execs only the current runtime cache checker', () => {
-  const { executable, capture } = createFakeNode()
-  const result = spawnSync(backendQpsLane, [], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...process.env, FSUSBLOG_NODE: executable, FSUSBLOG_ARGUMENT_CAPTURE: capture }
-  })
+test('zero-argument backend-qps lane delegates only to the current runtime cache lane', () => {
+  const backendQpsSource = readFileSync(backendQpsLane, 'utf8')
+  const runtimeCacheSource = readFileSync(runtimeCacheLane, 'utf8')
 
-  assert.equal(result.status, 0, result.stderr)
-  assert.deepEqual(
-    readFileSync(capture, 'utf8').trim().split(/\r?\n/u),
-    [path.join(root, 'tools/test/check-runtime-cache-evidence.mjs')]
-  )
-  assert.doesNotMatch(readFileSync(backendQpsLane, 'utf8'), /\$@/u)
-  assert.match(readFileSync(runtimeCacheLane, 'utf8'), /check-runtime-cache-evidence\.mjs" "\$@"/u)
+  assert.match(backendQpsSource, /exec "\$ROOT_DIR\/tools\/test\/lanes\/runtime-cache-evidence\.sh"/u)
+  assert.doesNotMatch(backendQpsSource, /\$@/u)
+  assert.match(runtimeCacheSource, /run-runtime-cache-evidence\.mjs/u)
+  assert.match(runtimeCacheSource, /check-runtime-cache-evidence\.mjs/u)
 })

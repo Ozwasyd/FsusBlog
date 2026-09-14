@@ -1,19 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const {assertCorrectnessAttemptExecutionOwner, validateCorrectnessAttemptMigration} = await import(new URL('../../tools/test/correctness-attempt-migration.mjs', import.meta.url));
-test('all 222 correctness producers bind canonical attempt and external authorities', () =>
+import {
+    assertCorrectnessAttemptExecutionOwner,
+    validateCorrectnessAttemptMigration
+} from '../../tools/test/correctness-attempt-migration.mjs';
+
+test('all 221 correctness producers bind canonical attempt and external authorities', () =>
 {
     const verification = validateCorrectnessAttemptMigration();
     assert.deepEqual(verification, {
         schema: 'fsusblog.correctness-attempt-migration-verification.v1',
         status: 'verified',
-        producerCount: 222,
-        migratedCount: 222,
-        qualificationEligibleCount: 222,
+        producerCount: 221,
+        migratedCount: 221,
+        qualificationEligibleCount: 221,
         inventoryDigest: verification.inventoryDigest,
         replayProducerInventoryDigest: verification.replayProducerInventoryDigest,
-        executionEnvelopeProducerCount: 130,
+        executionEnvelopeProducerCount: 129,
         authorityKinds: ['execution-envelope', 'replay-plan', 'temporal-context'],
         warnings: 0
     });
