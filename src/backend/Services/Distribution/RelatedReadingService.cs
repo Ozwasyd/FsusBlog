@@ -8,6 +8,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
 
@@ -142,6 +143,13 @@ public sealed class RelatedReadingService(
         negative = final.Negative;
         frameBytes = final.Lease?.Memory.Length ?? frameBytes;
         OwnedAedsFrameReadLease? result = final.Lease;
+
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+            dbCommandCount > 0 ? "database" : "l1-frame");
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            "related-reading",
+            cacheKey,
+            dbCommandCount > 0 ? "built" : negative ? "negative" : "hit");
 
         FsusObservability.RecordRelatedReadingBuild(
             cacheHit,

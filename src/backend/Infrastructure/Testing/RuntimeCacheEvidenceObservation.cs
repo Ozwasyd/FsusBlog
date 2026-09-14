@@ -17,6 +17,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
     private readonly RuntimeCacheEvidenceObservation? _parent = s_current.Value;
     private readonly RuntimeCacheDatabaseObservationLimits _databaseLimits;
     private readonly object _databaseGate = new();
+    private readonly List<RuntimeCacheBuildObservation> _cacheEvents = [];
     private readonly List<string> _databaseFingerprints = [];
     private readonly List<RuntimeCacheRedisFailureObservation> _redisFailureEvents = [];
     private readonly ConcurrentQueue<string> _redisCommands = new();
@@ -33,6 +34,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
     private int _databaseDroppedCommandCount;
     private int _databaseLateCommandCount;
     private int _databaseActiveCommandCount;
+    private long _cacheEventSequence;
     private long _redisFailureSequence;
     private bool _databaseTruncated;
     private bool _databaseLate;
@@ -175,6 +177,24 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
         }
     }
 
+    internal void RecordCacheEvent(string family, string identity, string outcome)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(family);
+        ArgumentException.ThrowIfNullOrWhiteSpace(identity);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outcome);
+        string identityDigest = $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))}";
+        lock (_databaseGate)
+        {
+            _cacheEvents.Add(new RuntimeCacheBuildObservation(
+                Sequence: ++_cacheEventSequence,
+                ElapsedMilliseconds: Stopwatch.GetElapsedTime(_startedAt).TotalMilliseconds,
+                Family: family,
+                IdentityDigest: identityDigest,
+                Outcome: outcome));
+            PublishUpdateLocked();
+        }
+    }
+
     internal void MarkLayerSource(string layerSource)
     {
         if (!string.IsNullOrWhiteSpace(layerSource))
@@ -284,6 +304,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
             _completedAllocatedBytes,
             _completedRedisCommands,
             [.. _redisFailureEvents],
+            [.. _cacheEvents],
             [.. _databaseFingerprints],
             _databaseCommandCount,
             _databaseDroppedCommandCount,
@@ -407,6 +428,7 @@ internal sealed record RuntimeCacheRequestObservation(
     long AllocatedBytes,
     IReadOnlyList<string> RedisCommands,
     IReadOnlyList<RuntimeCacheRedisFailureObservation> RedisFailureEvents,
+    IReadOnlyList<RuntimeCacheBuildObservation> CacheEvents,
     IReadOnlyList<string> DatabaseFingerprints,
     int DatabaseCommandCount,
     int DatabaseDroppedCommandCount,
@@ -422,6 +444,13 @@ internal sealed record RuntimeCacheRedisFailureObservation(
     [property: JsonConverter(typeof(JsonStringEnumConverter<RedisOperationFailureKind>))]
     RedisOperationFailureKind FailureKind,
     string FailAction);
+
+internal sealed record RuntimeCacheBuildObservation(
+    long Sequence,
+    double ElapsedMilliseconds,
+    string Family,
+    string IdentityDigest,
+    string Outcome);
 
 internal sealed class RuntimeCacheEvidenceStore(int capacity = 4096)
 {

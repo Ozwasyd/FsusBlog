@@ -89,6 +89,7 @@ function makeEvidence(scenario, repositoryRoot, options = {}) {
     requests,
     redisCommands: [],
     redisFailureEvents: [],
+    cacheEvents: [],
     databaseCommands: [],
     cacheClassifications: requests.map((request) => ({
       requestId: request.id,
@@ -97,6 +98,21 @@ function makeEvidence(scenario, repositoryRoot, options = {}) {
       source: authority.cache
     })),
     faultTimeline: []
+  }
+  for (const [subcaseId, count] of Object.entries(scenario.requirements.rebuildCountBySubcase ?? {})) {
+    const request = requests.find((item) => item.subcaseId === subcaseId)
+    for (let index = 0; request && index < count; index += 1) {
+      raw.cacheEvents.push({
+        requestId: request.id,
+        subcaseId,
+        sequence: index + 1,
+        elapsedMilliseconds: index + 1,
+        family: scenario.id,
+        identityDigest: payloadDigest,
+        outcome: 'built',
+        source: authority.cache
+      })
+    }
   }
   options.mutateRaw?.(raw)
   const rawRelativePath = `.tmp/perf/runtime-cache/raw/${scenario.id}.${attemptNumber}.json`
@@ -133,6 +149,7 @@ function makeEvidence(scenario, repositoryRoot, options = {}) {
         requests: raw.requests.length,
         redisCommands: raw.redisCommands.length,
         redisFailureEvents: raw.redisFailureEvents.length,
+        cacheEvents: raw.cacheEvents.length,
         databaseCommands: raw.databaseCommands.length,
         cacheClassifications: raw.cacheClassifications.length,
         faultEvents: raw.faultTimeline.length
@@ -280,6 +297,30 @@ test('request-bound Redis failures require executor authority and request closur
   })
   assert.ok(validateRuntimeCacheReceipt(invalidReceipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot })
     .some((error) => error.includes('references unknown request')))
+})
+
+test('request-bound cache events require digested identities and closed outcomes', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const evidence = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog })
+  const receipt = rewriteRaw(repositoryRoot, evidence, (raw) => {
+    raw.cacheEvents.push({
+      requestId: raw.requests[0].id,
+      subcaseId: raw.requests[0].subcaseId,
+      sequence: 1,
+      elapsedMilliseconds: 1.5,
+      family: 'related-reading',
+      identityDigest: payloadDigest,
+      outcome: 'built',
+      source: raw.authority.cache
+    })
+  })
+  receipt.rawEvidence.rowCounts.cacheEvents = 1
+  assert.deepEqual(validateRuntimeCacheReceipt(sealReceipt(receipt), { catalog, repositoryRoot, expectedSource: sourceSnapshot }), [])
+
+  const invalid = rewriteRaw(repositoryRoot, evidence, (raw) => { raw.cacheEvents[0].outcome = 'claimed' })
+  assert.ok(validateRuntimeCacheReceipt(invalid, { catalog, repositoryRoot, expectedSource: sourceSnapshot })
+    .some((error) => error.includes('outcome is invalid')))
 })
 
 test('raw evidence rejects unknown fields and unsupported authorities', () => {

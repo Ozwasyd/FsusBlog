@@ -4,6 +4,7 @@ using System.Text;
 
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Services.Distribution;
 
@@ -28,6 +29,10 @@ public sealed class SitemapArtifactCache(PublicAotInvalidationTracker generation
             SitemapArtifactGenerationSnapshot snapshot = Volatile.Read(ref _current);
             if (snapshot.Artifacts.TryGetValue(expectedGeneration, out SitemapArtifactSet? cached))
             {
+                RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                    "sitemap",
+                    FormattableString.Invariant($"generation:{expectedGeneration}"),
+                    "hit");
                 FsusObservability.RecordSitemapBuild(
                     cacheHit: true,
                     cached.ResidentBytes,
@@ -43,6 +48,10 @@ public sealed class SitemapArtifactCache(PublicAotInvalidationTracker generation
                 snapshot = Volatile.Read(ref _current);
                 if (snapshot.Artifacts.TryGetValue(expectedGeneration, out cached))
                 {
+                    RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                        "sitemap",
+                        FormattableString.Invariant($"generation:{expectedGeneration}"),
+                        "hit");
                     FsusObservability.RecordSitemapBuild(
                         cacheHit: true,
                         cached.ResidentBytes,
@@ -82,6 +91,10 @@ public sealed class SitemapArtifactCache(PublicAotInvalidationTracker generation
                     artifact.ResidentBytes,
                     built.AllocationBytes,
                     FsusObservability.GetElapsed(startedAt));
+                RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                    "sitemap",
+                    FormattableString.Invariant($"generation:{expectedGeneration}"),
+                    "built");
                 return artifact;
             }
             finally

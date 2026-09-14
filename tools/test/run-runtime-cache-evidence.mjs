@@ -245,8 +245,9 @@ function normalizeObservedRequest(observation, actual, spec) {
   requireNonNegativeInteger(allocatedBytes, `observation allocated bytes for ${actual.id}`)
   const redisCommands = pick(observation, 'redisCommands', 'RedisCommands')
   const redisFailureEvents = pick(observation, 'redisFailureEvents', 'RedisFailureEvents')
+  const cacheEvents = pick(observation, 'cacheEvents', 'CacheEvents')
   const databaseFingerprints = pick(observation, 'databaseFingerprints', 'DatabaseFingerprints')
-  if (!Array.isArray(redisCommands) || !Array.isArray(redisFailureEvents) || !Array.isArray(databaseFingerprints)) throw new Error(`observation command arrays are missing for ${actual.id}`)
+  if (!Array.isArray(redisCommands) || !Array.isArray(redisFailureEvents) || !Array.isArray(cacheEvents) || !Array.isArray(databaseFingerprints)) throw new Error(`observation command arrays are missing for ${actual.id}`)
   const databaseCommandCount = pick(observation, 'databaseCommandCount', 'DatabaseCommandCount')
   const databaseDroppedCommandCount = pick(observation, 'databaseDroppedCommandCount', 'DatabaseDroppedCommandCount')
   const databaseLateCommandCount = pick(observation, 'databaseLateCommandCount', 'DatabaseLateCommandCount')
@@ -282,6 +283,17 @@ function normalizeObservedRequest(observation, actual, spec) {
       if (!Number.isInteger(sequence) || sequence < 1) throw new Error(`Redis failure sequence is invalid for ${actual.id}`)
       if (!Number.isFinite(elapsedMilliseconds) || elapsedMilliseconds < 0) throw new Error(`Redis failure elapsed time is invalid for ${actual.id}`)
       return { sequence, elapsedMilliseconds, operationClass, failureKind, failAction, source: 'redis-operation-executor' }
+    }),
+    cacheEvents: cacheEvents.map((event) => {
+      const sequence = pick(event, 'sequence', 'Sequence')
+      const elapsedMilliseconds = pick(event, 'elapsedMilliseconds', 'ElapsedMilliseconds')
+      const family = requireNonEmpty(pick(event, 'family', 'Family'), `cache event family for ${actual.id}`)
+      const identityDigest = requireNonEmpty(pick(event, 'identityDigest', 'IdentityDigest'), `cache event identity digest for ${actual.id}`)
+      const outcome = requireNonEmpty(pick(event, 'outcome', 'Outcome'), `cache event outcome for ${actual.id}`)
+      if (!Number.isInteger(sequence) || sequence < 1) throw new Error(`cache event sequence is invalid for ${actual.id}`)
+      if (!Number.isFinite(elapsedMilliseconds) || elapsedMilliseconds < 0) throw new Error(`cache event elapsed time is invalid for ${actual.id}`)
+      if (!/^sha256:[a-f0-9]{64}$/u.test(identityDigest)) throw new Error(`cache event identity digest is invalid for ${actual.id}`)
+      return { sequence, elapsedMilliseconds, family, identityDigest, outcome, source: 'runtime-cache-evidence-observation' }
     }),
     dbCommands: databaseFingerprints.map((fingerprint) => {
       if (!/^sha256:[a-f0-9]{64}$/u.test(fingerprint)) throw new Error(`database fingerprint is invalid for ${actual.id}`)
@@ -501,7 +513,7 @@ export async function collectDefaultCleanupProof(context) {
 }
 
 function rawRequest(request) {
-  const { redisCommands: _redisCommands, redisFailureEvents: _redisFailureEvents, dbCommands: _dbCommands, ...result } = request
+  const { redisCommands: _redisCommands, redisFailureEvents: _redisFailureEvents, cacheEvents: _cacheEvents, dbCommands: _dbCommands, ...result } = request
   return result
 }
 
@@ -522,6 +534,11 @@ function buildRawEvidence({ runId, scenarioId, attemptId, requests, faultTimelin
     subcaseId: request.subcaseId,
     ...event
   })))
+  const cacheEvents = requests.flatMap((request) => request.cacheEvents.map((event) => ({
+    requestId: request.id,
+    subcaseId: request.subcaseId,
+    ...event
+  })))
   return {
     schema: RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA,
     runId,
@@ -538,6 +555,7 @@ function buildRawEvidence({ runId, scenarioId, attemptId, requests, faultTimelin
     requests: projectedRequests,
     redisCommands,
     redisFailureEvents,
+    cacheEvents,
     databaseCommands,
     cacheClassifications: projectedRequests.map((request) => ({
       requestId: request.id,
@@ -645,6 +663,7 @@ export async function produceMeasuredScenarioReceipt(options, plan) {
         requests: raw.requests.length,
         redisCommands: raw.redisCommands.length,
         redisFailureEvents: raw.redisFailureEvents.length,
+        cacheEvents: raw.cacheEvents.length,
         databaseCommands: raw.databaseCommands.length,
         cacheClassifications: raw.cacheClassifications.length,
         faultEvents: raw.faultTimeline.length

@@ -16,6 +16,39 @@ public sealed class RuntimeCacheEvidenceObservationTests
     private static readonly ActivitySource s_npgsqlActivitySource = new("Npgsql");
 
     [Fact]
+    public void CacheEvents_DigestIdentityAndPreserveRequestOrder()
+    {
+        using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
+            "cache-events-request",
+            HttpMethods.Get,
+            "/api/binary/article/42/related.aeds");
+
+        observation.RecordCacheEvent("related-reading", "article:42:publication:7", "built");
+        observation.RecordCacheEvent("related-reading", "article:42:publication:7", "hit");
+        RuntimeCacheRequestObservation completed = observation.Complete(
+            StatusCodes.Status200OK,
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+        Assert.Collection(
+            completed.CacheEvents,
+            first =>
+            {
+                Assert.Equal(1, first.Sequence);
+                Assert.Equal("related-reading", first.Family);
+                Assert.Equal("built", first.Outcome);
+                Assert.StartsWith("sha256:", first.IdentityDigest, StringComparison.Ordinal);
+                Assert.DoesNotContain("article:42", first.IdentityDigest, StringComparison.Ordinal);
+            },
+            second =>
+            {
+                Assert.Equal(2, second.Sequence);
+                Assert.Equal("hit", second.Outcome);
+                Assert.Equal(completed.CacheEvents[0].IdentityDigest, second.IdentityDigest);
+                Assert.True(second.ElapsedMilliseconds >= completed.CacheEvents[0].ElapsedMilliseconds);
+            });
+    }
+
+    [Fact]
     public void SqlFingerprint_NormalizesLiteralValuesAndWhitespace()
     {
         string first = RuntimeCacheEvidenceObservation.FingerprintSql("SELECT *  FROM article WHERE id = 42 AND title = 'first'");

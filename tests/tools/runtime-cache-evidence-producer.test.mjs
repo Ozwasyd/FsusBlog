@@ -14,6 +14,7 @@ import {
   runRuntimeCacheProducer
 } from '../../tools/test/run-runtime-cache-evidence.mjs'
 import { produceArticleDetailL1Receipt } from '../../tools/test/runtime-cache-scenarios/article-detail-l1.mjs'
+import { produceRelatedReadingReceipt } from '../../tools/test/runtime-cache-scenarios/related-reading.mjs'
 import { produceSitemapReceipt } from '../../tools/test/runtime-cache-scenarios/sitemap.mjs'
 
 const secret = 'runtime-cache-producer-test-secret'
@@ -99,6 +100,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
   const observations = new Map()
   const calls = []
   let sitemapBuildCount = 0
+  const relatedReadingBuilds = new Set()
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1')
     const call = {
@@ -124,6 +126,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         allocatedBytes: 6,
         redisCommands,
         redisFailureEvents,
+        cacheEvents: [],
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -149,6 +152,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         allocatedBytes: 0,
         redisCommands: [],
         redisFailureEvents: [],
+        cacheEvents: [],
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -178,6 +182,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         allocatedBytes: 12,
         redisCommands,
         redisFailureEvents: [],
+        cacheEvents: [],
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -186,6 +191,42 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         databaseAttributionComplete: true
       })
       response.writeHead(201, { 'content-type': 'application/octet-stream' })
+      response.end(body)
+      return
+    }
+    const relatedMatch = /^\/api\/binary\/article\/(\d+)\/related\.aeds$/u.exec(url.pathname)
+    if (relatedMatch) {
+      const articleId = relatedMatch[1]
+      const body = Buffer.from(`qualified-related-reading-${articleId}`)
+      const requestId = request.headers['x-fsus-runtime-evidence-request']
+      const built = !relatedReadingBuilds.has(articleId)
+      relatedReadingBuilds.add(articleId)
+      observations.set(requestId, {
+        requestId,
+        method: 'GET',
+        path: `${url.pathname}${url.search}`,
+        status: 200,
+        payloadDigest: sha256(body),
+        layerSource: built ? 'database' : 'l1-frame',
+        latencyMs: built ? 3 : 1,
+        allocatedBytes: built ? 64 : 0,
+        redisCommands: [],
+        redisFailureEvents: [],
+        cacheEvents: [{
+          sequence: 1,
+          elapsedMilliseconds: built ? 2 : 0.5,
+          family: 'related-reading',
+          identityDigest: sha256(`related-reading:${articleId}`),
+          outcome: built ? 'built' : 'hit'
+        }],
+        databaseFingerprints: built ? [sha256('related-reading-select')] : [],
+        databaseCommandCount: built ? 1 : 0,
+        databaseDroppedCommandCount: 0,
+        databaseLateCommandCount: 0,
+        databaseObservationStatus: 'complete',
+        databaseAttributionComplete: true
+      })
+      response.writeHead(200, { 'content-type': 'application/octet-stream' })
       response.end(body)
       return
     }
@@ -205,6 +246,13 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         allocatedBytes: cacheHit ? 0 : 64,
         redisCommands: [],
         redisFailureEvents: [],
+        cacheEvents: [{
+          sequence: 1,
+          elapsedMilliseconds: cacheHit ? 0.5 : 3,
+          family: 'sitemap',
+          identityDigest: sha256('sitemap:generation:0'),
+          outcome: cacheHit ? 'hit' : 'built'
+        }],
         databaseFingerprints: cacheHit ? [] : [sha256('sitemap-select')],
         databaseCommandCount: cacheHit ? 0 : 1,
         databaseDroppedCommandCount: 0,
@@ -457,12 +505,12 @@ test('sitemap handler binds one warmup build and a 100-request L1 generation win
   const directory = temporaryDirectory('runtime-cache-sitemap-')
   const currentScenario = scenario({
     id: 'sitemap',
-    subcases: ['l1-hit', 'same-generation-100'],
-    requests: 100,
+    subcases: ['same-generation-100', 'l1-hit'],
+    requests: 101,
     concurrency: 32,
     warmupRequests: 8,
     requiredAssertions: ['l1-zero-commands', 'same-generation-build', 'rebuild-count'],
-    requirements: { redisCommandsMax: 0, dbCommandsMax: 0, rebuildCountBySubcase: { 'same-generation-100': 1 } }
+    requirements: { redisCommandsMaxBySubcase: { 'l1-hit': 0 }, dbCommandsMaxBySubcase: { 'l1-hit': 0 }, rebuildCountBySubcase: { 'same-generation-100': 1 } }
   })
   const currentCatalog = catalog(currentScenario)
   try {
@@ -481,9 +529,58 @@ test('sitemap handler binds one warmup build and a 100-request L1 generation win
       attemptNumber: 1
     })
     assert.equal(receipt.status, 'passed')
-    assert.equal(receipt.requests.length, 100)
-    assert.ok(receipt.requests.every((request) => request.layerSource === 'l1-object'))
+    assert.equal(receipt.requests.length, 101)
+    assert.equal(receipt.requests.filter((request) => request.layerSource === 'database').length, 1)
+    assert.equal(receipt.requests.at(-1).layerSource, 'l1-object')
     assert.deepEqual(receipt.assertions.find((assertion) => assertion.id === 'rebuild-count').actual, { 'same-generation-100': 1 })
+    assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
+      catalog: currentCatalog,
+      expectedSource: source,
+      repositoryRoot: directory
+    }), [])
+  } finally {
+    await runtime.close()
+  }
+})
+
+test('related-reading handler derives one burst rebuild from request cache events', async () => {
+  const runtime = await startObservationServer()
+  const directory = temporaryDirectory('runtime-cache-related-reading-')
+  const fixtureFile = path.join(directory, 'public-projection.json')
+  writeFileSync(fixtureFile, JSON.stringify({
+    entities: [
+      { producerId: 'public-content', kind: 'article', id: '17' },
+      { producerId: 'public-content', kind: 'article', id: '18' }
+    ]
+  }))
+  const currentScenario = scenario({
+    id: 'related-reading',
+    subcases: ['cold', 'same-key-100', 'hot'],
+    requests: 102,
+    concurrency: 100,
+    warmupRequests: 1,
+    requiredAssertions: ['cold-db-budget', 'same-key-build', 'rebuild-count', 'hot-direct-frame'],
+    requirements: { coldDbCommandsMax: 2, rebuildCountBySubcase: { 'same-key-100': 1 }, hotLayer: 'l1-frame' }
+  })
+  const currentCatalog = catalog(currentScenario)
+  try {
+    const receipt = await produceRelatedReadingReceipt({
+      repositoryRoot: directory,
+      catalog: currentCatalog,
+      scenario: currentScenario,
+      identity: { ...identity, fixtureFile, runtime: { ...identity.runtime, kestrelUrl: runtime.baseUrl } },
+      baseUrl: runtime.baseUrl,
+      secret,
+      outputFile: path.join(directory, '.tmp/perf/runtime-cache/receipts/related-reading.json'),
+      collectMemory: async () => memory(),
+      collectCleanup: async () => cleanup(),
+      captureSource: () => source,
+      runId: 'related-reading-pass',
+      attemptNumber: 1
+    })
+    assert.equal(receipt.status, 'passed')
+    assert.equal(receipt.requests.length, 102)
+    assert.deepEqual(receipt.assertions.find((assertion) => assertion.id === 'rebuild-count').actual, { 'same-key-100': 1 })
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
       catalog: currentCatalog,
       expectedSource: source,

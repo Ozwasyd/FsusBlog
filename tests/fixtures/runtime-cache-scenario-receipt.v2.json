@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.runtime-cache-scenario-receipt.v2",
-  "catalogDigest": "sha256:eca6f854d4eb779968c76e5102909eff7f1aad403f71e3fde219ff038cec41b5",
+  "catalogDigest": "sha256:e1ea697170d1d5acf23dff564755ad3e644c551e2e6883945fe5f2f1aee2051e",
   "runId": "canonical-run",
   "scenarioId": "public-hot-read",
   "attemptId": "canonical-run.attempt-1",
@@ -28,7 +28,7 @@
     "path": ".tmp/perf/runtime-cache/canonical/public-hot-read.json",
     "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
     "authority": { "requests": "kestrel-request-observation", "redis": "stackexchange-redis-profiler", "redisFailure": "redis-operation-executor", "database": "sqlsugar-aop", "cache": "runtime-cache-evidence-observation", "fault": "runtime-fault-controller" },
-    "rowCounts": { "requests": 2, "redisCommands": 0, "redisFailureEvents": 0, "databaseCommands": 0, "cacheClassifications": 2, "faultEvents": 0 }
+    "rowCounts": { "requests": 2, "redisCommands": 0, "redisFailureEvents": 0, "cacheEvents": 0, "databaseCommands": 0, "cacheClassifications": 2, "faultEvents": 0 }
   },
   "requests": [
     { "id": "public-hot-read.1", "subcaseId": "fixed-ip", "method": "GET", "path": "/fixture/fixed-ip", "status": 200, "payloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "parityGroup": "public-hot-read", "layerSource": "l0-allow", "latencyMs": 1, "allocatedBytes": 0 },
@@ -44,5 +44,5 @@
     { "id": "unique-ip-l0-allow", "status": "passed", "expected": true, "actual": true }
   ],
   "firstFailure": null,
-  "contentDigest": "sha256:e1f3a10e9b90ad9133653d30023b219028a4fefe3588600c58e02e851b4a9d64"
+  "contentDigest": "sha256:65ec82e43a60cb9d4e2bb1350ea86bde2c6848e5440322e05ec46cbd5d5f5cc2"
 }
