@@ -140,25 +140,14 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) =>
             return;
         }
 
-        const ready = await ensureWasmReady();
+        // Best-effort wasm init. When artifacts are missing, decode() already falls
+        // back to decodeAedsEnvelopeNoCopy (CRC-checked JS envelope), matching the
+        // main-thread path. Hard-failing here left >4KiB authoring JSON responses
+        // (e.g. AuthorDraftResponse) as wasm_init_failed despite HTTP 200.
+        await ensureWasmReady();
         if (isRequestCanceled(requestId))
         {
             canceledRequests.delete(requestId);
-            return;
-        }
-
-        if (!ready)
-        {
-            const response: DecodeWorkerResponse = {
-                v: binaryDecodeWorkerProtocolVersion,
-                requestId,
-                ok: false,
-                errorCode: 'wasm_init_failed',
-                error: 'wasm_init_failed',
-                workerTransferMs,
-                diagnostics: getAedsRuntimeDiagnostics()
-            };
-            postDecodeResponse(response);
             return;
         }
 

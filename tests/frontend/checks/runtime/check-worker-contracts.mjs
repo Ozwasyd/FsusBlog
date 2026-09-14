@@ -40,6 +40,12 @@ assert(decodeWorker, 'frame_type_unexpected', 'decode worker frame mismatch');
 assert(decodeWorker, 'payload_out_of_range', 'decode worker payload bounds error');
 assert(decodeWorker, 'schema_mismatch', 'decode worker schema error');
 assert(decodeWorker, 'postDecodeResponse(response)', 'decode worker response suppression');
+assert(decodeWorker, 'await ensureWasmReady()', 'decode worker best-effort wasm init');
+assert(decodeWorker, 'const frame = decode(buffer)', 'decode worker uses decode() JS envelope fallback');
+if (/if\s*\(\s*!ready\s*\)[\s\S]{0,240}wasm_init_failed[\s\S]{0,240}return/.test(decodeWorker))
+{
+    errors.push('decode worker must not hard-fail wasm_init_failed before decode() JS envelope fallback');
+}
 
 assert(powWorker, "type === 'PING'", 'pow prewarm ping');
 assert(powWorker, "type === 'CALC_SHARD'", 'pow shard entry');
