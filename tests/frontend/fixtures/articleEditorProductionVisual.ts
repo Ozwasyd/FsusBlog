@@ -19,11 +19,11 @@ import '@/assets/main.css'
 import './article-editor-production-fixture.css'
 import { ArticlePublishStatus } from '@/api/article'
 import ArticleWriteCommandBar from '@/components/admin/article/ArticleWriteCommandBar.vue'
+import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue'
 import ArticleWriteInspectorShell from '@/components/admin/article/ArticleWriteInspectorShell.vue'
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue'
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue'
 import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility'
-import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue'
 import {
   useArticleWriteInspector,
   type ArticleWriteInspectorView
@@ -490,24 +490,35 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         ])
       ])
 
-      const renderEditor = () => h('section', {
-        class: 'article-editor-production-fixture__editor-component',
-        'aria-label': '正文编辑器'
+      const renderEditor = () => h('div', {
+        class: 'write-workspace article-editor-production-fixture__editor-component'
       }, [
-        h(MarkdownEditorAdapter, {
-          modelValue: content.value,
+        h(ArticleWriteCommandBar, {
+          pageTitle: '编辑文章',
+          articleStateText: '草稿',
           statusText: statusByState[editorState.value],
           statusTone: editorState.value === 'failed' ? 'danger' : 'quiet',
-          previewComponent: {
-            props: ['content'],
-            render() {
-              return h('article', { 'data-fixture-preview': 'true' }, String(this.content))
+          primaryActionText: '更新文章',
+          showSaveDraft: true
+        }),
+        h('section', {
+          class: 'write-document-canvas',
+          'aria-label': '文章文档',
+          'data-editor-document-column': 'stable'
+        }, [
+          h('h2', {
+            id: 'article-body-heading',
+            class: 'sr-only'
+          }, '正文'),
+          h(ArticleWriteEditor, {
+            modelValue: content.value,
+            loading: editorState.value === 'saving',
+            saving: editorState.value === 'saving',
+            'onUpdate:modelValue': (value: string) => {
+              content.value = value
             }
-          },
-          'onUpdate:modelValue': (value: string) => {
-            content.value = value
-          }
-        })
+          })
+        ])
       ])
 
       const renderCommand = () => h('div', {
@@ -683,24 +694,26 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
           h('button', { type: 'button' }, '发布')
         ]),
         h(ElForm, { model: { title: title.value } }, () => [
-          h('section', { class: 'article-editor-production-fixture__title', 'aria-label': '文章标题' }, [
+          h('section', {
+            class: 'write-document-canvas article-editor-production-fixture__title',
+            'aria-label': '文章文档',
+            'data-editor-document-column': 'stable'
+          }, [
             h(ArticleWriteTitleField, {
               modelValue: title.value,
               'onUpdate:modelValue': (value: string) => {
                 title.value = value
               }
-            })
-          ]),
-          h('section', { class: 'article-editor-production-fixture__editor', 'aria-label': '正文编辑器' }, [
-            h('div', { class: 'article-editor-production-fixture__toolbar', role: 'toolbar' }, [
-              h('button', { type: 'button' }, '正文'),
-              h('button', { type: 'button' }, '分屏'),
-              h('button', { type: 'button' }, '预览')
-            ]),
+            }),
+            h('h2', {
+              id: 'article-body-heading',
+              class: 'sr-only'
+            }, '正文'),
             h('div', {
-              class: 'article-editor-production-fixture__canvas',
+              class: 'article-editor-production-fixture__canvas write-editor-panel',
               contenteditable: 'true',
               role: 'textbox',
+              'aria-labelledby': 'article-body-heading',
               'aria-label': '正文'
             }, '从这里开始写正文。')
           ])

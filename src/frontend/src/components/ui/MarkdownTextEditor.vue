@@ -14,6 +14,7 @@
             v-model="localValue"
             class="markdown-text-editor__fsusui"
             :action-overflow-keys="actionOverflowKeys"
+            :chrome="chrome"
             :commands="fsusUiCommands"
             :command-overflow-label="commandOverflowLabel"
             :default-mode="fsusUiMode"
@@ -21,57 +22,32 @@
             editor-profile="prose"
             image-action-label="上传图片"
             interaction-profile="auto"
+            :loading="loading"
             mobile-layout="auto"
             :mode="fsusUiMode"
             :placeholder="placeholder"
             :primary-command-keys="primaryCommandKeys"
             :show-actions="showImageAction || showSaveAction"
             :show-image-action="showImageAction"
-            :show-mode-switcher="false"
+            :show-mode-switcher="showModeSwitcher"
             :show-save-action="showSaveAction"
             :show-submit-action="false"
+            :status-density="statusDensity"
             :textarea-id="textareaId"
             :textarea-name="textareaName"
+            :toolbar-density="toolbarDensity"
             :writing-placeholder="writingPlaceholder"
             @save="emitSave"
             @submit="emitSubmit"
             @upload-image="requestImageUpload"
+        />
+        <p
+            v-if="uploadError"
+            class="markdown-text-editor__upload-error"
+            role="alert"
         >
-            <template #status>
-                <div class="markdown-text-editor__status">
-                    <div class="markdown-text-editor__status-group markdown-text-editor__status-group--primary">
-                        <span class="markdown-text-editor__status-item">
-                            <span class="markdown-text-editor__status-label">模式</span>
-                            <span class="markdown-text-editor__status-value">{{ currentModeLabel }}</span>
-                        </span>
-                        <span
-                            class="markdown-text-editor__status-separator"
-                            aria-hidden="true"
-                        ></span>
-                        <span class="markdown-text-editor__status-item">
-                            <span class="markdown-text-editor__status-label">位置</span>
-                            <span class="markdown-text-editor__status-value">第 {{ cursorLine }} 行，第 {{ cursorColumn }} 列</span>
-                        </span>
-                    </div>
-                    <div
-                        class="markdown-text-editor__status-group markdown-text-editor__status-group--metrics"
-                        aria-label="正文统计"
-                    >
-                        <span>{{ lineCount }} 行</span>
-                        <span>{{ charCount }} 字</span>
-                        <span>{{ wordCount }} 词</span>
-                        <span>{{ readingTimeText }}</span>
-                    </div>
-                    <div class="markdown-text-editor__status-group markdown-text-editor__status-group--secondary">
-                        <span class="markdown-text-editor__status-hint">{{ keyboardHint }}</span>
-                        <span
-                            v-if="editorStateText"
-                            class="markdown-text-editor__status-state"
-                        >{{ editorStateText }}</span>
-                    </div>
-                </div>
-            </template>
-        </ElMarkdownEditor>
+            {{ uploadError }}
+        </p>
 
         <input
             ref="imageInputRef"
@@ -96,20 +72,18 @@ import {
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
 import { useMediaQuery } from '@/composables/useMediaQuery';
 import type {
+    MarkdownEditorChrome,
     MarkdownEditorCommand,
     MarkdownEditorCommandKey,
-    MarkdownEditorMode
+    MarkdownEditorMode,
+    MarkdownEditorStatusDensity
 } from '@/ui-contracts/markdownEditor';
-import { estimateReading } from '@/utils/readingEstimate';
 
 type FsusUiMarkdownEditorExpose = Readonly<{
     insertMarkdownAtCursor?: (markdown: string) => boolean;
 }>;
 
 type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save'>;
-interface WordSegment { isWordLike?: boolean; }
-interface WordSegmenter { segment: (input: string) => Iterable<WordSegment>; }
-type WordSegmenterConstructor = new (locale: string, options: { granularity: 'word'; }) => WordSegmenter;
 
 const props = withDefaults(defineProps<{
     modelValue: string;
@@ -117,6 +91,10 @@ const props = withDefaults(defineProps<{
     textareaId?: string;
     textareaName?: string;
     mode?: MarkdownEditorMode;
+    chrome?: MarkdownEditorChrome;
+    statusDensity?: MarkdownEditorStatusDensity;
+    showModeSwitcher?: boolean;
+    toolbarDensity?: 'minimal' | 'standard' | 'full';
     toolbarsExclude?: string[];
     saving?: boolean;
     loading?: boolean;
@@ -124,7 +102,11 @@ const props = withDefaults(defineProps<{
     placeholder: '',
     textareaId: undefined,
     textareaName: 'markdownContent',
-    mode: 'write',
+    mode: 'source',
+    chrome: 'framed',
+    statusDensity: 'minimal',
+    showModeSwitcher: true,
+    toolbarDensity: 'standard',
     toolbarsExclude: () => [],
     saving: false,
     loading: false
@@ -146,8 +128,6 @@ const uploadError = ref('');
 const lastSelection = ref<SelectionSnapshot | null>(null);
 const cursorState = ref({ line: 1, column: 1 });
 
-const SegmenterCtor = (Intl as typeof Intl & { Segmenter?: WordSegmenterConstructor; }).Segmenter;
-const zhWordSegmenter = SegmenterCtor ? new SegmenterCtor('zh', { granularity: 'word' }) : null;
 const fsusCommandKeys = new Set<BlogCommandKey>([
     'h1',
     'h2',
@@ -202,61 +182,16 @@ const editorDisabled = computed(() => props.saving || props.loading);
 const excludedToolbarKeys = computed(() => new Set(props.toolbarsExclude));
 const showImageAction = computed(() => !excludedToolbarKeys.value.has('image'));
 const showSaveAction = computed(() => !excludedToolbarKeys.value.has('save'));
-const fsusUiMode = computed<FsusUiMarkdownEditorMode>(() => props.mode === 'preview' ? 'preview' : 'write');
+const fsusUiMode = computed<FsusUiMarkdownEditorMode>(() =>
+{
+    if (props.mode === 'live' || props.mode === 'split' || props.mode === 'preview')
+    {
+        return props.mode;
+    }
+
+    return 'source';
+});
 const writingPlaceholder = computed(() => props.placeholder || '从这里开始写正文。');
-const lineCount = computed(() => (localValue.value ? localValue.value.split('\n').length : 1));
-const charCount = computed(() => localValue.value.length);
-const readingEstimate = computed(() => estimateReading(localValue.value));
-const wordCount = computed(() =>
-{
-    const value = localValue.value.trim();
-    if (value && zhWordSegmenter)
-    {
-        return Array.from(zhWordSegmenter.segment(value)).filter((segment) => segment.isWordLike).length;
-    }
-
-    const matches = value.match(/\S+/g);
-    return matches ? matches.length : 0;
-});
-const readingMinutes = computed(() => readingEstimate.value.minutes);
-const readingTimeText = computed(() =>
-    readingEstimate.value.effectiveChars === 0 ? '少于 1 分钟' : `约 ${readingMinutes.value} 分钟`
-);
-const cursorLine = computed(() => cursorState.value.line);
-const cursorColumn = computed(() => cursorState.value.column);
-const currentModeLabel = computed(() =>
-{
-    if (props.mode === 'split')
-    {
-        return '分屏';
-    }
-    return props.mode === 'preview' ? '预览' : '编写';
-});
-const keyboardHint = computed(() => 'Tab 缩进 / Shift+Tab 反缩进 / Esc 离开');
-const editorStateText = computed(() =>
-{
-    if (props.saving)
-    {
-        return '正在写入';
-    }
-
-    if (props.loading)
-    {
-        return '初始化中';
-    }
-
-    if (isUploading.value)
-    {
-        return '图片上传中';
-    }
-
-    if (uploadError.value)
-    {
-        return uploadError.value;
-    }
-
-    return null;
-});
 const fsusUiCommands = computed<readonly FsusUiMarkdownEditorCommand[]>(() =>
     markdownEditorCommands
         .filter((command) => fsusCommandKeys.has(command.key as BlogCommandKey))
@@ -584,134 +519,11 @@ defineExpose({
     min-height: 0;
 }
 
-.markdown-text-editor__status
+.markdown-text-editor__upload-error
  {
-    display: grid;
-    width: 100%;
-    min-width: 0;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.4rem 1rem;
-    align-items: center;
+    margin: 0.5rem 0 0;
+    color: var(--fsusblog-color-danger);
+    font-size: 12px;
+    line-height: 1.5;
 }
-
-.markdown-text-editor__status-group
- {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.markdown-text-editor__status-group--metrics
- {
-    grid-column: 1;
-    grid-row: 2;
-    justify-content: flex-start;
-    color: var(--fsusblog-text-muted);
-}
-
-.markdown-text-editor__status-group--metrics span
- {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control-small);
-    padding: 0 0.45rem;
-    background: var(--fsusblog-page-bg);
-    white-space: nowrap;
-}
-
-.markdown-text-editor__status-group--secondary
- {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: flex-end;
-    gap: 0.25rem;
-    color: var(--fsusblog-text-tertiary);
-}
-
-.markdown-text-editor__status-item
- {
-    display: inline-flex;
-    min-width: 0;
-    align-items: baseline;
-    gap: 0.35rem;
-    white-space: nowrap;
-}
-
-.markdown-text-editor__status-label
- {
-    color: var(--fsusblog-text-tertiary);
-}
-
-.markdown-text-editor__status-separator
- {
-    width: 1px;
-    height: 0.875rem;
-    background: var(--fsusblog-panel-border);
-}
-
-.markdown-text-editor__status-value,
-.markdown-text-editor__status-state
- {
-    color: var(--fsusblog-text-muted);
-    font-weight: 700;
-}
-
-.markdown-text-editor__status-state
- {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control-small);
-    padding: 0 0.5rem;
-    background: var(--fsusblog-page-bg);
-    white-space: nowrap;
-}
-
-@media (width <= 639px)
- {
-    .markdown-text-editor__status
- {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.5rem;
-    }
-
-    .markdown-text-editor__status-group
- {
-        display: flex;
-        width: 100%;
-        align-items: flex-start;
-        justify-content: flex-start;
-        flex-wrap: wrap;
-        gap: 0.375rem 0.5rem;
-        grid-column: auto;
-        grid-row: auto;
-    }
-
-    .markdown-text-editor__status-group--metrics
- {
-        justify-content: flex-start;
-        flex-wrap: wrap;
-    }
-
-    .markdown-text-editor__status-group--secondary
- {
-        align-items: flex-start;
-        justify-content: flex-start;
-        flex-flow: row wrap;
-    }
-
-    .markdown-text-editor__status-hint
- {
-        display: none;
-    }
-}
-
 </style>

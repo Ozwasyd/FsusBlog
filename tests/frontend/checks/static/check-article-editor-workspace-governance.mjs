@@ -147,6 +147,8 @@ const requiredWriteTokens = [
     '@switch="switchInspector"',
     '@open-inspector="openInspector"',
     'data-editor-document-column="stable"',
+    'class="write-document-canvas"',
+    'id="article-body-heading"',
     '<template #publish>',
     '<template #rights>',
     '<template #check>',
@@ -518,13 +520,9 @@ for (const token of [
     "useMediaQuery('(max-width: 639px)', false)",
     "['h1', 'h2', 'bold']",
     "['h1', 'h2', 'bold', 'italic', 'quote', 'link']",
-    'compactCommandLabels',
-    "h1: 'H1'",
-    "h2: 'H2'",
-    "bold: 'B'",
-    "narrowCommandLayout.value ? '更多' : '格式工具'",
-    'markdown-text-editor__status-hint',
-    '@media (width <= 639px)'
+
+    ':chrome="chrome"',
+    ':status-density="statusDensity"'
 ])
 {
     if (!markdownEditor.includes(token))
@@ -591,7 +589,7 @@ for (const title of ['empty', 'short', 'long', 'mixed'])
         fail(productionFixtureContractPath, 1, `Article editor production fixture must cover ${title} title`);
     }
 }
-for (const token of ['ArticleWriteTitleField', 'articleEditorFixtureReady'])
+for (const token of ['ArticleWriteTitleField', 'ArticleWriteEditor', 'articleEditorFixtureReady', 'write-document-canvas'])
 {
     if (!productionFixture.includes(token))
     {
@@ -643,7 +641,9 @@ for (const token of [
     '150% zoom',
     'height).toBeGreaterThanOrEqual(360)',
     'FsusUI|Element Plus|adapter|component|MarkdownEditor',
-    'new Set([40])',
+    'editor-shell__header',
+    'write/preview/split',
+    'data-markdown-chrome="embedded"',
     'actionBox!.height).toBe(64)',
     'toBeGreaterThanOrEqual(80)',
     'toBeFocused()',
