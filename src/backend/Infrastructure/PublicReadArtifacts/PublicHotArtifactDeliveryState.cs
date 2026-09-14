@@ -309,10 +309,9 @@ internal static class InterlockedExtensions
     }
 }
 
-public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiplexer redis, IRuntimeKeyScope scope) : IPublicHotArtifactDeliveryStateStore, IPublicHotArtifactObligationStore
+public sealed class RedisPublicHotArtifactDeliveryStateStore(IRedisOperationExecutor redis, IRuntimeKeyScope scope) : IPublicHotArtifactDeliveryStateStore, IPublicHotArtifactObligationStore
 {
     private const string Base = "public-hot-read:{delivery}:obligation";
-    private readonly IDatabase _db = redis.GetDatabase();
     private readonly JsonSerializerOptions _json = CreateJsonOptions();
     private RedisKey Key(string suffix) => scope.PrefixKey(Base + ":" + suffix);
     private RedisKey LegacyKey(string suffix) => scope.PrefixKey("public-hot-read:{delivery}:" + suffix);
@@ -328,7 +327,9 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
     public async Task<long> MarkDirtyAsync(PublicHotArtifactDeliveryClass c, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        return (long)await _db.ScriptEvaluateAsync(s_legacyMarkScript.ExecutableScript, new RedisKey[] { LegacyKey("generation"), LegacyKey("pending-generation") }).ConfigureAwait(false);
+        return (long)await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_legacyMarkScript.ExecutableScript, new RedisKey[] { LegacyKey("generation"), LegacyKey("pending-generation") }),
+            ct).ConfigureAwait(false);
     }
     public async Task<long> GetPendingGenerationAsync(CancellationToken ct)
     {
@@ -336,52 +337,66 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
         PublicHotArtifactObligation? o = await GetActiveAsync(ct);
         if (o is { State: not PublicHotArtifactObligationState.Published })
             return o.TargetGeneration;
-        RedisValue legacy = await _db.StringGetAsync(LegacyKey("pending-generation")).ConfigureAwait(false);
+        RedisValue legacy = await ExecuteAsync(
+            database => database.StringGetAsync(LegacyKey("pending-generation")),
+            ct).ConfigureAwait(false);
         return legacy.IsNullOrEmpty ? 0 : long.TryParse(legacy.ToString(), out long generation) ? generation : throw new InvalidOperationException("public-hot delivery pending generation is corrupt");
     }
     public async Task CompleteAsync(long generation, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        await _db.ScriptEvaluateAsync(s_legacyCompleteScript.ExecutableScript, new RedisKey[] { LegacyKey("pending-generation") }, new RedisValue[] { generation }).ConfigureAwait(false);
+        await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_legacyCompleteScript.ExecutableScript, new RedisKey[] { LegacyKey("pending-generation") }, new RedisValue[] { generation }),
+            ct).ConfigureAwait(false);
     }
     public async Task<PublicHotArtifactObligation> MergeAsync(PublicHotArtifactUpdate u, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        RedisResult result = await _db.ScriptEvaluateAsync(
-            s_mergeScript.ExecutableScript,
-            new RedisKey[] { Key("generation"), Key("active"), Key("record:"), Key("terminal") },
-            new RedisValue[]
-            {
-                u.ArticleId?.ToString() ?? "",
-                u.ExpectedReleaseId?.ToString() ?? "",
-                (int)u.DirtyReason,
-                u.RequiresFullRebuild || u.DeliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker ? "1" : "0",
-                u.FragmentKeys is { Count: > 0 } ? string.Join('\u001f', u.FragmentKeys) : ""
-            }).ConfigureAwait(false);
+        RedisResult result = await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(
+                s_mergeScript.ExecutableScript,
+                new RedisKey[] { Key("generation"), Key("active"), Key("record:"), Key("terminal") },
+                new RedisValue[]
+                {
+                    u.ArticleId?.ToString() ?? "",
+                    u.ExpectedReleaseId?.ToString() ?? "",
+                    (int)u.DirtyReason,
+                    u.RequiresFullRebuild || u.DeliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker ? "1" : "0",
+                    u.FragmentKeys is { Count: > 0 } ? string.Join('\u001f', u.FragmentKeys) : ""
+                }),
+            ct).ConfigureAwait(false);
         return Deserialize((string)result!);
     }
     public async Task<PublicHotArtifactObligation?> ClaimEligibleAsync(DateTimeOffset now, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        RedisResult r = await _db.ScriptEvaluateAsync(s_claimScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { now.ToUnixTimeMilliseconds() }).ConfigureAwait(false);
+        RedisResult r = await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_claimScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { now.ToUnixTimeMilliseconds() }),
+            ct).ConfigureAwait(false);
         string? serialized = (string?)r;
         return string.IsNullOrEmpty(serialized) ? null : Deserialize(serialized);
     }
     public async Task RecoverInterruptedAsync(DateTimeOffset now, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        await _db.ScriptEvaluateAsync(s_recoverScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { now.ToUnixTimeMilliseconds() }).ConfigureAwait(false);
+        await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_recoverScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { now.ToUnixTimeMilliseconds() }),
+            ct).ConfigureAwait(false);
     }
     public async Task<bool> CompletePublishedAsync(string id, int attempt, long gen, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        return (long)await _db.ScriptEvaluateAsync(s_completeScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { id, attempt, gen, now, now }).ConfigureAwait(false) == 1;
+        return (long)await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_completeScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { id, attempt, gen, now, now }),
+            ct).ConfigureAwait(false) == 1;
     }
     public async Task RecordStageSuccessAsync(string id, int attempt, PublicHotArtifactAttemptStage stage, DateTimeOffset now, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        long updated = (long)await _db.ScriptEvaluateAsync(s_successScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { id, attempt, (int)stage, now.ToUnixTimeMilliseconds() }).ConfigureAwait(false);
+        long updated = (long)await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_successScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:") }, new RedisValue[] { id, attempt, (int)stage, now.ToUnixTimeMilliseconds() }),
+            ct).ConfigureAwait(false);
         if (updated != 1)
             throw new InvalidOperationException("public-hot obligation compare-and-set lost");
     }
@@ -401,7 +416,9 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
             NextEligibleAt = next,
             Attempts = current.Attempts.Append(new(attempt, stage, kind, now, ex.GetType().Name)).ToArray()
         };
-        RedisResult result = await _db.ScriptEvaluateAsync(s_failureScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:"), Key("terminal") }, new RedisValue[] { id, attempt, (int)updated.State, (int)kind, updated.IsTerminal ? "terminal" : next.ToUnixTimeMilliseconds(), (int)stage, now.ToUnixTimeMilliseconds(), ex.GetType().Name, updated.IsTerminal ? "1" : "0" }).ConfigureAwait(false);
+        RedisResult result = await ExecuteAsync(
+            database => database.ScriptEvaluateAsync(s_failureScript.ExecutableScript, new RedisKey[] { Key("active"), Key("record:"), Key("terminal") }, new RedisValue[] { id, attempt, (int)updated.State, (int)kind, updated.IsTerminal ? "terminal" : next.ToUnixTimeMilliseconds(), (int)stage, now.ToUnixTimeMilliseconds(), ex.GetType().Name, updated.IsTerminal ? "1" : "0" }),
+            ct).ConfigureAwait(false);
         string? serialized = (string?)result;
         if (string.IsNullOrEmpty(serialized))
             throw new InvalidOperationException("public-hot obligation compare-and-set lost");
@@ -410,13 +427,24 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
     public async Task<PublicHotArtifactObligation?> GetActiveAsync(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        RedisValue id = await _db.StringGetAsync(Key("active")).ConfigureAwait(false);
+        RedisValue id = await ExecuteAsync(
+            database => database.StringGetAsync(Key("active")),
+            ct).ConfigureAwait(false);
         if (id.IsNullOrEmpty)
             return null;
-        RedisValue raw = await _db.StringGetAsync(Key("record:" + id)).ConfigureAwait(false);
+        RedisValue raw = await ExecuteAsync(
+            database => database.StringGetAsync(Key("record:" + id)),
+            ct).ConfigureAwait(false);
         return raw.IsNullOrEmpty ? throw new InvalidOperationException("public-hot obligation record is missing") : Deserialize(raw!);
     }
     public async Task<bool> HasTerminalFailureAsync(CancellationToken ct) => (await GetActiveAsync(ct).ConfigureAwait(false))?.IsTerminal == true;
+
+    private Task<T> ExecuteAsync<T>(Func<IDatabase, Task<T>> command, CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.PublicHotDeliveryState,
+            (multiplexer, _) => command(multiplexer.GetDatabase()),
+            cancellationToken);
+
     private PublicHotArtifactObligation Deserialize(string value)
     {
         // Redis cjson encodes an empty Lua table as an object; normalize the two

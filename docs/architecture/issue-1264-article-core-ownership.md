@@ -27,10 +27,10 @@ Core handler 负责校验、用例结果和错误语义；infrastructure adapter
 | Public detail | AEDS artifact/projection stores | artifact projector and invalidation dispatcher |
 | Private detail | `ArticleService` infrastructure port owns `ArticleDetail` | article mutation invalidation dispatcher |
 | Search | `ArticleService` owns the versioned `ArticleSearch` cache | mutation side-effect coordinator/search projector |
-| Hot binary | `ArticleEndpointService` owns `ArticleHotFrame`; source ranking remains `TopArticles` | hot version provider and hot invalidation coalescer |
+| Hot/featured binary | `ArticleEndpointService` owns the generation-scoped `ArticleHotFrame` / `TopArticlesFrame` whole build; `TopArticles` is read only as an optional ranking seed | hot version provider and hot invalidation coalescer |
 | Create/update/delete/restore/trash | no read cache in Core handler | database transaction first, then `IArticleMutationSideEffectCoordinator`; aborted public fences schedule recovery |
 
-`ArticleHot` remains a reserved policy id but has no writer after removing the Core DTO cache.
+`ArticleHot` remains a reserved policy id but has no writer after removing the Core DTO cache. The frame builder does not refill `TopArticles`: a missing seed is resolved by the same single database projection that supplies the final frame.
 
 ## Rollback without process restart
 

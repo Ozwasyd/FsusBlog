@@ -75,12 +75,9 @@ internal sealed class PublicAotDocumentComposition(
             if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
                 && snapshot.Value is PublicFilterPageSnapshot { FilterId: > 0 } filter)
             {
-                string canonicalRouteKey = PublicRouteIdentity.BuildPaginatedRouteKey(
-                    PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId),
-                    match.Page);
-                return PublicAotRenderOutcome.PermanentRedirect(string.Concat(
-                    PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, canonicalRouteKey, null),
-                    PublicRouteIdentity.BuildPaginationQueryString(match.Page)));
+                string canonicalRouteKey = PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId);
+                return PublicAotRenderOutcome.PermanentRedirect(
+                    PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, canonicalRouteKey, null));
             }
 
             return PublicAotRenderOutcome.Success(null);
@@ -115,7 +112,7 @@ internal sealed class PublicAotDocumentComposition(
             && snapshotValue is PublicFilterPageSnapshot { FilterId: > 0 } filter)
         {
             string canonicalFilterKey = PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId);
-            string canonicalRouteKey = PublicRouteIdentity.BuildPaginatedRouteKey(canonicalFilterKey, match.Page);
+            string canonicalRouteKey = canonicalFilterKey;
             string canonicalPath = PublicRouteIdentity.BuildTagPath(filter.FilterId);
             match = match with
             {

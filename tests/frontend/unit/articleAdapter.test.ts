@@ -861,7 +861,7 @@ describe('mapArticlePageFromPodPayload', () => {
     categoryId: number
     categoryName: string
     title: string
-  }>): Uint8Array {
+  }>, nextCursor: string | null = null): Uint8Array {
     const ITEM_RECORD_SIZE = 56
     const summary = 'sum'
     const blobParts: Uint8Array[] = []
@@ -914,7 +914,17 @@ describe('mapArticlePageFromPodPayload', () => {
     if (pos !== envelope.byteLength) {
       throw new Error('fixture_size_mismatch')
     }
-    return envelope
+    const cursorBytes = enc.encode(nextCursor ?? '')
+    const payload = new Uint8Array(17 + cursorBytes.byteLength + envelope.byteLength - 4)
+    const view = new DataView(payload.buffer)
+    view.setInt32(0, 0x41535046, true)
+    view.setInt32(4, 2, true)
+    payload[8] = nextCursor ? 1 : 0
+    view.setInt32(9, items.length, true)
+    view.setInt32(13, cursorBytes.byteLength, true)
+    payload.set(cursorBytes, 17)
+    payload.set(envelope.subarray(4), 17 + cursorBytes.byteLength)
+    return payload
   }
 
   it('reads category.id and category.name for list items', () => {
@@ -929,39 +939,26 @@ describe('mapArticlePageFromPodPayload', () => {
     expect(result.items[0]!.category.name).toBe('Backend')
   })
 
-  it('reads cursor metadata from versioned article list payloads', () => {
-    const legacy = buildArticleListPayload([
-      { id: 1, categoryId: 9, categoryName: 'Backend', title: 'Post A' }
-    ])
-    const payload = new Uint8Array(17 + legacy.byteLength)
+  it('rejects the retired article list cursor envelope v1', () => {
+    const payload = new Uint8Array(8)
     const view = new DataView(payload.buffer)
     view.setInt32(0, 0x41535046, true)
     view.setInt32(4, 1, true)
-    view.setBigInt64(8, 1_715_299_200_000n, true)
-    payload[16] = 1
-    payload.set(legacy, 17)
 
-    const result = mapArticlePageFromPodPayload(payload)
+    expect(() => mapArticlePageFromPodPayload(payload)).toThrow('article_page_cursor_version_invalid')
+  })
 
-    expect(result.nextCursor).toBe('1715299200000:1')
-    expect(result.hasMore).toBe(true)
+  it('rejects article list payloads without the cursor envelope', () => {
+    const payload = new Uint8Array(12)
+
+    expect(() => mapArticlePageFromPodPayload(payload)).toThrow('article_page_cursor_envelope_missing')
   })
 
   it('preserves opaque cursor metadata from article list envelope v2', () => {
-    const body = buildArticleListPayload([
-      { id: 1, categoryId: 9, categoryName: 'Backend', title: 'Post A' }
-    ])
     const cursor = 'AQIDBA_cursor-filter-checksum'
-    const cursorBytes = enc.encode(cursor)
-    const payload = new Uint8Array(8 + 1 + 4 + 4 + cursorBytes.byteLength + body.byteLength - 4)
-    const view = new DataView(payload.buffer)
-    view.setInt32(0, 0x41535046, true)
-    view.setInt32(4, 2, true)
-    payload[8] = 1
-    view.setInt32(9, 1, true)
-    view.setInt32(13, cursorBytes.byteLength, true)
-    payload.set(cursorBytes, 17)
-    payload.set(body.subarray(4), 17 + cursorBytes.byteLength)
+    const payload = buildArticleListPayload([
+      { id: 1, categoryId: 9, categoryName: 'Backend', title: 'Post A' }
+    ], cursor)
 
     const result = mapArticlePageFromPodPayload(payload)
 

@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
@@ -455,7 +456,13 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             new SugarParameter("@DeletedAt", deletedAt),
             new SugarParameter("@UserId", userId)));
         var cache = Substitute.For<IUnifiedCache>();
-        var service = new BlacklistService(cache, cache, cache, cache, db);
+        (BanStateProjection projection, IBanStateProjectionObligationCoordinator obligations) =
+            TestBanStateProjectionRuntime.Create(db);
+        var service = new BlacklistService(
+            db,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            projection,
+            obligations);
 
         await service.BanUserAsync(userId, "must-not-ban");
         await service.UnbanUserAsync(userId);
@@ -465,14 +472,6 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.NotNull(stored.DeletedAt);
         Assert.Equal("account-deleted", stored.DeletedReason);
         Assert.Null(stored.BanReason);
-        await cache.DidNotReceiveWithAnyArgs().TrySetVersionedStringAsync(
-            default,
-            default!,
-            default!,
-            default!,
-            default,
-            default,
-            default);
     }
 
     private static void CreateTables(SqlSugarClient db)
@@ -529,7 +528,7 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         return new UserService(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
+            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
             _totpService: totp ?? Substitute.For<ITotpService>());
     }
 

@@ -1,7 +1,15 @@
+using FsusBlog.Core.Common;
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+
+using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleViewWriteBufferTests
@@ -61,6 +69,38 @@ public sealed class ArticleViewWriteBufferTests
         await worker.StopAsync(CancellationToken.None);
 
         Assert.Equal(1, buffer.FlushCount);
+    }
+
+    [Fact]
+    public async Task FlushSink_AfterPersistenceFailureInDerivedDelivery_DoesNotRejectCommittedDelta()
+    {
+        var articleService = Substitute.For<IArticleCoreService>();
+        articleService
+            .IncreaseViewCountsAsync(Arg.Any<ArticleViewCountBatchCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlySet<int>>.Success(new HashSet<int> { 42 }));
+        var hotStats = Substitute.For<IHotStatsInvalidationCoalescer>();
+        var failedDelivery = Substitute.For<IPublicHotArtifactDeliveryStateStore>();
+        failedDelivery
+            .MarkDirtyAsync(Arg.Any<PublicHotArtifactDeliveryClass>(), Arg.Any<CancellationToken>())
+            .Returns<Task<long>>(_ => throw new InvalidOperationException("redis-offline"));
+        var queue = new PublicHotArtifactUpdateQueue(
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 8 }),
+            failedDelivery);
+        var runtime = new CacheInvalidationRuntimeState();
+        var sink = new ArticleServiceViewFlushSink(
+            articleService,
+            hotStats,
+            queue,
+            NullLogger<ArticleServiceViewFlushSink>.Instance,
+            runtime);
+
+        IReadOnlySet<int> updated = await sink.FlushArticleViewsAsync(new Dictionary<int, int> { [42] = 3 });
+
+        Assert.Equal(new HashSet<int> { 42 }, updated);
+        Assert.Equal("distributed_degraded", runtime.Snapshot().LastKind);
+        await articleService.Received(1).IncreaseViewCountsAsync(
+            Arg.Is<ArticleViewCountBatchCommand>(command => command.ArticleCounts[42] == 3),
+            Arg.Any<CancellationToken>());
     }
 
     private sealed class RecordingArticleViewFlushSink : IArticleViewFlushSink

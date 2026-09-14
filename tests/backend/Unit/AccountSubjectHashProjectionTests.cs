@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Services;
 
 using SqlSugar;
@@ -50,17 +51,17 @@ public sealed class AccountSubjectHashProjectionTests
     }
 
     [Fact]
-    public void CacheProjection_RuntimePathVersionsNamespaceAndRejectsMissingField()
+    public void AccountStateProjection_RuntimePathUsesPhysicalSubjectAndNoVersionedCacheKey()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(UserAccountReader),
-            "GetAccountByIdAsync",
-            "BuildSnapshotIdentity",
-            "ToAccountSnapshot");
+            typeof(AccountStateProjection),
+            "ReadAsync",
+            "Evaluate",
+            "SubjectHashesEqual");
 
-        Assert.Contains("account:subject-v1:", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("AccountSubjectHashRequirement.TryResolve", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("User.get_AccountSubjectHash", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("SubjectHashesEqual", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("CryptographicOperations.FixedTimeEquals", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("account:subject-v1:", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("AccountSubjectHasher.Create", runtimeShape, StringComparison.Ordinal);
     }
 

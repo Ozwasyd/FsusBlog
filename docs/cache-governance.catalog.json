@@ -55,31 +55,14 @@
             "name": "Comment",
             "value": 9,
             "outputCacheTag": "Comment"
+        },
+        {
+            "name": "Theme",
+            "value": 10,
+            "outputCacheTag": "Theme"
         }
     ],
     "policies": [
-        {
-            "id": "AccountSnapshot",
-            "domain": "sec",
-            "resource": "account-snapshot",
-            "l1Ttl": "TimeSpan.FromSeconds(30)",
-            "l2Ttl": "TimeSpan.FromMinutes(10)",
-            "negativeTtl": "null",
-            "invalidationTags": [],
-            "securityCritical": true,
-            "l2JitterRatio": 0
-        },
-        {
-            "id": "AccountSnapshotVersion",
-            "domain": "sec",
-            "resource": "account-snapshot-version",
-            "l1Ttl": "TimeSpan.FromMinutes(5)",
-            "l2Ttl": "TimeSpan.FromDays(7)",
-            "negativeTtl": "null",
-            "invalidationTags": [],
-            "securityCritical": true,
-            "l2JitterRatio": 0
-        },
         {
             "id": "AdminStats",
             "domain": "admin",
@@ -465,22 +448,13 @@
             "resource": "related-reading",
             "l1Ttl": "TimeSpan.FromMinutes(5)",
             "l2Ttl": "TimeSpan.FromMinutes(30)",
-            "negativeTtl": "null",
+            "negativeTtl": "TimeSpan.FromMinutes(5)",
             "invalidationTags": [
-                "ArticleList"
+                "ArticleList",
+                "Category",
+                "Tag"
             ],
             "securityCritical": false,
-            "l2JitterRatio": 0
-        },
-        {
-            "id": "SecurityBlacklistUser",
-            "domain": "sec",
-            "resource": "blacklist-user",
-            "l1Ttl": "TimeSpan.FromMinutes(2)",
-            "l2Ttl": "Timeout.InfiniteTimeSpan",
-            "negativeTtl": "null",
-            "invalidationTags": [],
-            "securityCritical": true,
             "l2JitterRatio": 0
         },
         {
@@ -708,6 +682,17 @@
             "invalidationTags": [
                 "Tag"
             ],
+            "securityCritical": false,
+            "l2JitterRatio": 0.1
+        },
+        {
+            "id": "TaxonomyExactMetadataFrame",
+            "domain": "blog",
+            "resource": "taxonomy-exact-metadata-frame",
+            "l1Ttl": "TimeSpan.FromMinutes(2)",
+            "l2Ttl": "TimeSpan.FromMinutes(10)",
+            "negativeTtl": "null",
+            "invalidationTags": [],
             "securityCritical": false,
             "l2JitterRatio": 0.1
         },

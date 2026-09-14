@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -12,6 +13,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -196,6 +198,267 @@ public sealed partial class ArticleEndpointServiceTests
         cache.Dispose();
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(10)]
+    [InlineData(50)]
+    public async Task GetHotArticlesAsync_ConcurrentColdFrameMiss_CoalescesWholeFrameBuild(int count)
+    {
+        const int Callers = 100;
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = new CoordinatedArticleFrameCache(Callers, CachePolicyId.ArticleHotFrame);
+        var service = Create(
+            core,
+            cache: cache,
+            ownedFrameCache: cache,
+            cacheMissCoordinator: new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance));
+        var releaseCore = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstCoreLoadStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int coreLoads = 0;
+        core.GetHotArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                if (Interlocked.Increment(ref coreLoads) == 1)
+                {
+                    firstCoreLoadStarted.SetResult(true);
+                }
+                await releaseCore.Task;
+                return Result<IReadOnlyList<PopularArticleCoreModel>>.Success([]);
+            });
+
+        Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>>[] tasks = Enumerable.Range(0, Callers)
+            .Select(_ => service.GetHotArticlesAsync(count))
+            .ToArray();
+
+        await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        releaseCore.SetResult(true);
+        ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>[] results = await Task.WhenAll(tasks)
+            .WaitAsync(s_concurrentColdFrameWaitTimeout);
+
+        Assert.Equal(1, Volatile.Read(ref coreLoads));
+        Assert.Equal(1, cache.OwnedSetCount);
+        Assert.All(results, static result => Assert.True(result.HasCachedFrame));
+        foreach (ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>> result in results)
+        {
+            result.CachedFrame!.Dispose();
+        }
+        cache.Dispose();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(10)]
+    [InlineData(50)]
+    public async Task GetFeaturedArticlesAsync_ConcurrentColdFrameMiss_CoalescesWholeFrameBuild(int count)
+    {
+        const int Callers = 100;
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = new CoordinatedArticleFrameCache(Callers, CachePolicyId.TopArticlesFrame);
+        var service = Create(
+            core,
+            cache: cache,
+            ownedFrameCache: cache,
+            cacheMissCoordinator: new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance));
+        var releaseCore = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstCoreLoadStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int coreLoads = 0;
+        core.GetFeaturedArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                if (Interlocked.Increment(ref coreLoads) == 1)
+                {
+                    firstCoreLoadStarted.SetResult(true);
+                }
+                await releaseCore.Task;
+                return Result<IReadOnlyList<FeaturedArticleCoreModel>>.Success([]);
+            });
+
+        Task<ArticleEndpointPayload<IReadOnlyList<FeaturedArticleSummaryDto>>>[] tasks = Enumerable.Range(0, Callers)
+            .Select(_ => service.GetFeaturedArticlesAsync(count))
+            .ToArray();
+
+        await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        releaseCore.SetResult(true);
+        ArticleEndpointPayload<IReadOnlyList<FeaturedArticleSummaryDto>>[] results = await Task.WhenAll(tasks)
+            .WaitAsync(s_concurrentColdFrameWaitTimeout);
+
+        Assert.Equal(1, Volatile.Read(ref coreLoads));
+        Assert.Equal(1, cache.OwnedSetCount);
+        Assert.All(results, static result => Assert.True(result.HasCachedFrame));
+        foreach (ArticleEndpointPayload<IReadOnlyList<FeaturedArticleSummaryDto>> result in results)
+        {
+            result.CachedFrame!.Dispose();
+        }
+        cache.Dispose();
+    }
+
+    [Fact]
+    public async Task GetHotArticlesAsync_GenerationDrift_DoesNotPublishStaleFrame()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
+        int generation = 1;
+        hotVersion.CurrentHotArticlesVersion.Returns(_ => Volatile.Read(ref generation));
+        int coreLoads = 0;
+        core.GetHotArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref coreLoads) == 1)
+                {
+                    Volatile.Write(ref generation, 2);
+                }
+                return Result<IReadOnlyList<PopularArticleCoreModel>>.Success([]);
+            });
+        var service = Create(core, ownedFrameCache: ownedFrameCache, hotVersion: hotVersion);
+
+        ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>> result = await service.GetHotArticlesAsync(10);
+
+        Assert.True(result.HasCachedFrame);
+        Assert.Equal(2, Volatile.Read(ref coreLoads));
+        await ownedFrameCache.Received(1).TrySetOwnedFrameAsync(
+            CachePolicyId.ArticleHotFrame,
+            "v2:frame:article-hot:aeds-v2:ranking-v1:count:10",
+            Arg.Any<OwnedAedsFrame>(),
+            Arg.Is<OwnedFramePublicationGuard>(guard => guard.ExpectedValue == 2),
+            null,
+            Arg.Any<CancellationToken>());
+        result.CachedFrame!.Dispose();
+    }
+
+    [Fact]
+    public async Task GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var ownedFrameCache = Substitute.For<IOwnedFrameCache>();
+        var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
+        int generation = 1;
+        int publications = 0;
+        hotVersion.CurrentHotArticlesVersion.Returns(_ => Volatile.Read(ref generation));
+        ownedFrameCache.TryGetOwnedFrameAsync(
+                Arg.Any<CachePolicyId>(),
+                Arg.Any<string>(),
+                Arg.Any<AedsFrameType>(),
+                Arg.Any<CancellationToken>())
+            .Returns(default(OwnedFrameCacheReadResult));
+        ownedFrameCache.TrySetOwnedFrameAsync(
+                Arg.Any<CachePolicyId>(),
+                Arg.Any<string>(),
+                Arg.Any<OwnedAedsFrame>(),
+                Arg.Any<OwnedFramePublicationGuard>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                call.Arg<OwnedAedsFrame>().Retire();
+                if (Interlocked.Increment(ref publications) == 1)
+                {
+                    Volatile.Write(ref generation, 2);
+                }
+                return Volatile.Read(ref publications) > 1;
+            });
+        core.GetHotArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlyList<PopularArticleCoreModel>>.Success([]));
+        var service = Create(core, ownedFrameCache: ownedFrameCache, hotVersion: hotVersion);
+
+        ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>> result = await service.GetHotArticlesAsync(10);
+
+        Assert.True(result.HasCachedFrame);
+        Assert.Equal(2, Volatile.Read(ref publications));
+        await ownedFrameCache.Received(1).TrySetOwnedFrameAsync(
+            CachePolicyId.ArticleHotFrame,
+            "v1:frame:article-hot:aeds-v2:ranking-v1:count:10",
+            Arg.Any<OwnedAedsFrame>(),
+            Arg.Is<OwnedFramePublicationGuard>(guard => guard.ExpectedValue == 1),
+            null,
+            Arg.Any<CancellationToken>());
+        result.CachedFrame!.Dispose();
+    }
+
+    [Fact]
+    public async Task GetHotArticlesAsync_FramePreservesBytesOrderCrcTypeAndPublicResidency()
+    {
+        IReadOnlyList<PopularArticleCoreModel> source =
+        [
+            new(PodProjector.ProjectPopularArticle(2, "two", 20), 2, "two", 20),
+            new(PodProjector.ProjectPopularArticle(1, "one", 10), 1, "one", 10)
+        ];
+        var core = Substitute.For<IArticleCoreService>();
+        core.GetHotArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlyList<PopularArticleCoreModel>>.Success(source));
+        var cache = new CoordinatedArticleFrameCache(1, CachePolicyId.ArticleHotFrame);
+        var service = Create(core, cache: cache, ownedFrameCache: cache);
+
+        ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>> result = await service.GetHotArticlesAsync(2);
+
+        Assert.True(result.HasCachedFrame);
+        ReadOnlyMemory<byte> actual = result.CachedFrame!.Memory;
+        using OwnedAedsFrame expectedOwner = AedsOwnedFrameBuilder.BuildOwned(
+            AedsFrameType.ArticleHot,
+            writer => PodBinaryCodec.WritePopularArticles(source, writer));
+        using OwnedAedsFrameReadLease expected = expectedOwner.AcquireReadLease();
+        Assert.True(actual.Span.SequenceEqual(expected.Memory.Span));
+        Result<AedsDecodeResult> decoded = new AedsEncoder().TryDecode(actual);
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ArticleHot, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodePopularArticles(decoded.Value.Payload, out IReadOnlyList<PopularArticleCoreModel> roundTrip));
+        Assert.Equal([2, 1], roundTrip.Select(static item => item.Id).ToArray());
+        Assert.False(AedsFrameSensitivity.RequiresClear(AedsFrameType.ArticleHot));
+        OwnedFrameCacheResidencySnapshot residency = cache.GetOwnedFrameResidencySnapshot();
+        Assert.Equal(1, residency.EntryCount);
+        Assert.Equal(actual.Length, residency.LogicalBytes);
+        result.CachedFrame.Dispose();
+        cache.Dispose();
+    }
+
+    [Fact]
+    public async Task GetFeaturedArticlesAsync_FramePreservesBytesOrderCrcTypeAndPublicResidency()
+    {
+        DateTime created = new(2026, 8, 2, 1, 2, 3, DateTimeKind.Utc);
+        IReadOnlyList<FeaturedArticleCoreModel> source =
+        [
+            new(2, "two", "/two.webp", 20, created, new ArticleCategoryCoreModel(7, "cat")),
+            new(1, "one", "/one.webp", 10, created.AddMinutes(-1), new ArticleCategoryCoreModel(8, "other"))
+        ];
+        var core = Substitute.For<IArticleCoreService>();
+        core.GetFeaturedArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlyList<FeaturedArticleCoreModel>>.Success(source));
+        var cache = new CoordinatedArticleFrameCache(1, CachePolicyId.TopArticlesFrame);
+        var service = Create(core, cache: cache, ownedFrameCache: cache);
+
+        ArticleEndpointPayload<IReadOnlyList<FeaturedArticleSummaryDto>> result = await service.GetFeaturedArticlesAsync(2);
+
+        Assert.True(result.HasCachedFrame);
+        ReadOnlyMemory<byte> actual = result.CachedFrame!.Memory;
+        IReadOnlyList<FeaturedArticleSummaryDto> projected = source.Select(static item => new FeaturedArticleSummaryDto(
+            item.Id,
+            item.Title,
+            item.CoverImageUrl,
+            item.Views,
+            item.CreateTime,
+            new ArticleCategoryView(item.Category.Id, item.Category.Name))).ToArray();
+        using OwnedAedsFrame expectedOwner = AedsOwnedFrameBuilder.BuildOwned(
+            AedsFrameType.ArticleFeatured,
+            writer => PodBinaryCodec.WriteFeaturedArticles(projected, writer));
+        using OwnedAedsFrameReadLease expected = expectedOwner.AcquireReadLease();
+        Assert.True(actual.Span.SequenceEqual(expected.Memory.Span));
+        Result<AedsDecodeResult> decoded = new AedsEncoder().TryDecode(actual);
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ArticleFeatured, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeFeaturedArticles(decoded.Value.Payload, out IReadOnlyList<FeaturedArticleSummaryDto> roundTrip));
+        Assert.Equal([2, 1], roundTrip.Select(static item => item.Id).ToArray());
+        Assert.False(AedsFrameSensitivity.RequiresClear(AedsFrameType.ArticleFeatured));
+        OwnedFrameCacheResidencySnapshot residency = cache.GetOwnedFrameResidencySnapshot();
+        Assert.Equal(1, residency.EntryCount);
+        Assert.Equal(actual.Length, residency.LogicalBytes);
+        result.CachedFrame.Dispose();
+        cache.Dispose();
+    }
+
     [Fact]
     public async Task GetPageListAsync_PublicFrameMiss_UsesUncachedCoreQuery()
     {
@@ -256,9 +519,17 @@ public sealed partial class ArticleEndpointServiceTests
         var core = Substitute.For<IArticleCoreService>();
         var cache = Substitute.For<IUnifiedCache>();
         var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
-        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
+        var cursorCodec = CreateCursorCodec();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache, cursorCodec: cursorCodec);
         var position = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
-        string cursor = ArticleListCursorCodec.Encode(position, categoryId: 7, tagId: null, normalizedKeyword: string.Empty);
+        string cursor = cursorCodec.Encode(
+            position,
+            categoryId: 7,
+            tagId: null,
+            normalizedKeyword: string.Empty,
+            pageSize: 10,
+            queryVersion: 11,
+            ArticleListSortMode.Latest);
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>()).Returns("11");
         ownedFrameCache.TryGetOwnedFrameAsync(
                 CachePolicyId.ArticleListFrame,
@@ -298,12 +569,16 @@ public sealed partial class ArticleEndpointServiceTests
         var core = Substitute.For<IArticleCoreService>();
         var cache = Substitute.For<IUnifiedCache>();
         var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
-        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
-        string cursor = ArticleListCursorCodec.Encode(
+        var cursorCodec = CreateCursorCodec();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache, cursorCodec: cursorCodec);
+        string cursor = cursorCodec.Encode(
             new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42),
             categoryId: 7,
             tagId: null,
-            normalizedKeyword: string.Empty);
+            normalizedKeyword: string.Empty,
+            pageSize: 10,
+            queryVersion: 11,
+            ArticleListSortMode.Latest);
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>()).Returns("11");
 
         ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result = await service.GetPageListAsync(
@@ -316,6 +591,31 @@ public sealed partial class ArticleEndpointServiceTests
             status: null,
             canReadPrivate: false,
             cursor: cursor);
+
+        Assert.False(result.Result.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, result.Result.Error.Code);
+        await cache.Received(1).GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>());
+        await ownedFrameCache.DidNotReceiveWithAnyArgs().TryGetOwnedFrameAsync(default, (string)null!, default, default);
+        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
+    }
+
+    [Fact]
+    public async Task GetPageListAsync_PublicSecondPageWithoutCursor_FailsBeforeCacheAndCore()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var cache = Substitute.For<IUnifiedCache>();
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
+
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result = await service.GetPageListAsync(
+            2,
+            10,
+            categoryId: null,
+            tagId: null,
+            isDeleted: false,
+            canReadDeleted: false,
+            status: null,
+            canReadPrivate: false);
 
         Assert.False(result.Result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Result.Error.Code);
@@ -499,13 +799,17 @@ public sealed partial class ArticleEndpointServiceTests
         IOwnedFrameCache? ownedFrameCache = null,
         ICacheMissCoordinator? cacheMissCoordinator = null,
         IPublicArticleProjectionStore? projection = null,
-        IArticleMutationCommandService? mutations = null)
+        IArticleMutationCommandService? mutations = null,
+        IHotArticlesCacheVersionProvider? hotVersion = null,
+        IArticleListCursorCodec? cursorCodec = null)
     {
         cache ??= Substitute.For<IUnifiedCache>();
         ownedFrameCache ??= CreateOwnedFrameCacheSubstitute();
-        var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
-        hotVersion.BuildVersionedHotArticlesIdentity(Arg.Any<string>())
-            .Returns(call => $"v1:{call.Arg<string>()}");
+        if (hotVersion is null)
+        {
+            hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
+            hotVersion.CurrentHotArticlesVersion.Returns(1);
+        }
 
         return new ArticleEndpointService(
             core,
@@ -516,8 +820,12 @@ public sealed partial class ArticleEndpointServiceTests
             artifacts ?? Substitute.For<IArticleDetailAedsArtifactStore>(),
             projection ?? Substitute.For<IPublicArticleProjectionStore>(),
             scheduler ?? Substitute.For<IArticleDetailAedsArtifactBackfillScheduler>(),
-            hotVersion);
+            hotVersion,
+            cursorCodec ?? CreateCursorCodec());
     }
+
+    private static ArticleListCursorCodec CreateCursorCodec()
+        => new(new EphemeralDataProtectionProvider(), TimeProvider.System);
 
     private static IOwnedFrameCache CreateOwnedFrameCacheSubstitute()
     {
@@ -539,6 +847,18 @@ public sealed partial class ArticleEndpointServiceTests
                 call.Arg<OwnedAedsFrame>().Retire();
                 return Task.CompletedTask;
             });
+        cache.TrySetOwnedFrameAsync(
+                Arg.Any<CachePolicyId>(),
+                Arg.Any<string>(),
+                Arg.Any<OwnedAedsFrame>(),
+                Arg.Any<OwnedFramePublicationGuard>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                call.Arg<OwnedAedsFrame>().Retire();
+                return true;
+            });
         return cache;
     }
 
@@ -558,7 +878,9 @@ public sealed partial class ArticleEndpointServiceTests
         }
     }
 
-    private sealed class CoordinatedArticleFrameCache(int expectedColdReads) : IUnifiedCache, IOwnedFrameCache, IDisposable
+    private sealed class CoordinatedArticleFrameCache(
+        int expectedColdReads,
+        CachePolicyId coordinatedPolicy = CachePolicyId.ArticleListFrame) : IUnifiedCache, IOwnedFrameCache, IDisposable
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
         private readonly TaskCompletionSource<bool> _initialColdReadsCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -582,7 +904,7 @@ public sealed partial class ArticleEndpointServiceTests
                 return new OwnedFrameCacheReadResult(true, lease);
             }
 
-            if (policyId == CachePolicyId.ArticleListFrame)
+            if (policyId == coordinatedPolicy)
             {
                 if (Interlocked.Increment(ref _coldReads) >= expectedColdReads)
                 {
@@ -602,7 +924,7 @@ public sealed partial class ArticleEndpointServiceTests
             TimeSpan? l2TtlOverride = null,
             CancellationToken cancellationToken = default)
         {
-            if (policyId == CachePolicyId.ArticleListFrame)
+            if (policyId == coordinatedPolicy)
             {
                 Interlocked.Increment(ref _ownedSetCount);
                 OwnedAedsFrame? previous = Interlocked.Exchange(ref _articleListFrame, frame);

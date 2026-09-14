@@ -145,14 +145,12 @@ public sealed class UserSessionValidationCache(
     ICacheKeyResolver keyResolver,
     ICacheCompareExchangeStore compareExchange,
     ICacheInvalidationStore invalidation,
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IConfiguration configuration) : IUserSessionValidationCache
 {
     internal const string DistributedCacheEnabledKey = "Security:UserSessionValidation:DistributedCacheEnabled";
     private const string PayloadVersion = "v3";
     private static readonly TimeSpan s_snapshotTtl = TimeSpan.FromMinutes(2);
-    private readonly IDatabase _database = redis.GetDatabase();
-
     public async Task<UserSessionValidationCacheState?> ReadAsync(
         string sessionId,
         CancellationToken cancellationToken = default)
@@ -165,7 +163,11 @@ public sealed class UserSessionValidationCache(
         }
 
         string key = keyResolver.BuildKey(CachePolicyId.SecurityUserSessionValidation, identity);
-        RedisValue value = await _database.StringGetAsync(key).ConfigureAwait(false);
+        RedisValue value = await redis.ExecuteAsync(
+                RedisOperationPort.UserSessionValidation,
+                (multiplexer, _) => multiplexer.GetDatabase().StringGetAsync(key),
+                cancellationToken)
+            .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!value.HasValue)
         {

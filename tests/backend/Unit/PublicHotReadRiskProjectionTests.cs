@@ -283,7 +283,7 @@ public sealed class PublicHotReadRiskProjectionTests
             .BuildServiceProvider();
         var worker = new PublicHotReadRiskProjectionWorker(
             restarted,
-            Substitute.For<IConnectionMultiplexer>(),
+            RedisOperationExecutor.ForTestConnection(Substitute.For<IConnectionMultiplexer>()),
             new DefaultRuntimeKeyScope(),
             services.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(new PublicHotReadRiskProjectionOptions()),

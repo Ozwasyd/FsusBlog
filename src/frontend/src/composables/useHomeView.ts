@@ -15,7 +15,7 @@ import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
-import { buildPublicHomePaginationHref } from '@/public-renderers/publicRouteIdentity'
+import { buildPublicHomePaginationHref, parsePublicPaginationCursor } from '@/public-renderers/publicRouteIdentity'
 import { toPublicArticleListCardProjection, type PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
 
 const HOME_FEATURED_ARTICLE_COUNT = 1
@@ -66,6 +66,8 @@ export function useHomeView() {
       : null
   )
   const mapArticleCards = createStableArticleCardMapper(() => useSeedRenderTime.value ? seedRenderTimeOptions : undefined)
+  const articleCursorByPage = new Map<number, string | null>([[1, null]])
+  const articleCursorRevision = ref(0)
   const {
     currentPage,
     pageSize,
@@ -102,16 +104,28 @@ export function useHomeView() {
           {
             currentPage: currentPage.value,
             pageSize: pageSize.value,
-            pageHref: buildPublicHomePaginationHref,
+            pageHref: (page) => buildPublicHomePaginationHref(page, articleCursorByPage.get(page)),
+            canGoPrev: canGoPrev.value,
+            canGoNext: canGoNext.value,
             time: useSeedRenderTime.value ? seedRenderTimeOptions : undefined
           }
         )
   )
-  const canGoPrev = computed(() => currentPage.value > 1 && !loading.value)
-  const canGoNext = computed(() => currentPage.value < totalPages.value && !loading.value)
+  const canGoPrev = computed(() => {
+    void articleCursorRevision.value
+    const previousPage = currentPage.value - 1
+    return previousPage >= 1
+      && !loading.value
+      && (previousPage === 1 || articleCursorByPage.has(previousPage))
+  })
+  const canGoNext = computed(() => {
+    void articleCursorRevision.value
+    return currentPage.value < totalPages.value
+      && !loading.value
+      && articleCursorByPage.has(currentPage.value + 1)
+  })
 
   const articleTask = useAbortableTask()
-  const articleCursorByPage = new Map<number, string | null>([[1, null]])
   const featuredTask = useAbortableTask()
   const homeRuntimeMetrics = {
     patchApplied: 0,
@@ -166,25 +180,47 @@ export function useHomeView() {
     setPageTotal(Number(initialHydrationPayload?.total) || 0)
   }
 
-  currentPage.value = parsePageQuery(route.query.page)
+  const seededNextCursor = parsePublicPaginationCursor(
+    initialHydrationPayload?.nextCursor ?? initialBootstrap?.nextCursor
+  )
+  if (seededNextCursor) {
+    articleCursorByPage.set(2, seededNextCursor)
+    articleCursorRevision.value++
+  }
 
-  const syncPageQuery = (page: number): void => {
+  const initialRoutePage = parsePageQuery(route.query.page)
+  const initialRouteCursor = parsePublicPaginationCursor(route.query.cursor)
+  currentPage.value = initialRoutePage
+  if (currentPage.value > 1 && initialRouteCursor) {
+    articleCursorByPage.set(currentPage.value, initialRouteCursor)
+    articleCursorRevision.value++
+  }
+
+  const syncPageQuery = (page: number): boolean => {
     const nextQuery = { ...route.query }
     if (page <= 1) {
       delete nextQuery.page
+      delete nextQuery.cursor
     } else {
+      const cursor = articleCursorByPage.get(page)
+      if (!cursor) {
+        return false
+      }
       nextQuery.page = String(page)
+      nextQuery.cursor = cursor
     }
 
-    void router.replace({ path: route.path, query: nextQuery })
+    void router.push({ path: route.path, query: nextQuery, hash: route.hash })
+    return true
   }
 
   const handlePageChange = (page: number): void => {
     if (page < 1 || page > totalPages.value || loading.value) {
       return
     }
-    syncPageQuery(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (syncPageQuery(page)) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   const loadArticles = async (showLoading = true): Promise<void> => {
@@ -195,13 +231,19 @@ export function useHomeView() {
     }
 
     try {
+      const routeHasCursor = Object.prototype.hasOwnProperty.call(route.query, 'cursor')
+      const requestCursor = articleCursorByPage.get(currentPage.value)
+      if ((currentPage.value === 1 && routeHasCursor)
+        || (currentPage.value > 1 && !requestCursor)) {
+        throw createAppError(AppErrorCode.Validation, 'article_cursor_required')
+      }
       const response = await articleTask.run(
         async (signal) =>
           await getPublicArticleCardProjections(
             {
               page: currentPage.value,
               size: pageSize.value,
-              cursor: articleCursorByPage.get(currentPage.value)
+              cursor: requestCursor
             },
             { signal }
           )
@@ -215,7 +257,10 @@ export function useHomeView() {
           setPageTotal(Number(response.total) || 0)
           if (response.hasMore && response.nextCursor) {
             articleCursorByPage.set(currentPage.value + 1, response.nextCursor)
+          } else {
+            articleCursorByPage.delete(currentPage.value + 1)
           }
+          articleCursorRevision.value++
           error.value = null
         } else {
           throw createAppError(AppErrorCode.ProtocolFailure, 'home_articles_response_invalid')
@@ -500,13 +545,22 @@ export function useHomeView() {
   }
 
   watch(
-    () => route.query.page,
+    () => [route.query.page, route.query.cursor] as const,
     () => {
       const nextPage = parsePageQuery(route.query.page)
-      if (nextPage === currentPage.value) {
+      const nextCursor = parsePublicPaginationCursor(route.query.cursor)
+      if (nextPage > 1 && !nextCursor) {
+        initialViewItems.value = null
+        currentPage.value = nextPage
+        setError('分页参数无效')
+        markCurrentRouteFailed(route)
         return
       }
 
+      if (nextPage > 1 && nextCursor) {
+        articleCursorByPage.set(nextPage, nextCursor)
+        articleCursorRevision.value++
+      }
       initialViewItems.value = null
       currentPage.value = nextPage
       void loadArticles()

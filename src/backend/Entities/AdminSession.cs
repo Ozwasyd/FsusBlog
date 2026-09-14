@@ -18,6 +18,9 @@ public sealed class AdminSession
     [SugarColumn(Length = 128)]
     public string AccessTokenHash { get; set; } = string.Empty;
 
+    [SugarColumn(DefaultValue = "1")]
+    public long ValidationVersion { get; set; } = 1;
+
     [SugarColumn(IsNullable = true, Length = 128)]
     public string? DeviceFingerprint
     {

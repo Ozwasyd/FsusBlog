@@ -9,14 +9,34 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 public interface ICacheInvalidationDispatcher
 {
     Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default);
+    Task InvalidateArticleMutationAsync(int? articleId, string mutationId, CancellationToken cancellationToken)
+        => InvalidateArticleMutationAsync(articleId, cancellationToken);
     Task InvalidateSeoAsync(CancellationToken cancellationToken = default);
+    Task InvalidateSeoAsync(string mutationId, CancellationToken cancellationToken)
+        => InvalidateSeoAsync(cancellationToken);
     Task InvalidateComplianceAsync(CancellationToken cancellationToken = default);
+    Task InvalidateComplianceAsync(string mutationId, CancellationToken cancellationToken)
+        => InvalidateComplianceAsync(cancellationToken);
     Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default);
+    Task InvalidateSystemPageAsync(string slug, string mutationId, CancellationToken cancellationToken)
+        => InvalidateSystemPageAsync(slug, cancellationToken);
     Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default);
+    Task InvalidateCategoryTagAsync(string mutationId, CancellationToken cancellationToken)
+        => InvalidateCategoryTagAsync(cancellationToken);
+    Task InvalidateTaxonomyMetadataAsync(
+        string filterRouteKey,
+        string mutationId,
+        CancellationToken cancellationToken)
+        => InvalidateCategoryTagAsync(mutationId, cancellationToken);
     Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default);
     Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default);
     Task InvalidateStatsAsync(CancellationToken cancellationToken = default);
     Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default);
+    Task PublishArticleViewProjectionsAsync(
+        IReadOnlyDictionary<int, int> authoritativeViews,
+        CancellationToken cancellationToken = default)
+        => Task.WhenAll(authoritativeViews.Keys.Select(articleId =>
+            InvalidateArticleViewAsync(articleId, cancellationToken)));
     Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default);
 }
 
@@ -31,16 +51,27 @@ public interface IHotStatsInvalidationCoalescer
 
 public interface IHotArticlesCacheVersionProvider
 {
+    const string AuthorityCounterIdentity = "hot-stats:hot-articles:version";
+
     long CurrentHotArticlesVersion
     {
         get;
     }
     string BuildVersionedHotArticlesIdentity(string identity);
+
+    Task EnsureHotArticlesVersionInitializedAsync(CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    void ObserveHotArticlesVersion(long version)
+    {
+    }
 }
 
 public interface IHotArticlesCacheVersionPublisher : IHotArticlesCacheVersionProvider
 {
-    long PublishNextHotArticlesVersion(string reason);
+    Task<long> PublishNextHotArticlesVersionAsync(
+        string reason,
+        CancellationToken cancellationToken = default);
 }
 
 internal static class AdminStatsFrameVersioning
@@ -221,10 +252,15 @@ public sealed class CacheInvalidationDispatcher(
     IAnonymousCommentPolicyInvalidationSink? commentPolicyInvalidationSink = null,
     IAotSeoConfigSnapshot? aotSeoConfigSnapshot = null,
     IDistributedInvalidationPublisher? distributedInvalidationPublisher = null,
-    IDistributedInvalidationObligationStore? distributedInvalidationObligations = null) : ICacheInvalidationDispatcher
+    IDistributedInvalidationObligationStore? distributedInvalidationObligations = null,
+    PublicAotInvalidationTracker? publicAotInvalidationTracker = null) : ICacheInvalidationDispatcher
 {
-    public async Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default)
+    public Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default)
+        => InvalidateArticleMutationAsync(articleId, CreateMutationId("article"), cancellationToken);
+
+    public async Task InvalidateArticleMutationAsync(int? articleId, string mutationId, CancellationToken cancellationToken)
     {
+        await AdvanceSitemapGenerationAsync(mutationId, cancellationToken).ConfigureAwait(false);
         if (articleId is > 0)
         {
             await invalidation.RemoveManyAsync(
@@ -235,13 +271,17 @@ public sealed class CacheInvalidationDispatcher(
                     new(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId.Value}")
                 ],
                 cancellationToken);
+            await invalidation.RemoveByPrefixAsync(
+                CachePolicyId.RelatedReading,
+                $"article:{articleId.Value}:",
+                cancellationToken);
         }
 
         await counters.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
         long searchVersion = await counters.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, cancellationToken);
         await invalidation.RemoveAsync(CachePolicyId.ArticleRss, "main", cancellationToken);
         await InvalidateAdminStatsCachesAsync(cancellationToken);
-        long hotVersion = PublishHotArticlesVersion("article-mutation");
+        long hotVersion = await PublishHotArticlesVersionAsync("article-mutation", cancellationToken).ConfigureAwait(false);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
         await RecordRuntimeAsync("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion};search:v{searchVersion}" : $"all;hot:v{hotVersion};search:v{searchVersion}", cancellationToken);
         await PublishDistributedAsync(
@@ -249,11 +289,16 @@ public sealed class CacheInvalidationDispatcher(
             ["article-list", "hot-articles", "stats"],
             [articleId is > 0 ? $"article:{articleId.Value}" : "article:*"],
             [articleId is > 0 ? $"article-detail:{articleId.Value}" : "article-detail:*", "public-aot", "public-hot-read"],
-            cancellationToken);
+            cancellationToken,
+            mutationId);
     }
 
-    public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
+    public Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
+        => InvalidateSeoAsync(CreateMutationId("seo"), cancellationToken);
+
+    public async Task InvalidateSeoAsync(string mutationId, CancellationToken cancellationToken)
     {
+        await AdvanceGlobalPublicAotGenerationAsync(mutationId, cancellationToken).ConfigureAwait(false);
         aotSeoConfigSnapshot?.Invalidate();
         await invalidation.RemoveAsync(CachePolicyId.SystemSeo, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
@@ -263,11 +308,16 @@ public sealed class CacheInvalidationDispatcher(
             ["seo"],
             ["system:seo"],
             ["public-aot"],
-            cancellationToken);
+            cancellationToken,
+            mutationId);
     }
 
-    public async Task InvalidateComplianceAsync(CancellationToken cancellationToken = default)
+    public Task InvalidateComplianceAsync(CancellationToken cancellationToken = default)
+        => InvalidateComplianceAsync(CreateMutationId("compliance"), cancellationToken);
+
+    public async Task InvalidateComplianceAsync(string mutationId, CancellationToken cancellationToken)
     {
+        await AdvanceGlobalPublicAotGenerationAsync(mutationId, cancellationToken).ConfigureAwait(false);
         aotSeoConfigSnapshot?.Invalidate();
         await invalidation.RemoveAsync(CachePolicyId.SystemCompliance, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
@@ -277,11 +327,16 @@ public sealed class CacheInvalidationDispatcher(
             ["seo"],
             ["system:compliance"],
             ["public-aot"],
-            cancellationToken);
+            cancellationToken,
+            mutationId);
     }
 
-    public async Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default)
+    public Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default)
+        => InvalidateSystemPageAsync(slug, CreateMutationId("system-page"), cancellationToken);
+
+    public async Task InvalidateSystemPageAsync(string slug, string mutationId, CancellationToken cancellationToken)
     {
+        await AdvanceSitemapGenerationAsync(mutationId, cancellationToken).ConfigureAwait(false);
         await invalidation.RemoveAsync(CachePolicyId.SystemPage, slug, cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.SystemPage);
         await RecordRuntimeAsync("system_page", slug, cancellationToken);
@@ -290,12 +345,19 @@ public sealed class CacheInvalidationDispatcher(
             ["system-page"],
             [$"system-page:{slug}"],
             ["public-aot"],
-            cancellationToken);
+            cancellationToken,
+            mutationId);
     }
 
-    public async Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default)
+    public Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default)
+        => InvalidateCategoryTagAsync(CreateMutationId("taxonomy"), cancellationToken);
+
+    public async Task InvalidateCategoryTagAsync(string mutationId, CancellationToken cancellationToken)
     {
+        await AdvanceSitemapGenerationAsync(mutationId, cancellationToken).ConfigureAwait(false);
+        await counters.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
         await counters.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken);
+        await invalidation.RemoveByPrefixAsync(CachePolicyId.RelatedReading, "article:", cancellationToken);
         await invalidation.RemoveManyAsync(
             [
                 new(CachePolicyId.CategoryFrame, "all"),
@@ -304,12 +366,34 @@ public sealed class CacheInvalidationDispatcher(
             cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.Tag, CacheTag.ArticleList);
         await RecordRuntimeAsync("taxonomy", "category-tag", cancellationToken);
-        await PublishDistributedAsync(
+        _ = await PublishDistributedAsync(
             DistributedInvalidationEventKinds.TaxonomyMutation,
             ["article-list", "category", "tag"],
             ["taxonomy:*"],
             ["public-aot", "public-hot-read"],
-            cancellationToken);
+            cancellationToken,
+            mutationId);
+    }
+
+    public async Task InvalidateTaxonomyMetadataAsync(
+        string filterRouteKey,
+        string mutationId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(filterRouteKey))
+        {
+            throw new ArgumentException("Filter route identity is required.", nameof(filterRouteKey));
+        }
+
+        await AdvanceSitemapGenerationAsync(mutationId, cancellationToken).ConfigureAwait(false);
+        await RecordRuntimeAsync("taxonomy", $"metadata:{filterRouteKey}", cancellationToken);
+        _ = await PublishDistributedAsync(
+            DistributedInvalidationEventKinds.TaxonomyMutation,
+            [],
+            [filterRouteKey],
+            ["public-aot"],
+            cancellationToken,
+            mutationId);
     }
 
     public async Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
@@ -405,9 +489,43 @@ public sealed class CacheInvalidationDispatcher(
         await RecordRuntimeAsync("article_view", articleId > 0 ? $"article:{articleId}" : "unknown", cancellationToken);
     }
 
+    public async Task PublishArticleViewProjectionsAsync(
+        IReadOnlyDictionary<int, int> authoritativeViews,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(authoritativeViews);
+        if (authoritativeViews.Count == 0)
+        {
+            return;
+        }
+
+        KeyValuePair<int, int>[] normalized = authoritativeViews
+            .OrderBy(static pair => pair.Key)
+            .ToArray();
+        if (normalized.Any(static pair => pair.Key <= 0 || pair.Value <= 0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(authoritativeViews), "Article view projection identities and values must be positive.");
+        }
+
+        await PublishDistributedAsync(
+            DistributedInvalidationEventKinds.ArticleViewProjection,
+            [],
+            [],
+            normalized.Select(static pair =>
+                DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(
+                    pair.Key,
+                    pair.Value,
+                    pair.Value)).ToArray(),
+            cancellationToken).ConfigureAwait(false);
+        await RecordRuntimeAsync(
+            "article_view",
+            $"articles:{normalized.Length};maxViews:{normalized.Max(static pair => pair.Value)}",
+            cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default)
     {
-        long hotVersion = PublishHotArticlesVersion("direct-invalidation");
+        long hotVersion = await PublishHotArticlesVersionAsync("direct-invalidation", cancellationToken).ConfigureAwait(false);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles);
         await RecordRuntimeAsync("hot_articles", $"article-hot:v{hotVersion}", cancellationToken);
         await PublishDistributedAsync(
@@ -421,18 +539,51 @@ public sealed class CacheInvalidationDispatcher(
     private Task RecordRuntimeAsync(string kind, string? detail, CancellationToken cancellationToken)
         => runtimeState?.RecordAsync(kind, detail, cancellationToken) ?? Task.CompletedTask;
 
-    private long PublishHotArticlesVersion(string reason)
-        => hotArticlesVersionPublisher?.PublishNextHotArticlesVersion(reason) ?? 0;
+    private Task<long> PublishHotArticlesVersionAsync(string reason, CancellationToken cancellationToken)
+        => hotArticlesVersionPublisher?.PublishNextHotArticlesVersionAsync(reason, cancellationToken)
+            ?? Task.FromResult(0L);
+
+    private static string CreateMutationId(string mutationKind)
+        => $"{mutationKind}:{Guid.CreateVersion7():N}";
+
+    private async Task AdvanceSitemapGenerationAsync(string mutationId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(mutationId))
+        {
+            throw new ArgumentException("Mutation identity is required.", nameof(mutationId));
+        }
+        if (publicAotInvalidationTracker is not null)
+        {
+            _ = await publicAotInvalidationTracker
+                .MarkSitemapAsync(mutationId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task AdvanceGlobalPublicAotGenerationAsync(string mutationId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(mutationId))
+        {
+            throw new ArgumentException("Mutation identity is required.", nameof(mutationId));
+        }
+        if (publicAotInvalidationTracker is not null)
+        {
+            _ = await publicAotInvalidationTracker
+                .MarkAllAsync(mutationId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
 
     private async Task<DistributedInvalidationPublishResult> PublishDistributedAsync(
         string kind,
         IReadOnlyList<string> cacheTags,
         IReadOnlyList<string> routeKeys,
         IReadOnlyList<string> artifactKeys,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? eventId = null)
     {
         DistributedInvalidationPublishResult result = await (distributedInvalidationPublisher?.PublishAsync(
-            new DistributedInvalidationRequest(kind, cacheTags, routeKeys, artifactKeys),
+            new DistributedInvalidationRequest(kind, cacheTags, routeKeys, artifactKeys, eventId),
             cancellationToken)
             ?? Task.FromResult(new DistributedInvalidationPublishResult(
                 DistributedInvalidationPublishStatus.LocalOnly,

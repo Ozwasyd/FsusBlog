@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Configuration;
@@ -312,6 +313,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
             cache,
             cache,
             cache,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             new ConfigurationBuilder().Build(),
             passkeys,
             NullLogger<RecoveryKeyService>.Instance,

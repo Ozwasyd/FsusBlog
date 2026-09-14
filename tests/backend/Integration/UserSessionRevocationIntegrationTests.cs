@@ -656,7 +656,6 @@ public sealed class UserSessionRevocationIntegrationTests(
         var registry = new CachePolicyRegistry();
         var scope = new PrefixRuntimeKeyScope(prefix);
         var unified = new UnifiedCache(
-            memory,
             connection,
             registry,
             scope,
@@ -669,7 +668,7 @@ public sealed class UserSessionRevocationIntegrationTests(
             resolver,
             unified,
             unified,
-            connection,
+            RedisOperationExecutor.ForTestConnection(connection),
             new ConfigurationBuilder().Build());
         return new RealValidationCacheHarness(
             redisFixture,

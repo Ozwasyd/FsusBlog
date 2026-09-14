@@ -89,9 +89,7 @@ internal static class PublicRouteIdentity
             return resolved;
         }
 
-        return SupportsPagination(pageId)
-            ? BuildPaginatedRouteKey(descriptor.FixedRouteKey, ParsePageRouteKey(resolved))
-            : descriptor.FixedRouteKey;
+        return descriptor.FixedRouteKey;
     }
 
     internal static string BuildCanonicalPath(PublicPageId pageId, string routeKey, int? articleId)
@@ -113,48 +111,32 @@ internal static class PublicRouteIdentity
     internal static bool SupportsPagination(PublicPageId pageId)
         => pageId is PublicPageId.Home or PublicPageId.Filter;
 
-    internal static string BuildPaginatedRouteKey(string routeKey, int page)
-    {
-        string baseRouteKey = StripPagination(routeKey);
-        return page <= 1
-            ? baseRouteKey
-            : string.Concat(baseRouteKey, PageRouteMarker, page.ToString(CultureInfo.InvariantCulture));
-    }
-
-    internal static int ParsePageRouteKey(string routeKey)
+    internal static bool IsLegacyPaginatedRouteKey(string routeKey)
     {
         string normalized = (routeKey ?? string.Empty).Trim();
         int markerIndex = normalized.LastIndexOf(PageRouteMarker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex <= 0)
-        {
-            return 1;
-        }
-
-        return int.TryParse(normalized.AsSpan(markerIndex + PageRouteMarker.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int page)
-            && page > 1
-                ? page
-                : 1;
+        return markerIndex > 0
+            && int.TryParse(
+                normalized.AsSpan(markerIndex + PageRouteMarker.Length),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int page)
+            && page > 1;
     }
 
-    internal static string StripPagination(string routeKey)
+    internal static bool AllowsStaticArtifact(PublicAotRouteMatch match)
+        => !SupportsPagination(match.PageId)
+            || match.Page == 1
+                && !IsLegacyPaginatedRouteKey(match.RouteKey)
+                && string.IsNullOrEmpty(match.QueryString);
+
+    internal static bool AllowsStaticArtifact(PublicAotBackfillRequest request)
     {
-        string normalized = (routeKey ?? string.Empty).Trim();
-        int markerIndex = normalized.LastIndexOf(PageRouteMarker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex <= 0)
-        {
-            return normalized;
-        }
-
-        return int.TryParse(normalized.AsSpan(markerIndex + PageRouteMarker.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int page)
-            && page > 1
-                ? normalized[..markerIndex]
-                : normalized;
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(request.Kind);
+        return !SupportsPagination(descriptor.PageId)
+            || !IsLegacyPaginatedRouteKey(request.RouteKey)
+                && string.IsNullOrEmpty(request.QueryString);
     }
-
-    internal static string BuildPaginationQueryString(int page)
-        => page <= 1
-            ? string.Empty
-            : string.Concat("?page=", page.ToString(CultureInfo.InvariantCulture));
 
     internal static string? ResolveRouteBucket(PublicPageId pageId, string routeKey)
     {
@@ -206,7 +188,7 @@ internal static class PublicRouteIdentity
 
     internal static ParsedFilterRouteIdentity ParseFilterRouteKey(string routeKey)
     {
-        string normalizedRouteKey = StripPagination(routeKey);
+        string normalizedRouteKey = (routeKey ?? string.Empty).Trim();
 
         if (normalizedRouteKey.StartsWith(s_categoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -289,7 +271,7 @@ internal static class PublicRouteIdentity
 
     private static string BuildCanonicalFilterPath(string routeKey)
     {
-        routeKey = StripPagination(routeKey);
+        routeKey = (routeKey ?? string.Empty).Trim();
         if (routeKey.StartsWith(s_categoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
             return string.Concat(s_categoryPathPrefix, routeKey[s_categoryRoutePrefix.Length..]);

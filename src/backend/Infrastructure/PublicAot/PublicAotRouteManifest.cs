@@ -66,8 +66,6 @@ public sealed class PublicAotRouteManifestProvider(
 {
     private const string SeoDependency = "seo";
     private const string ArticleListDependency = "article:list";
-    private const int PublicPageSize = 10;
-
     public async Task<IReadOnlyList<PublicAotRouteDescriptor>> ListRoutesAsync(
         PublicAotRouteManifestScope scope,
         CancellationToken cancellationToken = default)
@@ -89,14 +87,6 @@ public sealed class PublicAotRouteManifestProvider(
         }
 
         Dictionary<int, int[]> tagIdsByArticle = await LoadTagIdsByArticleAsync(articles, cancellationToken).ConfigureAwait(false);
-        if (scope.IsAll)
-        {
-            for (int page = 2; page <= CountPages(articles.Count); page++)
-            {
-                routes.Add(CreateStaticRoute(PublicPageKind.Home, 0, page));
-            }
-        }
-
         foreach (ArticleRouteProjection article in articles)
         {
             int[] tagIds = tagIdsByArticle.GetValueOrDefault(article.Id, []);
@@ -108,11 +98,7 @@ public sealed class PublicAotRouteManifestProvider(
                      .GroupBy(static article => article.CategoryId)
                      .OrderBy(static group => group.Key))
         {
-            int pageCount = scope.IsAll ? CountPages(category.Count()) : 1;
-            for (int page = 1; page <= pageCount; page++)
-            {
-                routes.Add(CreateCategoryRoute(category.Key, 200, page));
-            }
+            routes.Add(CreateCategoryRoute(category.Key, 200));
         }
 
         int[] tagIdsInScope = [.. tagIdsByArticle.Values.SelectMany(static ids => ids).Where(static id => id > 0).Distinct().Order()];
@@ -120,36 +106,24 @@ public sealed class PublicAotRouteManifestProvider(
         foreach (int tagId in tagIdsInScope)
         {
             string? tagName = tagNamesById.GetValueOrDefault(tagId);
-            int matchingArticleCount = tagIdsByArticle.Count(pair => pair.Value.Contains(tagId));
-            int pageCount = scope.IsAll ? CountPages(matchingArticleCount) : 1;
-            for (int page = 1; page <= pageCount; page++)
-            {
-                routes.Add(CreateTagIdRoute(tagId, tagName, 210, page));
-            }
+            routes.Add(CreateTagIdRoute(tagId, tagName, 210));
         }
 
         logger.LogDebug("public_aot_route_manifest_built {Scope} {Count}", scope.Scope, routes.Count);
         return Deduplicate(routes);
     }
 
-    internal static PublicAotRouteDescriptor CreateStaticRoute(PublicPageKind kind, int priority, int page = 1)
+    internal static PublicAotRouteDescriptor CreateStaticRoute(PublicPageKind kind, int priority)
     {
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
         string routeKey = descriptor.FixedRouteKey ?? PublicAotPageIdentity.GetCanonicalSlug(kind);
-        if (kind == PublicPageKind.Home)
-        {
-            routeKey = PublicRouteIdentity.BuildPaginatedRouteKey(routeKey, page);
-        }
         string path = descriptor.CanonicalFixedPath ?? descriptor.StaticPath ?? "/";
-        string canonicalPath = string.Concat(path, kind == PublicPageKind.Home
-            ? PublicRouteIdentity.BuildPaginationQueryString(page)
-            : string.Empty);
         return new PublicAotRouteDescriptor(
             descriptor.PageId,
             kind,
             routeKey,
             path,
-            canonicalPath,
+            path,
             [SeoDependency, ArticleListDependency],
             priority);
     }
@@ -180,23 +154,23 @@ public sealed class PublicAotRouteManifestProvider(
             priority);
     }
 
-    internal static PublicAotRouteDescriptor CreateCategoryRoute(int categoryId, int priority, int page = 1)
+    internal static PublicAotRouteDescriptor CreateCategoryRoute(int categoryId, int priority)
     {
-        string routeKey = PublicRouteIdentity.BuildPaginatedRouteKey(PublicRouteIdentity.BuildCategoryRouteKey(categoryId), page);
+        string routeKey = PublicRouteIdentity.BuildCategoryRouteKey(categoryId);
         string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, routeKey, null);
         return new PublicAotRouteDescriptor(
             PublicPageId.Filter,
             PublicPageKind.Filter,
             routeKey,
             path,
-            string.Concat(path, PublicRouteIdentity.BuildPaginationQueryString(page)),
+            path,
             [SeoDependency, ArticleListDependency, $"category:{categoryId}"],
             priority);
     }
 
-    internal static PublicAotRouteDescriptor CreateTagIdRoute(int tagId, string? tagName, int priority, int page = 1)
+    internal static PublicAotRouteDescriptor CreateTagIdRoute(int tagId, string? tagName, int priority)
     {
-        string routeKey = PublicRouteIdentity.BuildPaginatedRouteKey(PublicRouteIdentity.BuildTagIdRouteKey(tagId), page);
+        string routeKey = PublicRouteIdentity.BuildTagIdRouteKey(tagId);
         string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, routeKey, null);
         List<string> dependencies = [SeoDependency, ArticleListDependency, $"tag:{tagId}"];
         if (!string.IsNullOrWhiteSpace(tagName))
@@ -209,7 +183,7 @@ public sealed class PublicAotRouteManifestProvider(
             PublicPageKind.Filter,
             routeKey,
             path,
-            string.Concat(path, PublicRouteIdentity.BuildPaginationQueryString(page)),
+            path,
             dependencies,
             priority);
     }
@@ -298,9 +272,6 @@ public sealed class PublicAotRouteManifestProvider(
             .OrderBy(static route => route.Priority)
             .ThenBy(static route => route.PageId)
             .ThenBy(static route => route.RouteKey, StringComparer.Ordinal)];
-
-    private static int CountPages(int total)
-        => Math.Max(1, (int)Math.Ceiling(total / (double)PublicPageSize));
 
     private sealed class ArticleRouteProjection
     {

@@ -140,6 +140,33 @@ test('checked-in OpenAPI projection declares compiled observation authority', ()
     }
 });
 
+test('public article-list operations expose the optional opaque cursor query contract', () =>
+{
+    const openapi = readJson(committedOpenApiPath);
+    const paths = [
+        '/api/binary/article/list/archive/{page:int}/{size:int}.aeds',
+        '/api/binary/article/list/category/{categoryId:int}/{page:int}/{size:int}.aeds',
+        '/api/binary/article/list/home/{page:int}/{size:int}.aeds',
+        '/api/binary/article/list/tag/{tagId:int}/{page:int}/{size:int}.aeds'
+    ];
+
+    for (const route of paths)
+    {
+        const parameters = openapi.paths[route].get['x-fsus-request-contract'].Parameters;
+        assert.deepEqual(
+            parameters.filter((parameter) => parameter.Source === 'query'),
+            [{
+                Name: 'cursor',
+                Source: 'query',
+                SchemaRef: 'query://string',
+                Required: false,
+                Nullable: true
+            }],
+            route
+        );
+    }
+});
+
 test('buildOpenApiFromMatrix is retired and cannot re-enter as authority', () =>
 {
     assert.throws(() => buildOpenApiFromMatrix(), /retired|compiled endpoint observation/iu);

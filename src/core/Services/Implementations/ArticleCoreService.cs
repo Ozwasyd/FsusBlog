@@ -26,6 +26,19 @@ public sealed class ArticleCoreService(
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
+        bool isPublicList = !query.IsDeleted && !query.IncludePrivate && !query.Status.HasValue;
+        if (isPublicList && ((query.Page == 1) == query.Cursor.HasValue))
+        {
+            return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章 cursor 参数非法");
+        }
+
+        if (!Enum.IsDefined(query.Sort)
+            || (!isPublicList && query.Sort != ArticleListSortMode.Latest)
+            || (string.IsNullOrWhiteSpace(query.Keyword) && query.Sort != ArticleListSortMode.Latest))
+        {
+            return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章排序参数非法");
+        }
+
         if (query.Cursor is { } cursor
             && (query.IsDeleted
                 || query.IncludePrivate

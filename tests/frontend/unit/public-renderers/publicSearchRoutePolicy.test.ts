@@ -43,8 +43,26 @@ describe('public search route policy', () => {
   })
 
   it('accepts the canonical query without a redirect', () => {
-    expect(normalizePublicSearchQuery({ q: 'test', sort: 'latest', page: '100' })).toEqual({
-      query: { q: 'test', sort: 'latest', page: '100' },
+    expect(normalizePublicSearchQuery({
+      q: 'test',
+      sort: 'latest',
+      page: '100',
+      cursor: 'opaque_cursor'
+    })).toEqual({
+      query: { q: 'test', sort: 'latest', page: '100', cursor: 'opaque_cursor' },
+      shouldRedirect: false,
+      invalidKeyword: false
+    })
+  })
+
+  it('preserves invalid pagination shape for fail-closed handling instead of redirect recovery', () => {
+    expect(normalizePublicSearchQuery({ q: 'test', page: '2' })).toEqual({
+      query: { q: 'test', page: '2' },
+      shouldRedirect: false,
+      invalidKeyword: false
+    })
+    expect(normalizePublicSearchQuery({ q: 'test', page: '2', cursor: 'bad cursor' })).toEqual({
+      query: { q: 'test', page: '2', cursor: 'bad cursor' },
       shouldRedirect: false,
       invalidKeyword: false
     })

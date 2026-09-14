@@ -28,18 +28,6 @@
             "producer": null
         },
         {
-            "path": "docs/SECURITY.md",
-            "title": "Security Policy",
-            "kind": "markdown",
-            "status": "current",
-            "owner": "governance",
-            "sourceOfTruth": true,
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [],
-            "producer": null
-        },
-        {
             "path": "docs/SUPPORT.md",
             "title": "Support",
             "kind": "markdown",

@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Cache;
 
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
@@ -18,6 +20,9 @@ public static class RedisInitializer
         }
 
         var redisOptions = ConfigurationOptions.Parse(connectionString);
+        var operationBudgets = new RedisOperationBudgetCatalog();
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.TryAddSingleton<IRuntimeKeyScope, DefaultRuntimeKeyScope>();
 
         // Startup remains available for the hosted connector to perform delayed retries.
         redisOptions.AbortOnConnectFail = false;
@@ -28,45 +33,70 @@ public static class RedisInitializer
         // Keepalive prevents idle NAT mappings from silently dropping the connection.
         redisOptions.KeepAlive = 15;
 
-        // The external rate limiter bounds admission while Redis operations use the same timeout budget.
-        redisOptions.AsyncTimeout = 15000;
-        redisOptions.SyncTimeout = 15000;
+        // StackExchange.Redis still needs a transport ceiling, but operation-class
+        // deadlines are the semantic authority and always end no later than this cap.
+        redisOptions.ConnectTimeout = operationBudgets.TransportConnectTimeoutMilliseconds;
+        redisOptions.AsyncTimeout = operationBudgets.TransportTimeoutMilliseconds;
+        redisOptions.SyncTimeout = operationBudgets.TransportTimeoutMilliseconds;
 
+        services.AddSingleton(operationBudgets);
         services.AddSingleton<RedisConnectionMultiplexerHolder>();
+        services.AddSingleton<IRedisConnectionProvider>(static sp =>
+            sp.GetRequiredService<RedisConnectionMultiplexerHolder>());
+        services.AddSingleton<IRedisOperationExecutor, RedisOperationExecutor>();
         services.AddSingleton<IRedisConnectionMultiplexerFactory, StackExchangeRedisConnectionMultiplexerFactory>();
         services.AddHostedService(sp => new RedisMultiplexerHostedService(
             redisOptions,
             sp.GetRequiredService<RedisConnectionMultiplexerHolder>(),
             sp.GetRequiredService<IRedisConnectionMultiplexerFactory>(),
-            sp,
             sp.GetRequiredService<ILogger<RedisMultiplexerHostedService>>()));
-        // Register IConnectionMultiplexer by delegating to the holder. The
-        // RedisMultiplexerHostedService (above) starts connection creation during host
-        // startup, so by the time any IConnectionMultiplexer consumer resolves it
-        // (during request serving), holder.Current is usually already populated. Fall
-        // back to lazy creation so contexts that do not run hosted services (tests,
-        // CLI tools) still resolve a usable connection without blocking DI build.
-        services.AddSingleton<IConnectionMultiplexer>(sp =>
-        {
-            RedisConnectionMultiplexerHolder holder = sp.GetRequiredService<RedisConnectionMultiplexerHolder>();
-            try
-            {
-                return holder.Current;
-            }
-            catch (InvalidOperationException)
-            {
-                return holder
-                    .GetOrCreateAsync(
-                        sp.GetRequiredService<IRedisConnectionMultiplexerFactory>(),
-                        redisOptions)
-                    .GetAwaiter()
-                    .GetResult();
-            }
-        });
+        services.AddHostedService<ArticleHotRegistryRetirementHostedService>();
 
         var instanceName = configuration.GetSection("RedisOptions:InstanceName").Value ?? "FsusBlog_";
         services.AddSingleton(new SharedRedisDistributedCacheOptions(instanceName));
         services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SharedRedisDistributedCache>();
+    }
+}
+
+internal sealed class ArticleHotRegistryRetirementHostedService(
+    IRedisOperationExecutor redisOperations,
+    IRuntimeKeyScope keyScope,
+    ILogger<ArticleHotRegistryRetirementHostedService> logger) : BackgroundService
+{
+    private static readonly TimeSpan s_retryDelay = TimeSpan.FromMilliseconds(250);
+    private static readonly CachePolicyId[] s_retiredRegistryPolicies =
+    [
+        CachePolicyId.ArticleHot,
+        CachePolicyId.TopArticles,
+        CachePolicyId.ArticleHotFrame,
+        CachePolicyId.TopArticlesFrame
+    ];
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        RedisKey[] keys = s_retiredRegistryPolicies
+            .Select(policyId => (RedisKey)keyScope.PrefixKey(UnifiedCache.BuildRegistryKey(policyId)))
+            .ToArray();
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                _ = await redisOperations.ExecuteAsync(
+                        RedisOperationPort.UnifiedCacheMaintenance,
+                        (multiplexer, _) => multiplexer.GetDatabase().KeyDeleteAsync(keys),
+                        stoppingToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+            catch (RedisOperationUnavailableException exception)
+                when (exception.Port.OperationClass == RedisOperationClass.BackgroundMaintenance)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Deferred retired article registry cleanup because Redis is unavailable; retrying");
+                await Task.Delay(s_retryDelay, stoppingToken).ConfigureAwait(false);
+            }
+        }
     }
 }
 
@@ -86,7 +116,7 @@ internal sealed class StackExchangeRedisConnectionMultiplexerFactory : IRedisCon
     }
 }
 
-internal sealed class RedisConnectionMultiplexerHolder
+internal sealed class RedisConnectionMultiplexerHolder : IRedisConnectionProvider, IDisposable
 {
     private readonly object _creationGate = new();
     private Task<IConnectionMultiplexer>? _creationTask;
@@ -128,13 +158,15 @@ internal sealed class RedisConnectionMultiplexerHolder
 
         return multiplexer;
     }
+
+    public void Dispose()
+        => Interlocked.Exchange(ref _multiplexer, null)?.Dispose();
 }
 
 internal sealed partial class RedisMultiplexerHostedService(
     ConfigurationOptions options,
     RedisConnectionMultiplexerHolder holder,
     IRedisConnectionMultiplexerFactory factory,
-    IServiceProvider services,
     ILogger<RedisMultiplexerHostedService> logger) : IHostedService
 {
     private readonly object _startGate = new();
@@ -144,7 +176,8 @@ internal sealed partial class RedisMultiplexerHostedService(
     {
         lock (_startGate)
         {
-            return _startTask ??= StartCoreAsync(cancellationToken);
+            _startTask ??= StartCoreAsync(cancellationToken);
+            return Task.CompletedTask;
         }
     }
 
@@ -157,8 +190,7 @@ internal sealed partial class RedisMultiplexerHostedService(
                 .GetOrCreateAsync(factory, options)
                 .ConfigureAwait(false);
 
-            IConnectionMultiplexer registered = services.GetRequiredService<IConnectionMultiplexer>();
-            if (!ReferenceEquals(multiplexer, registered))
+            if (!ReferenceEquals(multiplexer, holder.Current))
             {
                 throw new InvalidOperationException("redis_multiplexer_identity_mismatch");
             }
@@ -168,7 +200,6 @@ internal sealed partial class RedisMultiplexerHostedService(
         catch (Exception ex)
         {
             LogRedisConnectFailed(logger, ex);
-            throw;
         }
     }
 

@@ -196,6 +196,31 @@ public sealed class PublicAotShellServiceTests
         Assert.DoesNotContain("fallback", preserved.Value, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(PublicPageKind.Home, "home:page:2", "/", "?page=2")]
+    [InlineData(PublicPageKind.Filter, "category:7", "/category/7", "?cursor=opaque")]
+    public async Task GenerateAndStoreAsync_DropsIneligiblePaginatedBackfillBeforeDatabaseOrWrite(
+        PublicPageKind kind,
+        string routeKey,
+        string path,
+        string queryString)
+    {
+        IDbConcurrencyGate gate = Substitute.For<IDbConcurrencyGate>();
+        IPublicAotCacheWriter writer = Substitute.For<IPublicAotCacheWriter>();
+        PublicAotShellService sut = CreateService(
+            HomeMatch(),
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            dbConcurrencyGate: gate,
+            cacheWriter: writer);
+        var request = new PublicAotBackfillRequest(kind, routeKey, path, queryString, "cache:stale-page");
+
+        await sut.GenerateAndStoreAsync(request);
+
+        Assert.Empty(gate.ReceivedCalls());
+        Assert.Empty(writer.ReceivedCalls());
+    }
+
     [Fact]
     public async Task RenderAsync_WhenTestSessionHeaderIsPresent_CarriesSessionIntoBackfillRequest()
     {
@@ -341,7 +366,7 @@ public sealed class PublicAotShellServiceTests
             }
         };
         var tracker = new PublicAotInvalidationTracker();
-        tracker.MarkKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+        _ = await tracker.MarkKeyAsync(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(match, cache, scheduler, invalidationTracker: tracker);
         var context = new DefaultHttpContext();
@@ -475,7 +500,7 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
-    public async Task RenderClassifiedAsync_CacheReadThrows_ReturnsTransientFailureWithoutQueueing()
+    public async Task RenderClassifiedAsync_CacheReadThrows_UsesDbGateAndQueuesBoundedBackfill()
     {
         var match = HomeMatch();
         var scheduler = new RecordingBackfillScheduler();
@@ -489,10 +514,37 @@ public sealed class PublicAotShellServiceTests
         PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
 
         Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
-        Assert.Equal("public_aot_cache_read_failed", result.Error.Message);
-        Assert.Empty(scheduler.Requests);
+        Assert.Equal("public_aot_cold_miss_backfill_queued", result.Error.Message);
+        Assert.Single(scheduler.Requests);
         Assert.Equal("server-status", context.Items[PublicAotRuntimeState.PublicAotSourceContextKey]);
-        Assert.Equal("transient-failure", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
+        Assert.Equal("cold-miss", context.Items[PublicAotRuntimeState.PublicAotStateContextKey]);
+    }
+
+    [Fact]
+    public async Task OneThousandConcurrentCacheFailures_StayInsideDbGate()
+    {
+        const int Concurrency = 1_000;
+        var match = HomeMatch();
+        var gate = new BoundedRecordingDbConcurrencyGate(limit: 8);
+        var scheduler = new CountingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            new ThrowingAotCache(),
+            scheduler,
+            dbConcurrencyGate: gate);
+
+        PublicAotRenderOutcome[] outcomes = await Task.WhenAll(
+            Enumerable.Range(0, Concurrency).Select(_ =>
+                sut.RenderClassifiedAsync(new DefaultHttpContext(), match)));
+
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.Equal(PublicAotRenderStatus.TransientFailure, outcome.Status);
+            Assert.Equal("public_aot_cold_miss_backfill_queued", outcome.Error.Message);
+        });
+        Assert.Equal(Concurrency, gate.ExecutionCount);
+        Assert.InRange(gate.MaxInUse, 1, 8);
+        Assert.Equal(Concurrency, scheduler.AcceptedCount);
     }
 
     [Fact]
@@ -543,13 +595,10 @@ public sealed class PublicAotShellServiceTests
         var match = new PublicAotRouteMatch(
             PublicPageKind.Filter,
             PublicPageId.Filter,
-            "tag-name:Café:page:2",
+            "tag-name:Café",
             string.Empty,
             "/tag/Caf%C3%A9",
-            "?page=2")
-        {
-            Page = 2
-        };
+            string.Empty);
         var cache = new RecordingAotCache();
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(
@@ -565,7 +614,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
 
         Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
-        Assert.Equal("/tag/17?page=2", result.RedirectPath);
+        Assert.Equal("/tag/17", result.RedirectPath);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
         Assert.Equal("none", context.Items[PublicAotRuntimeState.PublicAotBackfillContextKey]);
@@ -578,13 +627,10 @@ public sealed class PublicAotShellServiceTests
         var match = new PublicAotRouteMatch(
             PublicPageKind.Filter,
             PublicPageId.Filter,
-            "tag:17:page:2",
+            "tag:17",
             "/tag/17",
             "/TAG/017/",
-            "?page=2")
-        {
-            Page = 2
-        };
+            string.Empty);
         var cache = new RecordingAotCache();
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(match, cache, scheduler);
@@ -593,7 +639,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
 
         Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
-        Assert.Equal("/tag/17?page=2", result.RedirectPath);
+        Assert.Equal("/tag/17", result.RedirectPath);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
     }
@@ -613,6 +659,28 @@ public sealed class PublicAotShellServiceTests
 
         Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
         Assert.Equal("/", result.RedirectPath);
+        Assert.Empty(cache.RequestedKeys);
+        Assert.Empty(scheduler.Requests);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_CursorlessDeepPage_DoesNotReadOrRegenerateArtifact()
+    {
+        PublicAotRouteMatch match = HomeMatch() with
+        {
+            RouteKey = "home:page:2",
+            QueryString = "?page=2",
+            Page = 2
+        };
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(match, cache, scheduler);
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(new DefaultHttpContext(), match);
+
+        Assert.Equal(PublicAotRenderStatus.NotFound, result.Status);
+        Assert.Equal(ErrorCode.Validation, result.Error.Code);
+        Assert.Equal("public_aot_cursor_only_route_required", result.Error.Message);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
     }
@@ -665,13 +733,10 @@ public sealed class PublicAotShellServiceTests
         var match = new PublicAotRouteMatch(
             PublicPageKind.Filter,
             PublicPageId.Filter,
-            "tag-name:Legacy:page:2",
+            "tag-name:Legacy",
             string.Empty,
             "/tag/Legacy",
-            "?page=2")
-        {
-            Page = 2
-        };
+            string.Empty);
         var renderer = new NavigationSnapshotRenderer();
         PublicAotShellService sut = CreateService(
             match,
@@ -687,13 +752,13 @@ public sealed class PublicAotShellServiceTests
         Result<PublicAotNavigationSnapshot> result = await sut.BuildNavigationSnapshotAsync(context, match);
 
         Assert.True(result.IsSuccess, result.Error.Message);
-        Assert.Equal("tag:23:page:2", result.Value!.RouteKey);
+        Assert.Equal("tag:23", result.Value!.RouteKey);
         Assert.Equal("/tag/23", result.Value.Path);
-        Assert.Equal("/tag/23?page=2", result.Value.CanonicalPath);
+        Assert.Equal("/tag/23", result.Value.CanonicalPath);
         PublicAotRenderRequest renderRequest = Assert.Single(renderer.Requests);
-        Assert.Equal("tag:23:page:2", renderRequest.Match.RouteKey);
+        Assert.Equal("tag:23", renderRequest.Match.RouteKey);
         PublicFilterPageSnapshot filter = Assert.IsType<PublicFilterPageSnapshot>(renderRequest.Snapshot);
-        Assert.Equal("tag:23:page:2", filter.RouteKey);
+        Assert.Equal("tag:23", filter.RouteKey);
         Assert.Equal("tag:23", filter.FilterKey);
     }
 
@@ -752,7 +817,7 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
-    public async Task BuildNavigationSnapshotAsync_DistinguishesPaginationPayloadHashAndEtag()
+    public async Task BuildNavigationSnapshotAsync_RejectsCursorlessDeepPageBeforeRendering()
     {
         PublicAotRouteMatch pageOne = HomeMatch();
         PublicAotRouteMatch pageTwo = HomeMatch() with
@@ -775,14 +840,14 @@ public sealed class PublicAotShellServiceTests
             entryRenderer: renderer,
             dbConcurrencyGate: new ImmediateDbConcurrencyGate());
 
-        PublicAotNavigationSnapshot first = (await pageOneService.BuildNavigationSnapshotAsync(new DefaultHttpContext(), pageOne)).Value!;
-        PublicAotNavigationSnapshot second = (await pageTwoService.BuildNavigationSnapshotAsync(new DefaultHttpContext(), pageTwo)).Value!;
+        Result<PublicAotNavigationSnapshot> first = await pageOneService.BuildNavigationSnapshotAsync(new DefaultHttpContext(), pageOne);
+        Result<PublicAotNavigationSnapshot> second = await pageTwoService.BuildNavigationSnapshotAsync(new DefaultHttpContext(), pageTwo);
 
-        Assert.Equal("/?page=2", second.CanonicalPath);
-        Assert.NotEqual(first.PayloadHash, second.PayloadHash);
-        Assert.NotEqual(
-            PublicAotNavigationSnapshot.CreateEntityTag(first.EncodeFrame()),
-            PublicAotNavigationSnapshot.CreateEntityTag(second.EncodeFrame()));
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsFailure);
+        Assert.Equal(ErrorCode.Validation, second.Error.Code);
+        Assert.Equal("public_aot_cursor_only_route_required", second.Error.Message);
+        Assert.Single(renderer.Requests);
     }
 
     [Fact]
@@ -975,6 +1040,48 @@ public sealed class PublicAotShellServiceTests
             => Task.CompletedTask;
     }
 
+    private sealed class ThrowingAotCache : IPublicAotShellCache
+    {
+        public Task<PublicAotCacheEntry?> TryGetEntryAsync(
+            string cacheKey,
+            CancellationToken cancellationToken = default)
+            => Task.FromException<PublicAotCacheEntry?>(new IOException("cache unavailable"));
+
+        public Task<PublicAotCacheEntry?> TryGetEntryAsync(
+            string cacheKey,
+            string? frontendAssetVersion,
+            CancellationToken cancellationToken = default)
+            => Task.FromException<PublicAotCacheEntry?>(new IOException("cache unavailable"));
+
+        public Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task InvalidateAllAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class CountingBackfillScheduler : IPublicAotBackfillScheduler
+    {
+        private int _acceptedCount;
+
+        public int AcceptedCount => Volatile.Read(ref _acceptedCount);
+
+        public bool TrySchedule(PublicAotBackfillRequest request)
+        {
+            Interlocked.Increment(ref _acceptedCount);
+            return true;
+        }
+    }
+
     private sealed class RecordingBackfillScheduler(bool accept = true) : IPublicAotBackfillScheduler
     {
         public List<PublicAotBackfillRequest> Requests { get; } = [];
@@ -1129,5 +1236,47 @@ public sealed class PublicAotShellServiceTests
             => await action(cancellationToken);
 
         public DbConcurrencyGateSnapshot GetSnapshot() => new(1, 0, 0);
+    }
+
+    private sealed class BoundedRecordingDbConcurrencyGate(int limit) : IDbConcurrencyGate
+    {
+        private readonly SemaphoreSlim _gate = new(limit, limit);
+        private int _executionCount;
+        private int _inUse;
+        private int _maxInUse;
+
+        public int ExecutionCount => Volatile.Read(ref _executionCount);
+
+        public int MaxInUse => Volatile.Read(ref _maxInUse);
+
+        public async Task<T> ExecuteAsync<T>(
+            string operation,
+            Func<CancellationToken, Task<T>> action,
+            Func<CancellationToken, Task<T>> onTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken);
+            int inUse = Interlocked.Increment(ref _inUse);
+            Interlocked.Increment(ref _executionCount);
+            int observed;
+            while ((observed = Volatile.Read(ref _maxInUse)) < inUse
+                && Interlocked.CompareExchange(ref _maxInUse, inUse, observed) != observed)
+            {
+            }
+
+            try
+            {
+                await Task.Yield();
+                return await action(cancellationToken);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inUse);
+                _gate.Release();
+            }
+        }
+
+        public DbConcurrencyGateSnapshot GetSnapshot()
+            => new(limit, Volatile.Read(ref _inUse), 0);
     }
 }

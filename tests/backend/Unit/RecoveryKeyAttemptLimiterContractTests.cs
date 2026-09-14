@@ -8,6 +8,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -158,6 +159,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
             cache,
             cache,
             cache,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {

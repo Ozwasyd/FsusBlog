@@ -650,7 +650,10 @@ public class NotificationStreamBoundaryTests
         var manager = new NotificationStreamConnectionManager(new ConfigurationBuilder().Build(), NullLogger<NotificationStreamConnectionManager>.Instance);
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase().Returns(Substitute.For<IDatabase>());
-        var backlog = new NotificationStreamBacklogStore(redis, Substitute.For<IRuntimeKeyScope>(), NullLogger<NotificationStreamBacklogStore>.Instance);
+        var backlog = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis),
+            Substitute.For<IRuntimeKeyScope>(),
+            NullLogger<NotificationStreamBacklogStore>.Instance);
         var service = new NotificationStreamSessionService(manager, backlog, new TestNotificationFrameCodec(), new TestWebHostEnvironment(), NullLogger<NotificationStreamSessionService>.Instance);
         var context = new DefaultHttpContext();
         context.Features.Set<IHttpWebSocketFeature>(new ThrowingWebSocketFeature());
@@ -683,7 +686,8 @@ public class NotificationStreamBoundaryTests
                 Task.FromResult(new[] { StreamEntry("100-0", [0x64]) }),
                 Task.FromResult(new[] { StreamEntry("51-0", [0x33]) }),
                 Task.FromResult(new[] { StreamEntry("50-0", [0x32]) }));
-        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        var store = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis), keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
         NotificationStreamReplayBatch replay = await store.ReplayAsync(new NotificationStreamCursor(50), "42", new HashSet<string>(StringComparer.Ordinal));
 
@@ -734,7 +738,8 @@ public class NotificationStreamBoundaryTests
                 Order.Ascending,
                 CommandFlags.None)
             .Returns(Task.FromResult(new[] { StreamEntry("100-0", [0x64]) }));
-        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        var store = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis), keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
         NotificationStreamReplayBatch replay = await store.ReplayAsync(
             new NotificationStreamCursor(50),
@@ -806,7 +811,8 @@ public class NotificationStreamBoundaryTests
                 Task.FromResult(new[] { StreamEntry("100-0", [0x64]) }),
                 Task.FromResult(new[] { StreamEntry("51-0", [0x33]) }),
                 Task.FromResult(new[] { StreamEntry("50-0", [0x32]) }));
-        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        var store = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis), keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
         NotificationStreamReplayBatch replay = await store.ReplayAsync(
             new NotificationStreamCursor(50),
@@ -847,7 +853,8 @@ public class NotificationStreamBoundaryTests
                 Arg.Any<bool>(),
                 Arg.Any<CommandFlags>())
             .Returns((RedisValue)"100-0");
-        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        var store = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis), keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
         SharedNotificationStreamFrame frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
 
         var result = await store.AppendAsync(100, "u:42", frame, CancellationToken.None);
@@ -881,7 +888,7 @@ public class NotificationStreamBoundaryTests
                 Arg.Any<CommandFlags>())
             .Returns(true);
         var store = new NotificationStreamBacklogStore(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             keyScope,
             NullLogger<NotificationStreamBacklogStore>.Instance);
 
@@ -1314,7 +1321,7 @@ public class NotificationStreamBoundaryTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase().Returns(Substitute.For<IDatabase>());
         var backlog = new NotificationStreamBacklogStore(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             Substitute.For<IRuntimeKeyScope>(),
             NullLogger<NotificationStreamBacklogStore>.Instance);
         return new NotificationStreamSessionService(

@@ -35,6 +35,21 @@ public sealed class DistributedInvalidationBus(
             invalidation,
             options.Topology ?? throw new InvalidOperationException("distributed_invalidation_topology_required"),
             cancellationToken)).ConfigureAwait(false);
+        return await PublishPreparedAsync(invalidation, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<DistributedInvalidationPublishResult> PublishPreparedAsync(
+        DistributedInvalidationEvent invalidation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(invalidation);
+        invalidation.Validate();
+        if (!string.Equals(invalidation.SourceNodeId, options.NodeId, StringComparison.Ordinal)
+            || !string.Equals(invalidation.RuntimeScope, eventFactory.RuntimeScope, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("distributed_invalidation_prepared_event_scope_mismatch");
+        }
+
         try
         {
             string payload = JsonSerializer.Serialize(invalidation, s_jsonOptions);
@@ -236,7 +251,8 @@ public sealed class DistributedInvalidationBus(
             return;
         }
 
-        if (string.Equals(invalidation.SourceNodeId, options.NodeId, StringComparison.Ordinal))
+        if (string.Equals(invalidation.SourceNodeId, options.NodeId, StringComparison.Ordinal)
+            && invalidation.Kind != DistributedInvalidationEventKinds.AdminSessionProjectionMutation)
         {
             runtimeState.RecordSelfIgnored(invalidation);
             return;

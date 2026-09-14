@@ -184,7 +184,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
                 new StreamEntry("1125-0", [new NameValueEntry("f", new byte[] { 1 })])
             }));
         var store = new NotificationStreamBacklogStore(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             keyScope,
             NullLogger<NotificationStreamBacklogStore>.Instance);
         SharedNotificationStreamFrame frame = SharedNotificationStreamFrame.FromArray([1]);

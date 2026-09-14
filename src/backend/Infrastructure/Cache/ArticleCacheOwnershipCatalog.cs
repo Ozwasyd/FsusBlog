@@ -18,10 +18,10 @@ public static class ArticleCacheOwnershipCatalog
             [CachePolicyId.ArticleList] = new(
                 CachePolicyId.ArticleList,
                 "ArticleService infrastructure port",
-                "IArticleCoreService query handlers",
-                "ArticleService.GetPageListAsync when ArticlePageQuery.UseSourceCache is true",
+                "administrative article-list query handlers",
+                "ArticleService.GetPageListAsync for non-public ArticlePageQuery when UseSourceCache is true",
                 "ArticleListVersion increment; ArticleList tag output invalidation",
-                "short-lived DTO/Core cache; public binary frame path bypasses it on cold miss"),
+                "short-lived administrative DTO/Core cache; all public cursor queries bypass it"),
             [CachePolicyId.ArticleListFrame] = new(
                 CachePolicyId.ArticleListFrame,
                 "ArticleEndpointService",
@@ -54,15 +54,36 @@ public static class ArticleCacheOwnershipCatalog
                 CachePolicyId.ArticleHotFrame,
                 "ArticleEndpointService",
                 "binary hot article endpoints",
-                "ArticleEndpointService.GetHotArticlesAsync",
+                "generation-scoped whole-frame build from seed read through one metadata projection and atomic frame publication",
                 "HotArticles version identity and hot article invalidation",
-                "primary encoded hot response cache"),
+                "primary encoded hot response cache; no prefix registry"),
+            [CachePolicyId.TopArticles] = new(
+                CachePolicyId.TopArticles,
+                "article view projection",
+                "hot and featured whole-frame builders as an optional ranking seed",
+                "view projection only; frame misses never refill this seed",
+                "HotArticles generation advancement",
+                "ranking seed only; no seed-only singleflight or prefix registry"),
+            [CachePolicyId.TopArticlesFrame] = new(
+                CachePolicyId.TopArticlesFrame,
+                "ArticleEndpointService",
+                "binary featured article endpoints",
+                "generation-scoped whole-frame build from seed read through one metadata projection and atomic frame publication",
+                "HotArticles version identity and hot article invalidation",
+                "primary encoded featured response cache; no prefix registry"),
             [CachePolicyId.ArticleSearch] = new(
                 CachePolicyId.ArticleSearch,
                 "ArticleService",
                 "search readers after keyword governance",
                 "ArticleService.SearchArticlesAsync",
                 "ArticleSearchVersion identity and search index version increment",
-                "single search cache owner; Core handler is pass-through")
+                "single search cache owner; Core handler is pass-through"),
+            [CachePolicyId.RelatedReading] = new(
+                CachePolicyId.RelatedReading,
+                "RelatedReadingService",
+                "public related-reading binary endpoint",
+                "singleflight projection publishes one immutable ArticleRelatedReading AEDS frame or policy negative marker",
+                "publication generation identity plus ArticleList/Category/Tag invalidation",
+                "one positive frame representation; missing articles use the same policy key as a negative marker")
         }.ToFrozenDictionary();
 }

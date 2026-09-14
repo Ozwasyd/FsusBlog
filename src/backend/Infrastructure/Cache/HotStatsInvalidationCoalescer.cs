@@ -17,8 +17,10 @@ public sealed class HotStatsInvalidationCoalescer(
     private const long StatsForceFlushThreshold = 32;
 
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _versionInitialization = new(1, 1);
+    private bool _versionInitialized;
     private HotStatsInvalidationSnapshot _snapshot = new(
-        DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+        0,
         0,
         0,
         0,
@@ -52,6 +54,39 @@ public sealed class HotStatsInvalidationCoalescer(
 
     public string BuildVersionedHotArticlesIdentity(string identity)
         => $"v{CurrentHotArticlesVersion}:{identity}";
+
+    public async Task EnsureHotArticlesVersionInitializedAsync(CancellationToken cancellationToken = default)
+    {
+        if (Volatile.Read(ref _versionInitialized))
+        {
+            return;
+        }
+
+        await _versionInitialization.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_versionInitialized)
+            {
+                return;
+            }
+
+            long? authoritativeVersion = await IncrementSharedCounterAsync(
+                    IHotArticlesCacheVersionProvider.AuthorityCounterIdentity,
+                    0,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (authoritativeVersion.HasValue)
+            {
+                ObserveHotArticlesVersion(authoritativeVersion.Value);
+            }
+
+            Volatile.Write(ref _versionInitialized, true);
+        }
+        finally
+        {
+            _versionInitialization.Release();
+        }
+    }
 
     public async Task MarkStatsDirtyAsync(string reason, CancellationToken cancellationToken = default)
     {
@@ -119,19 +154,62 @@ public sealed class HotStatsInvalidationCoalescer(
         FsusObservability.RecordHotStatsInvalidation("hot_articles", "dirty", reason, 1);
     }
 
-    public long PublishNextHotArticlesVersion(string reason)
+    public void ObserveHotArticlesVersion(long version)
     {
+        if (version < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(version));
+        }
+
         lock (_gate)
         {
-            long nextVersion = Math.Max(_snapshot.HotArticlesVersion + 1, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            if (version <= _snapshot.HotArticlesVersion)
+            {
+                return;
+            }
+
             _snapshot = _snapshot with
             {
-                HotArticlesVersion = nextVersion,
+                HotArticlesVersion = version,
+                LastFlushAt = DateTimeOffset.UtcNow,
+                LastFlushReason = "distributed-version-observed"
+            };
+        }
+    }
+
+    public async Task<long> PublishNextHotArticlesVersionAsync(
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureHotArticlesVersionInitializedAsync(cancellationToken).ConfigureAwait(false);
+        long? authoritativeVersion = await IncrementSharedCounterAsync(
+                IHotArticlesCacheVersionProvider.AuthorityCounterIdentity,
+                1,
+                cancellationToken)
+            .ConfigureAwait(false);
+        long nextVersion;
+        if (authoritativeVersion.HasValue)
+        {
+            nextVersion = authoritativeVersion.Value;
+        }
+        else
+        {
+            lock (_gate)
+            {
+                nextVersion = checked(_snapshot.HotArticlesVersion + 1);
+            }
+        }
+        ObserveHotArticlesVersion(nextVersion);
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
                 LastFlushAt = DateTimeOffset.UtcNow,
                 LastFlushReason = NormalizeReason(reason)
             };
-            return nextVersion;
         }
+
+        return nextVersion;
     }
 
     public HotStatsInvalidationSnapshot Snapshot()
@@ -348,7 +426,10 @@ public sealed class HotStatsInvalidationCoalescer(
         var httpCacheInvalidator = scope.ServiceProvider.GetRequiredService<IHttpCacheInvalidator>();
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles).ConfigureAwait(false);
 
-        long version = PublishNextHotArticlesVersion($"hot_articles:{reason ?? "unknown"}");
+        long version = await PublishNextHotArticlesVersionAsync(
+                $"hot_articles:{reason ?? "unknown"}",
+                cancellationToken)
+            .ConfigureAwait(false);
         if (scope.ServiceProvider.GetService<CacheInvalidationRuntimeState>() is { } runtimeState)
         {
             await runtimeState.RecordAsync("hot_articles", $"coalesced:v{version};dirty:{dirtyCount};reason:{reason ?? "unknown"}", cancellationToken).ConfigureAwait(false);

@@ -11,7 +11,7 @@ namespace FsusBlog.Server.Infrastructure.Distributed;
 
 public sealed class RedisDistributedInvalidationTransport : IDistributedInvalidationTransport
 {
-    private readonly IConnectionMultiplexer _redis;
+    private readonly IRedisOperationExecutor _redis;
     private readonly TimeProvider _timeProvider;
     private readonly DistributedInvalidationOptions _options;
     private readonly DistributedInvalidationTopologyManifest _topology;
@@ -20,7 +20,7 @@ public sealed class RedisDistributedInvalidationTransport : IDistributedInvalida
     private readonly DistributedInvalidationIngressSink _ingressSink;
 
     public RedisDistributedInvalidationTransport(
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redis,
         IRuntimeKeyScope runtimeKeyScope,
         DistributedInvalidationOptions options,
         TimeProvider timeProvider,
@@ -50,8 +50,10 @@ public sealed class RedisDistributedInvalidationTransport : IDistributedInvalida
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            long subscriberCount = await _redis.GetSubscriber()
-                .PublishAsync(_channel, payload)
+            long subscriberCount = await _redis.ExecuteAsync(
+                    RedisOperationPort.DistributedInvalidation,
+                    (multiplexer, _) => multiplexer.GetSubscriber().PublishAsync(_channel, payload),
+                    cancellationToken)
                 .ConfigureAwait(false);
             return DistributedInvalidationTransportPublishResult.Observe(
                 _channel.ToString(),
@@ -78,7 +80,6 @@ public sealed class RedisDistributedInvalidationTransport : IDistributedInvalida
     public async IAsyncEnumerable<string> ReadAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        ISubscriber subscriber = _redis.GetSubscriber();
         var messages = Channel.CreateBounded<string>(new BoundedChannelOptions(_options.IngressCapacity)
         {
             SingleReader = true,
@@ -86,7 +87,16 @@ public sealed class RedisDistributedInvalidationTransport : IDistributedInvalida
             FullMode = BoundedChannelFullMode.Wait,
             AllowSynchronousContinuations = false
         });
-        ChannelMessageQueue queue = await subscriber.SubscribeAsync(_channel).ConfigureAwait(false);
+        (ISubscriber subscriber, ChannelMessageQueue queue) = await _redis.ExecuteAsync(
+                RedisOperationPort.DistributedInvalidation,
+                async (multiplexer, _) =>
+                {
+                    ISubscriber subscriber = multiplexer.GetSubscriber();
+                    ChannelMessageQueue queue = await subscriber.SubscribeAsync(_channel).ConfigureAwait(false);
+                    return (subscriber, queue);
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
         queue.OnMessage(message =>
         {
             if (message.Message.IsNullOrEmpty)
@@ -123,7 +133,11 @@ public sealed class RedisDistributedInvalidationTransport : IDistributedInvalida
         finally
         {
             messages.Writer.TryComplete();
-            await subscriber.UnsubscribeAsync(_channel).ConfigureAwait(false);
+            await _redis.ExecuteAsync(
+                    RedisOperationPort.DistributedInvalidation,
+                    (_, _) => subscriber.UnsubscribeAsync(_channel),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
         }
     }
 }

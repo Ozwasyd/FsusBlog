@@ -1,6 +1,12 @@
 namespace FsusBlog.Server.Interfaces;
 
-public readonly record struct BanStateSnapshot(bool IsBanned, string? ReasonCode, string? Message);
+public readonly record struct BanStateSnapshot(
+    bool IsBanned,
+    string? ReasonCode,
+    string? Message,
+    bool IsKnown = true,
+    bool IsDeleted = false,
+    long Generation = 0);
 
 public interface IBlacklistService
 {

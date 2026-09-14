@@ -2,6 +2,7 @@ using System.Data.Common;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Data;
+using FsusBlog.Server.Infrastructure.Projections;
 
 using SqlSugar;
 
@@ -30,7 +31,7 @@ public interface IPasskeyProjectionConsistencyService
 /// </summary>
 public sealed class PasskeyProjectionConsistencyService(
     ISqlSugarClient db,
-    ICacheCounterStore counters,
+    IAccountStateProjectionMutationPublisher accountStates,
     ILogger<PasskeyProjectionConsistencyService> logger) : IPasskeyProjectionConsistencyService
 {
     private const string DriftCountSql =
@@ -98,14 +99,6 @@ public sealed class PasskeyProjectionConsistencyService(
                 }
             }
 
-            foreach (int accountId in repairedAccountIds)
-            {
-                await AccountSnapshotCacheInvalidator.BumpVersionAsync(
-                    counters,
-                    accountId,
-                    cancellationToken).ConfigureAwait(false);
-            }
-
             int remaining = await CountDriftedAccountsAsync(cancellationToken).ConfigureAwait(false);
             if (remaining != 0)
             {
@@ -115,6 +108,11 @@ public sealed class PasskeyProjectionConsistencyService(
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException("passkey_projection_repair_failed", transaction.ErrorException);
+        }
+
+        foreach (int accountId in repairedAccountIds)
+        {
+            await accountStates.ProjectCommittedMutationAsync(accountId, cancellationToken).ConfigureAwait(false);
         }
 
         logger.LogInformation(

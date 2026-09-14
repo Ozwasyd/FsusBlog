@@ -497,7 +497,7 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             artifacts,
             search,
             cacheInvalidation,
-            redisConnection,
+            RedisOperationExecutor.ForTestConnection(redisConnection),
             runtimeKeyScope,
             environment,
             configuration,

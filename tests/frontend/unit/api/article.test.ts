@@ -72,12 +72,23 @@ describe('article API (binary)', () => {
   })
 
   it('getArticles applies tagId filter', async () => {
-    await getArticles({ tagId: 3, page: 2 })
+    await getArticles({ tagId: 3 })
     const call = mockBinary.mock.calls[0][0]
     expect(call.binaryRoute).toEqual(expect.objectContaining({
       operationId: 'binary_get_article_list_tag_tagId_page_size_aeds',
-      params: { tagId: 3, page: 2, size: 10 }
+      params: { tagId: 3, page: 1, size: 10 }
     }))
+  })
+
+  it('getArticles rejects cursorless deep pages before transport', () => {
+    expect(() => getArticles({ page: 2 })).toThrow('article_cursor_required')
+    expect(mockBinary).not.toHaveBeenCalled()
+  })
+
+  it('getArticles rejects a cursor on the first page before transport', () => {
+    expect(() => getArticles({ page: 1, cursor: 'unexpected_cursor' }))
+      .toThrow('article_cursor_not_allowed_on_first_page')
+    expect(mockBinary).not.toHaveBeenCalled()
   })
 
   it('getArticles forwards the opaque cursor without parsing it', async () => {
@@ -85,6 +96,19 @@ describe('article API (binary)', () => {
     expectBinaryRoute('binary_get_article_list_home_page_size_aeds', FrameType.ArticleList, {
       params: { page: 2, size: 10 },
       query: 'cursor=AQIDBA_filter-bound-checksum'
+    })
+  })
+
+  it('getArticles forwards cursor-bound search and sort inputs', async () => {
+    await getArticles({
+      page: 2,
+      cursor: 'opaque_cursor',
+      keyword: '  cursor pagination  ',
+      sort: 'relevance'
+    })
+    expectBinaryRoute('binary_get_article_list_home_page_size_aeds', FrameType.ArticleList, {
+      params: { page: 2, size: 10 },
+      query: 'cursor=opaque_cursor&keyword=cursor+pagination&sort=relevance'
     })
   })
 

@@ -109,8 +109,9 @@
                 "StackExchange.Redis",
                 "Microsoft.Extensions.Caching"
             ],
-            "src/backend/Infrastructure/Cache/CacheLocalStore.cs": [
-                "StackExchange.Redis"
+            "src/backend/Infrastructure/Cache/PolicyShardedCacheL1Store.cs": [
+                "StackExchange.Redis",
+                "Microsoft.Extensions.Caching"
             ],
             "src/backend/Infrastructure/Cache/CacheKeyResolver.cs": [
                 "UnifiedCache"

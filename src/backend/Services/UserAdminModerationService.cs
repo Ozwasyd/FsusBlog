@@ -7,7 +7,10 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
@@ -21,9 +24,9 @@ namespace FsusBlog.Server.Services;
 public sealed class UserAdminModerationService(
     ISqlSugarClient db,
     ILogger<UserAdminModerationService> logger,
-    IBlacklistService blacklist,
+    IBanStateProjectionObligationCoordinator banStateObligations,
     IMessageCommandService messages,
-    ICacheCounterStore counters,
+    IAccountStateProjectionMutationPublisher accountStates,
     IUserSessionValidationCache? sessionValidation = null) : IUserAdminModerationService
 {
     private const int UserStatusNormal = 0;
@@ -242,6 +245,10 @@ public sealed class UserAdminModerationService(
             return (false, "已注销账户不可变更状态");
 
         string? effectiveReason = dto.Status == 1 ? (dto.Reason ?? "违反社区规定") : null;
+        if (user.Status == dto.Status)
+        {
+            return (true, dto.Status == UserStatusBanned ? "用户已封禁" : "用户已解封");
+        }
 
         AdminStatusUpdateResult statusUpdate = await TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason);
         if (!statusUpdate.Success)
@@ -262,14 +269,17 @@ public sealed class UserAdminModerationService(
             return (false, "账户状态已变化，请刷新后重试");
         }
 
+        await banStateObligations.ApplyLocalAndPublishPreparedAsync(
+            statusUpdate.Invalidation,
+            statusUpdate.BanUpdate is BanStateProjectionUpdate update ? [update] : [])
+            .ConfigureAwait(false);
+
         if (dto.Status == UserStatusBanned)
         {
-            await blacklist.BanUserAsync(dto.AccountId, effectiveReason!);
             await NotifyUserBannedAsync(dto.AccountId, effectiveReason!).ConfigureAwait(false);
         }
         else
         {
-            await blacklist.UnbanUserAsync(dto.AccountId);
             await NotifyUserUnbannedAsync(dto.AccountId).ConfigureAwait(false);
         }
 
@@ -307,28 +317,14 @@ public sealed class UserAdminModerationService(
     {
         if (db.CurrentConnectionConfig?.DbType != DbType.PostgreSQL)
         {
-            int updated = await db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE sys_user
-                SET status = @Status,
-                    banreason = @BanReason
-                WHERE id = @AccountId
-                  AND identity_kind = @IdentityKind
-                  AND status <> 2
-                  AND deleted_at IS NULL
-                  AND xmin::text = @RowVersion;
-                """,
-                new SugarParameter("@AccountId", target.Id),
-                new SugarParameter("@IdentityKind", target.IdentityKind),
-                new SugarParameter("@Status", status),
-                new SugarParameter("@BanReason", banReason),
-                new SugarParameter("@RowVersion", target.RowVersion));
-            return new AdminStatusUpdateResult(updated > 0, 0);
+            throw new NotSupportedException("Ban-state mutation requires PostgreSQL transactional projection obligations.");
         }
 
         var states = new List<UserSessionValidationCacheState>();
         bool publicationAttempted = false;
         bool accountUpdated = false;
+        BanStateProjectionUpdate? banUpdate = null;
+        DistributedInvalidationEvent? banInvalidation = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             await UserSessionConcurrencyGate.AcquireAsync(db, target.Id);
@@ -337,13 +333,17 @@ public sealed class UserAdminModerationService(
                 """
                 UPDATE sys_user
                 SET status = @Status,
-                    banreason = @BanReason
+                    banreason = @BanReason,
+                    ban_state_generation = ban_state_generation + 1
                 WHERE id = @AccountId
                   AND identity_kind = @IdentityKind
                   AND status <> 2
                   AND deleted_at IS NULL
                   AND xmin::text = @RowVersion
-                RETURNING xmin::text AS account_row_version;
+                RETURNING xmin::text AS account_row_version,
+                          account_subject_hash,
+                          status,
+                          ban_state_generation;
                 """,
                 new SugarParameter("@AccountId", target.Id),
                 new SugarParameter("@IdentityKind", target.IdentityKind),
@@ -355,6 +355,14 @@ public sealed class UserAdminModerationService(
                 {
                     accountUpdated = true;
                     accountRowVersion = accountReader.ReadString("account_row_version");
+                    if (accountReader.IsNull("account_subject_hash"))
+                    {
+                        throw new InvalidOperationException("account status projection identity is missing");
+                    }
+                    banUpdate = BanStateProjectionFacts.Create(
+                        accountReader.ReadString("account_subject_hash"),
+                        accountReader.ReadInt32("status"),
+                        accountReader.ReadInt64("ban_state_generation"));
                 }
             }
 
@@ -402,6 +410,11 @@ public sealed class UserAdminModerationService(
             {
                 await sessionValidation.PublishManyAsync(states, allowOverwrite: true);
             }
+
+            if (banUpdate is BanStateProjectionUpdate update)
+            {
+                banInvalidation = await banStateObligations.PrepareAsync([update]).ConfigureAwait(false);
+            }
         });
 
         if (!transaction.IsSuccess)
@@ -420,13 +433,17 @@ public sealed class UserAdminModerationService(
             throw transaction.ErrorException ?? new InvalidOperationException("account status transaction failed");
         }
 
-        return new AdminStatusUpdateResult(accountUpdated, states.Count);
+        return new AdminStatusUpdateResult(accountUpdated, states.Count, banUpdate, banInvalidation);
     }
 
     private static DateTime AsUtc(DateTime value)
         => value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
-    private readonly record struct AdminStatusUpdateResult(bool Success, int SessionCount);
+    private readonly record struct AdminStatusUpdateResult(
+        bool Success,
+        int SessionCount,
+        BanStateProjectionUpdate? BanUpdate = null,
+        DistributedInvalidationEvent? Invalidation = null);
 
     private sealed record AdminStatusTarget(
         int Id,
@@ -437,7 +454,7 @@ public sealed class UserAdminModerationService(
 
 
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
-        => AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, userId, cancellationToken);
+        => accountStates.ProjectCommittedMutationAsync(userId, cancellationToken);
 
     private Task NotifyUserBannedAsync(int userId, string reason)
         => ExecuteNotificationAsync(

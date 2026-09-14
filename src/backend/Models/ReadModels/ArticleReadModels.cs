@@ -26,6 +26,10 @@ public sealed record class ArticleListItemReadModel
     {
         get; init;
     }
+    public long CursorSortValue
+    {
+        get; init;
+    }
     public DateTime CreateTime
     {
         get; init;
@@ -131,6 +135,10 @@ public sealed record class ArticleDetailReadModel
         get; init;
     }
     public int RevisionNo
+    {
+        get; init;
+    }
+    public long ContentBlockId
     {
         get; init;
     }

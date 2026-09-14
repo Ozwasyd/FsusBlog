@@ -26,7 +26,7 @@ public sealed class ArticleCoreQueryCacheBehaviorTests
     [Fact]
     public void GetOrLoadPageListAsync_CacheHitUsesResolvedVersionIdentityWithoutCallingLoader()
         => Assert.Equal(
-            "ArticleService.GetPageListAsync when ArticlePageQuery.UseSourceCache is true",
+            "ArticleService.GetPageListAsync for non-public ArticlePageQuery when UseSourceCache is true",
             ArticleCacheOwnershipCatalog.Policies[CachePolicyId.ArticleList].Writes);
 
     [Fact]

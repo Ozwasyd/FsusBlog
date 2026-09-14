@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
@@ -26,9 +28,9 @@ public sealed class UserIdentityCommandBoundaryTests
             [
                 typeof(ISqlSugarClient),
                 typeof(ILogger<UserProfileCommandService>),
-                typeof(IBlacklistService),
+                typeof(IBanStateProjectionObligationCoordinator),
                 typeof(ICacheInvalidationStore),
-                typeof(ICacheCounterStore),
+                typeof(IAccountStateProjectionMutationPublisher),
                 typeof(IUserSessionValidationCache)
             ],
             dependencies);

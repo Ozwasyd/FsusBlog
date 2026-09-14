@@ -6,7 +6,6 @@ import { readArrayEnvelope } from './envelopeReaders';
 import { ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
 const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
-const ARTICLE_PAGE_CURSOR_ENVELOPE_LEGACY_VERSION = 1;
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 2;
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
 const ARTICLE_DETAIL_V3_VERSION = 3;
@@ -37,24 +36,17 @@ const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS = 1 << 10;
 
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
 {
-    let hasCursorMetadata = false;
-    let nextCursorUnixMs = 0;
     let nextCursor: string | null = null;
     let hasMore = false;
     let total: number;
     let reader: BinaryReader;
-    if (payload.byteLength >= 17 && readInt32(payload, 0) === ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
+    if (payload.byteLength < 8 || readInt32(payload, 0) !== ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
 {
-        const version = readInt32(payload, 4);
-        if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_LEGACY_VERSION)
-{
-            const view = new DataView(payload.buffer, payload.byteOffset + 8, 8);
-            nextCursorUnixMs = Number(view.getBigInt64(0, true));
-            hasMore = payload[16] === 1;
-            total = readInt32(payload, 17);
-            reader = new BinaryReader(payload.subarray(21));
-        }
- else if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION)
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_envelope_missing');
+    }
+
+    const version = readInt32(payload, 4);
+    if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION)
 {
             reader = new BinaryReader(payload.subarray(8));
             const hasMoreByte = reader.readByte();
@@ -65,7 +57,7 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
             hasMore = hasMoreByte === 1;
             total = reader.readInt32();
             const cursorBytes = reader.readBlob();
-            if (cursorBytes.byteLength > 64)
+            if (cursorBytes.byteLength > 512)
 {
                 throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_length_invalid');
             }
@@ -90,14 +82,6 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
 {
             throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_version_invalid');
         }
-        hasCursorMetadata = true;
-    }
- else
-{
-        reader = new BinaryReader(payload);
-        total = reader.readInt32();
-    }
-
     const count = readCountChecked(reader, 'article_page_count_invalid');
     const tagRecordCount = readCountChecked(reader, 'article_page_tag_count_invalid');
     const blob = reader.readBlob();
@@ -206,16 +190,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     items[i] = item;
   }
 
-  if (!hasCursorMetadata) {
-    return { items, total };
-  }
-
     return {
         items,
         total,
-        nextCursor: nextCursor ?? (hasMore && nextCursorUnixMs > 0 && items.length > 0
-            ? `${nextCursorUnixMs}:${items[items.length - 1]!.id}`
-            : null),
+        nextCursor,
         hasMore
     };
 }

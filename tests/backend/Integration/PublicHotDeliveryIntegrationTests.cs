@@ -51,7 +51,9 @@ public sealed class PublicHotDeliveryIntegrationTests(
         {
             await using ConnectionMultiplexer first = await redis.ConnectAsync();
             var firstScope = new PrefixRuntimeKeyScope(prefix);
-            var firstStore = new RedisPublicHotArtifactDeliveryStateStore(first, firstScope);
+            var firstStore = new RedisPublicHotArtifactDeliveryStateStore(
+                RedisOperationExecutor.ForTestConnection(first),
+                firstScope);
             RedisKey generationKey = firstScope.PrefixKey("public-hot-read:{delivery}:generation");
             RedisKey pendingKey = firstScope.PrefixKey("public-hot-read:{delivery}:pending-generation");
             Assert.Equal(first.HashSlot(generationKey), first.HashSlot(pendingKey));
@@ -68,7 +70,9 @@ public sealed class PublicHotDeliveryIntegrationTests(
 
             await using ConnectionMultiplexer afterCompareClear = await redis.ConnectAsync();
             var afterCompareClearStore =
-                new RedisPublicHotArtifactDeliveryStateStore(afterCompareClear, new PrefixRuntimeKeyScope(prefix));
+                new RedisPublicHotArtifactDeliveryStateStore(
+                    RedisOperationExecutor.ForTestConnection(afterCompareClear),
+                    new PrefixRuntimeKeyScope(prefix));
             long thirdGeneration = await afterCompareClearStore.MarkDirtyAsync(
                 PublicHotArtifactDeliveryClass.RequiredContent,
                 CancellationToken.None);
@@ -85,7 +89,7 @@ public sealed class PublicHotDeliveryIntegrationTests(
             await using (ConnectionMultiplexer crashedBeforeChannel = await redis.ConnectAsync())
             {
                 var crashedStore = new RedisPublicHotArtifactDeliveryStateStore(
-                    crashedBeforeChannel,
+                    RedisOperationExecutor.ForTestConnection(crashedBeforeChannel),
                     new PrefixRuntimeKeyScope(markerBeforeChannelPrefix));
                 markerBeforeChannelGeneration = await crashedStore.MarkDirtyAsync(
                     PublicHotArtifactDeliveryClass.RequiredTaxonomy,
@@ -101,7 +105,7 @@ public sealed class PublicHotDeliveryIntegrationTests(
             await using (ConnectionMultiplexer crashedBeforePublish = await redis.ConnectAsync())
             {
                 var crashedStore = new RedisPublicHotArtifactDeliveryStateStore(
-                    crashedBeforePublish,
+                    RedisOperationExecutor.ForTestConnection(crashedBeforePublish),
                     new PrefixRuntimeKeyScope(channelBeforePublishPrefix));
                 var crashedQueue = CreateQueue(crashedStore);
                 PublicHotArtifactEnqueueResult receipt = await crashedQueue.EnqueueAsync(
@@ -131,7 +135,9 @@ public sealed class PublicHotDeliveryIntegrationTests(
             string obligationId;
             await using (ConnectionMultiplexer writer = await redis.ConnectAsync())
             {
-                var store = new RedisPublicHotArtifactDeliveryStateStore(writer, new PrefixRuntimeKeyScope(prefix));
+                var store = new RedisPublicHotArtifactDeliveryStateStore(
+                    RedisOperationExecutor.ForTestConnection(writer),
+                    new PrefixRuntimeKeyScope(prefix));
                 PublicHotArtifactObligation created = await store.MergeAsync(
                     new PublicHotArtifactUpdate(7, "article-updated", PublicHotArtifactDirtyReason.Content, 12),
                     CancellationToken.None);
@@ -150,7 +156,9 @@ public sealed class PublicHotDeliveryIntegrationTests(
             }
 
             await using ConnectionMultiplexer reader = await redis.ConnectAsync();
-            var restarted = new RedisPublicHotArtifactDeliveryStateStore(reader, new PrefixRuntimeKeyScope(prefix));
+            var restarted = new RedisPublicHotArtifactDeliveryStateStore(
+                RedisOperationExecutor.ForTestConnection(reader),
+                new PrefixRuntimeKeyScope(prefix));
             PublicHotArtifactObligation persisted = (await restarted.GetActiveAsync(CancellationToken.None))!;
             Assert.Equal(obligationId, persisted.ObligationId);
             Assert.Equal(PublicHotArtifactObligationState.FailedTerminal, persisted.State);
@@ -183,7 +191,9 @@ public sealed class PublicHotDeliveryIntegrationTests(
         try
         {
             await using ConnectionMultiplexer connection = await redis.ConnectAsync();
-            var state = new RedisPublicHotArtifactDeliveryStateStore(connection, new PrefixRuntimeKeyScope(prefix));
+            var state = new RedisPublicHotArtifactDeliveryStateStore(
+                RedisOperationExecutor.ForTestConnection(connection),
+                new PrefixRuntimeKeyScope(prefix));
             PublicHotArtifactObligation initial = await state.MergeAsync(
                 new PublicHotArtifactUpdate(41, "article-a", PublicHotArtifactDirtyReason.Content, 101), CancellationToken.None);
             PublicHotArtifactObligation claim = (await state.ClaimEligibleAsync(DateTimeOffset.UtcNow, CancellationToken.None))!;
@@ -234,18 +244,18 @@ public sealed class PublicHotDeliveryIntegrationTests(
             {
                 var scope = new PrefixRuntimeKeyScope(prefix);
                 var state = new RedisPublicHotArtifactDeliveryStateStore(
-                    bootstrapConnection,
+                    RedisOperationExecutor.ForTestConnection(bootstrapConnection),
                     scope);
                 var bootstrapStore = new PublicHotReadStore();
                 var bootstrapQueue = CreateQueue(state);
                 using var memoryCache = new MemoryCache(new MemoryCacheOptions());
-                var localCache = new CacheLocalStore(memoryCache, TimeProvider.System);
+                var localCache = new PolicyShardedCacheL1Store(new CachePolicyRegistry(), TimeProvider.System);
                 var environment = Substitute.For<IWebHostEnvironment>();
                 environment.ContentRootPath.Returns(Path.GetTempPath());
                 environment.WebRootPath.Returns(Path.GetTempPath());
                 var publicAotCache = new PublicAotFileShellCache(
                     environment,
-                    bootstrapConnection,
+                    RedisOperationExecutor.ForTestConnection(bootstrapConnection),
                     NullLogger<PublicAotFileShellCache>.Instance,
                     configuration: new ConfigurationBuilder().Build(),
                     publicArtifactStorage: Substitute.For<IPublicArtifactStorage>());
@@ -311,7 +321,7 @@ public sealed class PublicHotDeliveryIntegrationTests(
 
             await using ConnectionMultiplexer finalConnection = await redis.ConnectAsync();
             var finalState = new RedisPublicHotArtifactDeliveryStateStore(
-                finalConnection,
+                RedisOperationExecutor.ForTestConnection(finalConnection),
                 new PrefixRuntimeKeyScope(prefix));
             var finalQueue = CreateQueue(finalState);
             var finalOptions = new PublicHotReadOptions
@@ -701,7 +711,7 @@ public sealed class PublicHotDeliveryIntegrationTests(
     {
         await using ConnectionMultiplexer restartedConnection = await fixture.ConnectAsync();
         var restartedState = new RedisPublicHotArtifactDeliveryStateStore(
-            restartedConnection,
+            RedisOperationExecutor.ForTestConnection(restartedConnection),
             new PrefixRuntimeKeyScope(prefix));
         Assert.Equal(
             expectedGeneration,
@@ -902,6 +912,9 @@ public sealed class PublicHotDeliveryRedisFixture : IAsyncLifetime
 {
     private string? _containerName;
     private string? _connectionString;
+
+    internal string ConnectionString
+        => _connectionString ?? throw new InvalidOperationException("Redis fixture is not initialized.");
 
     public async Task InitializeAsync()
     {

@@ -426,14 +426,13 @@ public sealed class PerceptionCharacterV3ContractCutover(
 }
 
 public sealed class RedisPerceptionCharacterV3CutoverStore(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope keyScope,
     IConfiguration configuration,
     IServiceScopeFactory scopeFactory) : IPerceptionCharacterV3CutoverStore
 {
     private const string EnvelopeDataField = "data";
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly IDatabase _database = redis.GetDatabase();
     private readonly string _cacheInstancePrefix = configuration["RedisOptions:InstanceName"] ?? "FsusBlog_";
     private readonly ConcurrentDictionary<string, string> _operationLocks = new(StringComparer.Ordinal);
 
@@ -441,7 +440,9 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
         string operationId,
         CancellationToken cancellationToken = default)
     {
-        RedisValue value = await _database.StringGetAsync(ReceiptKey(operationId)).ConfigureAwait(false);
+        RedisValue value = await ExecuteDatabaseAsync(
+            database => database.StringGetAsync(ReceiptKey(operationId)),
+            cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return value.HasValue
             ? JsonSerializer.Deserialize<PerceptionCharacterV3CutoverReceipt>((string)value!, s_jsonOptions)
@@ -454,7 +455,9 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        RedisValue existing = await _database.StringGetAsync(MutationKey(request.OperationId)).ConfigureAwait(false);
+        RedisValue existing = await ExecuteDatabaseAsync(
+            database => database.StringGetAsync(MutationKey(request.OperationId)),
+            cancellationToken).ConfigureAwait(false);
         if (existing.HasValue)
         {
             MutationEnvelope restored = JsonSerializer.Deserialize<MutationEnvelope>((string)existing!, s_jsonOptions)
@@ -467,11 +470,13 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
         }
 
         string lockToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
-        if (!await _database.StringSetAsync(
-                LockKey(request.OperationId),
-                lockToken,
-                TimeSpan.FromMinutes(5),
-                When.NotExists).ConfigureAwait(false))
+        if (!await ExecuteDatabaseAsync(
+                database => database.StringSetAsync(
+                    LockKey(request.OperationId),
+                    lockToken,
+                    TimeSpan.FromMinutes(5),
+                    When.NotExists),
+                cancellationToken).ConfigureAwait(false))
         {
             throw new InvalidOperationException("The V3 cutover operation is already running.");
         }
@@ -527,11 +532,13 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
                 revoked,
                 DigestSet(retired));
             var envelope = new MutationEnvelope(requestFingerprint, result);
-            bool saved = await _database.StringSetAsync(
-                MutationKey(request.OperationId),
-                JsonSerializer.Serialize(envelope, s_jsonOptions),
-                expiry: null,
-                when: When.NotExists).ConfigureAwait(false);
+            bool saved = await ExecuteDatabaseAsync(
+                database => database.StringSetAsync(
+                    MutationKey(request.OperationId),
+                    JsonSerializer.Serialize(envelope, s_jsonOptions),
+                    expiry: null,
+                    when: When.NotExists),
+                cancellationToken).ConfigureAwait(false);
             if (!saved)
             {
                 throw new InvalidOperationException("The V3 cutover mutation result collided with another operation.");
@@ -549,11 +556,13 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        bool saved = await _database.StringSetAsync(
-            ReceiptKey(receipt.OperationId),
-            JsonSerializer.Serialize(receipt, s_jsonOptions),
-            expiry: null,
-            when: When.NotExists).ConfigureAwait(false);
+        bool saved = await ExecuteDatabaseAsync(
+            database => database.StringSetAsync(
+                ReceiptKey(receipt.OperationId),
+                JsonSerializer.Serialize(receipt, s_jsonOptions),
+                expiry: null,
+                when: When.NotExists),
+            cancellationToken).ConfigureAwait(false);
         if (saved)
         {
             return receipt;
@@ -599,7 +608,7 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
         CancellationToken cancellationToken)
     {
         long count = 0;
-        foreach (RedisKey key in Scan(pattern, cancellationToken))
+        foreach (RedisKey key in await ScanAsync(pattern, cancellationToken).ConfigureAwait(false))
         {
             string text = (string)key!;
             if (!predicate(text))
@@ -611,7 +620,9 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
             count++;
             if (!dryRun)
             {
-                await _database.KeyDeleteAsync(key).ConfigureAwait(false);
+                await ExecuteDatabaseAsync(
+                    database => database.KeyDeleteAsync(key),
+                    cancellationToken).ConfigureAwait(false);
             }
         }
         return count;
@@ -625,7 +636,9 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
     {
         var generations = new HashSet<string>(StringComparer.Ordinal);
         string marker = keyScope.PrefixKey("security:perception-v3-pool:");
-        foreach (RedisKey key in Scan(KeyPattern("security:perception-v3-pool:*"), cancellationToken))
+        foreach (RedisKey key in await ScanAsync(
+            KeyPattern("security:perception-v3-pool:*"),
+            cancellationToken).ConfigureAwait(false))
         {
             string text = (string)key!;
             int start = text.IndexOf(marker, StringComparison.Ordinal);
@@ -652,17 +665,21 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
             {
                 continue;
             }
-            foreach (RedisKey key in Scan(
+            foreach (RedisKey key in await ScanAsync(
                          KeyPattern($"security:perception-v3-pool:{generation}:*"),
-                         cancellationToken))
+                         cancellationToken).ConfigureAwait(false))
             {
-                await _database.KeyDeleteAsync(key).ConfigureAwait(false);
+                await ExecuteDatabaseAsync(
+                    database => database.KeyDeleteAsync(key),
+                    cancellationToken).ConfigureAwait(false);
             }
-            await _database.StringSetAsync(
-                keyScope.PrefixKey($"security:perception-v3-pool:{generation}:revoked"),
-                "retired-contract",
-                expiry: null,
-                when: When.Always).ConfigureAwait(false);
+            await ExecuteDatabaseAsync(
+                database => database.StringSetAsync(
+                    keyScope.PrefixKey($"security:perception-v3-pool:{generation}:revoked"),
+                    "retired-contract",
+                    expiry: null,
+                    when: When.Always),
+                cancellationToken).ConfigureAwait(false);
         }
         return generations.Count;
     }
@@ -675,11 +692,13 @@ public sealed class RedisPerceptionCharacterV3CutoverStore(
         long examined = 0;
         long revoked = 0;
         HashSet<string> target = [PerceptionCharacterV3ReleaseTarget.WireName];
-        foreach (RedisKey key in Scan(EnvelopePattern(), cancellationToken))
+        foreach (RedisKey key in await ScanAsync(EnvelopePattern(), cancellationToken).ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
             examined++;
-            RedisValue encoded = await _database.HashGetAsync(key, EnvelopeDataField).ConfigureAwait(false);
+            RedisValue encoded = await ExecuteDatabaseAsync(
+                database => database.HashGetAsync(key, EnvelopeDataField),
+                cancellationToken).ConfigureAwait(false);
             if (!SecurityChallengeKindCutoverEnvelopeCodec.TryBuildRevocation(
                     (string?)encoded ?? string.Empty,
                     target,
@@ -700,10 +719,12 @@ if current ~= ARGV[2] then return 0 end
 redis.call('HSET', KEYS[1], ARGV[1], ARGV[3])
 return 1
 """;
-            _ = await _database.ScriptEvaluateAsync(
-                CompareAndReplace,
-                [key],
-                [EnvelopeDataField, encoded, replacement]).ConfigureAwait(false);
+            _ = await ExecuteDatabaseAsync(
+                database => database.ScriptEvaluateAsync(
+                    CompareAndReplace,
+                    [key],
+                    [EnvelopeDataField, encoded, replacement]),
+                cancellationToken).ConfigureAwait(false);
         }
         return (examined, revoked);
     }
@@ -722,24 +743,32 @@ return 1
             && challengeId.Version == 7;
     }
 
-    private RedisKey[] Scan(RedisValue pattern, CancellationToken cancellationToken)
-    {
-        var keys = new HashSet<RedisKey>();
-        foreach (EndPoint endpoint in redis.GetEndPoints())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            IServer server = redis.GetServer(endpoint);
-            if (!server.IsConnected || server.ServerType == ServerType.Sentinel)
+    private Task<RedisKey[]> ScanAsync(RedisValue pattern, CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.PerceptionCharacterCutover,
+            async (multiplexer, deadlineToken) =>
             {
-                continue;
-            }
-            foreach (RedisKey key in server.Keys(_database.Database, pattern, pageSize: 250))
-            {
-                keys.Add(key);
-            }
-        }
-        return keys.ToArray();
-    }
+                var keys = new HashSet<RedisKey>();
+                int databaseId = multiplexer.GetDatabase().Database;
+                foreach (EndPoint endpoint in multiplexer.GetEndPoints())
+                {
+                    deadlineToken.ThrowIfCancellationRequested();
+                    IServer server = multiplexer.GetServer(endpoint);
+                    if (!server.IsConnected || server.ServerType == ServerType.Sentinel)
+                    {
+                        continue;
+                    }
+                    await foreach (RedisKey key in server.KeysAsync(
+                        databaseId,
+                        pattern,
+                        pageSize: 250).WithCancellation(deadlineToken).ConfigureAwait(false))
+                    {
+                        keys.Add(key);
+                    }
+                }
+                return keys.ToArray();
+            },
+            cancellationToken);
 
     private async Task ReleaseLockAsync(string operationId)
     {
@@ -751,11 +780,21 @@ return 1
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
 return redis.call('DEL', KEYS[1])
 """;
-        _ = await _database.ScriptEvaluateAsync(
-            Release,
-            [LockKey(operationId)],
-            [token]).ConfigureAwait(false);
+        _ = await ExecuteDatabaseAsync(
+            database => database.ScriptEvaluateAsync(
+                Release,
+                [LockKey(operationId)],
+                [token]),
+            CancellationToken.None).ConfigureAwait(false);
     }
+
+    private Task<T> ExecuteDatabaseAsync<T>(
+        Func<IDatabase, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.PerceptionCharacterCutover,
+            (multiplexer, _) => operation(multiplexer.GetDatabase()),
+            cancellationToken);
 
     private RedisValue KeyPattern(string suffix) => keyScope.PrefixKey(suffix);
 

@@ -174,7 +174,6 @@ public sealed class PublicContentInvalidationFlowTests
 
         Assert.Contains("HashSet`1", worker, StringComparison.Ordinal);
         Assert.Contains("CollectUpdate", worker, StringComparison.Ordinal);
-        Assert.Contains("HashSet`1.Enumerator", worker, StringComparison.Ordinal);
         Assert.Contains("IPublicHotArtifactProjector.RebuildAfterArticleMutationAsync", worker, StringComparison.Ordinal);
         Assert.Contains("IPublicArtifactRevocationCoordinator.CompleteRebuildAsync", worker, StringComparison.Ordinal);
         Assert.Contains(
@@ -366,7 +365,7 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("UnregisterKeysAsync", removeRuntime, StringComparison.Ordinal);
         (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(invalidateAll)).ToArray();
         int removeDocuments = Assert.Single(calls, static call => call.Method.Name == "RemoveManyCacheEntriesAsync").Offset;
-        int removeRegistries = Assert.Single(calls, static call => call.Method.Name == "KeyDeleteAsync").Offset;
+        int removeRegistries = Assert.Single(calls, static call => call.Method.Name == "ExecuteAsync").Offset;
         Assert.True(removeRegistries > removeDocuments);
     }
 

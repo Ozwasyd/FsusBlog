@@ -65,7 +65,7 @@ public sealed class ServerCacheBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleDetail_V5RoundTrip_PreservesPublicationCoordinatesAndRightsSnapshot()
+    public void ArticleDetail_V6RoundTrip_PreservesCompleteProjectionCoordinatesAndRightsSnapshot()
     {
         DateTime updatedAt = new(2026, 6, 27, 9, 30, 0, DateTimeKind.Utc);
         ArticleDetailReadModel detail = CreateDetail() with
@@ -82,13 +82,14 @@ public sealed class ServerCacheBinaryCodecTests
 
         Assert.True(success);
         Assert.NotNull(decoded);
-        Assert.Equal(0x34444146u, BinaryPrimitives.ReadUInt32LittleEndian(payload));
-        Assert.Equal(5u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(sizeof(uint))));
+        Assert.Equal(0x36444146u, BinaryPrimitives.ReadUInt32LittleEndian(payload));
+        Assert.Equal(6u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(sizeof(uint))));
         Assert.Equal(updatedAt, decoded.UpdatedAt);
         Assert.Equal(801, decoded.CurrentRevisionId);
         Assert.Equal(7, decoded.RevisionNo);
         Assert.Equal(1201, decoded.CurrentPublicationId);
         Assert.Equal(4, decoded.PublicationNo);
+        Assert.Equal(701, decoded.ContentBlockId);
         Assert.Equal(901, decoded.Rights.SnapshotId);
         Assert.Equal(801, decoded.Rights.ArticleRevisionId);
         Assert.Equal(7, decoded.Rights.RevisionNo);
@@ -110,27 +111,34 @@ public sealed class ServerCacheBinaryCodecTests
         Assert.Equal("ready", decoded.Rights.ProofStatus);
     }
 
-    [Fact]
-    public void ArticleDetail_V4CachePayload_RemainsReadableWithoutVersionCoordinates()
+    [Theory]
+    [InlineData(0x44434146u, 3u)]
+    [InlineData(0x34444146u, 4u)]
+    [InlineData(0x34444146u, 5u)]
+    public void ArticleDetail_LegacyCachePayload_IsRejected(uint magic, uint version)
     {
-        byte[] v5 = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail());
-        byte[] snapshotMarker = BitConverter.GetBytes(901L);
-        int rightsOffset = v5.AsSpan().IndexOf(snapshotMarker);
-        Assert.True(rightsOffset > 8);
-        const int CoordinateBytes = sizeof(long) + sizeof(int) + 1 + sizeof(long) + 1 + sizeof(int);
-        byte[] v4 = new byte[v5.Length - CoordinateBytes];
-        v5.AsSpan(0, rightsOffset - CoordinateBytes).CopyTo(v4);
-        v5.AsSpan(rightsOffset).CopyTo(v4.AsSpan(rightsOffset - CoordinateBytes));
-        BinaryPrimitives.WriteUInt32LittleEndian(v4.AsSpan(sizeof(uint)), 4u);
+        byte[] legacy = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail());
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy, magic);
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(sizeof(uint)), version);
 
-        (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(v4);
+        (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(legacy);
 
-        Assert.True(success);
-        Assert.NotNull(decoded);
-        Assert.Equal(10, decoded.Id);
-        Assert.Equal(0, decoded.CurrentRevisionId);
-        Assert.Null(decoded.CurrentPublicationId);
-        Assert.Equal(901, decoded.Rights.SnapshotId);
+        Assert.False(success);
+        Assert.Null(decoded);
+    }
+
+    [Fact]
+    public void ArticleDetail_CompleteProjectionRejectsBlankContentAndMissingContentBlockCoordinate()
+    {
+        ArticleDetailReadModel blank = CreateDetail() with
+        {
+            Content = string.Empty
+        };
+
+        Assert.Throws<InvalidOperationException>(
+            () => ServerCacheBinaryCodec.EncodeArticleDetail(blank));
+        Assert.Throws<InvalidOperationException>(
+            () => ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail() with { ContentBlockId = 0 }));
     }
 
     private static ArticleListItemReadModel CreateItem(DateTime createTime)
@@ -172,6 +180,7 @@ public sealed class ServerCacheBinaryCodecTests
             RevisionNo = 7,
             CurrentPublicationId = 1201,
             PublicationNo = 4,
+            ContentBlockId = 701,
             PublishedAt = new DateTime(2026, 6, 26, 9, 30, 0, DateTimeKind.Utc),
             Rights = new ArticleRightsReadModel
             {

@@ -271,7 +271,6 @@ public sealed class AdminStatsOwnedFrameTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(db);
         return new UnifiedCache(
-            memory,
             redis,
             new CachePolicyRegistry(),
             new DefaultRuntimeKeyScope(),

@@ -11,6 +11,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 
 using SqlSugar;
 
@@ -57,6 +58,7 @@ public sealed class RecoveryKeyService(
     ICacheCompareExchangeStore compareExchange,
     ICacheCounterStore counters,
     ICacheInvalidationStore invalidation,
+    IAccountStateProjectionMutationPublisher accountStates,
     IConfiguration configuration,
     IPasskeyService passkeys,
     ILogger<RecoveryKeyService> logger,
@@ -149,7 +151,7 @@ public sealed class RecoveryKeyService(
                 .SetColumns(u => u.RecoveryEnabled == false)
                 .Where(u => u.Id == credential.AccountId)
                 .ExecuteCommandAsync();
-            await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, credential.AccountId, cancellationToken).ConfigureAwait(false);
+            await accountStates.ProjectCommittedMutationAsync(credential.AccountId, cancellationToken).ConfigureAwait(false);
 
             if (request.RevokeSessions)
             {
@@ -560,7 +562,7 @@ public sealed class RecoveryKeyService(
             .SetColumns(u => u.RecoveryEnabled == true)
             .Where(u => u.Id == accountId)
             .ExecuteCommandAsync();
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
+        await accountStates.ProjectCommittedMutationAsync(accountId, cancellationToken).ConfigureAwait(false);
 
         return Result<RecoveryKeyCreateResponseCoreModel>.Success(
             new RecoveryKeyCreateResponseCoreModel(generated.RecoveryKey, nextVersion, now));

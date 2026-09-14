@@ -1046,7 +1046,7 @@ public sealed class ArticleRevisionConcurrencyTests(
         return new ArticleService(
             _db: db,
             _searchIndex: Substitute.For<ISearchIndexService>(),
-            _redisConnection: redis,
+            _redisOperations: RedisOperationExecutor.ForTestConnection(redis),
             _cacheReader: Substitute.For<ICacheTypedReader>(),
             _cacheWriter: Substitute.For<ICacheRawWriter>(),
             _stringReader: Substitute.For<ICacheStringReader>(),

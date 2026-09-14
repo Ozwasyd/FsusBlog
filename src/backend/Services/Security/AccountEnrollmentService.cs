@@ -11,6 +11,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -39,7 +40,7 @@ public sealed class AccountEnrollmentService(
     ISqlSugarClient db,
     IPasskeyService passkeys,
     IJwtHelper jwt,
-    ICacheCounterStore counters,
+    IAccountStateProjectionMutationPublisher accountStates,
     ICacheInvalidationStore invalidation,
     IDataProtectionProvider dataProtection,
     IUserSessionMetadataProtector sessionMetadata,
@@ -290,7 +291,7 @@ public sealed class AccountEnrollmentService(
 
         User committedUser = activatedUser!;
         await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, committedUser.Id, cancellationToken);
+        await accountStates.ProjectCommittedMutationAsync(committedUser.Id, cancellationToken);
         return Success(committedUser, accessToken, refreshToken, sessionId, idleExpiresAt);
     }
 

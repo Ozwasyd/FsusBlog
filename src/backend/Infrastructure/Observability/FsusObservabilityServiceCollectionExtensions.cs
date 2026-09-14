@@ -2,6 +2,7 @@ using System.Diagnostics;
 
 using Npgsql;
 
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 
 using OpenTelemetry.Metrics;
@@ -94,6 +95,7 @@ public static class FsusObservabilityServiceCollectionExtensions
                         "FsusBlog.NotificationStream",
                         "FsusBlog.PublicHotRead",
                         "FsusBlog.PublicHotRead.Retiring",
+                        PublicArtifactRevocationRegistry.MeterName,
                         "FsusBlog.PublicAot.MemoryCache",
                         "FsusBlog.Server.CommentOutbox")
                     .AddAspNetCoreInstrumentation()

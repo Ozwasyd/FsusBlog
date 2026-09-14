@@ -49,28 +49,17 @@ function canonicalFallback(payload: Uint8Array): PublicArticleListProjectionPage
 }
 
 export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicArticleListProjectionPage {
-  let nextCursorUnixMs = 0
   let nextCursor: string | null = null
   let hasMore = false
-  let hasCursorMetadata = false
   let total: number
   let reader: BinaryReader
 
-  if (payload.byteLength >= 8 && readInt32(payload, 0) === ARTICLE_LIST_ACCESS.cursorMagic) {
-    const version = readInt32(payload, 4)
-    if (version === 1) {
-      if (payload.byteLength < 21) {
-        return fail('article_page_cursor_truncated')
-      }
-      nextCursorUnixMs = readInt64Number(payload, 8)
-      const hasMoreByte = payload[16] ?? 0
-      if (hasMoreByte > 1) {
-        return fail('article_page_cursor_has_more_invalid')
-      }
-      hasMore = hasMoreByte === 1
-      total = readInt32(payload, 17)
-      reader = new BinaryReader(payload.subarray(21))
-    } else if (version === 2) {
+  if (payload.byteLength < 8 || readInt32(payload, 0) !== ARTICLE_LIST_ACCESS.cursorMagic) {
+    return fail('article_page_cursor_envelope_missing')
+  }
+
+  const version = readInt32(payload, 4)
+  if (version === 2) {
       reader = new BinaryReader(payload.subarray(8))
       const hasMoreByte = reader.readByte()
       if (hasMoreByte > 1) {
@@ -79,7 +68,7 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
       hasMore = hasMoreByte === 1
       total = reader.readInt32()
       const cursorBytes = reader.readBlob()
-      if (cursorBytes.byteLength > 64) {
+      if (cursorBytes.byteLength > 512) {
         return fail('article_page_cursor_length_invalid')
       }
       try {
@@ -93,13 +82,8 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
       if (hasMore !== Boolean(nextCursor)) {
         return fail('article_page_cursor_state_invalid')
       }
-    } else {
-      return fail('article_page_cursor_version_invalid')
-    }
-    hasCursorMetadata = true
   } else {
-    reader = new BinaryReader(payload)
-    total = reader.readInt32()
+    return fail('article_page_cursor_version_invalid')
   }
 
   const count = reader.readInt32()
@@ -203,14 +187,9 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
     total,
     decodePath: 'projection'
   }
-  if (!hasCursorMetadata) {
-    return result
-  }
   return {
     ...result,
-    nextCursor: nextCursor ?? (hasMore && nextCursorUnixMs > 0 && items.length > 0
-      ? `${nextCursorUnixMs}:${items[items.length - 1]!.id}`
-      : null),
+    nextCursor,
     hasMore
   }
 }

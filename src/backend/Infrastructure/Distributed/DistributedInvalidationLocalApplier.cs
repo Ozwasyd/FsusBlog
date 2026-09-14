@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Security;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,6 +20,13 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
     private readonly CacheInvalidationRuntimeState _cacheRuntimeState;
     private readonly ILogger<DistributedInvalidationLocalApplier> _logger;
     private readonly IRuntimeKeyScope? _runtimeKeyScope;
+    private readonly IArticleDetailViewProjection? _articleDetailViews;
+    private readonly IServiceScopeFactory? _serviceScopeFactory;
+    private readonly IHotArticlesCacheVersionProvider? _hotArticlesVersionProvider;
+    private readonly IHttpCacheInvalidator? _testHttpCacheInvalidator;
+    private readonly BanStateProjection? _banStateProjection;
+    private readonly AdminSessionProjection? _adminSessionProjection;
+    private readonly IAccountStateProjection? _accountStateProjection;
 
     [ActivatorUtilitiesConstructor]
     public DistributedInvalidationLocalApplier(
@@ -30,7 +39,13 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         IAotSeoConfigSnapshot aotSeoConfigSnapshot,
         CacheInvalidationRuntimeState cacheRuntimeState,
         ILogger<DistributedInvalidationLocalApplier> logger,
-        IRuntimeKeyScope? runtimeKeyScope = null)
+        IRuntimeKeyScope? runtimeKeyScope = null,
+        IArticleDetailViewProjection? articleDetailViews = null,
+        BanStateProjection? banStateProjection = null,
+        AdminSessionProjection? adminSessionProjection = null,
+        IAccountStateProjection? accountStateProjection = null,
+        IServiceScopeFactory? serviceScopeFactory = null,
+        IHotArticlesCacheVersionProvider? hotArticlesVersionProvider = null)
     {
         _localCache = localCache;
         _publicAotCache = publicAotCache;
@@ -42,10 +57,16 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         _cacheRuntimeState = cacheRuntimeState;
         _logger = logger;
         _runtimeKeyScope = runtimeKeyScope;
+        _articleDetailViews = articleDetailViews;
+        _banStateProjection = banStateProjection;
+        _adminSessionProjection = adminSessionProjection;
+        _accountStateProjection = accountStateProjection;
+        _serviceScopeFactory = serviceScopeFactory;
+        _hotArticlesVersionProvider = hotArticlesVersionProvider;
     }
 
     internal DistributedInvalidationLocalApplier(
-        CacheLocalStore localCache,
+        PolicyShardedCacheL1Store localCache,
         PublicAotFileShellCache publicAotCache,
         PublicAotInvalidationTracker publicAotInvalidationTracker,
         PublicAotSsrRuntimeState publicAotSsrRuntimeState,
@@ -53,9 +74,12 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         PublicHotArtifactUpdateQueue publicHotUpdateQueue,
         IAotSeoConfigSnapshot aotSeoConfigSnapshot,
         CacheInvalidationRuntimeState cacheRuntimeState,
-        ILogger<DistributedInvalidationLocalApplier> logger)
+        ILogger<DistributedInvalidationLocalApplier> logger,
+        IArticleDetailViewProjection? articleDetailViews = null,
+        IHttpCacheInvalidator? httpCacheInvalidator = null,
+        BanStateProjection? banStateProjection = null)
         : this(
-            new CacheLocalStoreInvalidator(localCache),
+            new PolicyShardedCacheL1StoreInvalidator(localCache),
             publicAotCache,
             publicAotInvalidationTracker,
             publicAotSsrRuntimeState,
@@ -63,8 +87,11 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
             publicHotUpdateQueue,
             aotSeoConfigSnapshot,
             cacheRuntimeState,
-            logger)
+            logger,
+            articleDetailViews: articleDetailViews,
+            banStateProjection: banStateProjection)
     {
+        _testHttpCacheInvalidator = httpCacheInvalidator;
     }
 
     public async Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
@@ -73,6 +100,16 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
     {
         ArgumentNullException.ThrowIfNull(invalidation);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (invalidation.Kind == DistributedInvalidationEventKinds.AdminSessionProjectionMutation)
+        {
+            return ApplyAdminSessionProjection(invalidation);
+        }
+
+        if (invalidation.Kind == DistributedInvalidationEventKinds.AccountStateProjectionMutation)
+        {
+            return await ApplyAccountStateProjectionAsync(invalidation, cancellationToken).ConfigureAwait(false);
+        }
 
         DistributedInvalidationTargetPlan plan;
         try
@@ -100,6 +137,60 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         }
 
         CacheL1InvalidationReceipt l1Receipt = _localCache.InvalidateLocal(plan.CacheKeys);
+        if (invalidation.Kind == DistributedInvalidationEventKinds.PublicHotReadVersionPublished)
+        {
+            foreach (string artifactKey in invalidation.ArtifactKeys)
+            {
+                if (DistributedInvalidationTargetResolver.TryParsePublicHotReadVersion(artifactKey, out long version))
+                {
+                    _hotArticlesVersionProvider?.ObserveHotArticlesVersion(version);
+                }
+            }
+        }
+        CacheTag[] httpCacheTags = ResolveHttpCacheTags(invalidation.CacheTags);
+        if (httpCacheTags.Length > 0)
+        {
+            await InvalidateHttpCacheAsync(httpCacheTags).ConfigureAwait(false);
+        }
+        foreach (DistributedArticleViewProjectionTarget target in plan.ArticleViewProjections)
+        {
+            _articleDetailViews?.ApplyAuthoritative(target.ArticleId, target.Views, target.Version);
+        }
+        foreach (DistributedBanStateProjectionTarget target in plan.BanStateProjections)
+        {
+            BanStateProjection projection = _banStateProjection
+                ?? throw new InvalidOperationException("Ban-state projection is unavailable.");
+            BanStateProjectionApplyResult applyResult = projection.Apply(new BanStateProjectionUpdate(
+                target.AccountSubjectHash,
+                target.Status,
+                target.ReasonCode,
+                target.Generation));
+            if (applyResult is BanStateProjectionApplyResult.RejectedInvalid
+                or BanStateProjectionApplyResult.FailedClosedConflict
+                or BanStateProjectionApplyResult.RejectedOverBudget)
+            {
+                throw new InvalidDataException($"Ban-state projection event failed closed: {applyResult}.");
+            }
+        }
+        if (invalidation.Kind == DistributedInvalidationEventKinds.BanStateProjection)
+        {
+            _cacheRuntimeState.Record(
+                $"distributed:{invalidation.Kind}",
+                $"event:{invalidation.EventId};targets:{plan.BanStateProjections.Count};fullReconcile:false");
+            return new DistributedInvalidationLocalApplyResult(
+                MemoryInvalidated: true,
+                AotMemoryInvalidated: true,
+                AotGenerationMarked: true,
+                HotSnapshotRetired: true,
+                DistributedInvalidationRebuildObligationStatus.Queued,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                RebuildObligationId: null,
+                RebuildGeneration: 1,
+                AotGeneration: 0)
+            {
+                ResolvedTargetCount = plan.ParsedTargetCount
+            };
+        }
         cancellationToken.ThrowIfCancellationRequested();
 
         string[] aotCacheKeys = plan.AotTargets
@@ -115,14 +206,34 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         {
             string scopedKey = ScopeAotKey(target.CacheKey);
             aotGeneration = target.IsPrefix
-                ? _publicAotInvalidationTracker.MarkPrefix(scopedKey, invalidation.EventId)
-                : _publicAotInvalidationTracker.MarkKey(scopedKey, invalidation.EventId);
+                ? await _publicAotInvalidationTracker
+                    .MarkPrefixAsync(scopedKey, invalidation.EventId, cancellationToken)
+                    .ConfigureAwait(false)
+                : await _publicAotInvalidationTracker
+                    .MarkKeyAsync(scopedKey, invalidation.EventId, cancellationToken)
+                    .ConfigureAwait(false);
             if (!target.IsPrefix
                 && PublicAotPageCatalog.TryGet(target.PageId, out PublicAotPageDescriptor descriptor))
             {
                 _publicAotSsrRuntimeState.ClearRouteQuarantine(descriptor.Kind, target.RouteKey);
             }
         }
+
+        aotGeneration = invalidation.Kind switch
+        {
+            DistributedInvalidationEventKinds.ArticleMutation
+                or DistributedInvalidationEventKinds.SystemPageMutation
+                or DistributedInvalidationEventKinds.TaxonomyMutation
+                => await _publicAotInvalidationTracker
+                    .MarkSitemapAsync(invalidation.EventId, cancellationToken)
+                    .ConfigureAwait(false),
+            DistributedInvalidationEventKinds.SeoMutation
+                or DistributedInvalidationEventKinds.ComplianceMutation
+                => await _publicAotInvalidationTracker
+                    .MarkAllAsync(invalidation.EventId, cancellationToken)
+                    .ConfigureAwait(false),
+            _ => aotGeneration
+        };
 
         if (invalidation.Kind is DistributedInvalidationEventKinds.SeoMutation
             or DistributedInvalidationEventKinds.ComplianceMutation)
@@ -186,6 +297,135 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         };
     }
 
+    private async Task<DistributedInvalidationLocalApplyResult> ApplyAccountStateProjectionAsync(
+        DistributedInvalidationEvent invalidation,
+        CancellationToken cancellationToken)
+    {
+        IAccountStateProjection projection = _accountStateProjection
+            ?? throw new InvalidOperationException("Account-state projection is unavailable.");
+        if (invalidation.ArtifactKeys.Count != 1
+            || !AccountStateProjectionMutationPublisher.TryParseArtifact(
+                invalidation.ArtifactKeys[0],
+                out int accountId,
+                out long requestedGeneration))
+        {
+            throw new InvalidDataException("Account-state projection target is invalid.");
+        }
+
+        AccountStateReadResult refreshed = await projection
+            .RefreshAsync(accountId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        long observedGeneration = refreshed.Snapshot?.Generation ?? 0;
+        if (refreshed.Outcome is AccountStateReadOutcome.Unknown
+            or AccountStateReadOutcome.Conflict
+            or AccountStateReadOutcome.SubjectMismatch
+            || observedGeneration < requestedGeneration)
+        {
+            projection.FailClosed(accountId);
+            throw new InvalidDataException(
+                $"Account-state projection failed to converge to generation {requestedGeneration}.");
+        }
+
+        _cacheRuntimeState.Record(
+            $"distributed:{invalidation.Kind}",
+            $"event:{invalidation.EventId};account:{accountId};generation:{observedGeneration};fullReconcile:false");
+        return new DistributedInvalidationLocalApplyResult(
+            MemoryInvalidated: true,
+            AotMemoryInvalidated: true,
+            AotGenerationMarked: true,
+            HotSnapshotRetired: true,
+            DistributedInvalidationRebuildObligationStatus.Queued,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            RebuildObligationId: null,
+            RebuildGeneration: observedGeneration,
+            AotGeneration: 0)
+        {
+            ResolvedTargetCount = 1
+        };
+    }
+
+    private DistributedInvalidationLocalApplyResult ApplyAdminSessionProjection(
+        DistributedInvalidationEvent invalidation)
+    {
+        if (_adminSessionProjection is null)
+        {
+            throw new InvalidOperationException("admin_session_projection_missing");
+        }
+
+        long generation = 0;
+        foreach (string target in invalidation.ArtifactKeys)
+        {
+            if (!AdminSessionProjectionEventCodec.TryParse(target, out var session, out var principal))
+            {
+                _adminSessionProjection.MarkNotReady("distributed-event-invalid");
+                throw new InvalidDataException("admin_session_projection_target_invalid");
+            }
+
+            AdminSessionProjectionApplyResult applied = session.HasValue
+                ? _adminSessionProjection.Apply(session.Value)
+                : _adminSessionProjection.Apply(principal!.Value);
+            if (!applied.Accepted)
+            {
+                throw new InvalidOperationException($"admin_session_projection_apply_{applied.Status}");
+            }
+            generation = Math.Max(generation, session?.Generation ?? principal?.Generation ?? 0);
+        }
+
+        return new DistributedInvalidationLocalApplyResult(
+            MemoryInvalidated: true,
+            AotMemoryInvalidated: true,
+            AotGenerationMarked: true,
+            HotSnapshotRetired: true,
+            DistributedInvalidationRebuildObligationStatus.Queued,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            RebuildObligationId: null,
+            RebuildGeneration: Math.Max(1, generation),
+            AotGeneration: 0)
+        {
+            ResolvedTargetCount = invalidation.ArtifactKeys.Count
+        };
+    }
+
+    private static CacheTag[] ResolveHttpCacheTags(IReadOnlyList<string> domains)
+    {
+        var tags = new HashSet<CacheTag>();
+        foreach (string domain in domains)
+        {
+            _ = domain switch
+            {
+                "article-list" => tags.Add(CacheTag.ArticleList),
+                "hot-articles" => tags.Add(CacheTag.HotArticles),
+                "stats" => tags.Add(CacheTag.Stats),
+                "category" => tags.Add(CacheTag.Category),
+                "tag" => tags.Add(CacheTag.Tag),
+                "seo" => tags.Add(CacheTag.Seo),
+                "system-page" => tags.Add(CacheTag.SystemPage),
+                "comments" => tags.Add(CacheTag.Comment),
+                _ => false
+            };
+        }
+
+        return [.. tags.Order()];
+    }
+
+    private async Task InvalidateHttpCacheAsync(CacheTag[] tags)
+    {
+        if (_testHttpCacheInvalidator is not null)
+        {
+            await _testHttpCacheInvalidator.InvalidateAsync(tags).ConfigureAwait(false);
+            return;
+        }
+
+        if (_serviceScopeFactory is null)
+        {
+            return;
+        }
+
+        await using AsyncServiceScope scope = _serviceScopeFactory.CreateAsyncScope();
+        IHttpCacheInvalidator invalidator = scope.ServiceProvider.GetRequiredService<IHttpCacheInvalidator>();
+        await invalidator.InvalidateAsync(tags).ConfigureAwait(false);
+    }
+
     private async Task<DistributedInvalidationLocalApplyResult> ApplyFullReconcileAsync(
         DistributedInvalidationEvent invalidation,
         string reason,
@@ -194,7 +434,9 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
     {
         CacheL1InvalidationReceipt l1Receipt = _localCache.ReconcileAllLocal();
         _publicAotCache.InvalidateDistributedMemoryState();
-        long publicAotGeneration = _publicAotInvalidationTracker.MarkAll(invalidation.EventId);
+        long publicAotGeneration = await _publicAotInvalidationTracker
+            .MarkAllAsync(invalidation.EventId, cancellationToken)
+            .ConfigureAwait(false);
         _publicAotSsrRuntimeState.ClearAllRouteQuarantines();
         _publicHotReadStore.InvalidateDistributedSnapshot(
             reason,
@@ -268,7 +510,7 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
             _ => throw new InvalidOperationException("distributed public-hot fragment obligation is unknown")
         };
 
-    private sealed class CacheLocalStoreInvalidator(CacheLocalStore localStore) : ICacheLocalInvalidator
+    private sealed class PolicyShardedCacheL1StoreInvalidator(PolicyShardedCacheL1Store localStore) : ICacheLocalInvalidator
     {
         public CacheL1InvalidationReceipt InvalidateLocal(IReadOnlyList<CacheKeyIdentity> keys)
             => localStore.InvalidateLocal(keys);

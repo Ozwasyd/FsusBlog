@@ -50,7 +50,10 @@ test('public hot-read residency profiler emits physical-memory and hit-rate gate
 test('benchmark console reports unprivileged scheduling as one informational note', () => {
   assert.match(benchmarkProgram, /Benchmark scheduler note: privileged priority elevation is unavailable/u)
   assert.match(benchmarkProgram, /Interlocked\.Exchange\(ref _priorityNoteWritten, 1\) == 0/u)
-  assert.match(benchmarkProgram, /WithOptions\(ConfigOptions\.DisableLogFile\)/u)
+  assert.match(
+    benchmarkProgram,
+    /WithOptions\(ConfigOptions\.DisableLogFile \| ConfigOptions\.DisableOptimizationsValidator\)/u
+  )
 })
 
 function writeJson(file, payload) {
@@ -136,12 +139,20 @@ test('treats zero baseline and zero current allocation as a zero ratio', () => {
   assert.deepEqual(allocation, { metric: 'allocatedRatio', actual: 0, maximum: 0.5 })
 })
 
-test('discovers every HotPath class and retains 32 ShortRun MemoryDiagnoser cases', () => {
+test('discovers every HotPath class and retains the current ShortRun MemoryDiagnoser cases', () => {
   const benchmarkRoot = path.join(root, 'benchmarks/core')
   const program = fs.readFileSync(path.join(benchmarkRoot, 'Program.cs'), 'utf8')
   const sources = fs.readdirSync(benchmarkRoot)
     .filter((file) => file.endsWith('.cs'))
     .map((file) => fs.readFileSync(path.join(benchmarkRoot, file), 'utf8'))
+  assert.match(program, /typeof\(CacheL1TelemetryExporterBenchmarks\)/u)
+  assert.match(program, /typeof\(CacheL1TelemetryContentionBenchmarks\)/u)
+  const telemetryMatrix = fs.readFileSync(
+    path.join(benchmarkRoot, 'CacheL1TelemetryExporterAndContentionBenchmarks.cs'),
+    'utf8'
+  )
+  assert.match(telemetryMatrix, /Online[\s\S]*Offline[\s\S]*Backpressured/u)
+  assert.match(telemetryMatrix, /\[Params\(64, 256, 1024\)\]/u)
   assert.deepEqual(discoverHotPathBenchmarkClasses(program), [
     'BinaryTransportHotPathBenchmarks',
     'CacheAndFrameFixedCostHotPathBenchmarks',
@@ -149,17 +160,20 @@ test('discovers every HotPath class and retains 32 ShortRun MemoryDiagnoser case
     'CrawlerNormalizationHotPathBenchmarks',
     'CspNonceHtmlHotPathBenchmarks',
     'NotificationStreamHotPathBenchmarks',
+    'PublicArtifactRevocationHotPathBenchmarks',
     'ReadModelProjectionHotPathBenchmarks',
     'RelatedReadingHotPathBenchmarks',
     'RequestAuditHotPathBenchmarks',
-    'StatsProjectionHotPathBenchmarks'
+    'StatsProjectionHotPathBenchmarks',
+    'UnifiedCacheL1TelemetryHotPathBenchmarks',
+    'UnifiedCacheL1TelemetryIncrementHotPathBenchmarks'
   ])
   assert.deepEqual(validateHotPathBenchmarkContract(program, sources), {
     classes: discoverHotPathBenchmarkClasses(program),
-    methodCount: 28,
-    caseCount: 32,
+    methodCount: 41,
+    caseCount: 56,
     job: 'ShortRun',
-    memoryDiagnoserClassCount: 10
+    memoryDiagnoserClassCount: 13
   })
 })
 

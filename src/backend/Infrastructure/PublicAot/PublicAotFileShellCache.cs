@@ -17,8 +17,7 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 public sealed class PublicAotFileShellCache : IPublicAotShellCache
 {
     private const int InvalidationBatchSize = 256;
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IDatabase _db;
+    private readonly IRedisOperationExecutor _redisOperations;
     private readonly PublicAotArtifactCommitJournal _commitJournal;
     private readonly Func<PublicAotArtifactCommitState, CancellationToken, Task>? _commitObserver;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _commitLocks = new(StringComparer.Ordinal);
@@ -35,7 +34,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
     public PublicAotFileShellCache(
         IWebHostEnvironment env,
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redisOperations,
         ILogger<PublicAotFileShellCache> logger,
         ReleaseDerivedArtifactPublisher? derivedPublisher = null,
         IConfiguration? configuration = null,
@@ -43,7 +42,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         IPublicArtifactStorage? publicArtifactStorage = null)
         : this(
             env,
-            redis,
+            redisOperations,
             logger,
             derivedPublisher,
             configuration,
@@ -55,7 +54,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
     internal PublicAotFileShellCache(
         IWebHostEnvironment env,
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redisOperations,
         ILogger<PublicAotFileShellCache> logger,
         ReleaseDerivedArtifactPublisher? derivedPublisher,
         IConfiguration? configuration,
@@ -63,8 +62,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         IPublicArtifactStorage? publicArtifactStorage,
         Func<PublicAotArtifactCommitState, CancellationToken, Task>? commitObserver = null)
     {
-        _redis = redis;
-        _db = redis.GetDatabase();
+        _redisOperations = redisOperations;
         _derivedPublisher = derivedPublisher ?? ResolveReleaseDerivedPublisher();
         _cacheRoot = _derivedPublisher?.GetKindRoot("public-aot") ?? ResolveCacheRoot(env);
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -1226,7 +1224,10 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         foreach (string registryKey in transaction.RegistryKeys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _ = await _db.SetAddAsync(registryKey, transaction.CacheKey).ConfigureAwait(false);
+            _ = await ExecuteDatabaseAsync(
+                RedisOperationPort.PublicAotFileCacheWrite,
+                (database, _) => database.SetAddAsync(registryKey, transaction.CacheKey),
+                cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1260,7 +1261,8 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         List<string> batch = new(InvalidationBatchSize);
         try
         {
-            foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+            RedisValue[] registeredKeys = await ScanRegistryAsync(registryKey, cancellationToken).ConfigureAwait(false);
+            foreach (RedisValue key in registeredKeys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (key.IsNullOrEmpty)
@@ -1384,7 +1386,10 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         foreach ((string registryKey, List<RedisValue> members) in grouped)
         {
             await BoundaryExecutor.ExecuteAsync(
-                async () => removed += await _db.SetRemoveAsync((RedisKey)registryKey, [.. members]).ConfigureAwait(false),
+                async () => removed += await ExecuteDatabaseAsync(
+                    RedisOperationPort.PublicAotFileCacheWrite,
+                    (database, _) => database.SetRemoveAsync((RedisKey)registryKey, [.. members]),
+                    CancellationToken.None).ConfigureAwait(false),
                 _logger,
                 $"public-aot-unregister-batch:{registryKey}:{members.Count}");
         }
@@ -1414,7 +1419,10 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
         try
         {
-            long deletedKeys = await _db.KeyDeleteAsync(registryKeys).ConfigureAwait(false);
+            long deletedKeys = await ExecuteDatabaseAsync(
+                RedisOperationPort.PublicAotShellMaintenance,
+                (database, _) => database.KeyDeleteAsync(registryKeys),
+                cancellationToken).ConfigureAwait(false);
             return PublicAotRegistryCleanupResult.Success(deletedKeys);
         }
         catch (OperationCanceledException)
@@ -1444,16 +1452,20 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         return PublicAotCacheRegistry.GlobalRegistryKey;
     }
 
-    internal PublicAotBatchInvalidationStats ApplyRemoteInvalidationForTests(PublicAotInvalidationMessage message)
-        => ApplyRemoteInvalidation(message);
+    internal Task<PublicAotBatchInvalidationStats> ApplyRemoteInvalidationForTests(PublicAotInvalidationMessage message)
+        => ApplyRemoteInvalidation(message, CancellationToken.None);
 
-    internal PublicAotBatchInvalidationStats ApplyRemoteInvalidation(PublicAotInvalidationMessage message)
+    internal async Task<PublicAotBatchInvalidationStats> ApplyRemoteInvalidation(
+        PublicAotInvalidationMessage message,
+        CancellationToken cancellationToken)
     {
         long started = Stopwatch.GetTimestamp();
         PublicAotBatchInvalidationStats stats = message.Type switch
         {
             PublicAotInvalidationMessage.TypeAll => ApplyRemoteAllInvalidation(),
-            PublicAotInvalidationMessage.TypePrefix when !string.IsNullOrWhiteSpace(message.Value) => ApplyRemotePrefixInvalidation(message.Value),
+            PublicAotInvalidationMessage.TypePrefix when !string.IsNullOrWhiteSpace(message.Value) => await ApplyRemotePrefixInvalidationAsync(
+                message.Value,
+                cancellationToken).ConfigureAwait(false),
             PublicAotInvalidationMessage.TypeKey when !string.IsNullOrWhiteSpace(message.Value) => ApplyRemoteKeyInvalidation(message.Value),
             _ => PublicAotBatchInvalidationStats.Empty
         };
@@ -1481,7 +1493,9 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         return new PublicAotBatchInvalidationStats(0, deletedFiles, 0, 0);
     }
 
-    private PublicAotBatchInvalidationStats ApplyRemotePrefixInvalidation(string prefix)
+    private async Task<PublicAotBatchInvalidationStats> ApplyRemotePrefixInvalidationAsync(
+        string prefix,
+        CancellationToken cancellationToken)
     {
         var removedMemoryKeys = new List<string>();
         int removedMemory = checked((int)Math.Min(int.MaxValue, RemoveMemoryByPrefix(prefix, removedMemoryKeys)));
@@ -1492,10 +1506,18 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
 
         string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
-        PublicAotBatchInvalidationStats stats = DeleteRegisteredEntryFilesByPrefix(registryKey, prefix, requiresPrefixFilter);
+        PublicAotBatchInvalidationStats stats = await DeleteRegisteredEntryFilesByPrefixAsync(
+            registryKey,
+            prefix,
+            requiresPrefixFilter,
+            cancellationToken).ConfigureAwait(false);
         if (stats.InvalidatedKeys == 0 && !string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
         {
-            stats = stats.Add(DeleteRegisteredEntryFilesByPrefix(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true));
+            stats = stats.Add(await DeleteRegisteredEntryFilesByPrefixAsync(
+                PublicAotCacheRegistry.GlobalRegistryKey,
+                prefix,
+                requiresPrefixFilter: true,
+                cancellationToken).ConfigureAwait(false));
         }
 
         string[] indexedKeys = _commitJournal.EnumerateTransactions()
@@ -1528,16 +1550,18 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             0);
     }
 
-    private PublicAotBatchInvalidationStats DeleteRegisteredEntryFilesByPrefix(
+    private async Task<PublicAotBatchInvalidationStats> DeleteRegisteredEntryFilesByPrefixAsync(
         string registryKey,
         string prefix,
-        bool requiresPrefixFilter)
+        bool requiresPrefixFilter,
+        CancellationToken cancellationToken)
     {
         int invalidatedKeys = 0;
         int deletedFiles = 0;
         try
         {
-            foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+            RedisValue[] registeredKeys = await ScanRegistryAsync(registryKey, cancellationToken).ConfigureAwait(false);
+            foreach (RedisValue key in registeredKeys)
             {
                 if (key.IsNullOrEmpty)
                 {
@@ -1575,14 +1599,45 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         await BoundaryExecutor.ExecuteAsync(
             async () =>
             {
-                _ = await _redis.GetSubscriber()
-                    .PublishAsync(RedisChannel.Literal(PublicAotInvalidationMessage.Channel), message.ToPayload())
+                _ = await _redisOperations.ExecuteAsync(
+                    RedisOperationPort.PublicAotInvalidationDelivery,
+                    (multiplexer, _) => multiplexer.GetSubscriber().PublishAsync(
+                        RedisChannel.Literal(PublicAotInvalidationMessage.Channel),
+                        message.ToPayload()),
+                    CancellationToken.None)
                     .ConfigureAwait(false);
             },
             _logger,
             $"public-aot-publish:{message.Type}:{message.Value}",
             LogLevel.Debug);
     }
+
+    private Task<T> ExecuteDatabaseAsync<T>(
+        RedisOperationPort port,
+        Func<IDatabase, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => _redisOperations.ExecuteAsync(
+            port,
+            (multiplexer, deadlineToken) => operation(multiplexer.GetDatabase(), deadlineToken),
+            cancellationToken);
+
+    private Task<RedisValue[]> ScanRegistryAsync(
+        RedisKey registryKey,
+        CancellationToken cancellationToken)
+        => ExecuteDatabaseAsync(
+            RedisOperationPort.PublicAotShellMaintenance,
+            async (database, deadlineToken) =>
+            {
+                var values = new List<RedisValue>();
+                await foreach (RedisValue value in database.SetScanAsync(
+                    registryKey,
+                    pageSize: InvalidationBatchSize).WithCancellation(deadlineToken).ConfigureAwait(false))
+                {
+                    values.Add(value);
+                }
+                return values.ToArray();
+            },
+            cancellationToken);
 
     private void RecordInvalidation(string scope, PublicAotBatchInvalidationStats stats, TimeSpan elapsed)
     {

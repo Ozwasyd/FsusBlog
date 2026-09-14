@@ -12,6 +12,10 @@ public static class DistributedInvalidationEventKinds
     public const string ComplianceMutation = "compliance_mutation";
     public const string PublicAotArtifactUpdated = "public_aot_artifact_updated";
     public const string PublicHotReadVersionPublished = "public_hot_read_version_published";
+    public const string ArticleViewProjection = "article_view_projection";
+    public const string BanStateProjection = "ban_state_projection";
+    public const string AdminSessionProjectionMutation = "admin_session_projection_mutation";
+    public const string AccountStateProjectionMutation = "account_state_projection_mutation";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -22,7 +26,11 @@ public static class DistributedInvalidationEventKinds
         SeoMutation,
         ComplianceMutation,
         PublicAotArtifactUpdated,
-        PublicHotReadVersionPublished
+        PublicHotReadVersionPublished,
+        ArticleViewProjection,
+        BanStateProjection,
+        AdminSessionProjectionMutation,
+        AccountStateProjectionMutation
     };
 }
 

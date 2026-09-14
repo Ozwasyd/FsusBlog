@@ -105,7 +105,8 @@ public sealed class ArticleServiceViewFlushSink(
     IArticleCoreService articleService,
     IHotStatsInvalidationCoalescer hotStatsInvalidation,
     PublicHotArtifactUpdateQueue publicHotUpdates,
-    ILogger<ArticleServiceViewFlushSink> logger) : IArticleViewFlushSink
+    ILogger<ArticleServiceViewFlushSink> logger,
+    CacheInvalidationRuntimeState? cacheRuntimeState = null) : IArticleViewFlushSink
 {
     public async ValueTask<IReadOnlySet<int>> FlushArticleViewsAsync(
         IReadOnlyDictionary<int, int> articleCounts,
@@ -123,24 +124,52 @@ public sealed class ArticleServiceViewFlushSink(
         }
 
         const string Reason = "article-view-projection-buffer-flush";
-        await hotStatsInvalidation.MarkStatsDirtyAsync(Reason, cancellationToken).ConfigureAwait(false);
-        await hotStatsInvalidation.MarkHotArticlesDirtyAsync(Reason, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await hotStatsInvalidation.MarkStatsDirtyAsync(Reason, CancellationToken.None).ConfigureAwait(false);
+            await hotStatsInvalidation.MarkHotArticlesDirtyAsync(Reason, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await (cacheRuntimeState?.RecordAsync(
+                    "distributed_degraded",
+                    $"article-view-hot-stats:{ex.GetType().Name}",
+                    CancellationToken.None)
+                ?? Task.CompletedTask).ConfigureAwait(false);
+            logger.LogWarning(ex, "article-view-hot-stats-degraded-after-persist");
+        }
+
         foreach (int articleId in updatedArticleIds)
         {
-            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
-                    PublicHotArtifactDeliveryClass.BestEffortView,
-                    articleId,
-                    Reason,
-                    cancellationToken: CancellationToken.None)
-                .ConfigureAwait(false);
-            PublicHotArtifactDeliveryReceipt.RequireDurable(delivery, Reason);
-            if (delivery.Status is PublicHotArtifactDeliveryStatus.PersistedDirty
-                or PublicHotArtifactDeliveryStatus.Coalesced)
+            try
             {
-                logger.LogInformation(
-                    "article-view-public-hot-persisted-for-replay {ArticleId} {DeliveryStatus}",
-                    articleId,
-                    delivery.Status);
+                PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                        PublicHotArtifactDeliveryClass.BestEffortView,
+                        articleId,
+                        Reason,
+                        cancellationToken: CancellationToken.None)
+                    .ConfigureAwait(false);
+                PublicHotArtifactDeliveryReceipt.RequireDurable(delivery, Reason);
+                if (delivery.Status is PublicHotArtifactDeliveryStatus.PersistedDirty
+                    or PublicHotArtifactDeliveryStatus.Coalesced)
+                {
+                    logger.LogInformation(
+                        "article-view-public-hot-persisted-for-replay {ArticleId} {DeliveryStatus}",
+                        articleId,
+                        delivery.Status);
+                }
+            }
+            catch (Exception ex)
+            {
+                await (cacheRuntimeState?.RecordAsync(
+                        "distributed_degraded",
+                        $"article-view-public-hot:{articleId}:{ex.GetType().Name}",
+                        CancellationToken.None)
+                    ?? Task.CompletedTask).ConfigureAwait(false);
+                logger.LogWarning(
+                    ex,
+                    "article-view-public-hot-degraded-after-persist {ArticleId}",
+                    articleId);
             }
         }
 

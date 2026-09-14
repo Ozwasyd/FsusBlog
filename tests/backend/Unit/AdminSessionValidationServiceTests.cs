@@ -1,319 +1,324 @@
-using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
-using SqlSugar;
+using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
-[Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFixture fixture)
+public sealed class AdminSessionValidationServiceTests
 {
-    private static readonly SemaphoreSlim s_databaseResetLock = new(1, 1);
-    private static string? s_sharedConnectionString;
-
     [Fact]
-    public void JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature()
+    public async Task ValidateAsync_UsesOnlyReadyLocalProjection_AndFailsClosedForUnknown()
     {
-        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(JwtServiceExtensions),
-            nameof(JwtServiceExtensions.AddJwtAuthentication));
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var clock = new ManualTimeProvider(now);
+        AdminSessionProjection projection = CreateProjection(clock);
+        using AdminSessionTouchScheduler touches = CreateTouchScheduler(clock, capacity: 8, tracking: 8);
+        var service = new AdminSessionValidationService(projection, touches);
 
-        Assert.Contains("JwtBearerEvents.set_OnTokenValidated", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("IAdminSessionValidationService", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("IAdminSessionValidationService.ValidateAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("AuthCookieService.ClearAdminSessionCookies", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains(".Fail", runtimeShape, StringComparison.Ordinal);
-    }
+        AdminSessionValidationResult cold = await service.ValidateAsync(Principal(1, "sid"), "token", default);
+        Assert.False(cold.IsValid);
+        Assert.Equal(AdminSessionProjectionReasons.NotReady, cold.Reason);
 
-    [Fact]
-    public async Task ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen()
-    {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "active-admin-token";
-        DateTime before = DateTime.UtcNow.AddMinutes(-5);
+        ApplyActive(projection, "sid", "token", now);
+        Assert.True(projection.MarkReady(1));
+        Assert.True((await service.ValidateAsync(Principal(1, "sid"), "token", default)).IsValid);
 
-        using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
-        var service = new AdminSessionValidationService(db);
-
-        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
-
-        Assert.True(result.IsValid, result.Reason);
-        AdminSession session = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
-        Assert.NotNull(session.LastSeenAtUtc);
-        Assert.True(session.LastSeenAtUtc > before);
+        AdminSessionValidationResult unknown = await service.ValidateAsync(Principal(1, "unknown"), "token", default);
+        Assert.False(unknown.IsValid);
+        Assert.Equal(AdminSessionProjectionReasons.UnknownSession, unknown.Reason);
+        Assert.Equal(0, projection.Snapshot().AuthorityReadCount);
     }
 
     [Fact]
-    public async Task ValidateAsync_UsesInjectedBusinessClockForExpiry()
+    public async Task ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch()
     {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "business-clock-admin-token";
-        DateTimeOffset businessNow = new(2026, 6, 2, 12, 0, 0, TimeSpan.Zero);
-        AdminSession session = CreateSession(accessTokenHash: HashForStorage(Token));
-        session.IdleExpiresAtUtc = businessNow.UtcDateTime.AddMinutes(10);
-        session.AbsoluteExpiresAtUtc = businessNow.UtcDateTime.AddHours(1);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var clock = new ManualTimeProvider(now);
+        AdminSessionProjection projection = CreateProjection(clock);
+        ApplyActive(projection, "sid-hot", "token", now);
+        Assert.True(projection.MarkReady(1));
+        using AdminSessionTouchScheduler touches = CreateTouchScheduler(clock, capacity: 16, tracking: 16);
+        var service = new AdminSessionValidationService(projection, touches);
+        ClaimsPrincipal principal = Principal(1, "sid-hot");
 
-        using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), session);
-        var service = new AdminSessionValidationService(
-            db,
-            timeProvider: new TestBusinessTimeProvider(businessNow));
+        AdminSessionValidationResult[] results = await Task.WhenAll(
+            Enumerable.Range(0, 1000).Select(_ => service.ValidateAsync(principal, "token", default)));
 
-        AdminSessionValidationResult result = await service.ValidateAsync(
-            CreateClaimsPrincipal(1, "sid-1"),
-            Token,
-            CancellationToken.None);
-
-        Assert.True(result.IsValid, result.Reason);
+        Assert.All(results, static result => Assert.True(result.IsValid));
+        Assert.Equal(0, projection.Snapshot().AuthorityReadCount);
+        AdminSessionTouchRuntimeSnapshot touch = touches.Snapshot();
+        Assert.Equal(1, touch.EnqueuedCount);
+        Assert.Equal(999, touch.DebouncedCount);
+        Assert.Equal(1, touch.QueueEntries);
+        Assert.DoesNotContain(
+            typeof(AdminSessionValidationService).GetConstructors().Single().GetParameters(),
+            static parameter => parameter.ParameterType.Name.Contains("SqlSugar", StringComparison.Ordinal)
+                || parameter.ParameterType.Name.Contains("Redis", StringComparison.Ordinal)
+                || parameter.ParameterType.Name.Contains("MemoryCache", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task ValidateCurrentSessionAfterTouchConflict_AllowsConcurrentLastSeenUpdate()
+    public async Task ValidateAsync_PreservesTokenExpiryAndPrincipalChecks()
     {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "concurrent-admin-token";
-        DateTime before = DateTime.UtcNow.AddMinutes(-5);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var clock = new ManualTimeProvider(now);
+        AdminSessionProjection projection = CreateProjection(clock);
+        ApplyActive(projection, "sid", "token", now);
+        Assert.True(projection.MarkReady(1));
+        using AdminSessionTouchScheduler touches = CreateTouchScheduler(clock, capacity: 8, tracking: 8);
+        var service = new AdminSessionValidationService(projection, touches);
 
-        using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
-        var service = new AdminSessionValidationService(db);
+        Assert.Equal(
+            AdminSessionProjectionReasons.TokenMismatch,
+            (await service.ValidateAsync(Principal(1, "sid"), "wrong", default)).Reason);
+        Assert.Equal(
+            AdminSessionProjectionReasons.PrincipalMismatch,
+            (await service.ValidateAsync(Principal(2, "sid"), "token", default)).Reason);
 
-        await db.Updateable<AdminSession>()
-            .SetColumns(session => session.LastSeenAtUtc == DateTime.UtcNow)
-            .Where(session => session.SessionId == "sid-1")
-            .ExecuteCommandAsync();
-
-        AdminSessionValidationResult result = await InvokeValidateCurrentSessionAfterTouchConflictAsync(
-            service,
-            adminId: 1,
-            sessionId: "sid-1",
-            currentTokenHash: HashForStorage(Token),
-            now: DateTime.UtcNow);
-
-        Assert.True(result.IsValid, result.Reason);
+        clock.Advance(TimeSpan.FromMinutes(11));
+        Assert.Equal(
+            AdminSessionProjectionReasons.IdleExpired,
+            (await service.ValidateAsync(Principal(1, "sid"), "token", default)).Reason);
     }
 
     [Fact]
-    public void ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch()
+    public void TouchScheduler_TrackingAndQueueAreStrictlyBounded()
     {
-        Type serviceType = typeof(AdminSessionValidationService);
-        TimeSpan snapshotTtl = (TimeSpan)serviceType
-            .GetField("s_adminSessionValidationSnapshotTtl", BindingFlags.Static | BindingFlags.NonPublic)!
-            .GetValue(null)!;
-        TimeSpan touchInterval = (TimeSpan)serviceType
-            .GetField("s_adminSessionTouchMinInterval", BindingFlags.Static | BindingFlags.NonPublic)!
-            .GetValue(null)!;
-        Assert.Equal(TimeSpan.FromSeconds(10), snapshotTtl);
-        Assert.Equal(TimeSpan.FromSeconds(45), touchInterval);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var clock = new ManualTimeProvider(now);
+        using AdminSessionTouchScheduler scheduler = CreateTouchScheduler(clock, capacity: 3, tracking: 2);
+        byte[] hash = Hash("token");
 
-        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            serviceType,
-            nameof(AdminSessionValidationService.ValidateAsync),
-            "LoadAdminSessionValidationStateAsync",
-            "TryTouchAdminSessionAsync",
-            "ValidateCurrentSessionAfterTouchConflictAsync",
-            "TryGetValidationSnapshot",
-            "SetValidationSnapshot",
-            "ShouldTouchAdminSession");
-        Assert.Contains("AdminSessionValidationSnapshot", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("MemoryCacheEntryOptions", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("JOIN admin_principal ap ON ap.id = s.adminprincipalid", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ap.status AS principal_status", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND xmin::text = @RowVersion", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND accesstokenhash = @AccessTokenHash", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND idleexpiresatutc = @IdleExpiresAtUtc", runtimeShape, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("RecordAdminSessionValidationDbRead", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionValidationCacheHit", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionTouchSkipped", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionTouch", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("admin_session_conflict", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("InSingleAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.True(scheduler.TrySchedule(Touch("a", hash, now)));
+        Assert.True(scheduler.TrySchedule(Touch("b", hash, now)));
+        Assert.False(scheduler.TrySchedule(Touch("c", hash, now)));
+        AdminSessionTouchRuntimeSnapshot snapshot = scheduler.Snapshot();
+        Assert.Equal(2, snapshot.QueueEntries);
+        Assert.Equal(2, snapshot.TrackingEntries);
+        Assert.Equal(3, snapshot.QueueCapacity);
+        Assert.Equal(2, snapshot.MaxTrackingEntries);
+        Assert.True(snapshot.TrackingBytes > 0);
 
-        HashSet<string> instruments = typeof(FsusObservability)
-            .GetFields(BindingFlags.Static | BindingFlags.NonPublic)
-            .Select(static field => field.GetValue(null))
-            .OfType<System.Diagnostics.Metrics.Instrument>()
-            .Select(static instrument => instrument.Name)
-            .ToHashSet(StringComparer.Ordinal);
-        Assert.Contains("fsus.admin.session.validation.db_read_count", instruments);
-        Assert.Contains("fsus.admin.session.validation.cache_hit", instruments);
-        Assert.Contains("fsus.admin.session.touch_skipped", instruments);
-        Assert.Contains("fsus.admin.session.touch_elapsed_ms", instruments);
+        clock.Advance(TimeSpan.FromHours(3));
+        Assert.Equal(0, scheduler.Snapshot().TrackingEntries);
+        bool recycled = scheduler.TrySchedule(Touch("c", hash, clock.GetUtcNow()));
+        Assert.True(recycled, $"touch scheduler did not recycle: {scheduler.Snapshot()}");
+        Assert.Equal(1, scheduler.Snapshot().TrackingEntries);
     }
 
     [Fact]
-    public async Task ValidateAsync_SecondSnapshotHitDoesNotTouchLastSeenAgain()
+    public void DistributedCodec_RoundTripsSessionAndPrincipal_AndRejectsCorruption()
     {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "snapshot-admin-token";
-        DateTime before = DateTime.UtcNow.AddMinutes(-5);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AdminSessionProjectionSessionUpdate session = Session("sid", "token", now);
+        string sessionTarget = AdminSessionProjectionEventCodec.Format(session);
+        Assert.True(AdminSessionProjectionEventCodec.TryParse(sessionTarget, out var parsedSession, out var parsedPrincipal));
+        Assert.True(parsedSession.HasValue);
+        Assert.Equal(session.SessionId, parsedSession.Value.SessionId);
+        Assert.Equal(session.Version, parsedSession.Value.Version);
+        Assert.True(session.AccessTokenHash.Span.SequenceEqual(parsedSession.Value.AccessTokenHash.Span));
+        Assert.Null(parsedPrincipal);
 
-        using SqlSugarClient db = CreateDb(connectionString);
-        using var cache = new MemoryCache(new MemoryCacheOptions());
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
-        var service = new AdminSessionValidationService(db, cache);
-
-        AdminSessionValidationResult first = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
-        AdminSession afterFirst = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
-        AdminSessionValidationResult second = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
-        AdminSession afterSecond = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
-
-        Assert.True(first.IsValid, first.Reason);
-        Assert.True(second.IsValid, second.Reason);
-        Assert.True(afterFirst.LastSeenAtUtc > before);
-        Assert.Equal(afterFirst.LastSeenAtUtc, afterSecond.LastSeenAtUtc);
-    }
-
-    [Fact]
-    public async Task ValidateAsync_RejectsNonAdminPrincipalWhenInvoked()
-    {
-        string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient db = CreateDb(connectionString);
-        var service = new AdminSessionValidationService(db);
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, "42")],
-            "unit-test"));
-
-        AdminSessionValidationResult result = await service.ValidateAsync(principal, "not-admin-token", CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Equal("admin_principal_required", result.Reason);
-    }
-
-    [Fact]
-    public async Task TouchAdminSessionAsync_StaleRowVersionAfterRevokeDoesNotAdvanceLastSeen()
-    {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "stale-admin-token";
-        DateTime before = DateTime.UtcNow.AddMinutes(-5);
-
-        using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
-        var service = new AdminSessionValidationService(db);
-        object state = await InvokeLoadAdminSessionValidationStateAsync(service, "sid-1");
-
-        DateTime revokedAt = DateTime.UtcNow;
-        await db.Updateable<AdminSession>()
-            .SetColumns(session => session.RevokedAtUtc == revokedAt)
-            .SetColumns(session => session.RevokeReason == "test_revoke")
-            .Where(session => session.SessionId == "sid-1")
-            .ExecuteCommandAsync();
-
-        bool touched = await InvokeTryTouchAdminSessionAsync(service, state, DateTime.UtcNow);
-
-        Assert.False(touched);
-        AdminSession session = await db.Queryable<AdminSession>().SingleAsync(item => item.SessionId == "sid-1");
-        Assert.Equal("test_revoke", session.RevokeReason);
-        Assert.Equal(before, session.LastSeenAtUtc!.Value, TimeSpan.FromSeconds(1));
-    }
-
-    [Fact]
-    public async Task ValidateAsync_RejectsRevokedSession()
-    {
-        await AssertRejectedAsync(session => session.RevokedAtUtc = DateTime.UtcNow, "admin_session_revoked");
-    }
-
-    [Fact]
-    public async Task ValidateAsync_RejectsIdleExpiredSession()
-    {
-        await AssertRejectedAsync(session => session.IdleExpiresAtUtc = DateTime.UtcNow.AddSeconds(-1), "admin_session_idle_expired");
-    }
-
-    [Fact]
-    public async Task ValidateAsync_RejectsAbsoluteExpiredSession()
-    {
-        await AssertRejectedAsync(session => session.AbsoluteExpiresAtUtc = DateTime.UtcNow.AddSeconds(-1), "admin_session_absolute_expired");
-    }
-
-    [Fact]
-    public async Task ValidateAsync_RejectsDisabledPrincipal()
-    {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "disabled-principal-token";
-
-        using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Disabled), CreateSession(accessTokenHash: HashForStorage(Token)));
-        var service = new AdminSessionValidationService(db);
-
-        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Equal("admin_principal_inactive", result.Reason);
-    }
-
-    [Fact]
-    public async Task ValidateAsync_RejectsAccessTokenHashMismatch()
-    {
-        await AssertRejectedAsync(session => session.AccessTokenHash = HashForStorage("different-token"), "admin_session_token_mismatch");
-    }
-
-    private async Task AssertRejectedAsync(Action<AdminSession> mutateSession, string expectedReason)
-    {
-        string connectionString = await CreateConnectionStringAsync();
-        const string Token = "admin-token";
-
-        using SqlSugarClient db = CreateDb(connectionString);
-        AdminSession session = CreateSession(accessTokenHash: HashForStorage(Token));
-        mutateSession(session);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), session);
-        var service = new AdminSessionValidationService(db);
-
-        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Equal(expectedReason, result.Reason);
-    }
-
-    private static void Seed(SqlSugarClient db, AdminPrincipal principal, AdminSession session)
-    {
-        db.Insertable(principal).ExecuteCommand();
-        db.Insertable(session).ExecuteCommand();
-    }
-
-    private static void CreateAdminTables(SqlSugarClient db)
-    {
-        PostgresSqlSugarTestClient.InitTables(
-            db,
-            typeof(AdminPrincipal),
-            typeof(AdminSession));
-    }
-
-    private static AdminPrincipal CreatePrincipal(string status)
-        => new()
+        AdminSessionProjectionPrincipalUpdate principal = session.Principal with
         {
-            Id = 1,
-            Handle = "root",
-            Status = status,
-            IsRoot = true,
-            Permissions = string.Join('\n', AdminPermissions.All)
+            Status = AdminSessionProjectionPrincipalStatus.Disabled,
+            Version = 2,
+            Generation = 2
         };
+        string principalTarget = AdminSessionProjectionEventCodec.Format(principal);
+        Assert.True(AdminSessionProjectionEventCodec.TryParse(principalTarget, out parsedSession, out parsedPrincipal));
+        Assert.Null(parsedSession);
+        Assert.Equal(principal, parsedPrincipal);
+        Assert.False(AdminSessionProjectionEventCodec.TryParse(principalTarget + "x", out _, out _));
+    }
 
-    private static AdminSession CreateSession(string accessTokenHash, DateTime? lastSeenAtUtc = null)
-        => new()
+    [Fact]
+    public void DurableReplay_RotateRevokeDisable_IsIdempotentAndOrderIndependent()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AdminSessionProjectionSessionUpdate created = Session("sid", "old-token", now);
+        AdminSessionProjectionSessionUpdate rotated = created with
         {
-            SessionId = "sid-1",
-            AdminPrincipalId = 1,
-            AccessTokenHash = accessTokenHash,
-            CreatedAtUtc = DateTime.UtcNow.AddMinutes(-10),
-            LastSeenAtUtc = lastSeenAtUtc ?? DateTime.UtcNow.AddMinutes(-1),
-            IdleExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
-            AbsoluteExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+            AccessTokenHash = Hash("new-token"),
+            Version = 2,
+            Generation = 2
         };
+        AdminSessionProjectionSessionUpdate revoked = rotated with
+        {
+            RevokedAtUtc = now,
+            Version = 3,
+            Generation = 3
+        };
+        AdminSessionProjectionPrincipalUpdate disabled = created.Principal with
+        {
+            Status = AdminSessionProjectionPrincipalStatus.Disabled,
+            Version = 2,
+            Generation = 2
+        };
+        string[] durableTargets =
+        [
+            AdminSessionProjectionEventCodec.Format(revoked),
+            AdminSessionProjectionEventCodec.Format(disabled),
+            AdminSessionProjectionEventCodec.Format(rotated),
+            AdminSessionProjectionEventCodec.Format(revoked)
+        ];
+        AdminSessionProjection projection = CreateProjection(new ManualTimeProvider(now));
+        Assert.Equal(AdminSessionProjectionApplyStatus.Applied, projection.Apply(created).Status);
+        foreach (string target in durableTargets)
+        {
+            Assert.True(AdminSessionProjectionEventCodec.TryParse(target, out var session, out var principal));
+            AdminSessionProjectionApplyResult result = session.HasValue
+                ? projection.Apply(session.Value)
+                : projection.Apply(principal!.Value);
+            Assert.True(result.Accepted);
+        }
+        Assert.True(projection.MarkReady(3));
+        Assert.False(projection.Validate("sid", 1, Hash("new-token")).IsValid);
 
-    private static ClaimsPrincipal CreateClaimsPrincipal(long adminId, string sessionId)
+        AdminSessionProjection restarted = CreateProjection(new ManualTimeProvider(now));
+        foreach (string target in durableTargets.Reverse())
+        {
+            Assert.True(AdminSessionProjectionEventCodec.TryParse(target, out var session, out var principal));
+            _ = session.HasValue ? restarted.Apply(session.Value) : restarted.Apply(principal!.Value);
+        }
+        Assert.True(restarted.MarkReady(3));
+        Assert.False(restarted.Validate("sid", 1, Hash("new-token")).IsValid);
+    }
+
+    [Fact]
+    public async Task DurableReplay_SourceNodeAdminEvent_IsAppliedInsteadOfPreAckIgnored()
+    {
+        const string NodeId = "node-a";
+        const string RuntimeScope = "test";
+        var options = new DistributedInvalidationOptions
+        {
+            RuntimeMode = RuntimeModeKind.StaticRole,
+            NodeId = NodeId,
+            Channel = "test-channel",
+            Topology = DistributedInvalidationTopologyManifest.Create("test-channel", [NodeId]),
+            ApplyRetryCount = 1,
+            ApplyRetryDelay = TimeSpan.FromMilliseconds(1),
+            RecoveryReplayInterval = TimeSpan.FromSeconds(1),
+            DedupeCapacity = 128,
+            IngressCapacity = 8
+        };
+        IRuntimeKeyScope keyScope = Substitute.For<IRuntimeKeyScope>();
+        keyScope.ScopeToken.Returns(RuntimeScope);
+        var eventFactory = new DistributedInvalidationEventFactory(options, keyScope, TimeProvider.System);
+        IDistributedInvalidationDeliveryLedger ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
+        ledger.ReceiveAsync(Arg.Any<DistributedInvalidationEvent>(), NodeId, Arg.Any<CancellationToken>())
+            .Returns(new DistributedInvalidationInboxReceipt(false, false, false, DistributedInvalidationInboxApplyState.Pending));
+        ledger.TryBeginApplyAsync(Arg.Any<DistributedInvalidationEvent>(), NodeId, Arg.Any<CancellationToken>())
+            .Returns(true);
+        IDistributedInvalidationLocalApplier applier = Substitute.For<IDistributedInvalidationLocalApplier>();
+        applier.ApplyAsync(Arg.Any<DistributedInvalidationEvent>(), Arg.Any<CancellationToken>())
+            .Returns(AppliedDistributedResult());
+        await using ServiceProvider services = new ServiceCollection()
+            .AddSingleton(ledger)
+            .BuildServiceProvider();
+        var bus = new DistributedInvalidationBus(
+            Substitute.For<IDistributedInvalidationTransport>(),
+            applier,
+            eventFactory,
+            options,
+            new DistributedInvalidationRuntimeState(TimeProvider.System),
+            new CacheInvalidationRuntimeState(),
+            NullLogger<DistributedInvalidationBus>.Instance,
+            services.GetRequiredService<IServiceScopeFactory>());
+        DistributedInvalidationEvent invalidation = eventFactory.Create(new DistributedInvalidationRequest(
+            DistributedInvalidationEventKinds.AdminSessionProjectionMutation,
+            [],
+            [],
+            [AdminSessionProjectionEventCodec.Format(Session("sid", "token", DateTimeOffset.UtcNow))]));
+
+        await bus.HandlePayloadAsync(JsonSerializer.Serialize(invalidation), default);
+
+        await applier.Received(1).ApplyAsync(
+            Arg.Is<DistributedInvalidationEvent>(value => value.EventId == invalidation.EventId),
+            Arg.Any<CancellationToken>());
+        await ledger.Received(1).RecordApplyAsync(
+            Arg.Is<DistributedInvalidationEvent>(value => value.EventId == invalidation.EventId),
+            NodeId,
+            DistributedInvalidationInboxApplyState.Applied,
+            null,
+            1,
+            Arg.Any<CancellationToken>());
+    }
+
+    private static AdminSessionTouchRequest Touch(string sessionId, byte[] hash, DateTimeOffset now)
+        => new(sessionId, 1, hash, now.AddHours(1), now.AddHours(2));
+
+    private static DistributedInvalidationLocalApplyResult AppliedDistributedResult()
+        => new(
+            true,
+            true,
+            true,
+            true,
+            DistributedInvalidationRebuildObligationStatus.Queued,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            null,
+            1,
+            0);
+
+    private static AdminSessionTouchScheduler CreateTouchScheduler(
+        TimeProvider clock,
+        int capacity,
+        int tracking)
+        => new(
+            Substitute.For<IServiceScopeFactory>(),
+            new AdminSessionProjectionRuntimeOptions(
+                new AdminSessionProjectionLimits(32, 32, 1024 * 1024),
+                8,
+                capacity,
+                tracking,
+                TimeSpan.FromSeconds(45),
+                TimeSpan.FromMilliseconds(1),
+                TimeSpan.FromMilliseconds(100)),
+            clock,
+            NullLogger<AdminSessionTouchScheduler>.Instance);
+
+    private static AdminSessionProjection CreateProjection(TimeProvider clock)
+        => new(new AdminSessionProjectionLimits(32, 32, 1024 * 1024), clock);
+
+    private static void ApplyActive(
+        AdminSessionProjection projection,
+        string sessionId,
+        string token,
+        DateTimeOffset now)
+        => Assert.Equal(AdminSessionProjectionApplyStatus.Applied, projection.Apply(Session(sessionId, token, now)).Status);
+
+    private static AdminSessionProjectionSessionUpdate Session(
+        string sessionId,
+        string token,
+        DateTimeOffset now)
+        => new(
+            sessionId,
+            1,
+            Hash(token),
+            null,
+            now.AddMinutes(10),
+            now.AddHours(1),
+            1,
+            1,
+            new AdminSessionProjectionPrincipalUpdate(
+                1,
+                AdminSessionProjectionPrincipalStatus.Active,
+                1,
+                1));
+
+    private static ClaimsPrincipal Principal(long adminId, string sessionId)
         => new(new ClaimsIdentity(
         [
             new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
@@ -321,79 +326,15 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
             new Claim("admin_sid", sessionId)
         ], "test"));
 
-    private static string HashForStorage(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    private static byte[] Hash(string value)
+        => SHA256.HashData(Encoding.UTF8.GetBytes(value));
 
-    private static async Task<object> InvokeLoadAdminSessionValidationStateAsync(
-        AdminSessionValidationService service,
-        string sessionId)
+    private sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider
     {
-        MethodInfo method = typeof(AdminSessionValidationService).GetMethod(
-            "LoadAdminSessionValidationStateAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        object taskObject = method.Invoke(service, [sessionId, CancellationToken.None])!;
-        await (Task)taskObject;
-        object? state = taskObject.GetType().GetProperty("Result")!.GetValue(taskObject);
-        return state ?? throw new InvalidOperationException("Expected validation state.");
+        private DateTimeOffset _now = now;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void Advance(TimeSpan value) => _now += value;
     }
-
-    private static async Task<bool> InvokeTryTouchAdminSessionAsync(
-        AdminSessionValidationService service,
-        object state,
-        DateTime now)
-    {
-        MethodInfo method = typeof(AdminSessionValidationService).GetMethod(
-            "TryTouchAdminSessionAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        object taskObject = method.Invoke(service, [state, now, CancellationToken.None])!;
-        await (Task)taskObject;
-        return (bool)taskObject.GetType().GetProperty("Result")!.GetValue(taskObject)!;
-    }
-
-    private static async Task<AdminSessionValidationResult> InvokeValidateCurrentSessionAfterTouchConflictAsync(
-        AdminSessionValidationService service,
-        long adminId,
-        string sessionId,
-        string currentTokenHash,
-        DateTime now)
-    {
-        MethodInfo method = typeof(AdminSessionValidationService).GetMethod(
-            "ValidateCurrentSessionAfterTouchConflictAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        object taskObject = method.Invoke(service, [adminId, sessionId, currentTokenHash, now, CancellationToken.None])!;
-        await (Task)taskObject;
-        return (AdminSessionValidationResult)taskObject.GetType().GetProperty("Result")!.GetValue(taskObject)!;
-    }
-
-    private async Task<string> CreateConnectionStringAsync()
-    {
-        await s_databaseResetLock.WaitAsync();
-        try
-        {
-            string connectionString;
-            if (s_sharedConnectionString is null)
-            {
-                connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
-                using SqlSugarClient db = CreateDb(connectionString);
-                CreateAdminTables(db);
-                s_sharedConnectionString = connectionString;
-            }
-            else
-            {
-                connectionString = s_sharedConnectionString;
-            }
-
-            await fixture.ExecuteAsync(
-                connectionString,
-                "TRUNCATE TABLE admin_session, admin_principal RESTART IDENTITY CASCADE;");
-            return connectionString;
-        }
-        finally
-        {
-            s_databaseResetLock.Release();
-        }
-    }
-
-    private static SqlSugarClient CreateDb(string connectionString)
-        => PostgresSqlSugarTestClient.Create(connectionString);
 }

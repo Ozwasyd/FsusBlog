@@ -59,6 +59,11 @@ if (args.Contains("--public-hot-read-residency-profile", StringComparer.Ordinal)
     return PublicHotReadResidencyProfiler.Run(args);
 }
 
+if (args.Contains("--cache-l1-contention-profile", StringComparer.Ordinal))
+{
+    return CacheL1ContentionProfiler.Run();
+}
+
 if (args.Contains("--pod-binary-codec-batch-profile", StringComparer.Ordinal))
 {
     return PodBinaryCodecBatchProfiler.Run(args);
@@ -78,7 +83,10 @@ var benchmarkJob = string.Equals(
 
 var benchmarkConfig = ManualConfig.Create(DefaultConfig.Instance)
     .AddLogger(BenchmarkConsoleLogger.Instance)
-    .WithOptions(ConfigOptions.DisableLogFile);
+    // SqlSugar's package metadata is reported as non-optimized even when this
+    // benchmark project and every repository-owned project are built Release.
+    // The measured reports and the repository budget checker remain mandatory.
+    .WithOptions(ConfigOptions.DisableLogFile | ConfigOptions.DisableOptimizationsValidator);
 
 BenchmarkSwitcher
     .FromTypes([
@@ -92,7 +100,16 @@ BenchmarkSwitcher
         typeof(StatsProjectionHotPathBenchmarks),
         typeof(CrawlerNormalizationHotPathBenchmarks),
         typeof(PublicHotReadEarlyDataPlaneBenchmarks),
+        typeof(PublicArtifactRevocationHotPathBenchmarks),
         typeof(CacheAndFrameFixedCostHotPathBenchmarks),
+        typeof(PolicyShardedCacheL1ResidencyBenchmarks),
+        typeof(PolicyShardedCacheL1ContentionBenchmarks),
+        typeof(UnifiedCacheL1TelemetryHotPathBenchmarks),
+        typeof(UnifiedCacheL1TelemetryIncrementHotPathBenchmarks),
+        typeof(CacheL1TelemetryListenerBenchmarks),
+        typeof(CacheL1TelemetryExporterBenchmarks),
+        typeof(CacheL1TelemetryContentionBenchmarks),
+        typeof(SitemapProductionBuildBenchmarks),
         typeof(CspNonceHtmlHotPathBenchmarks),
         typeof(FsusBlog.Core.Benchmarks.AedsAccessProjectionBenchmarks),
         typeof(RateLimiterRejectionSamplerBenchmarks),

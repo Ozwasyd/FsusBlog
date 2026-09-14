@@ -7,6 +7,8 @@ using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
@@ -243,16 +245,16 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
         => new(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
+            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
             _totpService: Substitute.For<ITotpService>());
 
     private static UserAdminModerationService CreateAdminService(ISqlSugarClient db)
         => new(
             db,
             NullLogger<UserAdminModerationService>.Instance,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<IMessageCommandService>(),
-            Substitute.For<ICacheCounterStore>());
+            Substitute.For<IAccountStateProjectionMutationPublisher>());
 
     private static EndpointContractSnapshot CreateBinaryEndpointApplication()
         => EndpointContractApplication.CreateSnapshot();

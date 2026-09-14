@@ -61,6 +61,22 @@ internal sealed class NotificationStreamAdmissionService(
         }
 
         var banState = await blacklistService.GetBanStateAsync(numericUserId, accountSubjectHash);
+        if (!banState.IsKnown)
+        {
+            FsusObservability.RecordNotificationStreamAdmissionRejected("ban_state_unknown");
+            return NotificationStreamAdmissionResult.Denied(
+                StatusCodes.Status503ServiceUnavailable,
+                "ban_state_unknown");
+        }
+
+        if (banState.IsDeleted)
+        {
+            FsusObservability.RecordNotificationStreamAdmissionRejected("account_deleted");
+            return NotificationStreamAdmissionResult.Denied(
+                StatusCodes.Status401Unauthorized,
+                "account_deleted");
+        }
+
         if (banState.IsBanned)
         {
             FsusObservability.RecordNotificationStreamAdmissionRejected("account_blocked");
