@@ -111,7 +111,8 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       secret: request.headers['x-fsus-runtime-evidence-secret'],
       requestId: request.headers['x-fsus-runtime-evidence-request'],
       forwardedFor: request.headers['x-forwarded-for'],
-      deviceFingerprint: request.headers['x-fsus-device-fp']
+      deviceFingerprint: request.headers['x-fsus-device-fp'],
+      cookie: request.headers.cookie
     }
     calls.push(call)
     if (url.pathname === '/api/binary/system/seo' || url.pathname === '/api/binary/article/hot/10.aeds') {
@@ -527,6 +528,7 @@ test('article detail L1 handler proves zero commands while real Redis is paused'
     })
     assert.equal(pauseMs, 500)
     assert.equal(receipt.status, 'passed')
+    assert.equal(runtime.calls.filter((call) => call.path === '/api/binary/article/17.aeds' && call.cookie === 'runtime-cache-l1-evidence=1').length, 6)
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
       catalog: currentCatalog,
       expectedSource: source,

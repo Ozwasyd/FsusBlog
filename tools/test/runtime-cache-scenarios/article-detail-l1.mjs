@@ -35,28 +35,28 @@ export async function produceArticleDetailL1Receipt(options) {
   const { scenario, identity } = options
   const articleId = fixtureArticleId(identity)
   const route = `/api/binary/article/${articleId}.aeds`
-  const specs = (count, phase, subcaseId) => Array.from({ length: count }, (_, index) => ({
+  const specs = (count, subcaseId) => Array.from({ length: count }, () => ({
     method: 'GET',
-    path: `${route}?runtime-cache-evidence=${phase}-${index + 1}`,
+    path: route,
     subcaseId,
     parityGroup: 'article-detail-l1-payload',
-    headers: {}
+    headers: { Cookie: 'runtime-cache-l1-evidence=1' }
   }))
 
   return produceMeasuredScenarioReceipt(options, {
     warmup: async ({ collect }) => {
-      const warmup = specs(scenario.warmupRequests, 'warmup', 'l1-hit')
+      const warmup = specs(scenario.warmupRequests, 'l1-hit')
       return mapConcurrent(warmup, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
     },
     sample: async ({ collect }) => {
-      const l1Specs = specs(scenario.requests / 2, 'sample', 'l1-hit')
+      const l1Specs = specs(scenario.requests / 2, 'l1-hit')
       const l1 = await mapConcurrent(l1Specs, scenario.concurrency, (spec, index) => collect(spec, index))
 
       const injectRedisPause = options.injectRedisPause ?? (() => execFileSync('docker', [
         'exec', '-i', identity.redisContainer, 'redis-cli', 'CLIENT', 'PAUSE', '500', 'ALL'
       ], { stdio: ['ignore', 'pipe', 'pipe'] }))
       await injectRedisPause(500)
-      const faultSpecs = specs(scenario.requests - l1.length, 'redis-fault', 'redis-fault')
+      const faultSpecs = specs(scenario.requests - l1.length, 'redis-fault')
       const fault = await mapConcurrent(faultSpecs, scenario.concurrency, (spec, index) => collect(spec, l1.length + index))
       const requests = [...l1, ...fault]
       const baselineP95 = percentile(l1.map((request) => request.latencyMs), 95)
