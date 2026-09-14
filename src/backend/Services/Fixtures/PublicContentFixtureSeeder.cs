@@ -480,6 +480,10 @@ public sealed class PublicContentFixtureSeeder(
 
         if (requiresDeepPagination)
         {
+            // Replay the three domain-created articles before adding the set-based
+            // pagination rows. Otherwise each search edge scans all 10,020 rows
+            // even though deep-pagination fixtures intentionally have no bodies.
+            await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
             await SeedDeepPaginationArticlesAsync(
                     ownerPrefix,
                     category.Id,
