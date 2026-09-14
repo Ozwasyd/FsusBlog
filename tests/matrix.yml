@@ -6438,8 +6438,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/public-hot-read.json]
-      evidence: [.tmp/perf/runtime-cache/public-hot-read.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/public-hot-read.json, .tmp/perf/runtime-cache/raw/public-hot-read]
+      evidence: [.tmp/perf/runtime-cache/receipts/public-hot-read.json, .tmp/perf/runtime-cache/raw/public-hot-read]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6487,8 +6487,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/article-detail-l1.json]
-      evidence: [.tmp/perf/runtime-cache/article-detail-l1.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/article-detail-l1.json, .tmp/perf/runtime-cache/raw/article-detail-l1]
+      evidence: [.tmp/perf/runtime-cache/receipts/article-detail-l1.json, .tmp/perf/runtime-cache/raw/article-detail-l1]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6535,8 +6535,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/cache-miss-singleflight.json]
-      evidence: [.tmp/perf/runtime-cache/cache-miss-singleflight.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/cache-miss-singleflight.json, .tmp/perf/runtime-cache/raw/cache-miss-singleflight]
+      evidence: [.tmp/perf/runtime-cache/receipts/cache-miss-singleflight.json, .tmp/perf/runtime-cache/raw/cache-miss-singleflight]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6583,8 +6583,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/distributed-invalidation.json]
-      evidence: [.tmp/perf/runtime-cache/distributed-invalidation.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/distributed-invalidation.json, .tmp/perf/runtime-cache/raw/distributed-invalidation]
+      evidence: [.tmp/perf/runtime-cache/receipts/distributed-invalidation.json, .tmp/perf/runtime-cache/raw/distributed-invalidation]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6631,8 +6631,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/l1-residency.json]
-      evidence: [.tmp/perf/runtime-cache/l1-residency.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/l1-residency.json, .tmp/perf/runtime-cache/raw/l1-residency]
+      evidence: [.tmp/perf/runtime-cache/receipts/l1-residency.json, .tmp/perf/runtime-cache/raw/l1-residency]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6679,8 +6679,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/pagination.json]
-      evidence: [.tmp/perf/runtime-cache/pagination.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/pagination.json, .tmp/perf/runtime-cache/raw/pagination]
+      evidence: [.tmp/perf/runtime-cache/receipts/pagination.json, .tmp/perf/runtime-cache/raw/pagination]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6727,8 +6727,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/related-reading.json]
-      evidence: [.tmp/perf/runtime-cache/related-reading.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/related-reading.json, .tmp/perf/runtime-cache/raw/related-reading]
+      evidence: [.tmp/perf/runtime-cache/receipts/related-reading.json, .tmp/perf/runtime-cache/raw/related-reading]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6775,8 +6775,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/redis-fault-classes.json]
-      evidence: [.tmp/perf/runtime-cache/redis-fault-classes.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/redis-fault-classes.json, .tmp/perf/runtime-cache/raw/redis-fault-classes]
+      evidence: [.tmp/perf/runtime-cache/receipts/redis-fault-classes.json, .tmp/perf/runtime-cache/raw/redis-fault-classes]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6823,8 +6823,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/revocation.json]
-      evidence: [.tmp/perf/runtime-cache/revocation.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/revocation.json, .tmp/perf/runtime-cache/raw/revocation]
+      evidence: [.tmp/perf/runtime-cache/receipts/revocation.json, .tmp/perf/runtime-cache/raw/revocation]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6870,8 +6870,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/hot-featured-frame.json]
-      evidence: [.tmp/perf/runtime-cache/hot-featured-frame.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/hot-featured-frame.json, .tmp/perf/runtime-cache/raw/hot-featured-frame]
+      evidence: [.tmp/perf/runtime-cache/receipts/hot-featured-frame.json, .tmp/perf/runtime-cache/raw/hot-featured-frame]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6919,8 +6919,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/sitemap.json]
-      evidence: [.tmp/perf/runtime-cache/sitemap.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/sitemap.json, .tmp/perf/runtime-cache/raw/sitemap]
+      evidence: [.tmp/perf/runtime-cache/receipts/sitemap.json, .tmp/perf/runtime-cache/raw/sitemap]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6963,8 +6963,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/security-projections.json]
-      evidence: [.tmp/perf/runtime-cache/security-projections.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/security-projections.json, .tmp/perf/runtime-cache/raw/security-projections]
+      evidence: [.tmp/perf/runtime-cache/receipts/security-projections.json, .tmp/perf/runtime-cache/raw/security-projections]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -7011,8 +7011,8 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts: [.tmp/perf/runtime-cache/telemetry.json]
-      evidence: [.tmp/perf/runtime-cache/telemetry.json]
+      artifacts: [.tmp/perf/runtime-cache/receipts/telemetry.json, .tmp/perf/runtime-cache/raw/telemetry]
+      evidence: [.tmp/perf/runtime-cache/receipts/telemetry.json, .tmp/perf/runtime-cache/raw/telemetry]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false

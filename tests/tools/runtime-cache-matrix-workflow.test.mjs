@@ -34,8 +34,12 @@ test('matrix exposes exactly 13 runtime-cache producers and one strict aggregate
     assert.equal(tier.ciJob, 'backend-qps-collectors')
     assert.equal(tier.smartGateMode, 'conditional')
     assert.equal(tier.prDefault, true)
-    assert.deepEqual(tier.artifacts, [`.tmp/perf/runtime-cache/${scenarioId}.json`])
-    assert.deepEqual(tier.evidence, [`.tmp/perf/runtime-cache/${scenarioId}.json`])
+    const expectedEvidence = [
+      `.tmp/perf/runtime-cache/receipts/${scenarioId}.json`,
+      `.tmp/perf/runtime-cache/raw/${scenarioId}`
+    ]
+    assert.deepEqual(tier.artifacts, expectedEvidence)
+    assert.deepEqual(tier.evidence, expectedEvidence)
   }
 
   const aggregate = matrix.tiers.find((tier) => tier.id === 'runtime-cache-evidence')
@@ -55,13 +59,15 @@ test('quality gate publishes every producer receipt and runs aggregate after fai
   const producers = jobSource('backend-qps-collectors')
   assert.match(producers, /name: Runtime Cache Producer/u)
   assert.match(producers, /if-no-files-found: error/u)
-  assert.match(producers, /path: \.tmp\/perf\/runtime-cache\/\*\.json/u)
+  assert.match(producers, /\.tmp\/perf\/runtime-cache\/receipts\/\*\.json/u)
+  assert.match(producers, /\.tmp\/perf\/runtime-cache\/raw\/\*\*/u)
   assert.doesNotMatch(producers, /\.tmp\/perf\/backend-qps/u)
 
   const aggregate = jobSource('backend-qps')
   assert.match(aggregate, /name: Runtime Cache Strict Aggregate/u)
   assert.match(aggregate, /if: always\(\) &&/u)
   assert.match(aggregate, /pattern: backend-qps-collectors-\*/u)
+  assert.match(aggregate, /path: \.tmp\/perf\/runtime-cache/u)
   assert.match(aggregate, /if: always\(\)[\s\S]*ci-tier runtime-cache-evidence --no-deps/u)
   assert.match(aggregate, /if-no-files-found: error/u)
   assert.match(aggregate, /path: \.tmp\/release-evidence\/runtime-cache-summary\.json/u)

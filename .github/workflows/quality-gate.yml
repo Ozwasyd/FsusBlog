@@ -1395,7 +1395,9 @@ jobs:
                   if-no-files-found: error
                   retention-days: 14
                   include-hidden-files: true
-                  path: .tmp/perf/runtime-cache/*.json
+                  path: |
+                      .tmp/perf/runtime-cache/receipts/*.json
+                      .tmp/perf/runtime-cache/raw/**
 
     backend-qps:
         name: Runtime Cache Strict Aggregate
@@ -1416,7 +1418,7 @@ jobs:
               if: always()
               with:
                   pattern: backend-qps-collectors-*
-                  path: .tmp
+                  path: .tmp/perf/runtime-cache
                   merge-multiple: true
             - if: always()
               run: ./tools/test.sh ci-tier runtime-cache-evidence --no-deps
