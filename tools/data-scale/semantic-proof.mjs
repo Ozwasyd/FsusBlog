@@ -2,6 +2,12 @@
 import {
     computeSha256
 } from './runtime-plan.mjs';
+import {
+    querySearchShard
+} from './aeds-decoders.mjs';
+import {
+    verifySearchIndexReceipt
+} from './search-evidence.mjs';
 
 export const DATA_SCALE_SEMANTIC_PROOF_SCHEMA = 'fsusblog.data-scale-semantic-proof.v2';
 
@@ -401,7 +407,10 @@ export function verifySearchProof({
     manifest,
     shard,
     searchToken,
+    tokens,
     expectedArticleId,
+    indexReceipt,
+    expectedModel,
     runtimeLease
 })
 {
@@ -459,33 +468,83 @@ export function verifySearchProof({
         errors.push(`search_shard_missing_canary_article: expected articleId=${expectedArticleId}`);
     }
 
-    assertionIds.push('data-scale.search.query-hit');
-    if (searchToken)
+    if (expectedModel && expectedModel.searchableCount !== undefined)
     {
-        // Check matching via querySearchShard or matching doc
-        const matchingDocs = docs.filter((d) => (
-            String(d.articleId) === String(expectedArticleId)
-            && (d.title?.includes(searchToken) || d.summary?.includes(searchToken) || true)
-        ));
-
-        // In addition, if shard has terms, check that searchToken produces a hit
-        if (shard.terms && Array.isArray(shard.terms) && shard.terms.length > 0)
+        assertionIds.push('data-scale.search.count');
+        if (docs.length !== expectedModel.searchableCount)
         {
-            const queryHashes = new Set([
-                // token as lower
-                searchToken.toLowerCase()
-            ]);
-            // check term existence or doc mapping
+            errors.push(`search_doc_count_mismatch: expected ${expectedModel.searchableCount}, observed ${docs.length}`);
         }
-
-        if (matchingDocs.length === 0)
+        const nonSearchableSeeds = new Set(
+            (expectedModel.allArticles || []).filter((a) => !a.isSearchable).map((a) => a.seed)
+        );
+        for (const doc of docs)
         {
-            errors.push(`search_query_token_not_found: ${searchToken}`);
+            if (nonSearchableSeeds.has(doc.articleId))
+            {
+                errors.push(`non-searchable article ${doc.articleId} mistakenly included in search index`);
+            }
         }
+    }
+
+    if (indexReceipt)
+    {
+        assertionIds.push('data-scale.search.index-receipt');
+        const receiptResult = verifySearchIndexReceipt(indexReceipt);
+        if (receiptResult.status !== 'ok')
+        {
+            errors.push(...receiptResult.errors);
+        }
+        if (manifest.currentVersion && indexReceipt.indexGeneration && manifest.currentVersion !== indexReceipt.indexGeneration)
+        {
+            errors.push(`generation_mismatch: manifest has ${manifest.currentVersion}, index receipt has ${indexReceipt.indexGeneration}`);
+        }
+    }
+
+    assertionIds.push('data-scale.search.query-hit');
+    const tokenList = [];
+    if (tokens && typeof tokens === 'object')
+    {
+        for (const [kind, val] of Object.entries(tokens))
+        {
+            if (val)
+            {
+                tokenList.push({ kind, token: val });
+            }
+        }
+    }
+    else if (searchToken)
+    {
+        tokenList.push({ kind: 'searchToken', token: searchToken });
+    }
+
+    if (tokenList.length === 0)
+    {
+        errors.push('search_query_token_missing');
     }
     else
     {
-        errors.push('search_query_token_missing');
+        for (const { kind, token } of tokenList)
+        {
+            assertionIds.push(`data-scale.search.token.${kind}`);
+            const hits = querySearchShard(shard, token);
+            const foundCanaryInHits = hits.some((h) => String(h.articleId) === String(expectedArticleId));
+            const matchingDocs = docs.filter((d) => (
+                String(d.articleId) === String(expectedArticleId)
+                && (d.title?.includes(token) || d.summary?.includes(token))
+            ));
+
+            if (!foundCanaryInHits && matchingDocs.length === 0)
+            {
+                errors.push(`search_query_token_not_found: ${kind} '${token}'`);
+            }
+
+            const foreignHits = hits.filter((h) => String(h.articleId) !== String(expectedArticleId));
+            if (foreignHits.length > 0)
+            {
+                errors.push(`search_query_token_unexpected_hit: ${kind} '${token}' matched foreign articles: ${foreignHits.map((h) => h.articleId).join(',')}`);
+            }
+        }
     }
 
     if (runtimeLease && manifest.runtimeLeaseDigest)
@@ -500,8 +559,9 @@ export function verifySearchProof({
     const semanticDigest = computeSha256({
         manifestVersion: manifest.currentVersion,
         expectedArticleId,
-        searchToken,
-        shardDocCount: docs.length
+        tokens: tokenList.map((t) => t.token),
+        shardDocCount: docs.length,
+        indexReceiptDigest: indexReceipt?.contentDigest || null
     });
 
     return {
@@ -509,6 +569,7 @@ export function verifySearchProof({
         kind: 'search',
         assertionIds,
         semanticDigest,
+        indexReceipt: indexReceipt || null,
         errors
     };
 }
