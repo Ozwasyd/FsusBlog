@@ -61,7 +61,8 @@ async function acquireLocalAdminCookie(options) {
     clearTimeout(timer)
   }
   if (response.status < 300 || response.status >= 400) {
-    throw new Error(`admin fixture endpoint returned HTTP ${response.status}`)
+    const detail = (await response.text()).trim().slice(0, 512)
+    throw new Error(`admin fixture endpoint returned HTTP ${response.status}${detail ? `: ${detail}` : ''}`)
   }
   const setCookies = typeof response.headers.getSetCookie === 'function'
     ? response.headers.getSetCookie()
