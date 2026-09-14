@@ -112,7 +112,6 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       requestId: request.headers['x-fsus-runtime-evidence-request'],
       forwardedFor: request.headers['x-forwarded-for'],
       deviceFingerprint: request.headers['x-fsus-device-fp'],
-      authorization: request.headers.authorization,
       cookie: request.headers.cookie
     }
     calls.push(call)
@@ -530,7 +529,7 @@ test('article detail L1 handler proves zero commands while real Redis is paused'
     assert.equal(pauseMs, 500)
     assert.equal(receipt.status, 'passed')
     assert.equal(runtime.calls.filter((call) => call.path === '/api/binary/article/17.aeds'
-      && call.authorization === 'Bearer runtime-cache-l1-evidence').length, 6)
+      && call.cookie === 'runtime-cache-l1-evidence=1').length, 6)
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
       catalog: currentCatalog,
       expectedSource: source,

@@ -65,6 +65,9 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
             && context.Items.ContainsKey(s_authenticatedObservationItemKey);
     }
 
+    internal static bool IsAuthenticatedObservation(HttpContext context)
+        => context.Items.ContainsKey(s_authenticatedObservationItemKey);
+
     private static string? ResolveSecret(IConfiguration configuration, IHostEnvironment environment)
     {
         if (!environment.IsDevelopment() && !environment.IsEnvironment("Test"))

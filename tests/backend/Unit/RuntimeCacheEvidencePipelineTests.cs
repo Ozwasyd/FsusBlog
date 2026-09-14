@@ -1,6 +1,7 @@
 using System.Net;
 
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Testing;
 
@@ -73,6 +74,20 @@ public sealed class RuntimeCacheEvidencePipelineTests
 
         Assert.True(classified);
         Assert.False(credentialBypass);
+    }
+
+    [Fact]
+    public async Task AuthenticatedEvidenceRequests_BypassOutputCacheToMeasureInnerCache()
+    {
+        await using WebApplication app = await CreatePipelineAsync("Test", Secret);
+        using HttpClient client = app.GetTestClient();
+
+        using HttpResponseMessage first = await SendAsync(client, "pipeline-output-cache-0001", Secret);
+        using HttpResponseMessage second = await SendAsync(client, "pipeline-output-cache-0002", Secret);
+
+        Assert.NotEqual(
+            await first.Content.ReadAsStringAsync(),
+            await second.Content.ReadAsStringAsync());
     }
 
     [Theory]
@@ -150,12 +165,14 @@ public sealed class RuntimeCacheEvidencePipelineTests
         builder.WebHost.UseTestServer();
         builder.Configuration[RuntimeCacheEvidenceMiddleware.SecretConfigurationKey] = configuredSecret;
         builder.Services.AddSingleton<RuntimeCacheEvidenceStore>();
+        builder.Services.AddOutputCache();
 
         WebApplication app = builder.Build();
         app.UseMiddleware<RuntimeCacheEvidenceMiddleware>();
         app.UseRouting();
+        WebApplicationCompositionExtensions.ConfigureRuntimeCacheAwareOutputCache(app);
         app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>();
-        app.MapGet("/probe", static () => Results.Text("observed"));
+        app.MapGet("/probe", static () => Results.Text(Guid.NewGuid().ToString("N"))).CacheOutput();
         await app.StartAsync();
         return app;
     }

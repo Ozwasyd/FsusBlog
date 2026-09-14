@@ -41,7 +41,6 @@ public sealed class RuntimeCacheEvidenceObservationTests
             "/api/binary/article/42.aeds");
 
         FsusObservability.RecordArticleDetailArtifactMemoryHit(TimeSpan.Zero);
-        FsusObservability.RecordCacheOperation("get", "Authentication", "l1", "hit", TimeSpan.Zero);
         RuntimeCacheRequestObservation completed = observation.Complete(200, EmptyPayloadDigest());
 
         Assert.Equal("l1-frame", completed.LayerSource);
