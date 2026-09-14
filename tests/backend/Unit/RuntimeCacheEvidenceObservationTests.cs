@@ -51,6 +51,7 @@ public sealed class RuntimeCacheEvidenceObservationTests
         context.Response.Body = new MemoryStream();
         context.Request.Method = HttpMethods.Get;
         context.Request.Path = "/api/binary/article/42.aeds";
+        context.Request.QueryString = new QueryString("?runtime-cache-probe=one");
         context.Request.Headers[RuntimeCacheEvidenceMiddleware.RequestIdHeader] = "request-0001";
         context.Request.Headers[RuntimeCacheEvidenceMiddleware.SecretHeader] = Secret;
 
@@ -59,6 +60,7 @@ public sealed class RuntimeCacheEvidenceObservationTests
         Assert.True(store.TryTake("request-0001", out RuntimeCacheRequestObservation? observation));
         Assert.NotNull(observation);
         Assert.Equal("l1-frame", observation.LayerSource);
+        Assert.Equal("/api/binary/article/42.aeds?runtime-cache-probe=one", observation.Path);
         Assert.Equal(200, observation.Status);
         Assert.Equal(
             $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("payload")))}",

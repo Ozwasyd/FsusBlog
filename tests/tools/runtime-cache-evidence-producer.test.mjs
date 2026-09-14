@@ -14,6 +14,7 @@ import {
   runRuntimeCacheProducer
 } from '../../tools/test/run-runtime-cache-evidence.mjs'
 import { produceArticleDetailL1Receipt } from '../../tools/test/runtime-cache-scenarios/article-detail-l1.mjs'
+import { produceSitemapReceipt } from '../../tools/test/runtime-cache-scenarios/sitemap.mjs'
 
 const secret = 'runtime-cache-producer-test-secret'
 const source = {
@@ -97,6 +98,7 @@ function sha256(value) {
 async function startObservationServer({ redisCommands = [], redisFailureEvents = [] } = {}) {
   const observations = new Map()
   const calls = []
+  let sitemapBuildCount = 0
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1')
     const call = {
@@ -114,7 +116,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       observations.set(requestId, {
         requestId,
         method: 'GET',
-        path: url.pathname,
+        path: `${url.pathname}${url.search}`,
         status: 200,
         payloadDigest: sha256(body),
         layerSource: 'l0-allow',
@@ -139,7 +141,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       observations.set(requestId, {
         requestId,
         method: 'GET',
-        path: url.pathname,
+        path: `${url.pathname}${url.search}`,
         status: 200,
         payloadDigest: sha256(body),
         layerSource: 'l1-frame',
@@ -168,7 +170,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       observations.set(requestId, {
         requestId,
         method: request.method,
-        path: url.pathname,
+        path: `${url.pathname}${url.search}`,
         status: 201,
         payloadDigest: sha256(body),
         layerSource: 'database',
@@ -185,6 +187,59 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       })
       response.writeHead(201, { 'content-type': 'application/octet-stream' })
       response.end(body)
+      return
+    }
+    if (url.pathname === '/sitemap.xml') {
+      const body = Buffer.from('qualified-sitemap')
+      const requestId = request.headers['x-fsus-runtime-evidence-request']
+      const cacheHit = sitemapBuildCount > 0
+      if (!cacheHit) sitemapBuildCount += 1
+      observations.set(requestId, {
+        requestId,
+        method: 'GET',
+        path: `${url.pathname}${url.search}`,
+        status: 200,
+        payloadDigest: sha256(body),
+        layerSource: cacheHit ? 'l1-object' : 'database',
+        latencyMs: cacheHit ? 1 : 4,
+        allocatedBytes: cacheHit ? 0 : 64,
+        redisCommands: [],
+        redisFailureEvents: [],
+        databaseFingerprints: cacheHit ? [] : [sha256('sitemap-select')],
+        databaseCommandCount: cacheHit ? 0 : 1,
+        databaseDroppedCommandCount: 0,
+        databaseLateCommandCount: 0,
+        databaseObservationStatus: 'complete',
+        databaseAttributionComplete: true
+      })
+      response.writeHead(200, { 'content-type': 'application/xml' })
+      response.end(body)
+      return
+    }
+    if (url.pathname === '/_fsus/testing/runtime-cache/runtime-snapshot') {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({
+        capturedAt: new Date().toISOString(),
+        processId: 42,
+        entries: 1,
+        logicalBytes: 64,
+        capacityBytes: 64,
+        logicalBudgetBytes: 1024,
+        capacityBudgetBytes: 1024,
+        totalAllocatedBytes: 128,
+        gen0Collections: 0,
+        gen1Collections: 0,
+        gen2Collections: 0,
+        residentBytes: 4096,
+        activeKeyedEntries: 0,
+        sitemap: {
+          generation: 0,
+          artifactCount: sitemapBuildCount,
+          residentBytes: sitemapBuildCount * 64,
+          buildCount: sitemapBuildCount
+        },
+        policies: []
+      }))
       return
     }
     const match = /^\/_fsus\/testing\/runtime-cache\/observations\/([^/]+)$/u.exec(url.pathname)
@@ -387,6 +442,48 @@ test('article detail L1 handler proves zero commands while real Redis is paused'
     })
     assert.equal(pauseMs, 500)
     assert.equal(receipt.status, 'passed')
+    assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
+      catalog: currentCatalog,
+      expectedSource: source,
+      repositoryRoot: directory
+    }), [])
+  } finally {
+    await runtime.close()
+  }
+})
+
+test('sitemap handler binds one warmup build and a 100-request L1 generation window', async () => {
+  const runtime = await startObservationServer()
+  const directory = temporaryDirectory('runtime-cache-sitemap-')
+  const currentScenario = scenario({
+    id: 'sitemap',
+    subcases: ['l1-hit', 'same-generation-100'],
+    requests: 100,
+    concurrency: 32,
+    warmupRequests: 8,
+    requiredAssertions: ['l1-zero-commands', 'same-generation-build', 'rebuild-count'],
+    requirements: { redisCommandsMax: 0, dbCommandsMax: 0, rebuildCountBySubcase: { 'same-generation-100': 1 } }
+  })
+  const currentCatalog = catalog(currentScenario)
+  try {
+    const receipt = await produceSitemapReceipt({
+      repositoryRoot: directory,
+      catalog: currentCatalog,
+      scenario: currentScenario,
+      identity: { ...identity, runtime: { ...identity.runtime, kestrelUrl: runtime.baseUrl } },
+      baseUrl: runtime.baseUrl,
+      secret,
+      outputFile: path.join(directory, '.tmp/perf/runtime-cache/receipts/sitemap.json'),
+      collectMemory: async () => memory(),
+      collectCleanup: async () => cleanup(),
+      captureSource: () => source,
+      runId: 'sitemap-pass',
+      attemptNumber: 1
+    })
+    assert.equal(receipt.status, 'passed')
+    assert.equal(receipt.requests.length, 100)
+    assert.ok(receipt.requests.every((request) => request.layerSource === 'l1-object'))
+    assert.deepEqual(receipt.assertions.find((assertion) => assertion.id === 'rebuild-count').actual, { 'same-generation-100': 1 })
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
       catalog: currentCatalog,
       expectedSource: source,

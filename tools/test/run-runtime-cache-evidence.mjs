@@ -28,7 +28,7 @@ const runtimeSnapshotRoute = '/_fsus/testing/runtime-cache/runtime-snapshot'
 const failureSchema = 'fsusblog.runtime-cache-producer-failure.v1'
 const defaultOutputDirectory = path.join(root, '.tmp/perf/runtime-cache')
 
-export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read', 'article-detail-l1'])
+export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read', 'article-detail-l1', 'sitemap'])
 
 const evidenceIdPattern = /^[a-z0-9][a-z0-9.-]*$/u
 
@@ -228,7 +228,8 @@ function normalizeObservedRequest(observation, actual, spec) {
   const method = requireNonEmpty(pick(observation, 'method', 'Method'), 'observation method').toUpperCase()
   if (method !== spec.method) throw new Error(`observation method mismatch for ${actual.id}`)
   const observedPath = requireNonEmpty(pick(observation, 'path', 'Path'), 'observation path')
-  const expectedPath = new URL(spec.path, 'http://runtime.invalid').pathname
+  const expectedUrl = new URL(spec.path, 'http://runtime.invalid')
+  const expectedPath = `${expectedUrl.pathname}${expectedUrl.search}`
   if (observedPath !== expectedPath) throw new Error(`observation path mismatch for ${actual.id}`)
   const status = pick(observation, 'status', 'Status')
   if (status !== actual.status) throw new Error(`observation status mismatch for ${actual.id}`)
@@ -445,6 +446,14 @@ export async function takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutM
   }
   normalized.capturedAt = requireNonEmpty(pick(snapshot, 'capturedAt', 'CapturedAt'), 'runtime snapshot capturedAt')
   if (!Number.isFinite(Date.parse(normalized.capturedAt))) throw new Error('runtime snapshot capturedAt is invalid')
+  const sitemap = pick(snapshot, 'sitemap', 'Sitemap')
+  if (!sitemap || typeof sitemap !== 'object' || Array.isArray(sitemap)) throw new Error('runtime snapshot sitemap is missing')
+  normalized.sitemap = {}
+  for (const field of ['generation', 'artifactCount', 'residentBytes', 'buildCount']) {
+    const pascal = `${field[0].toUpperCase()}${field.slice(1)}`
+    normalized.sitemap[field] = pick(sitemap, field, pascal)
+    requireNonNegativeInteger(normalized.sitemap[field], `runtime snapshot sitemap ${field}`)
+  }
   return normalized
 }
 
@@ -739,6 +748,8 @@ export async function runRuntimeCacheProducer(options = {}) {
       let producer = producePublicHotReadReceipt
       if (scenario.id === 'article-detail-l1') {
         producer = (await import('./runtime-cache-scenarios/article-detail-l1.mjs')).produceArticleDetailL1Receipt
+      } else if (scenario.id === 'sitemap') {
+        producer = (await import('./runtime-cache-scenarios/sitemap.mjs')).produceSitemapReceipt
       } else if (scenario.id !== 'public-hot-read') {
         throw new Error(`runtime scenario handler is absent for ${scenario.id}`)
       }

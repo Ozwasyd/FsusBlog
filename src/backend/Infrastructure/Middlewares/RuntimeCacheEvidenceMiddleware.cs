@@ -41,7 +41,7 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
         using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
             requestId,
             context.Request.Method,
-            context.Request.Path.Value ?? "/");
+            $"{context.Request.Path.Value ?? "/"}{context.Request.QueryString.Value}");
         try
         {
             await next(context);
