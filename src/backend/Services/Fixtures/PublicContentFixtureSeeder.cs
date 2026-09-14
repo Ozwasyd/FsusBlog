@@ -1037,6 +1037,10 @@ public sealed class PublicContentFixtureSeeder(
             .InSingleAsync(sourceRevisionId)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("pagination fixture source revision is missing");
+        ArticleBody sourceBody = await db.Queryable<ArticleBody>()
+            .InSingleAsync(sourceArticleId)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException("pagination fixture source article body is missing");
         ArticlePublicationRecord sourcePublication = await db.Queryable<ArticlePublicationRecord>()
             .InSingleAsync(sourcePublicationId)
             .ConfigureAwait(false)
@@ -1051,6 +1055,7 @@ public sealed class PublicContentFixtureSeeder(
             sourceRevision.ContentBlockId,
             sourceRevision.CreatedByAdminPrincipalId,
             sourcePublication.RightsSnapshotId,
+            sourceBody.MarkdownContent,
             baseTimeUtc,
             cancellationToken).ConfigureAwait(false);
         if (inserted != PaginationArticleCount)
@@ -1068,6 +1073,7 @@ public sealed class PublicContentFixtureSeeder(
         long contentBlockId,
         long createdByAdminPrincipalId,
         long rightsSnapshotId,
+        string markdownContent,
         DateTime baseTimeUtc,
         CancellationToken cancellationToken)
     {
@@ -1124,34 +1130,39 @@ public sealed class PublicContentFixtureSeeder(
                 FROM generated
                 JOIN inserted_revisions ON inserted_revisions.id = generated.revision_id
                 RETURNING id
+            ), inserted_articles AS (
+                INSERT INTO article (
+                    id, title, summary, coverimageurl, categoryid, views, createtime,
+                    metadata_updated_at, status, scheduled_publish_at, published_at,
+                    last_published_at, public_updated_at, current_revision_id,
+                    current_publication_id, pending_publication_at, archived_at, deleted_at, isdeleted)
+                SELECT
+                    generated.article_id,
+                    @OwnerPrefix || ':pagination:' || lpad(generated.ordinal::text, 5, '0'),
+                    'Deep latest-keyset pagination fixture',
+                    NULL,
+                    @CategoryId,
+                    0,
+                    generated.created_at,
+                    generated.created_at,
+                    2,
+                    NULL,
+                    generated.created_at,
+                    generated.created_at,
+                    generated.created_at,
+                    generated.revision_id,
+                    generated.publication_id,
+                    NULL,
+                    NULL,
+                    NULL,
+                    false
+                FROM generated
+                JOIN inserted_publications ON inserted_publications.id = generated.publication_id
+                RETURNING id
             )
-            INSERT INTO article (
-                id, title, summary, coverimageurl, categoryid, views, createtime,
-                metadata_updated_at, status, scheduled_publish_at, published_at,
-                last_published_at, public_updated_at, current_revision_id,
-                current_publication_id, pending_publication_at, archived_at, deleted_at, isdeleted)
-            SELECT
-                generated.article_id,
-                @OwnerPrefix || ':pagination:' || lpad(generated.ordinal::text, 5, '0'),
-                'Deep latest-keyset pagination fixture',
-                NULL,
-                @CategoryId,
-                0,
-                generated.created_at,
-                generated.created_at,
-                2,
-                NULL,
-                generated.created_at,
-                generated.created_at,
-                generated.created_at,
-                generated.revision_id,
-                generated.publication_id,
-                NULL,
-                NULL,
-                NULL,
-                false
-            FROM generated
-            JOIN inserted_publications ON inserted_publications.id = generated.publication_id;
+            INSERT INTO article_body (article_id, markdown_content, updated_at)
+            SELECT id, @MarkdownContent, @BaseTimeUtc
+            FROM inserted_articles;
             """,
             new SugarParameter("@ArticleCount", PaginationArticleCount),
             new SugarParameter("@OwnerPrefix", ownerPrefix),
@@ -1160,6 +1171,7 @@ public sealed class PublicContentFixtureSeeder(
             new SugarParameter("@ContentBlockId", contentBlockId),
             new SugarParameter("@CreatedByAdminPrincipalId", createdByAdminPrincipalId),
             new SugarParameter("@RightsSnapshotId", rightsSnapshotId),
+            new SugarParameter("@MarkdownContent", markdownContent),
             new SugarParameter("@BaseTimeUtc", baseTimeUtc));
     }
 

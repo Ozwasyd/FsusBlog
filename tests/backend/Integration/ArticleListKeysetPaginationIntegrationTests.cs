@@ -46,6 +46,7 @@ public sealed class ArticleListKeysetPaginationIntegrationTests(PostgresSchemaMi
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
+            typeof(ArticleBody),
             typeof(ArticleRevision),
             typeof(ArticlePublicationRecord));
         string ownerPrefix = $"fxpc:pagination:{Guid.NewGuid():N}";
@@ -59,10 +60,21 @@ public sealed class ArticleListKeysetPaginationIntegrationTests(PostgresSchemaMi
             contentBlockId: 1,
             createdByAdminPrincipalId: 1,
             rightsSnapshotId: 1,
+            markdownContent: "# body",
             baseTimeUtc,
             CancellationToken.None);
 
         Assert.Equal(PublicContentFixtureSeeder.PaginationArticleCount, inserted);
+        int bodyCount = await db.Ado.GetIntAsync(
+            """
+            SELECT COUNT(1)
+            FROM article_body body
+            JOIN article ON article.id = body.article_id
+            WHERE left(article.title, length(@OwnerPrefix)) = @OwnerPrefix
+              AND body.markdown_content = '# body';
+            """,
+            new SugarParameter("@OwnerPrefix", ownerPrefix));
+        Assert.Equal(PublicContentFixtureSeeder.PaginationArticleCount, bodyCount);
         List<PaginationFixtureBoundaryRow> boundaries = await db.Ado.SqlQueryAsync<PaginationFixtureBoundaryRow>(
             """
             WITH visible AS (
