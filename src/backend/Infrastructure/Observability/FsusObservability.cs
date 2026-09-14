@@ -1501,6 +1501,15 @@ public static class FsusObservability
         s_articleHotFrameWholeBuilds.Add(1, tags);
     }
 
+    public static void RecordArticleHotFrameCacheHit(string frameType, string identity)
+    {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("l1-frame");
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            ArticleHotFrameEvidenceFamily(frameType),
+            identity,
+            "hit");
+    }
+
     public static void RecordArticleHotFrameDatabaseCommand(string frameType)
     {
         TagList tags = default;
@@ -1522,12 +1531,28 @@ public static class FsusObservability
         s_articleHotFrameRedisPublications.Add(1, tags);
     }
 
+    public static void RecordArticleHotFramePublished(
+        string frameType,
+        string identity)
+    {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("database");
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            ArticleHotFrameEvidenceFamily(frameType),
+            identity,
+            "published");
+    }
+
     public static void RecordArticleHotFrameGenerationRetry(string frameType)
     {
         TagList tags = default;
         tags.Add("fsus.aeds.frame_type", frameType);
         s_articleHotFrameGenerationRetries.Add(1, tags);
     }
+
+    private static string ArticleHotFrameEvidenceFamily(string frameType)
+        => string.Equals(frameType, "featured", StringComparison.Ordinal)
+            ? "article-featured-frame"
+            : "article-hot-frame";
 
     public static void RecordCacheRemoveMany(long keys, long redisBatches, TimeSpan elapsed)
     {
