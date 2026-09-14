@@ -246,13 +246,29 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         allocatedBytes: built ? 64 : 0,
         redisCommands: [],
         redisFailureEvents: [],
-        cacheEvents: [{
-          sequence: 1,
-          elapsedMilliseconds: built ? 2 : 0.5,
-          family: 'related-reading',
-          identityDigest: sha256(`related-reading:${articleId}`),
-          outcome: built ? 'built' : 'hit'
-        }],
+        cacheEvents: [
+          {
+            sequence: 1,
+            elapsedMilliseconds: built ? 1 : 0.25,
+            family: 'cache-miss-singleflight',
+            identityDigest: sha256(`singleflight:${articleId}`),
+            outcome: built ? 'built' : 'hit'
+          },
+          {
+            sequence: 2,
+            elapsedMilliseconds: built ? 2 : 0.5,
+            family: 'related-reading',
+            identityDigest: sha256(`related-reading:${articleId}`),
+            outcome: built ? 'built' : 'hit'
+          },
+          {
+            sequence: 3,
+            elapsedMilliseconds: built ? 2.5 : 0.75,
+            family: 'typed-l1',
+            identityDigest: sha256(`typed-l1:${articleId}`),
+            outcome: 'hit'
+          }
+        ],
         databaseFingerprints: built ? [sha256('related-reading-select')] : [],
         databaseCommandCount: built ? 1 : 0,
         databaseDroppedCommandCount: 0,

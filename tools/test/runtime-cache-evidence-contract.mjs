@@ -13,6 +13,12 @@ export const RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA = 'fsusblog.runtime-cache-raw-evi
 
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const defaultCatalogPath = path.join(moduleRoot, 'config/testing/runtime-cache-evidence-catalog.json')
+const rebuildFamilyByScenario = new Map([
+  ['cache-miss-singleflight', 'cache-miss-singleflight'],
+  ['related-reading', 'related-reading'],
+  ['hot-featured-frame', 'cache-miss-singleflight'],
+  ['sitemap', 'sitemap']
+])
 const defaultSchemaPath = path.join(moduleRoot, 'config/schemas/runtime-cache-scenario-receipt.schema.json')
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const idPattern = /^[a-z0-9][a-z0-9.-]*$/u
@@ -351,10 +357,12 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
   }
   if (requirements.rebuildCountBySubcase != null) {
     const assertion = findAssertion(receipt, 'rebuild-count')
+    const rebuildFamily = rebuildFamilyByScenario.get(receipt.scenarioId)
     const observed = raw
       ? Object.fromEntries(Object.keys(requirements.rebuildCountBySubcase).map((subcaseId) => [
           subcaseId,
-          raw.cacheEvents.filter((event) => event.subcaseId === subcaseId && event.outcome === 'built').length
+          raw.cacheEvents.filter((event) => event.subcaseId === subcaseId && event.outcome === 'built' &&
+            (rebuildFamily == null || event.family === rebuildFamily)).length
         ]))
       : assertion?.actual
     if (!assertion || !exactArray(assertion.actual, observed) || !exactArray(observed, requirements.rebuildCountBySubcase)) {

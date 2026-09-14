@@ -6,6 +6,8 @@ import {
   produceMeasuredScenarioReceipt
 } from '../run-runtime-cache-evidence.mjs'
 
+const relatedReadingFamily = 'related-reading'
+
 function fixtureArticleIds(identity) {
   const fixture = JSON.parse(fs.readFileSync(identity.fixtureFile, 'utf8'))
   const ids = (fixture.entities ?? [])
@@ -31,7 +33,7 @@ function builtCounts(requests, subcaseIds) {
     subcaseId,
     requests.filter((request) => request.subcaseId === subcaseId)
       .flatMap((request) => request.cacheEvents)
-      .filter((event) => event.outcome === 'built').length
+      .filter((event) => event.family === relatedReadingFamily && event.outcome === 'built').length
   ]))
 }
 
@@ -59,7 +61,10 @@ export async function produceRelatedReadingReceipt(options) {
       const requests = [cold, ...burst, hot]
       const rebuildCounts = builtCounts(requests, Object.keys(scenario.requirements.rebuildCountBySubcase))
       const burstDigests = new Set(burst.map((request) => request.payloadDigest))
-      const burstIdentities = new Set(burst.flatMap((request) => request.cacheEvents).map((event) => event.identityDigest))
+      const burstIdentities = new Set(burst
+        .flatMap((request) => request.cacheEvents)
+        .filter((event) => event.family === relatedReadingFamily)
+        .map((event) => event.identityDigest))
       const coldDatabaseCommands = cold.dbCommands.length
 
       return {
