@@ -190,7 +190,7 @@ function validateRawRequest(request, label, errors) {
 }
 
 function validateRawEvidenceDocument(raw, receipt, errors) {
-  if (!exactKeys(raw, ['schema', 'runId', 'scenarioId', 'attemptId', 'authority', 'requests', 'redisCommands', 'redisFailureEvents', 'databaseCommands', 'cacheClassifications', 'faultTimeline'], 'raw evidence', errors)) return null
+  if (!exactKeys(raw, ['schema', 'runId', 'scenarioId', 'attemptId', 'authority', 'requests', 'redisCommands', 'redisFailureEvents', 'cacheEvents', 'databaseCommands', 'cacheClassifications', 'faultTimeline'], 'raw evidence', errors)) return null
   if (raw.schema !== RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA) errors.push(`unsupported raw evidence schema: ${raw.schema}`)
   for (const field of ['runId', 'scenarioId', 'attemptId']) if (raw[field] !== receipt[field]) errors.push(`raw evidence ${field} does not match receipt`)
   if (!exactKeys(raw.authority, ['requests', 'redis', 'redisFailure', 'database', 'cache', 'fault'], 'raw evidence authority', errors)) return null
@@ -203,7 +203,7 @@ function validateRawEvidenceDocument(raw, receipt, errors) {
   if (raw.authority.fault !== 'runtime-fault-controller') errors.push(`unsupported fault authority: ${raw.authority.fault}`)
 
   let arraysValid = true
-  for (const field of ['requests', 'redisCommands', 'redisFailureEvents', 'databaseCommands', 'cacheClassifications', 'faultTimeline']) {
+  for (const field of ['requests', 'redisCommands', 'redisFailureEvents', 'cacheEvents', 'databaseCommands', 'cacheClassifications', 'faultTimeline']) {
     if (!Array.isArray(raw[field])) {
       errors.push(`raw evidence ${field} must be an array`)
       arraysValid = false
@@ -237,6 +237,17 @@ function validateRawEvidenceDocument(raw, receipt, errors) {
     if (!/^[A-Z][A-Za-z0-9]*$/u.test(String(event.failureKind ?? ''))) errors.push(`${label}.failureKind is invalid`)
     if (!idPattern.test(String(event.failAction ?? ''))) errors.push(`${label}.failAction is invalid`)
     if (event.source !== raw.authority.redisFailure) errors.push(`${label}.source does not match Redis failure authority`)
+  }
+  for (const [index, event] of raw.cacheEvents.entries()) {
+    const label = `raw cacheEvents[${index}]`
+    if (!exactKeys(event, ['requestId', 'subcaseId', 'sequence', 'elapsedMilliseconds', 'family', 'identityDigest', 'outcome', 'source'], label, errors)) continue
+    validateReference(event, label)
+    if (!Number.isInteger(event.sequence) || event.sequence < 1) errors.push(`${label}.sequence is invalid`)
+    if (!Number.isFinite(event.elapsedMilliseconds) || event.elapsedMilliseconds < 0) errors.push(`${label}.elapsedMilliseconds is invalid`)
+    if (!idPattern.test(String(event.family ?? ''))) errors.push(`${label}.family is invalid`)
+    if (!digestPattern.test(String(event.identityDigest ?? ''))) errors.push(`${label}.identityDigest is invalid`)
+    if (!['hit', 'built', 'negative', 'invalidated', 'published'].includes(event.outcome)) errors.push(`${label}.outcome is invalid`)
+    if (event.source !== raw.authority.cache) errors.push(`${label}.source does not match cache authority`)
   }
   for (const [index, command] of raw.databaseCommands.entries()) {
     const label = `raw databaseCommands[${index}]`
@@ -314,6 +325,14 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
   const dbCount = raw?.databaseCommands.length ?? receipt.commandSummary.database.count
   if (Number.isInteger(requirements.redisCommandsMax) && redisCount > requirements.redisCommandsMax) errors.push(`redis command budget exceeded: ${redisCount} > ${requirements.redisCommandsMax}`)
   if (Number.isInteger(requirements.dbCommandsMax) && dbCount > requirements.dbCommandsMax) errors.push(`database command budget exceeded: ${dbCount} > ${requirements.dbCommandsMax}`)
+  for (const [subcaseId, maximum] of Object.entries(requirements.redisCommandsMaxBySubcase ?? {})) {
+    const count = raw ? commandsForSubcase(raw, 'redisCommands', subcaseId) : Number.POSITIVE_INFINITY
+    if (!Number.isInteger(maximum) || maximum < 0 || count > maximum) errors.push(`${subcaseId} Redis command budget exceeded: ${count} > ${maximum}`)
+  }
+  for (const [subcaseId, maximum] of Object.entries(requirements.dbCommandsMaxBySubcase ?? {})) {
+    const count = raw ? commandsForSubcase(raw, 'databaseCommands', subcaseId) : Number.POSITIVE_INFINITY
+    if (!Number.isInteger(maximum) || maximum < 0 || count > maximum) errors.push(`${subcaseId} database command budget exceeded: ${count} > ${maximum}`)
+  }
   if (requirements.logicalWithinBudget && receipt.memory.logicalBytes > receipt.memory.logicalBudgetBytes) errors.push('logical memory budget exceeded')
   if (requirements.capacityWithinBudget && receipt.memory.capacityBytes > receipt.memory.capacityBudgetBytes) errors.push('backing capacity budget exceeded')
   if (requirements.activeKeyedEntriesFinal === 0 && receipt.cleanupProof.activeKeyedEntries !== 0) errors.push('active keyed entries did not drain to zero')
@@ -332,7 +351,13 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
   }
   if (requirements.rebuildCountBySubcase != null) {
     const assertion = findAssertion(receipt, 'rebuild-count')
-    if (!assertion || !exactArray(assertion.actual, requirements.rebuildCountBySubcase)) {
+    const observed = raw
+      ? Object.fromEntries(Object.keys(requirements.rebuildCountBySubcase).map((subcaseId) => [
+          subcaseId,
+          raw.cacheEvents.filter((event) => event.subcaseId === subcaseId && event.outcome === 'built').length
+        ]))
+      : assertion?.actual
+    if (!assertion || !exactArray(assertion.actual, observed) || !exactArray(observed, requirements.rebuildCountBySubcase)) {
       errors.push(`rebuild counts must exactly match ${canonicalJson(requirements.rebuildCountBySubcase)}`)
     }
   }
@@ -425,6 +450,7 @@ export function validateRuntimeCacheReceipt(receipt, options = {}) {
       requests: raw.requests.length,
       redisCommands: raw.redisCommands.length,
       redisFailureEvents: raw.redisFailureEvents.length,
+      cacheEvents: raw.cacheEvents.length,
       databaseCommands: raw.databaseCommands.length,
       cacheClassifications: raw.cacheClassifications.length,
       faultEvents: raw.faultTimeline.length
