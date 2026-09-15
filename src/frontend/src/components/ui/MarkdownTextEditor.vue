@@ -16,9 +16,10 @@
             :action-overflow-keys="actionOverflowKeys"
             :chrome="chrome"
             :commands="fsusUiCommands"
-            :command-overflow-label="articleBodyCommandOverflowLabel"
+            :command-overflow-label="commandOverflowLabel"
             :default-mode="fsusUiMode"
             :disabled="editorDisabled"
+            :document-identity="documentIdentity"
             editor-profile="prose"
             image-action-label="上传图片"
             interaction-profile="auto"
@@ -39,8 +40,10 @@
             :textarea-name="textareaName"
             toolbar-density="standard"
             :writing-placeholder="writingPlaceholder"
+            @selection-change="trackAuthoringSelection"
             @save="emitSave"
             @submit="emitSubmit"
+            @transaction="trackAuthoringTransaction"
             @upload-image="requestImageUpload"
         />
         <p
@@ -72,7 +75,15 @@
 </template>
 
 <script setup lang="ts">
-import { ElMarkdownEditor, defaultMarkdownEditorCommands, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode } from '@ozwasyd/element-plus';
+import {
+    ElMarkdownEditor,
+    defaultMarkdownEditorCommands,
+    type MarkdownEditorCommand as FsusUiMarkdownEditorCommand,
+    type MarkdownEditorCommandContext as FsusUiMarkdownEditorCommandContext,
+    type MarkdownEditorMode as FsusUiMarkdownEditorMode,
+    type MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    type MarkdownEditorTransactionEvent as FsusUiMarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, watch } from 'vue';
 
 import {
@@ -91,6 +102,12 @@ import {
     markdownEditorCommands
 } from '@/components/ui/markdown-editor/commands';
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
+import {
+    mergeFsusUiAuthoringCommands,
+    type FsusUiAuthoringCommand,
+    type FsusUiAuthoringDocumentIdentity,
+    type FsusUiAuthoringSurfaceOptions
+} from '@/fsusui/authoringCommands';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -101,6 +118,16 @@ import type {
 
 type FsusUiMarkdownEditorExpose = Readonly<{
     insertMarkdownAtCursor?: (markdown: string) => boolean;
+    openCommandPalette?: () => void;
+}>;
+
+type AuthoringDocumentBinding = Readonly<{
+    documentEpoch: number;
+    documentId: string;
+    revision: number;
+    selectionDirection: 'backward' | 'forward' | 'none';
+    selectionEnd: number;
+    selectionStart: number;
 }>;
 
 type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save' | 'bold' | 'italic' | 'quote' | 'link' | 'code'>;
@@ -118,6 +145,9 @@ const props = withDefaults(defineProps<{
     toolbarsExclude?: string[];
     saving?: boolean;
     loading?: boolean;
+    authoringCommands?: readonly FsusUiAuthoringCommand[];
+    documentIdentity?: FsusUiAuthoringDocumentIdentity;
+    commandSurfaces?: FsusUiAuthoringSurfaceOptions;
 }>(), {
     placeholder: '',
     textareaId: undefined,
@@ -129,7 +159,10 @@ const props = withDefaults(defineProps<{
     toolbarDensity: 'standard',
     toolbarsExclude: () => [],
     saving: false,
-    loading: false
+    loading: false,
+    authoringCommands: () => [],
+    documentIdentity: undefined,
+    commandSurfaces: () => articleBodyCommandSurfaces
 });
 
 const emit = defineEmits<{
@@ -142,6 +175,7 @@ const emit = defineEmits<{
 
 const rootRef = ref<HTMLElement | null>(null);
 const editorRef = ref<FsusUiMarkdownEditorExpose | null>(null);
+const currentAuthoringBinding = ref<AuthoringDocumentBinding | null>(null);
 const imageInputRef = ref<HTMLInputElement | null>(null);
 const isUploading = ref(false);
 const uploadError = ref('');
@@ -156,6 +190,7 @@ const localValue = computed({
 });
 
 const editorDisabled = computed(() => props.saving || props.loading);
+const commandOverflowLabel = computed(() => props.authoringCommands.length > 0 ? '更多命令' : articleBodyCommandOverflowLabel);
 const excludedToolbarKeys = computed(() => new Set(props.toolbarsExclude));
 const showImageAction = computed(() => !excludedToolbarKeys.value.has('image'));
 const showSaveAction = computed(() => !excludedToolbarKeys.value.has('save'));
@@ -171,12 +206,64 @@ const fsusUiMode = computed<FsusUiMarkdownEditorMode>(() =>
 const writingPlaceholder = computed(() => props.placeholder || '从这里开始写正文。');
 const headingIssues = computed(() => diagnoseArticleBodyH1(localValue.value));
 const headingDiagnosticText = computed(() => formatArticleBodyH1Diagnostic(headingIssues.value));
-const fsusUiCommands = computed<readonly FsusUiMarkdownEditorCommand[]>(() =>
-    composeArticleBodyEditorCommands(
+const fsusUiCommands = computed<readonly FsusUiAuthoringCommand[]>(() =>
+    mergeFsusUiAuthoringCommands(composeArticleBodyEditorCommands(
         defaultMarkdownEditorCommands,
         markdownEditorCommands.map(toFsusUiCommand),
         [...excludedToolbarKeys.value]
-    ));
+    ), props.authoringCommands.map(withExactAuthoringBinding)));
+
+function bindingFromContext(context: FsusUiMarkdownEditorCommandContext): AuthoringDocumentBinding
+{
+    return Object.freeze({
+        documentEpoch: context.documentIdentity.epoch,
+        documentId: context.documentIdentity.id,
+        revision: context.revision,
+        selectionDirection: context.selection.direction ?? 'none',
+        selectionEnd: context.selection.end,
+        selectionStart: context.selection.start
+    });
+}
+
+function isCurrentAuthoringBinding(expected: AuthoringDocumentBinding): boolean
+{
+    const current = currentAuthoringBinding.value;
+    const identity = props.documentIdentity;
+    return current !== null &&
+        current.documentEpoch === expected.documentEpoch &&
+        current.documentId === expected.documentId &&
+        current.revision === expected.revision &&
+        current.selectionDirection === expected.selectionDirection &&
+        current.selectionEnd === expected.selectionEnd &&
+        current.selectionStart === expected.selectionStart &&
+        (identity === undefined ||
+            (identity.epoch === expected.documentEpoch && identity.id === expected.documentId));
+}
+
+function withExactAuthoringBinding(command: FsusUiAuthoringCommand): FsusUiAuthoringCommand
+{
+    return Object.freeze({
+        ...command,
+        run: async (context: FsusUiMarkdownEditorCommandContext) =>
+        {
+            const expected = bindingFromContext(context);
+            currentAuthoringBinding.value = expected;
+            return await command.run({
+                ...context,
+                dispatch: {
+                    dispatch: (transaction) =>
+                    {
+                        if (!isCurrentAuthoringBinding(expected))
+                        {
+                            throw new Error('Authoring command selection or document binding is stale.');
+                        }
+                        return context.dispatch.dispatch(transaction);
+                    }
+                }
+            });
+        }
+    });
+}
 
 function toFsusUiCommand(command: MarkdownEditorCommand): FsusUiMarkdownEditorCommand
 {
@@ -291,6 +378,45 @@ async function insertMarkdownFromSnapshot(markdown: string, snapshot: SelectionS
 function insertMarkdownAtCursor(markdown: string): boolean
 {
     return editorRef.value?.insertMarkdownAtCursor?.(markdown) === true;
+}
+
+function openCommandPalette(): void
+{
+    editorRef.value?.openCommandPalette?.();
+}
+
+function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
+{
+    const identity = props.documentIdentity;
+    if (identity === undefined)
+    {
+        currentAuthoringBinding.value = null;
+        return;
+    }
+    currentAuthoringBinding.value = Object.freeze({
+        documentEpoch: identity.epoch,
+        documentId: identity.id,
+        revision: event.revision,
+        selectionDirection: event.selection.direction ?? 'none',
+        selectionEnd: event.selection.end,
+        selectionStart: event.selection.start
+    });
+}
+
+function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent): void
+{
+    if (!event.accepted)
+    {
+        return;
+    }
+    currentAuthoringBinding.value = Object.freeze({
+        documentEpoch: event.documentIdentity.epoch,
+        documentId: event.documentIdentity.id,
+        revision: event.revision,
+        selectionDirection: event.selection.direction ?? 'none',
+        selectionEnd: event.selection.end,
+        selectionStart: event.selection.start
+    });
 }
 
 function emitSave(): void
@@ -468,8 +594,14 @@ watch(() => props.modelValue, () =>
     }
 });
 
+watch(() => props.documentIdentity, () =>
+{
+    currentAuthoringBinding.value = null;
+});
+
 defineExpose({
-    insertMarkdownAtCursor
+    insertMarkdownAtCursor,
+    openCommandPalette
 });
 </script>
 
