@@ -764,11 +764,11 @@ jq -n \
         reason: "probe verifies canonical search index evidence for seeded namespace"
       },
       aot: {
-        status: "unsupported",
-        command: null,
+        status: "probe-required",
+        command: ("node tools/data-scale/aot-evidence.mjs rebuild --tier " + $tier),
         artifactCount: null,
         sizeBytes: null,
-        reason: "Public AOT rebuild hook is not configured for data-scale seed"
+        reason: "probe invokes Public AOT rebuild owner for seeded namespace"
       },
       hotRead: {
         status: "probe-required",

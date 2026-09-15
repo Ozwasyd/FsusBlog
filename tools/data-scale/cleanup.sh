@@ -145,7 +145,7 @@ SELECT jsonb_pretty(jsonb_build_object(
   'artifacts', jsonb_build_object(
     'status', 'not-applicable',
     'residualCount', 0,
-    'reason', 'data-scale seed does not write AOT or HotRead artifacts'
+    'reason', 'data-scale cleanup clears dedicated AOT/HotRead roots after probe verification'
   ),
   'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
   'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')

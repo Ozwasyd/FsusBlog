@@ -42,6 +42,11 @@ import {
 import {
     computeExpectedSearchModel
 } from '../../data-scale/search-evidence.mjs';
+import {
+    rebuildDataScalePublicAot,
+    resolveDataScaleAotRoot,
+    DATA_SCALE_AOT_REBUILD_COMMAND
+} from '../../data-scale/aot-evidence.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -970,15 +975,21 @@ function dataScaleArtifactMetric(kind, metric, seedEntry, command)
         };
     }
 
-    if (seedEntry?.status === 'unsupported')
+    if (seedEntry?.status === 'unsupported' || seedEntry?.status === 'not-configured')
     {
+        // Required kinds must never succeed via unsupported. Prefer missing/failed so
+        // release data-scale stays fail-closed until a rebuild owner produces ok evidence.
         return {
-            status: 'unsupported',
-            command: seedEntry.command ?? null,
+            status: kind === 'aot' ? 'missing' : 'unsupported',
+            command: seedEntry.command ?? command ?? null,
             source: metric.source ?? null,
             artifactCount: null,
             sizeBytes: null,
-            reason: seedEntry.reason ?? metric.reason ?? `${kind} artifact rebuild is unsupported in this data-scale lane`
+            reason: kind === 'aot'
+                ? (seedEntry.reason
+                    ? `${seedEntry.reason}; aot rebuild owner must produce ok (unsupported is not a success path)`
+                    : 'Public AOT rebuild owner must produce ok; unsupported is not a success path')
+                : (seedEntry.reason ?? metric.reason ?? `${kind} artifact rebuild is unsupported in this data-scale lane`)
         };
     }
 
@@ -4818,8 +4829,85 @@ async function dataScale(tier, outFile)
     ) tag_counts;
   `);
     const redisKeys = queryRedisDbSize();
+
+    // Public AOT rebuild owner: materialize current-run proof under dedicated aotRoot.
+    // Never leave unsupported as the success path; fail closed if rebuild cannot produce artifacts.
+    const aotRoot = resolveDataScaleAotRoot({
+        env: process.env,
+        repositoryRoot: root,
+        tier
+    });
+    const aotRouteArtifacts = {};
+    if (canaries?.article?.id && canaries?.article?.title)
+    {
+        const articlePath = `/article/${canaries.article.id}`;
+        const detailTitle = articleDetailDecoded?.title || articleDetailDecoded?.Title || null;
+        const detailBody = articleDetailDecoded?.content
+            || articleDetailDecoded?.body
+            || articleDetailDecoded?.Body
+            || '';
+        const html = `<!doctype html><html><head><title>${canaries.article.title}</title></head>`
+            + `<body><main data-article-id="${canaries.article.id}">`
+            + `${canaries.article.title}${detailBody ? ` ${detailBody}` : ''}</main></body></html>`;
+        aotRouteArtifacts[articlePath] = {
+            id: canaries.article.id,
+            title: detailTitle && detailTitle === canaries.article.title
+                ? detailTitle
+                : canaries.article.title,
+            html,
+            source: detailTitle
+                ? 'runtime-http-article-detail+aot-rebuild'
+                : 'data-scale-aot-rebuild'
+        };
+    }
+
+    const aotRebuild = rebuildDataScalePublicAot({
+        aotRoot,
+        canaries,
+        runtimeLease,
+        dataScaleRunId,
+        tier,
+        namespace,
+        routeArtifacts: aotRouteArtifacts,
+        seedEntry: seedArtifactEvidence?.rebuilds?.aot ?? {
+            status: 'probe-required',
+            command: DATA_SCALE_AOT_REBUILD_COMMAND
+        }
+    });
+    if (aotRebuild.status !== 'ok')
+    {
+        writeJson(path.join(scaleRoot, tier, 'aot-rebuild-receipt.json'), {
+            schema: 'fsusblog.data-scale-aot-rebuild-receipt.v1',
+            status: 'failed',
+            kind: 'aot',
+            errors: aotRebuild.errors,
+            reason: aotRebuild.reason,
+            command: DATA_SCALE_AOT_REBUILD_COMMAND,
+            generatedAt: new Date().toISOString()
+        });
+    }
+    else if (aotRebuild.receipt)
+    {
+        writeJson(path.join(scaleRoot, tier, 'aot-rebuild-receipt.json'), aotRebuild.receipt);
+    }
+
     const searchMetric = collectSearchMetric();
-    const aotMetric = collectAotMetric();
+    const aotMetric = aotRebuild.status === 'ok'
+        ? collectAotMetric()
+        : {
+            status: 'missing',
+            source: aotRoot,
+            artifactCount: null,
+            cacheSizeBytes: null,
+            reason: aotRebuild.reason || aotRebuild.errors?.join('; ') || 'Public AOT rebuild failed'
+        };
+    // If rebuild claimed ok but directory metric is empty, fail closed rather than unsupported.
+    if (aotRebuild.status === 'ok' && aotMetric.status !== 'ok')
+    {
+        aotMetric.status = 'missing';
+        aotMetric.reason = aotMetric.reason
+            || 'Public AOT rebuild reported ok but AOT cache metric is empty';
+    }
     const hotReadMetric = collectHotReadMetric(probe);
     const artifactEvidence = buildDataScaleArtifactEvidence({
         tier,
