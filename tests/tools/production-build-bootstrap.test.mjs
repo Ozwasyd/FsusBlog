@@ -587,6 +587,13 @@ test("acceptance bootstrap materializes verified domains into its current run-bo
     const evidence = JSON.parse(fs.readFileSync(evidenceFile, "utf8"));
     assert.equal(evidence.status, "success");
     assert.equal(evidence.consumerLease.status, "active");
+    const backendMaterializations = evidence.materialization.domains
+        .filter((domain) => domain.name === "backend-runtime")
+        .map((domain) => domain.method);
+    assert.ok(
+        ["reflink", "copy-fallback"].includes(backendMaterializations[0]),
+        "backend runtime must use a writable copy-up layer"
+    );
     assert.ok(
         evidence.materialized.some((value) =>
             value.endsWith("backend/FsusBlog.Server.dll")

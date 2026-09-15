@@ -711,7 +711,12 @@ NODE
     for domain in "${domains[@]}"; do
         case "$domain" in
             backend-runtime)
-                materializeArgs+=(--map "backend-runtime=$(RepositoryRelativePath "$(dirname "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}")")")
+                # The backend serves as a runtime consumer: public AEDS/cache
+                # artifacts are written below its content root. Keep the CI
+                # artifact immutable and provide a copy-up writable layer for
+                # the run-bound process instead of symlinking into the sealed
+                # producer payload.
+                materializeArgs+=(--map "backend-runtime:copy-before-write=$(RepositoryRelativePath "$(dirname "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}")")")
                 ;;
             test-runtime)
                 materializeArgs+=(--map "test-runtime=$(RepositoryRelativePath "${FSUSBLOG_BACKEND_TEST_BIN_DIR:?FSUSBLOG_BACKEND_TEST_BIN_DIR is required}")")
