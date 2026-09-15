@@ -1,0 +1,13 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+      ],
+      "reason": "Cross-stack matrix fixtures keep stable wire/operation key spelling while registering the Search route for OpenAPI and generated binary route producers."
+    }
+  ]
+}
