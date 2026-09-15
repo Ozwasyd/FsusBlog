@@ -124,7 +124,9 @@ public sealed class DocumentExportContractTests
             input.MetadataDigest,
             input.PropertyDigest,
             input.AssetManifestDigest,
-            input.RendererDigest);
+            input.FontManifestDigest,
+            input.RendererDigest,
+            input.ReadingStyleAuthorityDigest);
 
         Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
             input with
@@ -138,7 +140,9 @@ public sealed class DocumentExportContractTests
             input.MetadataDigest,
             input.PropertyDigest,
             input.AssetManifestDigest,
-            input.RendererDigest));
+            input.FontManifestDigest,
+            input.RendererDigest,
+            input.ReadingStyleAuthorityDigest));
         Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
             input with
             {
@@ -148,6 +152,31 @@ public sealed class DocumentExportContractTests
             input with
             {
                 RendererDigest = Digest("new renderer")
+            }));
+    }
+
+    [Fact]
+    public void FrozenInput_RequiresExactReadingFontClosureAndAuthorityDigest()
+    {
+        DocumentExportFrozenInput baseline = ValidInput();
+        DocumentExportAsset[] missingFont = baseline.Assets
+            .Where(asset => asset.AssetId != "font-7")
+            .ToArray();
+        DocumentExportFrozenInput missingFontInput = ResealAssets(baseline, missingFont);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(missingFontInput));
+
+        DocumentExportAsset duplicateFont = baseline.Assets[^1] with
+        {
+            AssetId = "font-duplicate"
+        };
+        DocumentExportAsset[] duplicateFonts = [.. baseline.Assets, duplicateFont];
+        DocumentExportFrozenInput duplicateFontInput = ResealAssets(baseline, duplicateFonts);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(duplicateFontInput));
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            baseline with
+            {
+                ReadingStyleAuthorityDigest = Digest("other-reading-authority")
             }));
     }
 
@@ -163,7 +192,12 @@ public sealed class DocumentExportContractTests
                 "image/png",
                 DocumentExportDigest.ComputeBytes(assetBytes),
                 ImmutableCollectionsMarshal.AsImmutableArray(assetBytes),
-                "owned")
+                "owned",
+                "image",
+                string.Empty,
+                0,
+                "normal"),
+            .. FontAssets()
         ];
         var unsealed = new DocumentExportFrozenInput(
             DocumentExportContractCatalog.InputSchema,
@@ -175,17 +209,16 @@ public sealed class DocumentExportContractTests
             DocumentExportDigest.ComputeBytes(source),
             Digest("metadata"),
             Digest("properties"),
-            DocumentExportDigest.Compute(new[]
-            {
-                new { assets[0].AssetId, assets[0].MediaType, assets[0].Sha256, Length = assetBytes.LongLength }
-            }),
+            DocumentExportContractValidator.ComputeAssetManifestDigest(assets),
+            DocumentExportContractValidator.ComputeFontManifestDigest(assets),
             "fsusui.markdown-renderer",
             "current-v1",
             Digest("renderer"),
-            "document-default-v1",
-            "reading-default-v1",
+            DocumentExportReadingStyleAuthority.LayoutProfile,
+            DocumentExportReadingStyleAuthority.LightThemeProfile,
             "zh-CN",
             ImmutableCollectionsMarshal.AsImmutableArray(assets),
+            DocumentExportReadingStyleAuthority.AuthorityDigest,
             string.Empty);
 
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(unsealed);
@@ -203,8 +236,8 @@ public sealed class DocumentExportContractTests
     }
 
     [Theory]
-    [InlineData("fsusblog.document-export-frozen-input.v0")]
-    [InlineData("fsusblog.document-export-frozen-input.v2")]
+    [InlineData("fsusblog.document-export-frozen-input.v1")]
+    [InlineData("fsusblog.document-export-frozen-input.v3")]
     [InlineData("")]
     public void FrozenInput_RejectsOldFutureAndMissingSchemas(string schema)
     {
@@ -354,8 +387,8 @@ public sealed class DocumentExportContractTests
             Disposition = DocumentExportFeatureDisposition.HardFail,
             PreservedFallback = "none"
         };
-        DocumentExportContractValidator.ValidateCatalog(
-            [html with { Features = hardFail }, .. DocumentExportContractCatalog.Providers.Skip(1)]);
+        Assert.Throws<InvalidOperationException>(() => DocumentExportContractValidator.ValidateCatalog(
+            [html with { Features = hardFail }, .. DocumentExportContractCatalog.Providers.Skip(1)]));
 
         DocumentExportProviderExecutionBinding[] shellMutation = [.. DocumentExportContractCatalog.ExecutionBindings];
         shellMutation[0] = shellMutation[0] with
@@ -489,6 +522,9 @@ public sealed class DocumentExportContractTests
             input.RendererId,
             input.RendererVersion,
             input.RendererDigest,
+            input.AssetManifestDigest,
+            input.FontManifestDigest,
+            input.ReadingStyleAuthorityDigest,
             provider.ToolchainId,
             provider.ToolchainVersion,
             Digest("sandbox-receipt"),
@@ -517,7 +553,7 @@ public sealed class DocumentExportContractTests
         Assert.Throws<ArgumentException>(() => DocumentExportContractValidator.Validate(
             receipt with
             {
-                Schema = "fsusblog.document-export-provider-result.v2"
+                Schema = "fsusblog.document-export-provider-result.v1"
             },
             task,
             input,
@@ -533,17 +569,12 @@ public sealed class DocumentExportContractTests
             "image/png",
             DocumentExportDigest.ComputeBytes(assetBytes),
             assetBytes.ToImmutableArray(),
-            "hero");
-        object manifest = new[]
-        {
-            new
-            {
-                asset.AssetId,
-                asset.MediaType,
-                asset.Sha256,
-                Length = (long)asset.Bytes.Length
-            }
-        };
+            "hero",
+            "image",
+            string.Empty,
+            0,
+            "normal");
+        DocumentExportAsset[] assets = [asset, .. FontAssets()];
         var input = new DocumentExportFrozenInput(
             DocumentExportContractCatalog.InputSchema,
             "input-0001",
@@ -560,17 +591,48 @@ public sealed class DocumentExportContractTests
             DocumentExportDigest.ComputeBytes(source),
             Digest("metadata"),
             Digest("properties"),
-            DocumentExportDigest.Compute(manifest),
+            DocumentExportContractValidator.ComputeAssetManifestDigest(assets),
+            DocumentExportContractValidator.ComputeFontManifestDigest(assets),
             "fsusui.markdown-renderer",
             "current-v1",
             Digest("renderer"),
             "document-reading-v1",
             "light-v1",
             "zh-Hant",
-            [asset],
+            assets.ToImmutableArray(),
+            DocumentExportReadingStyleAuthority.AuthorityDigest,
             string.Empty);
         return DocumentExportContractValidator.Seal(input);
     }
+
+    internal static DocumentExportAsset[] FontAssets()
+        => DocumentExportReadingStyleAuthority.RequiredFonts
+            .Select((font, index) =>
+            {
+                byte[] bytes = Encoding.ASCII.GetBytes($"wOF2-test-font-{index}-{font.Family}-{font.Weight}");
+                return new DocumentExportAsset(
+                    $"font-{index + 1}",
+                    "font/woff2",
+                    DocumentExportDigest.ComputeBytes(bytes),
+                    bytes.ToImmutableArray(),
+                    string.Empty,
+                    "font",
+                    font.Family,
+                    font.Weight,
+                    font.Style);
+            })
+            .ToArray();
+
+    private static DocumentExportFrozenInput ResealAssets(
+        DocumentExportFrozenInput input,
+        IReadOnlyList<DocumentExportAsset> assets)
+        => DocumentExportContractValidator.Seal(input with
+        {
+            Assets = assets.ToImmutableArray(),
+            AssetManifestDigest = DocumentExportContractValidator.ComputeAssetManifestDigest(assets),
+            FontManifestDigest = DocumentExportContractValidator.ComputeFontManifestDigest(assets),
+            ContentDigest = string.Empty
+        });
 
     internal static DocumentExportTask ValidTask(DocumentExportFrozenInput input)
     {
@@ -589,6 +651,8 @@ public sealed class DocumentExportContractTests
             input.MetadataDigest,
             input.PropertyDigest,
             input.AssetManifestDigest,
+            input.FontManifestDigest,
+            input.ReadingStyleAuthorityDigest,
             input.RendererDigest,
             provider.FormatId,
             provider.ProviderId,

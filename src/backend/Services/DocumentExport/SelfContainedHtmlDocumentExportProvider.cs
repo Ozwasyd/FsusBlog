@@ -9,6 +9,9 @@ public sealed record DocumentExportRendererRequest(
     string InputId,
     string InputDigest,
     string SourceDigest,
+    string AssetManifestDigest,
+    string FontManifestDigest,
+    string ReadingStyleAuthorityDigest,
     ImmutableArray<byte> MarkdownUtf8,
     string RendererId,
     string RendererVersion,
@@ -23,6 +26,9 @@ public sealed record DocumentExportRendererResponse(
     string InputId,
     string InputDigest,
     string SourceDigest,
+    string AssetManifestDigest,
+    string FontManifestDigest,
+    string ReadingStyleAuthorityDigest,
     string RendererId,
     string RendererVersion,
     string RendererDigest,
@@ -74,6 +80,9 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             frozenInput.InputId,
             frozenInput.ContentDigest,
             frozenInput.SourceDigest,
+            frozenInput.AssetManifestDigest,
+            frozenInput.FontManifestDigest,
+            frozenInput.ReadingStyleAuthorityDigest,
             frozenInput.MarkdownUtf8,
             frozenInput.RendererId,
             frozenInput.RendererVersion,
@@ -120,6 +129,9 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             frozenInput.RendererId,
             frozenInput.RendererVersion,
             frozenInput.RendererDigest,
+            frozenInput.AssetManifestDigest,
+            frozenInput.FontManifestDigest,
+            frozenInput.ReadingStyleAuthorityDigest,
             tool.ToolId,
             tool.ToolVersion,
             sandboxResult.Receipt.ContentDigest,
@@ -209,6 +221,9 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             || receipt.RendererId != input.RendererId
             || receipt.RendererVersion != input.RendererVersion
             || receipt.RendererDigest != input.RendererDigest
+            || receipt.AssetManifestDigest != input.AssetManifestDigest
+            || receipt.FontManifestDigest != input.FontManifestDigest
+            || receipt.ReadingStyleAuthorityDigest != input.ReadingStyleAuthorityDigest
             || receipt.ToolId != tool.ToolId
             || receipt.ToolVersion != tool.ToolVersion
             || receipt.SandboxReceiptDigest != result.SandboxReceipt.ContentDigest
@@ -246,6 +261,9 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             || response.InputId != input.InputId
             || response.InputDigest != input.ContentDigest
             || response.SourceDigest != input.SourceDigest
+            || response.AssetManifestDigest != input.AssetManifestDigest
+            || response.FontManifestDigest != input.FontManifestDigest
+            || response.ReadingStyleAuthorityDigest != input.ReadingStyleAuthorityDigest
             || response.RendererId != input.RendererId
             || response.RendererVersion != input.RendererVersion
             || response.RendererDigest != input.RendererDigest
@@ -327,7 +345,8 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             }
         }
 
-        Dictionary<string, DocumentExportAsset> expected = assets.ToDictionary(asset => asset.AssetId, StringComparer.Ordinal);
+        Dictionary<string, DocumentExportAsset> expected = assets.Where(asset => asset.Role == "image")
+            .ToDictionary(asset => asset.AssetId, StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (XElement image in root.Descendants().Where(element => element.Name.LocalName == "img"))
         {
@@ -450,7 +469,8 @@ public sealed class SelfContainedHtmlDocumentExportProvider
                 }
             }
         }
-        Dictionary<string, DocumentExportAsset> expected = assets.ToDictionary(asset => asset.AssetId, StringComparer.Ordinal);
+        Dictionary<string, DocumentExportAsset> expected = assets.Where(asset => asset.Role == "image")
+            .ToDictionary(asset => asset.AssetId, StringComparer.Ordinal);
         XElement[] images = root.Descendants().Where(element => element.Name.LocalName == "img").ToArray();
         if (images.Length != expected.Count)
         {

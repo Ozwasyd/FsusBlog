@@ -2,11 +2,19 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "preserve the current document-export contract identifiers documented by the architecture authority while internal source names retain repository conventions"
+        },
+        {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
                 "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
-                "src/backend/Services/DocumentExport/DocumentExportDigest.cs"
+                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+                "src/backend/Services/DocumentExport/DocumentExportReadingStyleAuthority.cs",
+                "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs"
             ],
             "reason": "the registry glob governs all C# source files; this contract-only slice adds no process-environment access or environment-variable keys and preserves its closed external schema and provider identity spellings"
         }
