@@ -478,6 +478,13 @@
         },
         {
           "method": "GET",
+          "path": "/article/search/query.aeds",
+          "auth": "anonymous",
+          "responseFrame": "ArticleSearch",
+          "surface": "public-search"
+        },
+        {
+          "method": "GET",
           "path": "/article/{articleId:int}/related.aeds",
           "auth": "anonymous",
           "responseFrame": "ArticleRelatedReading",

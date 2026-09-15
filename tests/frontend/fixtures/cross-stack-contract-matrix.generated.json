@@ -478,6 +478,13 @@
         },
         {
           "method": "GET",
+          "path": "/article/search/query.aeds",
+          "auth": "anonymous",
+          "responseFrame": "ArticleSearch",
+          "surface": "public-search"
+        },
+        {
+          "method": "GET",
           "path": "/article/{articleId:int}/related.aeds",
           "auth": "anonymous",
           "responseFrame": "ArticleRelatedReading",
@@ -2860,5 +2867,5 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "openapiOperationCount": 265
+  "openapiOperationCount": 266
 }
