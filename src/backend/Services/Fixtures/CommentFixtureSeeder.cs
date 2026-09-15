@@ -270,10 +270,11 @@ public sealed class CommentFixtureSeeder(
                     latest.ToDictionary(
                         item => item.Key,
                         item => new CommentThreadFixtureObservationIdentity(
-                            item.Value.CommentId,
-                            item.Value.AccountId,
-                            item.Value.ActorMode,
-                            item.Value.OperationPlanDigest),
+                        item.Value.CommentId,
+                        item.Value.AccountId,
+                        item.Value.ActorMode,
+                        item.Value.OperationPlanDigest,
+                        item.Value.CapabilityId),
                         StringComparer.Ordinal)),
                 cancellationToken).ConfigureAwait(false);
             if (entities.Select(item => item.CommentId).Distinct().Count() != entities.Count)
@@ -465,7 +466,7 @@ public sealed class CommentFixtureSeeder(
         RegionModerationDecision region,
         long? parentId = null)
         => new(
-            role.StartsWith("depth-", StringComparison.Ordinal) ? "comment.thread.depth-boundary" : "comment.thread.root",
+            CapabilityForRole(role, parentId),
             role,
             CommentThreadFixtureOperations.Create,
             CommentAuthorModes.Public,
@@ -473,6 +474,19 @@ public sealed class CommentFixtureSeeder(
             $"Fixture comment {role}",
             ParentCommentId: parentId,
             RegionDecision: region);
+
+    internal static string CapabilityForRole(string role, long? parentId)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+            throw new ArgumentException("Comment fixture role is required.", nameof(role));
+        if (role.StartsWith("depth-", StringComparison.Ordinal))
+            return "comment.thread.depth-boundary";
+        if (parentId is null)
+            return "comment.thread.root";
+        return role.Contains("nested", StringComparison.Ordinal)
+            ? "comment.thread.nested"
+            : "comment.thread.reply";
+    }
 
     private static CommentThreadFixtureOperation CreateAnonymous(
         string role,
