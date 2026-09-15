@@ -131,6 +131,27 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task SystemComplianceUsesContentWriteBudgetInsteadOfSecurityAtomicBudget()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var redisOperations = Substitute.For<IRedisOperationExecutor>();
+        redisOperations.ExecuteAsync(
+                RedisOperationPort.UnifiedCacheWrite,
+                Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
+        UnifiedCache cache = CreateCache(memory, db, redisOperations: redisOperations);
+
+        await cache.SetRawAsync(CachePolicyId.SystemCompliance, "runtime-evidence", [1, 2, 3]);
+
+        await redisOperations.Received(1).ExecuteAsync(
+            RedisOperationPort.UnifiedCacheWrite,
+            Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<bool>>>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task SecurityAtomicWriteFailureDoesNotDegradeOpen()
     {
         using var memory = new MemoryCache(new MemoryCacheOptions());

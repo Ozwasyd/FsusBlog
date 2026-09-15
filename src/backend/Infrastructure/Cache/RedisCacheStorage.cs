@@ -1875,7 +1875,6 @@ return {1, source}
                 or CachePolicyId.SecurityPasskeyAuthChallenge
                 or CachePolicyId.HumanReadProof
                 or CachePolicyId.SecurityPowProof
-                or CachePolicyId.SystemCompliance
                 or CachePolicyId.SecurityRecoveryKeyAttempt
                 or CachePolicyId.SecurityRecoveryKeySession
                 or CachePolicyId.SecurityChallengeProof
