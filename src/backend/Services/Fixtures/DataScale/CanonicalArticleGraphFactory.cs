@@ -2,15 +2,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
-using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Integrity;
-using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Articles;
 
 namespace FsusBlog.Server.Services.Fixtures.DataScale;
@@ -18,7 +15,6 @@ namespace FsusBlog.Server.Services.Fixtures.DataScale;
 public static class CanonicalArticleGraphFactory
 {
     private static readonly DateTime s_baseEpoch = new(2026, 7, 19, 0, 0, 0, DateTimeKind.Utc);
-    private static readonly JsonSerializerOptions s_jsonWeb = new(JsonSerializerDefaults.Web);
 
     public static IReadOnlyDictionary<string, string> GetProductionContractVersions()
         => new Dictionary<string, string>(StringComparer.Ordinal)
@@ -140,18 +136,11 @@ public static class CanonicalArticleGraphFactory
         string articleSemanticId = $"{prefix}:article/{articleOrdinal:D6}";
         string bodySemanticId = $"{prefix}:article/{articleOrdinal:D6}/body";
         string rightsPolicySemanticId = $"{prefix}:article/{articleOrdinal:D6}/rights/policy";
+        string authoringAdminSemanticId = $"{prefix}:principal/authoring-admin";
 
-        // Temporal calculation matching contract
-        DateTime created = s_baseEpoch.AddMinutes(articleOrdinal * 10);
-        DateTime rev1Time = created.AddMinutes(1);
-        DateTime pub1Time = rev1Time.AddMinutes(1);
-        DateTime publishedTime = pub1Time;
-        DateTime rev2Time = publishedTime.AddHours(2);
-        DateTime commandTime = publishedTime.AddHours(3);
-        DateTime boundaryTime = commandTime.AddDays(7);
-        DateTime occurredTime = publishedTime.AddDays(1);
+        IReadOnlyDictionary<string, DateTime> temporal = ResolveTemporalMap(articleOrdinal, contract);
+        VariantLifecycleCoordinates lifecycle = DeriveLifecycleCoordinates(contract, temporal);
 
-        // Content derivation
         string baseTitle = $"Canonical Article {articleOrdinal:D6}";
         string markdownContent = $"# Canonical Article {articleOrdinal:D6}\n\nDeterministic markdown body for article {articleOrdinal} variant {variant}.";
         ArticleSummaryProjectionResult summaryProj = ArticleSummaryProjection.Resolve(null, markdownContent);
@@ -165,7 +154,6 @@ public static class CanonicalArticleGraphFactory
         var pointers = new List<ArticleScalePointerPlan>();
         var edgeObligations = new List<ArticleScaleEdgeObligationPlan>();
 
-        // 1. Article Body Row
         rows.Add(new ArticleScaleRowPlan(
             ArticleScaleRowKind.ArticleBody,
             bodySemanticId,
@@ -174,11 +162,10 @@ public static class CanonicalArticleGraphFactory
                 ["ArticleId"] = articleOrdinal,
                 ["ArticleSemanticId"] = articleSemanticId,
                 ["MarkdownContent"] = markdownContent,
-                ["UpdatedAt"] = created.ToString("O")
+                ["UpdatedAt"] = temporal[ArticleScaleTemporalRoles.ArticleCreated].ToString("O")
             }));
         relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.BodyToArticle, bodySemanticId, articleSemanticId));
 
-        // 2. Rights Policy Row
         var normalizedRights = ArticleProductionNormalizers.NormalizeArticleRights(null);
         rows.Add(new ArticleScaleRowPlan(
             ArticleScaleRowKind.ArticleRightsPolicy,
@@ -198,11 +185,10 @@ public static class CanonicalArticleGraphFactory
                 ["AllowCodeCopy"] = normalizedRights.AllowCodeCopy,
                 ["ShowPublicBadge"] = normalizedRights.ShowPublicBadge,
                 ["ProofBindingEnabled"] = normalizedRights.ProofBindingEnabled,
-                ["CreatedAt"] = created.ToString("O"),
-                ["UpdatedAt"] = created.ToString("O")
+                ["CreatedAt"] = temporal[ArticleScaleTemporalRoles.ArticleCreated].ToString("O"),
+                ["UpdatedAt"] = temporal[ArticleScaleTemporalRoles.ArticleCreated].ToString("O")
             }));
 
-        // Build revisions, publications, outbox
         int revisionCount = contract.Rows.First(r => r.Kind == ArticleScaleRowKind.ArticleRevision).CountPerArticle;
         int publicationCount = contract.Rows.First(r => r.Kind == ArticleScaleRowKind.ArticlePublication).CountPerArticle;
 
@@ -226,10 +212,12 @@ public static class CanonicalArticleGraphFactory
             rightsSnapshotSemanticIds.Add(rightsSnapSemanticId);
             responsibilitySnapshotSemanticIds.Add(respSemanticId);
 
-            DateTime revCreatedAt = revNo == 1 ? rev1Time : rev2Time;
+            DateTime revCreatedAt = revNo == 1
+                ? temporal[ArticleScaleTemporalRoles.ArticleRevision]
+                : temporal[ArticleScaleTemporalRoles.ArticleMetadataUpdated];
             string revTitle = revNo == 1 ? baseTitle : $"{baseTitle} (Revision {revNo})";
+            ArticleStatus revisionStatus = ResolveRevisionStatus(contract, revNo);
 
-            // Rights snapshot using ArticleRightsSnapshotBuilder
             var (rightsSnapshot, contentCanonicalHash, policyHash) = ArticleRightsSnapshotBuilder.Build(
                 articleId: articleOrdinal,
                 revisionId: (articleOrdinal * 10) + revNo,
@@ -241,13 +229,12 @@ public static class CanonicalArticleGraphFactory
                 coverImageUrl: coverImageUrl,
                 categoryId: categoryId,
                 tagIds: tagIds,
-                status: revNo == 1 && variant != ArticleScaleVariant.Scheduled ? ArticleStatus.Published : ArticleStatus.Draft,
-                publishedAt: publishedTime,
-                scheduledPublishAt: variant == ArticleScaleVariant.Scheduled ? boundaryTime : null,
+                status: revisionStatus,
+                publishedAt: lifecycle.PublishedAt,
+                scheduledPublishAt: lifecycle.ScheduledPublishAt ?? lifecycle.PendingPublicationAt,
                 rights: normalizedRights,
                 createdAt: revCreatedAt);
 
-            // Responsibility snapshot using ArticleResponsibilitySnapshotBuilder
             var respDraft = new ArticleResponsibilityDraft(
                 InheritSiteAuthor: false,
                 Authors: [new ArticleResponsiblePerson($"Author {articleOrdinal}", $"https://example.internal/authors/author-{articleOrdinal}")],
@@ -275,7 +262,6 @@ public static class CanonicalArticleGraphFactory
                 draft: respDraft,
                 createdAt: revCreatedAt);
 
-            // Revision row
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleRevision,
                 revSemanticId,
@@ -289,23 +275,21 @@ public static class CanonicalArticleGraphFactory
                     ["CoverImageUrl"] = coverImageUrl,
                     ["CategoryId"] = categoryId,
                     ["TagIds"] = string.Join(',', tagIds),
-                    ["ContentBlockId"] = 1L,
                     ["ContentBlockSemanticId"] = contentBlockSemanticId,
                     ["MarkdownContent"] = string.Empty,
                     ["DiffSummary"] = revNo == 1 ? "Initial revision" : "Scheduled update revision",
-                    ["CreatedByAdminPrincipalId"] = 1L,
+                    ["CreatedByAdminPrincipalSemanticId"] = authoringAdminSemanticId,
                     ["RollbackSourceRevisionId"] = null,
                     ["RollbackReason"] = null,
                     ["ContentCanonicalHash"] = contentCanonicalHash,
                     ["RightsPolicyHash"] = policyHash,
                     ["RightsSnapshotSemanticId"] = rightsSnapSemanticId,
                     ["ResponsibilitySnapshotSemanticId"] = respSemanticId,
-                    ["Status"] = revNo == 2 ? (int)ArticleStatus.Scheduled : (int)contract.TerminalStatus,
+                    ["Status"] = (int)revisionStatus,
                     ["CreatedAt"] = revCreatedAt.ToString("O")
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.RevisionToArticle, revSemanticId, articleSemanticId));
 
-            // Content block row
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleRevisionContentBlock,
                 contentBlockSemanticId,
@@ -322,7 +306,6 @@ public static class CanonicalArticleGraphFactory
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.ContentBlockToRevision, contentBlockSemanticId, revSemanticId));
 
-            // Rights snapshot row
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleRightsSnapshot,
                 rightsSnapSemanticId,
@@ -355,7 +338,26 @@ public static class CanonicalArticleGraphFactory
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.RevisionToRightsSnapshot, revSemanticId, rightsSnapSemanticId));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.RightsSnapshotToPolicy, rightsSnapSemanticId, rightsPolicySemanticId));
 
-            // Rights proof row
+            PublishProofPublicationState publicationState = MapPublicationState(revisionStatus, lifecycle);
+            var proofInput = new ArticleRightsProofInput(
+                ProofVersion: ArticleRightsProofCanonicalPayloadV1.ProofVersion,
+                ArticleId: articleOrdinal,
+                ArticleRevisionId: (articleOrdinal * 10) + revNo,
+                RevisionNo: revNo,
+                ArticleRightsSnapshotId: (articleOrdinal * 10) + revNo,
+                PublishProofId: null,
+                RightsPolicyHash: policyHash,
+                ContentCanonicalHash: contentCanonicalHash,
+                IssuedAtUtc: new DateTimeOffset(revCreatedAt, TimeSpan.Zero),
+                ProofStatus: PublishProofStatus.Pending,
+                PublicationState: publicationState);
+            ArticleRightsProofReadiness readiness = ArticleRightsProofReadiness.Evaluate(
+                proofInput,
+                rightsSnapshotAvailable: true,
+                contentHashReady: true,
+                publishProofReady: false);
+            string proofStatusToken = ToProofStatusToken(readiness.Status);
+
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleRightsProof,
                 rightsProofSemanticId,
@@ -370,17 +372,20 @@ public static class CanonicalArticleGraphFactory
                     ["RevisionNo"] = revNo,
                     ["ArticleRightsSnapshotId"] = (long)((articleOrdinal * 10) + revNo),
                     ["PublishProofId"] = null,
-                    ["ProofVersion"] = 1,
-                    ["SignaturePayloadVersion"] = 1,
-                    ["IdempotencyKey"] = $"idemp-{articleOrdinal:D6}-{revNo}",
+                    ["ProofVersion"] = ArticleRightsProofCanonicalPayloadV1.ProofVersion,
+                    ["SignaturePayloadVersion"] = ArticleRightsProofCanonicalPayloadV1.SignaturePayloadVersion,
+                    ["IdempotencyKey"] = ArticleRightsProofIdempotency.BuildKey(
+                        articleOrdinal,
+                        (articleOrdinal * 10) + revNo,
+                        ArticleRightsProofCanonicalPayloadV1.ProofVersion),
                     ["RightsPolicyHash"] = policyHash,
                     ["ContentCanonicalHash"] = contentCanonicalHash,
-                    ["ProofStatus"] = "verified",
-                    ["SigningKeyId"] = "key-canonical-1",
-                    ["SigningKeyVersion"] = 1,
-                    ["SigningAlgorithm"] = "Ed25519",
-                    ["SignatureBase64Url"] = "sig-verified-canonical",
-                    ["FailureCode"] = null,
+                    ["ProofStatus"] = proofStatusToken,
+                    ["SigningKeyId"] = null,
+                    ["SigningKeyVersion"] = null,
+                    ["SigningAlgorithm"] = null,
+                    ["SignatureBase64Url"] = null,
+                    ["FailureCode"] = readiness.Status is PublishProofStatus.Failed ? readiness.Reason : null,
                     ["FailureDetail"] = null,
                     ["TransparencyLogEntryId"] = null,
                     ["TransparencyLogEntryHash"] = null,
@@ -389,7 +394,6 @@ public static class CanonicalArticleGraphFactory
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.RightsProofToSnapshot, rightsProofSemanticId, rightsSnapSemanticId));
 
-            // Responsibility snapshot row
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleResponsibilitySnapshot,
                 respSemanticId,
@@ -419,7 +423,6 @@ public static class CanonicalArticleGraphFactory
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.RevisionToResponsibilitySnapshot, revSemanticId, respSemanticId));
 
-            // Taxonomy reference row
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleTaxonomyReference,
                 taxonomySemanticId,
@@ -435,9 +438,16 @@ public static class CanonicalArticleGraphFactory
             currentRevSemanticId = revSemanticId;
         }
 
-        // Publications
         if (publicationCount > 0)
         {
+            if (!lifecycle.HasPublication
+                || lifecycle.PublicationTransitionKind is null
+                || lifecycle.PublicationPublishedAt is null)
+            {
+                throw new InvalidOperationException(
+                    $"variant {variant} requires a publication row but CreatePlan did not create one.");
+            }
+
             string pubSemanticId = $"{prefix}:article/{articleOrdinal:D6}/publication/1";
             string pubRevId = revisionSemanticIds[0];
             string pubRightsId = rightsSnapshotSemanticIds[0];
@@ -459,9 +469,9 @@ public static class CanonicalArticleGraphFactory
                     ["RightsSnapshotSemanticId"] = pubRightsId,
                     ["ResponsibilitySnapshotId"] = (articleOrdinal * 10) + 1,
                     ["ResponsibilitySnapshotSemanticId"] = pubRespId,
-                    ["TransitionKind"] = ArticlePublicationTransitionKinds.ImmediatePublish,
-                    ["PublishedAt"] = publishedTime.ToString("O"),
-                    ["CreatedAt"] = pub1Time.ToString("O")
+                    ["TransitionKind"] = lifecycle.PublicationTransitionKind,
+                    ["PublishedAt"] = lifecycle.PublicationPublishedAt.Value.ToString("O"),
+                    ["CreatedAt"] = temporal[ArticleScaleTemporalRoles.ArticlePublication].ToString("O")
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.PublicationToRevision, pubSemanticId, pubRevId));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.PublicationToRightsSnapshot, pubSemanticId, pubRightsId));
@@ -470,25 +480,19 @@ public static class CanonicalArticleGraphFactory
             currentPubSemanticId = pubSemanticId;
         }
 
-        // Outbox events & Audit
-        int eventNo = 1;
-        foreach (ArticleScaleTransitionRequirement transition in contract.Transitions)
+        for (int eventIndex = 0; eventIndex < contract.Transitions.Count; eventIndex++)
         {
+            ArticleScaleTransitionRequirement transition = contract.Transitions[eventIndex];
+            ArticleScaleOutboxEventRequirement outboxReq = contract.OutboxEvents[eventIndex];
+            int eventNo = eventIndex + 1;
             string outboxSemanticId = $"{prefix}:article/{articleOrdinal:D6}/outbox/{eventNo}";
             string auditSemanticId = $"{prefix}:article/{articleOrdinal:D6}/audit/{eventNo}";
-            int targetRevNo = eventNo == 2 && revisionCount > 1 ? 2 : 1;
+            int targetRevNo = outboxReq.RevisionOrdinal;
             string targetRevSemanticId = revisionSemanticIds[targetRevNo - 1];
             string targetRightsSemanticId = rightsSnapshotSemanticIds[targetRevNo - 1];
             string targetRespSemanticId = responsibilitySnapshotSemanticIds[targetRevNo - 1];
 
-            DateTime occurred = eventNo switch
-            {
-                1 => publishedTime,
-                2 when variant == ArticleScaleVariant.PublishedWithScheduledUpdate => commandTime,
-                2 when variant == ArticleScaleVariant.Archived => occurredTime,
-                2 when variant == ArticleScaleVariant.Deleted => occurredTime,
-                _ => occurredTime
-            };
+            DateTime occurred = temporal[transition.OccurredAtRole];
 
             long revId = (articleOrdinal * 10) + targetRevNo;
             long rightsId = (articleOrdinal * 10) + targetRevNo;
@@ -505,19 +509,25 @@ public static class CanonicalArticleGraphFactory
                 PublicationNo: pubNo,
                 ResponsibilityVersion: 1);
 
+            ArticleStatus afterStatus = eventIndex == contract.Transitions.Count - 1
+                ? lifecycle.StoredStatus
+                : transition.TargetStatus == ArticleStatus.Scheduled && lifecycle.HasPublication
+                    ? ArticleStatus.Published
+                    : transition.TargetStatus;
+            bool afterDeleted = afterStatus == ArticleStatus.Deleted || (eventIndex == contract.Transitions.Count - 1 && contract.IsDeleted);
             var scope = new ArticleMutationScopeSnapshot(
                 categoryId,
                 tagIds.ToArray(),
-                ArticleMutationVisibility.From(contract.TerminalStatus, contract.IsDeleted));
+                ArticleMutationVisibility.From(afterDeleted ? ArticleStatus.Deleted : afterStatus, afterDeleted));
 
             string payloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(
                 articleId: articleOrdinal,
                 eventType: transition.OutboxEventType,
                 version: versionCoordinates,
-                before: eventNo == 1 ? null : scope,
+                before: eventIndex == 0 ? null : scope,
                 after: scope,
                 occurredAt: occurred,
-                publicUpdatedAt: variant == ArticleScaleVariant.Scheduled ? null : publishedTime);
+                publicUpdatedAt: lifecycle.PublicUpdatedAt);
 
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleMutationOutboxEnvelope,
@@ -563,7 +573,6 @@ public static class CanonicalArticleGraphFactory
                 relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.OutboxToPublication, outboxSemanticId, currentPubSemanticId));
             }
 
-            // Edges
             foreach (string edge in plan.Outbox.RequiredEdges)
             {
                 string edgeSemanticId = $"{prefix}:article/{articleOrdinal:D6}/outbox/{eventNo}/edge/{edge}";
@@ -590,7 +599,6 @@ public static class CanonicalArticleGraphFactory
                 edgeObligations.Add(new ArticleScaleEdgeObligationPlan(outboxSemanticId, edge));
             }
 
-            // Audit
             rows.Add(new ArticleScaleRowPlan(
                 ArticleScaleRowKind.ArticleAuditCoordinate,
                 auditSemanticId,
@@ -600,16 +608,13 @@ public static class CanonicalArticleGraphFactory
                     ["TargetType"] = "article",
                     ["TargetSemanticId"] = articleSemanticId,
                     ["Action"] = transition.OutboxEventType,
-                    ["ActorPrincipalId"] = 1L,
+                    ["ActorPrincipalSemanticId"] = authoringAdminSemanticId,
                     ["RecordHash"] = "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payloadJson))).ToLowerInvariant(),
                     ["CreatedAt"] = occurred.ToString("O")
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.AuditToOutbox, auditSemanticId, outboxSemanticId));
-
-            eventNo++;
         }
 
-        // Pointers
         foreach (ArticleScalePointerRequirement pointer in contract.Pointers)
         {
             string targetId = pointer.SemanticTargetRole switch
@@ -617,15 +622,18 @@ public static class CanonicalArticleGraphFactory
                 "revision:1" => revisionSemanticIds[0],
                 "revision:2" => revisionSemanticIds[1],
                 "publication:1" => currentPubSemanticId!,
-                ArticleScaleTemporalRoles.ArticlePublished => publishedTime.ToString("O"),
-                ArticleScaleTemporalRoles.BoundaryTime => boundaryTime.ToString("O"),
-                ArticleScaleTemporalRoles.Occurred => occurredTime.ToString("O"),
+                _ when temporal.TryGetValue(pointer.SemanticTargetRole, out DateTime instant)
+                    => instant.ToString("O"),
                 _ => pointer.SemanticTargetRole
             };
             pointers.Add(new ArticleScalePointerPlan(pointer.Kind, targetId));
         }
 
-        // 0. Article Row
+        DateTime created = temporal[ArticleScaleTemporalRoles.ArticleCreated];
+        DateTime metadataUpdatedAt = revisionCount > 1
+            ? temporal[ArticleScaleTemporalRoles.ArticleMetadataUpdated]
+            : created;
+
         var articleFields = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["Title"] = baseTitle,
@@ -633,17 +641,17 @@ public static class CanonicalArticleGraphFactory
             ["CoverImageUrl"] = coverImageUrl,
             ["CategoryId"] = categoryId,
             ["Views"] = 0,
-            ["Status"] = (int)contract.TerminalStatus,
-            ["IsDeleted"] = contract.IsDeleted,
+            ["Status"] = (int)lifecycle.StoredStatus,
+            ["IsDeleted"] = lifecycle.IsDeleted,
             ["CreateTime"] = created.ToString("O"),
-            ["MetadataUpdatedAt"] = (variant == ArticleScaleVariant.PublishedWithScheduledUpdate ? rev2Time : created).ToString("O"),
-            ["PublishedAt"] = variant != ArticleScaleVariant.Scheduled ? publishedTime.ToString("O") : null,
-            ["ScheduledPublishAt"] = variant == ArticleScaleVariant.Scheduled ? boundaryTime.ToString("O") : null,
-            ["LastPublishedAt"] = variant != ArticleScaleVariant.Scheduled ? publishedTime.ToString("O") : null,
-            ["PublicUpdatedAt"] = variant == ArticleScaleVariant.Scheduled ? null : (variant == ArticleScaleVariant.PublishedWithScheduledUpdate ? rev2Time.ToString("O") : publishedTime.ToString("O")),
-            ["PendingPublicationAt"] = variant == ArticleScaleVariant.PublishedWithScheduledUpdate ? boundaryTime.ToString("O") : null,
-            ["ArchivedAt"] = variant == ArticleScaleVariant.Archived ? occurredTime.ToString("O") : null,
-            ["DeletedAt"] = variant == ArticleScaleVariant.Deleted ? occurredTime.ToString("O") : null,
+            ["MetadataUpdatedAt"] = metadataUpdatedAt.ToString("O"),
+            ["PublishedAt"] = lifecycle.PublishedAt?.ToString("O"),
+            ["ScheduledPublishAt"] = lifecycle.ScheduledPublishAt?.ToString("O"),
+            ["LastPublishedAt"] = lifecycle.LastPublishedAt?.ToString("O"),
+            ["PublicUpdatedAt"] = lifecycle.PublicUpdatedAt?.ToString("O"),
+            ["PendingPublicationAt"] = lifecycle.PendingPublicationAt?.ToString("O"),
+            ["ArchivedAt"] = lifecycle.ArchivedAt?.ToString("O"),
+            ["DeletedAt"] = lifecycle.DeletedAt?.ToString("O"),
             ["CurrentRevisionId"] = currentRevSemanticId,
             ["CurrentPublicationId"] = currentPubSemanticId
         };
@@ -701,4 +709,194 @@ public static class CanonicalArticleGraphFactory
         }
         return "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()))).ToLowerInvariant();
     }
+
+    internal static IReadOnlyDictionary<string, DateTime> ResolveTemporalMap(
+        int articleOrdinal,
+        ArticleScaleVariantContract contract)
+    {
+        DateTime created = s_baseEpoch.AddMinutes(articleOrdinal * 10);
+        DateTime revision = created.AddMinutes(1);
+        DateTime publication = revision.AddMinutes(1);
+        DateTime published = publication;
+        DateTime metadataUpdated = published.AddHours(2);
+        DateTime commandTime = published.AddHours(3);
+        DateTime boundaryTime = commandTime.AddDays(7);
+        DateTime occurred = published.AddDays(1);
+
+        var map = new Dictionary<string, DateTime>(StringComparer.Ordinal)
+        {
+            [ArticleScaleTemporalRoles.ArticleCreated] = created,
+            [ArticleScaleTemporalRoles.ArticleRevision] = revision,
+            [ArticleScaleTemporalRoles.ArticlePublication] = publication,
+            [ArticleScaleTemporalRoles.ArticlePublished] = published,
+            [ArticleScaleTemporalRoles.ArticleMetadataUpdated] = metadataUpdated,
+            [ArticleScaleTemporalRoles.CommandTime] = commandTime,
+            [ArticleScaleTemporalRoles.BoundaryTime] = boundaryTime,
+            [ArticleScaleTemporalRoles.Occurred] = occurred
+        };
+
+        foreach (ArticleScaleTemporalRequirement role in contract.TemporalRoles)
+        {
+            if (!map.ContainsKey(role.RoleId))
+            {
+                throw new InvalidOperationException($"Temporal role '{role.RoleId}' is not resolved for variant {contract.Variant}.");
+            }
+        }
+
+        return map;
+    }
+
+    internal static VariantLifecycleCoordinates DeriveLifecycleCoordinates(
+        ArticleScaleVariantContract contract,
+        IReadOnlyDictionary<string, DateTime> temporal)
+    {
+        bool hasCurrentPublication = false;
+        ArticleStatus storedStatus = ArticleStatus.Draft;
+        DateTime? scheduledPublishAt = null;
+        DateTime? pendingPublicationAt = null;
+        DateTime? publishedAt = null;
+        DateTime? lastPublishedAt = null;
+        DateTime? publicUpdatedAt = null;
+        DateTime? archivedAt = null;
+        DateTime? deletedAt = null;
+        string? publicationTransitionKind = null;
+        DateTime? publicationPublishedAt = null;
+        bool isDeleted = false;
+
+        foreach (ArticleScaleTransitionRequirement transition in contract.Transitions)
+        {
+            DateTime occurredAt = temporal[transition.OccurredAtRole];
+            DateTime? scheduledAt = transition.ScheduledAtRole is null
+                ? null
+                : temporal[transition.ScheduledAtRole];
+
+            // Soft-delete is outside ArticlePublicationTransitionWriter.CreatePlan
+            // (ValidateTarget rejects Deleted). Mirror LifecycleAndReadModels delete SQL.
+            if (transition.TargetStatus == ArticleStatus.Deleted
+                || string.Equals(transition.TransitionKind, "article-delete-flow", StringComparison.Ordinal))
+            {
+                storedStatus = ArticleStatus.Deleted;
+                isDeleted = true;
+                deletedAt = occurredAt;
+                continue;
+            }
+
+            ArticlePublicationTransitionPlan plan = ArticlePublicationTransitionWriter.CreatePlan(
+                hasCurrentPublication,
+                transition.TargetStatus,
+                scheduledAt,
+                occurredAt);
+
+            storedStatus = plan.StoredStatus;
+            scheduledPublishAt = plan.ScheduledPublishAt;
+            pendingPublicationAt = plan.PendingPublicationAt;
+            archivedAt = plan.ArchivedAt;
+            if (plan.PublishedAt.HasValue)
+            {
+                publishedAt ??= plan.PublishedAt;
+            }
+
+            if (plan.CreatePublication)
+            {
+                hasCurrentPublication = true;
+                publicationTransitionKind = transition.TransitionKind;
+                publicationPublishedAt = occurredAt;
+                lastPublishedAt = plan.PublishedAt ?? occurredAt;
+                publicUpdatedAt = occurredAt;
+            }
+        }
+
+        if (contract.IsDeleted)
+        {
+            isDeleted = true;
+            storedStatus = ArticleStatus.Deleted;
+            deletedAt ??= temporal[ArticleScaleTemporalRoles.Occurred];
+        }
+
+        if (storedStatus != contract.TerminalStatus)
+        {
+            throw new InvalidOperationException(
+                $"CreatePlan-derived status '{storedStatus}' diverges from catalog terminal status '{contract.TerminalStatus}' for variant {contract.Variant}.");
+        }
+
+        return new VariantLifecycleCoordinates(
+            StoredStatus: storedStatus,
+            IsDeleted: isDeleted || contract.IsDeleted,
+            HasPublication: hasCurrentPublication,
+            ScheduledPublishAt: scheduledPublishAt,
+            PendingPublicationAt: pendingPublicationAt,
+            PublishedAt: publishedAt,
+            LastPublishedAt: lastPublishedAt,
+            PublicUpdatedAt: publicUpdatedAt,
+            ArchivedAt: archivedAt,
+            DeletedAt: deletedAt,
+            PublicationTransitionKind: publicationTransitionKind,
+            PublicationPublishedAt: publicationPublishedAt);
+    }
+
+    private static ArticleStatus ResolveRevisionStatus(ArticleScaleVariantContract contract, int revNo)
+    {
+        if (revNo == 2 && contract.RetainsPriorPublicationWhileScheduled)
+        {
+            return ArticleStatus.Scheduled;
+        }
+
+        if (contract.Variant == ArticleScaleVariant.Scheduled)
+        {
+            return ArticleStatus.Scheduled;
+        }
+
+        // First revision is created through the publish/create transition when history is retained.
+        if (contract.RetainsPublicationHistory || contract.Variant == ArticleScaleVariant.Published)
+        {
+            return ArticleStatus.Published;
+        }
+
+        return contract.TerminalStatus;
+    }
+
+    private static PublishProofPublicationState MapPublicationState(
+        ArticleStatus revisionStatus,
+        VariantLifecycleCoordinates lifecycle)
+    {
+        if (lifecycle.IsDeleted)
+        {
+            return PublishProofPublicationState.Deleted;
+        }
+
+        return revisionStatus switch
+        {
+            ArticleStatus.Published => PublishProofPublicationState.Public,
+            ArticleStatus.Scheduled => PublishProofPublicationState.Scheduled,
+            ArticleStatus.Archived => PublishProofPublicationState.Archived,
+            ArticleStatus.Deleted => PublishProofPublicationState.Deleted,
+            _ => PublishProofPublicationState.Draft
+        };
+    }
+
+    private static string ToProofStatusToken(PublishProofStatus status)
+        => status switch
+        {
+            PublishProofStatus.Pending => "pending",
+            PublishProofStatus.Ready => "ready",
+            PublishProofStatus.Failed => "failed",
+            PublishProofStatus.Retrying => "retrying",
+            PublishProofStatus.Superseded => "superseded",
+            PublishProofStatus.NotPublic => "not-public",
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unsupported proof status.")
+        };
+
+    internal readonly record struct VariantLifecycleCoordinates(
+        ArticleStatus StoredStatus,
+        bool IsDeleted,
+        bool HasPublication,
+        DateTime? ScheduledPublishAt,
+        DateTime? PendingPublicationAt,
+        DateTime? PublishedAt,
+        DateTime? LastPublishedAt,
+        DateTime? PublicUpdatedAt,
+        DateTime? ArchivedAt,
+        DateTime? DeletedAt,
+        string? PublicationTransitionKind,
+        DateTime? PublicationPublishedAt);
 }

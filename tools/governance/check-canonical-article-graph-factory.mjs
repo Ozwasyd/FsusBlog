@@ -70,6 +70,20 @@ export function checkCanonicalArticleGraphFactoryAuthority(repositoryRoot = defa
     {
         violations.push("sentinel or placeholder hashes prohibited in CanonicalArticleGraphFactory");
     }
+
+    // 4b. Fake authority / forged proof prohibition
+    if (/CreatedByAdminPrincipalId["\]]{0,2}\s*=\s*1L?\b/u.test(factorySource)
+        || /ContentBlockId["\]]{0,2}\s*=\s*1L?\b/u.test(factorySource)
+        || /ActorPrincipalId["\]]{0,2}\s*=\s*1L?\b/u.test(factorySource))
+    {
+        violations.push("hardcoded principal/content-block id=1 prohibited; use semantic-role mapped IDs");
+    }
+    if (/sig-verified/iu.test(factorySource)
+        || /ProofStatus["\]]{0,2}\s*=\s*"verified"/u.test(factorySource)
+        || /SignatureBase64Url["\]]{0,2}\s*=\s*"sig-/u.test(factorySource))
+    {
+        violations.push("forged verified rights-proof signature/status prohibited; use honest readiness fields");
+    }
     if (!verifierSource.includes("recompute"))
     {
         violations.push("CanonicalArticleGraphVerifier must explicitly verify absence of 'recompute' sentinel");
