@@ -16,6 +16,13 @@ import {
     validateDataScaleBackendConnection,
     validateDataScaleRuntimePlan
 } from './runtime-plan.mjs';
+import {
+    runFullLiveProvisionLifecycle,
+    teardownDedicatedRuntime,
+    verifyLiveIdentityReceipt
+} from './runtime-provisioner-live.mjs';
+
+export { teardownDedicatedRuntime, verifyLiveIdentityReceipt };
 
 export const DATA_SCALE_LIFECYCLE_STEPS = Object.freeze([
     'create-dedicated-containers-and-roots',
@@ -39,7 +46,8 @@ export class DataScaleRuntimeProvisioner
         namespace = 'data-scale',
         tier = 'scale-m',
         dockerRunner = null,
-        processRunner = null
+        processRunner = null,
+        postgresDatabase = 'fsusblog_data_scale'
     } = {})
     {
         this.repositoryRoot = path.resolve(repositoryRoot);
@@ -55,7 +63,8 @@ export class DataScaleRuntimeProvisioner
             parentSchedulerRunId: this.parentSchedulerRunId,
             namespace: this.namespace,
             tier: this.tier,
-            repositoryRoot: this.repositoryRoot
+            repositoryRoot: this.repositoryRoot,
+            postgresDatabase
         });
 
         this.state = {
@@ -432,7 +441,8 @@ function shellSingleQuote(value)
 /**
  * Executable lane entry: each data-scale run gets a fresh dedicated plan/roots.
  * mode=plan-identity creates plan+roots+env without Docker (unit/fake-probe).
- * mode=full additionally requires Docker create success and fails closed (no shared fallback).
+ * mode=full starts dedicated postgres/redis, offline-migrates+seeds before backend,
+ * emits a live identity receipt bound to real container/volume digests, and fails closed.
  */
 export async function provisionLaneRuntime({
     repositoryRoot = '.',
@@ -465,14 +475,18 @@ export async function provisionLaneRuntime({
         namespace,
         tier,
         dockerRunner,
-        processRunner
+        processRunner,
+        // Live seed.sh and catalog pins use database=fsusblog.
+        postgresDatabase: mode === 'full' ? 'fsusblog' : 'fsusblog_data_scale'
     });
 
     await provisioner.provisionDedicatedResources();
 
+    let receiptPath = null;
     if (mode === 'full')
     {
-        await createDedicatedContainers(provisioner);
+        const receipt = await runFullLiveProvisionLifecycle(provisioner, { tier });
+        receiptPath = receipt.path;
     }
 
     const planRelative = path.join(provisioner.plan.roots.dataRoot, 'runtime-plan.json');
@@ -483,7 +497,8 @@ export async function provisionLaneRuntime({
     const laneEnv = buildLaneEnvironmentFromPlan(provisioner.plan, {
         dataScaleRunId: provisioner.dataScaleRunId,
         parentSchedulerRunId: provisioner.parentSchedulerRunId,
-        planPath: planRelative
+        planPath: planRelative,
+        receiptPath
     });
     const envAbsolute = writeLaneEnvironmentFile(emitEnvPath, laneEnv);
 
@@ -491,64 +506,17 @@ export async function provisionLaneRuntime({
         provisioner,
         plan: provisioner.plan,
         planPath: planRelative,
+        receiptPath,
         envPath: envAbsolute,
         environment: laneEnv,
         mode,
-        exclusiveResources: [...provisioner.plan.exclusiveResources]
+        exclusiveResources: [...provisioner.plan.exclusiveResources],
+        liveIdentity: provisioner.state.liveIdentity || null
     };
 }
 
-async function createDedicatedContainers(provisioner)
-{
-    const labels = provisioner.plan.ownershipLabels;
-    const labelArgs = Object.entries(labels).flatMap(([key, value]) => ['--label', `${key}=${value}`]);
-
-    for (const resource of [
-        {
-            role: 'postgres',
-            name: provisioner.plan.postgres.containerName,
-            volume: provisioner.plan.postgres.volumeName,
-            image: 'postgres:16-alpine'
-        },
-        {
-            role: 'redis',
-            name: provisioner.plan.redis.containerName,
-            volume: provisioner.plan.redis.volumeName,
-            image: 'redis:7-alpine'
-        }
-    ])
-    {
-        const volumeResult = provisioner.dockerRunner([
-            'volume', 'create',
-            ...labelArgs,
-            resource.volume
-        ]);
-        if (volumeResult.status !== 0)
-        {
-            provisioner.state.provisionFailed = true;
-            throw new Error(
-                `failed to create dedicated ${resource.role} volume ${resource.volume}; `
-                + 'fallback to shared postgres/redis is prohibited'
-            );
-        }
-
-        const createResult = provisioner.dockerRunner([
-            'create',
-            '--name', resource.name,
-            ...labelArgs,
-            '--mount', `type=volume,source=${resource.volume},target=/var/lib/${resource.role === 'postgres' ? 'postgresql/data' : 'redis'}`,
-            resource.image
-        ]);
-        if (createResult.status !== 0)
-        {
-            provisioner.state.provisionFailed = true;
-            throw new Error(
-                `failed to create dedicated ${resource.role} container ${resource.name}; `
-                + 'fallback to shared postgres/redis is prohibited'
-            );
-        }
-    }
-}
+// Legacy create-only helper removed: mode=full uses runFullLiveProvisionLifecycle
+// (start + migrate + offline seed + backend + live identity receipt).
 
 function parseProvisionArgs(argv)
 {
@@ -637,10 +605,23 @@ async function main(argv)
             mode: result.mode,
             dataScaleRunId: result.plan.dataScaleRunId,
             planPath: result.planPath,
+            receiptPath: result.receiptPath,
             envPath: path.relative(options.repositoryRoot, result.envPath),
             exclusiveResources: result.exclusiveResources,
             postgresContainer: result.plan.postgres.containerName,
-            redisContainer: result.plan.redis.containerName
+            redisContainer: result.plan.redis.containerName,
+            backendContainer: result.plan.backend.containerName,
+            liveIdentity: result.liveIdentity
+                ? {
+                    postgresContainerId: result.liveIdentity.postgres?.containerId ?? null,
+                    redisContainerId: result.liveIdentity.redis?.containerId ?? null,
+                    backendContainerId: result.liveIdentity.backend?.containerId ?? null,
+                    postgresImageDigest: result.liveIdentity.postgres?.imageDigest ?? null,
+                    redisImageDigest: result.liveIdentity.redis?.imageDigest ?? null,
+                    postgresVolumeId: result.liveIdentity.postgres?.volumeId ?? null,
+                    redisVolumeId: result.liveIdentity.redis?.volumeId ?? null
+                }
+                : null
         }, null, 2)}\n`);
     }
     catch (error)

@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "tools/data-scale/runtime-plan.mjs",
+                "tools/data-scale/runtime-provisioner-live.mjs",
                 "tools/data-scale/runtime-provisioner.mjs",
                 "tools/test/lanes/runtime-evidence-probe.mjs",
                 "tools/test/run-release-reliability-scenarios.mjs"
