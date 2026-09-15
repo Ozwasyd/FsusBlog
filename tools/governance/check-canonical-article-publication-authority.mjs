@@ -16,6 +16,8 @@ export const requiredAuthorityFiles = Object.freeze([
     "src/backend/Services/Articles/ArticleProductionNormalizers.cs",
     "src/backend/Services/Articles/ArticleRightsSnapshotBuilder.cs",
     "src/backend/Services/Articles/ArticleRightsPolicyPersistence.cs",
+    "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+    "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs",
     "src/backend/Infrastructure/Integrity/ArticleResponsibilitySnapshotBuilder.cs",
     "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
     "src/backend/Services/ArticleService.cs",
@@ -149,6 +151,10 @@ export function checkCanonicalArticlePublicationAuthority(repositoryRoot = defau
         path.join(repositoryRoot, "src/backend/Infrastructure/Integrity/ArticleResponsibilityManifest.cs"),
         "utf8"
     );
+    const authoritySource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs"),
+        "utf8"
+    );
     if (!articleServiceSource.includes("ArticleProductionNormalizers.NormalizeArticleRights"))
     {
         violations.push("ArticleService must call ArticleProductionNormalizers.NormalizeArticleRights");
@@ -170,9 +176,41 @@ export function checkCanonicalArticlePublicationAuthority(repositoryRoot = defau
     {
         violations.push("ArticleResponsibilityAuthoringService must call ArticleResponsibilitySnapshotBuilder.Build");
     }
-    if (!portSource.includes("ArticleRightsPolicyPersistence.UpsertAsync"))
+    if (!portSource.includes("ArticleRightsPolicyPersistence.UpsertAsync")
+        && !authoritySource.includes("ArticleRightsPolicyPersistence.UpsertAsync"))
     {
-        violations.push("CanonicalArticlePublicationFixturePort must reuse ArticleRightsPolicyPersistence.UpsertAsync");
+        violations.push("Canonical article publication authority must reuse ArticleRightsPolicyPersistence.UpsertAsync");
+    }
+    if (!portSource.includes("ArticleCreateMutationAuthority.ExecuteAsync"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must call ArticleCreateMutationAuthority.ExecuteAsync");
+    }
+    if (!portSource.includes("BeginPublicMutationFenceAsync")
+        || !portSource.includes("IArticlePublicMutationFence"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must establish production public mutation fence");
+    }
+    if (!portSource.includes("CommitPublicMutationFenceAsync")
+        || !portSource.includes("RecoverAbortedPublicMutationFenceAsync"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must commit or recover public mutation fence");
+    }
+    if (portSource.includes("Insertable(new ArticleRevision")
+        || portSource.includes("new ArticleRevision"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must not fixture-locally insert ArticleRevision");
+    }
+    if (!articleServiceSource.includes("ArticleCreateMutationAuthority.ExecuteAsync"))
+    {
+        violations.push("ArticleService.CreateMutationAsync must call ArticleCreateMutationAuthority.ExecuteAsync");
+    }
+    if (!articleServiceSource.includes("ArticleRevisionPersistence.SaveAsync"))
+    {
+        violations.push("ArticleService.SaveArticleRevisionAsync must call ArticleRevisionPersistence.SaveAsync");
+    }
+    if (!authoritySource.includes("ArticleRevisionPersistence.SaveAsync"))
+    {
+        violations.push("ArticleCreateMutationAuthority must call ArticleRevisionPersistence.SaveAsync");
     }
 
     // 10. Verifier must check receipt digest

@@ -56,7 +56,7 @@ test("governance rejects direct SQL in fixture port", () =>
 {
     const target = fixture();
     mutate(target, "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs", (source) =>
-        source.replace("await db.Insertable(article)", 'await db.Ado.ExecuteCommand("INSERT INTO article")')
+        source + '\nawait db.Ado.ExecuteCommand("INSERT INTO article values (1)");\n'
     );
     const violations = checkCanonicalArticlePublicationAuthority(target);
     assert.ok(violations.some((v) => v.includes("direct raw SQL execution prohibited")));
@@ -106,4 +106,14 @@ test("governance rejects production not calling shared seams", () =>
     assert.ok(violations.some((v) => v.includes("ArticleProductionNormalizers.NormalizeArticleRights")
         || v.includes("ArticleRightsSnapshotBuilder.Build")
         || v.includes("ArticleRightsPolicyPersistence.UpsertAsync")));
+});
+
+test("governance rejects fixture port without create mutation authority call", () =>
+{
+    const target = fixture();
+    mutate(target, "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs", (source) =>
+        source.replaceAll("ArticleCreateMutationAuthority.ExecuteAsync", "LegacyFixtureCreateAsync")
+    );
+    const violations = checkCanonicalArticlePublicationAuthority(target);
+    assert.ok(violations.some((v) => v.includes("ArticleCreateMutationAuthority.ExecuteAsync")));
 });

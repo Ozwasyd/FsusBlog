@@ -91,7 +91,6 @@ public partial class ArticleService(
     private const int MaxSummaryLength = 512;
     private const int MaxContentLength = 200_000;
     private const int MaxTagIds = 32;
-    private const int MaxArticleRevisionInsertAttempts = 3;
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
     private DateTime UtcNow => (_timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
@@ -791,89 +790,69 @@ public partial class ArticleService(
                     ct).ConfigureAwait(false);
                 validation.ThrowIfWriteBlocked();
 
-                int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
-                await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = now }).ExecuteCommandAsync();
-                if (tagIds.Count > 0)
-                {
-                    await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
-                }
-                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(
-                    id,
-                    title,
-                    content,
-                    safeSummary,
-                    coverImageUrl,
-                    dto.CategoryId,
-                    tagIds,
-                    ArticleSummaryProjection.AttachGenerationVersion("initial publish", summaryProjection),
-                    now);
-                ArticleAssetReferenceWrite[] assetReferenceWrites = await new ArticleAssetReferenceWriteBoundary(_db)
-                    .ResolveAsync(content, coverImageUrl, ct)
-                    .ConfigureAwait(false);
-                var assetReferences = new ArticleAssetReferenceStore(_db);
-                await assetReferences.ReplaceCurrentArticleAsync(id, assetReferenceWrites, ct).ConfigureAwait(false);
-                await assetReferences.ReplaceRevisionAsync(revision.Id, id, assetReferenceWrites, ct).ConfigureAwait(false);
-                long rightsSnapshotId = await SaveArticleRightsAsync(
-                    id,
-                    revision,
-                    title,
-                    content,
-                    safeSummary,
-                    coverImageUrl,
-                    dto.CategoryId,
-                    tagIds,
-                    status,
-                    article.PublishedAt,
-                    article.ScheduledPublishAt,
-                    rights,
-                    now);
-                long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id);
-                int? responsibilityVersion = await LoadResponsibilityVersionAsync(responsibilitySnapshotId);
-                ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
+                ArticleCreateMutationAuthority.Result created = await ArticleCreateMutationAuthority.ExecuteAsync(
                     _db,
-                    new ArticlePublicationTransitionRequest(
-                        id,
-                        new ArticleVersionCoordinates(
-                            revision.Id,
-                            revision.RevisionNo,
-                            rightsSnapshotId,
-                            responsibilitySnapshotId,
-                            null,
-                            null,
-                            responsibilityVersion),
-                        status,
-                        article.ScheduledPublishAt,
-                        now,
-                        TransitionKindFor(status),
-                        ArticleStatusTransitionOperation.Create));
-                await RecordArticleMutationOutboxAsync(
-                    id,
-                    ArticleMutationEventTypes.Created,
-                    version,
-                    now,
-                    before: null,
-                    after: new ArticleMutationScopeSnapshot(
-                        dto.CategoryId,
-                        tagIds,
-                        ArticleMutationVisibility.From(status)));
-                var mutation = new ArticleMutationResult(
-                    id,
-                    version.RevisionId,
-                    version.RevisionNo,
-                    version.PublicationId ?? 0,
-                    version.PublicationNo ?? 0,
+                    new ArticleCreateMutationAuthority.Request(
+                        Title: title,
+                        Content: content,
+                        Summary: safeSummary,
+                        CoverImageUrl: coverImageUrl,
+                        CategoryId: dto.CategoryId,
+                        TagIds: tagIds,
+                        Status: status,
+                        ScheduledPublishAt: article.ScheduledPublishAt,
+                        PublishedAt: article.PublishedAt,
+                        LastPublishedAt: article.LastPublishedAt,
+                        PublicUpdatedAt: article.PublicUpdatedAt,
+                        ArchivedAt: article.ArchivedAt,
+                        Now: now,
+                        Rights: rights,
+                        CreatedByAdminPrincipalId: ResolveRevisionAdminPrincipalId(),
+                        DiffSummary: ArticleSummaryProjection.AttachGenerationVersion("initial publish", summaryProjection),
+                        OutboxEventType: ArticleMutationEventTypes.Created,
+                        TransitionKind: TransitionKindFor(status),
+                        AfterScope: new ArticleMutationScopeSnapshot(
+                            dto.CategoryId,
+                            tagIds,
+                            ArticleMutationVisibility.From(status)),
+                        MutationIdentity: identity.HasValue
+                            ? new ArticleCreateMutationAuthority.ArticleMutationIdentityWrite(
+                                identity.Value.AdminPrincipalId,
+                                identity.Value.ClientMutationId,
+                                identity.Value.RequestHash)
+                            : null,
+                        AttachResponsibilityAsync: async (_, revision, token) =>
+                        {
+                            long? responsibilitySnapshotId = await LoadResponsibilitySnapshotIdAsync(revision.Id)
+                                .ConfigureAwait(false);
+                            int? responsibilityVersion = await LoadResponsibilityVersionAsync(responsibilitySnapshotId)
+                                .ConfigureAwait(false);
+                            return responsibilitySnapshotId is > 0 && responsibilityVersion is > 0
+                                ? new ArticleCreateMutationAuthority.ResponsibilityAttachResult(
+                                    responsibilitySnapshotId.Value,
+                                    responsibilityVersion.Value)
+                                : null;
+                        }),
+                    ct).ConfigureAwait(false);
+
+                if (IsArticleVaultGroupTransaction)
+                {
+                    (_articleVaultOutboxReferences
+                        ?? throw new InvalidOperationException("article_vault_outbox_capture_missing"))[created.ArticleId]
+                        = created.Outbox.EventId;
+                }
+
+                return new ArticleMutationResult(
+                    created.ArticleId,
+                    created.Version.RevisionId,
+                    created.Version.RevisionNo,
+                    created.Version.PublicationId ?? 0,
+                    created.Version.PublicationNo ?? 0,
                     (int)status,
-                    version.RightsSnapshotId,
-                    version.RevisionNo,
+                    created.Version.RightsSnapshotId,
+                    created.Version.RevisionNo,
                     IdempotencyReplay: false,
                     (byte)ErrorCode.None);
-                if (identity.HasValue)
-                {
-                    await _db.Insertable(ToArticleMutationCommand(identity.Value, mutation, now))
-                        .ExecuteCommandAsync(ct)
-                        .ConfigureAwait(false);
-                }
-                return mutation;
             });
 
             mutationCommitted = result.IsSuccess && result.Data.ArticleId > 0;
@@ -1130,117 +1109,24 @@ public partial class ArticleService(
         DateTime createdAt,
         ArticleRollbackMetadata? rollback = null)
     {
-        await _db.Ado.ExecuteCommandAsync(
-            "SELECT pg_advisory_xact_lock(hashtext('article_revision'), @articleId);",
-            new SugarParameter[] { new("@articleId", articleId) });
         long actorAdminPrincipalId = rollback?.ActorAdminPrincipalId ?? ResolveRevisionAdminPrincipalId();
-        string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
-        long contentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
+        ArticleRevisionWriteResult revision = await ArticleRevisionPersistence.SaveAsync(
             _db,
+            articleId,
+            title,
             content,
+            summary,
+            coverImageUrl,
+            categoryId,
+            tagIds,
+            diffSummary,
             createdAt,
+            actorAdminPrincipalId,
+            rollback?.SourceRevisionId,
+            rollback?.Reason,
+            _logger,
             Ct).ConfigureAwait(false);
-        for (int attempt = 1; attempt <= MaxArticleRevisionInsertAttempts; attempt++)
-        {
-            Ct.ThrowIfCancellationRequested();
-            using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-                """
-                WITH locked_article AS (
-                    SELECT id, xmin::text AS row_version
-                    FROM article
-                    WHERE id = @articleId
-                      AND isdeleted = false
-                    FOR UPDATE
-                ),
-                next_revision AS (
-                    SELECT locked_article.id AS article_id,
-                           locked_article.row_version,
-                           COALESCE((
-                               SELECT MAX(revision_no)
-                               FROM article_revision
-                               WHERE article_id = @articleId
-                           ), 0) + 1 AS revision_no
-                    FROM locked_article
-                )
-                INSERT INTO article_revision (
-                    article_id,
-                    revision_no,
-                    title,
-                    summary,
-                    cover_image_url,
-                    categoryid,
-                    tag_ids,
-                    content_block_id,
-                    markdown_content,
-                    diff_summary,
-                    created_by_admin_principal_id,
-                    rollback_source_revision_id,
-                    rollback_reason,
-                    created_at
-                )
-                SELECT
-                    article_id,
-                    revision_no,
-                    @title,
-                    @summary,
-                    @coverImageUrl,
-                    @categoryId,
-                    @tagIds,
-                    @contentBlockId,
-                    '',
-                    @diffSummary,
-                    @createdByAdminPrincipalId,
-                    CAST(@rollbackSourceRevisionId AS bigint),
-                    @rollbackReason,
-                    @createdAt
-                FROM next_revision
-                ON CONFLICT (article_id, revision_no) DO NOTHING
-                RETURNING id, revision_no;
-                """,
-                new SugarParameter[]
-                {
-                    new("@articleId", articleId),
-                    new("@title", title),
-                    new("@summary", summary),
-                    new("@coverImageUrl", coverImageUrl),
-                    new("@categoryId", categoryId),
-                    new("@tagIds", orderedTagIds),
-                    new("@contentBlockId", contentBlockId),
-                    new("@diffSummary", diffSummary),
-                    new("@createdByAdminPrincipalId", actorAdminPrincipalId),
-                    new("@rollbackSourceRevisionId", (object?)rollback?.SourceRevisionId ?? DBNull.Value),
-                    new("@rollbackReason", (object?)rollback?.Reason ?? DBNull.Value),
-                    new("@createdAt", createdAt)
-                });
-            if (await reader.ReadAsync(Ct).ConfigureAwait(false))
-            {
-                return new ArticleRevisionCoordinates(
-                    reader.ReadInt64("id"),
-                    reader.ReadInt32("revision_no"),
-                    contentBlockId);
-            }
-            await reader.DisposeAsync().ConfigureAwait(false);
-
-            int activeArticle = await _db.Ado.GetIntAsync(
-                "SELECT COUNT(1) FROM article WHERE id = @articleId AND isdeleted = false;",
-                new SugarParameter[] { new("@articleId", articleId) }).ConfigureAwait(false);
-            if (activeArticle == 0)
-            {
-                throw new InvalidOperationException($"Article revision was not created for article {articleId}.");
-            }
-
-            if (attempt < MaxArticleRevisionInsertAttempts)
-            {
-                _logger.LogWarning(
-                    "Article revision number conflict for {ArticleId}; retrying bounded attempt {Attempt}/{MaxAttempts}",
-                    articleId,
-                    attempt,
-                    MaxArticleRevisionInsertAttempts);
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"Article revision conflict retry limit exceeded for article {articleId} after {MaxArticleRevisionInsertAttempts} attempts.");
+        return new ArticleRevisionCoordinates(revision.Id, revision.RevisionNo, revision.ContentBlockId);
     }
 
     private long ResolveRevisionAdminPrincipalId()
