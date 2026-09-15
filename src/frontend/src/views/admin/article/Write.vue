@@ -744,7 +744,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { ArticlePublishStatus } from '@/api/article';
@@ -768,6 +768,15 @@ import {
 } from '@/composables/useArticleWriteInspector';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
+import {
+    articleWorkspaceTabRouter,
+    createArticleWorkspaceOpenInput,
+    type ArticleWorkspaceStatusSummary
+} from '@/services/authoring/articleWorkspaceTabRouter';
+import type {
+    ArticleDocumentContextRef,
+    ArticleDocumentIdentity
+} from '@/services/authoring/openArticleDocumentRegistry';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
@@ -829,6 +838,8 @@ const {
     seoStatusText,
     articleForm,
     authoringDocumentIdentity,
+    currentRevisionId,
+    currentRevisionNo,
     articleRightsUsingSiteDefaults,
     articleRightsInheritanceText,
     articleRightsLicenseOptions,
@@ -898,6 +909,135 @@ const articleStateText = computed(() =>
         default:
             return isEdit.value ? '已发布' : '待发布';
     }
+});
+
+const workspaceArticleId = computed<number | null>(() =>
+{
+    const raw = route.params.id;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+});
+const workspaceIdentity = computed<ArticleDocumentIdentity>(() =>
+{
+    const articleId = workspaceArticleId.value;
+    const documentRef = authoringDocumentIdentity.value.id;
+    return articleId === null
+        ? {
+            articleId: null,
+            draftId: `draft:${documentRef}`,
+            documentId: `document:${documentRef}`
+        }
+        : {
+            articleId,
+            draftId: `draft:article:${articleId}`,
+            documentId: `document:article:${articleId}`
+        };
+});
+const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => ({
+    documentEpoch: authoringDocumentIdentity.value.epoch,
+    sourceRevision: workspaceArticleId.value === null
+        ? null
+        : currentRevisionId.value?.trim()
+            ? `revision:source:${currentRevisionId.value.trim()}`
+            : `source:article:${workspaceArticleId.value}`,
+    draftRevision: workspaceArticleId.value === null
+        ? `draft:${authoringDocumentIdentity.value.id}`
+        : typeof currentRevisionNo.value === 'number'
+            ? `revision:article:${workspaceArticleId.value}:${currentRevisionNo.value}`
+            : `draft:article:${workspaceArticleId.value}`
+}));
+const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
+    dirty: requiresLeaveConfirm.value && !pageLoading.value,
+    saving: submitting.value,
+    conflict: /冲突|未提交|较新的|比较/u.test(draftStatusText.value),
+    recovery: hasLocalDraft.value,
+    pendingAttachments: !['idle', 'completed'].includes(imageUploadRuntime.phase),
+    permission: 'allowed',
+    lifecycle: articleForm.status === ArticlePublishStatus.Deleted
+        ? 'deleted'
+        : articleForm.status === ArticlePublishStatus.Archived
+            ? 'archived'
+            : 'current',
+    statusRef: `workspace-status:${workspaceIdentity.value.documentId}`
+}));
+let workspaceTabId: string | null = null;
+let workspaceSyncToken = 0;
+let lastWorkspaceStatusDigest = '';
+
+const workspaceCanRegister = computed(() => (
+    !pageLoading.value
+    && !(isEdit.value && workspaceArticleId.value === null)
+    && (!isEdit.value || articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0)
+));
+
+const syncWorkspaceTab = async (): Promise<void> =>
+{
+    if (!workspaceCanRegister.value)
+    {
+        return;
+    }
+
+    const token = ++workspaceSyncToken;
+    const identity = workspaceIdentity.value;
+    const receipt = await articleWorkspaceTabRouter.openOrActivate(createArticleWorkspaceOpenInput(
+        identity,
+        workspaceDocumentContext.value,
+        articleForm.title.trim() || pageTitle.value,
+        workspaceStatus.value,
+        {
+            tabKind: 'pinned',
+            entrypoint: 'direct-route',
+            route: route.fullPath
+        }
+    ));
+    if (token !== workspaceSyncToken || workspaceIdentity.value.documentId !== identity.documentId)
+    {
+        return;
+    }
+
+    workspaceTabId = receipt.tabId;
+    if (!workspaceTabId)
+    {
+        return;
+    }
+
+    articleWorkspaceTabRouter.updatePresentation(workspaceTabId, {
+        title: articleForm.title.trim() || pageTitle.value
+    });
+    lastWorkspaceStatusDigest = JSON.stringify(workspaceStatus.value);
+};
+
+watch(
+    [workspaceCanRegister, workspaceIdentity],
+    () => { void syncWorkspaceTab(); },
+    { immediate: true, deep: true }
+);
+watch(
+    [() => articleForm.title, workspaceStatus],
+    ([title, status]) =>
+    {
+        if (!workspaceTabId)
+        {
+            return;
+        }
+
+        articleWorkspaceTabRouter.updatePresentation(workspaceTabId, {
+            title: title.trim() || pageTitle.value
+        });
+        const statusDigest = JSON.stringify(status);
+        if (statusDigest !== lastWorkspaceStatusDigest)
+        {
+            articleWorkspaceTabRouter.markStatus(workspaceTabId, status);
+            lastWorkspaceStatusDigest = statusDigest;
+        }
+    },
+    { deep: true }
+);
+onUnmounted(() =>
+{
+    workspaceSyncToken += 1;
+    workspaceTabId = null;
 });
 const quickCreateCategoryDialog = ref(false);
 const quickCreateTagDialog = ref(false);

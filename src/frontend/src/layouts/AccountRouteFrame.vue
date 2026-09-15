@@ -49,6 +49,7 @@
             class="account-main-scroll"
             aria-labelledby="account-shell-area-title"
         >
+            <slot name="before-content" />
             <RouterView v-slot="{ Component }">
                 <FsuTransition
                     :name="motionPolicy.preset ?? fsusBlogMotionPresets.route"
