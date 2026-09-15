@@ -30,12 +30,22 @@
             @on-draft-save="emit('draft-save')"
             @on-submit="emit('submit')"
             @on-upload-img="handleUploadImg"
+            @selection-change="emit('selection-change', $event)"
+            @transaction="emit('transaction', $event)"
+            @viewport-change="emit('viewport-change', $event)"
         />
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import type {
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
 import type {
@@ -48,6 +58,10 @@ import type {
     MarkdownEditorMode,
     MarkdownEditorStatusDensity
 } from '@/ui-contracts/markdownEditor';
+
+type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
+    documentIdentity?: FsusUiAuthoringDocumentIdentity;
+}>;
 
 defineOptions({ name: 'MarkdownEditorAdapter' });
 
@@ -100,12 +114,28 @@ const emit = defineEmits<{
     (e: 'draft-save'): void;
     (e: 'submit'): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
+    (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
+    (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
+    (e: 'viewport-change', event: {
+        documentIdentity: FsusUiAuthoringDocumentIdentity;
+        revision: number;
+        viewport: { start: number; end: number; };
+        cause: 'manual-scroll';
+    }): void;
 }>();
 
 const provider = computed(() => resolveMarkdownEditorProvider());
 const editorRef = ref<{
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
+    revealHeading?: (
+        nodeId: string,
+        options?: MarkdownEditorRevealOptions
+    ) => MarkdownEditorRevealResult;
+    revealSourceRange?: (
+        range: MarkdownEditorOutlineRange,
+        options?: MarkdownEditorRevealOptions
+    ) => MarkdownEditorRevealResult;
 } | null>(null);
 
 const content = computed({
@@ -134,9 +164,27 @@ function openCommandPalette(): void
     editorRef.value?.openCommandPalette?.();
 }
 
+function revealHeading(
+    nodeId: string,
+    options?: MarkdownEditorRevealOptions
+): MarkdownEditorRevealResult
+{
+    return editorRef.value?.revealHeading?.(nodeId, options) ?? 'not-found';
+}
+
+function revealSourceRange(
+    range: MarkdownEditorOutlineRange,
+    options?: MarkdownEditorRevealOptions
+): MarkdownEditorRevealResult
+{
+    return editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
+}
+
 defineExpose({
     insertMarkdownAtCursor,
-    openCommandPalette
+    openCommandPalette,
+    revealHeading,
+    revealSourceRange
 });
 </script>
 

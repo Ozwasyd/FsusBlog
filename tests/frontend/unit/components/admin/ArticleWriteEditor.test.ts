@@ -38,7 +38,7 @@ describe('ArticleWriteEditor document canvas', () => {
     expect(adapter.props('chrome')).toBe('embedded')
     expect(adapter.props('statusDensity')).toBe('minimal')
     expect(adapter.props('showModeSwitcher')).toBe(false)
-    expect(adapter.props('toolbarDensity')).toBe('minimal')
+    expect(adapter.props('toolbarDensity')).toBe('standard')
     expect(adapter.props('mode')).toBe('source')
     expect(adapter.props('labelledBy')).toBe('article-body-heading')
     expect(wrapper.find('.editor-shell__header').exists()).toBe(false)

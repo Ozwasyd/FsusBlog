@@ -3,6 +3,13 @@
         class="article-write-editor"
         data-article-document-editor="true"
     >
+        <ArticleWriteOutlineRail
+            :active-heading-id="activeHeadingId"
+            :snapshot="outline.snapshot.value"
+            @reveal-heading="handleOutlineReveal"
+            @reveal-range="handleOutlineDiagnosticReveal"
+        />
+
         <MarkdownEditorAdapter
             ref="adapterRef"
             v-model="content"
@@ -27,6 +34,9 @@
             @draft-save="$emit('draft-save')"
             @submit="$emit('submit')"
             @upload-img="handleUploadImg"
+            @selection-change="handleSelectionChange"
+            @transaction="handleTransaction"
+            @viewport-change="handleViewportChange"
         />
 
         <div
@@ -72,20 +82,36 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue';
+import ArticleWriteOutlineRail from '@/components/admin/article/ArticleWriteOutlineRail.vue';
+import {
+    useArticleOutline,
+    type ArticleOutlineSelection
+} from '@/composables/useArticleOutline';
 import type {
     FsusUiAuthoringCommand,
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
+import type {
+    MarkdownEditorOutlineItem,
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteEditor' });
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen';
 type PersistedAuthoringSurface = Extract<MarkdownEditorMode, 'live' | 'source'>;
+type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
+    documentIdentity?: FsusUiAuthoringDocumentIdentity;
+}>;
 
 const props = withDefaults(defineProps<{
     modelValue: string;
@@ -95,6 +121,7 @@ const props = withDefaults(defineProps<{
     authoringCommands?: readonly FsusUiAuthoringCommand[];
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
+    articleIdentity?: string;
 }>(), {
     layoutMode: 'standard',
     authoringCommands: () => [],
@@ -104,7 +131,8 @@ const props = withDefaults(defineProps<{
         slashMenu: true,
         commandPalette: true
     }),
-    documentIdentity: undefined
+    documentIdentity: undefined,
+    articleIdentity: undefined
 });
 
 const emit = defineEmits<{
@@ -115,17 +143,48 @@ const emit = defineEmits<{
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
 }>();
 
-const adapterRef = ref<{
-    insertMarkdownAtCursor?: (markdown: string) => boolean;
-    openCommandPalette?: () => void;
-} | null>(null);
-const persistedSurface = ref<PersistedAuthoringSurface>('source');
-const sourceCompareOpen = ref(false);
-
 const content = computed({
     get: () => props.modelValue,
     set: (value: string) => emit('update:modelValue', value)
 });
+
+const adapterRef = ref<{
+    insertMarkdownAtCursor?: (markdown: string) => boolean;
+    openCommandPalette?: () => void;
+    revealHeading?: (
+        nodeId: string,
+        options?: MarkdownEditorRevealOptions
+    ) => MarkdownEditorRevealResult;
+    revealSourceRange?: (
+        range: MarkdownEditorOutlineRange,
+        options?: MarkdownEditorRevealOptions
+    ) => MarkdownEditorRevealResult;
+} | null>(null);
+const persistedSurface = ref<PersistedAuthoringSurface>('source');
+const sourceCompareOpen = ref(false);
+const sourceRevision = ref(0);
+const selection = ref<ArticleOutlineSelection>({
+    start: content.value.length,
+    end: content.value.length,
+    direction: 'none'
+});
+const viewport = ref<{ start: number; end: number; } | undefined>();
+const activeCause = ref<'caret' | 'selection' | 'manual-scroll' | 'typing'>('caret');
+
+const resolvedArticleIdentity = computed(() => (
+    props.articleIdentity ?? props.documentIdentity?.id ?? 'article:new'
+));
+
+const outline = useArticleOutline({
+    articleIdentity: resolvedArticleIdentity,
+    documentIdentity: () => props.documentIdentity,
+    source: content,
+    sourceRevision,
+    selection,
+    viewport,
+    cause: activeCause
+});
+const activeHeadingId = computed(() => outline.active.value?.headingId ?? null);
 
 const activeSurface = computed<MarkdownEditorMode>(() => (
     sourceCompareOpen.value ? 'split' : persistedSurface.value
@@ -162,6 +221,96 @@ function toggleSourceCompare(): void
     sourceCompareOpen.value = !sourceCompareOpen.value;
 }
 
+function currentRevealOptions(): MarkdownEditorRevealOptions | undefined
+{
+    const identity = props.documentIdentity;
+    if (!identity) return undefined;
+    return {
+        expected: {
+            documentIdentity: identity,
+            revision: sourceRevision.value
+        },
+        mode: activeSurface.value
+    };
+}
+
+function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
+{
+    const identity = props.documentIdentity;
+    if (identity && event.documentIdentity &&
+        (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch)) {
+        return;
+    }
+    if (event.revision < sourceRevision.value) return;
+    sourceRevision.value = event.revision;
+    selection.value = event.selection;
+    activeCause.value = 'selection';
+}
+
+function handleTransaction(event: MarkdownEditorTransactionEvent): void
+{
+    const identity = props.documentIdentity;
+    if (!event.accepted ||
+        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch))) {
+        return;
+    }
+    if (event.revision < sourceRevision.value) return;
+    sourceRevision.value = event.revision;
+    selection.value = event.selection;
+    activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
+}
+
+function handleViewportChange(event: {
+    documentIdentity: FsusUiAuthoringDocumentIdentity;
+    revision: number;
+    viewport: { start: number; end: number; };
+    cause: 'manual-scroll';
+}): void
+{
+    const identity = props.documentIdentity;
+    if (!identity || identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch ||
+        event.revision < sourceRevision.value) {
+        return;
+    }
+    sourceRevision.value = event.revision;
+    viewport.value = event.viewport;
+    activeCause.value = event.cause;
+}
+
+function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
+{
+    const result = adapterRef.value?.revealHeading?.(item.nodeId, currentRevealOptions());
+    if (result === 'success') {
+        outline.noteOutlineNavigation(item.nodeId);
+    }
+}
+
+function handleOutlineDiagnosticReveal(item: MarkdownEditorOutlineItem): void
+{
+    const result = adapterRef.value?.revealSourceRange?.(item.sourceRange, currentRevealOptions());
+    if (result === 'success') {
+        outline.noteOutlineNavigation(item.nodeId);
+    }
+}
+
+watch(() => {
+    const identity = props.documentIdentity;
+    return `${resolvedArticleIdentity.value}\u0000${identity
+        ? `${identity.id}\u0000${String(identity.epoch)}`
+        : ''}`;
+}, (next, previous) => {
+    if (next === previous) return;
+    sourceRevision.value = 0;
+    selection.value = {
+        start: content.value.length,
+        end: content.value.length,
+        direction: 'none'
+    };
+    viewport.value = undefined;
+    activeCause.value = 'caret';
+    outline.reset();
+});
+
 function insertMarkdownAtCursor(markdown: string): boolean
 {
     return adapterRef.value?.insertMarkdownAtCursor?.(markdown) === true;
@@ -174,7 +323,11 @@ function openCommandPalette(): void
 
 defineExpose({
     insertMarkdownAtCursor,
-    openCommandPalette
+    openCommandPalette,
+    revealHeading: (nodeId: string, options?: MarkdownEditorRevealOptions) =>
+        adapterRef.value?.revealHeading?.(nodeId, options) ?? 'not-found',
+    revealSourceRange: (range: MarkdownEditorOutlineRange, options?: MarkdownEditorRevealOptions) =>
+        adapterRef.value?.revealSourceRange?.(range, options) ?? 'not-found'
 });
 </script>
 

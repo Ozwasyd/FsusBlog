@@ -13,10 +13,12 @@ async function openFixture(
   page: Page,
   title: keyof typeof contract.titles,
   theme: 'light' | 'dark',
-  surface: 'title' | 'editor' | 'command' | 'inspector' | 'recovery' = 'title',
+  surface: 'title' | 'editor' | 'outline' | 'command' | 'inspector' | 'recovery' = 'title',
   inspectorState: 'empty' | 'loading' | 'error' | 'success' | 'partial' = 'success',
   inspectorView?: typeof contract.inspectorViews[number],
-  authoringState: typeof contract.authoringStates[number] = 'ready'
+  authoringState: typeof contract.authoringStates[number] = 'ready',
+  outlineHeadingCount = 8,
+  outlineArticle: 'a' | 'b' = 'a'
 ): Promise<void> {
   await page.route('**/__article-editor-production-fixture**', async (route) => {
     await route.fulfill({
@@ -65,7 +67,9 @@ async function openFixture(
     theme,
     surface,
     state: inspectorState,
-    authoring: authoringState
+    authoring: authoringState,
+    outlineCount: String(outlineHeadingCount),
+    article: outlineArticle
   })
   if (inspectorView) {
     search.set('view', inspectorView)
@@ -637,6 +641,84 @@ test.describe('article editor production fixture canvas and save status', () => 
         await expect(page.getByRole('radio', { name: '分屏' })).toHaveCount(0)
       }
     }
+  })
+})
+
+test.describe('article editor production fixture outline rail', () => {
+  test('desktop outline consumes canonical headings, reveals the source and preserves canvas geometry', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+    })
+    await openFixture(page, 'short', 'light', 'outline', 'success', undefined, 'ready', 10, 'a')
+
+    const editor = page.locator('#article-content')
+    const closedBox = await editor.boundingBox()
+    const launcher = page.getByRole('button', { name: '打开文章大纲' })
+    await expect(launcher).toBeVisible()
+    await launcher.click()
+
+    const panel = page.locator('[data-article-outline-panel="true"]')
+    await expect(panel).toBeVisible()
+    const items = page.getByRole('treeitem')
+    await expect(items).toHaveCount(10)
+    await expect(items.nth(1)).toHaveAccessibleName(/完整 accessible name/u)
+    await expect(items.nth(1)).toHaveAttribute('title', /完整 accessible name/u)
+
+    const openBox = await editor.boundingBox()
+    expect(closedBox).not.toBeNull()
+    expect(openBox).not.toBeNull()
+    expect(Math.abs((openBox?.width ?? 0) - (closedBox?.width ?? 0))).toBeLessThanOrEqual(8)
+
+    await items.nth(1).click()
+    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('button', { name: '实时' }).click()
+    await page.getByRole('button', { name: '源码对照' }).click()
+    await expect(page.locator('[data-markdown-chrome="embedded"]')).toHaveCount(1)
+    await expect(panel).toBeVisible()
+    await page.screenshot({ path: '.tmp/ui-evidence/article-outline-desktop-light.png', fullPage: true })
+  })
+
+  test('mobile uses the FsusUI Drawer and returns focus to the launcher', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+    })
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openFixture(page, 'short', 'dark', 'outline', 'success', undefined, 'ready', 10, 'a')
+
+    const launcher = page.getByRole('button', { name: '打开文章大纲' })
+    await launcher.click()
+    const drawer = page.getByRole('dialog', { name: '文章大纲' })
+    await expect(drawer).toBeVisible()
+    await expect(drawer.getByRole('treeitem')).toHaveCount(10)
+    await drawer.getByRole('treeitem').first().focus()
+    await page.keyboard.press('Escape')
+    await expect(launcher).toBeFocused()
+    await page.screenshot({ path: '.tmp/ui-evidence/article-outline-mobile-dark.png', fullPage: true })
+  })
+
+  test('empty and same-source different-article states stay isolated', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+    })
+    await openFixture(page, 'short', 'light', 'outline', 'success', undefined, 'ready', 0, 'a')
+    await page.getByRole('button', { name: '打开文章大纲' }).click()
+    await expect(page.getByText('正文中暂无标题。')).toBeVisible()
+    await expect(page.getByRole('tree')).toHaveCount(0)
+
+    await page.evaluate(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+
+    await page.goto('/__article-editor-production-fixture?title=short&theme=light&surface=outline&outlineCount=10&article=a', {
+      waitUntil: 'domcontentloaded'
+    })
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.articleEditorFixtureReady))
+      .toBe('true')
+    await page.getByRole('button', { name: '打开文章大纲' }).click()
+    const beforeIds = await page.getByRole('treeitem').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-outline-node-id')))
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureSwitchOutlineArticle?: (article: 'a' | 'b') => void }
+    ).__articleEditorFixtureSwitchOutlineArticle?.('b'))
+    await expect.poll(() => page.getByRole('treeitem').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-outline-node-id'))))
+      .not.toEqual(beforeIds)
   })
 })
 
