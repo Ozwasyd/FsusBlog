@@ -2439,7 +2439,8 @@ verifyProductionBuildConsumerMaterialization({
     consumerId,
     mappings: [{
         name: 'backend-runtime',
-        destination: path.relative(root, path.dirname(candidate)).replaceAll(path.sep, '/')
+        destination: path.relative(root, path.dirname(candidate)).replaceAll(path.sep, '/'),
+        writable: true
     }],
     requiredCandidateFiles: [{
         domain: 'backend-runtime',

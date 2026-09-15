@@ -417,6 +417,59 @@ test('read-only consumers reference one sealed tree while writable consumers use
     assert.deepEqual(fs.readFileSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll')), original);
 });
 
+test('consumer verifier exact-binds a writable copy-up candidate without aliasing the sealed artifact', t =>
+{
+    const value = fixture(t);
+    create(value);
+    const runId = 'writable-consumer-run';
+    const consumerId = 'current-schema';
+    const destinationRoot = path.join(value.root, 'writable-consumer');
+    const mappings = [{ name: 'backend-runtime', destination: 'backend', writable: true }];
+    const lease = registerProductionBuildConsumer({
+        artifactRoot: value.artifactRoot,
+        runId,
+        consumerId
+    });
+    const materialized = materializeProductionBuildDomains({
+        artifactRoot: value.artifactRoot,
+        destinationRoot,
+        mappings,
+        verification: {
+            expectedSourceState: sourceState,
+            expectedProducer: { runId: producer.runId }
+        }
+    });
+    const evidenceFile = path.join(value.root, 'writable-consumer-evidence.json');
+    fs.writeFileSync(evidenceFile, `${JSON.stringify({
+        ...materialized.evidence,
+        materialized: materialized.copied,
+        consumerLease: lease
+    }, null, 2)}\n`);
+
+    const verified = verifyProductionBuildConsumerMaterialization({
+        artifactRoot: value.artifactRoot,
+        evidenceFile,
+        destinationRoot,
+        runId,
+        consumerId,
+        mappings,
+        requiredCandidateFiles: [{
+            domain: 'backend-runtime',
+            artifact: 'FsusBlog.Server.dll',
+            candidate: 'backend/FsusBlog.Server.dll'
+        }],
+        verification: {
+            expectedSourceState: sourceState,
+            expectedProducer: { runId: producer.runId }
+        }
+    });
+    assert.equal(verified.evidence.status, 'success');
+    assert.notEqual(
+        verified.candidates[0].physicalPath,
+        fs.realpathSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll'))
+    );
+});
+
 test('consumer verifier exact-binds receipt, active lease, read-only mapping and required candidate', t =>
 {
     const value = consumerMaterializationFixture(t);
