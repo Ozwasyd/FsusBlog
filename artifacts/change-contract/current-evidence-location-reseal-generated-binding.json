@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/generate-evidence-location-governance.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "2769a237cb9daf56545ca07228baa98c67dcc03a376cb893ca262b60d57bcf5c"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "69406a96b6bfb49b6077a6c848813e8d899705307878842a12776397be34459c"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "906adecfb998cff7b2ceee9376e9c949f9c3dbb01f45a2599482051d75864c7c"
+        }
+    ]
+}
