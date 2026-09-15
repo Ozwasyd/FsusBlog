@@ -5,6 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { diffAuthorityViolations } from './revision-compare-authority-rules.mjs';
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractsFile = 'src/core/Services/Articles/RevisionCompareContracts.cs';
 const contractFiles = [
@@ -22,11 +24,39 @@ const contractFiles = [
 const metadataRegistryFile = 'src/core/Services/Articles/RevisionCompareMetadataRegistry.cs';
 const plannerFile = 'src/core/Services/Articles/RevisionComparePlanner.cs';
 const readerFile = 'src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs';
+const serviceFile = 'src/backend/Services/Authoring/AuthoringRevisionCompareService.cs';
+const diffFile = 'src/core/Services/Articles/RevisionSourceDiff.cs';
+const diffFiles = [
+    diffFile,
+    'src/core/Services/Articles/RevisionSourceDiffValues.cs',
+    'src/core/Services/Articles/RevisionSourceDiffHunks.cs',
+    'src/core/Services/Articles/RevisionSourceDiffResults.cs',
+    'src/core/Services/Articles/RevisionSourceDiffLineMatching.cs',
+    'src/core/Services/Articles/RevisionSourceDiffWordMatching.cs',
+    'src/core/Services/Articles/RevisionSourceDiffStructureProjection.cs',
+    'src/core/Services/Articles/RevisionSourceDiffReceipts.cs',
+    'src/core/Services/Articles/RevisionSourceDiffLineInternals.cs',
+    'src/core/Services/Articles/RevisionSourceDiffWordInternals.cs',
+    'src/core/Services/Articles/RevisionSourceDiffVerifier.cs',
+    'src/core/Services/Articles/RevisionSourceDiffVerifierCoordinates.cs',
+    'src/core/Services/Articles/RevisionSourceDiffResultVerifier.cs'
+];
+const structureFile = 'src/core/Services/Articles/RevisionMarkdownStructureProvider.cs';
+const structureFiles = [
+    'src/core/Services/Articles/RevisionMarkdownStructure.cs',
+    'src/core/Services/Articles/RevisionMarkdownStructureAuthority.cs',
+    'src/core/Services/Articles/RevisionMarkdownStructureParser.cs',
+    structureFile,
+    'src/core/Services/Articles/RevisionMarkdownStructureSnapshotSeal.cs'
+];
 const registrationFile = 'src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs';
 const requiredFiles = [
     ...contractFiles,
     plannerFile,
     readerFile,
+    serviceFile,
+    ...diffFiles,
+    ...structureFiles,
     registrationFile
 ];
 const laneFile = 'tools/test/lanes/static-governance.sh';
@@ -98,6 +128,9 @@ export function checkRevisionCompareAuthoritySources(sources)
     const readers = [];
     const metadataAuthorities = [];
     const draftProviders = [];
+    const structureProviders = [];
+    const diffEngines = [];
+    const compareServices = [];
     for (const [relative, source] of relevant)
     {
         const authorityScoped = /revision(?:compare|[-_]compare)/iu.test(path.basename(relative))
@@ -119,6 +152,27 @@ export function checkRevisionCompareAuthoritySources(sources)
         for (let index = 0; index < draftProviderCount; index++)
         {
             draftProviders.push(relative);
+        }
+        const structureProviderCount = countMatches(
+            source,
+            /:\s*IRevisionMarkdownStructureProvider\b/gu
+        );
+        for (let index = 0; index < structureProviderCount; index++)
+        {
+            structureProviders.push(relative);
+        }
+        for (const match of source.matchAll(/\bclass\s+([A-Za-z0-9_]*RevisionSourceDiffEngine[A-Za-z0-9_]*)\b/gu))
+        {
+            if (match[1] === 'RevisionSourceDiffEngine' && relative !== diffFile && /\bpartial\s+class\s+RevisionSourceDiffEngine\b/u.test(source))
+            {
+                continue;
+            }
+            diffEngines.push(`${relative}:${match[1]}`);
+        }
+        const compareServiceCount = countMatches(source, /:\s*IAuthoringRevisionCompareService\b/gu);
+        for (let index = 0; index < compareServiceCount; index++)
+        {
+            compareServices.push(relative);
         }
         for (const match of source.matchAll(
             /\b(?:class|record|interface)\s+([A-Za-z0-9_]*RevisionCompareMetadata[A-Za-z0-9_]*(?:Registry|Map|Authority)[A-Za-z0-9_]*)\b/gu))
@@ -162,6 +216,19 @@ export function checkRevisionCompareAuthoritySources(sources)
     if (draftProviders.length !== 1 || draftProviders[0] !== readerFile)
     {
         violations.push(`expected exact-one production draft context provider ${readerFile}; found ${draftProviders.join(', ') || '<none>'}`);
+    }
+    if (structureProviders.length !== 1 || structureProviders[0] !== structureFile)
+    {
+        violations.push(`expected exact-one canonical Markdown structure provider ${structureFile}; found ${structureProviders.join(', ') || '<none>'}`);
+    }
+    const expectedDiffEngine = `${diffFile}:RevisionSourceDiffEngine`;
+    if (diffEngines.length !== 1 || diffEngines[0] !== expectedDiffEngine)
+    {
+        violations.push(`expected exact-one source diff engine ${expectedDiffEngine}; found ${diffEngines.join(', ') || '<none>'}`);
+    }
+    if (compareServices.length !== 1 || compareServices[0] !== serviceFile)
+    {
+        violations.push(`expected exact-one revision compare service ${serviceFile}; found ${compareServices.join(', ') || '<none>'}`);
     }
     const expectedMetadata = `${metadataRegistryFile}:RevisionCompareMetadataRegistry`;
     if (metadataAuthorities.length !== 1 || metadataAuthorities[0] !== expectedMetadata)
@@ -243,7 +310,11 @@ export function checkRevisionCompareAuthoritySources(sources)
         'AddScoped<IAuthoringRevisionCompareDraftContextAuthority, AuthoringRevisionCompareDraftContextAuthority>',
         'AddScoped<IRevisionComparePackageReader, AuthoringRevisionComparePackageReader>',
         'AddScoped<RevisionComparePlanner>',
-        'AddScoped<RevisionComparePlanVerifier>'
+        'AddScoped<RevisionComparePlanVerifier>',
+        'AddSingleton<IRevisionMarkdownStructureProvider, CanonicalRevisionMarkdownStructureProvider>',
+        'AddSingleton<IRevisionMarkdownStructureAuthority, RevisionMarkdownStructureAuthority>',
+        'AddScoped<RevisionSourceDiffEngine>',
+        'AddScoped<IAuthoringRevisionCompareService, AuthoringRevisionCompareService>'
     ];
     for (const registration of registrations)
     {
@@ -252,6 +323,33 @@ export function checkRevisionCompareAuthoritySources(sources)
         {
             violations.push(`${registrationFile}: expected exact-one ${registration}; found ${count}`);
         }
+    }
+
+    const diffSource = diffFiles.map((relative) => sources.get(relative)).join('\n');
+    const structureSource = structureFiles.map((relative) => sources.get(relative)).join('\n');
+    const serviceSource = sources.get(serviceFile);
+    const forbiddenDiffPatterns = [
+        ['HTML diff authority', /\b(?:HtmlDocument|DocumentFragment|innerHTML|outerHTML|querySelector)\b/u],
+        ['format-before-diff', /\b(?:FormatMarkdown|NormalizeMarkdown|MarkdownFormatter)\b|\.Trim\s*\(/u],
+        ['AI summary or quality score', /\b(?:AiSummary|AISummary|QualityScore)\b/u],
+        ['second Markdown body store', /\bMarkdownContent\b/u],
+        ['heading regex authority', /\bRegex\b|ParseHeadings|HeadingRegex/u]
+    ];
+    const forbiddenDiffOnlyPatterns = [
+        ['draft mutation or fragment insertion authority', /\b(?:CurrentDraft|Fragment)\b/u],
+        ['private heading parser authority', /\b(?:AtxLevel|SetextLevel|TryFence)\b/u]
+    ];
+    violations.push(...diffAuthorityViolations({
+        diffFile,
+        diffSource,
+        structureSource,
+        forbiddenDiffPatterns,
+        forbiddenDiffOnlyPatterns
+    }));
+    if (!/planVerifier\.VerifyAsync/u.test(diffSource)
+        || !/diffEngine\.ComputeAsync/u.test(serviceSource))
+    {
+        violations.push(`${serviceFile}: orchestration must independently verify before computing the diff`);
     }
 
     return violations;
@@ -270,10 +368,10 @@ export function checkRevisionCompareIntegrationFiles(files)
     const violations = [];
     const lane = files.get(laneFile) ?? '';
     const matrix = files.get(matrixFile) ?? '';
-    if (!/StaticRevisionComparePlanAuthority\(\)/u.test(lane)
+    if (!/StaticRevisionCompareAuthority\(\)/u.test(lane)
         || !/check-revision-compare-authority\.mjs/u.test(lane)
         || !/revision-compare-authority\.test\.mjs/u.test(lane)
-        || !/revision-compare-authority\s+StaticRevisionComparePlanAuthority/u.test(lane))
+        || !/revision-compare-authority\s+StaticRevisionCompareAuthority/u.test(lane))
     {
         violations.push(`${laneFile}: revision compare checker and negative tests must run in application prechecks`);
     }
