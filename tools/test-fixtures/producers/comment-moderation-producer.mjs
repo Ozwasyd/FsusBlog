@@ -368,6 +368,7 @@ function normalizeResult(raw, context, plan, temporalObservation)
             variantId,
             fields: {
                 capabilityId: moderation?.capabilityId ?? null,
+                threadCapabilityId: item.capabilityId ?? null,
                 semanticRole: item.semanticRole,
                 articleId: String(item.articleId),
                 actorMode: item.actorMode,
@@ -397,6 +398,9 @@ function normalizeResult(raw, context, plan, temporalObservation)
                 regionEvidence: moderation?.regionEvidence ?? [],
                 signalEvidence: moderation?.signalEvidence ?? [],
                 moderationEventIds: moderation?.moderationEventIds ?? [],
+                auditEventIds: item.auditEventIds ?? [],
+                cacheIdentity: item.cacheIdentity ?? null,
+                cacheGeneration: item.cacheGeneration ?? null,
                 depthOverrunFailureCode: item.semanticRole === 'depth-root'
                     ? raw.negativeResults?.['depth-overrun-negative'] ?? null
                     : null,

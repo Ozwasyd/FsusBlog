@@ -256,6 +256,17 @@ function exactRuntimeErrors(run)
     {
         errors.push('runtime comment identities are missing or reused');
     }
+    for (const item of threads)
+    {
+        if (!/^(?:comment\.(?:delete\.(?:root|reply)|moderation\.pending|thread\.(?:depth-boundary|nested|reply|root)|version\.edited)|moderation\.region-policy)$/u.test(String(item?.capabilityId ?? ''))
+            || !Array.isArray(item?.auditEventIds) || item.auditEventIds.length === 0
+            || item.auditEventIds.some((eventId) => !/^[1-9][0-9]*$/u.test(String(eventId)))
+            || item.cacheIdentity !== `article:${item.articleId}`
+            || !/^[0-9]+$/u.test(String(item.cacheGeneration ?? '')))
+        {
+            errors.push(`runtime thread receipt ${item?.semanticRole ?? '<missing>'} lacks capability/audit/cache references`);
+        }
+    }
     for (const role of ['approved-root', 'approved-reply', 'approved-nested', 'pending', 'rejected', 'spam', 'edited', 'deleted-root', 'deleted-root-child', 'deleted-reply', 'region-global', 'region-manual-review'])
     {
         if (threads.filter((item) => item?.semanticRole === role).length !== 1)
@@ -290,6 +301,7 @@ function exactRuntimeErrors(run)
                     owned: true,
                     fields: {
                         capabilityId: observed?.capabilityId ?? null,
+                        threadCapabilityId: thread?.capabilityId ?? null,
                         semanticRole,
                         articleId: String(thread?.articleId ?? ''),
                         actorMode: thread?.actorMode,
@@ -318,6 +330,9 @@ function exactRuntimeErrors(run)
                         regionEvidence: observed?.regionEvidence ?? [],
                         signalEvidence: observed?.signalEvidence ?? [],
                         moderationEventIds: observed?.moderationEventIds ?? [],
+                        auditEventIds: thread?.auditEventIds ?? [],
+                        cacheIdentity: thread?.cacheIdentity ?? null,
+                        cacheGeneration: thread?.cacheGeneration ?? null,
                         depthOverrunFailureCode: semanticRole === 'depth-root'
                             ? run?.negativeResults?.['depth-overrun-negative'] ?? null
                             : null,
@@ -382,6 +397,21 @@ function canonicalRuntimeRun(seed)
         : [{ version: currentVersion, operation }, { version: 1, operation: 'created' }];
     const thread = (semanticRole, offset, fields = {}) => ({
         semanticRole,
+        capabilityId: semanticRole.startsWith('depth-')
+            ? 'comment.thread.depth-boundary'
+            : semanticRole === 'approved-nested'
+                ? 'comment.thread.nested'
+                : semanticRole === 'approved-reply' || semanticRole === 'deleted-root-child' || semanticRole === 'deleted-reply'
+                    ? 'comment.thread.reply'
+                    : semanticRole === 'edited'
+                        ? 'comment.version.edited'
+                        : semanticRole === 'deleted-root'
+                            ? 'comment.delete.root'
+                            : semanticRole === 'pending'
+                                ? 'comment.moderation.pending'
+                                : semanticRole === 'region-manual-review'
+                                    ? 'moderation.region-policy'
+                            : 'comment.thread.root',
         commentId: id(offset),
         articleId: 42,
         actorMode: 'public',
@@ -398,6 +428,9 @@ function canonicalRuntimeRun(seed)
         publiclyVisible: true,
         outboxEventIds: [`00000000-0000-4000-8000-${String(id(offset)).padStart(12, '0')}`],
         operationPlanDigest: `sha256:${createHash('sha256').update(`${seed}:${offset}`).digest('hex')}`,
+        auditEventIds: [String(id(offset) + 5000)],
+        cacheIdentity: 'article:42',
+        cacheGeneration: '11',
         ...fields
     });
     const root = thread('approved-root', 1);

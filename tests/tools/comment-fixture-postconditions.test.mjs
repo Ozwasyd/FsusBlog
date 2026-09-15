@@ -4,6 +4,17 @@ import test from 'node:test';
 const { runPostcondition } = await import(new URL('../../tools/test-fixtures/receipt/postconditions.mjs', import.meta.url));
 function comment(role, id, fields = {})
 {
+    const threadCapabilityId = role.startsWith('depth-')
+        ? 'comment.thread.depth-boundary'
+        : role === 'approved-nested'
+            ? 'comment.thread.nested'
+            : ['approved-reply', 'deleted-root-child', 'deleted-reply'].includes(role)
+                ? 'comment.thread.reply'
+                : role === 'edited'
+                    ? 'comment.version.edited'
+                    : role === 'deleted-root'
+                        ? 'comment.delete.root'
+                        : 'comment.thread.root';
     return {
         kind: 'comment',
         id: String(id),
@@ -28,6 +39,10 @@ function comment(role, id, fields = {})
             history: [{ version: 1, operation: 'created' }],
             moderationEventIds: ['201'],
             outboxEventIds: [`00000000-0000-4000-8000-${String(id).padStart(12, '0')}`],
+            threadCapabilityId,
+            auditEventIds: ['301'],
+            cacheIdentity: 'article:42',
+            cacheGeneration: '11',
             moderatedByAdminPrincipalId: '7',
             moderatedAt: '2042-05-17T09:30:00Z',
             signalEvidence: [],

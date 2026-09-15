@@ -841,6 +841,26 @@ function verifyCommentMatrix(id)
                 {
                     return fail(id, `${role} must use one independent comment identity`);
                 }
+                const fields = one(role)[0].fields ?? {};
+                const expectedCapability = role.startsWith('depth-')
+                    ? 'comment.thread.depth-boundary'
+                    : role === 'approved-nested'
+                        ? 'comment.thread.nested'
+                        : ['approved-reply', 'deleted-root-child', 'deleted-reply'].includes(role)
+                            ? 'comment.thread.reply'
+                            : role === 'edited'
+                                ? 'comment.version.edited'
+                                : role === 'deleted-root'
+                                    ? 'comment.delete.root'
+                                    : 'comment.thread.root';
+                if (fields.threadCapabilityId !== expectedCapability
+                    || !Array.isArray(fields.auditEventIds) || fields.auditEventIds.length === 0
+                    || fields.auditEventIds.some((eventId) => !/^[1-9][0-9]*$/u.test(String(eventId)))
+                    || fields.cacheIdentity !== `article:${fields.articleId}`
+                    || !/^[0-9]+$/u.test(String(fields.cacheGeneration ?? '')))
+                {
+                    return fail(id, `${role} lacks capability/audit/cache receipt references`);
+                }
             }
             const root = one('approved-root')[0];
             const reply = one('approved-reply')[0];
