@@ -500,6 +500,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/binary/article/search/query.aeds",
+      "operationId": "binary_get_article_search_query_aeds",
+      "requestFrame": null,
+      "responseFrame": "ArticleSearch",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/binary/article/{articleId:int}/related.aeds",
       "operationId": "binary_get_article_articleId_int_related_aeds",
       "requestFrame": null,

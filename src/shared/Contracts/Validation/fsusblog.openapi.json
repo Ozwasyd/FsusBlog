@@ -6233,6 +6233,94 @@
         "x-fsus-source-identity": "HTTP: GET api/binary/article/list/tag/{tagId:int}/{page:int}/{size:int}.aeds"
       }
     },
+    "/api/binary/article/search/query.aeds": {
+      "get": {
+        "operationId": "binary_get_article_search_query_aeds",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/article/search/query.aeds",
+        "responses": {
+          "200": {
+            "description": "ArticleSearch AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ArticleSearch",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-permission": "none",
+        "x-fsus-request-contract": {
+          "Source": "none",
+          "SchemaRef": null,
+          "Required": false,
+          "Nullable": false,
+          "RequiredFields": [],
+          "Parameters": [
+            {
+              "Name": "q",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": true,
+              "Nullable": false
+            }
+          ],
+          "FieldSetState": "not-applicable",
+          "BoundsState": "not-applicable",
+          "UnionState": "not-applicable"
+        },
+        "x-fsus-response-contracts": [
+          {
+            "Status": 200,
+            "SchemaRef": "aeds://frame/ArticleSearch",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          },
+          {
+            "Status": null,
+            "SchemaRef": "aeds://frame/ApiError",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          }
+        ],
+        "x-fsus-public-error-refs": [
+          "configuration-error-security-policy:error-transport-mappings:ApiError"
+        ],
+        "x-fsus-public-error-ref-state": "transport-frame-authority-only",
+        "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+        "x-fsus-result-placement": "aeds.frame.payload",
+        "x-fsus-protocol-state": "active-aeds-only",
+        "x-fsus-source-identity": "HTTP: GET api/binary/article/search/query.aeds"
+      }
+    },
     "/api/binary/article/{articleId:int}/related.aeds": {
       "get": {
         "operationId": "binary_get_article_articleId_int_related_aeds",
@@ -22093,7 +22181,7 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "x-fsus-observation-digest": "c19733e235e322499fdc86033bc138c4a9348086e53f6c5fb817ff8118f78134",
+  "x-fsus-observation-digest": "64e6a758274965adad82048700a5660fb4ef74065dcc4bc6d386d4eae2762cc7",
   "x-fsus-protocol-states": {
     "SupportedVersions": [
       2

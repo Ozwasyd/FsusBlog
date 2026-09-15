@@ -1,0 +1,21 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+    "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+  ],
+  "outputs": [
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "sha256": "99f2e989c343b8819c15ffffbbeba7718b71f209c4e6bdedf3d0c82d48caaeb9"
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "sha256": "d7691fad6f7d1de0d77addda04c9fa9a9d273d7e8499d6879070e8c2db06a346"
+    },
+    {
+      "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+      "sha256": "e46a8e57226750920fc5093ce4e33dccad7b194f9c9f58404fdfd9246dcc85ef"
+    }
+  ]
+}
