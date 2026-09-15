@@ -142,6 +142,7 @@ public sealed class CompositionRegistrationContractTests
         [
             typeof(ICommentThreadFixturePort),
             typeof(ICommentModerationFixturePort),
+            typeof(ICanonicalArticlePublicationFixturePort),
             typeof(ICommentAnonymousFixtureCapabilityVault),
             typeof(ICommentAnonymousFixtureOperationLedger),
             typeof(ICommentAnonymousFixtureProvider),
@@ -162,6 +163,7 @@ public sealed class CompositionRegistrationContractTests
         Assert.DoesNotContain(services, descriptor =>
             descriptor.ServiceType == typeof(ICommentThreadFixturePort)
             || descriptor.ServiceType == typeof(ICommentModerationFixturePort)
+            || descriptor.ServiceType == typeof(ICanonicalArticlePublicationFixturePort)
             || descriptor.ServiceType == typeof(ICommentAnonymousFixtureCapabilityVault)
             || descriptor.ServiceType == typeof(ICommentAnonymousFixtureOperationLedger)
             || descriptor.ServiceType == typeof(ICommentAnonymousFixtureProvider)

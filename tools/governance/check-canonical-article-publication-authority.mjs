@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+
+const defaultRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../.."
+);
+
+export const requiredAuthorityFiles = Object.freeze([
+    "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs",
+    "src/backend/Services/Fixtures/CanonicalArticlePublicationVerifier.cs",
+    "src/backend/Services/Articles/ArticleProductionNormalizers.cs",
+    "src/backend/Services/Articles/ArticleRightsSnapshotBuilder.cs",
+    "src/backend/Infrastructure/Integrity/ArticleResponsibilitySnapshotBuilder.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"
+]);
+
+export function checkCanonicalArticlePublicationAuthority(repositoryRoot = defaultRoot)
+{
+    const violations = [];
+
+    // 1. Check existence of authority files
+    for (const relative of requiredAuthorityFiles)
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        if (!existsSync(absolute))
+        {
+            violations.push(`required authority file missing: ${relative}`);
+        }
+    }
+
+    if (violations.length > 0)
+    {
+        return violations;
+    }
+
+    const portSource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs"),
+        "utf8"
+    );
+    const verifierSource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Services/Fixtures/CanonicalArticlePublicationVerifier.cs"),
+        "utf8"
+    );
+    const registrationSource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"),
+        "utf8"
+    );
+
+    // 2. Test port production exposure check
+    if (!registrationSource.includes("ICanonicalArticlePublicationFixturePort"))
+    {
+        violations.push("ICanonicalArticlePublicationFixturePort must be registered in DI");
+    }
+
+    // Must be inside fixture-only block (ShouldAddLocalCommentFixtureServices)
+    const fixtureBlockRegex = /if\s*\(\s*ShouldAddLocalCommentFixtureServices\b[\s\S]*?ICanonicalArticlePublicationFixturePort[\s\S]*?\}/u;
+    if (!fixtureBlockRegex.test(registrationSource))
+    {
+        violations.push("ICanonicalArticlePublicationFixturePort must only be registered within local comment/fixture services condition");
+    }
+
+    // Must NOT be registered outside fixture block
+    const strippedRegistration = registrationSource.replace(fixtureBlockRegex, "");
+    if (strippedRegistration.includes("ICanonicalArticlePublicationFixturePort"))
+    {
+        violations.push("ICanonicalArticlePublicationFixturePort must not be registered outside fixture block (production exposure prohibited)");
+    }
+
+    // 3. Direct SQL prohibition
+    if (/(?:INSERT\s+INTO\s+article|UPDATE\s+article|DELETE\s+FROM\s+article)/iu.test(portSource))
+    {
+        violations.push("direct article raw SQL query string prohibited in CanonicalArticlePublicationFixturePort");
+    }
+    if (/\b(?:ExecuteSql|Ado\.ExecuteCommand\s*\(\s*["'])/u.test(portSource))
+    {
+        violations.push("direct raw SQL execution prohibited in CanonicalArticlePublicationFixturePort");
+    }
+
+    // 4. Manual Redis / Cache / Search / AOT projection prohibition
+    if (/\b(?:Redis|ConnectionMultiplexer|IConnectionMultiplexer|IDatabase|StackExchange\.Redis)\b/u.test(portSource))
+    {
+        violations.push("manual Redis usage prohibited in CanonicalArticlePublicationFixturePort");
+    }
+    if (/\b(?:ISearchIndexService|IPublicAot|IArticleHotRead)\b/u.test(portSource))
+    {
+        violations.push("direct search or AOT projection execution prohibited in CanonicalArticlePublicationFixturePort");
+    }
+
+    // 5. Admin ID 0 prohibition
+    if (!portSource.includes("admin_principal_id_invalid") || !portSource.includes("AdminPrincipalId <= 0"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must reject AdminPrincipalId <= 0 with admin_principal_id_invalid");
+    }
+
+    // 6. Rights / Content sentinel prohibition
+    if (!portSource.includes("rights_recompute_sentinel_forbidden") || !portSource.includes("recompute"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must reject recompute sentinel");
+    }
+
+    // 7. Atomic transaction enforcement
+    if (!portSource.includes("db.Ado.UseTranAsync"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must execute mutations inside an atomic transaction (UseTranAsync)");
+    }
+
+    // 8. Verifier must verify all 7 table entities
+    const requiredEntities = [
+        "Article",
+        "ArticleRevision",
+        "ArticlePublicationRecord",
+        "ArticleRightsSnapshot",
+        "ArticleResponsibilitySnapshot",
+        "ArticleMutationOutboxEvent"
+    ];
+
+    for (const entity of requiredEntities)
+    {
+        if (!verifierSource.includes(`Queryable<${entity}>`))
+        {
+            violations.push(`CanonicalArticlePublicationVerifier must verify entity table Queryable<${entity}>`);
+        }
+    }
+
+    if (!verifierSource.includes("sys_audit_log"))
+    {
+        violations.push("CanonicalArticlePublicationVerifier must verify audit log persistence from sys_audit_log");
+    }
+
+    // 9. Verifier must check receipt digest
+    if (!verifierSource.includes("receipt_digest_tamper_detected") || !verifierSource.includes("ComputeReceiptDigest"))
+    {
+        violations.push("CanonicalArticlePublicationVerifier must verify receipt digest against canonical parameters");
+    }
+
+    return violations;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
+{
+    const violations = checkCanonicalArticlePublicationAuthority();
+    if (violations.length > 0)
+    {
+        console.error("Canonical article publication authority violations detected:");
+        for (const v of violations)
+        {
+            console.error(` - ${v}`);
+        }
+        process.exit(1);
+    }
+    console.log("Canonical article publication authority OK.");
+}
