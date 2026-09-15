@@ -130,6 +130,21 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
     }
 
     [Fact]
+    public void AdmissionRetryRequiresAQualifiedCgroupRetirementRace()
+    {
+        Assert.True(DocumentExportSystemdCgroupAuthority.IsAdmissionSnapshotRaceCandidate(
+            new FileNotFoundException()));
+        Assert.True(DocumentExportSystemdCgroupAuthority.IsAdmissionSnapshotRaceCandidate(
+            new IOException("cgroup retired during accounting read")));
+        Assert.True(DocumentExportSystemdCgroupAuthority.IsAdmissionSnapshotRaceCandidate(
+            new PlatformNotSupportedException("delegated files retired with the cgroup")));
+        Assert.False(DocumentExportSystemdCgroupAuthority.IsAdmissionSnapshotRaceCandidate(
+            new UnauthorizedAccessException("cgroup accounting is not readable")));
+        Assert.False(DocumentExportSystemdCgroupAuthority.IsAdmissionSnapshotRaceCandidate(
+            new InvalidDataException("malformed live accounting")));
+    }
+
+    [Fact]
     public void RejectsFloatingAuthorityPathsInvalidDigestsAndUnboundedPolling()
     {
         DocumentExportSystemdCgroupAuthorityContract installed =
