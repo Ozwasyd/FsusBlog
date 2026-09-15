@@ -95,568 +95,6 @@
             ]
         },
         {
-            "consumerId": "matrix:backend-cache-invalidation-batch",
-            "executionClass": "runtime",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-cache-invalidation-batch; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-article-detail-miss",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-article-detail-miss; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-cache-hit",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-cache-hit; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-cache-miss-singleflight",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-cache-miss-singleflight; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-cache-registry",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-cache-registry; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-comment-cursor",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, moderation.policy-matrix, public.article.published",
-            "implicitSource": "tests/matrix.yml tier backend-qps-comment-cursor; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "comments-moderation",
-            "profileIds": [
-                "comments-moderation"
-            ],
-            "requiredCapabilities": [
-                "auth.admin.full-permission",
-                "auth.user.active",
-                "comment.moderation-matrix",
-                "comment.threaded",
-                "moderation.policy-matrix",
-                "public.article.published"
-            ],
-            "requiredVariantIds": [
-                "canonical.auth.admin.full-permission",
-                "canonical.auth.user.active",
-                "canonical.comment.moderation-matrix",
-                "canonical.comment.threaded",
-                "canonical.moderation.policy-matrix",
-                "canonical.public.article.published"
-            ],
-            "producerOwners": [
-                "auth-session",
-                "comment-moderation",
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-hotread",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-hotread; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-index-plan",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-index-plan; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-list-pagination",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-list-pagination; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-related-reading",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-related-reading; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-risk-filter",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
-            "implicitSource": "tests/matrix.yml tier backend-qps-risk-filter; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "auth-security-matrix",
-            "profileIds": [
-                "auth-security-matrix"
-            ],
-            "requiredCapabilities": [
-                "auth.user.active",
-                "security.credential.revoked",
-                "security.pow.elevated",
-                "security.risk.escalated",
-                "security.subject.banned",
-                "session.multi-device"
-            ],
-            "requiredVariantIds": [
-                "canonical.auth.user.active",
-                "canonical.security.credential.revoked",
-                "canonical.security.pow.elevated",
-                "canonical.security.risk.escalated",
-                "canonical.security.subject.banned",
-                "canonical.session.multi-device"
-            ],
-            "producerOwners": [
-                "auth-session",
-                "security-state"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-runtime-sequential",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
-            "implicitSource": "tests/matrix.yml tier backend-qps-runtime-sequential; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "acceptance-representative",
-            "profileIds": [
-                "acceptance-representative"
-            ],
-            "requiredCapabilities": [
-                "auth.admin.full-permission",
-                "auth.user.active",
-                "comment.moderation-matrix",
-                "comment.threaded",
-                "messages.thread",
-                "moderation.policy-matrix",
-                "notifications.unread",
-                "public.article.draft",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.home.featured-hot",
-                "session.single-device"
-            ],
-            "requiredVariantIds": [
-                "canonical.auth.admin.full-permission",
-                "canonical.auth.user.active",
-                "canonical.comment.moderation-matrix",
-                "canonical.comment.threaded",
-                "canonical.messages.thread",
-                "canonical.moderation.policy-matrix",
-                "canonical.notifications.unread",
-                "canonical.public.article.draft",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.home.featured-hot",
-                "canonical.session.single-device"
-            ],
-            "producerOwners": [
-                "account-messaging",
-                "auth-session",
-                "comment-moderation",
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-view-count-flush",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-view-count-flush; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
-            "consumerId": "matrix:backend-qps-visitlog-invalidation",
-            "executionClass": "load",
-            "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
-            "implicitSource": "tests/matrix.yml tier backend-qps-visitlog-invalidation; command tools/test/lanes/backend-qps.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
-            "profileId": "public-content-lifecycle",
-            "profileIds": [
-                "public-content-lifecycle"
-            ],
-            "requiredCapabilities": [
-                "public.article.archived",
-                "public.article.deleted",
-                "public.article.draft",
-                "public.article.multiple-publications",
-                "public.article.multiple-revisions",
-                "public.article.published",
-                "public.article.revision-history",
-                "public.article.scheduled",
-                "public.home.featured-hot",
-                "public.search.indexed",
-                "public.taxonomy.category-tag"
-            ],
-            "requiredVariantIds": [
-                "canonical.public.article.archived",
-                "canonical.public.article.deleted",
-                "canonical.public.article.draft",
-                "canonical.public.article.multiple-publications",
-                "canonical.public.article.multiple-revisions",
-                "canonical.public.article.published",
-                "canonical.public.article.revision-history",
-                "canonical.public.article.scheduled",
-                "canonical.public.home.featured-hot",
-                "canonical.public.search.indexed",
-                "canonical.public.taxonomy.category-tag"
-            ],
-            "producerOwners": [
-                "public-content"
-            ]
-        },
-        {
             "consumerId": "matrix:bootstrap",
             "executionClass": "runtime",
             "source": "tools/test/lanes/bootstrap-acceptance-env.sh",
@@ -1557,6 +995,527 @@
             "source": "tools/test/lanes/resilience-runtime.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier resilience; command tools/test/lanes/resilience-runtime.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "moderation.policy-matrix",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.moderation.policy-matrix",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-article-detail-l1",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-article-detail-l1; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-cache-miss-singleflight",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-cache-miss-singleflight; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-distributed-invalidation",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-distributed-invalidation; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "moderation.policy-matrix",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.moderation.policy-matrix",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-hot-featured-frame",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-hot-featured-frame; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-l1-residency",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-l1-residency; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-pagination",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.pagination-deep, public.article.published",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-pagination; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "runtime-cache-pagination",
+            "profileIds": [
+                "runtime-cache-pagination"
+            ],
+            "requiredCapabilities": [
+                "public.article.pagination-deep",
+                "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.pagination-deep",
+                "canonical.public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-public-hot-read",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-public-hot-read; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-redis-fault-classes",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-redis-fault-classes; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "moderation.policy-matrix",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.moderation.policy-matrix",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-related-reading",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-related-reading; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-revocation",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-revocation; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-security-projections",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-security-projections; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "auth-security-matrix",
+            "profileIds": [
+                "auth-security-matrix"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "security.credential.revoked",
+                "security.pow.elevated",
+                "security.risk.escalated",
+                "security.subject.banned",
+                "session.multi-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.security.credential.revoked",
+                "canonical.security.pow.elevated",
+                "canonical.security.risk.escalated",
+                "canonical.security.subject.banned",
+                "canonical.session.multi-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "security-state"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-sitemap",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-sitemap; command tools/test/run-runtime-cache-evidence.mjs",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:runtime-cache-telemetry",
+            "executionClass": "runtime",
+            "source": "tools/test/run-runtime-cache-evidence.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "tests/matrix.yml tier runtime-cache-telemetry; command tools/test/run-runtime-cache-evidence.mjs",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
             "profileIds": [

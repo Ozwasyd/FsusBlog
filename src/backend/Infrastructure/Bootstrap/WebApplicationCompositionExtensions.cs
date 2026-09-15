@@ -25,6 +25,7 @@ public static class WebApplicationCompositionExtensions
 
     private static readonly PipelineStage[] s_applicationPipelineStages =
     [
+        new("runtime-cache-evidence", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseMiddleware<RuntimeCacheEvidenceMiddleware>()),
         new("forwarded-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseForwardedHeaders()),
         new("security-headers", PublicHotReadPipelineStageClassification.CrossCuttingControl, "release-and-security-headers", static app => app.UseFsusSecurityHeaders()),
         new("deployment-request-tracking", PublicHotReadPipelineStageClassification.CrossCuttingControl, "deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
@@ -48,7 +49,7 @@ public static class WebApplicationCompositionExtensions
         new("endpoint-metadata-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusEndpointMetadataHeaders()),
         new("websockets", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseWebSockets()),
         new("response-compression", PublicHotReadPipelineStageClassification.EndpointFunctional, null, static app => app.UseResponseCompression()),
-        new("output-cache", PublicHotReadPipelineStageClassification.EndpointFunctional, null, static app => app.UseOutputCache()),
+        new("output-cache", PublicHotReadPipelineStageClassification.EndpointFunctional, null, ConfigureRuntimeCacheAwareOutputCache),
         new("cors", PublicHotReadPipelineStageClassification.CrossCuttingControl, "cors", static app => app.UseCors()),
         new("antiforgery", PublicHotReadPipelineStageClassification.CrossCuttingControl, "antiforgery", static app => app.UseAntiforgery()),
         new("csrf-origin-guard", PublicHotReadPipelineStageClassification.CrossCuttingControl, "csrf-origin-guard", static app => app.UseFsusCsrfOriginGuard()),
@@ -59,6 +60,11 @@ public static class WebApplicationCompositionExtensions
         new("authorization", PublicHotReadPipelineStageClassification.CrossCuttingControl, "authorization", static app => app.UseAuthorization()),
         new("request-audit-context", PublicHotReadPipelineStageClassification.CrossCuttingControl, "request-audit-context", static app => app.UseFsusEndpointRequestAuditContext())
     ];
+
+    internal static void ConfigureRuntimeCacheAwareOutputCache(WebApplication app)
+        => app.UseWhen(
+            static context => !RuntimeCacheEvidenceMiddleware.IsAuthenticatedObservation(context),
+            static branch => branch.UseOutputCache());
 
     internal static IReadOnlyList<PublicHotReadPipelineStageDescriptor> ApplicationPipelineStageDescriptors
         => s_applicationPipelineStages.Select(static stage => stage.Descriptor).ToArray();

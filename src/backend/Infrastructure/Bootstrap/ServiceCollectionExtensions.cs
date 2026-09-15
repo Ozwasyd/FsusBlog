@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddSingleton<ITestSessionKeyScope, HttpTestSessionKeyScope>();
         services.AddScoped<ITestSessionContext, TestSessionContext>();
+        services.AddSingleton<RuntimeCacheEvidenceStore>();
         services.AddSingleton<IRuntimeKeyScope, TestAwareRuntimeKeyScope>();
         services.AddEndpointsApiExplorer();
         services.AddOpenApi();

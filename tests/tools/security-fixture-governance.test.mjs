@@ -35,6 +35,14 @@ test('security fixture scanner accepts the exact owner and zero active legacy pa
     assert.match(result.ownershipDigest, /^sha256:[0-9a-f]{64}$/u);
 });
 
+test('admin auth fixture advances the projection version when it rotates a session token', () =>
+{
+    assert.match(
+        original,
+        /ON CONFLICT \(sessionid\) DO UPDATE SET[\s\S]*accesstokenhash = EXCLUDED\.accesstokenhash,[\s\S]*validationversion = admin_session\.validationversion \+ 1,/u
+    );
+});
+
 test('security fixture governance kills every parent counterexample class', () =>
 {
     const mutations = runSecurityFixtureMutations();

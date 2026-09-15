@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
+using FsusBlog.Server.Infrastructure.Testing;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
@@ -96,7 +98,7 @@ public sealed class RedisOperationExecutor(
         {
             s_circuitState.Record(1, tags);
             s_fallbackCount.Add(1, tags);
-            throw new RedisOperationUnavailableException(
+            throw CreateUnavailableException(
                 definition,
                 budget,
                 RedisOperationFailureKind.CircuitOpen);
@@ -129,7 +131,7 @@ public sealed class RedisOperationExecutor(
                 OpenCircuitAfterFailure(circuitIndex, budget);
                 s_fallbackCount.Add(1, tags);
                 s_endToEndTime.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, tags);
-                throw new RedisOperationUnavailableException(
+                throw CreateUnavailableException(
                     definition,
                     budget,
                     RedisOperationFailureKind.CommandTimeout,
@@ -141,7 +143,7 @@ public sealed class RedisOperationExecutor(
             {
                 s_circuitState.Record(1, tags);
                 s_fallbackCount.Add(1, tags);
-                throw new RedisOperationUnavailableException(
+                throw CreateUnavailableException(
                     definition,
                     budget,
                     RedisOperationFailureKind.CircuitOpen);
@@ -195,7 +197,7 @@ public sealed class RedisOperationExecutor(
                     OpenCircuitAfterFailure(circuitIndex, budget);
                     s_fallbackCount.Add(1, tags);
                     s_endToEndTime.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, tags);
-                    throw new RedisOperationUnavailableException(
+                    throw CreateUnavailableException(
                         definition,
                         budget,
                         timedOut
@@ -207,7 +209,7 @@ public sealed class RedisOperationExecutor(
                 }
             }
 
-            throw new RedisOperationUnavailableException(
+            throw CreateUnavailableException(
                 definition,
                 budget,
                 RedisOperationFailureKind.RedisFailure,
@@ -295,6 +297,19 @@ public sealed class RedisOperationExecutor(
         tags.Add("fsus.redis.class", budget.Id);
         tags.Add("fsus.redis.fail_action", budget.FailAction);
         return tags;
+    }
+
+    private static RedisOperationUnavailableException CreateUnavailableException(
+        RedisOperationPortDefinition definition,
+        RedisOperationBudget budget,
+        RedisOperationFailureKind failureKind,
+        Exception? innerException = null)
+    {
+        RuntimeCacheEvidenceObservation.Current?.RecordRedisFailure(
+            definition.OperationClass,
+            failureKind,
+            budget.FailAction);
+        return new RedisOperationUnavailableException(definition, budget, failureKind, innerException);
     }
 
     private sealed class ImmediateConnectionProvider(IConnectionMultiplexer connection) : IRedisConnectionProvider

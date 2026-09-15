@@ -379,7 +379,7 @@ public partial class ArticleService(
         int? cacheIdentity,
         CancellationToken cancellationToken)
     {
-        DateTime utcNow = DateTime.UtcNow;
+        DateTime utcNow = UtcNow;
         string visibilitySql = string.Empty;
         var parameters = new List<SugarParameter>
         {
@@ -1176,7 +1176,7 @@ public partial class ArticleService(
     }
 
     private Task<long> EnsureArticleRightsPolicyAsync(int articleId, ArticleRightsNormalizedModel rights)
-        => ArticleRightsPolicyPersistence.UpsertAsync(_db, articleId, rights, DateTime.UtcNow, Ct);
+        => ArticleRightsPolicyPersistence.UpsertAsync(_db, articleId, rights, UtcNow, Ct);
 
     private static ArticleRightsNormalizedModel NormalizeArticleRights(ArticleRightsRequestCoreModel? request)
         => ArticleProductionNormalizers.NormalizeArticleRights(request);

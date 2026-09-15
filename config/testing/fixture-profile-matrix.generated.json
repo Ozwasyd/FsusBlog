@@ -75,14 +75,6 @@
             "fixtureMutatorAllowed": false
         },
         {
-            "tierId": "backend-cache-invalidation-batch",
-            "executionClass": "runtime",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
             "tierId": "backend-concurrency",
             "executionClass": "runtime",
             "fixtureProfile": "none",
@@ -145,118 +137,6 @@
             "fixtureProfileReason": "none-runtime",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
-        },
-        {
-            "tierId": "backend-qps",
-            "executionClass": "coordination",
-            "fixtureProfile": "none",
-            "fixtureProfileReason": "none-coordination",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": false
-        },
-        {
-            "tierId": "backend-qps-article-detail-miss",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-cache-hit",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-cache-miss-singleflight",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-cache-registry",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-comment-cursor",
-            "executionClass": "load",
-            "fixtureProfile": "comments-moderation",
-            "fixtureProfileReason": "binds-comments-moderation",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-hotread",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-index-plan",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-list-pagination",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-related-reading",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-risk-filter",
-            "executionClass": "load",
-            "fixtureProfile": "auth-security-matrix",
-            "fixtureProfileReason": "binds-auth-security-matrix",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-runtime-sequential",
-            "executionClass": "load",
-            "fixtureProfile": "acceptance-representative",
-            "fixtureProfileReason": "binds-acceptance-representative",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-view-count-flush",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
-        },
-        {
-            "tierId": "backend-qps-visitlog-invalidation",
-            "executionClass": "load",
-            "fixtureProfile": "public-content-lifecycle",
-            "fixtureProfileReason": "binds-public-content-lifecycle",
-            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
         },
         {
             "tierId": "backend-test-governance",
@@ -1011,6 +891,118 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "runtime-cache-article-detail-l1",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-cache-miss-singleflight",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-distributed-invalidation",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-evidence",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "runtime-cache-hot-featured-frame",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-l1-residency",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-pagination",
+            "executionClass": "runtime",
+            "fixtureProfile": "runtime-cache-pagination",
+            "fixtureProfileReason": "binds-runtime-cache-pagination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-public-hot-read",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-redis-fault-classes",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-related-reading",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-revocation",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-security-projections",
+            "executionClass": "runtime",
+            "fixtureProfile": "auth-security-matrix",
+            "fixtureProfileReason": "binds-auth-security-matrix",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-sitemap",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-telemetry",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
             "tierId": "security",
             "executionClass": "security",
             "fixtureProfile": "auth-security-matrix",
@@ -1155,5 +1147,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:1e2f5d57257ea8b9f1a14d54d4ce616e2a64d0cc41394f968a049be83275d198"
+    "digest": "sha256:12aa0cde2975477646b8cf37b0836b3bb04c8e3a88c0ef40df830cf6878cb521"
 }

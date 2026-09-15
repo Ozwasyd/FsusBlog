@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
 
@@ -483,6 +484,12 @@ public static class FsusObservability
         s_operationDuration.Record(duration.TotalMilliseconds, tags);
     }
 
+    public static void RecordArticleDetailArtifactMemoryHit(TimeSpan duration)
+    {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("l1-frame");
+        RecordOperation("public_read_artifact", "article_detail_aeds", "hit_memory", duration);
+    }
+
     public static void RecordHttpRequest(string routeKind, int statusCode, TimeSpan duration)
     {
         TagList tags = CreateBaseTags("http", "request", statusCode < 500 ? "ok" : "error");
@@ -494,6 +501,16 @@ public static class FsusObservability
 
     public static void RecordCacheOperation(string operation, string policyId, string layer, string result, TimeSpan duration)
     {
+        if (string.Equals(result, "hit", StringComparison.OrdinalIgnoreCase))
+        {
+            RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+                layer.ToLowerInvariant() switch
+                {
+                    "l1" => "l1-object",
+                    "l2" => "redis",
+                    _ => layer
+                });
+        }
         var key = new CacheOperationMetricKey(operation, policyId, layer, result);
         CacheOperationMetricState state = s_cacheOperationRuntimeCounters.GetOrAdd(
             key,
@@ -521,6 +538,8 @@ public static class FsusObservability
         bool negative,
         CacheL1HitObservation observation)
     {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+            operation == CacheL1Operation.OwnedFrame ? "l1-frame" : "l1-object");
         CacheL1MetricState state = ResolveCacheL1State(policyId, operation, negative);
         state.IncrementCount();
         CachePolicyHitMissMetricState policyState = ResolveCachePolicyHitMissState(policyId);
@@ -1493,6 +1512,15 @@ public static class FsusObservability
         s_articleHotFrameWholeBuilds.Add(1, tags);
     }
 
+    public static void RecordArticleHotFrameCacheHit(string frameType, string identity)
+    {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("l1-frame");
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            ArticleHotFrameEvidenceFamily(frameType),
+            identity,
+            "hit");
+    }
+
     public static void RecordArticleHotFrameDatabaseCommand(string frameType)
     {
         TagList tags = default;
@@ -1514,12 +1542,28 @@ public static class FsusObservability
         s_articleHotFrameRedisPublications.Add(1, tags);
     }
 
+    public static void RecordArticleHotFramePublished(
+        string frameType,
+        string identity)
+    {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("database");
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            ArticleHotFrameEvidenceFamily(frameType),
+            identity,
+            "published");
+    }
+
     public static void RecordArticleHotFrameGenerationRetry(string frameType)
     {
         TagList tags = default;
         tags.Add("fsus.aeds.frame_type", frameType);
         s_articleHotFrameGenerationRetries.Add(1, tags);
     }
+
+    private static string ArticleHotFrameEvidenceFamily(string frameType)
+        => string.Equals(frameType, "featured", StringComparison.Ordinal)
+            ? "article-featured-frame"
+            : "article-hot-frame";
 
     public static void RecordCacheRemoveMany(long keys, long redisBatches, TimeSpan elapsed)
     {
@@ -2222,6 +2266,8 @@ public static class FsusObservability
         long allocationBytes,
         TimeSpan elapsed)
     {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+            cacheHit ? "l1-object" : "database");
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("sitemap", "build", cacheHit ? "hit" : "miss");

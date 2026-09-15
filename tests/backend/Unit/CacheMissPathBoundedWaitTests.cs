@@ -17,7 +17,7 @@ public sealed class CacheMissPathBoundedWaitTests
         TimeSpan total = CacheMissPathBudget.ComputeTotal(strategy);
 
         Assert.Equal(TimeSpan.FromMilliseconds(750), CacheMissPathBudget.SingleFlightMaxAcquireWait);
-        Assert.Equal(64, CacheMissPathBudget.SingleFlightMaxWaitersPerKey);
+        Assert.Equal(1024, CacheMissPathBudget.SingleFlightMaxWaitersPerKey);
         Assert.Equal(
             CacheMissPathBudget.SingleFlightMaxAcquireWait + strategy.WaitTimeout + strategy.RebuildTimeout,
             total);

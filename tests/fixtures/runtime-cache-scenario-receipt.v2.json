@@ -1,0 +1,48 @@
+{
+  "schema": "fsusblog.runtime-cache-scenario-receipt.v2",
+  "catalogDigest": "sha256:e1ea697170d1d5acf23dff564755ad3e644c551e2e6883945fe5f2f1aee2051e",
+  "runId": "canonical-run",
+  "scenarioId": "public-hot-read",
+  "attemptId": "canonical-run.attempt-1",
+  "attemptNumber": 1,
+  "subcases": ["fixed-ip", "unique-ip"],
+  "status": "passed",
+  "generatedAt": "2026-09-14T00:00:00.000Z",
+  "source": {
+    "start": { "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dirty": false, "statusDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "worktreeFingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    "end": { "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dirty": false, "statusDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "worktreeFingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  },
+  "runtime": { "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "imageDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "dotnetVersion": "10.0.0", "processId": 42, "kestrelUrl": "http://127.0.0.1:7568" },
+  "dependencies": {
+    "postgres": { "version": "18.0", "topology": "isolated-database", "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+    "redis": { "version": "8.0", "topology": "isolated-namespace", "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+  },
+  "machine": { "os": "test", "arch": "arm64", "cpuModel": "fixture", "logicalCpuCount": 1, "memoryBytes": 1024, "runtime": "node-test" },
+  "input": { "fixtureDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "requestCount": 2, "concurrency": 32, "parameters": {} },
+  "windows": {
+    "warmup": { "startedAt": "2026-09-14T00:00:00.000Z", "endedAt": "2026-09-14T00:00:00.000Z", "requestCount": 32 },
+    "sample": { "startedAt": "2026-09-14T00:00:00.000Z", "endedAt": "2026-09-14T00:00:01.000Z", "requestCount": 2 }
+  },
+  "rawEvidence": {
+    "schema": "fsusblog.runtime-cache-raw-evidence.v2",
+    "path": ".tmp/perf/runtime-cache/canonical/public-hot-read.json",
+    "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "authority": { "requests": "kestrel-request-observation", "redis": "stackexchange-redis-profiler", "redisFailure": "redis-operation-executor", "database": "sqlsugar-aop", "cache": "runtime-cache-evidence-observation", "fault": "runtime-fault-controller" },
+    "rowCounts": { "requests": 2, "redisCommands": 0, "redisFailureEvents": 0, "cacheEvents": 0, "databaseCommands": 0, "cacheClassifications": 2, "faultEvents": 0 }
+  },
+  "requests": [
+    { "id": "public-hot-read.1", "subcaseId": "fixed-ip", "method": "GET", "path": "/fixture/fixed-ip", "status": 200, "payloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "parityGroup": "public-hot-read", "layerSource": "l0-allow", "latencyMs": 1, "allocatedBytes": 0 },
+    { "id": "public-hot-read.2", "subcaseId": "unique-ip", "method": "GET", "path": "/fixture/unique-ip", "status": 200, "payloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "parityGroup": "public-hot-read", "layerSource": "l0-allow", "latencyMs": 2, "allocatedBytes": 0 }
+  ],
+  "commandSummary": { "redis": { "count": 0, "byVerb": {}, "byCategory": {} }, "database": { "count": 0, "byFingerprint": {} } },
+  "memory": { "entries": 1, "logicalBytes": 1, "capacityBytes": 1, "logicalBudgetBytes": 2, "capacityBudgetBytes": 2, "allocatedBytes": 0, "gen0Collections": 0, "gen1Collections": 0, "gen2Collections": 0, "residentBytes": 1 },
+  "latencyMs": { "p50": 1, "p95": 2, "p99": 2, "max": 2 },
+  "faultTimeline": [],
+  "cleanupProof": { "status": "passed", "namespaceRemoved": true, "activeKeyedEntries": 0, "durableRowsBefore": 0, "durableRowsAfter": 0, "checkedAt": "2026-09-14T00:00:01.000Z" },
+  "assertions": [
+    { "id": "fixed-ip-l0-allow", "status": "passed", "expected": true, "actual": true },
+    { "id": "unique-ip-l0-allow", "status": "passed", "expected": true, "actual": true }
+  ],
+  "firstFailure": null,
+  "contentDigest": "sha256:65ec82e43a60cb9d4e2bb1350ea86bde2c6848e5440322e05ec46cbd5d5f5cc2"
+}

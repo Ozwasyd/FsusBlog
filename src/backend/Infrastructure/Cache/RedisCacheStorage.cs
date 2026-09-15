@@ -5,6 +5,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.Extensions.Caching.Memory;
 
@@ -111,6 +112,11 @@ internal sealed class UnifiedCache(
     private string BuildKey(CachePolicyId policyId, int identity, string? version = null)
         => keyResolver.BuildKey(policyId, identity, version);
 
+    private static string RuntimeEvidenceIdentity(CacheIdentity identity)
+        => identity.Kind == CacheIdentityKind.Integer
+            ? identity.IntegerValue.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : identity.StringValue!;
+
     public Task<CacheReadResult<T>> TryGetAsync<T>(
         CachePolicyId policyId,
         string identity,
@@ -131,7 +137,10 @@ internal sealed class UnifiedCache(
         Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder,
         CancellationToken cancellationToken)
     {
+        RuntimeCacheL1BoundaryEvidenceScope l1Evidence =
+            RuntimeCacheL1BoundaryEvidenceScope.Begin(policyId, CacheL1Operation.Typed);
         CacheL1HitObservation l1Observation = telemetry.BeginL1Hit(policyId, CacheL1Operation.Typed);
+        l1Evidence = l1Evidence.Pause();
         CachePolicy policy = ResolvePolicy(policyId);
         CacheL1Key l1Key = identity.ToL1Key(keyScope.ScopeToken, policyId);
         cancellationToken.ThrowIfCancellationRequested();
@@ -142,18 +151,35 @@ internal sealed class UnifiedCache(
                 ReadOnlyMemory<byte> l1Bytes = l1Lease.Memory;
                 if (l1Bytes.Length == 0)
                 {
+                    l1Evidence = l1Evidence.Resume();
                     telemetry.RecordL1Hit(policyId, CacheL1Operation.Typed, negative: true, l1Observation);
+                    _ = l1Evidence.Complete(l1Observation.Sampled, "hit-negative");
+                    RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                        "typed-l1",
+                        RuntimeEvidenceIdentity(identity),
+                        "negative");
                     return new CacheReadResult<T>(true, default);
                 }
 
                 var (l1Success, l1Value) = decoder(l1Bytes);
                 if (l1Success)
                 {
+                    l1Evidence = l1Evidence.Resume();
                     telemetry.RecordL1Hit(policyId, CacheL1Operation.Typed, negative: false, l1Observation);
+                    _ = l1Evidence.Complete(l1Observation.Sampled, "hit");
+                    RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                        "typed-l1",
+                        RuntimeEvidenceIdentity(identity),
+                        "hit");
                     return new CacheReadResult<T>(true, l1Value);
                 }
             }
 
+            _ = l1Evidence.Complete(l1Observation.Sampled, "decode-failed");
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "typed-l1",
+                RuntimeEvidenceIdentity(identity),
+                "invalidated");
             string corruptRedisKey = BuildRedisKey(policy, identity);
             RemoveL1(l1Key, corruptRedisKey);
             cancellationToken.ThrowIfCancellationRequested();
@@ -173,6 +199,7 @@ internal sealed class UnifiedCache(
             return new CacheReadResult<T>(false, default);
         }
 
+        _ = l1Evidence.Complete(l1Observation.Sampled, "miss");
         long startedAt = Stopwatch.GetTimestamp();
         using Activity? activity = FsusObservability.StartActivity("cache.get", "cache", ActivityKind.Client);
         FsusObservability.SetTag(activity, "fsus.cache.operation", "get");
@@ -1848,7 +1875,6 @@ return {1, source}
                 or CachePolicyId.SecurityPasskeyAuthChallenge
                 or CachePolicyId.HumanReadProof
                 or CachePolicyId.SecurityPowProof
-                or CachePolicyId.SystemCompliance
                 or CachePolicyId.SecurityRecoveryKeyAttempt
                 or CachePolicyId.SecurityRecoveryKeySession
                 or CachePolicyId.SecurityChallengeProof

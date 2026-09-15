@@ -349,9 +349,11 @@ public class ArticleServiceValidationTests
 
         Assert.Contains("JOIN article_publication publication ON publication.id = a.current_publication_id", method, StringComparison.Ordinal);
         Assert.Contains("JOIN article_revision revision ON revision.id = publication.article_revision_id", method, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN article_body body ON body.article_id = a.id", method, StringComparison.Ordinal);
         Assert.Contains("array_agg(t.id ORDER BY t.id)", method, StringComparison.Ordinal);
         Assert.Contains("array_agg(t.name ORDER BY t.id)", method, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(revision.markdown_content, '')", method, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(body.markdown_content, '')", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("COALESCE(revision.markdown_content, '')", method, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadArticleContentAsync(id", method, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadArticleTagMapAsync([id]", method, StringComparison.Ordinal);
     }

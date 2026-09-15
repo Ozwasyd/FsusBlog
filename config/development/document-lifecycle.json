@@ -3294,16 +3294,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/testing/backend-qps-driver-migration-ledger.md",
-            "status": "historical",
-            "owner": "release",
-            "relatedIssues": [
-                1388
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/testing/content-addressed-build-cache.md",
             "status": "historical",
             "owner": "release",

@@ -871,7 +871,7 @@ public partial class ArticleService
             new SugarParameter("@TargetRevisionId", targetRevision.Id),
             new SugarParameter("@TargetRevisionNo", targetRevision.RevisionNo),
             new SugarParameter("@SourceRevisionId", sourceRevisionId),
-            new SugarParameter("@CreatedAt", DateTime.UtcNow));
+            new SugarParameter("@CreatedAt", UtcNow));
         if (await reader.ReadAsync(Ct).ConfigureAwait(false))
         {
             return reader.ReadInt64("id");

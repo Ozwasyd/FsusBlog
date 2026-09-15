@@ -199,6 +199,7 @@ public sealed class ArticleEndpointService(
                 cancellationToken).ConfigureAwait(false);
             if (initial.Hit && initial.Lease is not null)
             {
+                FsusObservability.RecordArticleHotFrameCacheHit("hot", identity);
                 return new ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>(
                     initial.Lease,
                     Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
@@ -273,6 +274,10 @@ public sealed class ArticleEndpointService(
                                         generation),
                                     l2TtlOverride: null,
                                     ct);
+                                if (published)
+                                {
+                                    FsusObservability.RecordArticleHotFramePublished("hot", identity);
+                                }
                                 if (!published)
                                 {
                                     responseLease.Dispose();
@@ -337,6 +342,7 @@ public sealed class ArticleEndpointService(
                 cancellationToken).ConfigureAwait(false);
             if (initial.Hit && initial.Lease is not null)
             {
+                FsusObservability.RecordArticleHotFrameCacheHit("featured", identity);
                 return new ArticleEndpointPayload<IReadOnlyList<FeaturedArticleSummaryDto>>(
                     initial.Lease,
                     Result<IReadOnlyList<FeaturedArticleSummaryDto>>.Failure(ErrorCode.None, "cache-hit"));
@@ -420,6 +426,10 @@ public sealed class ArticleEndpointService(
                                         generation),
                                     l2TtlOverride: null,
                                     ct);
+                                if (published)
+                                {
+                                    FsusObservability.RecordArticleHotFramePublished("featured", identity);
+                                }
                                 if (!published)
                                 {
                                     responseLease.Dispose();

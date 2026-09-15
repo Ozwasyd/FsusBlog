@@ -12,6 +12,7 @@ TRACKED_TMP_FILES=(
     ".tmp/release-evidence/aeds-wasm-browser-summary.json"
     ".tmp/release-evidence/doc-sync-summary.json"
     ".tmp/release-evidence/backend-qps-summary.json"
+    ".tmp/release-evidence/runtime-cache-summary.json"
     ".tmp/release-evidence/aot-cache-resilience-summary.json"
     ".tmp/release-evidence/public-hydration-detector-summary.json"
     ".tmp/release-evidence/public-hydration-clock-matrix-summary.json"
@@ -512,7 +513,13 @@ printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$R
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/dom-depth-static.json"
+# Keep an old status-only artifact present to prove the release consumer does not accept it.
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
+if node "$ROOT_DIR/tools/operations/check-evidence-metrics.mjs" \
+    --validate-runtime-cache-evidence >/dev/null 2>&1; then
+    echo "[release-evidence-fixture] status-only backend QPS evidence must not satisfy the strict runtime-cache reader" >&2
+    exit 1
+fi
 mkdir -p "$SECURITY_DIR/authenticated-dast" "$FUZZ_DIR/wasm" "$FAULT_DIR" "$SOAK_DIR/short"
 printf '%s\n' '{"schema":"fsusblog.security.authenticated-dast.v1","status":"ok","executionSource":"fresh-current-lane","targetPolicy":{"loopbackOnly":true,"productionTargetAllowed":false},"fixture":{"executionSource":"fresh-current-lane","historicalStateAccepted":false,"cleanup":"success"},"activeScan":{"executed":true,"requestCount":4,"passedCount":4,"failedCount":0},"contexts":{"anonymous":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"user":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"admin":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"author-console":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0}},"checks":[{"context":"anonymous","passed":true},{"context":"user","passed":true},{"context":"admin","passed":true},{"context":"author-console","passed":true}]}' >"$SECURITY_DIR/authenticated-dast/summary.json"
 printf '%s\n' '{"schema":"fsusblog.security.local-runtime-exposure.v1","status":"ok","executionSource":"fresh-loopback-runtime","scope":{"loopbackRuntimeOnly":true,"externalProductionDnsChecked":false,"externalFirewallEvidenceChecked":false,"countsAsProductionCloseout":false},"targets":[{"id":"backend","status":200},{"id":"frontend","status":200},{"id":"release-preview","status":200}],"listeners":[{"id":"backend","addresses":["127.0.0.1:25001"]},{"id":"frontend","addresses":["127.0.0.1:25002"]},{"id":"release-preview","addresses":["127.0.0.1:25003"]}],"restrictedServices":[{"id":"postgres","loopbackOnly":true},{"id":"redis","loopbackOnly":true}],"failures":[]}' >"$SECURITY_DIR/local-runtime-exposure.json"
@@ -750,6 +757,15 @@ FSUSBLOG_RELEASE_STAMP=fixture \
     bash "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 
 node "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/manifest.json" >/dev/null
+jq -e '
+  .schema == "fsusblog.runtime-cache-evidence-summary.v2"
+  and .status == "failed"
+  and (.scenarioIds | length) == 13
+  and (.receiptDigests | length) == 0
+  and (.errors | length) > 0
+  and (.contentDigest | test("^sha256:[0-9a-f]{64}$"))
+' "$OUT_DIR/runtime-cache-summary.json" >/dev/null
+[[ ! -e "$OUT_DIR/backend-qps-summary.json" ]]
 
 jq -e \
     --arg releaseId "$RELEASE_ID" \
@@ -785,7 +801,8 @@ jq -e \
   and .artifacts.fuzz == "fuzz"
   and .artifacts.faultInjection == "fault-injection"
   and .artifacts.soak == "soak"
-  and .artifacts.backendQpsSummary == "backend-qps-summary.json"
+  and .artifacts.runtimeCacheSummary == "runtime-cache-summary.json"
+  and (.artifacts | has("backendQpsSummary") | not)
   and .artifacts.uxViewportSummary == "ux-viewport-summary.json"
   and .artifacts.frontendRenderPressureSummary == "frontend-render-pressure-summary.json"
   and .artifacts.frontendRenderStructureSummary == "frontend-render-structure-summary.json"
@@ -854,7 +871,8 @@ jq -e \
   and .evidenceSummary.operations.runtimeTuning.telemetryPolicies.cacheL1Hit.countRelativeErrorBudget == 0
   and .evidenceSummary.operations.runtimeTuning.telemetryPolicies.publicHotRead == "Sampled"
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
-  and .evidenceSummary.gates.backendQps == "ok"
+  and .evidenceSummary.gates.runtimeCache == "failed"
+  and (.evidenceSummary.gates | has("backendQps") | not)
   and .evidenceSummary.gates.uxViewport == "ok"
   and .evidenceSummary.gates.frontendRenderPressure == "ok"
   and .evidenceSummary.gates.frontendRenderStructure == "ok"

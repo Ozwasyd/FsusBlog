@@ -37,6 +37,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -118,6 +119,24 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             Assert.Equal(1, runnerCallCount);
             Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
         }
+    }
+
+    [Theory]
+    [InlineData(true, HttpStatusCode.Found)]
+    [InlineData(false, HttpStatusCode.InternalServerError)]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task LocalAuthFixture_RefreshesAdminProjectionBeforeIssuingCookies(
+        bool projectionReady,
+        HttpStatusCode expectedStatus)
+    {
+        LocalFixtureProjectionObservation observation =
+            await fixture.SendLocalFixtureProjectionAsync(projectionReady);
+        using HttpResponseMessage response = observation.Response;
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(1, observation.RefreshCalls);
+        Assert.Equal("fixture-admin-session", observation.SessionId);
+        Assert.Equal(projectionReady, response.Headers.TryGetValues("Set-Cookie", out _));
     }
 
     [Fact]
@@ -288,6 +307,27 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             }
         }
 
+        internal async Task<LocalFixtureProjectionObservation> SendLocalFixtureProjectionAsync(
+            bool projectionReady)
+        {
+            await _requestGate.WaitAsync();
+            try
+            {
+                AuthCookieExpiryHarness harness = Assert.IsType<AuthCookieExpiryHarness>(_successHarness);
+                harness.PrepareForTest();
+                harness.ConfigureAdminProjectionRefresh(projectionReady);
+                HttpResponseMessage response = await harness.SendLocalFixtureAsync();
+                return new LocalFixtureProjectionObservation(
+                    response,
+                    harness.AdminProjectionRefreshCallCount,
+                    harness.LastAdminProjectionSessionId);
+            }
+            finally
+            {
+                _requestGate.Release();
+            }
+        }
+
         internal async Task<(HttpResponseMessage Response, int VerificationCalls, int DeliveryRevocations)> SendPostCommitVerificationFaultAsync()
         {
             await _requestGate.WaitAsync();
@@ -431,6 +471,11 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         int ConsumeCalls,
         int CompleteLoginCalls);
 
+    public sealed record LocalFixtureProjectionObservation(
+        HttpResponseMessage Response,
+        int RefreshCalls,
+        string? SessionId);
+
     private sealed class AuthCookieExpiryHarness : IAsyncDisposable
     {
         private const string FixtureSecret = "issue-1053-local-fixture-secret";
@@ -445,6 +490,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         private readonly IUserLoginWorkflowService _loginWorkflow;
         private readonly IUserMfaVerificationService _mfaVerification;
         private readonly IMfaChallengeService _mfaChallenges;
+        private readonly IAdminSessionProjectionAuthorityReader _adminProjectionAuthority;
         private readonly MfaChallengeTicket _mfaTicket;
         private readonly Action _prepareForTest;
 
@@ -457,6 +503,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             IUserLoginWorkflowService loginWorkflow,
             IUserMfaVerificationService mfaVerification,
             IMfaChallengeService mfaChallenges,
+            IAdminSessionProjectionAuthorityReader adminProjectionAuthority,
             MfaChallengeTicket mfaTicket,
             Action prepareForTest)
         {
@@ -468,11 +515,20 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             _loginWorkflow = loginWorkflow;
             _mfaVerification = mfaVerification;
             _mfaChallenges = mfaChallenges;
+            _adminProjectionAuthority = adminProjectionAuthority;
             _mfaTicket = mfaTicket;
             _prepareForTest = prepareForTest;
         }
 
         public int LocalFixtureRunnerCallCount => _localFixtureRunner.CallCount;
+
+        public int AdminProjectionRefreshCallCount => _adminProjectionAuthority.ReceivedCalls().Count(call =>
+            call.GetMethodInfo().Name == nameof(IAdminSessionProjectionAuthorityReader.RefreshSessionAsync));
+
+        public string? LastAdminProjectionSessionId => _adminProjectionAuthority.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IAdminSessionProjectionAuthorityReader.RefreshSessionAsync))
+            .Select(call => call.GetArguments()[0] as string)
+            .LastOrDefault();
 
         public int RefreshVerificationCallCount => _sessions.ReceivedCalls().Count(call =>
             call.GetMethodInfo().Name == nameof(IUserSessionCommandService.VerifyRefreshRotationAsync));
@@ -490,6 +546,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             call.GetMethodInfo().Name == nameof(IUserLoginWorkflowService.CompleteLoginAsync));
 
         public void PrepareForTest() => _prepareForTest();
+
+        public void ConfigureAdminProjectionRefresh(bool ready)
+            => _adminProjectionAuthority.RefreshSessionAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(ready));
 
         public void ConfigurePostCookieVerificationFault()
         {
@@ -548,12 +610,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             string adminStorageStatePath = Path.Combine(fixtureDirectory, "admin.storage-state.json");
             WriteStorageState(
                 userStorageStatePath,
-                ("AccessToken", "fixture-user-access", s_userAccessTokenExpiresAtUtc),
+                ("AccessToken", CreateUnsignedJwt(s_userAccessTokenExpiresAtUtc), null),
                 ("RefreshToken", "fixture-user-refresh", null),
                 ("SessionId", "fixture-user-session", null));
             WriteStorageState(
                 adminStorageStatePath,
-                ("AdminAccessToken", "fixture-admin-access", s_adminAccessTokenExpiresAtUtc),
+                ("AdminAccessToken", CreateUnsignedJwt(s_adminAccessTokenExpiresAtUtc), null),
                 ("AdminSessionId", "fixture-admin-session", null));
 
             LocalAuthFixtureRefreshResult fixtureResult = configuredFixtureResult.Success
@@ -577,6 +639,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 Substitute.For<IHotArticlesCacheVersionProvider>();
             ISecurityChallengeProofService challengeProofs =
                 Substitute.For<ISecurityChallengeProofService>();
+            IAdminSessionProjectionAuthorityReader adminProjectionAuthority =
+                Substitute.For<IAdminSessionProjectionAuthorityReader>();
 
             UserAccountSnapshot account = new(
                 42,
@@ -669,6 +733,11 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 hotArticlesVersion.ClearReceivedCalls();
                 challengeProofs.ClearReceivedCalls();
                 fixtureRunner.ResetCallCount();
+                adminProjectionAuthority.ClearReceivedCalls();
+                adminProjectionAuthority.RefreshSessionAsync(
+                        Arg.Any<string>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult(true));
 
                 mfaVerification.VerifyMfaOrRecoveryCodeAsync(
                         Arg.Any<int>(),
@@ -830,6 +899,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             builder.Services.AddSingleton<IRiskDecisionService>(new AlwaysAllowRiskDecisionService());
             builder.Services.AddSingleton(challengeProofs);
             builder.Services.AddSingleton<ILocalAuthFixtureRefreshRunner>(fixtureRunner);
+            builder.Services.AddSingleton(adminProjectionAuthority);
             builder.Services.AddTransient<RequiresPowFilter>();
             builder.Services.AddTransient<RequiresRiskControlFilter>();
 
@@ -855,6 +925,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 loginWorkflow,
                 mfaVerification,
                 mfaChallenges,
+                adminProjectionAuthority,
                 mfaTicket,
                 PrepareForTest);
         }
@@ -1022,6 +1093,14 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 origins = Array.Empty<object>()
             };
             File.WriteAllText(path, JsonSerializer.Serialize(payload));
+        }
+
+        private static string CreateUnsignedJwt(DateTimeOffset expiresAtUtc)
+        {
+            string header = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes("{\"alg\":\"none\"}"));
+            string payload = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(
+                $"{{\"exp\":{expiresAtUtc.ToUnixTimeSeconds()}}}"));
+            return $"{header}.{payload}.";
         }
 
         private static string CreatePowProof()

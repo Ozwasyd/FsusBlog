@@ -703,18 +703,35 @@ public sealed class PublicHotArtifactUpdateWorker(
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            await obligations.RecordFailureAsync(obligation.ObligationId, obligation.AttemptNumber, stage, new OperationCanceledException(stoppingToken), DateTimeOffset.UtcNow, maxAttempts, CancellationToken.None).ConfigureAwait(false);
+            await TryRecordFailureAsync(
+                    obligations,
+                    obligation,
+                    stage,
+                    new OperationCanceledException(stoppingToken),
+                    maxAttempts)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            PublicHotArtifactObligation failed = await obligations.RecordFailureAsync(obligation.ObligationId, obligation.AttemptNumber, stage, ex, DateTimeOffset.UtcNow, maxAttempts, CancellationToken.None).ConfigureAwait(false);
+            PublicHotArtifactObligation? failed = await TryRecordFailureAsync(
+                    obligations,
+                    obligation,
+                    stage,
+                    ex,
+                    maxAttempts)
+                .ConfigureAwait(false);
+            if (failed is null)
+            {
+                return;
+            }
+
             store.ReportBuildFailure("obligation:" + obligation.ObligationId, ex);
             logger.LogWarning(ex, "public-hot obligation failed {ObligationId} {Attempt} {State} {FailureKind}", obligation.ObligationId, obligation.AttemptNumber, failed.State, failed.LastFailureKind);
             if (failed.IsTerminal && obligation.FragmentKeys is { Count: > 0 })
             {
                 store.InvalidateDistributedSnapshot(
                     "fragment-rebuild-failed",
-                    PublicHotReadInvalidationPolicy.DropToEmpty);
+                    PublicHotReadInvalidationPolicy.RetainLastGood);
                 await using AsyncServiceScope failureScope = scopeFactory.CreateAsyncScope();
                 await RecordDistributedFullReconcileAsync(
                         failureScope.ServiceProvider,
@@ -736,6 +753,54 @@ public sealed class PublicHotArtifactUpdateWorker(
         {
             EndBatchClaim(claim);
             queue.RecordBatchFinished();
+        }
+    }
+
+    private async Task<PublicHotArtifactObligation?> TryRecordFailureAsync(
+        IPublicHotArtifactObligationStore obligations,
+        PublicHotArtifactObligation obligation,
+        PublicHotArtifactAttemptStage stage,
+        Exception exception,
+        int maxAttempts)
+    {
+        try
+        {
+            return await obligations.RecordFailureAsync(
+                    obligation.ObligationId,
+                    obligation.AttemptNumber,
+                    stage,
+                    exception,
+                    DateTimeOffset.UtcNow,
+                    maxAttempts,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message is "public-hot obligation compare-and-set lost"
+                or "public-hot obligation is missing")
+        {
+            // Another node has already advanced or replaced this obligation. Its
+            // durable state is the recovery authority; the stale attempt is done.
+            logger.LogInformation(
+                "public-hot obligation failure superseded {ObligationId} {Attempt} {Stage}",
+                obligation.ObligationId,
+                obligation.AttemptNumber,
+                stage);
+            return null;
+        }
+        catch (Exception failureRecordException)
+        {
+            // Failure recording is recovery metadata. A Redis outage or another
+            // recorder fault must not terminate the host that still serves the
+            // last-good snapshot; a later wake-up/restart can replay the durable
+            // obligation.
+            logger.LogError(
+                failureRecordException,
+                "public-hot obligation failure could not be recorded {ObligationId} {Attempt} {Stage}",
+                obligation.ObligationId,
+                obligation.AttemptNumber,
+                stage);
+            return null;
         }
     }
 

@@ -39,7 +39,7 @@ public partial class ArticleService
             return false;
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
         var beforeScope = new ArticleMutationScopeSnapshot(
             state.CategoryIds.Single(),
@@ -447,7 +447,7 @@ public partial class ArticleService
             cancellationToken).ConfigureAwait(false);
         FsusObservability.RecordArticleHotFrameSeed("bundle", seed.Hit ? "redis" : "miss");
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         var query = _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
@@ -550,7 +550,7 @@ public partial class ArticleService
         List<SugarParameter> parameters =
         [
             new("@IsDeleted", isDeleted),
-            new("@Now", DateTime.UtcNow)
+            new("@Now", UtcNow)
         ];
 
         if (!isDeleted && !includePrivate)
@@ -1045,7 +1045,7 @@ public partial class ArticleService
             ids.Add(searchResults[i].Id);
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         var sqlObj = _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)

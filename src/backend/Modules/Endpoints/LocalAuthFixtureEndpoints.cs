@@ -1,11 +1,13 @@
 // fixture-catalog: producer auth-session
 using System.Net;
 using System.Security.Cryptography;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
@@ -63,6 +65,7 @@ public static class LocalAuthFixtureEndpoints
             HttpContext context,
             IWebHostEnvironment environment,
             [FromServices] AuthCookieService authCookieService,
+            [FromServices] IAdminSessionProjectionAuthorityReader adminSessions,
             string? redirect,
             CancellationToken cancellationToken) =>
         {
@@ -90,6 +93,13 @@ public static class LocalAuthFixtureEndpoints
                 !TryReadCookie(adminStorageStatePath, "AdminSessionId", out string adminSessionId))
             {
                 return Results.Problem("local auth fixture is invalid", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            if (!await adminSessions.RefreshSessionAsync(adminSessionId, cancellationToken))
+            {
+                return Results.Problem(
+                    "local auth fixture admin session projection is not ready",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
 
             ResolvedTemporalRoleContext temporalRoles = ResolvedTemporalRoleContext.FromEnvironment();
@@ -246,15 +256,23 @@ public static class LocalAuthFixtureEndpoints
              !Path.IsPathRooted(relative));
     }
 
-    internal static string ResolveRepoRoot(IWebHostEnvironment environment)
+    internal static string ResolveRepoRoot(
+        IWebHostEnvironment environment,
+        string? configuredRoot = null)
     {
-        string[] candidates =
+        configuredRoot ??= Environment.GetEnvironmentVariable("FSUSBLOG_REPO_ROOT");
+        var candidates = new List<string>(5);
+        if (!string.IsNullOrWhiteSpace(configuredRoot))
         {
+            candidates.Add(Path.GetFullPath(configuredRoot));
+        }
+        candidates.AddRange(
+        [
             environment.ContentRootPath,
             Directory.GetCurrentDirectory(),
             Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..")),
             Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", ".."))
-        };
+        ]);
         foreach (string root in candidates)
         {
             if (File.Exists(Path.Combine(root, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs")))
@@ -287,8 +305,27 @@ public static class LocalAuthFixtureEndpoints
         out DateTimeOffset expiresAtUtc)
     {
         expiresAtUtc = default;
-        if (!TryReadCookie(storageStatePath, cookieName, out value, out long? expiresAtUnixSeconds) ||
-            expiresAtUnixSeconds is not > 0)
+        if (!TryReadCookie(storageStatePath, cookieName, out value, out long? expiresAtUnixSeconds))
+        {
+            return false;
+        }
+
+        if (expiresAtUnixSeconds is not > 0)
+        {
+            try
+            {
+                expiresAtUnixSeconds = new JwtSecurityTokenHandler()
+                    .ReadJwtToken(value)
+                    .Payload
+                    .Expiration;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        if (expiresAtUnixSeconds is not > 0)
         {
             return false;
         }

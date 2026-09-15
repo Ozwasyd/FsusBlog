@@ -87,6 +87,70 @@ function verifyArticlePublished(ctx)
     return pass(id, { articleIds: owned.ids });
 }
 
+/** Exact deep-keyset input contract for the runtime pagination scenario. */
+function verifyArticlePaginationDeep(ctx)
+{
+    const id = 'article-pagination-deep';
+    const db = ctx.observations?.database;
+    if (!db)
+    {
+        return fail(id, 'database observation required');
+    }
+    const keysets = entitiesOf(db, 'pagination-keyset').filter((item) => item.owned !== false
+    && (item.capabilityHint === id || item.postconditionId === id));
+    if (keysets.length !== 1)
+    {
+        return fail(id, 'exactly one owned pagination-keyset observation is required');
+    }
+
+    const fields = keysets[0].fields ?? {};
+    if (fields.route !== 'article/list/home' || fields.sort !== 'latest' || fields.pageSize !== 10)
+    {
+        return fail(id, 'pagination route/sort/page-size binding is not article/list/home latest size=10');
+    }
+    if (!Number.isSafeInteger(fields.generation) || fields.generation < 0)
+    {
+        return fail(id, 'pagination generation is missing or invalid');
+    }
+    if (!Number.isSafeInteger(fields.articleCount) || fields.articleCount < 10_020
+    || !Number.isSafeInteger(fields.ownedArticleCount) || fields.ownedArticleCount < 10_020)
+    {
+        return fail(id, 'pagination fixture does not prove at least 10,020 visible owned articles');
+    }
+
+    const cursors = Array.isArray(fields.cursors) ? fields.cursors : [];
+    const expectedPages = [10, 100, 1000];
+    const ownedBoundaryArticles = new Set(entitiesOf(db, 'article')
+        .filter((item) => item.owned !== false && item.capabilityHint === id)
+        .map((item) => String(item.id ?? '')));
+    if (cursors.length !== expectedPages.length)
+    {
+        return fail(id, 'pagination page 10/100/1000 cursors are required');
+    }
+    for (let index = 0; index < expectedPages.length; index += 1)
+    {
+        const cursor = cursors[index] ?? {};
+        const boundary = cursor.boundaryIdentity ?? {};
+        const expectedPreceding = (expectedPages[index] - 1) * 10;
+        if (cursor.logicalPage !== expectedPages[index]
+        || typeof cursor.cursor !== 'string' || cursor.cursor.length === 0 || cursor.cursor.length > 512
+        || !/^\d+$/u.test(String(boundary.articleId ?? ''))
+        || !ownedBoundaryArticles.has(String(boundary.articleId))
+        || boundary.precedingItemCount !== expectedPreceding
+        || boundary.sortValue !== 0
+        || !String(boundary.createTimeUtc ?? '').trim())
+        {
+            return fail(id, `pagination logical page ${expectedPages[index]} boundary is incomplete`);
+        }
+    }
+    return pass(id, {
+        articleCount: fields.articleCount,
+        ownedArticleCount: fields.ownedArticleCount,
+        generation: fields.generation,
+        logicalPages: expectedPages
+    });
+}
+
 function verifyArticleStatus(id, expectedStatus, { allowMissingPublication = false } = {})
 {
     return (ctx) =>
@@ -1165,6 +1229,7 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
     'audit-single-valid': verifyAudit('audit-single-valid'),
     'audit-tamper-negative': verifyAudit('audit-tamper-negative'),
     'audit-unknown-action-negative': verifyAudit('audit-unknown-action-negative'),
+    'article-pagination-deep': verifyArticlePaginationDeep,
     'article-published': verifyArticlePublished,
     'article-archived': verifyArticleStatus('article-archived', 'archived', { allowMissingPublication: true }),
     'article-deleted': verifyArticleStatus('article-deleted', 'deleted', { allowMissingPublication: true }),

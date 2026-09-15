@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
@@ -152,6 +153,10 @@ public sealed class BanStateProjection
         }
 
         Interlocked.Increment(ref _knownReads);
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            "security-ban-projection",
+            normalized,
+            "hit");
         return entry.ToLookup();
     }
 
@@ -351,6 +356,10 @@ public sealed class BanStateProjection
         BanStateProjectionUpdate? loaded = await _source
             .LoadAsync(accountId, subjectHash, CancellationToken.None)
             .ConfigureAwait(false);
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            "security-ban-projection",
+            subjectHash,
+            "built");
         if (loaded is null
             || !TryNormalizeSubjectHash(loaded.Value.AccountSubjectHash, out string loadedSubjectHash)
             || !string.Equals(subjectHash, loadedSubjectHash, StringComparison.Ordinal))

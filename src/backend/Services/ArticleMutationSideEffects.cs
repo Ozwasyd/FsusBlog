@@ -199,6 +199,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     ArticleMutationProjectionInvalidator projections,
     ArticleMutationDelivery delivery,
     ArticleAssetCleanupPolicy assetCleanupPolicy,
+    TimeProvider timeProvider,
     ILogger<ArticleMutationSideEffectCoordinator> logger) : IArticleMutationSideEffectCoordinator
 {
     public Task AfterCreatedAsync(Article article, int articleId, ArticleListItemResponse? preview)
@@ -206,7 +207,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
             async () =>
             {
                 article.Id = articleId;
-                bool isPublic = ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow);
+                bool isPublic = ArticlePublication.IsPubliclyVisible(
+                    article,
+                    timeProvider.GetUtcNow().UtcDateTime);
                 if (isPublic)
                 {
                     await mutationFence.CommitPublicMutationFenceAsync(
@@ -365,7 +368,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 eventType,
                 version,
                 new ArticleMutationScopeChange(null, null),
-                version.EventOccurredAt ?? DateTime.UtcNow);
+                version.EventOccurredAt ?? timeProvider.GetUtcNow().UtcDateTime);
             ArticleMutationVersionDisposition disposition = await ArticleMutationOutboxVersionGuard
                 .EvaluateAsync(db, envelope, cancellationToken)
                 .ConfigureAwait(false);
@@ -674,9 +677,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
         }
     }
 
-    private static bool IsPubliclyListed(Article article)
+    private bool IsPubliclyListed(Article article)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         return !article.IsDeleted
             && article.Status == ArticleStatus.Published
             && (article.PublishedAt is null || article.PublishedAt <= now)

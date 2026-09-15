@@ -16,6 +16,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Fixtures;
 
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
@@ -37,6 +38,90 @@ namespace FsusBlog.Server.Tests;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class ArticleListKeysetPaginationIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Fact]
+    public async Task PublicContentPaginationFixture_SeedsTenThousandTwentyRealKeysetRows()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(Article),
+            typeof(ArticleBody),
+            typeof(ArticleRevision),
+            typeof(ArticlePublicationRecord));
+        string ownerPrefix = $"fxpc:pagination:{Guid.NewGuid():N}";
+        DateTime baseTimeUtc = new(2026, 9, 14, 8, 0, 0, DateTimeKind.Utc);
+
+        int inserted = await PublicContentFixtureSeeder.InsertDeepPaginationRowsAsync(
+            db,
+            ownerPrefix,
+            categoryId: 1,
+            tagId: 7,
+            contentBlockId: 1,
+            createdByAdminPrincipalId: 1,
+            rightsSnapshotId: 1,
+            markdownContent: "# body",
+            baseTimeUtc,
+            CancellationToken.None);
+
+        Assert.Equal(PublicContentFixtureSeeder.PaginationArticleCount, inserted);
+        int bodyCount = await db.Ado.GetIntAsync(
+            """
+            SELECT COUNT(1)
+            FROM article_body body
+            JOIN article ON article.id = body.article_id
+            WHERE left(article.title, length(@OwnerPrefix)) = @OwnerPrefix
+              AND body.markdown_content = '# body';
+            """,
+            new SugarParameter("@OwnerPrefix", ownerPrefix));
+        Assert.Equal(PublicContentFixtureSeeder.PaginationArticleCount, bodyCount);
+        List<PaginationFixtureBoundaryRow> boundaries = await db.Ado.SqlQueryAsync<PaginationFixtureBoundaryRow>(
+            """
+            WITH visible AS (
+                SELECT
+                    article.id AS "ArticleId",
+                    article.createtime AS "CreateTimeUtc",
+                    row_number() OVER (ORDER BY article.createtime DESC, article.id DESC) AS "Ordinal"
+                FROM article
+                JOIN article_publication publication ON publication.id = article.current_publication_id
+                JOIN article_revision revision ON revision.id = publication.article_revision_id
+                WHERE article.isdeleted = false
+                  AND article.status = 2
+                  AND left(article.title, length(@OwnerPrefix)) = @OwnerPrefix
+            )
+            SELECT "ArticleId", "CreateTimeUtc", "Ordinal"
+            FROM visible
+            WHERE "Ordinal" IN (90, 990, 9990)
+            ORDER BY "Ordinal";
+            """,
+            new SugarParameter("@OwnerPrefix", ownerPrefix));
+        Assert.Equal([90, 990, 9990], boundaries.Select(static row => row.Ordinal));
+
+        var codec = new ArticleListCursorCodec(new EphemeralDataProtectionProvider(), TimeProvider.System);
+        PublicContentPaginationProjection projection = PublicContentFixtureSeeder.BuildPaginationProjection(
+            generation: 73,
+            articleCount: inserted,
+            ownedArticleCount: inserted,
+            boundaries.Select((row, index) => new PublicContentPaginationBoundaryRow(
+                LogicalPage: new[] { 10, 100, 1000 }[index],
+                row.ArticleId,
+                row.CreateTimeUtc.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(row.CreateTimeUtc, DateTimeKind.Utc)
+                    : row.CreateTimeUtc.ToUniversalTime(),
+                SortValue: 0,
+                PrecedingItemCount: checked((int)row.Ordinal))).ToArray(),
+            codec);
+        Assert.All(projection.Cursors, page => Assert.True(codec.TryDecode(
+            page.Cursor,
+            categoryId: null,
+            tagId: null,
+            normalizedKeyword: string.Empty,
+            pageSize: 10,
+            queryVersion: 73,
+            sort: ArticleListSortMode.Latest,
+            out _)));
+    }
+
     [Fact]
     public async Task HotAndFeaturedSeedProjection_UsesOneBatchAndDropsInvisibleOrMissingIds()
     {
@@ -860,6 +945,22 @@ public sealed class ArticleListKeysetPaginationIntegrationTests(PostgresSchemaMi
             _articleBodyRepairQueue: new ArticleBodyRepairQueue(),
             _articleListCursorCodec: cursorCodec
                 ?? new ArticleListCursorCodec(new EphemeralDataProtectionProvider(), TimeProvider.System));
+    }
+
+    private sealed class PaginationFixtureBoundaryRow
+    {
+        public int ArticleId
+        {
+            get; init;
+        }
+        public DateTime CreateTimeUtc
+        {
+            get; init;
+        }
+        public long Ordinal
+        {
+            get; init;
+        }
     }
 
     private static async Task<IReadOnlyList<int>> ReadAllMatchingIdsAsync(string connectionString)

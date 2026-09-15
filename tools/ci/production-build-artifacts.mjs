@@ -787,30 +787,107 @@ export function verifyProductionBuildConsumerMaterialization({
     {
         const name = String(mapping?.name ?? '').trim();
         const destination = canonicalRelative(mapping?.destination, `domain ${name || '<empty>'} destination`);
+        const writable = mapping?.writable === true;
         const identity = `${name}\0${destination}`;
         if (verifiedMappings.has(identity))
         {
-            throw new Error(`duplicate required read-only domain mapping: ${name}=${destination}`);
+            throw new Error(`duplicate required domain mapping: ${name}=${destination}`);
         }
         const domain = receiptDomains.get(name);
-        if (!domain || domain.consumerMode !== 'read-only')
+        if (!domain || (!writable && domain.consumerMode !== 'read-only')
+            || (writable && !['read-only', 'copy-before-write'].includes(domain.consumerMode)))
         {
-            throw new Error(`required production artifact domain is not read-only: ${name}`);
+            throw new Error(`required production artifact domain has an incompatible consumer mode: ${name}`);
         }
         const records = receipt.artifacts.filter(item => item.path === domain.path || item.path.startsWith(`${domain.path}/`));
+        const bytes = records.reduce((sum, record) => sum + Number(record.size), 0);
+        const matchingEvidence = domainEvidence.filter(item => item?.name === name && item?.destination === destination);
+        if (matchingEvidence.length !== 1)
+        {
+            throw new Error(`${writable ? 'writable' : 'read-only'} domain mapping evidence is not exact: ${name}=${destination}`);
+        }
+        const materialization = matchingEvidence[0];
+        const domainTarget = assertInside(targetRoot, destination, `domain ${name} destination`);
+        if (writable)
+        {
+            const validMethod = materialization.method === 'reflink' || materialization.method === 'copy-fallback';
+            const validFallback = materialization.method === 'reflink'
+                ? materialization.fallbackReason === null
+                : typeof materialization.fallbackReason === 'string' && materialization.fallbackReason.length > 0;
+            const expectedAttemptMethods = materialization.method === 'reflink'
+                ? ['reflink']
+                : ['reflink', 'overlay', 'hardlink-writable-layer', 'copy-fallback'];
+            const attemptsValid = Array.isArray(materialization.attempts)
+                && materialization.attempts.length === expectedAttemptMethods.length
+                && materialization.attempts.every((attempt, index) =>
+                    attempt?.method === expectedAttemptMethods[index]
+                    && attempt?.status === (index === expectedAttemptMethods.length - 1 ? 'success' : 'unsupported'));
+            if (!validMethod || Number(materialization.bytes) !== bytes || !validFallback || !attemptsValid)
+            {
+                throw new Error(`writable domain mapping evidence is not exact: ${name}=${destination}`);
+            }
+            let targetStat;
+            try
+            {
+                targetStat = fs.lstatSync(domainTarget);
+            }
+            catch
+            {
+                throw new Error(`writable domain destination is missing: ${destination}`);
+            }
+            if (targetStat.isSymbolicLink() || !targetStat.isDirectory())
+            {
+                throw new Error(`writable domain destination is not a regular directory: ${destination}`);
+            }
+            const expectedMaterialized = records.map(record =>
+            {
+                const suffix = record.path === domain.path ? path.basename(record.path) : record.path.slice(domain.path.length + 1);
+                return path.posix.join(destination, suffix);
+            }).sort(compareArtifactPaths);
+            const actualMaterialized = walkFiles(targetRoot, destination, `writable domain ${name}`)
+                .sort(compareArtifactPaths);
+            if (!canonicalValueEquals(actualMaterialized, expectedMaterialized))
+            {
+                throw new Error(`writable domain destination inventory is not exact: ${destination}`);
+            }
+            for (const record of records)
+            {
+                const suffix = record.path === domain.path ? path.basename(record.path) : record.path.slice(domain.path.length + 1);
+                const target = assertInside(targetRoot, path.posix.join(destination, suffix), 'writable artifact');
+                const stat = fs.lstatSync(target);
+                if (stat.isSymbolicLink() || !stat.isFile())
+                {
+                    throw new Error(`writable artifact is not a regular file: ${path.posix.join(destination, suffix)}`);
+                }
+                if ((stat.mode & 0o222) === 0)
+                {
+                    throw new Error(`writable artifact is not writable: ${path.posix.join(destination, suffix)}`);
+                }
+                const bytesValue = fs.readFileSync(target);
+                if (bytesValue.byteLength !== Number(record.size) || sha256Buffer(bytesValue) !== record.sha256)
+                {
+                    throw new Error(`writable artifact digest mismatch: ${path.posix.join(destination, suffix)}`);
+                }
+            }
+            const evidenceMaterialized = materializationEvidence.materialized;
+            if (expectedMaterialized.some(value => evidenceMaterialized.filter(item => item === value).length !== 1))
+            {
+                throw new Error(`writable domain materialization evidence is not exact: ${destination}`);
+            }
+            verifiedMappings.set(identity, { name, destination, domain, writable });
+            continue;
+        }
         const expectedDomainEvidence = {
             name,
             destination,
             method: 'reference',
-            bytes: records.reduce((sum, record) => sum + Number(record.size), 0),
+            bytes,
             fallbackReason: null
         };
-        const matchingEvidence = domainEvidence.filter(item => item?.name === name && item?.destination === destination);
-        if (matchingEvidence.length !== 1 || !canonicalValueEquals(matchingEvidence[0], expectedDomainEvidence))
+        if (!canonicalValueEquals(materialization, expectedDomainEvidence))
         {
             throw new Error(`read-only domain mapping evidence is not exact: ${name}=${destination}`);
         }
-        const domainTarget = assertInside(targetRoot, destination, `domain ${name} destination`);
         let targetStat;
         try
         {
@@ -829,7 +906,7 @@ export function verifyProductionBuildConsumerMaterialization({
         {
             throw new Error(`read-only domain destination target mismatch: ${destination}`);
         }
-        verifiedMappings.set(identity, { name, destination, domain });
+        verifiedMappings.set(identity, { name, destination, domain, writable: false });
     }
 
     const candidates = [];
@@ -867,9 +944,13 @@ export function verifyProductionBuildConsumerMaterialization({
         }
         const artifactPath = assertInside(sourceRoot, receiptPath, 'required receipt artifact');
         const physicalPath = fs.realpathSync(candidatePath);
-        if (physicalPath !== fs.realpathSync(artifactPath))
+        if (!mapping.writable && physicalPath !== fs.realpathSync(artifactPath))
         {
             throw new Error(`required candidate physical artifact mismatch: ${candidate}`);
+        }
+        if (mapping.writable && physicalPath === fs.realpathSync(artifactPath))
+        {
+            throw new Error(`required writable candidate still aliases the sealed artifact: ${candidate}`);
         }
         if (materializationEvidence.materialized.filter(value => value === candidate).length !== 1)
         {

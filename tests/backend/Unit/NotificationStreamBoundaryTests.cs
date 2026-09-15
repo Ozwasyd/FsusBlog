@@ -229,6 +229,120 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public async Task AdmissionAccountCache_HighCardinalityRemainsWithinAllBudgetsAndEvictsOldest()
+    {
+        const int MaxEntries = 128;
+        var reader = new GeneratedAccountReader();
+        var cache = new NotificationStreamAccountAdmissionCache(
+            new NotificationStreamAccountAdmissionCacheOptions
+            {
+                MaxEntries = MaxEntries,
+                MaxLogicalBytes = 1024 * 1024,
+                MaxCapacityBytes = 2 * 1024 * 1024
+            },
+            TimeProvider.System);
+
+        for (int accountId = 1; accountId <= 20_000; accountId++)
+        {
+            NotificationStreamAccountAdmissionCacheResult result = await cache.GetOrCreateAsync(
+                accountId,
+                reader,
+                CancellationToken.None);
+            Assert.Equal(accountId, result.Account?.Id);
+        }
+
+        NotificationStreamAccountAdmissionCacheSnapshot snapshot = cache.Snapshot();
+        Assert.Equal(MaxEntries, snapshot.Entries);
+        Assert.InRange(snapshot.LogicalBytes, 1, snapshot.MaxLogicalBytes);
+        Assert.InRange(snapshot.CapacityBytes, snapshot.LogicalBytes, snapshot.MaxCapacityBytes);
+
+        int loadsBeforeProbes = reader.LoadCount;
+        NotificationStreamAccountAdmissionCacheResult newest = await cache.GetOrCreateAsync(
+            20_000,
+            reader,
+            CancellationToken.None);
+        NotificationStreamAccountAdmissionCacheResult oldest = await cache.GetOrCreateAsync(
+            1,
+            reader,
+            CancellationToken.None);
+        Assert.True(newest.Hit);
+        Assert.False(oldest.Hit);
+        Assert.Equal(loadsBeforeProbes + 1, reader.LoadCount);
+    }
+
+    [Fact]
+    public async Task AdmissionAccountCache_ConcurrentUniqueLoadsRemainWithinEntryAndByteBudgets()
+    {
+        var reader = new GeneratedAccountReader(yieldBeforeReturn: true);
+        var cache = new NotificationStreamAccountAdmissionCache(
+            new NotificationStreamAccountAdmissionCacheOptions
+            {
+                MaxEntries = 10_000,
+                MaxLogicalBytes = 8 * 1024,
+                MaxCapacityBytes = 12 * 1024
+            },
+            TimeProvider.System);
+
+        NotificationStreamAccountAdmissionCacheResult[] results = await Task.WhenAll(
+            Enumerable.Range(1, 10_000)
+                .Select(accountId => cache.GetOrCreateAsync(accountId, reader, CancellationToken.None)));
+
+        Assert.All(results, static result => Assert.NotNull(result.Account));
+        NotificationStreamAccountAdmissionCacheSnapshot snapshot = cache.Snapshot();
+        Assert.InRange(snapshot.Entries, 1, snapshot.MaxEntries);
+        Assert.True(snapshot.Entries < snapshot.MaxEntries);
+        Assert.InRange(snapshot.LogicalBytes, 1, snapshot.MaxLogicalBytes);
+        Assert.InRange(snapshot.CapacityBytes, snapshot.LogicalBytes, snapshot.MaxCapacityBytes);
+        Assert.Equal(10_000, reader.LoadCount);
+    }
+
+    [Fact]
+    public async Task AdmissionAccountCache_SnapshotSweepsExpiredEntriesWithoutExtendingTtlOnHit()
+    {
+        var clock = new ManualTimeProvider(new DateTimeOffset(2026, 9, 14, 0, 0, 0, TimeSpan.Zero));
+        var reader = new GeneratedAccountReader();
+        var cache = new NotificationStreamAccountAdmissionCache(
+            new NotificationStreamAccountAdmissionCacheOptions(),
+            clock);
+
+        _ = await cache.GetOrCreateAsync(42, reader, CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(59));
+        Assert.True((await cache.GetOrCreateAsync(42, reader, CancellationToken.None)).Hit);
+        clock.Advance(TimeSpan.FromSeconds(2));
+
+        NotificationStreamAccountAdmissionCacheSnapshot expired = cache.Snapshot();
+        Assert.Equal(0, expired.Entries);
+        Assert.Equal(0, expired.LogicalBytes);
+        Assert.Equal(0, expired.CapacityBytes);
+        Assert.False((await cache.GetOrCreateAsync(42, reader, CancellationToken.None)).Hit);
+        Assert.Equal(2, reader.LoadCount);
+    }
+
+    [Fact]
+    public void AdmissionAccountCache_BindsExplicitBudgetsFromConfiguration()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{NotificationStreamAccountAdmissionCacheOptions.SectionName}:MaxEntries"] = "17",
+                [$"{NotificationStreamAccountAdmissionCacheOptions.SectionName}:MaxLogicalBytes"] = "4096",
+                [$"{NotificationStreamAccountAdmissionCacheOptions.SectionName}:MaxCapacityBytes"] = "8192"
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeInfrastructureServices(configuration);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        NotificationStreamAccountAdmissionCacheSnapshot snapshot = provider
+            .GetRequiredService<NotificationStreamAccountAdmissionCache>()
+            .Snapshot();
+
+        Assert.Equal(17, snapshot.MaxEntries);
+        Assert.Equal(4096, snapshot.MaxLogicalBytes);
+        Assert.Equal(8192, snapshot.MaxCapacityBytes);
+    }
+
+    [Fact]
     public async Task Admission_MissingPhysicalSubjectFailsClosedWithoutBanLookup()
     {
         var blacklist = Substitute.For<IBlacklistService>();
@@ -1173,6 +1287,39 @@ public class NotificationStreamBoundaryTests
             Requests.Add(userId);
             return Task.FromResult(NotificationStreamAdmissionResult.Allowed);
         }
+    }
+
+    private sealed class GeneratedAccountReader(bool yieldBeforeReturn = false) : IUserAccountReader
+    {
+        private int _loadCount;
+
+        public int LoadCount => Volatile.Read(ref _loadCount);
+
+        public async Task<UserAccountSnapshot?> GetAccountByIdAsync(int id)
+        {
+            Interlocked.Increment(ref _loadCount);
+            if (yieldBeforeReturn)
+            {
+                await Task.Yield();
+            }
+            return new UserAccountSnapshot(
+                id,
+                0,
+                null,
+                false,
+                null,
+                PublicHandle: $"account-{id}",
+                AccountSubjectHash: id.ToString("x64", System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        private DateTimeOffset _now = now;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void Advance(TimeSpan duration) => _now += duration;
     }
 
     private sealed class FixedRiskScoreReader(int score) : ISecurityRiskScoreReader

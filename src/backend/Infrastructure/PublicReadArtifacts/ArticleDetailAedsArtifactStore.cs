@@ -172,7 +172,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
 
         if (TryReadMemory(articleId, out byte[]? frame))
         {
-            FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_memory", FsusObservability.GetElapsed(startedAt));
+            FsusObservability.RecordArticleDetailArtifactMemoryHit(FsusObservability.GetElapsed(startedAt));
             return new ArticleDetailAedsArtifact(frame);
         }
 
@@ -1117,7 +1117,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 publication.published_at AS "PublishedAt",
                 a.public_updated_at AS "UpdatedAt",
                 c.name AS "CategoryName",
-                COALESCE(revision.markdown_content, '') AS "Content",
+                COALESCE(body.markdown_content, '') AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
                 rights.revision_no AS "RightsRevisionNo",
@@ -1153,6 +1153,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
             FROM article a
             JOIN article_publication publication ON publication.id = a.current_publication_id
             JOIN article_revision revision ON revision.id = publication.article_revision_id
+            LEFT JOIN article_body body ON body.article_id = a.id
             LEFT JOIN category c ON revision.categoryid = c.id
             LEFT JOIN LATERAL (
                 SELECT snapshot.*
@@ -1189,7 +1190,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 revision.summary,
                 revision.cover_image_url,
                 revision.categoryid,
-                revision.markdown_content,
+                body.markdown_content,
                 a.views,
                 a.createtime,
                 a.isdeleted,

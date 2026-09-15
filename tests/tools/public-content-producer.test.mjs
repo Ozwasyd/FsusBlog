@@ -167,6 +167,68 @@ function minimalObservations({ empty = false } = {}) {
   }
 }
 
+function deepPaginationFixture() {
+  const observations = minimalObservations()
+  observations.database.entities[0].capabilityHint = 'article-published'
+  observations.database.entities[1].capabilityHint = 'article-published'
+  const boundaries = [
+    { logicalPage: 10, cursor: 'opaque-page-10', boundaryIdentity: { articleId: '9010', createTimeUtc: '2026-09-14T08:00:00Z', sortValue: 0, precedingItemCount: 90 } },
+    { logicalPage: 100, cursor: 'opaque-page-100', boundaryIdentity: { articleId: '9910', createTimeUtc: '2026-09-14T07:59:00Z', sortValue: 0, precedingItemCount: 990 } },
+    { logicalPage: 1000, cursor: 'opaque-page-1000', boundaryIdentity: { articleId: '99910', createTimeUtc: '2026-09-14T07:58:00Z', sortValue: 0, precedingItemCount: 9990 } }
+  ]
+  for (const boundary of boundaries) {
+    observations.database.entities.push({
+      kind: 'article',
+      id: boundary.boundaryIdentity.articleId,
+      capabilityHint: 'article-pagination-deep',
+      fields: { logicalPage: boundary.logicalPage, boundaryIdentity: boundary.boundaryIdentity }
+    })
+  }
+  observations.database.entities.push({
+    kind: 'pagination-keyset',
+    id: 'article/list/home:latest:size=10',
+    capabilityHint: 'article-pagination-deep',
+    postconditionId: 'article-pagination-deep',
+    fields: {
+      route: 'article/list/home',
+      sort: 'latest',
+      pageSize: 10,
+      generation: 47,
+      articleCount: 10_023,
+      ownedArticleCount: 10_023,
+      cursors: boundaries
+    }
+  })
+  return {
+    observations,
+    entityIdentities: [
+      { kind: 'category', id: '11' },
+      { kind: 'tag', id: '22' },
+      { kind: 'article', id: '101' },
+      { kind: 'article', id: '102' },
+      { kind: 'article', id: '103' },
+      ...boundaries.map((item) => ({ kind: 'article', id: item.boundaryIdentity.articleId })),
+      { kind: 'pagination-keyset', id: 'article/list/home:latest:size=10' }
+    ],
+    projection: {
+      articleId: '101',
+      categoryId: '11',
+      tagId: '22',
+      articleTitle: 'fixture article',
+      searchKeyword: 'FXPC_PRIMARY_BODY',
+      pagination: {
+        route: 'article/list/home',
+        sort: 'latest',
+        pageSize: 10,
+        generation: 47,
+        articleCount: 10_023,
+        ownedArticleCount: 10_023,
+        cursors: boundaries
+      }
+    }
+  }
+}
+
 test('public-content catalog strategy is transaction-fixture with single owner', () => {
   const catalogs = readFixtureCatalogs()
   const producer = catalogs.producer.producers.find((item) => item.id === 'public-content')
@@ -214,6 +276,20 @@ test('public-content-lifecycle plan covers draft/scheduled/archived/deleted/mult
   assert.equal(planDocument.lifecycle.deleted, true)
   assert.equal(planDocument.requireMultipleRevisions, true)
   assert.equal(planDocument.requireMultiplePublications, true)
+})
+
+test('runtime-cache-pagination plan requires the dedicated 10,020-row cursor authority', () => {
+  const planDocument = buildPublicContentPlan([
+    'public.article.pagination-deep',
+    'public.article.published'
+  ])
+  assert.equal(planDocument.mode, 'runtime-cache-pagination')
+  assert.deepEqual(planDocument.deepPagination, {
+    required: true,
+    articleCountMin: 10_020,
+    pageSize: 10,
+    logicalPages: [10, 100, 1000]
+  })
 })
 
 test('public-empty plan is exclusive and zero published', () => {
@@ -342,6 +418,40 @@ test('prepare rejects local-fallback and incomplete published set', async () => 
   )
 })
 
+test('prepare accepts only backend-owned page 10/100/1000 pagination cursors', async () => {
+  const capabilities = ['public.article.pagination-deep', 'public.article.published']
+  const variantContext = producerVariantContext(capabilities)
+  const fixture = deepPaginationFixture()
+  const context = {
+    ...variantContext,
+    plan: { capabilities },
+    namespace: 'ns',
+    runIdentity: 'run',
+    handles: {
+      publicContentAdapter: {
+        async prepare() {
+          return { strategy: 'transaction-fixture', ...fixture }
+        }
+      }
+    }
+  }
+
+  const result = await preparePublicContent(context)
+  assert.equal(result.plan.mode, 'runtime-cache-pagination')
+  assert.equal(result.projection.pagination.generation, 47)
+  assert.equal(result.projection.pagination.cursors[2].cursor, 'opaque-page-1000')
+
+  const tampered = deepPaginationFixture()
+  tampered.projection.pagination.cursors[2].boundaryIdentity.articleId = '404'
+  await assert.rejects(
+    () => preparePublicContent({
+      ...context,
+      handles: { publicContentAdapter: { async prepare() { return { strategy: 'transaction-fixture', ...tampered } } } }
+    }),
+    /logical page 1000 cursor\/boundary is invalid/u
+  )
+})
+
 test('canonical public-content rejects a real rights recompute sentinel in observed entity fields', async () => {
   const capabilities = ['public.article.published', 'public.taxonomy.category-tag']
   const context = producerVariantContext(capabilities)
@@ -422,6 +532,7 @@ test('postconditions: published, taxonomy, search, empty, multi rev/pub', () => 
   assert.equal(runPostcondition('search-indexed', { observations: publishedObs }).ok, true)
   assert.equal(runPostcondition('home-featured-hot', { observations: publishedObs }).ok, true)
   assert.equal(runPostcondition('article-revision-history', { observations: publishedObs }).ok, true)
+  assert.equal(runPostcondition('article-pagination-deep', { observations: deepPaginationFixture().observations }).ok, true)
 
   const multi = structuredClone(publishedObs)
   multi.database.entities.push({

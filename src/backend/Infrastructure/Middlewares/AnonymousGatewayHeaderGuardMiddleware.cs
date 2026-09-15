@@ -83,7 +83,9 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
             }
 
             string? reason = ResolveRejectionReason(headerName);
-            if (reason is null || IsDevelopmentOnlyHeaderAllowed(context, headerName))
+            if (reason is null
+                || RuntimeCacheEvidenceMiddleware.AllowsAuthenticatedHeader(context, headerName)
+                || IsDevelopmentOnlyHeaderAllowed(context, headerName))
             {
                 continue;
             }

@@ -11,6 +11,8 @@ public interface ICacheInvalidationDispatcher
     Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default);
     Task InvalidateArticleMutationAsync(int? articleId, string mutationId, CancellationToken cancellationToken)
         => InvalidateArticleMutationAsync(articleId, cancellationToken);
+    Task InvalidateArticleBodyRepairAsync(int articleId, string mutationId, CancellationToken cancellationToken)
+        => InvalidateArticleMutationAsync(articleId, mutationId, cancellationToken);
     Task InvalidateSeoAsync(CancellationToken cancellationToken = default);
     Task InvalidateSeoAsync(string mutationId, CancellationToken cancellationToken)
         => InvalidateSeoAsync(cancellationToken);
@@ -291,6 +293,43 @@ public sealed class CacheInvalidationDispatcher(
             [articleId is > 0 ? $"article-detail:{articleId.Value}" : "article-detail:*", "public-aot", "public-hot-read"],
             cancellationToken,
             mutationId);
+    }
+
+    public async Task InvalidateArticleBodyRepairAsync(
+        int articleId,
+        string mutationId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(articleId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mutationId);
+        await invalidation.RemoveManyAsync(
+            [
+                new(CachePolicyId.ArticleDetail, articleId.ToString()),
+                new(CachePolicyId.ArticleDetail, $"core:v2:{articleId}"),
+                new(CachePolicyId.ArticleDetail, $"core:v3:{articleId}"),
+                new(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId}")
+            ],
+            cancellationToken).ConfigureAwait(false);
+        await invalidation.RemoveByPrefixAsync(
+            CachePolicyId.RelatedReading,
+            $"article:{articleId}:",
+            cancellationToken).ConfigureAwait(false);
+        long searchVersion = await counters.IncrementAsync(
+            CachePolicyId.ArticleSearchVersion,
+            "main",
+            1,
+            cancellationToken).ConfigureAwait(false);
+        await RecordRuntimeAsync(
+            "article",
+            $"article:{articleId};body-repair;search:v{searchVersion}",
+            cancellationToken).ConfigureAwait(false);
+        await PublishDistributedAsync(
+            DistributedInvalidationEventKinds.ArticleMutation,
+            ["article"],
+            [$"article:{articleId}"],
+            [$"article-detail:{articleId}", "public-aot", "public-hot-read"],
+            cancellationToken,
+            mutationId).ConfigureAwait(false);
     }
 
     public Task InvalidateSeoAsync(CancellationToken cancellationToken = default)

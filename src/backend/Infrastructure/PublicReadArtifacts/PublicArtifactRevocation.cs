@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.Extensions.Options;
 
@@ -282,6 +283,31 @@ public sealed class PublicArtifactRevocationRegistry
         }
     }
 
+    internal bool ForgetRuntimeEvidenceGuard(PublicArtifactTombstone tombstone)
+    {
+        PublicArtifactRevocationTarget target = tombstone.Target;
+        lock (_mutationLock)
+        {
+            if (TryGetActive(target, out _))
+            {
+                return false;
+            }
+
+            if (_observedGenerations.TryGetValue(target, out long observed)
+                && observed == tombstone.Generation)
+            {
+                _observedGenerations.Remove(target);
+            }
+            if (_clearedGenerations.TryGetValue(target, out long cleared)
+                && cleared == tombstone.Generation)
+            {
+                _clearedGenerations.Remove(target);
+            }
+            return !_observedGenerations.ContainsKey(target)
+                && !_clearedGenerations.ContainsKey(target);
+        }
+    }
+
     public bool TryGet(int articleId, out PublicArtifactTombstone tombstone)
     {
         if (articleId > 0)
@@ -543,8 +569,8 @@ public sealed class RedisPublicArtifactRevocationStateStore(
                         hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
                         field = (RedisValue)target.StorageField,
                         articleId = target.ArticleId,
-                        targetKind = (byte)target.Kind,
-                        scope = (byte)target.Scope,
+                        targetKind = (RedisValue)(int)target.Kind,
+                        scope = (RedisValue)(int)target.Scope,
                         revokedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     }),
                 cancellationToken)
@@ -1099,7 +1125,12 @@ public static class PublicArtifactRevocationMiddleware
         }
 
         context.Response.Headers["X-Fsus-Generation"] = registry.CurrentGeneration.ToString(CultureInfo.InvariantCulture);
-        if (!registry.TryResolve(feature.Route, out PublicArtifactTombstone tombstone))
+        bool revoked = registry.TryResolve(feature.Route, out PublicArtifactTombstone tombstone);
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            "public-artifact-revocation-lookup",
+            $"{context.Request.Method}:{context.Request.Path.Value}",
+            revoked ? "hit" : "negative");
+        if (!revoked)
         {
             return next(context);
         }

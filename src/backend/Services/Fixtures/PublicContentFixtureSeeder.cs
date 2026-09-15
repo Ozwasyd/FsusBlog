@@ -8,6 +8,7 @@ using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -20,8 +21,10 @@ namespace FsusBlog.Server.Services.Fixtures;
 
 /// <summary>
 /// Test-only public content fixture composition root (#1712).
-/// Calls application/domain ports (IArticleCoreGateway, IAdminArtifactOperations)
-/// and owned-namespace taxonomy inserts/invalidation — never public/admin HTTP APIs, never Node SQL.
+/// Canonical lifecycle rows call application/domain ports (IArticleCoreGateway, IAdminArtifactOperations).
+/// The dedicated deep-pagination profile uses an owned, set-based PostgreSQL fixture write here,
+/// then derives boundaries with the production keyset order and IArticleListCursorCodec.
+/// Never public/admin HTTP APIs, never Node SQL or cursor construction.
 /// </summary>
 public interface IPublicContentFixtureSeeder
 {
@@ -229,11 +232,61 @@ public sealed class PublicContentProjectionHints
     }
     public IReadOnlyList<string> PublishedArticleIds { get; init; } = [];
     public IReadOnlyList<string> HotOrder { get; init; } = [];
+    public PublicContentPaginationProjection? Pagination
+    {
+        get; init;
+    }
 }
+
+public sealed class PublicContentPaginationProjection
+{
+    public string Route { get; init; } = "article/list/home";
+    public string Sort { get; init; } = "latest";
+    public int PageSize
+    {
+        get; init;
+    }
+    public long Generation
+    {
+        get; init;
+    }
+    public int ArticleCount
+    {
+        get; init;
+    }
+    public int OwnedArticleCount
+    {
+        get; init;
+    }
+    public required IReadOnlyList<PublicContentPaginationCursor> Cursors
+    {
+        get; init;
+    }
+}
+
+public sealed record PublicContentPaginationCursor(
+    int LogicalPage,
+    string Cursor,
+    PublicContentPaginationBoundaryIdentity BoundaryIdentity);
+
+public sealed record PublicContentPaginationBoundaryIdentity(
+    string ArticleId,
+    DateTime CreateTimeUtc,
+    long SortValue,
+    int PrecedingItemCount);
+
+internal sealed record PublicContentPaginationBoundaryRow(
+    int LogicalPage,
+    int ArticleId,
+    DateTime CreateTimeUtc,
+    long SortValue,
+    int PrecedingItemCount);
 
 public sealed class PublicContentFixtureSeeder(
     IArticleCoreGateway articles,
     ISqlSugarClient db,
+    ICacheStringReader cacheReader,
+    IArticleListCursorCodec articleListCursorCodec,
     ICacheInvalidationDispatcher cacheInvalidation,
     IAdminArtifactOperations artifactOperations,
     ISearchIndexService searchIndex,
@@ -249,6 +302,9 @@ public sealed class PublicContentFixtureSeeder(
     IConfiguration configuration) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
+    internal const int PaginationArticleCount = 10_020;
+    internal const int PaginationPageSize = 10;
+    private static readonly int[] s_paginationLogicalPages = [10, 100, 1_000];
     private const int MaxOutboxDrainPasses = 16;
     private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan s_securityMatrixConvergenceTimeout = TimeSpan.FromMinutes(6);
@@ -272,6 +328,9 @@ public sealed class PublicContentFixtureSeeder(
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static item => item, StringComparer.Ordinal)
             .ToArray();
+        bool requiresDeepPagination = capabilities.Contains(
+            "public.article.pagination-deep",
+            StringComparer.Ordinal);
 
         string ns = string.IsNullOrWhiteSpace(request.Namespace) ? "local" : request.Namespace.Trim();
         string runToken = string.IsNullOrWhiteSpace(request.RunId)
@@ -417,6 +476,41 @@ public sealed class PublicContentFixtureSeeder(
                     ["hasCover"] = plan.CoverImageUrl is not null
                 }
             });
+        }
+
+        if (requiresDeepPagination)
+        {
+            foreach (PublicContentObservedEntity article in observed
+                .Where(static item => item.Kind == "article"
+                    && item.CapabilityHint == "article-published")
+                .ToArray())
+            {
+                observed.Add(new PublicContentObservedEntity
+                {
+                    Kind = article.Kind,
+                    Id = article.Id,
+                    Owned = article.Owned,
+                    CapabilityHint = "article-pagination-deep",
+                    Projection = article.Projection,
+                    Fields = new Dictionary<string, object?>(article.Fields)
+                });
+            }
+
+            // Replay the three domain-created articles before adding the set-based
+            // pagination rows. Otherwise each search edge scans all 10,020 rows
+            // even though deep-pagination fixtures intentionally have no bodies.
+            await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
+            await SeedDeepPaginationArticlesAsync(
+                    ownerPrefix,
+                    category.Id,
+                    tag.Id,
+                    publishedIds[0],
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await cacheInvalidation.InvalidateArticleMutationAsync(
+                    articleId: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (capabilities.Contains("public.article.draft", StringComparer.Ordinal))
@@ -670,12 +764,16 @@ public sealed class PublicContentFixtureSeeder(
         // Cache / search / hot rebuild via domain ports — fail closed if degraded.
         await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
 
-        AdminCacheActionResponse searchRebuild = await artifactOperations.RunCacheActionAsync(
-            new AdminCacheActionRequest("search-rebuild"),
-            cancellationToken).ConfigureAwait(false);
-        if (!string.Equals(searchRebuild.Status, "ok", StringComparison.OrdinalIgnoreCase))
+        bool requiresSearch = capabilities.Contains("public.search.indexed", StringComparer.Ordinal);
+        if (!requiresDeepPagination || requiresSearch)
         {
-            throw new InvalidOperationException($"search-rebuild failed: {searchRebuild.Status} {searchRebuild.Detail}");
+            AdminCacheActionResponse searchRebuild = await artifactOperations.RunCacheActionAsync(
+                new AdminCacheActionRequest("search-rebuild"),
+                cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(searchRebuild.Status, "ok", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"search-rebuild failed: {searchRebuild.Status} {searchRebuild.Detail}");
+            }
         }
 
         AdminCacheActionResponse hotRebuild = await artifactOperations.RunCacheActionAsync(
@@ -709,7 +807,9 @@ public sealed class PublicContentFixtureSeeder(
             }
         }
 
-        List<Article> searchHits = await searchIndex.SearchAsync(searchToken).ConfigureAwait(false);
+        List<Article> searchHits = requiresDeepPagination && !requiresSearch
+            ? []
+            : await searchIndex.SearchAsync(searchToken).ConfigureAwait(false);
         bool searchHit = searchHits.Any(item => publishedIds.Contains(item.Id));
         if (!searchHit && capabilities.Contains("public.search.indexed", StringComparer.Ordinal))
         {
@@ -720,12 +820,15 @@ public sealed class PublicContentFixtureSeeder(
             new ArticlePageQuery(1, 10, category.Id, tag.Id, IsDeleted: false, Status: (int)ArticleStatus.Published),
             cancellationToken).ConfigureAwait(false);
         var listIds = list.Items.Select(static item => item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-        foreach (int publishedId in publishedIds)
+        if (!requiresDeepPagination)
         {
-            string idText = publishedId.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (!listIds.Contains(idText, StringComparer.Ordinal))
+            foreach (int publishedId in publishedIds)
             {
-                throw new InvalidOperationException($"public list missing owned published article {publishedId}");
+                string idText = publishedId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                if (!listIds.Contains(idText, StringComparer.Ordinal))
+                {
+                    throw new InvalidOperationException($"public list missing owned published article {publishedId}");
+                }
             }
         }
 
@@ -741,6 +844,42 @@ public sealed class PublicContentFixtureSeeder(
 
         string[] hotOrder = hot.Select(static item => item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
         string[] featuredIds = featured.Select(static item => item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        PublicContentPaginationProjection? paginationProjection = requiresDeepPagination
+            ? await ReadDeepPaginationProjectionAsync(ownerPrefix, cancellationToken).ConfigureAwait(false)
+            : null;
+        if (paginationProjection is not null)
+        {
+            foreach (PublicContentPaginationCursor pageCursor in paginationProjection.Cursors)
+            {
+                AddPaginationBoundaryEvidence(
+                    entityIdentities,
+                    observed,
+                    ownerPrefix,
+                    pageCursor);
+            }
+            entityIdentities.Add(new(
+                "pagination-keyset",
+                "article/list/home:latest:size=10",
+                ownerPrefix,
+                "article-pagination-deep"));
+            observed.Add(new PublicContentObservedEntity
+            {
+                Kind = "pagination-keyset",
+                Id = "article/list/home:latest:size=10",
+                CapabilityHint = "article-pagination-deep",
+                PostconditionId = "article-pagination-deep",
+                Fields = new Dictionary<string, object?>
+                {
+                    ["route"] = paginationProjection.Route,
+                    ["sort"] = paginationProjection.Sort,
+                    ["pageSize"] = paginationProjection.PageSize,
+                    ["generation"] = paginationProjection.Generation,
+                    ["articleCount"] = paginationProjection.ArticleCount,
+                    ["ownedArticleCount"] = paginationProjection.OwnedArticleCount,
+                    ["cursors"] = paginationProjection.Cursors
+                }
+            });
+        }
 
         var redisKeys = new List<PublicContentRedisKey>
         {
@@ -788,7 +927,9 @@ public sealed class PublicContentFixtureSeeder(
         return new PublicContentFixtureResult
         {
             Strategy = Strategy,
-            Mode = capabilities.Contains("public.article.draft", StringComparer.Ordinal) ? "public-content-lifecycle" : "public-minimal",
+            Mode = requiresDeepPagination
+                ? "runtime-cache-pagination"
+                : capabilities.Contains("public.article.draft", StringComparer.Ordinal) ? "public-content-lifecycle" : "public-minimal",
             EntityIdentities = entityIdentities,
             ProvidedCapabilities = capabilities,
             Projection = new PublicContentProjectionHints
@@ -799,7 +940,8 @@ public sealed class PublicContentFixtureSeeder(
                 ArticleTitle = publishedPlan[0].Title,
                 SearchKeyword = searchToken,
                 PublishedArticleIds = publishedIds.Select(static id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray(),
-                HotOrder = hotOrder
+                HotOrder = hotOrder,
+                Pagination = paginationProjection
             },
             Observations = new PublicContentObservations
             {
@@ -817,7 +959,7 @@ public sealed class PublicContentFixtureSeeder(
                 Cache = new PublicContentCacheObservation
                 {
                     Namespace = ns,
-                    Generation = timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
+                    Generation = paginationProjection?.Generation ?? timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
                     Entries = cacheEntries
                 }
             }
@@ -877,9 +1019,387 @@ public sealed class PublicContentFixtureSeeder(
             .ConfigureAwait(false);
     }
 
+    private async Task SeedDeepPaginationArticlesAsync(
+        string ownerPrefix,
+        int categoryId,
+        int tagId,
+        int sourceArticleId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Article sourceArticle = await LoadArticleAsync(sourceArticleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("pagination fixture source article is missing");
+        long sourceRevisionId = sourceArticle.CurrentRevisionId
+            ?? throw new InvalidOperationException("pagination fixture source article has no revision");
+        long sourcePublicationId = sourceArticle.CurrentPublicationId
+            ?? throw new InvalidOperationException("pagination fixture source article has no publication");
+        ArticleRevision sourceRevision = await db.Queryable<ArticleRevision>()
+            .InSingleAsync(sourceRevisionId)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException("pagination fixture source revision is missing");
+        ArticleBody sourceBody = await db.Queryable<ArticleBody>()
+            .InSingleAsync(sourceArticleId)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException("pagination fixture source article body is missing");
+        ArticlePublicationRecord sourcePublication = await db.Queryable<ArticlePublicationRecord>()
+            .InSingleAsync(sourcePublicationId)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException("pagination fixture source publication is missing");
+        DateTime baseTimeUtc = timeProvider.GetUtcNow().UtcDateTime;
+
+        int inserted = await InsertDeepPaginationRowsAsync(
+            db,
+            ownerPrefix,
+            categoryId,
+            tagId,
+            sourceRevision.ContentBlockId,
+            sourceRevision.CreatedByAdminPrincipalId,
+            sourcePublication.RightsSnapshotId,
+            sourceBody.MarkdownContent,
+            baseTimeUtc,
+            cancellationToken).ConfigureAwait(false);
+        if (inserted != PaginationArticleCount)
+        {
+            throw new InvalidOperationException(
+                $"pagination fixture inserted {inserted} articles; expected {PaginationArticleCount}");
+        }
+    }
+
+    internal static Task<int> InsertDeepPaginationRowsAsync(
+        ISqlSugarClient fixtureDb,
+        string ownerPrefix,
+        int categoryId,
+        int tagId,
+        long contentBlockId,
+        long createdByAdminPrincipalId,
+        long rightsSnapshotId,
+        string markdownContent,
+        DateTime baseTimeUtc,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return fixtureDb.Ado.ExecuteCommandAsync(
+            """
+            WITH generated AS MATERIALIZED (
+                SELECT
+                    source.ordinal,
+                    nextval(pg_get_serial_sequence('article', 'id'))::integer AS article_id,
+                    nextval(pg_get_serial_sequence('article_revision', 'id'))::bigint AS revision_id,
+                    nextval(pg_get_serial_sequence('article_publication', 'id'))::bigint AS publication_id,
+                    @BaseTimeUtc - ((source.ordinal - 1) * interval '1 microsecond') AS created_at
+                FROM generate_series(1, @ArticleCount) AS source(ordinal)
+            ), inserted_revisions AS (
+                INSERT INTO article_revision (
+                    id, article_id, revision_no, title, summary, cover_image_url, categoryid,
+                    tag_ids, content_block_id, markdown_content, diff_summary,
+                    created_by_admin_principal_id, rollback_source_revision_id, rollback_reason, created_at)
+                SELECT
+                    generated.revision_id,
+                    generated.article_id,
+                    1,
+                    @OwnerPrefix || ':pagination:' || lpad(generated.ordinal::text, 5, '0'),
+                    'Deep latest-keyset pagination fixture',
+                    NULL,
+                    @CategoryId,
+                    CAST(@TagId AS text),
+                    @ContentBlockId,
+                    '',
+                    'authoritative deep pagination fixture',
+                    @CreatedByAdminPrincipalId,
+                    NULL,
+                    NULL,
+                    generated.created_at
+                FROM generated
+                RETURNING id
+            ), inserted_publications AS (
+                INSERT INTO article_publication (
+                    id, article_id, publication_no, article_revision_id, revision_no,
+                    rights_snapshot_id, responsibility_snapshot_id, transition_kind,
+                    published_at, created_at)
+                SELECT
+                    generated.publication_id,
+                    generated.article_id,
+                    1,
+                    generated.revision_id,
+                    1,
+                    @RightsSnapshotId,
+                    NULL,
+                    'fixture-pagination',
+                    generated.created_at,
+                    generated.created_at
+                FROM generated
+                JOIN inserted_revisions ON inserted_revisions.id = generated.revision_id
+                RETURNING id
+            ), inserted_articles AS (
+                INSERT INTO article (
+                    id, title, summary, coverimageurl, categoryid, views, createtime,
+                    metadata_updated_at, status, scheduled_publish_at, published_at,
+                    last_published_at, public_updated_at, current_revision_id,
+                    current_publication_id, pending_publication_at, archived_at, deleted_at, isdeleted)
+                SELECT
+                    generated.article_id,
+                    @OwnerPrefix || ':pagination:' || lpad(generated.ordinal::text, 5, '0'),
+                    'Deep latest-keyset pagination fixture',
+                    NULL,
+                    @CategoryId,
+                    0,
+                    generated.created_at,
+                    generated.created_at,
+                    2,
+                    NULL,
+                    generated.created_at,
+                    generated.created_at,
+                    generated.created_at,
+                    generated.revision_id,
+                    generated.publication_id,
+                    NULL,
+                    NULL,
+                    NULL,
+                    false
+                FROM generated
+                JOIN inserted_publications ON inserted_publications.id = generated.publication_id
+                RETURNING id
+            )
+            INSERT INTO article_body (article_id, markdown_content, updated_at)
+            SELECT id, @MarkdownContent, @BaseTimeUtc
+            FROM inserted_articles;
+            """,
+            new SugarParameter("@ArticleCount", PaginationArticleCount),
+            new SugarParameter("@OwnerPrefix", ownerPrefix),
+            new SugarParameter("@CategoryId", categoryId),
+            new SugarParameter("@TagId", tagId),
+            new SugarParameter("@ContentBlockId", contentBlockId),
+            new SugarParameter("@CreatedByAdminPrincipalId", createdByAdminPrincipalId),
+            new SugarParameter("@RightsSnapshotId", rightsSnapshotId),
+            new SugarParameter("@MarkdownContent", markdownContent),
+            new SugarParameter("@BaseTimeUtc", baseTimeUtc));
+    }
+
+    private async Task<PublicContentPaginationProjection> ReadDeepPaginationProjectionAsync(
+        string ownerPrefix,
+        CancellationToken cancellationToken)
+    {
+        string? rawGeneration = await cacheReader.GetStringAsync(
+                CachePolicyId.ArticleListVersion,
+                "main",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!long.TryParse(
+                rawGeneration,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out long generation)
+            || generation < 0)
+        {
+            throw new InvalidOperationException("pagination fixture article-list generation is unavailable");
+        }
+
+        int[] precedingItemCounts = s_paginationLogicalPages
+            .Select(static page => checked((page - 1) * PaginationPageSize))
+            .ToArray();
+        var rows = new List<PublicContentPaginationBoundaryRow>(s_paginationLogicalPages.Length);
+        int articleCount = 0;
+        int ownedArticleCount = 0;
+        using (var reader = (System.Data.Common.DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            WITH visible AS (
+                SELECT
+                    article.id,
+                    article.createtime,
+                    row_number() OVER (ORDER BY article.createtime DESC, article.id DESC) AS ordinal,
+                    count(*) OVER () AS article_count,
+                    count(*) FILTER (
+                        WHERE left(article.title, length(@OwnerPrefix)) = @OwnerPrefix
+                    ) OVER () AS owned_article_count
+                FROM article
+                JOIN article_publication publication
+                  ON publication.id = article.current_publication_id
+                JOIN article_revision revision
+                  ON revision.id = publication.article_revision_id
+                WHERE article.isdeleted = false
+                  AND article.status = @PublishedStatus
+                  AND article.current_publication_id IS NOT NULL
+                  AND (article.published_at IS NULL OR article.published_at <= @NowUtc)
+                  AND (article.scheduled_publish_at IS NULL OR article.scheduled_publish_at <= @NowUtc)
+            )
+            SELECT id, createtime, ordinal, article_count, owned_article_count
+            FROM visible
+            WHERE ordinal IN (@Page10Boundary, @Page100Boundary, @Page1000Boundary)
+            ORDER BY ordinal;
+            """,
+            new SugarParameter("@OwnerPrefix", ownerPrefix),
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+            new SugarParameter("@NowUtc", timeProvider.GetUtcNow().UtcDateTime),
+            new SugarParameter("@Page10Boundary", precedingItemCounts[0]),
+            new SugarParameter("@Page100Boundary", precedingItemCounts[1]),
+            new SugarParameter("@Page1000Boundary", precedingItemCounts[2])))
+        {
+            int index = 0;
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (index >= s_paginationLogicalPages.Length)
+                {
+                    throw new InvalidOperationException("pagination fixture returned unexpected boundary rows");
+                }
+                articleCount = checked(Convert.ToInt32(reader.GetInt64(reader.GetOrdinal("article_count"))));
+                ownedArticleCount = checked(Convert.ToInt32(reader.GetInt64(reader.GetOrdinal("owned_article_count"))));
+                int precedingItemCount = checked(Convert.ToInt32(reader.GetInt64(reader.GetOrdinal("ordinal"))));
+                rows.Add(new PublicContentPaginationBoundaryRow(
+                    s_paginationLogicalPages[index],
+                    reader.GetInt32(reader.GetOrdinal("id")),
+                    NormalizeUtc(reader.GetDateTime(reader.GetOrdinal("createtime"))),
+                    SortValue: 0,
+                    precedingItemCount));
+                index++;
+            }
+        }
+
+        if (ownedArticleCount < PaginationArticleCount)
+        {
+            throw new InvalidOperationException(
+                $"pagination fixture exposes {ownedArticleCount} owned public latest rows; expected at least {PaginationArticleCount}");
+        }
+        return BuildPaginationProjection(
+            generation,
+            articleCount,
+            ownedArticleCount,
+            rows,
+            articleListCursorCodec);
+    }
+
+    internal static PublicContentPaginationProjection BuildPaginationProjection(
+        long generation,
+        int articleCount,
+        int ownedArticleCount,
+        IReadOnlyList<PublicContentPaginationBoundaryRow> rows,
+        IArticleListCursorCodec cursorCodec)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(cursorCodec);
+        if (generation < 0 || articleCount < PaginationArticleCount || ownedArticleCount < PaginationArticleCount)
+        {
+            throw new InvalidOperationException("deep pagination projection requires a current generation and at least 10,020 visible owned articles");
+        }
+        if (rows.Count != s_paginationLogicalPages.Length)
+        {
+            throw new InvalidOperationException("deep pagination projection requires page 10/100/1000 boundaries");
+        }
+
+        var cursors = new List<PublicContentPaginationCursor>(rows.Count);
+        for (int index = 0; index < rows.Count; index++)
+        {
+            PublicContentPaginationBoundaryRow row = rows[index];
+            int expectedPage = s_paginationLogicalPages[index];
+            int expectedPreceding = checked((expectedPage - 1) * PaginationPageSize);
+            if (row.LogicalPage != expectedPage
+                || row.PrecedingItemCount != expectedPreceding
+                || row.ArticleId <= 0
+                || row.SortValue != 0)
+            {
+                throw new InvalidOperationException($"deep pagination boundary {index} is not the canonical latest-keyset boundary");
+            }
+
+            string cursor = cursorCodec.Encode(
+                new ArticleListCursorPosition(row.CreateTimeUtc, row.ArticleId, row.SortValue),
+                categoryId: null,
+                tagId: null,
+                normalizedKeyword: string.Empty,
+                pageSize: PaginationPageSize,
+                queryVersion: generation,
+                sort: ArticleListSortMode.Latest);
+            cursors.Add(new PublicContentPaginationCursor(
+                row.LogicalPage,
+                cursor,
+                new PublicContentPaginationBoundaryIdentity(
+                    row.ArticleId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    row.CreateTimeUtc,
+                    row.SortValue,
+                    row.PrecedingItemCount)));
+        }
+
+        return new PublicContentPaginationProjection
+        {
+            PageSize = PaginationPageSize,
+            Generation = generation,
+            ArticleCount = articleCount,
+            OwnedArticleCount = ownedArticleCount,
+            Cursors = cursors
+        };
+    }
+
+    internal static void AddPaginationBoundaryEvidence(
+        List<PublicContentEntityIdentity> identities,
+        List<PublicContentObservedEntity> observations,
+        string ownerPrefix,
+        PublicContentPaginationCursor pageCursor)
+    {
+        ArgumentNullException.ThrowIfNull(identities);
+        ArgumentNullException.ThrowIfNull(observations);
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerPrefix);
+        ArgumentNullException.ThrowIfNull(pageCursor);
+        string articleId = pageCursor.BoundaryIdentity.ArticleId;
+        if (!identities.Any(item => item.Kind == "article" && item.Id == articleId))
+        {
+            identities.Add(new(
+                "article",
+                articleId,
+                $"{ownerPrefix}:pagination-boundary:{pageCursor.LogicalPage}",
+                "article-pagination-deep"));
+        }
+        if (!observations.Any(item => item.Kind == "article"
+            && item.Id == articleId
+            && item.CapabilityHint == "article-pagination-deep"))
+        {
+            observations.Add(new PublicContentObservedEntity
+            {
+                Kind = "article",
+                Id = articleId,
+                CapabilityHint = "article-pagination-deep",
+                Fields = new Dictionary<string, object?>
+                {
+                    ["status"] = "published",
+                    ["deleted"] = false,
+                    ["logicalPage"] = pageCursor.LogicalPage,
+                    ["boundaryIdentity"] = pageCursor.BoundaryIdentity
+                }
+            });
+        }
+    }
+
+    private static DateTime NormalizeUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
     private async Task CleanupOwnedAsync(string ownerPrefix, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            WITH deep_articles AS (
+                SELECT id
+                FROM article
+                WHERE left(title, length(@DeepPrefix)) = @DeepPrefix
+            ), deleted_publications AS (
+                DELETE FROM article_publication
+                WHERE article_id IN (SELECT id FROM deep_articles)
+            ), deleted_revisions AS (
+                DELETE FROM article_revision
+                WHERE article_id IN (SELECT id FROM deep_articles)
+            ), deleted_tags AS (
+                DELETE FROM article_tag
+                WHERE articleid IN (SELECT id FROM deep_articles)
+            ), deleted_bodies AS (
+                DELETE FROM article_body
+                WHERE article_id IN (SELECT id FROM deep_articles)
+            )
+            DELETE FROM article
+            WHERE id IN (SELECT id FROM deep_articles);
+            """,
+            new SugarParameter("@DeepPrefix", $"{ownerPrefix}:pagination:")).ConfigureAwait(false);
         List<Article> owned = await db.Queryable<Article>()
             .Where(item => item.Title.StartsWith(ownerPrefix))
             .ToListAsync()

@@ -580,6 +580,7 @@ VALUES (
 ON CONFLICT (sessionid) DO UPDATE SET
   adminprincipalid = EXCLUDED.adminprincipalid,
   accesstokenhash = EXCLUDED.accesstokenhash,
+  validationversion = admin_session.validationversion + 1,
   devicefingerprint = EXCLUDED.devicefingerprint,
   lastip = EXCLUDED.lastip,
   useragent = EXCLUDED.useragent,

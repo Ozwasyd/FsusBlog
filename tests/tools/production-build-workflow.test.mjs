@@ -180,7 +180,7 @@ test('smart gate selects producer exactly when an immutable build consumer is se
 
     const docsOnlyResult = run('docs/README-only.md');
     const docsOnly = docsOnlyResult.plan;
-    assert.ok(docsOnly.selectedTierIds.includes('backend-qps-cache-hit'));
+    assert.ok(docsOnly.selectedTierIds.includes('runtime-cache-public-hot-read'));
     assert.ok(docsOnly.selectedTierIds.includes('production-build-artifacts'));
     assert.match(
         docsOnly.selectedTiers.find(tier => tier.id === 'production-build-artifacts').reason,

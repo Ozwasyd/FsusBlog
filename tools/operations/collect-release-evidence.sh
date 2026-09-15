@@ -846,7 +846,13 @@ if [[ -f "$FONT_LICENSE_SOURCE" ]]; then
 fi
 FONT_LICENSE_SUMMARY="$(CopyIfPresent "$FONT_LICENSE_SOURCE" font-license-summary.json)"
 PUBLISH_ARTIFACTS_SUMMARY="$(CopyIfPresent "$SOURCE_RELEASE_EVIDENCE_DIR/publish-artifacts-summary.json" publish-artifacts-summary.json)"
-BACKEND_QPS_SUMMARY="$(CopyIfPresent "$SOURCE_RELEASE_EVIDENCE_DIR/backend-qps-summary.json" backend-qps-summary.json)"
+RUNTIME_CACHE_SUMMARY_PATH="$ROOT_DIR/.tmp/release-evidence/runtime-cache-summary.json"
+RUNTIME_CACHE_STATUS_VALUE="failed"
+rm -f "$RUNTIME_CACHE_SUMMARY_PATH"
+if node "$ROOT_DIR/tools/test/check-runtime-cache-evidence.mjs"; then
+    RUNTIME_CACHE_STATUS_VALUE="passed"
+fi
+RUNTIME_CACHE_SUMMARY="$(CopyIfPresent "$RUNTIME_CACHE_SUMMARY_PATH" runtime-cache-summary.json)"
 MEMORY_LEAK_SUMMARY="$(CopyIfPresent "$SOURCE_RELEASE_EVIDENCE_DIR/memory-leak-summary.json" memory-leak-summary.json)"
 OPEN_HANDLE_SUMMARY="$(CopyIfPresent "$SOURCE_RELEASE_EVIDENCE_DIR/open-handle-summary.json" open-handle-summary.json)"
 AEDS_FRAME_COST_SUMMARY="$(CopyIfPresent "$SOURCE_RELEASE_EVIDENCE_DIR/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
@@ -933,7 +939,6 @@ UX_VIEWPORT_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/ux
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/frontend-render-pressure-summary.json")"
 FRONTEND_RENDER_STRUCTURE_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/frontend-render-structure-summary.json")"
 PUBLISH_ARTIFACTS_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/publish-artifacts-summary.json")"
-BACKEND_QPS_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/backend-qps-summary.json")"
 MEMORY_LEAK_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/memory-leak-summary.json")"
 OPEN_HANDLE_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/open-handle-summary.json")"
 AOT_CACHE_RESILIENCE_STATUS_VALUE="$(JsonStatusOrMissing "$SOURCE_RELEASE_EVIDENCE_DIR/aot-cache-resilience-summary.json")"
@@ -982,7 +987,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" ||
     "$PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE" != "success" ||
     "$PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE" != "success" ||
     "$PUBLIC_HYDRATION_MATRIX_STATUS_VALUE" != "success" ||
-    "$BACKEND_QPS_STATUS_VALUE" != "ok" ||
+    "$RUNTIME_CACHE_STATUS_VALUE" != "passed" ||
     "$MEMORY_LEAK_STATUS_VALUE" != "ok" ||
     "$OPEN_HANDLE_STATUS_VALUE" != "ok" ||
     "$AEDS_DECODE_BUDGET_STATUS_VALUE" != "ok" ||
@@ -1056,7 +1061,7 @@ cat >"$OUT_DIR/manifest.json" <<JSON
     "themeCssSafetySummary": $THEME_CSS_SAFETY_SUMMARY,
     "fontLicenseSummary": $FONT_LICENSE_SUMMARY,
     "publishArtifactsSummary": $PUBLISH_ARTIFACTS_SUMMARY,
-    "backendQpsSummary": $BACKEND_QPS_SUMMARY,
+    "runtimeCacheSummary": $RUNTIME_CACHE_SUMMARY,
     "memoryLeakSummary": $MEMORY_LEAK_SUMMARY,
     "openHandleSummary": $OPEN_HANDLE_SUMMARY,
     "aedsFrameCostSummary": $AEDS_FRAME_COST_SUMMARY,
@@ -1120,7 +1125,7 @@ cat >"$OUT_DIR/manifest.json" <<JSON
       "publicHydrationMatrix": "$PUBLIC_HYDRATION_MATRIX_STATUS_VALUE",
       "publicAotCacheResilience": "$AOT_CACHE_RESILIENCE_STATUS_VALUE",
       "publishArtifacts": "$PUBLISH_ARTIFACTS_STATUS_VALUE",
-      "backendQps": "$BACKEND_QPS_STATUS_VALUE",
+      "runtimeCache": "$RUNTIME_CACHE_STATUS_VALUE",
       "aedsFrameCost": "$AEDS_FRAME_COST_STATUS_VALUE",
       "aedsCompressionProfile": "$AEDS_COMPRESSION_PROFILE_STATUS_VALUE",
       "aedsDecodeBudget": "$AEDS_DECODE_BUDGET_STATUS_VALUE",

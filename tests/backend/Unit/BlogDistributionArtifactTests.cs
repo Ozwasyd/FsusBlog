@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Net;
+using System.Text.Json;
 using System.Xml.Linq;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Spa;
@@ -406,6 +408,108 @@ public sealed class BlogDistributionArtifactTests(
     }
 
     [Fact]
+    public async Task FullKestrelRuntimeEvidence_ExposesSitemapSnapshotAndInternalL1Source()
+    {
+        const string Secret = "runtime-cache-sitemap-snapshot-secret";
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        string prefix = $"test:sitemap-runtime-evidence:{Guid.CreateVersion7():N}:";
+        var scope = new PrefixRuntimeKeyScope(prefix);
+        var policies = new CachePolicyRegistry();
+        using var unifiedCache = new UnifiedCache(
+            connection,
+            policies,
+            scope,
+            NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(
+            new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var artifacts = new SitemapArtifactCache(new PublicAotInvalidationTracker());
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        BlogDistributionService service = CreateService(
+            db,
+            unifiedCache,
+            memory,
+            generation: null,
+            artifacts: artifacts);
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Test"
+        });
+        builder.Configuration[RuntimeCacheEvidenceMiddleware.SecretConfigurationKey] = Secret;
+        builder.Configuration["AllowedHosts"] = "127.0.0.1;localhost";
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddRouting();
+        builder.Services.AddOutputCache();
+        builder.Services.AddSingleton(service);
+        builder.Services.AddSingleton(artifacts);
+        builder.Services.AddSingleton<RuntimeCacheEvidenceStore>();
+        builder.Services.AddSingleton<ICacheDiagnostics>(unifiedCache);
+        builder.Services.AddSingleton<ICacheSingleFlightCoordinator>(singleFlight);
+        WebApplication app = builder.Build();
+        app.UseMiddleware<RuntimeCacheEvidenceMiddleware>();
+        app.UseOutputCache();
+        app.MapDistributionEndpoints();
+        app.MapRuntimeCacheEvidenceEndpoints();
+        await app.StartAsync();
+        try
+        {
+            string address = app.Services
+                .GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .Single();
+            using var client = new HttpClient(new HttpClientHandler { UseProxy = false })
+            {
+                BaseAddress = new Uri(address),
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+
+            JsonElement build = await ObserveRuntimeRequestAsync(
+                client,
+                "/sitemap.xml?runtime-cache-probe=build",
+                "sitemap-build-0001",
+                Secret);
+            JsonElement hit = await ObserveRuntimeRequestAsync(
+                client,
+                "/sitemap.xml?runtime-cache-probe=hit",
+                "sitemap-hit-0001",
+                Secret);
+
+            Assert.Equal("database", build.GetProperty("layerSource").GetString());
+            Assert.Equal("l1-object", hit.GetProperty("layerSource").GetString());
+            Assert.Equal(0, hit.GetProperty("databaseCommandCount").GetInt32());
+            Assert.Empty(hit.GetProperty("redisCommands").EnumerateArray());
+
+            using HttpResponseMessage forbidden = await client.GetAsync(
+                "/_fsus/testing/runtime-cache/runtime-snapshot");
+            Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+            using var snapshotRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                "/_fsus/testing/runtime-cache/runtime-snapshot");
+            snapshotRequest.Headers.TryAddWithoutValidation(
+                RuntimeCacheEvidenceMiddleware.SecretHeader,
+                Secret);
+            using HttpResponseMessage snapshotResponse = await client.SendAsync(snapshotRequest);
+            snapshotResponse.EnsureSuccessStatusCode();
+            await using Stream snapshotPayload = await snapshotResponse.Content.ReadAsStreamAsync();
+            using JsonDocument snapshotDocument = await JsonDocument.ParseAsync(snapshotPayload);
+            JsonElement sitemap = snapshotDocument.RootElement.GetProperty("sitemap");
+            Assert.Equal(0, sitemap.GetProperty("generation").GetInt64());
+            Assert.Equal(1, sitemap.GetProperty("artifactCount").GetInt32());
+            Assert.True(sitemap.GetProperty("residentBytes").GetInt64() > 0);
+            Assert.Equal(1, sitemap.GetProperty("buildCount").GetInt64());
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+            await redis.DeleteNamespaceAsync(prefix);
+        }
+    }
+
+    [Fact]
     public async Task PublicOriginMutationAdvancesGenerationAndReplacesEverySitemapDocument()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -694,6 +798,37 @@ public sealed class BlogDistributionArtifactTests(
                 ["Seo:BaseUrl"] = baseUrl
             })
             .Build();
+
+    private static async Task<JsonElement> ObserveRuntimeRequestAsync(
+        HttpClient client,
+        string path,
+        string requestId,
+        string secret)
+    {
+        using (var request = new HttpRequestMessage(HttpMethod.Get, path))
+        {
+            request.Headers.TryAddWithoutValidation(
+                RuntimeCacheEvidenceMiddleware.RequestIdHeader,
+                requestId);
+            request.Headers.TryAddWithoutValidation(
+                RuntimeCacheEvidenceMiddleware.SecretHeader,
+                secret);
+            using HttpResponseMessage response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+        }
+
+        using var observationRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/_fsus/testing/runtime-cache/observations/{requestId}");
+        observationRequest.Headers.TryAddWithoutValidation(
+            RuntimeCacheEvidenceMiddleware.SecretHeader,
+            secret);
+        using HttpResponseMessage observationResponse = await client.SendAsync(observationRequest);
+        observationResponse.EnsureSuccessStatusCode();
+        await using Stream payload = await observationResponse.Content.ReadAsStreamAsync();
+        using JsonDocument document = await JsonDocument.ParseAsync(payload);
+        return document.RootElement.Clone();
+    }
 
     private static PublicAotInvalidationService CreatePublicAotInvalidationService(
         PublicAotInvalidationTracker generation,

@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
+using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -319,6 +321,71 @@ public sealed class RedisOperationExecutorTests
             item => item.Tags.GetValueOrDefault("fsus.redis.class") as string == "optional-projection");
     }
 
+    [Fact]
+    public async Task FinalFailuresAreBoundToCurrentRequestInOccurrenceOrderAndSerializeForEndpoint()
+    {
+        var catalog = new RedisOperationBudgetCatalog();
+        using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
+            "redis-failure-request",
+            HttpMethods.Get,
+            "/api/binary/system/seo");
+        var unavailableExecutor = new RedisOperationExecutor(
+            new UnavailableConnectionProvider(),
+            catalog,
+            TimeProvider.System);
+
+        RedisOperationUnavailableException connectionFailure =
+            await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+                unavailableExecutor.ExecuteAsync(
+                    RedisOperationPort.UnifiedCacheRead,
+                    (_, _) => Task.FromResult(1),
+                    CancellationToken.None));
+
+        IConnectionMultiplexer connection = Substitute.For<IConnectionMultiplexer>();
+        var timeoutExecutor = CreateExecutor(connection);
+        RedisOperationUnavailableException timeoutFailure =
+            await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+                timeoutExecutor.ExecuteAsync(
+                    RedisOperationPort.PerceptionChallenge,
+                    (_, _) => Task.FromException<int>(new TimeoutException("fault-injected timeout")),
+                    CancellationToken.None));
+
+        RuntimeCacheRequestObservation completed = observation.Complete(
+            StatusCodes.Status503ServiceUnavailable,
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+        Assert.Equal(RedisOperationFailureKind.ConnectionUnavailable, connectionFailure.FailureKind);
+        Assert.Equal(RedisOperationFailureKind.CommandTimeout, timeoutFailure.FailureKind);
+        Assert.Collection(
+            completed.RedisFailureEvents,
+            first =>
+            {
+                Assert.Equal(1, first.Sequence);
+                Assert.True(first.ElapsedMilliseconds >= 0);
+                Assert.Equal(RedisOperationClass.ContentCacheRead, first.OperationClass);
+                Assert.Equal(RedisOperationFailureKind.ConnectionUnavailable, first.FailureKind);
+                Assert.Equal("bounded-origin-gate", first.FailAction);
+            },
+            second =>
+            {
+                Assert.Equal(2, second.Sequence);
+                Assert.True(second.ElapsedMilliseconds >= completed.RedisFailureEvents[0].ElapsedMilliseconds);
+                Assert.Equal(RedisOperationClass.SecurityAtomic, second.OperationClass);
+                Assert.Equal(RedisOperationFailureKind.CommandTimeout, second.FailureKind);
+                Assert.Equal("fail-closed", second.FailAction);
+            });
+
+        using JsonDocument endpointJson = JsonDocument.Parse(JsonSerializer.Serialize(
+            completed,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        JsonElement events = endpointJson.RootElement.GetProperty("redisFailureEvents");
+        Assert.Equal(2, events.GetArrayLength());
+        Assert.Equal("ContentCacheRead", events[0].GetProperty("operationClass").GetString());
+        Assert.Equal("ConnectionUnavailable", events[0].GetProperty("failureKind").GetString());
+        Assert.Equal("bounded-origin-gate", events[0].GetProperty("failAction").GetString());
+        Assert.Equal(2, events[1].GetProperty("sequence").GetInt64());
+    }
+
     private static RedisOperationExecutor CreateExecutor(IConnectionMultiplexer connection)
         => new(
             new FixedConnectionProvider(connection),
@@ -343,5 +410,12 @@ public sealed class RedisOperationExecutorTests
     private sealed class FixedConnectionProvider(IConnectionMultiplexer connection) : IRedisConnectionProvider
     {
         public Task<IConnectionMultiplexer> WaitAsync() => Task.FromResult(connection);
+    }
+
+    private sealed class UnavailableConnectionProvider : IRedisConnectionProvider
+    {
+        public Task<IConnectionMultiplexer> WaitAsync()
+            => Task.FromException<IConnectionMultiplexer>(
+                new InvalidOperationException("redis_multiplexer_unavailable"));
     }
 }

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:389ec41ca5cbc4e136efb6c1fe44f0468cdb77d01a4c37b9fd45dac3b8b0e25f",
+    "policyDigest": "sha256:4e8f31735583d7d1a2ebcd8c29e4b0633e38c47d15f8bf73940e5415d082becf",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -3382,20 +3382,6 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
-            "producer": null
-        },
-        {
-            "path": "docs/testing/backend-qps-driver-migration-ledger.md",
-            "title": "Backend QPS Scenario Driver Migration Ledger & Specification",
-            "kind": "markdown",
-            "status": "historical",
-            "owner": "release",
-            "sourceOfTruth": false,
-            "supersedes": [],
-            "supersededBy": null,
-            "relatedIssues": [
-                1388
-            ],
             "producer": null
         },
         {

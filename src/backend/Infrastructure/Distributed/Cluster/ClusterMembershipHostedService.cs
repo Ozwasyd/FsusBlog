@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed.Scheduling;
 using FsusBlog.Server.Infrastructure.Distributed.StateControl;
 
@@ -37,26 +38,45 @@ public sealed class ClusterMembershipHostedService(
         using var timer = new PeriodicTimer(options.HeartbeatInterval, timeProvider);
         do
         {
-            DateTimeOffset now = timeProvider.GetUtcNow();
-            IReadOnlyList<ActiveResponsibility> active =
-                await responsibilityRuntime.ListActiveAsync(stoppingToken).ConfigureAwait(false);
-            await store.MarkHeartbeatAsync(
-                new NodeHeartbeat(
-                    options.NodeId,
-                    options.InstanceId,
-                    now,
-                    CaptureResources(),
-                    active
-                        .Select(static item => item.Assignment.Capability)
-                        .Distinct()
-                        .OrderBy(static capability => capability.Value, StringComparer.Ordinal)
-                        .ToArray()),
-                stoppingToken).ConfigureAwait(false);
-            await DetectFailuresAsSingleWriterAsync(now, stoppingToken).ConfigureAwait(false);
-            telemetry?.RecordNodeCounts(
-                await store.ListNodesAsync(stoppingToken).ConfigureAwait(false));
+            try
+            {
+                await RunHeartbeatCycleAsync(stoppingToken).ConfigureAwait(false);
+            }
+            catch (RedisOperationUnavailableException ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "cluster-membership-heartbeat-redis-unavailable");
+            }
+            catch (OperationCanceledException ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                // StackExchange.Redis can surface a transport disconnect as a raw
+                // TaskCanceledException instead of the executor's typed failure.
+                // A transient Redis cancellation must not terminate the host.
+                logger.LogWarning(ex, "cluster-membership-heartbeat-redis-cancelled");
+            }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
+    }
+
+    private async Task RunHeartbeatCycleAsync(CancellationToken cancellationToken)
+    {
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        IReadOnlyList<ActiveResponsibility> active =
+            await responsibilityRuntime.ListActiveAsync(cancellationToken).ConfigureAwait(false);
+        await store.MarkHeartbeatAsync(
+            new NodeHeartbeat(
+                options.NodeId,
+                options.InstanceId,
+                now,
+                CaptureResources(),
+                active
+                    .Select(static item => item.Assignment.Capability)
+                    .Distinct()
+                    .OrderBy(static capability => capability.Value, StringComparer.Ordinal)
+                    .ToArray()),
+            cancellationToken).ConfigureAwait(false);
+        await DetectFailuresAsSingleWriterAsync(now, cancellationToken).ConfigureAwait(false);
+        telemetry?.RecordNodeCounts(
+            await store.ListNodesAsync(cancellationToken).ConfigureAwait(false));
     }
 
     private async Task DetectFailuresAsSingleWriterAsync(

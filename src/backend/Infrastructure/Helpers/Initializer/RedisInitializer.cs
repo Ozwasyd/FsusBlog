@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -111,7 +112,9 @@ internal sealed class StackExchangeRedisConnectionMultiplexerFactory : IRedisCon
     {
         ConnectionMultiplexer connection = await ConnectionMultiplexer.ConnectAsync(options).ConfigureAwait(false);
         // This factory owns a newly-created connection; never re-register on a shared holder.
-        connection.RegisterProfiler(static () => CacheCoordinationObservation.Current?.RedisProfile!);
+        connection.RegisterProfiler(static () =>
+            CacheCoordinationObservation.Current?.RedisProfile
+            ?? RuntimeCacheEvidenceObservation.Current?.RedisProfile!);
         return connection;
     }
 }

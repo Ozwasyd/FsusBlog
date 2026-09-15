@@ -214,6 +214,81 @@ public sealed class CacheInvalidationDispatcherTests
     }
 
     [Fact]
+    public async Task InvalidateArticleBodyRepairAsync_InvalidatesOnlyArticleDerivedResidency()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        DistributedInvalidationRequest? observed = null;
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                observed = call.Arg<DistributedInvalidationRequest>();
+                return new DistributedInvalidationPublishResult(DistributedInvalidationPublishStatus.LocalOnly, null, null);
+            });
+        var sut = new CacheInvalidationDispatcher(
+            cache,
+            cache,
+            httpCacheInvalidator,
+            distributedInvalidationPublisher: publisher);
+
+        await sut.InvalidateArticleBodyRepairAsync(42, "article-repair:test", CancellationToken.None);
+
+        await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            keys.Count == 4
+            && HasKey(keys, CachePolicyId.ArticleDetail, "42")
+            && HasKey(keys, CachePolicyId.ArticleDetail, "core:v2:42")
+            && HasKey(keys, CachePolicyId.ArticleDetail, "core:v3:42")
+            && HasKey(keys, CachePolicyId.ArticleDetailFrame, "core:v3:42")), Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(
+            CachePolicyId.RelatedReading,
+            "article:42:",
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(
+            CachePolicyId.ArticleSearchVersion,
+            "main",
+            1,
+            Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().IncrementAsync(
+            CachePolicyId.ArticleListVersion,
+            Arg.Any<string>(),
+            Arg.Any<long>(),
+            Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().IncrementAsync(
+            CachePolicyId.AdminStats,
+            Arg.Any<string>(),
+            Arg.Any<long>(),
+            Arg.Any<CancellationToken>());
+        await httpCacheInvalidator.DidNotReceiveWithAnyArgs().InvalidateAsync(default!);
+        await publisher.Received(1).PublishAsync(
+            Arg.Is<DistributedInvalidationRequest>(request =>
+                request.Kind == DistributedInvalidationEventKinds.ArticleMutation
+                && request.CacheTags.SequenceEqual(new[] { "article" })
+                && request.RouteKeys.SequenceEqual(new[] { "article:42" })
+                && request.ArtifactKeys.SequenceEqual(new[] { "article-detail:42", "public-aot", "public-hot-read" })
+                && request.EventId == "article-repair:test"),
+            Arg.Any<CancellationToken>());
+        Assert.NotNull(observed);
+        DistributedInvalidationTargetPlan plan = DistributedInvalidationTargetResolver.Resolve(
+            DistributedInvalidationEvent.Create(
+                observed.EventId!,
+                observed.Kind,
+                "node-a",
+                "test",
+                observed.CacheTags,
+                observed.RouteKeys,
+                observed.ArtifactKeys,
+                "trace-body-repair",
+                TimeProvider.System));
+        Assert.True(plan.IsExact);
+        Assert.Contains("article:42", plan.HotReadFragments);
+        Assert.Contains("html:article:42", plan.HotReadFragments);
+        Assert.DoesNotContain("list:hot", plan.HotReadFragments);
+        Assert.DoesNotContain("list:featured", plan.HotReadFragments);
+        Assert.DoesNotContain("list:home", plan.HotReadFragments);
+    }
+
+    [Fact]
     public async Task InvalidateCategoryTagAsync_RemovesAllRelatedReadingFrames()
     {
         var cache = Substitute.For<IUnifiedCache>();

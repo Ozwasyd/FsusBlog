@@ -24,6 +24,9 @@ import { repositoryRoot } from './spawn-helper.mjs';
 
 const STRATEGY = 'transaction-fixture';
 const PRODUCER_ID = 'public-content';
+const PAGINATION_ARTICLE_COUNT = 10_020;
+const PAGINATION_PAGE_SIZE = 10;
+const PAGINATION_LOGICAL_PAGES = Object.freeze([10, 100, 1000]);
 
 const COVER_ASSETS = Object.freeze([
     'acceptance-cover-primary.svg',
@@ -55,6 +58,8 @@ export function buildPublicContentPlan(capabilities = [])
         capabilities: Object.freeze(sorted),
         mode: has('public.empty')
             ? 'public-empty'
+            : has('public.article.pagination-deep')
+                ? 'runtime-cache-pagination'
             : (has('public.article.draft') || has('public.article.scheduled') || has('public.article.archived') || has('public.article.deleted')
         ? 'public-content-lifecycle'
         : 'public-minimal'),
@@ -66,6 +71,12 @@ export function buildPublicContentPlan(capabilities = [])
         requireRevisionHistory: has('public.article.revision-history'),
         requireMultipleRevisions: has('public.article.multiple-revisions'),
         requireMultiplePublications: has('public.article.multiple-publications'),
+        deepPagination: Object.freeze({
+            required: has('public.article.pagination-deep'),
+            articleCountMin: PAGINATION_ARTICLE_COUNT,
+            pageSize: PAGINATION_PAGE_SIZE,
+            logicalPages: PAGINATION_LOGICAL_PAGES
+        }),
         lifecycle: Object.freeze({
             draft: has('public.article.draft'),
             scheduled: has('public.article.scheduled'),
@@ -166,6 +177,12 @@ export async function preparePublicContent(context, signal)
     {
         throw new Error('public-content observations cannot be local-fallback');
     }
+    if (plan.deepPagination.required)
+    {
+        assertDeepPaginationProjection(
+            raw.projection ?? raw.Projection,
+            raw.entityIdentities ?? raw.EntityIdentities);
+    }
 
     // Fail closed on incomplete published set for non-empty modes.
     if (!plan.empty)
@@ -241,6 +258,61 @@ export async function preparePublicContent(context, signal)
         cleanupContract: { kind: 'owned-namespace', ownerPrefix: buildOwnerPrefix(context) },
         ...(temporalObservation ? { temporalObservation } : {})
     };
+}
+
+function assertDeepPaginationProjection(projection, entityIdentities)
+{
+    const pagination = projection?.pagination ?? projection?.Pagination;
+    if (!pagination || typeof pagination !== 'object')
+    {
+        throw new Error('runtime-cache-pagination requires an authoritative backend pagination projection');
+    }
+    const route = pagination.route ?? pagination.Route;
+    const sort = pagination.sort ?? pagination.Sort;
+    const pageSize = pagination.pageSize ?? pagination.PageSize;
+    const generation = pagination.generation ?? pagination.Generation;
+    const articleCount = pagination.articleCount ?? pagination.ArticleCount;
+    const ownedArticleCount = pagination.ownedArticleCount ?? pagination.OwnedArticleCount;
+    if (route !== 'article/list/home' || sort !== 'latest' || pageSize !== PAGINATION_PAGE_SIZE)
+    {
+        throw new Error('runtime-cache-pagination projection must bind article/list/home latest size=10');
+    }
+    if (!Number.isSafeInteger(generation) || generation < 0
+        || !Number.isSafeInteger(articleCount) || articleCount < PAGINATION_ARTICLE_COUNT
+        || !Number.isSafeInteger(ownedArticleCount) || ownedArticleCount < PAGINATION_ARTICLE_COUNT)
+    {
+        throw new Error('runtime-cache-pagination projection lacks generation or 10,020 visible owned rows');
+    }
+
+    const ownedArticles = new Set((entityIdentities ?? [])
+        .filter((entity) => String(entity.kind ?? entity.Kind ?? '') === 'article')
+        .map((entity) => String(entity.id ?? entity.Id ?? '')));
+    const cursors = pagination.cursors ?? pagination.Cursors;
+    if (!Array.isArray(cursors) || cursors.length !== PAGINATION_LOGICAL_PAGES.length)
+    {
+        throw new Error('runtime-cache-pagination projection requires page 10/100/1000 cursors');
+    }
+    for (let index = 0; index < PAGINATION_LOGICAL_PAGES.length; index += 1)
+    {
+        const pageCursor = cursors[index] ?? {};
+        const logicalPage = pageCursor.logicalPage ?? pageCursor.LogicalPage;
+        const opaqueCursor = pageCursor.cursor ?? pageCursor.Cursor;
+        const boundary = pageCursor.boundaryIdentity ?? pageCursor.BoundaryIdentity ?? {};
+        const articleId = String(boundary.articleId ?? boundary.ArticleId ?? '');
+        const createTimeUtc = boundary.createTimeUtc ?? boundary.CreateTimeUtc;
+        const sortValue = boundary.sortValue ?? boundary.SortValue;
+        const precedingItemCount = boundary.precedingItemCount ?? boundary.PrecedingItemCount;
+        const expectedPage = PAGINATION_LOGICAL_PAGES[index];
+        if (logicalPage !== expectedPage
+            || typeof opaqueCursor !== 'string' || opaqueCursor.length === 0 || opaqueCursor.length > 512
+            || !ownedArticles.has(articleId)
+            || !String(createTimeUtc ?? '').trim()
+            || sortValue !== 0
+            || precedingItemCount !== (expectedPage - 1) * PAGINATION_PAGE_SIZE)
+        {
+            throw new Error(`runtime-cache-pagination logical page ${expectedPage} cursor/boundary is invalid`);
+        }
+    }
 }
 
 function buildPublicVariantEvidence(observations, context)

@@ -797,6 +797,25 @@ public sealed class PublicHotDeliveryTests
     }
 
     [Fact]
+    public async Task DurableWorker_SupersededFailureRecordDoesNotStopTheWorker()
+    {
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        var obligations = new SupersededFailureRecordStore(state);
+        var queue = CreateQueue(1, state, obligations);
+        await queue.EnqueueAsync(PublicHotArtifactDeliveryClass.RequiredTaxonomy, null, "taxonomy-updated");
+        Assert.True(queue.Reader.TryRead(out PublicHotArtifactUpdate wakeup));
+        using ServiceProvider services = new ServiceCollection()
+            .AddScoped<IPublicHotArtifactProjector, ThrowingProjector>()
+            .BuildServiceProvider();
+        var worker = CreateWorker(queue, new PublicHotReadStore(), services);
+
+        await worker.ProcessOnceAsync(wakeup, CancellationToken.None);
+
+        PublicHotArtifactObligation retained = (await state.GetActiveAsync(CancellationToken.None))!;
+        Assert.Equal(PublicHotArtifactObligationState.Processing, retained.State);
+    }
+
+    [Fact]
     public async Task DurableWorker_ConcurrentMergePreventsStaleCompletionAndRetainsLatestTarget()
     {
         var state = new InMemoryPublicHotArtifactDeliveryStateStore();
@@ -1073,6 +1092,34 @@ public sealed class PublicHotDeliveryTests
         public Task RevokeAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task CompleteRebuildAsync(IReadOnlyCollection<int>? articleIds, long maximumGeneration, CancellationToken cancellationToken = default)
             => Task.FromException(new InvalidOperationException("injected revocation completion failure"));
+    }
+
+    private sealed class SupersededFailureRecordStore(IPublicHotArtifactObligationStore inner)
+        : IPublicHotArtifactObligationStore
+    {
+        public Task<PublicHotArtifactObligation> MergeAsync(PublicHotArtifactUpdate update, CancellationToken cancellationToken)
+            => inner.MergeAsync(update, cancellationToken);
+
+        public Task<PublicHotArtifactObligation?> ClaimEligibleAsync(DateTimeOffset now, CancellationToken cancellationToken)
+            => inner.ClaimEligibleAsync(now, cancellationToken);
+
+        public Task RecoverInterruptedAsync(DateTimeOffset now, CancellationToken cancellationToken)
+            => inner.RecoverInterruptedAsync(now, cancellationToken);
+
+        public Task<bool> CompletePublishedAsync(string obligationId, int attemptNumber, long publishedGeneration, CancellationToken cancellationToken)
+            => inner.CompletePublishedAsync(obligationId, attemptNumber, publishedGeneration, cancellationToken);
+
+        public Task RecordStageSuccessAsync(string obligationId, int attemptNumber, PublicHotArtifactAttemptStage stage, DateTimeOffset now, CancellationToken cancellationToken)
+            => inner.RecordStageSuccessAsync(obligationId, attemptNumber, stage, now, cancellationToken);
+
+        public Task<PublicHotArtifactObligation> RecordFailureAsync(string obligationId, int attemptNumber, PublicHotArtifactAttemptStage stage, Exception exception, DateTimeOffset now, int maximumAttempts, CancellationToken cancellationToken)
+            => Task.FromException<PublicHotArtifactObligation>(new InvalidOperationException("public-hot obligation compare-and-set lost"));
+
+        public Task<PublicHotArtifactObligation?> GetActiveAsync(CancellationToken cancellationToken)
+            => inner.GetActiveAsync(cancellationToken);
+
+        public Task<bool> HasTerminalFailureAsync(CancellationToken cancellationToken)
+            => inner.HasTerminalFailureAsync(cancellationToken);
     }
 
     private sealed class CorruptStateStore : IPublicHotArtifactDeliveryStateStore

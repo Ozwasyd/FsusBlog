@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Testing;
+
 namespace FsusBlog.Server.Infrastructure.Projections;
 
 public enum AccountStateKnowledge
@@ -260,6 +262,10 @@ public sealed class AccountStateProjection : IAccountStateProjection
         if (TryReadLocal(accountId, expectedSubjectHash, out AccountStateReadResult local))
         {
             Interlocked.Increment(ref _localHits);
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "security-account-projection",
+                accountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "hit");
             return local;
         }
 
@@ -287,6 +293,10 @@ public sealed class AccountStateProjection : IAccountStateProjection
         if (TryReadLocalById(accountId, out AccountStateReadResult local))
         {
             Interlocked.Increment(ref _localHits);
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "security-account-projection",
+                accountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "hit");
             return local;
         }
 
@@ -411,6 +421,10 @@ public sealed class AccountStateProjection : IAccountStateProjection
         try
         {
             loaded = await _source.LoadAsync(accountId, CancellationToken.None).ConfigureAwait(false);
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "security-account-projection",
+                accountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "built");
             if (!TryNormalizeSnapshot(loaded, authoritative: false, out AccountStateSnapshot normalized)
                 || normalized.AccountId != accountId)
             {
