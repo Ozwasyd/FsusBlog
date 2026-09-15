@@ -29,20 +29,7 @@ public sealed class AuthoringCanvasReferenceResolver(
         CancellationToken cancellationToken)
     {
         AuthoringCanvasReferenceContract.ValidateRequest(request);
-        cancellationToken.ThrowIfCancellationRequested();
-        AuthoringCanvasDocumentHeader header = await canvasStore.GetAsync(
-            request.Owner,
-            request.CanvasId,
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new AuthoringCanvasAccessDeniedException();
-        if (header.Revision != request.CanvasRevision)
-        {
-            throw new AuthoringCanvasRevisionConflictException(request.CanvasRevision, header.Revision);
-        }
-        if (!string.Equals(header.ContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
-        {
-            throw new AuthoringCanvasValidationException("canvas_reference_content_digest_stale");
-        }
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
 
         long started = timeProvider.GetTimestamp();
         AuthoringCanvasReferenceAuthorityCoordinate coordinate = await factSource.ReadAuthorityCoordinateAsync(
@@ -54,6 +41,7 @@ public sealed class AuthoringCanvasReferenceResolver(
         AuthoringCanvasReferenceTarget[] targets = request.Nodes.Select(ToTarget).ToArray();
         var factsByNode = new Dictionary<Guid, AuthoringCanvasReferenceFact>(targets.Length);
         var missing = new List<AuthoringCanvasReferenceTarget>(targets.Length);
+        var cacheable = new List<(AuthoringCanvasReferenceCacheKey Key, AuthoringCanvasReferenceFact Fact)>();
         int cacheHits = 0;
         foreach (AuthoringCanvasReferenceTarget target in targets)
         {
@@ -93,20 +81,29 @@ public sealed class AuthoringCanvasReferenceResolver(
                 factsByNode.Add(fact.NodeId, fact);
                 if (useCache)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    cache.Set(CacheKey(request, coordinate, target), fact);
+                    cacheable.Add((CacheKey(request, coordinate, target), fact));
                 }
             }
+        }
+
+        // Reject a result that lost the document race before it can enter cache or reach a consumer.
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        foreach ((AuthoringCanvasReferenceCacheKey key, AuthoringCanvasReferenceFact fact) in cacheable)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            cache.Set(key, fact);
         }
 
         var projections = new List<AuthoringCanvasReferenceProjection>(targets.Length);
         foreach (AuthoringCanvasReferenceTarget target in targets)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!factsByNode.TryGetValue(target.NodeId, out AuthoringCanvasReferenceFact? fact))
             {
                 fact = DeniedOrUnknown(target);
             }
-            projections.Add(Project(target, fact));
+            projections.Add(Project(target, fact, request.TargetWorkspaceGroupId));
         }
 
         string batchDigest = AuthoringCanvasReferenceContract.ComputeBatchDigest(request, coordinate, projections);
@@ -114,10 +111,13 @@ public sealed class AuthoringCanvasReferenceResolver(
             new AuthoringCanvasReferenceResolutionReceiptItem(
                 projection.NodeId,
                 projection.TargetArticleId,
+                projection.TargetHeadingIdentity,
+                projection.TargetBlockIdentity,
                 projection.TargetRevision,
                 projection.Status,
-                projection.ContextSnippet is not null,
-                projection.OpenIntent is not null,
+                projection.Title,
+                projection.ContextSnippet,
+                projection.OpenIntent,
                 projection.ContentDigest)).ToArray();
         long elapsedMilliseconds = Math.Max(
             0,
@@ -166,7 +166,8 @@ public sealed class AuthoringCanvasReferenceResolver(
 
     private static AuthoringCanvasReferenceProjection Project(
         AuthoringCanvasReferenceTarget target,
-        AuthoringCanvasReferenceFact fact)
+        AuthoringCanvasReferenceFact fact,
+        string? targetWorkspaceGroupId)
     {
         AuthoringCanvasReferenceProjectionStatus status = Status(target, fact);
         bool contentVisible = status is AuthoringCanvasReferenceProjectionStatus.Current
@@ -192,7 +193,8 @@ public sealed class AuthoringCanvasReferenceResolver(
                     fact.ResolvedRevision,
                     target.TargetHeadingIdentity,
                     target.TargetBlockIdentity,
-                    fact.StableRoute!)
+                    fact.StableRoute!,
+                    TargetGroupId: targetWorkspaceGroupId)
                 : null,
             status is AuthoringCanvasReferenceProjectionStatus.PinnedStale
                 or AuthoringCanvasReferenceProjectionStatus.TargetUpdated,
@@ -295,6 +297,26 @@ public sealed class AuthoringCanvasReferenceResolver(
             coordinate.ContentDigest,
             target.NodeId,
             AuthoringCanvasReferenceContract.ComputeTargetDigest(target));
+
+    private async Task EnsureCurrentCanvasCoordinateAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        AuthoringCanvasDocumentHeader header = await canvasStore.GetAsync(
+            request.Owner,
+            request.CanvasId,
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new AuthoringCanvasAccessDeniedException();
+        if (header.Revision != request.CanvasRevision)
+        {
+            throw new AuthoringCanvasRevisionConflictException(request.CanvasRevision, header.Revision);
+        }
+        if (!string.Equals(header.ContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_content_digest_stale");
+        }
+    }
 }
 
 public sealed class AuthoringCanvasReferenceProjectionCache

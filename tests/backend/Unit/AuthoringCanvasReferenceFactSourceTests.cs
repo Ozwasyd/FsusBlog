@@ -30,7 +30,7 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
         };
         var source = new AuthoringCanvasReferenceFactSource(
             reader,
-            Array.Empty<IAuthoringCanvasCoordinateFactProvider>());
+            new AuthoringCanvasCoordinateFactProvider([]));
         AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
             s_owner,
             AuthoringCanvasReferencePermission.ArticleRead);
@@ -78,7 +78,7 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
         };
         var source = new AuthoringCanvasReferenceFactSource(
             reader,
-            Array.Empty<IAuthoringCanvasCoordinateFactProvider>());
+            new AuthoringCanvasCoordinateFactProvider([]));
         AuthoringCanvasReferenceAuthorityCoordinate first = await source.ReadAuthorityCoordinateAsync(
             s_owner,
             AuthoringCanvasReferencePermission.ArticleRead);
@@ -133,7 +133,7 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
             40,
             AuthoringCanvasReferenceCoordinateState.Current,
             "Exact block context"));
-        var source = new AuthoringCanvasReferenceFactSource(reader, [provider]);
+        var source = new AuthoringCanvasReferenceFactSource(reader, provider);
         AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
             s_owner,
             AuthoringCanvasReferencePermission.ArticleRead);
@@ -146,32 +146,51 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
 
         var mismatched = new AuthoringCanvasReferenceFactSource(
             reader,
-            [new DeterministicCoordinateProvider(item => new AuthoringCanvasCoordinateFact(
+            new DeterministicCoordinateProvider(item => new AuthoringCanvasCoordinateFact(
                 item.NodeId,
                 item.NodeType,
                 item.TargetArticleId + 1,
                 40,
                 AuthoringCanvasReferenceCoordinateState.Current,
-                null))]);
+                null)));
         AuthoringCanvasReferenceAuthorityCoordinate next = await mismatched.ReadAuthorityCoordinateAsync(
             s_owner,
             AuthoringCanvasReferencePermission.ArticleRead);
         AuthoringCanvasValidationException exception = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
             () => mismatched.ReadBatchAsync(Query([target], next)));
         Assert.Equal("canvas_reference_coordinate_fact_invalid", exception.Code);
+
+        var unexpected = new AuthoringCanvasReferenceFactSource(
+            reader,
+            new DeterministicCoordinateProvider(
+                item => new AuthoringCanvasCoordinateFact(
+                    item.NodeId,
+                    item.NodeType,
+                    item.TargetArticleId,
+                    40,
+                    AuthoringCanvasReferenceCoordinateState.Current,
+                    null),
+                appendUnexpected: true));
+        AuthoringCanvasReferenceAuthorityCoordinate unexpectedCoordinate =
+            await unexpected.ReadAuthorityCoordinateAsync(
+                s_owner,
+                AuthoringCanvasReferencePermission.ArticleRead);
+        AuthoringCanvasValidationException unexpectedFact =
+            await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+                () => unexpected.ReadBatchAsync(Query([target], unexpectedCoordinate)));
+        Assert.Equal("canvas_reference_coordinate_fact_set_invalid", unexpectedFact.Code);
     }
 
     [Fact]
-    public void Source_RejectsMultipleCoordinateAuthoritiesInsteadOfPickingFirst()
+    public void CoordinateProvider_RejectsMultipleExternalAuthoritiesInsteadOfPickingFirst()
     {
-        var reader = new DeterministicArticleReader();
         var first = new DeterministicCoordinateProvider(_ => throw new InvalidOperationException());
         var second = new DeterministicCoordinateProvider(_ => throw new InvalidOperationException());
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
-            new AuthoringCanvasReferenceFactSource(reader, [first, second]));
+            new AuthoringCanvasCoordinateFactProvider([first, second]));
 
-        Assert.Equal("multiple_authoring_canvas_coordinate_fact_providers", exception.Message);
+        Assert.Equal("multiple_authoring_canvas_external_coordinate_authorities", exception.Message);
     }
 
     [Fact]
@@ -185,7 +204,9 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
                 [401] = Record(402, 50, "Wrong article")
             }
         };
-        var source = new AuthoringCanvasReferenceFactSource(reader, []);
+        var source = new AuthoringCanvasReferenceFactSource(
+            reader,
+            new AuthoringCanvasCoordinateFactProvider([]));
         AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
             s_owner,
             AuthoringCanvasReferencePermission.ArticleRead);
@@ -285,6 +306,8 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
         }
 
         public Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadBatchAsync(
+            AuthoringCanvasOwner owner,
+            AuthoringCanvasReferencePermission permission,
             IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
             CancellationToken cancellationToken = default)
         {
@@ -295,8 +318,9 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
     }
 
     private sealed class DeterministicCoordinateProvider(
-        Func<AuthoringCanvasReferenceTarget, AuthoringCanvasCoordinateFact> project)
-        : IAuthoringCanvasCoordinateFactProvider
+        Func<AuthoringCanvasReferenceTarget, AuthoringCanvasCoordinateFact> project,
+        bool appendUnexpected = false)
+        : IAuthoringCanvasCoordinateFactProvider, IAuthoringCanvasExternalCoordinateAuthority
     {
         public int BatchReadCount
         {
@@ -309,8 +333,23 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             BatchReadCount++;
-            return Task.FromResult<IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact>>(
-                query.Targets.ToDictionary(static target => target.NodeId, project));
+            Dictionary<Guid, AuthoringCanvasCoordinateFact> facts = query.Targets.ToDictionary(
+                static target => target.NodeId,
+                project);
+            if (appendUnexpected)
+            {
+                Guid unexpectedNodeId = Guid.CreateVersion7();
+                facts.Add(
+                    unexpectedNodeId,
+                    new AuthoringCanvasCoordinateFact(
+                        unexpectedNodeId,
+                        AuthoringCanvasNodeType.BlockReference,
+                        int.MaxValue,
+                        1,
+                        AuthoringCanvasReferenceCoordinateState.Current,
+                        null));
+            }
+            return Task.FromResult<IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact>>(facts);
         }
     }
 }
