@@ -15,7 +15,8 @@ import {
   collectObservedRequest,
   implementedRuntimeCacheScenarios,
   producePublicHotReadReceipt,
-  runRuntimeCacheProducer
+  runRuntimeCacheProducer,
+  selectRuntimeBackendPid
 } from '../../tools/test/run-runtime-cache-evidence.mjs'
 import { produceArticleDetailL1Receipt } from '../../tools/test/runtime-cache-scenarios/article-detail-l1.mjs'
 import { producePaginationReceipt } from '../../tools/test/runtime-cache-scenarios/pagination.mjs'
@@ -100,6 +101,24 @@ function cleanup() {
 function sha256(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
 }
+
+test('ignores a backend pid file that does not own the measured Kestrel port', () => {
+  assert.equal(selectRuntimeBackendPid({
+    explicitPid: Number.NaN,
+    recordedPid: 12345,
+    listeners: [67890],
+    port: '61232'
+  }), 67890)
+})
+
+test('keeps a matching backend pid file binding', () => {
+  assert.equal(selectRuntimeBackendPid({
+    explicitPid: Number.NaN,
+    recordedPid: 67890,
+    listeners: [67890],
+    port: '61232'
+  }), 67890)
+})
 
 async function startObservationServer({ redisCommands = [], redisFailureEvents = [], paginationDatabaseCommandCounts = {} } = {}) {
   const observations = new Map()

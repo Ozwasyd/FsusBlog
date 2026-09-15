@@ -98,15 +98,25 @@ function dependencyDigest(container, topologyFacts) {
   return digest({ container, inspect: dockerInspectIdentity(container), topologyFacts })
 }
 
+export function selectRuntimeBackendPid({ explicitPid, recordedPid, listeners, port }) {
+  if (Number.isInteger(explicitPid) && explicitPid > 0) return explicitPid
+  if (Number.isInteger(recordedPid) && recordedPid > 0 && listeners.includes(recordedPid)) {
+    return recordedPid
+  }
+  if (listeners.length !== 1) {
+    throw new Error(`expected one Kestrel listener on port ${port}, observed ${listeners.length}`)
+  }
+  return listeners[0]
+}
+
 function resolveBackendPid(baseUrl, repositoryRoot = root) {
   const explicit = Number.parseInt(process.env.FSUSBLOG_BACKEND_PID ?? '', 10)
-  if (Number.isInteger(explicit) && explicit > 0) return explicit
 
   const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? 'local').replace(/[^A-Za-z0-9_.-]/gu, '-')
   const pidFile = path.join(repositoryRoot, '.tmp/acceptance', namespace, 'backend.pid')
+  let recorded = null
   if (fs.existsSync(pidFile)) {
-    const recorded = Number.parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10)
-    if (Number.isInteger(recorded) && recorded > 0) return recorded
+    recorded = Number.parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10)
   }
 
   const port = new URL(baseUrl).port || (baseUrl.startsWith('https:') ? '443' : '80')
@@ -114,8 +124,7 @@ function resolveBackendPid(baseUrl, repositoryRoot = root) {
     .split(/\r?\n/u)
     .map((item) => Number.parseInt(item, 10))
     .filter((item) => Number.isInteger(item) && item > 0)
-  if (listeners.length !== 1) throw new Error(`expected one Kestrel listener on port ${port}, observed ${listeners.length}`)
-  return listeners[0]
+  return selectRuntimeBackendPid({ explicitPid: explicit, recordedPid: recorded, listeners, port })
 }
 
 function resolveServerAssembly(repositoryRoot = root) {
