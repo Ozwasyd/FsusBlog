@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:4e8f31735583d7d1a2ebcd8c29e4b0633e38c47d15f8bf73940e5415d082becf",
+    "policyDigest": "sha256:39791393370474159c9857a1322601e81f4ea6b790de40f8981301d6c1a8da82",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -451,6 +451,20 @@
                 2144,
                 2145,
                 1915
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/block-anchor-contract.md",
+            "title": "Canonical Block Anchor Contract",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2440
             ],
             "producer": null
         },

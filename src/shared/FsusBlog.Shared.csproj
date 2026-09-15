@@ -21,6 +21,8 @@
                       LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-sync-plan.schema.json" />
     <EmbeddedResource Include="Contracts/Plugins/plugin-manifest.schema.json"
                       LogicalName="FsusBlog.Contracts.Plugins.plugin-manifest.schema.json" />
+    <EmbeddedResource Include="Contracts/BlockLinks/block-anchor-contract.schema.json"
+                      LogicalName="FsusBlog.Contracts.BlockLinks.block-anchor-contract.schema.json" />
   </ItemGroup>
 
 </Project>

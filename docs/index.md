@@ -37,6 +37,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Article Vault Linux watcher boundary](architecture/article-vault-linux-watcher.md)
 - [Authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)
 - [Authoring extension host boundary](architecture/authoring-extension-host-boundary.md)
+- [Canonical Block Anchor Contract](architecture/block-anchor-contract.md)
 - [Comment attribution and privacy boundary](architecture/comment-attribution-privacy-boundary.md)
 - [Comment command boundary](architecture/comment-command-boundary.md)
 - [Comment moderation and visibility boundary](architecture/comment-moderation-visibility-boundary.md)

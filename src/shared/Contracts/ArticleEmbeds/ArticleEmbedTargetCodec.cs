@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.BlockLinks;
+
 namespace FsusBlog.Shared.Contracts.ArticleEmbeds;
 
 /// <summary>
@@ -99,23 +101,7 @@ public static class ArticleEmbedTargetCodec
         => IsNamespacedUuid(value, HeadingPrefix);
 
     public static bool IsCanonicalBlockAnchor(string? value)
-    {
-        if (value is null || value.Length is < 1 or > 64 || value[0] is < 'a' or > 'z')
-        {
-            return false;
-        }
-        for (int index = 1; index < value.Length; index++)
-        {
-            char character = value[index];
-            if (!((character >= 'a' && character <= 'z')
-                || (character >= '0' && character <= '9')
-                || character == '-'))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
+        => BlockAnchorId.IsCanonical(value);
 
     private static string EncodeUnchecked(ArticleEmbedTargetIdentity target)
         => target.Kind switch

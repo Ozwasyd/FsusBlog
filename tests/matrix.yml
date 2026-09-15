@@ -3289,6 +3289,7 @@ tiers:
           - article-embed-authoring-static-governance
           - article-embed-publication-static-governance
           - article-embed-relations-static-governance
+          - block-anchor-contract-static-governance
           - revision-compare-authority
           - article-scale-plan-static-governance
           - static-client-payload-baseline-contract
@@ -3597,6 +3598,17 @@ tiers:
           - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs
           - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs
           - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs
+          - tools/governance/check-block-anchor-contract.mjs
+          - tests/tools/block-anchor-contract.test.mjs
+          - tests/backend/Unit/BlockAnchorContractTests.cs
+          - src/shared/Contracts/BlockLinks/BlockAnchorContracts.cs
+          - src/shared/Contracts/BlockLinks/BlockAnchorCodec.cs
+          - src/shared/Contracts/BlockLinks/BlockAnchorMarkdown.cs
+          - src/shared/Contracts/BlockLinks/BlockAnchorContractValidator.cs
+          - src/shared/Contracts/BlockLinks/BlockAnchorContractDigest.cs
+          - src/shared/Contracts/BlockLinks/BlockAnchorIndependentVerifier.cs
+          - src/shared/Contracts/BlockLinks/block-anchor-contract.schema.json
+          - docs/architecture/block-anchor-contract.md
           - tools/test/check-article-scale-plan-governance.mjs
           - tests/fixtures/governance/article-scale-plan-governance.json
           - tests/tools/article-scale-plan-governance.test.mjs
