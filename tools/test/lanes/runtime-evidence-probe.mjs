@@ -40,7 +40,8 @@ import {
     buildTaxonomyProofReceipt
 } from '../../data-scale/taxonomy-projection.mjs';
 import {
-    computeExpectedSearchModel
+    computeExpectedSearchModel,
+    executeProductSearchHttpApi
 } from '../../data-scale/search-evidence.mjs';
 import {
     rebuildDataScalePublicAot,
@@ -5128,19 +5129,40 @@ async function dataScale(tier, outFile)
             prefix
         });
 
+        const searchTokens = {
+            title: canaries.article?.titleSearchToken || canaries.article?.searchToken || expectedSearchModel.tokens.titleSearchToken,
+            body: canaries.article?.bodySearchToken || expectedSearchModel.tokens.bodySearchToken,
+            cjk: canaries.article?.cjkSearchToken || expectedSearchModel.tokens.cjkSearchToken
+        };
+        const expectedSearchGeneration = searchReceipt?.indexGeneration || searchManifest?.currentVersion || null;
+        const searchApiExecutions = [];
+        for (const [tokenKind, query] of Object.entries(searchTokens))
+        {
+            if (!query)
+            {
+                continue;
+            }
+            searchApiExecutions.push(await executeProductSearchHttpApi({
+                baseUrl,
+                query,
+                tokenKind,
+                expectedGeneration: expectedSearchGeneration
+            }));
+        }
         searchProof = verifySearchProof({
             manifest: searchManifest,
             shard: searchShard,
             searchToken: canaries.article?.searchToken || 'data-scale-search-1',
             tokens: {
-                titleSearchToken: canaries.article?.titleSearchToken || canaries.article?.searchToken,
-                bodySearchToken: canaries.article?.bodySearchToken,
-                cjkSearchToken: canaries.article?.cjkSearchToken
+                titleSearchToken: searchTokens.title,
+                bodySearchToken: searchTokens.body,
+                cjkSearchToken: searchTokens.cjk
             },
             expectedArticleId: canaries.article?.id || 1,
             indexReceipt: searchReceipt,
             expectedModel: expectedSearchModel,
-            runtimeLease
+            runtimeLease,
+            searchApiExecutions
         });
     }
 

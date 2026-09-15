@@ -114,6 +114,40 @@ public static partial class BinaryEndpoints
         .WithMetadata(new FsusOpenApiQueryParameterMetadata("sort", "query://string", Required: false, Nullable: true))
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
+        group.MapGet("/article/search/query.aeds", static async Task<IResult> (
+            string? q,
+            HttpContext httpContext,
+            FsusBlog.Core.Services.Abstractions.IArticleCoreService articles,
+            ICacheStringReader cache,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            Result<IReadOnlyList<ArticleListCoreModel>> result = await articles.SearchArticlesAsync(
+                new FsusBlog.Core.Services.Articles.ArticleSearchQuery(q ?? string.Empty),
+                cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return BinaryResults.FromError(result.Error, aeds);
+            }
+
+            string? searchVersion = await cache.GetStringAsync(CachePolicyId.ArticleSearchVersion, "main", cancellationToken);
+            if (!string.IsNullOrWhiteSpace(searchVersion))
+            {
+                httpContext.Response.Headers["X-Fsus-Search-Index-Generation"] = searchVersion;
+            }
+
+            return BinaryResults.FromResult(
+                result,
+                aeds,
+                AedsFrameType.ArticleSearch,
+                static (value, writer) => PodBinaryCodec.WriteArticleSearch(value, writer));
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.search")
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("q", "query://string", Required: true, Nullable: false))
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
         group.MapGet("/article/{articleId:int}/related.aeds", static async Task<IResult> (
             int articleId,
             RelatedReadingService service,

@@ -121,6 +121,7 @@ All runtime API output uses `Content-Type: application/octet-stream` (AEDS v2 fr
 
 | Binary path | Access | FrameType | Meaning |
 | ------------ | ------ | ----------- | ------ |
+| GET `/api/binary/article/search/query.aeds?q={keyword}` | 🔓 📦 | `ArticleSearch`(4) | Product Search HTTP API over the canonical search index; empty keyword fails validation; response may carry `X-Fsus-Search-Index-Generation`. |
 | GET `/api/binary/article/list/home/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Home article list; omit cursor on the first page and return the opaque cursor unchanged thereafter; page URL remains supported. |
 | GET `/api/binary/article/list/archive/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Archive article list; cursor/page semantics match home. |
 | GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Category article list; cursor is bound to the category filter and cannot be reused across filters. |

@@ -3,10 +3,7 @@ import {
     computeSha256
 } from './runtime-plan.mjs';
 import {
-    querySearchShard
-} from './aeds-decoders.mjs';
-import {
-    verifySearchIndexReceipt
+    verifySearchExecutionProof
 } from './search-evidence.mjs';
 
 export const DATA_SCALE_SEMANTIC_PROOF_SCHEMA = 'fsusblog.data-scale-semantic-proof.v2';
@@ -411,167 +408,47 @@ export function verifySearchProof({
     expectedArticleId,
     indexReceipt,
     expectedModel,
-    runtimeLease
+    runtimeLease,
+    searchApiExecutions = null,
+    canaries = null
 })
 {
-    const errors = [];
-    const assertionIds = [];
-
-    if (!manifest || typeof manifest !== 'object')
-    {
-        return {
-            status: 'failed',
-            kind: 'search',
-            errors: ['search_manifest_missing_or_invalid'],
-            assertionIds: []
+    const normalizedTokens = tokens && typeof tokens === 'object'
+        ? {
+            titleSearchToken: tokens.titleSearchToken || tokens.title || searchToken || null,
+            bodySearchToken: tokens.bodySearchToken || tokens.body || null,
+            cjkSearchToken: tokens.cjkSearchToken || tokens.cjk || null
+        }
+        : {
+            titleSearchToken: searchToken || null,
+            bodySearchToken: null,
+            cjkSearchToken: null
         };
-    }
 
-    assertionIds.push('data-scale.search.manifest');
-    if (manifest.status === 'unsupported' || manifest.status === 'not-configured')
-    {
-        return {
-            status: 'failed',
-            kind: 'search',
-            errors: ['search_unsupported_or_not_configured'],
-            assertionIds
-        };
-    }
-
-    if (!manifest.currentVersion || typeof manifest.currentVersion !== 'string')
-    {
-        errors.push('search_manifest_version_invalid');
-    }
-
-    assertionIds.push('data-scale.search.shard');
-    if (!shard || typeof shard !== 'object')
-    {
-        errors.push('search_shard_missing_or_invalid');
-        return {
-            status: 'failed',
-            kind: 'search',
-            errors,
-            assertionIds
-        };
-    }
-
-    if (shard.magic !== 0x32534846 || shard.version !== 4)
-    {
-        errors.push(`search_shard_header_invalid: magic=0x${(shard.magic || 0).toString(16)}, version=${shard.version}`);
-    }
-
-    assertionIds.push('data-scale.search.canary-doc');
-    const docs = Array.isArray(shard.docs) ? shard.docs : [];
-    const canaryDoc = docs.find((d) => String(d.articleId) === String(expectedArticleId));
-    if (!canaryDoc)
-    {
-        errors.push(`search_shard_missing_canary_article: expected articleId=${expectedArticleId}`);
-    }
-
-    if (expectedModel && expectedModel.searchableCount !== undefined)
-    {
-        assertionIds.push('data-scale.search.count');
-        if (docs.length !== expectedModel.searchableCount)
-        {
-            errors.push(`search_doc_count_mismatch: expected ${expectedModel.searchableCount}, observed ${docs.length}`);
-        }
-        const nonSearchableSeeds = new Set(
-            (expectedModel.allArticles || []).filter((a) => !a.isSearchable).map((a) => a.seed)
-        );
-        for (const doc of docs)
-        {
-            if (nonSearchableSeeds.has(doc.articleId))
-            {
-                errors.push(`non-searchable article ${doc.articleId} mistakenly included in search index`);
+    const result = verifySearchExecutionProof({
+        manifest,
+        shard,
+        indexReceipt,
+        expectedModel,
+        runtimeLease,
+        searchApiExecutions,
+        canaries: canaries || {
+            article: {
+                id: expectedArticleId,
+                titleSearchToken: normalizedTokens.titleSearchToken,
+                bodySearchToken: normalizedTokens.bodySearchToken,
+                cjkSearchToken: normalizedTokens.cjkSearchToken,
+                searchToken
             }
         }
-    }
-
-    if (indexReceipt)
-    {
-        assertionIds.push('data-scale.search.index-receipt');
-        const receiptResult = verifySearchIndexReceipt(indexReceipt);
-        if (receiptResult.status !== 'ok')
-        {
-            errors.push(...receiptResult.errors);
-        }
-        if (manifest.currentVersion && indexReceipt.indexGeneration && manifest.currentVersion !== indexReceipt.indexGeneration)
-        {
-            errors.push(`generation_mismatch: manifest has ${manifest.currentVersion}, index receipt has ${indexReceipt.indexGeneration}`);
-        }
-    }
-
-    assertionIds.push('data-scale.search.query-hit');
-    const tokenList = [];
-    if (tokens && typeof tokens === 'object')
-    {
-        for (const [kind, val] of Object.entries(tokens))
-        {
-            if (val)
-            {
-                tokenList.push({ kind, token: val });
-            }
-        }
-    }
-    else if (searchToken)
-    {
-        tokenList.push({ kind: 'searchToken', token: searchToken });
-    }
-
-    if (tokenList.length === 0)
-    {
-        errors.push('search_query_token_missing');
-    }
-    else
-    {
-        for (const { kind, token } of tokenList)
-        {
-            assertionIds.push(`data-scale.search.token.${kind}`);
-            const hits = querySearchShard(shard, token);
-            const foundCanaryInHits = hits.some((h) => String(h.articleId) === String(expectedArticleId));
-            const matchingDocs = docs.filter((d) => (
-                String(d.articleId) === String(expectedArticleId)
-                && (d.title?.includes(token) || d.summary?.includes(token))
-            ));
-
-            if (!foundCanaryInHits && matchingDocs.length === 0)
-            {
-                errors.push(`search_query_token_not_found: ${kind} '${token}'`);
-            }
-
-            const foreignHits = hits.filter((h) => String(h.articleId) !== String(expectedArticleId));
-            if (foreignHits.length > 0)
-            {
-                errors.push(`search_query_token_unexpected_hit: ${kind} '${token}' matched foreign articles: ${foreignHits.map((h) => h.articleId).join(',')}`);
-            }
-        }
-    }
-
-    if (runtimeLease && manifest.runtimeLeaseDigest)
-    {
-        if (manifest.runtimeLeaseDigest !== runtimeLease.runtimeLeaseDigest)
-        {
-            errors.push('search_manifest_stale_runtime_lease');
-        }
-    }
-
-    const status = errors.length === 0 ? 'ok' : 'failed';
-    const semanticDigest = computeSha256({
-        manifestVersion: manifest.currentVersion,
-        expectedArticleId,
-        tokens: tokenList.map((t) => t.token),
-        shardDocCount: docs.length,
-        indexReceiptDigest: indexReceipt?.contentDigest || null
     });
 
-    return {
-        status,
-        kind: 'search',
-        assertionIds,
-        semanticDigest,
-        indexReceipt: indexReceipt || null,
-        errors
-    };
+    // Preserve legacy assertion id for query-hit while requiring Search HTTP API path.
+    if (!result.assertionIds.includes('data-scale.search.query-hit'))
+    {
+        result.assertionIds = [...result.assertionIds, 'data-scale.search.query-hit'];
+    }
+    return result;
 }
 
 export function verifyAotProof({
