@@ -10,6 +10,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.Articles.Bulk;
 using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
@@ -222,6 +223,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<StatsCoreQueryCache>();
         services.AddScoped<IHumanReadProofService, HumanReadProofService>();
         services.AddScoped<ISiteSubscriptionProofService, SiteSubscriptionProofService>();
+        services.AddArticleBulkPlanning();
         return services;
     }
 

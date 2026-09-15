@@ -675,6 +675,8 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         string operationId,
         IReadOnlyList<string> ids,
         ArticleBulkSelectionKind selectionKind = ArticleBulkSelectionKind.Explicit) => new(
+        "plan-1",
+        null,
         operationId,
         operationId == "category.add"
             ? Parameters(("categoryId", "category-1"))

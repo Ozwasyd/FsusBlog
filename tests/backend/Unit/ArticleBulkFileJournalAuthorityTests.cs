@@ -726,6 +726,8 @@ public sealed class ArticleBulkFileJournalAuthorityTests
             string operationId,
             ImmutableArray<string> articleIds)
             => new(
+                "plan-1",
+                null,
                 operationId,
                 new Dictionary<string, JsonElement>(StringComparer.Ordinal)
                 {

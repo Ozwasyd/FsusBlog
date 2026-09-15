@@ -123,6 +123,8 @@ internal static class ArticleBulkFileJournalProcessWorker
 
     private static ArticleBulkPlanRequest CreateRequest()
         => new(
+            "plan-1",
+            null,
             "category.add",
             new Dictionary<string, JsonElement>(StringComparer.Ordinal)
             {
