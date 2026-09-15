@@ -102,6 +102,10 @@ StaticArticleScalePlanGovernance() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-article-scale-plan-governance.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-scale-plan-governance.test.mjs"
 }
+StaticArticleBulkAuthorityGovernance() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-bulk-authorities.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-bulk-authorities.test.mjs"
+}
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
@@ -211,6 +215,7 @@ RunApplicationStaticPrechecksPhase() {
         article-embed-publication StaticArticleEmbedPublication \
         article-embed-relations StaticArticleEmbedRelations \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
+        article-bulk-authority-governance StaticArticleBulkAuthorityGovernance \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \
         dependency-freshness StaticDependencyFreshness \

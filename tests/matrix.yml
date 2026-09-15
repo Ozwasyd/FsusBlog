@@ -3292,6 +3292,7 @@ tiers:
           - revision-compare-authority
           - article-scale-plan-static-governance
           - static-client-payload-baseline-contract
+          - article-bulk-authority-static-governance
       artifacts:
           [
               .tmp/gate-logs,
@@ -3603,6 +3604,10 @@ tiers:
           - tools/governance/check-revision-compare-authority.mjs
           - tools/governance/revision-compare-authority-rules.mjs
           - tests/tools/revision-compare-authority.test.mjs
+          - tools/governance/check-article-bulk-authorities.mjs
+          - tests/tools/article-bulk-authorities.test.mjs
+          - src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs
+          - src/backend/Services/Articles/Bulk/ArticleBulkCanonicalCommandOwners.cs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 
 using FsusBlog.Server.Services.Articles.Bulk;
@@ -77,6 +78,81 @@ public sealed class ArticleBulkRegistryTests
             "schedule.change",
             Parameters(("scheduledAtUtc", "2026-09-04T12:00:00.1234567Z")));
         Assert.Equal("2026-09-04T12:00:00.1234567Z", schedule["scheduledAtUtc"]);
+    }
+
+    [Fact]
+    public void CanonicalCommandOwnersAreBidirectionallyExactAndExplicitlyUnavailable()
+    {
+        ImmutableArray<ArticleBulkCanonicalCommandOwner> owners = ArticleBulkCanonicalCommandOwners.Current;
+
+        ArticleBulkCanonicalCommandOwners.ValidateExact(ArticleBulkOperationRegistry.Current.Operations, owners);
+        Assert.Equal(8, owners.Length);
+        Assert.All(
+            owners,
+            static owner => Assert.Equal(
+                ArticleBulkCommandAdapterAvailability.Unavailable,
+                owner.AdapterAvailability));
+        Assert.All(ArticleBulkOperationRegistry.Current.Operations, operation =>
+            Assert.Contains(
+                owners,
+                owner => owner.Id == operation.CommandOwner
+                    && owner.OperationIds.Contains(operation.Id, StringComparer.Ordinal)));
+    }
+
+    [Fact]
+    public void CanonicalCommandOwnerCatalogRejectsMissingDuplicateAndUnregisteredOperations()
+    {
+        ImmutableArray<ArticleBulkCanonicalCommandOwner> owners = ArticleBulkCanonicalCommandOwners.Current;
+        ArticleBulkCanonicalCommandOwner first = owners[0];
+
+        Assert.Equal(
+            "article-bulk.command-owner-mismatch",
+            Assert.Throws<ArticleBulkContractException>(() => ArticleBulkCanonicalCommandOwners.ValidateExact(
+                ArticleBulkOperationRegistry.Current.Operations,
+                owners.RemoveAt(0))).Code);
+        Assert.Equal(
+            "article-bulk.command-owner-catalog-invalid",
+            Assert.Throws<ArticleBulkContractException>(() => ArticleBulkCanonicalCommandOwners.ValidateExact(
+                ArticleBulkOperationRegistry.Current.Operations,
+                owners.Add(first))).Code);
+        Assert.Equal(
+            "article-bulk.command-owner-mismatch",
+            Assert.Throws<ArticleBulkContractException>(() => ArticleBulkCanonicalCommandOwners.ValidateExact(
+                ArticleBulkOperationRegistry.Current.Operations,
+                owners.SetItem(0, first with
+                {
+                    OperationIds = first.OperationIds.Add("body.replace")
+                }))).Code);
+    }
+
+    [Theory]
+    [InlineData("category.add", "PerItemIsolated", "categoryId")]
+    [InlineData("category.remove", "PerItemIsolated", "categoryId")]
+    [InlineData("tag.add", "PerItemIsolated", "tagId")]
+    [InlineData("tag.remove", "PerItemIsolated", "tagId")]
+    [InlineData("property.set", "PerItemIsolated", "definitionId")]
+    [InlineData("property.clear", "PerItemIsolated", "definitionId")]
+    [InlineData("content-check.run", "PerItemIsolated", "checkIds")]
+    [InlineData("relation.reindex", "PerItemIsolated", "indexAuthorityDigest")]
+    [InlineData("search.reindex", "PerItemIsolated", "indexAuthorityDigest")]
+    [InlineData("lifecycle.archive", "AllOrNothing", "reasonCode")]
+    [InlineData("lifecycle.restore", "AllOrNothing", "reasonCode")]
+    [InlineData("lifecycle.inbox-to-draft", "AllOrNothing", "reasonCode")]
+    [InlineData("lifecycle.draft-to-inbox", "AllOrNothing", "reasonCode")]
+    [InlineData("schedule.change", "AllOrNothing", "scheduledAtUtc")]
+    public void EveryOperationBindsItsExactStrategySchemaAndOwner(
+        string operationId,
+        string strategy,
+        string requiredField)
+    {
+        ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(operationId);
+
+        Assert.Equal(strategy, operation.Strategy.ToString());
+        Assert.Contains(operation.Parameters, field => field.Name == requiredField);
+        Assert.Equal($"fsusblog.article-bulk.parameters.{operationId}.v1", operation.ParameterSchema);
+        Assert.Contains(
+            ArticleBulkCanonicalCommandOwners.Current,
+            owner => owner.Id == operation.CommandOwner && owner.OperationIds.Contains(operationId));
     }
 
     private static Dictionary<string, JsonElement> Parameters(params (string Name, string Value)[] pairs) =>

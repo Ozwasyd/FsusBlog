@@ -59,6 +59,7 @@ internal sealed record ArticleBulkRegistrySnapshot(
     ArticleBulkExecutionStrategy? DefaultStrategy,
     ImmutableArray<ArticleBulkOperation> Operations,
     FrozenDictionary<string, ImmutableArray<string>> CommandOwners,
+    ImmutableArray<ArticleBulkCanonicalCommandOwner> CanonicalCommandOwners,
     string ContentDigest);
 
 internal static partial class ArticleBulkOperationRegistry
@@ -162,10 +163,19 @@ internal static partial class ArticleBulkOperationRegistry
     internal static void Validate(ArticleBulkRegistrySnapshot candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
+        if (candidate.Operations.IsDefault || candidate.CanonicalCommandOwners.IsDefault
+            || candidate.CommandOwners is null)
+        {
+            throw new ArticleBulkContractException("article-bulk.registry-tampered");
+        }
+        ArticleBulkCanonicalCommandOwners.ValidateExact(
+            candidate.Operations,
+            ArticleBulkCanonicalCommandOwners.Current);
         ArticleBulkRegistrySnapshot expected = Current;
         if (candidate.Schema != Schema || candidate.Version != Version || candidate.DefaultStrategy is not null
             || candidate.Operations.Length != s_canonicalOperations.Length
             || !candidate.Operations.SequenceEqual(s_canonicalOperations)
+            || !candidate.CanonicalCommandOwners.SequenceEqual(ArticleBulkCanonicalCommandOwners.Current)
             || candidate.CommandOwners.Count != expected.CommandOwners.Count
             || candidate.CommandOwners.Any(pair => !expected.CommandOwners.TryGetValue(pair.Key, out var ids)
                 || !pair.Value.SequenceEqual(ids))
@@ -180,13 +190,17 @@ internal static partial class ArticleBulkOperationRegistry
 
     private static ArticleBulkRegistrySnapshot CreateSnapshot(ImmutableArray<ArticleBulkOperation> operations)
     {
-        FrozenDictionary<string, ImmutableArray<string>> owners = operations
-            .GroupBy(static operation => operation.CommandOwner, StringComparer.Ordinal)
-            .ToFrozenDictionary(
-                static group => group.Key,
-                static group => group.Select(static operation => operation.Id).Order(StringComparer.Ordinal).ToImmutableArray(),
-                StringComparer.Ordinal);
-        var unsigned = new ArticleBulkRegistrySnapshot(Schema, Version, null, operations, owners, string.Empty);
+        ArticleBulkCanonicalCommandOwners.ValidateExact(operations, ArticleBulkCanonicalCommandOwners.Current);
+        FrozenDictionary<string, ImmutableArray<string>> owners =
+            ArticleBulkCanonicalCommandOwners.CreateOperationMap(ArticleBulkCanonicalCommandOwners.Current);
+        var unsigned = new ArticleBulkRegistrySnapshot(
+            Schema,
+            Version,
+            null,
+            operations,
+            owners,
+            ArticleBulkCanonicalCommandOwners.Current,
+            string.Empty);
         return unsigned with
         {
             ContentDigest = DigestRegistry(unsigned)
@@ -201,7 +215,8 @@ internal static partial class ArticleBulkOperationRegistry
             registry.Version,
             registry.DefaultStrategy,
             Operations = registry.Operations,
-            CommandOwners = registry.CommandOwners.OrderBy(static pair => pair.Key, StringComparer.Ordinal)
+            CommandOwners = registry.CommandOwners.OrderBy(static pair => pair.Key, StringComparer.Ordinal),
+            registry.CanonicalCommandOwners
         };
         return ArticleBulkDigest.Of(digestable);
     }
