@@ -744,6 +744,15 @@ Search index, article service, PublicHotRead and application composition still o
 
 Schema migration no longer uses runtime service partial. `SchemaMigrationRegistry` only exposes the execution plan verified by `SchemaMigrationManifest`; the release-range catalog declares this range descriptor, and the domain-oriented definition type carries the historical SQL/step that cannot be deleted. The manifest verifies ID uniqueness, phase + migration ID monotonic order, catalog range, phase-tail dependency and explicit gap before database access, and the runner no longer rearranges the array by itself. Both the empty library and the 20260517 representative history fixture must keep their respective columns/indexes/constraints snapshot, history, and data conversion results unchanged before and after repeated execution. For catalogs, version boundaries and new migration rules, see [Database Migration Runbook](database-migration.md#versioned-legacy-catalog).
 
+## Authoring extension host boundary
+
+The authoring extension host starts with a separate internal/experimental closed
+manifest and registry contract. Its execution-class values reserve the reviewed
+Hybrid mapping but do not install or run a Worker/Wasm module, owned service, or
+host adapter. It adds no HTTP/AEDS or stable Shared ABI and does not widen the
+generic `.fspkg` Hook plugin system. See the focused
+[authoring extension host boundary](architecture/authoring-extension-host-boundary.md).
+
 ## Plugin foundation boundary
 
 v1.3.0 plugin foundation begins as an inert package and control-plane boundary. A hostile
