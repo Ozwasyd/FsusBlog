@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Security.Cryptography;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -32,7 +32,56 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
 
         const moduleBytes = readFileSync('/runtime/module.wasm');
         const maximumMemoryBytes = Number(process.argv[2]);
-        const maximumMessageBytes = Number(process.argv[3]);
+        const maximumRequestBytes = Number(process.argv[3]);
+        const maximumResponseBytes = Number(process.argv[4]);
+
+        const readU32 = (bytes, start) => {
+          let value = 0;
+          let shift = 0;
+          let offset = start;
+          for (let count = 0; count < 5 && offset < bytes.length; count += 1) {
+            const octet = bytes[offset++];
+            value |= (octet & 0x7f) << shift;
+            if ((octet & 0x80) === 0) return [value >>> 0, offset];
+            shift += 7;
+          }
+          throw new Error('wasm-u32-invalid');
+        };
+        const inspectMemoryPolicy = (bytes) => {
+          if (bytes.length < 8 || bytes[0] !== 0x00 || bytes[1] !== 0x61 ||
+              bytes[2] !== 0x73 || bytes[3] !== 0x6d) throw new Error('wasm-header-invalid');
+          let offset = 8;
+          let memories = 0;
+          while (offset < bytes.length) {
+            const sectionId = bytes[offset++];
+            let sectionLength;
+            [sectionLength, offset] = readU32(bytes, offset);
+            const end = offset + sectionLength;
+            if (end > bytes.length) throw new Error('wasm-section-outside-boundary');
+            if (sectionId === 5) {
+              let count;
+              [count, offset] = readU32(bytes, offset);
+              memories += count;
+              if (count !== 1) throw new Error('wasm-memory-count-invalid');
+              let flags;
+              [flags, offset] = readU32(bytes, offset);
+              if ((flags & ~0x03) !== 0 || (flags & 0x01) === 0 || (flags & 0x02) !== 0) {
+                throw new Error('wasm-memory-policy-invalid');
+              }
+              let minimumPages;
+              let maximumPages;
+              [minimumPages, offset] = readU32(bytes, offset);
+              [maximumPages, offset] = readU32(bytes, offset);
+              if (minimumPages * 65536 > maximumMemoryBytes || maximumPages * 65536 > maximumMemoryBytes) {
+                throw new Error('wasm-memory-outside-budget');
+              }
+              if (offset !== end) throw new Error('wasm-memory-section-invalid');
+            }
+            offset = end;
+          }
+          if (memories !== 1) throw new Error('wasm-memory-count-invalid');
+        };
+        inspectMemoryPolicy(moduleBytes);
         const module = await WebAssembly.compile(moduleBytes);
         const imports = WebAssembly.Module.imports(module);
         if (imports.length !== 0) throw new Error('wasm-imports-not-empty');
@@ -41,7 +90,10 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         if (!(memory instanceof WebAssembly.Memory) || typeof allocate !== 'function' || typeof execute !== 'function') {
           throw new Error('wasm-abi-missing');
         }
-        if (memory.buffer.byteLength > maximumMemoryBytes) throw new Error('wasm-memory-outside-budget');
+        if (memory.buffer.byteLength > maximumMemoryBytes ||
+            (typeof SharedArrayBuffer !== 'undefined' && memory.buffer instanceof SharedArrayBuffer)) {
+          throw new Error('wasm-memory-outside-budget');
+        }
 
         const write = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
         write({
@@ -62,13 +114,13 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         const lines = createInterface({ input: process.stdin, crlfDelay: Infinity, terminal: false });
         for await (const line of lines) {
           try {
-            if (line.length > maximumMessageBytes * 2 + 4096) throw new Error('request-frame-outside-budget');
+            if (line.length > maximumRequestBytes * 2 + 4096) throw new Error('request-frame-outside-budget');
             const request = structuredClone(JSON.parse(line));
             if (request.kind !== 'execute' || request.schemaVersion !== 1 || typeof request.payload !== 'string') {
               throw new Error('request-frame-invalid');
             }
             const payload = Buffer.from(request.payload, 'base64');
-            if (payload.byteLength > maximumMessageBytes) throw new Error('request-payload-outside-budget');
+            if (payload.byteLength > maximumRequestBytes) throw new Error('request-payload-outside-budget');
             const pointer = Number(allocate(payload.byteLength));
             if (!Number.isSafeInteger(pointer) || pointer < 0 || pointer + payload.byteLength > memory.buffer.byteLength) {
               throw new Error('request-memory-outside-boundary');
@@ -78,7 +130,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             if (typeof packed !== 'bigint') throw new Error('wasm-result-not-i64');
             const resultPointer = Number((packed >> 32n) & 0xffffffffn);
             const resultLength = Number(packed & 0xffffffffn);
-            if (memory.buffer.byteLength > maximumMemoryBytes || resultLength > maximumMessageBytes ||
+            if (memory.buffer.byteLength > maximumMemoryBytes || resultLength > maximumResponseBytes ||
                 resultPointer + resultLength > memory.buffer.byteLength) {
               throw new Error('result-memory-outside-boundary');
             }
@@ -116,7 +168,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         Directory.CreateDirectory(instanceRoot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string modulePath = Path.Combine(instanceRoot, "module.wasm");
         string runnerPath = Path.Combine(instanceRoot, "runner.mjs");
-        await File.WriteAllBytesAsync(modulePath, descriptor.ModuleBytes.ToArray(), cancellationToken);
+        await File.WriteAllBytesAsync(modulePath, [.. descriptor.ModuleBytes], cancellationToken);
         await File.WriteAllTextAsync(runnerPath, RunnerSource, Encoding.UTF8, cancellationToken);
         File.SetUnixFileMode(modulePath, UnixFileMode.UserRead);
         File.SetUnixFileMode(runnerPath, UnixFileMode.UserRead);
@@ -140,9 +192,11 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             startup.CancelAfter(_options.StartupTimeout);
             string? readyLine = await ReadClosedLineAsync(
                 process.StandardOutput,
-                descriptor.MaximumMessageBytes * 2 + 4096,
+                Math.Max(descriptor.MaximumRequestBytes, descriptor.MaximumResponseBytes) * 2 + 4096,
                 startup.Token);
-            WorkerRunnerMessage ready = ParseMessage(readyLine, descriptor.MaximumMessageBytes);
+            WorkerRunnerMessage ready = ParseMessage(
+                readyLine,
+                Math.Max(descriptor.MaximumRequestBytes, descriptor.MaximumResponseBytes));
             if (!string.Equals(ready.Kind, "ready", StringComparison.Ordinal) ||
                 ready.InitialMemoryBytes is < 1 || ready.InitialMemoryBytes > descriptor.MaximumMemoryBytes)
             {
@@ -206,7 +260,8 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             "--ro-bind", Path.GetFullPath(_options.DynamicLoaderPath), "/lib64/ld-linux-x86-64.so.2",
             "--chdir", "/runtime", "/runtime/node", "/runtime/runner.mjs",
             descriptor.MaximumMemoryBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            descriptor.MaximumMessageBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            descriptor.MaximumRequestBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            descriptor.MaximumResponseBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
         })
         {
             start.ArgumentList.Add(argument);
@@ -224,11 +279,13 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             ComputeFileDigest(_options.NodePath),
             descriptor.ContentSha256,
             descriptor.ModuleSha256,
+            descriptor.InstanceIdentity,
             descriptor.HostApiDigest,
             descriptor.SchemaDigest,
             descriptor.PolicyDigest,
             descriptor.MaximumMemoryBytes,
-            descriptor.MaximumMessageBytes,
+            descriptor.MaximumRequestBytes,
+            descriptor.MaximumResponseBytes,
             namespaceIdentity,
             "bubblewrap/unshare-all/no-wasi/empty-imports/v1");
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
@@ -242,12 +299,12 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         }
 
         string[] namespaces = ["mnt", "net", "pid", "user"];
-        string[] observed = namespaces.Select(name => File.ResolveLinkTarget(
+        string[] observed = [.. namespaces.Select(name => File.ResolveLinkTarget(
             $"/proc/{processId}/ns/{name}",
-            false)?.Name ?? string.Empty).ToArray();
-        string[] host = namespaces.Select(name => File.ResolveLinkTarget(
+            false)?.Name ?? string.Empty)];
+        string[] host = [.. namespaces.Select(name => File.ResolveLinkTarget(
             $"/proc/self/ns/{name}",
-            false)?.Name ?? string.Empty).ToArray();
+            false)?.Name ?? string.Empty)];
         if (observed.Any(string.IsNullOrWhiteSpace) || observed.SequenceEqual(host))
         {
             throw new AuthoringExtensionContractException("Worker process namespace isolation was not observable.");
@@ -267,10 +324,9 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 break;
             }
 
-            int[] children = File.ReadAllText(childrenPath)
+            int[] children = [.. File.ReadAllText(childrenPath)
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(static value => int.Parse(value, System.Globalization.CultureInfo.InvariantCulture))
-                .ToArray();
+                .Select(static value => int.Parse(value, System.Globalization.CultureInfo.InvariantCulture))];
             if (children.Length == 0)
             {
                 break;
@@ -369,11 +425,13 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
     private static void ValidateDescriptor(AuthoringWorkerLaunchDescriptor descriptor)
     {
         if (descriptor is null || descriptor.ModuleBytes.IsDefaultOrEmpty || !IsDigest(descriptor.RuntimeIdentity) ||
+            !IsDigest(descriptor.InstanceIdentity) ||
             !IsDigest(descriptor.PackageSha256) || !IsDigest(descriptor.ContentSha256) ||
             !IsDigest(descriptor.ModuleSha256) || !IsDigest(descriptor.HostApiDigest) ||
             !IsDigest(descriptor.SchemaDigest) || !IsDigest(descriptor.PolicyDigest) ||
             descriptor.MaximumMemoryBytes is < 65_536 or > 536_870_912 ||
-            descriptor.MaximumMessageBytes is < 1 or > 16_777_216 ||
+            descriptor.MaximumRequestBytes is < 1 or > 16_777_216 ||
+            descriptor.MaximumResponseBytes is < 1 or > 16_777_216 ||
             !CryptographicOperations.FixedTimeEquals(
                 SHA256.HashData(descriptor.ModuleBytes.AsSpan()),
                 Convert.FromHexString(descriptor.ModuleSha256)))
@@ -382,8 +440,8 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         }
     }
 
-    private static bool IsDigest(string value) =>
-        value.Length == 64 && value.All(static character =>
+    private static bool IsDigest(string? value) =>
+        value is not null && value.Length == 64 && value.All(static character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     private static async ValueTask TerminateProcessTreeAsync(Process process)
@@ -472,7 +530,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                     request.ResultSchemaReference,
                     payload = Convert.ToBase64String(request.Payload.AsSpan())
                 }, json);
-                if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumMessageBytes * 2 + 4096)
+                if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumRequestBytes * 2 + 4096)
                 {
                     throw new AuthoringExtensionContractException("Worker request frame is outside its bound.");
                 }
@@ -481,9 +539,9 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 await process.StandardInput.FlushAsync(cancellationToken);
                 string? line = await ReadClosedLineAsync(
                     process.StandardOutput,
-                    descriptor.MaximumMessageBytes * 2 + 4096,
+                    descriptor.MaximumResponseBytes * 2 + 4096,
                     cancellationToken);
-                WorkerRunnerMessage message = ParseMessage(line, descriptor.MaximumMessageBytes);
+                WorkerRunnerMessage message = ParseMessage(line, descriptor.MaximumResponseBytes);
                 if (!string.Equals(message.Kind, "result", StringComparison.Ordinal) || message.Payload is null ||
                     message.RuntimeIdentity is null || message.RequestId is null || message.ResultSchemaReference is null)
                 {
@@ -492,7 +550,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 }
 
                 byte[] payload = Convert.FromBase64String(message.Payload);
-                if (payload.Length > descriptor.MaximumMessageBytes)
+                if (payload.Length > descriptor.MaximumResponseBytes)
                 {
                     throw new AuthoringExtensionContractException("Worker result payload is outside its bound.");
                 }

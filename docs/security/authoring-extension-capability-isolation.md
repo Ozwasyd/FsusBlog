@@ -88,14 +88,36 @@ verification is not production evidence. This fail-closed absence is the remaini
 terminal acceptance blocker for the concrete-adapter portion of this boundary; it
 does not weaken Worker/Wasm or service class isolation.
 
+## Worker/Wasm isolation
+
+Third-party pure-compute modules execute only as verified Wasm in the Linux
+bubblewrap runtime. The package cannot supply JavaScript, an assembly, a module
+loader, imports, callbacks, or host object references. The Wasm ABI exchanges one
+bounded byte payload through copied JSON/base64 frames; response identity and
+schema references must exactly match the request.
+
+The runner rejects imports, shared or unbounded memory, memory maxima above policy,
+recursive workers, unknown globals, oversized frames, and memory ranges outside
+the exported buffer. The OS profile unshares network/mount/PID/user namespaces,
+clears the environment, drops capabilities, and binds only the runner, verified
+module, Node executable, and runtime libraries read-only. No DOM, editor, Pinia,
+FsusUI-private object, network, filesystem API, process API, database, Redis,
+service object, `eval`, dynamic import, iframe, or WebView enters the module ABI.
+
+Cancellation, deadline, crash, malformed result, or stale document terminates the
+process tree and yields no committable response. Receipts hash document/request
+identities and omit plaintext IDs, content, payloads, and secrets. Actual namespace
+and escape probes remain part of the Linux runtime test and cannot be replaced by
+the static source checks used during light-only development.
+
 ## Stage boundary
 
-The current stages validate the contract and package supply chain, but do not issue
-or persist grants, resolve execution, start a worker/service, broker I/O, expose
-RPC, mutate a document, migrate extension data, or manage runtime lifecycle state.
-A verified archive and an enum declaration are never executable authority. Each
-later child must recheck the verified package identity and implement its own
-fail-closed acceptance before any operation can occur.
+The current stages validate the contract and package supply chain, resolve fixed
+execution classes, and can run verified Wasm in the isolated Linux worker. They do
+not issue or persist grants, start an owned service, broker I/O, expose RPC, mutate
+a document, migrate extension data, or manage runtime lifecycle state. Each later
+child must recheck the verified package identity and implement its own fail-closed
+acceptance before any additional operation can occur.
 
 The general [plugin sandbox](plugin-sandbox.md) continues to own `.fspkg` Hook
 execution through its Level 1 Jint/Lua application sandbox. Neither subsystem may
