@@ -419,16 +419,20 @@ public sealed class ArticleScalePlanTests
     }
 
     [Fact]
-    public void Contract_HasOnePlanTypeAndNoFactoryOrWriterImplementation()
+    public void Contract_HasOnePlanTypeCanonicalFactoryAndNoWriterImplementation()
     {
         Type[] planTypes = typeof(ArticleScalePlan).Assembly.GetTypes()
             .Where(static type => type.Name == nameof(ArticleScalePlan))
             .ToArray();
+        Type[] factoryTypes = typeof(ArticleScalePlan).Assembly.GetTypes()
+            .Where(static type => type.Name == "CanonicalArticleGraphFactory")
+            .ToArray();
         Type[] forbiddenImplementations = typeof(ArticleScalePlan).Assembly.GetTypes()
-            .Where(static type => type.Name is "CanonicalArticleGraphFactory" or "ArticleScaleWriter")
+            .Where(static type => type.Name == "ArticleScaleWriter")
             .ToArray();
 
         Assert.Single(planTypes);
+        Assert.Single(factoryTypes);
         Assert.Empty(forbiddenImplementations);
         Assert.DoesNotContain(
             typeof(ArticleScalePlanBuilder).GetMethods(),
