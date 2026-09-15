@@ -283,9 +283,14 @@ function exactRuntimeErrors(run)
     if (semantics?.schema !== 'fsusblog.comment-fixture-runtime-semantics.v1'
         || JSON.stringify(semantics.publicVisibility) !== JSON.stringify({ approved: 'visible-exact', pending: 'hidden-exact', rejected: 'hidden-exact', spam: 'hidden-exact' })
         || JSON.stringify(semantics.queueMembership) !== JSON.stringify({ approved: 'excluded', pending: 'included-pending', rejected: 'included-rejected', spam: 'included-rejected' })
+        || JSON.stringify(semantics.adminVisibility) !== JSON.stringify({ approved: 'visible-exact', pending: 'visible-exact', rejected: 'visible-exact', spam: 'visible-exact' })
         || semantics.source !== 'production-comment-query-and-authoring-moderation-queue')
     {
         errors.push('runtime public/queue semantic evidence drifted');
+    }
+    if (!/^sha256:[a-f0-9]{64}$/u.test(String(moderation?.contentDigest ?? '')))
+    {
+        errors.push('runtime moderation content digest is missing');
     }
     const moderated = moderation?.entities ?? [];
     const moderationByRole = new Map(moderated.map((item) => [item?.semanticRole, item]));
@@ -316,15 +321,26 @@ function exactRuntimeErrors(run)
                         moderationStatus: observed?.semanticStatus ?? thread?.moderationStatus,
                         moderationRuntimeStatus: observed?.runtimeStatus ?? thread?.moderationStatus,
                         moderationReason: observed?.reason ?? null,
+                        commentReferenceDigest: observed?.commentReferenceDigest ?? null,
+                        reasonId: observed?.reasonId ?? null,
+                        regionStateId: observed?.regionStateId ?? null,
+                        signalStateId: observed?.signalStateId ?? null,
                         moderatedByAdminPrincipalId: observed?.moderatedByAdminPrincipalId == null
                             ? null
                             : String(observed.moderatedByAdminPrincipalId),
                         moderatedAt: observed?.moderatedAt ?? null,
+                        adminVisible: observed?.adminVisible ?? false,
+                        adminStatus: observed?.adminStatus ?? null,
+                        adminModerationActor: observed?.adminModerationActor ?? null,
                         queueMember: observed?.queueMember ?? null,
                         queueBucket: observed?.queueBucket ?? null,
+                        queueGroup: observed?.queueGroup ?? null,
+                        queueReason: observed?.queueReason ?? null,
+                        queueActor: observed?.queueActor ?? null,
                         queueOrder: observed?.queueOrder ?? null,
                         queueMembershipSize: observed?.queueMembershipSize ?? null,
                         regionCode: observed?.regionCode ?? null,
+                        applicableRegions: observed?.applicableRegions ?? [],
                         regionRequiresManualReview: observed?.regionRequiresManualReview ?? null,
                         regionPolicyVersion: observed?.regionPolicyVersion ?? null,
                         regionEvidence: observed?.regionEvidence ?? [],
@@ -486,7 +502,14 @@ function canonicalRuntimeRun(seed)
         source: 'comment_region_compliance',
         regionCode,
         policyVersion: 'policy-v1',
-        decisionDigest: `sha256:${manual ? 'c' : 'b'}`.padEnd(71, manual ? 'c' : 'b')
+        decisionDigest: `sha256:${manual ? 'c' : 'b'}`.padEnd(71, manual ? 'c' : 'b'),
+        provider: 'test-fixture-verified-region',
+        canPublish: true,
+        requiresManualReview: manual,
+        hideUntilReviewed: false,
+        decisionReason: manual ? 'submit_region_manual_review' : 'region_policy_allow',
+        blockedRegions: [],
+        applicableRegions: [regionCode]
     }];
     const moderationEntity = (item, capabilityId, semanticStatus, fields = {}) => ({
         capabilityId,
@@ -495,19 +518,32 @@ function canonicalRuntimeRun(seed)
         semanticStatus,
         runtimeStatus: semanticStatus === 'spam' ? 'rejected' : semanticStatus,
         reason: semanticStatus === 'approved' || semanticStatus === 'pending' ? null : `fixture_${semanticStatus}`,
+        commentReferenceDigest: `sha256:${'f'.repeat(64)}`,
+        reasonId: semanticStatus === 'approved' ? 'approved-none'
+            : semanticStatus === 'pending' ? 'pending-none'
+                : semanticStatus === 'rejected' ? 'rejected-fixture' : 'spam-fixture',
+        regionStateId: null,
+        signalStateId: semanticStatus === 'spam' ? 'verified' : null,
         moderatedByAdminPrincipalId: semanticStatus === 'pending' ? null : 7,
         moderatedAt: semanticStatus === 'pending' ? null : '2042-05-17T09:30:00Z',
         publiclyVisible: semanticStatus === 'approved',
         queueBucket: semanticStatus === 'spam' ? 'rejected' : semanticStatus,
+        adminVisible: true,
+        adminStatus: semanticStatus === 'spam' ? 'rejected' : semanticStatus,
+        adminModerationActor: semanticStatus === 'pending' ? 'human-review-pending' : 'admin:7',
         queueMember: semanticStatus === 'pending' || semanticStatus === 'rejected' || semanticStatus === 'spam',
+        queueGroup: semanticStatus === 'spam' ? 'rejected' : semanticStatus,
+        queueReason: semanticStatus === 'approved' || semanticStatus === 'pending' ? null : `fixture_${semanticStatus}`,
+        queueActor: semanticStatus === 'pending' ? 'human-review-pending' : 'admin:7',
         queueOrder: -1,
         queueMembershipSize: 0,
         regionCode: null,
+        applicableRegions: [],
         regionPolicyVersion: null,
         regionRequiresManualReview: null,
         regionEvidence: [],
         signalEvidence: [],
-        moderationEventIds: semanticStatus === 'pending' ? [] : [String(item.commentId + 5000)],
+        moderationEventIds: [String(item.commentId + 5000)],
         outboxEventIds: item.outboxEventIds,
         ...fields
     });
@@ -525,11 +561,18 @@ function canonicalRuntimeRun(seed)
                 contractVersion: 'v1',
                 classification: 'risky',
                 confidence: 0.99,
-                evidenceDigest: `sha256:${'a'.repeat(64)}`
+                evidenceDigest: `sha256:${'a'.repeat(64)}`,
+                source: 'fsusblog',
+                model: 'fixture-model',
+                status: 'ok',
+                score: 0.99,
+                evidenceRefs: [`sha256:${'a'.repeat(64)}`]
             }]
         }),
         moderationEntity(regionGlobal, 'comment.region.global', 'approved', {
             regionCode: 'global',
+            regionStateId: 'global',
+            applicableRegions: ['global'],
             regionPolicyVersion: 'policy-v1',
             regionRequiresManualReview: false,
             regionEvidence: regionEvidence(regionGlobal.commentId, 'global', false)
@@ -538,8 +581,10 @@ function canonicalRuntimeRun(seed)
             queueOrder: 1,
             queueMembershipSize: 2,
             regionCode: 'eu',
+            regionStateId: 'manual-review',
+            applicableRegions: ['eu'],
             regionPolicyVersion: 'policy-v1',
-            regionRequiresManualReview: true,
+                regionRequiresManualReview: true,
             regionEvidence: regionEvidence(regionManual.commentId, 'eu', true)
         })
     ];
@@ -588,10 +633,13 @@ function canonicalRuntimeRun(seed)
         })),
         threadEntities,
         moderation: {
+            schema: 'fsusblog.comment-moderation-fixture-result.v1',
+            contentDigest: `sha256:${'e'.repeat(64)}`,
             runtimeSemantics: {
                 schema: 'fsusblog.comment-fixture-runtime-semantics.v1',
                 publicVisibility: { approved: 'visible-exact', pending: 'hidden-exact', rejected: 'hidden-exact', spam: 'hidden-exact' },
                 queueMembership: { approved: 'excluded', pending: 'included-pending', rejected: 'included-rejected', spam: 'included-rejected' },
+                adminVisibility: { approved: 'visible-exact', pending: 'visible-exact', rejected: 'visible-exact', spam: 'visible-exact' },
                 source: 'production-comment-query-and-authoring-moderation-queue'
             },
             entities: moderationEntities

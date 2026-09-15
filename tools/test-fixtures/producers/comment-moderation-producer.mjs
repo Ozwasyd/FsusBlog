@@ -82,10 +82,16 @@ function resolveIdentityReferences(context)
     {
         throw new Error('comment-moderation authors must be independent identities');
     }
+    const adminActorReferenceDigest = asDigest(byRole.get('admin').digest);
+    if (!refs.some((item) => item.role === 'admin' && asDigest(item.digest) === adminActorReferenceDigest))
+    {
+        throw new Error('comment-moderation admin actor reference is missing from auth-session refs');
+    }
     return Object.freeze({
         primaryAccountId: primary,
         secondaryAccountId: secondary,
         adminPrincipalId: requirePositiveId(byRole.get('admin').publicId, 'admin principal ID'),
+        adminActorReferenceDigest,
         authProducerResultDigest: asDigest(source.producerResultDigest),
         authPrepareReferenceDigests: Object.freeze(refs.map((item) => asDigest(item.digest)).sort())
     });
@@ -319,6 +325,7 @@ function normalizeResult(raw, context, plan, temporalObservation)
         || raw.planDigest !== plan.planDigest || raw.inventoryDigest !== plan.inventoryDigest
         || !matchesCommentFixturePlanBinding(cleanupBinding, plan)
         || JSON.stringify(moderationBinding) !== JSON.stringify(cleanupBinding)
+        || !digestPattern.test(String(raw.moderation?.contentDigest ?? ''))
         || raw.capabilityCatalogDigest !== plan.capabilityCatalogDigest
         || raw.variantCatalogDigest !== plan.variantCatalogDigest
         || raw.temporalContextDigest !== plan.temporalContextDigest
@@ -384,15 +391,26 @@ function normalizeResult(raw, context, plan, temporalObservation)
                 moderationStatus: moderation?.semanticStatus ?? item.moderationStatus,
                 moderationRuntimeStatus: moderation?.runtimeStatus ?? item.moderationStatus,
                 moderationReason: moderation?.reason ?? null,
+                commentReferenceDigest: moderation?.commentReferenceDigest ?? null,
+                reasonId: moderation?.reasonId ?? null,
+                regionStateId: moderation?.regionStateId ?? null,
+                signalStateId: moderation?.signalStateId ?? null,
                 moderatedByAdminPrincipalId: moderation?.moderatedByAdminPrincipalId == null
                     ? null
                     : String(moderation.moderatedByAdminPrincipalId),
                 moderatedAt: moderation?.moderatedAt ?? null,
+                adminVisible: moderation?.adminVisible ?? false,
+                adminStatus: moderation?.adminStatus ?? null,
+                adminModerationActor: moderation?.adminModerationActor ?? null,
                 queueMember: moderation?.queueMember ?? null,
                 queueBucket: moderation?.queueBucket ?? null,
+                queueGroup: moderation?.queueGroup ?? null,
+                queueReason: moderation?.queueReason ?? null,
+                queueActor: moderation?.queueActor ?? null,
                 queueOrder: moderation?.queueOrder ?? null,
                 queueMembershipSize: moderation?.queueMembershipSize ?? null,
                 regionCode: moderation?.regionCode ?? null,
+                applicableRegions: moderation?.applicableRegions ?? [],
                 regionRequiresManualReview: moderation?.regionRequiresManualReview ?? null,
                 regionPolicyVersion: moderation?.regionPolicyVersion ?? null,
                 regionEvidence: moderation?.regionEvidence ?? [],
@@ -482,6 +500,247 @@ export async function prepareCommentModeration(context, signal)
     return normalizeResult(raw, context, plan, temporalObservation);
 }
 
+const moderationEntityExpectations = Object.freeze({
+    'approved-root': Object.freeze({
+        capabilityId: 'comment.moderation.approved',
+        semanticStatus: 'approved',
+        runtimeStatus: 'approved',
+        publicVisible: true,
+        queueMember: false,
+        queueBucket: 'approved',
+        regionStateId: null,
+        signalStateId: null
+    }),
+    pending: Object.freeze({
+        capabilityId: 'comment.moderation.pending',
+        semanticStatus: 'pending',
+        runtimeStatus: 'pending',
+        publicVisible: false,
+        queueMember: true,
+        queueBucket: 'pending',
+        regionStateId: null,
+        signalStateId: null
+    }),
+    rejected: Object.freeze({
+        capabilityId: 'comment.moderation.rejected',
+        semanticStatus: 'rejected',
+        runtimeStatus: 'rejected',
+        publicVisible: false,
+        queueMember: true,
+        queueBucket: 'rejected',
+        regionStateId: null,
+        signalStateId: null
+    }),
+    spam: Object.freeze({
+        capabilityId: 'comment.moderation.spam',
+        semanticStatus: 'spam',
+        runtimeStatus: 'rejected',
+        publicVisible: false,
+        queueMember: true,
+        queueBucket: 'rejected',
+        regionStateId: null,
+        signalStateId: 'verified'
+    }),
+    'region-global': Object.freeze({
+        capabilityId: 'comment.region.global',
+        semanticStatus: 'approved',
+        runtimeStatus: 'approved',
+        publicVisible: true,
+        queueMember: false,
+        queueBucket: 'approved',
+        regionStateId: 'global',
+        signalStateId: null,
+        regionRequiresManualReview: false
+    }),
+    'region-manual-review': Object.freeze({
+        capabilityId: 'comment.region.manual-review',
+        semanticStatus: 'pending',
+        runtimeStatus: 'pending',
+        publicVisible: false,
+        queueMember: true,
+        queueBucket: 'pending',
+        regionStateId: 'manual-review',
+        signalStateId: null,
+        regionRequiresManualReview: true
+    })
+});
+
+function requireNonEmptyString(value, label)
+{
+    if (typeof value !== 'string' || value.trim().length === 0)
+    {
+        throw new Error(`${label} is missing`);
+    }
+}
+
+function requirePositiveFixtureId(value, label)
+{
+    if (!/^[1-9][0-9]*$/u.test(String(value ?? '')))
+    {
+        throw new Error(`${label} is invalid`);
+    }
+}
+
+function verifySignalEvidence(entity, role)
+{
+    const evidence = entity.signalEvidence;
+    if (!Array.isArray(evidence))
+    {
+        throw new Error(`${role} signal evidence is not an array`);
+    }
+    for (const item of evidence)
+    {
+        requirePositiveFixtureId(item?.signalId, `${role} signal ID`);
+        if (String(item?.commentId) !== String(entity.commentId))
+        {
+            throw new Error(`${role} signal comment identity drifted`);
+        }
+        for (const field of ['provider', 'contractVersion', 'classification', 'source', 'model'])
+        {
+            requireNonEmptyString(item?.[field], `${role} signal ${field}`);
+        }
+        if (item.status !== 'ok'
+            || !Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1
+            || !Number.isFinite(item.score) || item.score !== item.confidence
+            || !digestPattern.test(String(item.evidenceDigest ?? ''))
+            || !Array.isArray(item.evidenceRefs) || item.evidenceRefs.length === 0
+            || item.evidenceRefs.some((ref) => !digestPattern.test(String(ref))))
+        {
+            throw new Error(`${role} signal score/status/evidence binding is invalid`);
+        }
+        if (!item.evidenceRefs.includes(item.evidenceDigest))
+        {
+            throw new Error(`${role} signal evidence digest is not referenced`);
+        }
+    }
+}
+
+function verifyRegionEvidence(entity, role, expected)
+{
+    requireNonEmptyString(entity.regionCode, `${role} region code`);
+    requireNonEmptyString(entity.regionPolicyVersion, `${role} region policy version`);
+    if (entity.regionStateId !== expected.regionStateId
+        || entity.regionRequiresManualReview !== expected.regionRequiresManualReview
+        || !Array.isArray(entity.applicableRegions)
+        || !entity.applicableRegions.includes(entity.regionCode))
+    {
+        throw new Error(`${role} region state/jurisdiction binding is invalid`);
+    }
+    if (!Array.isArray(entity.regionEvidence) || entity.regionEvidence.length === 0)
+    {
+        throw new Error(`${role} region evidence is missing`);
+    }
+    for (const item of entity.regionEvidence)
+    {
+        if (String(item?.commentId) !== String(entity.commentId)
+            || !['comment_region_compliance', 'comment_blocked_region'].includes(item?.source)
+            || typeof item?.regionCode !== 'string' || item.regionCode.length === 0
+            || item.policyVersion !== entity.regionPolicyVersion
+            || typeof item?.canPublish !== 'boolean'
+            || typeof item?.requiresManualReview !== 'boolean'
+            || typeof item?.hideUntilReviewed !== 'boolean'
+            || !Array.isArray(item?.blockedRegions)
+            || !digestPattern.test(String(item?.decisionDigest ?? '')))
+        {
+            throw new Error(`${role} region evidence binding is invalid`);
+        }
+        requireNonEmptyString(item.provider, `${role} region provider`);
+        requireNonEmptyString(item.decisionReason, `${role} region decision reason`);
+    }
+}
+
+function verifyModerationEntities(result)
+{
+    if (result.moderation?.schema !== 'fsusblog.comment-moderation-fixture-result.v1'
+        || JSON.stringify(result.moderation.binding) !== JSON.stringify(result.cleanupReceipt?.binding))
+    {
+        throw new Error('comment fixture moderation result binding is stale');
+    }
+    const entities = result.moderation.entities;
+    if (!Array.isArray(entities) || entities.length !== Object.keys(moderationEntityExpectations).length)
+    {
+        throw new Error('comment fixture moderation matrix is incomplete');
+    }
+    const byRole = new Map();
+    for (const entity of entities)
+    {
+        if (!moderationEntityExpectations[entity?.semanticRole] || byRole.has(entity.semanticRole))
+        {
+            throw new Error('comment fixture moderation roles are duplicated or unknown');
+        }
+        byRole.set(entity.semanticRole, entity);
+    }
+    const queuePositions = new Set();
+    for (const [role, expected] of Object.entries(moderationEntityExpectations))
+    {
+        const entity = byRole.get(role);
+        if (!entity || entity.capabilityId !== expected.capabilityId
+            || entity.semanticStatus !== expected.semanticStatus
+            || entity.runtimeStatus !== expected.runtimeStatus
+            || entity.publiclyVisible !== expected.publicVisible
+            || entity.queueMember !== expected.queueMember
+            || entity.queueBucket !== expected.queueBucket
+            || entity.queueGroup !== expected.queueBucket
+            || entity.regionStateId !== expected.regionStateId
+            || entity.signalStateId !== expected.signalStateId
+            || !digestPattern.test(String(entity.commentReferenceDigest ?? ''))
+            || entity.adminVisible !== true
+            || entity.adminStatus !== expected.runtimeStatus)
+        {
+            throw new Error(`${role} moderation/public/admin semantic binding is invalid`);
+        }
+        requirePositiveFixtureId(entity.commentId, `${role} comment ID`);
+        requireNonEmptyString(entity.adminModerationActor, `${role} admin moderation actor`);
+        requireNonEmptyString(entity.queueActor, `${role} queue actor`);
+        if (entity.queueReason !== (entity.reason ?? null))
+        {
+            throw new Error(`${role} queue reason is not bound to moderation reason`);
+        }
+        if (!Number.isSafeInteger(entity.queueOrder) || !Number.isSafeInteger(entity.queueMembershipSize)
+            || entity.queueMembershipSize < 0
+            || (entity.queueMember
+                ? entity.queueOrder < 0 || entity.queueOrder >= entity.queueMembershipSize
+                : entity.queueOrder !== -1))
+        {
+            throw new Error(`${role} queue order/membership evidence is invalid`);
+        }
+        if (entity.queueMember)
+        {
+            const position = `${entity.queueBucket}:${entity.queueOrder}`;
+            if (queuePositions.has(position))
+            {
+                throw new Error(`${role} queue order is duplicated`);
+            }
+            queuePositions.add(position);
+        }
+        if (!Array.isArray(entity.moderationEventIds) || entity.moderationEventIds.length === 0
+            || new Set(entity.moderationEventIds).size !== entity.moderationEventIds.length
+            || entity.moderationEventIds.some((id) => !/^[1-9][0-9]*$/u.test(String(id)))
+            || !Array.isArray(entity.outboxEventIds) || entity.outboxEventIds.length === 0
+            || new Set(entity.outboxEventIds).size !== entity.outboxEventIds.length
+            || entity.outboxEventIds.some((id) => !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(String(id))))
+        {
+            throw new Error(`${role} audit/outbox evidence is incomplete`);
+        }
+        const needsAdminActor = ['approved-root', 'rejected', 'spam', 'region-global'].includes(role);
+        if (needsAdminActor
+            && (!/^[1-9][0-9]*$/u.test(String(entity.moderatedByAdminPrincipalId ?? ''))
+                || typeof entity.moderatedAt !== 'string' || entity.moderatedAt.length === 0))
+        {
+            throw new Error(`${role} admin actor evidence is incomplete`);
+        }
+        verifySignalEvidence(entity, role);
+        if (role.startsWith('region-'))
+        {
+            verifyRegionEvidence(entity, role, expected);
+        }
+        else if (role === 'spam' && entity.signalEvidence.length !== 1)
+        {
+            throw new Error('spam must expose exactly one moderation signal');
+        }
+    }
+}
+
 export async function verifyCommentModeration(context, result)
 {
     try
@@ -501,6 +760,7 @@ export async function verifyCommentModeration(context, result)
         if (semantics?.schema !== 'fsusblog.comment-fixture-runtime-semantics.v1'
             || semantics.publicVisibility?.approved !== 'visible-exact'
             || ['pending', 'rejected', 'spam'].some((status) => semantics.publicVisibility?.[status] !== 'hidden-exact')
+            || ['approved', 'pending', 'rejected', 'spam'].some((status) => semantics.adminVisibility?.[status] !== 'visible-exact')
             || semantics.queueMembership?.approved !== 'excluded'
             || semantics.queueMembership?.pending !== 'included-pending'
             || semantics.queueMembership?.rejected !== 'included-rejected'
@@ -508,6 +768,16 @@ export async function verifyCommentModeration(context, result)
         {
             throw new Error('comment fixture runtime semantic evidence drifted');
         }
+        if (!digestPattern.test(String(result.moderation?.contentDigest ?? ''))
+            || (result.moderation?.entities ?? []).some((item) => item.adminVisible !== true
+                || typeof item.adminStatus !== 'string' || item.adminStatus.length === 0
+                || typeof item.adminModerationActor !== 'string' || item.adminModerationActor.length === 0
+                || typeof item.queueGroup !== 'string' || item.queueGroup.length === 0
+                || typeof item.queueActor !== 'string' || item.queueActor.length === 0))
+        {
+            throw new Error('comment fixture admin/queue evidence is incomplete');
+        }
+        verifyModerationEntities(result);
         return { ok: true, producerId: PRODUCER_ID };
     }
     catch (error)

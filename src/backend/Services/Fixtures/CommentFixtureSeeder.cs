@@ -3,8 +3,8 @@ using System.Globalization;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Security;
@@ -16,7 +16,12 @@ public sealed record CommentFixtureIdentityReferences(
     int SecondaryAccountId,
     long AdminPrincipalId,
     string AuthProducerResultDigest,
-    IReadOnlyList<string> AuthPrepareReferenceDigests);
+    IReadOnlyList<string> AuthPrepareReferenceDigests)
+{
+    // Narrow #1713 reference for the admin actor consumed by moderation; the
+    // moderation port must not mint or elevate an admin identity.
+    public string AdminActorReferenceDigest { get; init; } = string.Empty;
+}
 
 public sealed record CommentFixtureArticleReference(
     int ArticleId,
@@ -111,6 +116,7 @@ public sealed class CommentFixtureSeeder(
     ICacheStringReader cacheReader,
     IConfiguration configuration) : ICommentFixtureSeeder
 {
+    private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
     private const string ProducerId = "comment-moderation";
     private const string ManualReviewFixtureRegion = RegionCodes.UnitedStates;
     private const string Strategy = "transaction-fixture";
@@ -248,19 +254,28 @@ public sealed class CommentFixtureSeeder(
 
             var moderationOperations = new[]
             {
-            Moderate("approved", "approved-root", latest["approved-root"].CommentId, string.Empty),
-            Moderate("pending", "pending", latest["pending"].CommentId, string.Empty),
-            Moderate("rejected", "rejected", latest["rejected"].CommentId, "fixture_rejected"),
-            Moderate("spam", "spam", latest["spam"].CommentId, "fixture_spam", requireSignal: true),
-            Region("comment.region.global", "approved", "region-global", latest["region-global"].CommentId),
-            Region("comment.region.manual-review", "pending", "region-manual-review", latest["region-manual-review"].CommentId)
+            Moderate("approved", "approved-root", latest["approved-root"].CommentId, string.Empty,
+                latest["approved-root"].OperationPlanDigest),
+            Moderate("pending", "pending", latest["pending"].CommentId, string.Empty,
+                latest["pending"].OperationPlanDigest),
+            Moderate("rejected", "rejected", latest["rejected"].CommentId, "fixture_rejected",
+                latest["rejected"].OperationPlanDigest),
+            Moderate("spam", "spam", latest["spam"].CommentId, "fixture_spam",
+                latest["spam"].OperationPlanDigest, requireSignal: true),
+            Region("comment.region.global", "approved", "region-global", latest["region-global"].CommentId,
+                latest["region-global"].OperationPlanDigest),
+            Region("comment.region.manual-review", "pending", "region-manual-review", latest["region-manual-review"].CommentId,
+                latest["region-manual-review"].OperationPlanDigest)
         };
             CommentModerationFixtureResult moderationResult = await moderation.ExecuteAsync(
                 new CommentModerationFixturePlan(
                     "fsusblog.comment-moderation-fixture-plan.v1",
                     binding,
                     admin,
-                    moderationOperations),
+                    moderationOperations)
+                {
+                    AdminActorReferenceDigest = plan.IdentityReferences.AdminActorReferenceDigest
+                },
                 cancellationToken).ConfigureAwait(false);
 
             IReadOnlyList<CommentThreadFixtureEntity> entities = await threads.ObserveCurrentAsync(
@@ -510,6 +525,7 @@ public sealed class CommentFixtureSeeder(
         string role,
         long id,
         string reason,
+        string commentReferenceDigest = "",
         bool requireSignal = false)
         => new(
             $"comment.moderation.{status}",
@@ -518,13 +534,26 @@ public sealed class CommentFixtureSeeder(
             status,
             reason,
             RequireRegionEvidence: true,
-            RequireSignalEvidence: requireSignal);
+            RequireSignalEvidence: requireSignal)
+        {
+            CommentReferenceDigest = commentReferenceDigest,
+            ReasonId = status switch
+            {
+                "approved" => "approved-none",
+                "pending" => "pending-none",
+                "rejected" => "rejected-fixture",
+                "spam" => "spam-fixture",
+                _ => string.Empty
+            },
+            SignalStateId = requireSignal ? "verified" : null
+        };
 
     private static CommentModerationFixtureOperation Region(
         string capabilityId,
         string status,
         string role,
-        long id)
+        long id,
+        string commentReferenceDigest)
         => new(
             capabilityId,
             role,
@@ -532,7 +561,14 @@ public sealed class CommentFixtureSeeder(
             status,
             string.Empty,
             RequireRegionEvidence: true,
-            RequireSignalEvidence: false);
+            RequireSignalEvidence: false)
+        {
+            CommentReferenceDigest = commentReferenceDigest,
+            ReasonId = status == "approved" ? "approved-none" : "pending-none",
+            RegionStateId = capabilityId.EndsWith("global", StringComparison.Ordinal)
+                ? "global"
+                : "manual-review"
+        };
 
     private static string Content(string owner, string role) => $"Fixture comment {owner} {role}";
 
@@ -577,6 +613,10 @@ public sealed class CommentFixtureSeeder(
             || plan.IdentityReferences.PrimaryAccountId <= 0 || plan.IdentityReferences.SecondaryAccountId <= 0
             || plan.IdentityReferences.PrimaryAccountId == plan.IdentityReferences.SecondaryAccountId
             || plan.IdentityReferences.AdminPrincipalId <= 0
+            || !IsDigest(plan.IdentityReferences.AdminActorReferenceDigest)
+            || !plan.IdentityReferences.AuthPrepareReferenceDigests.Contains(
+                plan.IdentityReferences.AdminActorReferenceDigest,
+                StringComparer.Ordinal)
             || !plan.Capabilities.Order(StringComparer.Ordinal).SequenceEqual(s_expectedCapabilities, StringComparer.Ordinal)
             || !IsDigest(plan.InventoryDigest) || !IsDigest(plan.CapabilityCatalogDigest)
             || !IsDigest(plan.VariantCatalogDigest) || !IsDigest(plan.TemporalContextDigest)
@@ -589,5 +629,5 @@ public sealed class CommentFixtureSeeder(
     }
 
     private static bool IsDigest(string value) => value.StartsWith("sha256:", StringComparison.Ordinal)
-        && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+        && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept(s_myChars) < 0;
 }

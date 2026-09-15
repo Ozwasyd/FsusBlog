@@ -32,8 +32,20 @@ function comment(role, id, fields = {})
             publicVisible: true,
             moderationStatus: 'approved',
             moderationRuntimeStatus: 'approved',
+            moderationReason: null,
+            commentReferenceDigest: `sha256:${'f'.repeat(64)}`,
+            reasonId: 'approved-none',
+            regionStateId: null,
+            signalStateId: null,
+            applicableRegions: [],
+            adminVisible: true,
+            adminStatus: 'approved',
+            adminModerationActor: 'admin:7',
             queueMember: false,
             queueBucket: 'approved',
+            queueGroup: 'approved',
+            queueReason: null,
+            queueActor: 'admin:7',
             queueOrder: -1,
             queueMembershipSize: 0,
             history: [{ version: 1, operation: 'created' }],
@@ -71,8 +83,13 @@ function observations()
         publicVisible: false,
         moderationStatus: 'pending',
         moderationRuntimeStatus: 'pending',
+        reasonId: 'pending-none',
         queueMember: true,
         queueBucket: 'pending',
+        adminStatus: 'pending',
+        adminModerationActor: 'human-review-pending',
+        queueGroup: 'pending',
+        queueActor: 'human-review-pending',
         queueOrder: 0,
         queueMembershipSize: 2,
         moderationEventIds: [],
@@ -83,8 +100,15 @@ function observations()
         publicVisible: false,
         moderationStatus: 'rejected',
         moderationRuntimeStatus: 'rejected',
+        reasonId: 'rejected-fixture',
         queueMember: true,
         queueBucket: 'rejected',
+        moderationReason: 'fixture_rejected',
+        adminStatus: 'rejected',
+        adminModerationActor: 'admin:7',
+        queueGroup: 'rejected',
+        queueReason: 'fixture_rejected',
+        queueActor: 'admin:7',
         queueOrder: 0,
         queueMembershipSize: 2
     });
@@ -92,8 +116,16 @@ function observations()
         publicVisible: false,
         moderationStatus: 'spam',
         moderationRuntimeStatus: 'rejected',
+        reasonId: 'spam-fixture',
+        signalStateId: 'verified',
         queueMember: true,
         queueBucket: 'rejected',
+        moderationReason: 'fixture_spam',
+        adminStatus: 'rejected',
+        adminModerationActor: 'admin:7',
+        queueGroup: 'rejected',
+        queueReason: 'fixture_spam',
+        queueActor: 'admin:7',
         queueOrder: 1,
         queueMembershipSize: 2,
         signalEvidence: [{
@@ -103,7 +135,12 @@ function observations()
             contractVersion: 'v1',
             classification: 'risky',
             confidence: 0.99,
-            evidenceDigest: `sha256:${'a'.repeat(64)}`
+            evidenceDigest: `sha256:${'a'.repeat(64)}`,
+            source: 'fsusblog',
+            model: 'fixture-model',
+            status: 'ok',
+            score: 0.99,
+            evidenceRefs: [`sha256:${'a'.repeat(64)}`]
         }]
     });
     const edited = comment('edited', 130, {
@@ -127,6 +164,8 @@ function observations()
     const regionGlobal = {
         ...comment('region-global', 170, {
             regionCode: 'global',
+            regionStateId: 'global',
+            applicableRegions: ['global'],
             regionPolicyVersion: 'policy-v1',
             regionRequiresManualReview: false,
             regionEvidence: [{
@@ -134,7 +173,13 @@ function observations()
                 source: 'comment_region_compliance',
                 regionCode: 'global',
                 policyVersion: 'policy-v1',
-                decisionDigest: `sha256:${'b'.repeat(64)}`
+                decisionDigest: `sha256:${'b'.repeat(64)}`,
+                provider: 'test-fixture-verified-region',
+                canPublish: true,
+                requiresManualReview: false,
+                hideUntilReviewed: false,
+                decisionReason: 'region_policy_allow',
+                blockedRegions: []
             }]
         }),
         kind: 'moderation-policy'
@@ -142,6 +187,8 @@ function observations()
     const regionManual = {
         ...comment('region-manual-review', 171, {
             regionCode: 'eu',
+            regionStateId: 'manual-review',
+            applicableRegions: ['eu'],
             regionPolicyVersion: 'policy-v1',
             regionRequiresManualReview: true,
             regionEvidence: [{
@@ -149,12 +196,24 @@ function observations()
                 source: 'comment_region_compliance',
                 regionCode: 'eu',
                 policyVersion: 'policy-v1',
-                decisionDigest: `sha256:${'c'.repeat(64)}`
+                decisionDigest: `sha256:${'c'.repeat(64)}`,
+                provider: 'test-fixture-verified-region',
+                canPublish: true,
+                requiresManualReview: true,
+                hideUntilReviewed: false,
+                decisionReason: 'submit_region_manual_review',
+                blockedRegions: []
             }],
             publicVisible: false,
             moderationStatus: 'pending',
+            moderationRuntimeStatus: 'pending',
+            reasonId: 'pending-none',
+            adminStatus: 'pending',
+            adminModerationActor: 'human-review-pending',
             queueMember: true,
             queueBucket: 'pending',
+            queueGroup: 'pending',
+            queueActor: 'human-review-pending',
             queueOrder: 1,
             queueMembershipSize: 2
         }),
