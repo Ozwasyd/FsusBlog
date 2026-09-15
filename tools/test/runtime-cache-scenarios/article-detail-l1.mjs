@@ -32,6 +32,12 @@ function qualifiedL1(requests) {
     request.redisCommands.length === 0 && request.dbCommands.length === 0).length
 }
 
+function balancedBatchSizes(total, batchCount) {
+  const quotient = Math.floor(total / batchCount)
+  const remainder = total % batchCount
+  return Array.from({ length: batchCount }, (_, index) => quotient + (index < remainder ? 1 : 0))
+}
+
 export async function produceArticleDetailL1Receipt(options) {
   const { scenario, identity } = options
   const articleId = fixtureArticleId(identity)
@@ -54,15 +60,65 @@ export async function produceArticleDetailL1Receipt(options) {
       return requests
     },
     sample: async ({ collect }) => {
-      const l1Specs = specs(scenario.requests / 2, 'l1-hit')
-      const l1 = await mapConcurrent(l1Specs, scenario.concurrency, (spec, index) => collect(spec, index))
-
+      const perCohort = scenario.requests / 2
+      const l1Specs = specs(perCohort, 'l1-hit')
+      const faultSpecs = specs(scenario.requests - perCohort, 'redis-fault')
       const injectRedisPause = options.injectRedisPause ?? (() => execFileSync('docker', [
         'exec', '-i', identity.redisContainer, 'redis-cli', 'CLIENT', 'PAUSE', '500', 'ALL'
       ], { stdio: ['ignore', 'pipe', 'pipe'] }))
-      await injectRedisPause(500)
-      const faultSpecs = specs(scenario.requests - l1.length, 'redis-fault')
-      const fault = await mapConcurrent(faultSpecs, scenario.concurrency, (spec, index) => collect(spec, l1.length + index))
+      const waitForRedisRecovery = options.waitForRedisRecovery ?? ((milliseconds) =>
+        new Promise((resolve) => setTimeout(resolve, milliseconds)))
+      const cycleCount = Math.min(10, perCohort, faultSpecs.length)
+      const l1BatchSizes = balancedBatchSizes(l1Specs.length, cycleCount)
+      const faultBatchSizes = balancedBatchSizes(faultSpecs.length, cycleCount)
+      const l1 = []
+      const fault = []
+      const faultTimeline = []
+      let l1Offset = 0
+      let faultOffset = 0
+      const sampleClock = performance.now()
+
+      const collectL1Batch = async (count) => {
+        const offset = l1Offset
+        const batch = l1Specs.slice(offset, offset + count)
+        l1Offset += count
+        l1.push(...await mapConcurrent(batch, scenario.concurrency,
+          (spec, index) => collect(spec, offset + index)))
+      }
+      const collectFaultBatch = async (count) => {
+        const offset = faultOffset
+        const batch = faultSpecs.slice(offset, offset + count)
+        faultOffset += count
+        await injectRedisPause(500)
+        const injectedAt = performance.now()
+        const observed = await mapConcurrent(batch, scenario.concurrency,
+          (spec, index) => collect(spec, perCohort + offset + index))
+        fault.push(...observed)
+        const firstFault = observed[0]
+        faultTimeline.push(
+          { atMs: injectedAt - sampleClock, kind: 'latency-500ms', state: 'injected', classification: 'fail-open', requestId: firstFault.id, subcaseId: 'redis-fault' },
+          { atMs: injectedAt - sampleClock + firstFault.latencyMs, kind: 'latency-500ms', state: 'observed', classification: 'fail-open', requestId: firstFault.id, subcaseId: 'redis-fault' })
+        const remainingPauseMs = Math.max(0, 500 - (performance.now() - injectedAt))
+        await waitForRedisRecovery(remainingPauseMs)
+        faultTimeline.push({
+          atMs: performance.now() - sampleClock,
+          kind: 'latency-500ms',
+          state: 'cleared',
+          classification: 'recovered',
+          requestId: firstFault.id,
+          subcaseId: 'redis-fault'
+        })
+      }
+
+      for (let cycle = 0; cycle < cycleCount; cycle += 1) {
+        if (cycle % 2 === 0) {
+          await collectL1Batch(l1BatchSizes[cycle])
+          await collectFaultBatch(faultBatchSizes[cycle])
+        } else {
+          await collectFaultBatch(faultBatchSizes[cycle])
+          await collectL1Batch(l1BatchSizes[cycle])
+        }
+      }
       const requests = [...l1, ...fault]
       const baselineP95 = percentile(l1.map((request) => request.latencyMs), 95)
       const faultP95 = percentile(fault.map((request) => request.latencyMs), 95)
@@ -82,13 +138,11 @@ export async function produceArticleDetailL1Receipt(options) {
             { withinRatio: ratio <= scenario.requirements.redisFaultLatencyRatioMax },
             firstFault)
         ],
-        faultTimeline: [
-          { atMs: 0, kind: 'latency-500ms', state: 'injected', classification: 'fail-open', requestId: firstFault.id, subcaseId: 'redis-fault' },
-          { atMs: firstFault.latencyMs, kind: 'latency-500ms', state: 'observed', classification: 'fail-open', requestId: firstFault.id, subcaseId: 'redis-fault' },
-          { atMs: 500, kind: 'latency-500ms', state: 'cleared', classification: 'recovered', requestId: firstFault.id, subcaseId: 'redis-fault' }
-        ],
+        faultTimeline,
         parameters: { route, redisPauseMs: 500, baselineP95, faultP95, faultLatencyRatio: ratio }
       }
     }
   })
 }
+
+export const articleDetailL1ScenarioInternals = Object.freeze({ balancedBatchSizes })

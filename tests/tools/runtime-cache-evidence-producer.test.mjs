@@ -527,7 +527,7 @@ test('article detail L1 handler proves zero commands while real Redis is paused'
     requirements: { redisCommandsMax: 0, dbCommandsMax: 0, redisFaultLatencyRatioMax: 1.25 }
   })
   const currentCatalog = catalog(currentScenario)
-  let pauseMs = 0
+  const pauseWindows = []
   try {
     const receipt = await produceArticleDetailL1Receipt({
       repositoryRoot: directory,
@@ -544,11 +544,12 @@ test('article detail L1 handler proves zero commands while real Redis is paused'
       collectMemory: async () => memory(),
       collectCleanup: async () => cleanup(),
       captureSource: () => source,
-      injectRedisPause: async (value) => { pauseMs = value },
+      injectRedisPause: async (value) => { pauseWindows.push(value) },
+      waitForRedisRecovery: async () => {},
       runId: 'article-l1-pass',
       attemptNumber: 1
     })
-    assert.equal(pauseMs, 500)
+    assert.deepEqual(pauseWindows, [500, 500])
     assert.equal(receipt.status, 'passed')
     assert.equal(runtime.calls.filter((call) => call.path === '/api/binary/article/17.aeds'
       && call.cookie === 'runtime-cache-l1-evidence=1').length, 6)
