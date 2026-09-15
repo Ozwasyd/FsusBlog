@@ -2,6 +2,13 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/clean-attempt-evidence-source.mjs"
+            ],
+            "reason": "Preserve the existing caller-visible environment and authority-reference spellings while narrowing the returned projection to its stable public fields."
+        },
+        {
             "id": "release-locator-current-run-authority",
             "paths": [
                 "config/testing/evidence-location-migration-ledger.json",
