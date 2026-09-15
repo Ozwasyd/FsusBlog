@@ -119,6 +119,7 @@ public sealed class CanonicalArticlePublicationFixturePort(
     ISqlSugarClient db,
     IConfiguration configuration,
     IArticlePublicationValidator publicationValidator,
+    IArticlePublicMutationFence mutationFence,
     TimeProvider? timeProvider = null) : ICanonicalArticlePublicationFixturePort
 {
     public const string Schema = "fsusblog.canonical-article-publication-receipt.v1";
@@ -233,277 +234,192 @@ public sealed class CanonicalArticlePublicationFixturePort(
             return new CanonicalArticlePublicationResult(replayedReceipt, IdempotencyReplay: true);
         }
 
-        // Single authority atomic transaction
+        // Single authority atomic transaction via production create path + public mutation fence.
+        bool fenceEstablished = false;
+        bool mutationCommitted = false;
         CanonicalArticlePublicationReceipt? receipt = null;
-        var tran = await db.Ado.UseTranAsync(async () =>
+        try
         {
-            string title = ArticleProductionNormalizers.NormalizeText(
-                request.Plan.Title, ArticleProductionNormalizers.MaxTitleLength);
-            string content = ArticleProductionNormalizers.NormalizeText(
-                request.Plan.Content, ArticleProductionNormalizers.MaxContentLength);
-            string summary = ArticleProductionNormalizers.NormalizeText(
-                request.Plan.Summary, ArticleProductionNormalizers.MaxSummaryLength);
-            string coverImageUrl = ArticleProductionNormalizers.NormalizeText(
-                request.Plan.CoverImageUrl, ArticleProductionNormalizers.MaxCoverImageUrlLength);
-            List<int> tagIds = ArticleProductionNormalizers.NormalizeTagIds(request.Plan.TagIds);
-            ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
-            string safeSummary = summaryProjection.Text;
-
-            // 1. Insert Article
-            var article = new Article
-            {
-                Title = title,
-                Summary = safeSummary,
-                CoverImageUrl = coverImageUrl,
-                CategoryId = request.Plan.CategoryId,
-                CreateTime = now,
-                MetadataUpdatedAt = now,
-                Status = ArticleStatus.Published,
-                ScheduledPublishAt = null,
-                PublishedAt = now,
-                LastPublishedAt = now,
-                PublicUpdatedAt = now,
-                CurrentRevisionId = null,
-                CurrentPublicationId = null,
-                PendingPublicationAt = null,
-                ArchivedAt = null,
-                IsDeleted = false,
-                Content = content
-            };
-            int articleId = await db.Insertable(article).ExecuteReturnIdentityAsync().ConfigureAwait(false);
-            if (articleId <= 0)
-            {
-                throw new InvalidOperationException("article_insert_failed");
-            }
-
-            // 2. Insert ArticleBody
-            await db.Insertable(new ArticleBody
-            {
-                ArticleId = articleId,
-                MarkdownContent = content,
-                UpdatedAt = now
-            }).ExecuteCommandAsync().ConfigureAwait(false);
-
-            // 3. Insert ArticleTags
-            if (tagIds.Count > 0)
-            {
-                List<ArticleTag> tagRows = [.. tagIds.Select(tagId => new ArticleTag
-                {
-                    ArticleId = articleId,
-                    TagId = tagId
-                })];
-                await db.Insertable(tagRows).ExecuteCommandAsync().ConfigureAwait(false);
-            }
-
-            // 4. Content block
-            long contentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
-                db, content, now, cancellationToken).ConfigureAwait(false);
-
-            // 5. Insert ArticleRevision
-            var revision = new ArticleRevision
-            {
-                ArticleId = articleId,
-                RevisionNo = 1,
-                Title = title,
-                Summary = safeSummary,
-                CoverImageUrl = coverImageUrl,
-                CategoryId = request.Plan.CategoryId,
-                TagIds = string.Join(',', tagIds.OrderBy(static id => id)),
-                ContentBlockId = contentBlockId,
-                MarkdownContent = string.Empty,
-                DiffSummary = "initial publish",
-                CreatedByAdminPrincipalId = request.Binding.AdminPrincipalId,
-                RollbackSourceRevisionId = null,
-                RollbackReason = null,
-                CreatedAt = now
-            };
-            long revisionId = await db.Insertable(revision).ExecuteReturnBigIdentityAsync().ConfigureAwait(false);
-            if (revisionId <= 0)
-            {
-                throw new InvalidOperationException("revision_insert_failed");
-            }
-
-            // 6. Asset References
-            var assetBoundary = new ArticleAssetReferenceWriteBoundary(db);
-            ArticleAssetReferenceWrite[] assetWrites = await assetBoundary
-                .ResolveAsync(content, coverImageUrl, cancellationToken)
+            await mutationFence
+                .BeginPublicMutationFenceAsync(null, cancellationToken)
                 .ConfigureAwait(false);
-            var assetStore = new ArticleAssetReferenceStore(db);
-            await assetStore.ReplaceCurrentArticleAsync(articleId, assetWrites, cancellationToken).ConfigureAwait(false);
-            await assetStore.ReplaceRevisionAsync(revisionId, articleId, assetWrites, cancellationToken).ConfigureAwait(false);
+            fenceEstablished = true;
 
-            // 7. Rights Policy & Snapshot (production-shared upsert + snapshot builder)
-            ArticleRightsNormalizedModel rights = ArticleProductionNormalizers.NormalizeArticleRights(request.Plan.Rights);
-            long policyId = await ArticleRightsPolicyPersistence.UpsertAsync(
-                db,
-                articleId,
-                rights,
-                now,
-                cancellationToken).ConfigureAwait(false);
-
-            var (rightsSnapshot, contentCanonicalHash, policyHash) = ArticleRightsSnapshotBuilder.Build(
-                articleId,
-                revisionId,
-                1,
-                policyId,
-                title,
-                content,
-                safeSummary,
-                coverImageUrl,
-                request.Plan.CategoryId,
-                tagIds,
-                ArticleStatus.Published,
-                publishedAt: now,
-                scheduledPublishAt: null,
-                rights,
-                now);
-            long rightsSnapshotId = await db.Insertable(rightsSnapshot).ExecuteReturnBigIdentityAsync().ConfigureAwait(false);
-
-            // 8. Responsibility Snapshot
-            var respSnapshot = ArticleResponsibilitySnapshotBuilder.Build(
-                articleId,
-                revisionId,
-                1,
-                1,
-                previousSnapshotId: null,
-                request.Plan.Responsibility,
-                now);
-            long responsibilitySnapshotId = await db.Insertable(respSnapshot).ExecuteReturnBigIdentityAsync().ConfigureAwait(false);
-
-            // 9. ArticlePublicationTransitionWriter.ApplyAsync
-            ArticleVersionCoordinates version = await ArticlePublicationTransitionWriter.ApplyAsync(
-                db,
-                new ArticlePublicationTransitionRequest(
-                    articleId,
-                    new ArticleVersionCoordinates(
-                        revisionId,
-                        1,
-                        rightsSnapshotId,
-                        responsibilitySnapshotId,
-                        null,
-                        null,
-                        1),
-                    ArticleStatus.Published,
-                    ScheduledPublishAt: null,
-                    TransitionedAt: now,
-                    TransitionKind: ArticlePublicationTransitionKinds.ImmediatePublish,
-                    Operation: ArticleStatusTransitionOperation.Create),
-                cancellationToken).ConfigureAwait(false);
-
-            if (!version.PublicationId.HasValue || !version.PublicationNo.HasValue)
+            var tran = await db.Ado.UseTranAsync(async () =>
             {
-                throw new InvalidOperationException("publication_insert_failed");
+                ArticleRightsNormalizedModel rights = ArticleProductionNormalizers.NormalizeArticleRights(request.Plan.Rights);
+                List<int> tagIds = ArticleProductionNormalizers.NormalizeTagIds(request.Plan.TagIds);
+                ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(
+                    ArticleProductionNormalizers.NormalizeText(request.Plan.Summary, ArticleProductionNormalizers.MaxSummaryLength),
+                    ArticleProductionNormalizers.NormalizeText(request.Plan.Content, ArticleProductionNormalizers.MaxContentLength));
+
+                ArticleCreateMutationAuthority.Result created = await ArticleCreateMutationAuthority.ExecuteAsync(
+                    db,
+                    new ArticleCreateMutationAuthority.Request(
+                        Title: request.Plan.Title,
+                        Content: request.Plan.Content,
+                        Summary: request.Plan.Summary,
+                        CoverImageUrl: request.Plan.CoverImageUrl,
+                        CategoryId: request.Plan.CategoryId,
+                        TagIds: tagIds,
+                        Status: ArticleStatus.Published,
+                        ScheduledPublishAt: null,
+                        PublishedAt: now,
+                        LastPublishedAt: now,
+                        PublicUpdatedAt: now,
+                        ArchivedAt: null,
+                        Now: now,
+                        Rights: rights,
+                        CreatedByAdminPrincipalId: request.Binding.AdminPrincipalId,
+                        DiffSummary: ArticleSummaryProjection.AttachGenerationVersion("initial publish", summaryProjection),
+                        OutboxEventType: ArticleMutationEventTypes.Created,
+                        TransitionKind: ArticlePublicationTransitionKinds.ImmediatePublish,
+                        AfterScope: new ArticleMutationScopeSnapshot(
+                            request.Plan.CategoryId,
+                            tagIds.ToArray(),
+                            ArticleMutationVisibility.From(ArticleStatus.Published)),
+                        MutationIdentity: new ArticleCreateMutationAuthority.ArticleMutationIdentityWrite(
+                            request.Binding.AdminPrincipalId,
+                            clientMutationId,
+                            requestHash),
+                        AttachResponsibilityAsync: async (articleId, revision, token) =>
+                        {
+                            var respSnapshot = ArticleResponsibilitySnapshotBuilder.Build(
+                                articleId,
+                                revision.Id,
+                                revision.RevisionNo,
+                                1,
+                                previousSnapshotId: null,
+                                request.Plan.Responsibility,
+                                now);
+                            long responsibilitySnapshotId = await db.Insertable(respSnapshot)
+                                .ExecuteReturnBigIdentityAsync()
+                                .ConfigureAwait(false);
+                            if (responsibilitySnapshotId <= 0)
+                            {
+                                throw new InvalidOperationException("responsibility_snapshot_insert_failed");
+                            }
+
+                            return new ArticleCreateMutationAuthority.ResponsibilityAttachResult(
+                                responsibilitySnapshotId,
+                                1);
+                        }),
+                    cancellationToken).ConfigureAwait(false);
+
+                if (!created.Version.PublicationId.HasValue || !created.Version.PublicationNo.HasValue)
+                {
+                    throw new InvalidOperationException("publication_insert_failed");
+                }
+
+                if (!created.ResponsibilitySnapshotId.HasValue)
+                {
+                    throw new InvalidOperationException("responsibility_snapshot_missing");
+                }
+
+                ArticleRightsSnapshot rightsSnapshot = await db.Queryable<ArticleRightsSnapshot>()
+                    .Where(s => s.Id == created.RightsSnapshotId)
+                    .FirstAsync(cancellationToken)
+                    .ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("rights_snapshot_missing");
+
+                byte[]? tamperKey = AuditTamperEvidence.ResolveKey(configuration);
+                string auditDigest = ComputeAuditDigest(
+                    created.ArticleId,
+                    created.Revision.Id,
+                    created.Version.PublicationId.Value,
+                    created.RightsSnapshotId,
+                    created.ResponsibilitySnapshotId.Value,
+                    created.Outbox.EventId);
+                var auditRecord = new AuditRecord(
+                    Source: AuditSourceCatalog.Article,
+                    Type: AuditTypeCatalog.Business,
+                    OccurredAtUtc: now,
+                    EventInfo: auditDigest,
+                    ContextPayload: null,
+                    Action: AdminPermissions.ArticleWrite,
+                    Outcome: AuditOutcomeCatalog.Success,
+                    Severity: AuditSeverityCatalog.Info,
+                    ActorType: AuditActorTypeCatalog.Admin,
+                    ActorId: request.Binding.AdminPrincipalId.ToString(CultureInfo.InvariantCulture),
+                    TargetType: "article-canonical-publication",
+                    TargetId: created.ArticleId.ToString(CultureInfo.InvariantCulture),
+                    IsHighValue: true,
+                    ReasonCode: "canonical-publish");
+                AuthoringSignedAuditWriter.ChainWrite auditWrite = await AuthoringSignedAuditWriter.InsertAsync(
+                    db,
+                    tamperKey,
+                    auditRecord,
+                    cancellationToken).ConfigureAwait(false);
+
+                string outboxPayloadDigest = ComputeOutboxPayloadDigest(created.Outbox.PayloadJson);
+                string contentDigest = ComputeContentDigest(
+                    ArticleProductionNormalizers.NormalizeText(
+                        request.Plan.Content, ArticleProductionNormalizers.MaxContentLength));
+                var requiredEdges = ArticleMutationReplayEdges.Required.Order(StringComparer.Ordinal).ToArray();
+                string receiptDigest = ComputeReceiptDigest(
+                    request.Binding.WriterContractDigest,
+                    created.ArticleId,
+                    created.Revision.Id,
+                    created.Version.PublicationId.Value,
+                    created.RightsSnapshotId,
+                    rightsSnapshot.ContentCanonicalHash,
+                    rightsSnapshot.PolicyHash,
+                    created.ResponsibilitySnapshotId.Value,
+                    created.Outbox.EventId,
+                    outboxPayloadDigest,
+                    auditWrite.ChainId,
+                    auditWrite.RecordHash,
+                    contentDigest);
+
+                receipt = new CanonicalArticlePublicationReceipt(
+                    Schema: Schema,
+                    WriterContractDigest: request.Binding.WriterContractDigest,
+                    RunId: request.Binding.RunId,
+                    Namespace: request.Binding.Namespace,
+                    ProfileId: request.Binding.ProfileId,
+                    SemanticRole: request.Plan.SemanticRole,
+                    AdminPrincipalId: request.Binding.AdminPrincipalId,
+                    ArticleId: created.ArticleId,
+                    RevisionId: created.Revision.Id,
+                    RevisionNo: created.Revision.RevisionNo,
+                    PublicationId: created.Version.PublicationId.Value,
+                    PublicationNo: created.Version.PublicationNo.Value,
+                    RightsSnapshotId: created.RightsSnapshotId,
+                    ContentCanonicalHash: rightsSnapshot.ContentCanonicalHash,
+                    PolicyHash: rightsSnapshot.PolicyHash,
+                    ResponsibilitySnapshotId: created.ResponsibilitySnapshotId.Value,
+                    ResponsibilityVersion: created.ResponsibilityVersion ?? 1,
+                    OutboxEventId: created.Outbox.EventId,
+                    OutboxPayloadDigest: outboxPayloadDigest,
+                    AuditChainId: auditWrite.ChainId,
+                    AuditRecordHash: auditWrite.RecordHash,
+                    ContentDigest: contentDigest,
+                    RequiredEdges: requiredEdges,
+                    ReceiptDigest: receiptDigest);
+            }).ConfigureAwait(false);
+
+            if (!tran.IsSuccess || receipt is null)
+            {
+                throw new InvalidOperationException("canonical_article_publication_transaction_failed", tran.ErrorException);
             }
 
-            // 10. Outbox Event (sealed fixed coordinates)
-            var outbox = ArticleMutationOutboxProducer.Create(
-                articleId,
-                ArticleMutationEventTypes.Created,
-                version,
-                before: null,
-                after: new ArticleMutationScopeSnapshot(
-                    request.Plan.CategoryId,
-                    tagIds.ToArray(),
-                    ArticleMutationVisibility.From(ArticleStatus.Published)),
-                occurredAt: now,
-                publicUpdatedAt: now);
-            await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
-
-            // 11. Signed Audit Log
-            byte[]? tamperKey = AuditTamperEvidence.ResolveKey(configuration);
-            string auditDigest = ComputeAuditDigest(
-                articleId, revisionId, version.PublicationId.Value, rightsSnapshotId, responsibilitySnapshotId, outbox.EventId);
-            var auditRecord = new AuditRecord(
-                Source: AuditSourceCatalog.Article,
-                Type: AuditTypeCatalog.Business,
-                OccurredAtUtc: now,
-                EventInfo: auditDigest,
-                ContextPayload: null,
-                Action: AdminPermissions.ArticleWrite,
-                Outcome: AuditOutcomeCatalog.Success,
-                Severity: AuditSeverityCatalog.Info,
-                ActorType: AuditActorTypeCatalog.Admin,
-                ActorId: request.Binding.AdminPrincipalId.ToString(CultureInfo.InvariantCulture),
-                TargetType: "article-canonical-publication",
-                TargetId: articleId.ToString(CultureInfo.InvariantCulture),
-                IsHighValue: true,
-                ReasonCode: "canonical-publish");
-            AuthoringSignedAuditWriter.ChainWrite auditWrite = await AuthoringSignedAuditWriter.InsertAsync(
-                db,
-                tamperKey,
-                auditRecord,
-                cancellationToken).ConfigureAwait(false);
-
-            // 12. Idempotency Record
-            var command = new ArticleMutationCommand
-            {
-                AdminPrincipalId = request.Binding.AdminPrincipalId,
-                ClientMutationId = clientMutationId,
-                RequestHash = requestHash,
-                ArticleId = articleId,
-                RevisionId = revisionId,
-                RevisionNo = 1,
-                ReleaseId = version.PublicationId.Value,
-                ReleaseNo = version.PublicationNo.Value,
-                Status = (int)ArticleStatus.Published,
-                RightsSnapshotId = rightsSnapshotId,
-                RightsRevisionNo = 1,
-                CreatedAtUtc = now
-            };
-            await db.Insertable(command).ExecuteCommandAsync().ConfigureAwait(false);
-
-            // 13. Build Result Receipt
-            string outboxPayloadDigest = ComputeOutboxPayloadDigest(outbox.PayloadJson);
-            string contentDigest = ComputeContentDigest(content);
-            var requiredEdges = ArticleMutationReplayEdges.Required.Order(StringComparer.Ordinal).ToArray();
-            string receiptDigest = ComputeReceiptDigest(
-                request.Binding.WriterContractDigest,
-                articleId,
-                revisionId,
-                version.PublicationId.Value,
-                rightsSnapshotId,
-                contentCanonicalHash,
-                policyHash,
-                responsibilitySnapshotId,
-                outbox.EventId,
-                outboxPayloadDigest,
-                auditWrite.ChainId,
-                auditWrite.RecordHash,
-                contentDigest);
-
-            receipt = new CanonicalArticlePublicationReceipt(
-                Schema: Schema,
-                WriterContractDigest: request.Binding.WriterContractDigest,
-                RunId: request.Binding.RunId,
-                Namespace: request.Binding.Namespace,
-                ProfileId: request.Binding.ProfileId,
-                SemanticRole: request.Plan.SemanticRole,
-                AdminPrincipalId: request.Binding.AdminPrincipalId,
-                ArticleId: articleId,
-                RevisionId: revisionId,
-                RevisionNo: 1,
-                PublicationId: version.PublicationId.Value,
-                PublicationNo: version.PublicationNo.Value,
-                RightsSnapshotId: rightsSnapshotId,
-                ContentCanonicalHash: contentCanonicalHash,
-                PolicyHash: policyHash,
-                ResponsibilitySnapshotId: responsibilitySnapshotId,
-                ResponsibilityVersion: 1,
-                OutboxEventId: outbox.EventId,
-                OutboxPayloadDigest: outboxPayloadDigest,
-                AuditChainId: auditWrite.ChainId,
-                AuditRecordHash: auditWrite.RecordHash,
-                ContentDigest: contentDigest,
-                RequiredEdges: requiredEdges,
-                ReceiptDigest: receiptDigest);
-        }).ConfigureAwait(false);
-
-        if (!tran.IsSuccess || receipt is null)
-        {
-            throw new InvalidOperationException("canonical_article_publication_transaction_failed", tran.ErrorException);
+            mutationCommitted = true;
+            // Complete the production fence lease/tombstone. Derived search/AOT/AEDS/taxonomy
+            // projections remain deferred as required-edge obligations for #2175.
+            await mutationFence
+                .CommitPublicMutationFenceAsync(null, "canonical-article-publication-authority", cancellationToken)
+                .ConfigureAwait(false);
+            return new CanonicalArticlePublicationResult(receipt!, IdempotencyReplay: false);
         }
-
-        return new CanonicalArticlePublicationResult(receipt!, IdempotencyReplay: false);
+        finally
+        {
+            if (fenceEstablished && !mutationCommitted)
+            {
+                await mutationFence
+                    .RecoverAbortedPublicMutationFenceAsync(null, "canonical-article-create-fence-aborted", cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
     }
 
     private static void RejectRecomputeSentinel(string? value, string fieldName)

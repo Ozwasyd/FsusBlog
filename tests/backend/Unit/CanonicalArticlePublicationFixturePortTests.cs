@@ -10,6 +10,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
 
 using Microsoft.Extensions.Configuration;
@@ -100,7 +101,8 @@ public sealed class CanonicalArticlePublicationFixturePortTests
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IConfiguration config = new ConfigurationBuilder().Build();
         IArticlePublicationValidator validator = Substitute.For<IArticlePublicationValidator>();
-        var port = new CanonicalArticlePublicationFixturePort(db, config, validator);
+        IArticlePublicMutationFence fence = Substitute.For<IArticlePublicMutationFence>();
+        var port = new CanonicalArticlePublicationFixturePort(db, config, validator, fence);
 
         var rights = new ArticleRightsRequestCoreModel(
             Enabled: true,
@@ -192,6 +194,13 @@ public sealed class CanonicalArticlePublicationFixturePortTests
         Assert.Contains("ArticleProductionNormalizers.NormalizeArticleRights", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsSnapshotBuilder.Build", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsPolicyPersistence.UpsertAsync", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleRevisionPersistence.SaveAsync", service, StringComparison.Ordinal);
+        string port = System.IO.File.ReadAllText(
+            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs"));
+        Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", port, StringComparison.Ordinal);
+        Assert.Contains("BeginPublicMutationFenceAsync", port, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ArticleRevision", port, StringComparison.Ordinal);
         Assert.Contains("ArticleProductionNormalizers.NormalizeText", cache, StringComparison.Ordinal);
         Assert.Contains("ArticleProductionNormalizers.NormalizeTagIds", cache, StringComparison.Ordinal);
         Assert.Contains("ArticleResponsibilitySnapshotBuilder.Build", responsibility, StringComparison.Ordinal);

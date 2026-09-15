@@ -210,6 +210,50 @@ public sealed class CanonicalArticlePublicationFixturePortIntegrationTests(Postg
     }
 
     [Fact]
+    public async Task Verifier_DetectsReceiptDigestTamperAgainstPersistedFacts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        CanonicalArticlePublicationFixturePort port = CreatePort(db);
+        CanonicalArticlePublicationResult result = await port.PublishAsync(
+            await CreateRequestAsync(db, semanticRole: "receipt-tamper"));
+
+        CanonicalArticlePublicationReceipt tampered = result.Receipt with
+        {
+            ReceiptDigest = "sha256:" + new string('f', 64)
+        };
+
+        CanonicalArticlePublicationVerificationResult verified =
+            await CanonicalArticlePublicationVerifier.VerifyAsync(db, tampered);
+        Assert.False(verified.IsValid);
+        Assert.Contains(verified.Violations, static v => v.Contains("receipt_digest_tamper_detected", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PublishAsync_DoesNotWriteDerivedProjectionTables()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        // Optional derived tables may be absent in the minimal schema; create empty stubs when missing.
+        await db.Ado.ExecuteCommandAsync(
+            """
+            CREATE TABLE IF NOT EXISTS article_search_document (
+                article_id int PRIMARY KEY,
+                payload text NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS public_aot_artifact (
+                article_id int PRIMARY KEY,
+                payload text NOT NULL DEFAULT ''
+            );
+            """);
+        CanonicalArticlePublicationFixturePort port = CreatePort(db);
+        await port.PublishAsync(await CreateRequestAsync(db, semanticRole: "no-derived"));
+
+        Assert.Equal(0, await CountAsync(db, "article_search_document"));
+        Assert.Equal(0, await CountAsync(db, "public_aot_artifact"));
+        Assert.Equal(1, await CountAsync(db, "article"));
+        Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));
+    }
+
+    [Fact]
     public async Task PublishAsync_MissingAdmin_FailsClosedWithZeroWrites()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -304,10 +348,12 @@ public sealed class CanonicalArticlePublicationFixturePortIntegrationTests(Postg
         contentFilter.ValidateContent(Arg.Any<string>())
             .Returns(new ContentValidationResult(true, "ok", string.Empty));
         var validator = new ArticlePublicationValidator(db, contentFilter);
+        IArticlePublicMutationFence fence = Substitute.For<IArticlePublicMutationFence>();
         return new CanonicalArticlePublicationFixturePort(
             db,
             config,
             validator,
+            fence,
             new FakeTimeProvider(s_now));
     }
 
