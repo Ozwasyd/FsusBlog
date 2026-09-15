@@ -106,3 +106,14 @@ public class AlternativeArticleGraphFactory
     const violations = checkCanonicalArticleGraphFactoryAuthority(target);
     assert.ok(violations.some((v) => v.includes("second article graph factory prohibited")));
 });
+
+test("governance rejects forged proof signature and hardcoded id=1 authority", () =>
+{
+    const target = fixture();
+    mutate(target, "src/backend/Services/Fixtures/DataScale/CanonicalArticleGraphFactory.cs", (source) =>
+        source + '\n["CreatedByAdminPrincipalId"] = 1L;\n["SignatureBase64Url"] = "sig-verified-canonical";\n["ProofStatus"] = "verified";\n'
+    );
+    const violations = checkCanonicalArticleGraphFactoryAuthority(target);
+    assert.ok(violations.some((v) => v.includes("hardcoded principal/content-block id=1")));
+    assert.ok(violations.some((v) => v.includes("forged verified rights-proof")));
+});

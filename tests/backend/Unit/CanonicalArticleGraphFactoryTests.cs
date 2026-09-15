@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
 
@@ -377,6 +378,149 @@ public sealed class CanonicalArticleGraphFactoryTests
 
         // Check ArticleMutationOutboxEdge entity properties
         AssertEntityPropertiesMapped<ArticleMutationOutboxEdge>(graph, ArticleScaleRowKind.ArticleMutationOutboxEdge);
+    }
+
+    [Fact]
+    public void LifecycleCoordinates_AreDerivedFromCreatePlanAndDeleteFlow()
+    {
+        ArticleScalePlan plan = ArticleScalePlanBuilder.Create("scale-s", "lifecycle", Artifacts());
+
+        foreach (ArticleScaleVariant variant in Enum.GetValues<ArticleScaleVariant>())
+        {
+            ArticleScaleVariantContract contract = ArticleScaleVariantContractCatalog.Get(variant);
+            var temporal = CanonicalArticleGraphFactory.ResolveTemporalMap(1, contract);
+            var derived = CanonicalArticleGraphFactory.DeriveLifecycleCoordinates(contract, temporal);
+            var graph = CanonicalArticleGraphFactory.BuildArticleGraph(plan, 1, variant, contract);
+            var article = graph.Rows.Single(r => r.Kind == ArticleScaleRowKind.Article);
+
+            Assert.Equal((int)contract.TerminalStatus, article.Fields["Status"]);
+            Assert.Equal(contract.IsDeleted, Assert.IsType<bool>(article.Fields["IsDeleted"]));
+            Assert.Equal(derived.PublishedAt?.ToString("O"), article.Fields["PublishedAt"]?.ToString());
+            Assert.Equal(derived.ScheduledPublishAt?.ToString("O"), article.Fields["ScheduledPublishAt"]?.ToString());
+            Assert.Equal(derived.PendingPublicationAt?.ToString("O"), article.Fields["PendingPublicationAt"]?.ToString());
+            Assert.Equal(derived.ArchivedAt?.ToString("O"), article.Fields["ArchivedAt"]?.ToString());
+            Assert.Equal(derived.DeletedAt?.ToString("O"), article.Fields["DeletedAt"]?.ToString());
+            Assert.Equal(derived.PublicUpdatedAt?.ToString("O"), article.Fields["PublicUpdatedAt"]?.ToString());
+
+            bool hasPublication = contract.Rows.Single(r => r.Kind == ArticleScaleRowKind.ArticlePublication).CountPerArticle > 0;
+            Assert.Equal(hasPublication, derived.HasPublication);
+            if (hasPublication)
+            {
+                var publication = graph.Rows.Single(r => r.Kind == ArticleScaleRowKind.ArticlePublication);
+                Assert.Equal(derived.PublicationTransitionKind, publication.Fields["TransitionKind"]);
+                Assert.Equal(
+                    ArticlePublicationTransitionKinds.ImmediatePublish,
+                    publication.Fields["TransitionKind"]);
+            }
+        }
+    }
+
+    [Fact]
+    public void AuthorityFields_UseSemanticRolesAndHonestProofStatus()
+    {
+        ArticleScalePlan plan = ArticleScalePlanBuilder.Create("scale-s", "authority", Artifacts());
+
+        foreach (ArticleScaleVariant variant in Enum.GetValues<ArticleScaleVariant>())
+        {
+            var graph = CanonicalArticleGraphFactory.BuildArticleGraph(
+                plan, 7, variant, ArticleScaleVariantContractCatalog.Get(variant));
+
+            foreach (var revision in graph.Rows.Where(r => r.Kind == ArticleScaleRowKind.ArticleRevision))
+            {
+                Assert.False(revision.Fields.ContainsKey("ContentBlockId"));
+                Assert.False(revision.Fields.ContainsKey("CreatedByAdminPrincipalId"));
+                Assert.True(revision.Fields.ContainsKey("ContentBlockSemanticId"));
+                Assert.True(revision.Fields.ContainsKey("CreatedByAdminPrincipalSemanticId"));
+                Assert.Contains(":principal/authoring-admin", Assert.IsType<string>(revision.Fields["CreatedByAdminPrincipalSemanticId"]));
+            }
+
+            foreach (var proof in graph.Rows.Where(r => r.Kind == ArticleScaleRowKind.ArticleRightsProof))
+            {
+                string status = Assert.IsType<string>(proof.Fields["ProofStatus"]);
+                Assert.Contains(status, new[] { "pending", "not-public" });
+                Assert.Null(proof.Fields["SignatureBase64Url"]);
+                Assert.Null(proof.Fields["SigningKeyId"]);
+                Assert.Null(proof.Fields["SigningKeyVersion"]);
+                Assert.Null(proof.Fields["SigningAlgorithm"]);
+                Assert.Null(proof.Fields["PublishProofId"]);
+            }
+
+            foreach (var audit in graph.Rows.Where(r => r.Kind == ArticleScaleRowKind.ArticleAuditCoordinate))
+            {
+                Assert.False(audit.Fields.ContainsKey("ActorPrincipalId"));
+                Assert.Contains(":principal/authoring-admin", Assert.IsType<string>(audit.Fields["ActorPrincipalSemanticId"]));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(100_000)]
+    [InlineData(1_000_000)]
+    public void Streaming_100kAnd1M_KeepBoundedWorkingSet(int articleCount)
+    {
+        ArticleScalePlan plan = ArticleScalePlanBuilder.Create("scale-xs", $"stream-{articleCount}", Artifacts());
+        ArticleScaleVariant[] variants = Enum.GetValues<ArticleScaleVariant>();
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+
+        using Process process = Process.GetCurrentProcess();
+        process.Refresh();
+        long baselineWorkingSet = process.WorkingSet64;
+        long peakWorkingSet = baselineWorkingSet;
+        long firstSampleAfterWarmup = 0;
+        int produced = 0;
+
+        for (int i = 0; i < articleCount; i++)
+        {
+            ArticleScaleVariant variant = variants[i % variants.Length];
+            ArticleScaleVariantContract contract = ArticleScaleVariantContractCatalog.Get(variant);
+            ArticleScaleArticleGraph graph = CanonicalArticleGraphFactory.BuildArticleGraph(
+                plan,
+                i + 1,
+                variant,
+                contract);
+            if (graph.Rows.Count == 0 || string.IsNullOrWhiteSpace(graph.ArticleDigest))
+            {
+                throw new InvalidOperationException("streaming graph produced empty output");
+            }
+
+            produced++;
+            if ((i & 0x3FFF) == 0)
+            {
+                process.Refresh();
+                long ws = process.WorkingSet64;
+                peakWorkingSet = Math.Max(peakWorkingSet, ws);
+                if (i == 0)
+                {
+                    firstSampleAfterWarmup = ws;
+                }
+                else if (firstSampleAfterWarmup == 0)
+                {
+                    firstSampleAfterWarmup = ws;
+                }
+            }
+        }
+
+        process.Refresh();
+        peakWorkingSet = Math.Max(peakWorkingSet, process.WorkingSet64);
+        long growth = Math.Max(0, peakWorkingSet - baselineWorkingSet);
+
+        // Streaming must remain sub-linear: a few hundred MiB ceiling covers builder/scratch,
+        // not O(N) retention of full graphs.
+        const long MaxGrowthBytes = 768L * 1024 * 1024;
+        Assert.Equal(articleCount, produced);
+        Assert.True(
+            growth < MaxGrowthBytes,
+            $"WorkingSet growth {growth} bytes exceeds bound {MaxGrowthBytes} for N={articleCount}; baseline={baselineWorkingSet}, peak={peakWorkingSet}");
+
+        if (firstSampleAfterWarmup > 0)
+        {
+            Assert.True(
+                peakWorkingSet < firstSampleAfterWarmup + MaxGrowthBytes,
+                $"WorkingSet peaked at {peakWorkingSet} from warmup sample {firstSampleAfterWarmup}");
+        }
     }
 
     private static void AssertEntityPropertiesMapped<TEntity>(
