@@ -68,6 +68,10 @@ import {
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
+import {
+    createArticleDocumentContextAdapter,
+    type ArticleDocumentContextAdapter
+} from '@/services/authoring/articleDocumentContext';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
@@ -92,6 +96,7 @@ interface ArticleDraftSnapshot extends ArticleParams {
     source: 'local' | 'server';
     clientRevision: string;
     serverRevision: number | null;
+    documentContextDigest: string;
 }
 
 export interface ArticleRevisionConflictMetadata {
@@ -469,7 +474,7 @@ export function useAdminArticleWrite()
     {
         const raw = route.params.id ?? route.query.id;
         const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : null;
+        return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
     });
 
     const pageLoading = ref(false);
@@ -781,18 +786,107 @@ export function useAdminArticleWrite()
         categoryId: [{ required: true, message: '请为文章指定一个分类', trigger: 'change' }]
     };
 
-    const initTask = useAbortableTask();
-    const submitTask = useAbortableTask();
-    const taxonomyTask = useAbortableTask();
-    const previewTask = useAbortableTask();
-    const prepublishTask = useAbortableTask();
-    const aiAssistTask = useAbortableTask();
-    const assetTask = useAbortableTask();
     const taskFeedback = useAdminTaskFeedback();
+    const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
+
+    let draftSaveTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let suppressDraftSave = true;
+    let serverDraftSaveToken = 0;
+    let draftSaveInFlightIdentity: string | null = null;
+    let acceptedPrepublishIdentity: string | null = null;
+    let active = true;
+    let activeRecoveryClientRevision: string | null = null;
+    let authoritativeArticleSourceHash: string | null = null;
+    let authoritativeServerDraftSourceHash: string | null = null;
+    let authoritativeArticleContent = '';
+    let authoritativeServerDraftContent: string | null = null;
+    let articleRecoveryRefreshToken = 0;
+    const recoveryCoordinator = new ArticleRecoveryCoordinator({
+        BroadcastChannel: typeof window === 'undefined'
+            ? null
+            : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
+    });
+    const documentDraftId = (id: number | null): string =>
+        id === null ? `draft:${recoveryCoordinator.tabId}` : `article:${id}`;
+    const documentSiteScope = typeof window === 'undefined'
+        ? 'site:unknown'
+        : `site:${window.location.host || 'unknown'}`.replace(/[^a-zA-Z0-9._:-]/gu, '-');
+    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() || 'unknown'}`
+        .replace(/[^a-zA-Z0-9._:-]/gu, '-');
+    const articleDocumentContextAdapter: ArticleDocumentContextAdapter = createArticleDocumentContextAdapter({
+        articleId: articleId.value,
+        draftId: documentDraftId(articleId.value),
+        editorSessionId: recoveryCoordinator.tabId,
+        siteScope: documentSiteScope,
+        userScope: documentUserScope,
+        content: articleForm.content
+    });
+    const authoringDocumentContext = shallowRef(articleDocumentContextAdapter.context);
+    const syncAuthoringDocumentContext = (): void =>
+    {
+        authoringDocumentContext.value = articleDocumentContextAdapter.context;
+    };
+    const authoringDocumentIdentity = computed(() => Object.freeze({
+        id: authoringDocumentContext.value.documentId,
+        epoch: authoringDocumentContext.value.documentEpoch
+    }));
+    const initTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'refresh',
+        producerRef: 'article-write:init'
+    });
+    const submitTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'refresh',
+        producerRef: 'article-write:submit'
+    });
+    const taxonomyTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'refresh',
+        producerRef: 'article-write:taxonomy'
+    });
+    const previewTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'preview',
+        producerRef: 'article-write:preview'
+    });
+    const prepublishTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'feature',
+        producerRef: 'article-write:prepublish'
+    });
+    const aiAssistTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'feature',
+        producerRef: 'article-write:ai-assist'
+    });
+    const assetTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'attachment',
+        producerRef: 'article-write:asset'
+    });
+    const revisionRefreshTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'refresh',
+        producerRef: 'article-write:revision-refresh'
+    });
+    const revisionCompareTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'compare',
+        producerRef: 'article-write:revision-compare'
+    });
+    const revisionRollbackTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'feature',
+        producerRef: 'article-write:revision-rollback'
+    });
     const imageUploadFlow = useImageUploadFlow({
         runtime: imageUploadRuntime,
         getOptions: () => imageUploadOptions.value,
         getWasmOnly: () => wasmOnlyMode.value,
+        taskRegistry: articleDocumentContextAdapter,
+        taskProducerRef: 'article-write:image-upload',
         notify: {
             success: (message) => toast.success(message),
             warning: (message) => showWarningToast(message, message),
@@ -865,36 +959,6 @@ export function useAdminArticleWrite()
             }
         });
     };
-
-    const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
-
-    let draftSaveTimer: ReturnType<typeof window.setTimeout> | null = null;
-    let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
-    let suppressDraftSave = true;
-    let serverDraftSaveToken = 0;
-    let draftSaveInFlightIdentity: string | null = null;
-    let acceptedPrepublishIdentity: string | null = null;
-    let active = true;
-    let activeRecoveryClientRevision: string | null = null;
-    let authoritativeArticleSourceHash: string | null = null;
-    let authoritativeServerDraftSourceHash: string | null = null;
-    let authoritativeArticleContent = '';
-    let authoritativeServerDraftContent: string | null = null;
-    let articleRecoveryRefreshToken = 0;
-    const recoveryCoordinator = new ArticleRecoveryCoordinator({
-        BroadcastChannel: typeof window === 'undefined'
-            ? null
-            : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
-    });
-    const authoringDocumentEpoch = ref(1);
-    const authoringDocumentIdentity = computed(() => Object.freeze({
-        id: `article-${articleId.value ?? 'new'}:${recoveryCoordinator.tabId}`,
-        epoch: authoringDocumentEpoch.value
-    }));
-    const replaceAuthoringDocumentEpoch = (): void =>
-    {
-        authoringDocumentEpoch.value += 1;
-    };
     let unsubscribeArticleRecoveryCoordination: (() => void) | null = null;
     let disposeArticleRecoveryLifecycle: (() => void) | null = null;
 
@@ -931,7 +995,8 @@ export function useAdminArticleWrite()
         isEdit: isEdit.value,
         source,
         clientRevision,
-        serverRevision: serverDraftRevision.value
+        serverRevision: serverDraftRevision.value,
+        documentContextDigest: articleDocumentContextAdapter.context.contextDigest
     });
 
     const buildServerDraftRequest = (snapshot: ArticleDraftSnapshot): ServerDraftSaveRequest => ({
@@ -1008,7 +1073,8 @@ export function useAdminArticleWrite()
             isEdit: draft.articleId !== null,
             source: 'server',
             clientRevision: draft.clientRevision ?? '',
-            serverRevision: draft.serverRevision
+            serverRevision: draft.serverRevision,
+            documentContextDigest: articleDocumentContextAdapter.context.contextDigest
         };
     };
 
@@ -1140,16 +1206,22 @@ export function useAdminArticleWrite()
         recoveryRecord: ArticleRecoveryJournalRecord | null
     ): Promise<void> =>
     {
-        if (serverDraftSyncPaused.value)
+        if (serverDraftSyncPaused.value
+            || articleDocumentContextAdapter.context.contextDigest !== snapshot.documentContextDigest)
         {
             draftStatusText.value = '当前更改尚未同步，请先处理已有服务端草稿';
             return;
         }
 
         const token = ++serverDraftSaveToken;
+        const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:draft-save');
         try
         {
-            const saved = await saveServerDraft(buildServerDraftRequest(snapshot));
+            const saved = await saveServerDraft(buildServerDraftRequest(snapshot), buildSignalConfig(task.signal));
+            if (!task.isCurrent())
+            {
+                return;
+            }
             if (recoveryRecord)
             {
                 const confirmed = await articleRecoveryJournal.confirm({
@@ -1171,18 +1243,28 @@ export function useAdminArticleWrite()
                     }
                 }
             }
-            if (token !== serverDraftSaveToken)
+            if (token !== serverDraftSaveToken || !task.isCurrent())
             {
                 return;
             }
 
             const savedAt = Date.parse(saved.updatedAt);
             serverDraftRevision.value = saved.serverRevision;
+            articleDocumentContextAdapter.updateDraftRevision(
+                saved.serverRevision === null || saved.serverRevision === undefined
+                    ? null
+                    : `server:${saved.serverRevision}`
+            );
+            syncAuthoringDocumentContext();
             draftSavedAt.value = Number.isFinite(savedAt) ? savedAt : snapshot.savedAt;
             draftStatusText.value = `服务端草稿已保存 ${new Date(draftSavedAt.value).toLocaleTimeString()}`;
         }
         catch (error: unknown)
         {
+            if (!task.isCurrent())
+            {
+                return;
+            }
             if (token === serverDraftSaveToken)
             {
                 if (!shouldRetryServerDraftSave(error))
@@ -1198,7 +1280,7 @@ export function useAdminArticleWrite()
                     draftStatusText.value = '自动保存已暂停';
                     try
                     {
-                        const current = await getServerDraft(draftKey.value);
+                        const current = await getServerDraft(draftKey.value, buildSignalConfig(task.signal));
                         pendingDraft.value = current ? snapshotFromServerDraft(current) : null;
                     }
                     catch
@@ -1222,6 +1304,10 @@ export function useAdminArticleWrite()
                     }, 1_200);
                 }
             }
+        }
+        finally
+        {
+            task.complete();
         }
     };
 
@@ -1295,7 +1381,7 @@ export function useAdminArticleWrite()
         }
     };
 
-    const refreshArticleRecoveryCandidates = async (): Promise<void> =>
+    const refreshArticleRecoveryCandidates = async (parentSignal?: AbortSignal): Promise<void> =>
     {
         const identityId = recoveryIdentityId();
         if (!identityId)
@@ -1304,58 +1390,73 @@ export function useAdminArticleWrite()
             selectedArticleRecoveryId.value = '';
             return;
         }
+        const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
+        const abortParent = (): void => task.cancel('parent-task-aborted');
+        parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
-        const [result, currentFormSourceHash] = await Promise.all([
-            articleRecoveryJournal.list(identityId, articleId.value),
-            safeRecoverySourceHash(articleForm.content)
-        ]);
-        if (token !== articleRecoveryRefreshToken)
+        try
         {
-            return;
-        }
-        if (result.status === 'unavailable' || currentFormSourceHash === null)
-        {
-            articleRecoveryStorageWarning.value = '浏览器短期恢复不可用，服务端自动保存继续';
-            articleRecoveryCandidates.value = [];
-            selectedArticleRecoveryId.value = '';
-            return;
-        }
+            const [result, currentFormSourceHash] = await Promise.all([
+                articleRecoveryJournal.list(identityId, articleId.value),
+                safeRecoverySourceHash(articleForm.content)
+            ]);
+            if (!task.isCurrent() || token !== articleRecoveryRefreshToken)
+            {
+                return;
+            }
+            if (result.status === 'unavailable' || currentFormSourceHash === null)
+            {
+                articleRecoveryStorageWarning.value = '浏览器短期恢复不可用，服务端自动保存继续';
+                articleRecoveryCandidates.value = [];
+                selectedArticleRecoveryId.value = '';
+                return;
+            }
 
-        const redundantRecords = result.records.filter(record => (
-            record.sourceHash === authoritativeArticleSourceHash
+            const redundantRecords = result.records.filter(record => (
+                record.sourceHash === authoritativeArticleSourceHash
       || record.sourceHash === authoritativeServerDraftSourceHash
-        ));
-        for (const record of redundantRecords)
-        {
-            await articleRecoveryJournal.discard(record.id);
-        }
-        if (redundantRecords.length > 0)
-        {
-            recoveryCoordinator.notify('cleared', articleId.value);
-        }
+            ));
+            for (const record of redundantRecords)
+            {
+                if (!task.isCurrent())
+                {
+                    return;
+                }
+                await articleRecoveryJournal.discard(record.id);
+            }
+            if (redundantRecords.length > 0)
+            {
+                recoveryCoordinator.notify('cleared', articleId.value);
+            }
 
-        const candidates = result.records.filter(record => (
-            !redundantRecords.some(redundant => redundant.id === record.id)
+            const candidates = result.records.filter(record => (
+                !redundantRecords.some(redundant => redundant.id === record.id)
       && record.sourceHash !== currentFormSourceHash
-        ));
-        articleRecoveryCandidates.value = Object.freeze(candidates);
-        if (!candidates.some(candidate => candidate.id === selectedArticleRecoveryId.value))
-        {
-            selectedArticleRecoveryId.value = candidates[0]?.id ?? '';
+            ));
+            articleRecoveryCandidates.value = Object.freeze(candidates);
+            if (!candidates.some(candidate => candidate.id === selectedArticleRecoveryId.value))
+            {
+                selectedArticleRecoveryId.value = candidates[0]?.id ?? '';
+            }
+            const hasDivergentRecovery = candidates.some(candidate => (
+                assessArticleRecoveryDivergence(candidate, {
+                    currentRevisionId: currentRevisionId.value,
+                    serverRevision: serverDraftRevision.value
+                }) !== 'none'
+            ));
+            if (hasDivergentRecovery)
+            {
+                serverDraftSyncPaused.value = true;
+            }
+            else if (pendingDraft.value?.source !== 'server' && !draftConflictText.value)
+            {
+                serverDraftSyncPaused.value = false;
+            }
         }
-        const hasDivergentRecovery = candidates.some(candidate => (
-            assessArticleRecoveryDivergence(candidate, {
-                currentRevisionId: currentRevisionId.value,
-                serverRevision: serverDraftRevision.value
-            }) !== 'none'
-        ));
-        if (hasDivergentRecovery)
+        finally
         {
-            serverDraftSyncPaused.value = true;
-        }
-        else if (pendingDraft.value?.source !== 'server' && !draftConflictText.value)
-        {
-            serverDraftSyncPaused.value = false;
+            parentSignal?.removeEventListener('abort', abortParent);
+            task.complete();
         }
     };
 
@@ -1373,6 +1474,10 @@ export function useAdminArticleWrite()
         authoritativeServerDraftSourceHash = serverDraft
             ? await safeRecoverySourceHash(serverDraft.content)
             : null;
+        if (signal.aborted)
+        {
+            return;
+        }
 
         const draft = serverDraft && hasDraftContent(serverDraft) && !isDraftSameAsForm(serverDraft)
             ? serverDraft
@@ -1394,7 +1499,7 @@ export function useAdminArticleWrite()
             draftStatusText.value = `发现 ${new Date(draft.savedAt).toLocaleString()} 保存的服务端草稿`;
         }
 
-        await refreshArticleRecoveryCandidates();
+        await refreshArticleRecoveryCandidates(signal);
     };
 
     const applyDraftToForm = (draft: ArticleDraftSnapshot): void =>
@@ -1433,11 +1538,38 @@ export function useAdminArticleWrite()
         activeRecoveryClientRevision = null;
     };
 
-    const runArticleRecoveryOperation = createArticleRecoveryOperationRunner((state) =>
+    const articleRecoveryOperationRunner = createArticleRecoveryOperationRunner((state) =>
     {
         articleRecoveryOperationKind.value = state.kind;
         articleRecoveryOperationError.value = state.error;
     });
+    const runArticleRecoveryOperation = async (
+        kind: ArticleRecoveryOperationKind,
+        failureMessage: string,
+        operation: () => void | Promise<void>
+    ): Promise<boolean> =>
+    {
+        const task = articleDocumentContextAdapter.beginTask('compare', `article-write:recovery-${kind}`);
+        try
+        {
+            return await articleRecoveryOperationRunner(kind, failureMessage, async () =>
+            {
+                if (!task.isCurrent())
+                {
+                    throw new Error('article-document-recovery-task-stale');
+                }
+                await operation();
+                if (!task.isCurrent())
+                {
+                    throw new Error('article-document-recovery-task-stale');
+                }
+            });
+        }
+        finally
+        {
+            task.complete();
+        }
+    };
 
     const compareSelectedArticleRecovery = async (): Promise<void> =>
     {
@@ -1477,7 +1609,6 @@ export function useAdminArticleWrite()
             const previousServerDraftSyncPaused = serverDraftSyncPaused.value;
             clearDraftSaveTimer();
             suppressDraftSave = true;
-            replaceAuthoringDocumentEpoch();
             articleForm.content = recovery.content;
             pendingDraft.value = null;
             serverDraftSyncPaused.value = false;
@@ -1486,6 +1617,8 @@ export function useAdminArticleWrite()
             activeRecoveryClientRevision = clientRevision;
             const snapshot = buildDraftSnapshot(clientRevision);
             suppressDraftSave = false;
+            articleDocumentContextAdapter.updateSource(articleForm.content);
+            syncAuthoringDocumentContext();
             draftStatusText.value = '已恢复未同步正文，正在继续服务端自动保存';
             const result = await queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
                 articleId: snapshot.sourceArticleId,
@@ -1522,6 +1655,8 @@ export function useAdminArticleWrite()
         const sourceLabel = pendingDraftSourceLabel.value;
         await clearArticleRecoveryScope();
         applyDraftToForm(pendingDraft.value);
+        articleDocumentContextAdapter.updateSource(articleForm.content);
+        syncAuthoringDocumentContext();
         pendingDraft.value = null;
         draftConflictText.value = '';
         draftStatusText.value = `已恢复${sourceLabel}`;
@@ -1633,6 +1768,10 @@ export function useAdminArticleWrite()
             getCategories(requestConfig),
             getTags(requestConfig)
         ]);
+        if (signal?.aborted)
+        {
+            return;
+        }
         categories.value = catRes || [];
         tags.value = tagRes || [];
     };
@@ -1641,10 +1780,19 @@ export function useAdminArticleWrite()
     {
         try
         {
-            siteConfig.value = await getAdminSiteConfig(signal ? buildSignalConfig(signal) : undefined);
+            const config = await getAdminSiteConfig(signal ? buildSignalConfig(signal) : undefined);
+            if (signal?.aborted)
+            {
+                return;
+            }
+            siteConfig.value = config;
         }
         catch
         {
+            if (signal?.aborted)
+            {
+                return;
+            }
             siteConfig.value = null;
             seoStatusText.value = '站点 SEO 配置暂不可用，canonical 使用当前访问域名';
         }
@@ -1654,7 +1802,12 @@ export function useAdminArticleWrite()
     {
         try
         {
-            siteComplianceConfig.value = await getAdminSiteComplianceConfig(signal ? buildSignalConfig(signal) : undefined);
+            const config = await getAdminSiteComplianceConfig(signal ? buildSignalConfig(signal) : undefined);
+            if (signal?.aborted)
+            {
+                return;
+            }
+            siteComplianceConfig.value = config;
             if (!isEdit.value && articleForm.rights.mode === 'site')
             {
                 articleForm.rights = { ...siteInheritedRights.value };
@@ -1662,17 +1815,24 @@ export function useAdminArticleWrite()
         }
         catch
         {
+            if (signal?.aborted)
+            {
+                return;
+            }
             siteComplianceConfig.value = null;
         }
     };
 
     const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
+        const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
+        const abortParent = (): void => task.cancel('parent-task-aborted');
+        signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try
         {
-            const assets = await listAssetLibrary(signal ? buildSignalConfig(signal) : undefined);
-            if (signal?.aborted)
+            const assets = await listAssetLibrary(buildSignalConfig(task.signal));
+            if (!task.isCurrent())
             {
                 return;
             }
@@ -1692,6 +1852,8 @@ export function useAdminArticleWrite()
         }
         finally
         {
+            signal?.removeEventListener('abort', abortParent);
+            task.complete();
             assetLibraryLoading.value = false;
         }
     };
@@ -1726,7 +1888,7 @@ export function useAdminArticleWrite()
         }
     };
 
-    const refreshArticleRevisions = async (signal?: AbortSignal): Promise<void> =>
+    const refreshArticleRevisions = async (): Promise<void> =>
     {
         if (!isEdit.value || articleId.value === null)
         {
@@ -1739,19 +1901,21 @@ export function useAdminArticleWrite()
         revisionLoading.value = true;
         try
         {
-            const requestConfig = signal ? buildSignalConfig(signal) : undefined;
-            const revisions = await listArticleRevisions(articleId.value, requestConfig);
-            if (signal?.aborted)
+            await revisionRefreshTask.run(async (signal) =>
             {
-                return;
-            }
+                const revisions = await listArticleRevisions(articleId.value!, buildSignalConfig(signal));
+                if (signal.aborted)
+                {
+                    return;
+                }
 
-            articleRevisions.value = revisions;
-            if (selectedRevision.value && !revisions.some((revision) => revision.id === selectedRevision.value?.id))
-            {
-                selectedRevision.value = null;
-            }
-            revisionStatusText.value = revisions.length > 0 ? `已载入 ${revisions.length} 个历史版本` : '暂无修订历史';
+                articleRevisions.value = revisions;
+                if (selectedRevision.value && !revisions.some((revision) => revision.id === selectedRevision.value?.id))
+                {
+                    selectedRevision.value = null;
+                }
+                revisionStatusText.value = revisions.length > 0 ? `已载入 ${revisions.length} 个历史版本` : '暂无修订历史';
+            });
         }
         catch (error: unknown)
         {
@@ -1776,12 +1940,23 @@ export function useAdminArticleWrite()
         revisionLoading.value = true;
         try
         {
-            selectedRevision.value = await getArticleRevision(articleId.value, revision.id);
-            revisionStatusText.value = `正在比较版本 ${selectedRevision.value.revisionNo}`;
+            await revisionCompareTask.run(async (signal) =>
+            {
+                const selected = await getArticleRevision(articleId.value!, revision.id, buildSignalConfig(signal));
+                if (signal.aborted)
+                {
+                    return;
+                }
+                selectedRevision.value = selected;
+                revisionStatusText.value = `正在比较版本 ${selected.revisionNo}`;
+            });
         }
         catch (error: unknown)
         {
-            showErrorToast(error, '历史版本载入失败，请稍后重试');
+            if (!isAbortError(error))
+            {
+                showErrorToast(error, '历史版本载入失败，请稍后重试');
+            }
         }
         finally
         {
@@ -1798,10 +1973,15 @@ export function useAdminArticleWrite()
 
         revisionRollbacking.value = true;
         taskFeedback.begin('正在回滚历史版本', `目标版本 ${selectedRevision.value.revisionNo}`, 'article-revision');
+        const task = articleDocumentContextAdapter.beginTask('feature', 'article-write:revision-rollback');
         try
         {
             const revisionNo = selectedRevision.value.revisionNo;
             const mfaProofToken = await ensureAdminSensitiveProof();
+            if (!task.isCurrent())
+            {
+                return;
+            }
             if (!currentRevisionId.value)
             {
                 throw new Error('article_base_revision_required');
@@ -1814,7 +1994,11 @@ export function useAdminArticleWrite()
                     targetStatus: selection.targetStatus,
                     reason: selection.reason.trim()
                 },
-                { mfaProofToken });
+                { mfaProofToken, signal: task.signal });
+            if (!task.isCurrent())
+            {
+                return;
+            }
             currentRevisionId.value = String(rollback.revisionId);
             currentRevisionNo.value = rollback.revisionNo;
 
@@ -1833,8 +2017,13 @@ export function useAdminArticleWrite()
                 }
             }
 
-            replaceAuthoringDocumentEpoch();
-            await loadArticleDetailIntoForm(new AbortController().signal);
+            await loadArticleDetailIntoForm(task.signal);
+            if (!task.isCurrent())
+            {
+                return;
+            }
+            articleDocumentContextAdapter.updateSource(articleForm.content);
+            syncAuthoringDocumentContext();
             await refreshArticleRevisions();
             selectedRevision.value = null;
             revisionStatusText.value = `已从版本 ${revisionNo} 创建新版本 ${rollback.revisionNo}`;
@@ -1843,11 +2032,15 @@ export function useAdminArticleWrite()
         }
         catch (error: unknown)
         {
-            taskFeedback.fail('历史版本回滚失败', error, '历史版本回滚失败，请稍后重试', 'article-revision');
-            showErrorToast(error, '历史版本回滚失败，请稍后重试');
+            if (!isAbortError(error) && task.isCurrent())
+            {
+                taskFeedback.fail('历史版本回滚失败', error, '历史版本回滚失败，请稍后重试', 'article-revision');
+                showErrorToast(error, '历史版本回滚失败，请稍后重试');
+            }
         }
         finally
         {
+            task.complete();
             suppressDraftSave = false;
             revisionRollbacking.value = false;
         }
@@ -2136,6 +2329,10 @@ export function useAdminArticleWrite()
             {
                 const result = await createCategory(trimmed, buildSignalConfig(signal));
                 await refreshTaxonomy(signal);
+                if (signal.aborted)
+                {
+                    return;
+                }
                 const created = categories.value.find((item) => item.id === result.id)
           ?? categories.value.find((item) => item.name === trimmed);
                 if (created)
@@ -2182,6 +2379,10 @@ export function useAdminArticleWrite()
             {
                 const result = await createTag(trimmed, buildSignalConfig(signal));
                 await refreshTaxonomy(signal);
+                if (signal.aborted)
+                {
+                    return;
+                }
                 const created = tags.value.find((item) => item.id === result.id)
           ?? tags.value.find((item) => item.name === trimmed);
                 if (created && !articleForm.tagIds.includes(created.id))
@@ -2263,6 +2464,13 @@ export function useAdminArticleWrite()
         finally
         {
             suppressDraftSave = false;
+            articleDocumentContextAdapter.updateSource(articleForm.content);
+            articleDocumentContextAdapter.updateDraftRevision(
+                serverDraftRevision.value === null
+                    ? null
+                    : `server:${serverDraftRevision.value}`
+            );
+            syncAuthoringDocumentContext();
             pageLoading.value = false;
         }
     };
@@ -2568,6 +2776,10 @@ export function useAdminArticleWrite()
                     locale: typeof navigator === 'undefined' ? null : navigator.language,
                     operation: 'summary-tags-title-structure-translate'
                 }, buildSignalConfig(signal));
+                if (signal.aborted)
+                {
+                    return;
+                }
                 aiAssist.value = response;
                 aiAssistStatusText.value = '草稿检查完成';
                 if (!articleForm.summary.trim() && response.suggestedSummary.trim())
@@ -2654,6 +2866,62 @@ export function useAdminArticleWrite()
         void router.back();
     };
 
+    const resetArticleDocumentState = (): void =>
+    {
+        clearDraftSaveTimer();
+        serverDraftSaveToken += 1;
+        draftSaveInFlightIdentity = null;
+        articleRecoveryRefreshToken += 1;
+        activeRecoveryClientRevision = null;
+        authoritativeArticleSourceHash = null;
+        authoritativeServerDraftSourceHash = null;
+        authoritativeArticleContent = '';
+        authoritativeServerDraftContent = null;
+        suppressDraftSave = true;
+        pendingDraft.value = null;
+        draftSavedAt.value = null;
+        draftConflictText.value = '';
+        draftStatusText.value = '';
+        serverDraftRevision.value = null;
+        serverDraftSyncPaused.value = false;
+        articleRecoveryCandidates.value = [];
+        selectedArticleRecoveryId.value = '';
+        articleRecoveryComparison.value = '';
+        comparedArticleRecoveryId.value = '';
+        articleRecoveryOperationKind.value = null;
+        articleRecoveryOperationError.value = '';
+        articleForm.title = '';
+        articleForm.content = '';
+        articleForm.summary = '';
+        articleForm.coverImageUrl = '';
+        articleForm.categoryId = undefined;
+        articleForm.tagIds = [];
+        articleForm.status = ArticlePublishStatus.Published;
+        articleForm.scheduledPublishAt = '';
+        articleForm.rights = createDefaultArticleRightsForm();
+        currentRevisionId.value = null;
+        currentRevisionNo.value = null;
+        articleRevisions.value = [];
+        selectedRevision.value = null;
+        privatePreview.value = null;
+        privatePreviewLoading.value = false;
+        privatePreviewStatusText.value = '预览仅在作者工作台内生成';
+        seoIssues.value = [];
+        seoChecking.value = false;
+        seoStatusText.value = '发布前检查随表单实时更新';
+        prepublishWarningOverrideReason.value = '';
+        acceptedPrepublishIdentity = null;
+        aiAssist.value = null;
+        aiAssistLoading.value = false;
+        aiAssistStatusText.value = '';
+        revisionLoading.value = false;
+        revisionRollbacking.value = false;
+        assetLibrary.value = [];
+        assetLibraryLoading.value = false;
+        assetLibraryStatusText.value = '资产库等待同步';
+        suppressDraftSave = false;
+    };
+
     watch(
         () => articleForm.status,
         (status) =>
@@ -2669,7 +2937,20 @@ export function useAdminArticleWrite()
     {
         if (next !== previous)
         {
-            replaceAuthoringDocumentEpoch();
+            articleDocumentContextAdapter.switchDocument({
+                articleId: next,
+                draftId: documentDraftId(next),
+                content: '',
+                reason: next === null ? 'draft-switch' : 'article-switch'
+            });
+            imageUploadFlow.cancel();
+            if (typeof imageUploadFlow.clearPending === 'function')
+            {
+                imageUploadFlow.clearPending();
+            }
+            resetArticleDocumentState();
+            syncAuthoringDocumentContext();
+            void initData();
         }
     });
 
@@ -2681,6 +2962,8 @@ export function useAdminArticleWrite()
             {
                 return;
             }
+            articleDocumentContextAdapter.updateSource(content);
+            syncAuthoringDocumentContext();
             const clientRevision = createArticleRecoveryClientRevision();
             activeRecoveryClientRevision = clientRevision;
             stageArticleRecoveryWrite(content, clientRevision, {
@@ -2761,6 +3044,7 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
+        articleDocumentContextAdapter.dispose();
         initTask.cancel();
         submitTask.cancel();
         taxonomyTask.cancel();
@@ -2769,6 +3053,10 @@ export function useAdminArticleWrite()
         aiAssistTask.cancel();
         assetTask.cancel();
         imageUploadFlow.cancel();
+        if (typeof imageUploadFlow.clearPending === 'function')
+        {
+            imageUploadFlow.clearPending();
+        }
         clearDraftSaveTimer();
         articleForm.title = '';
         articleForm.content = '';
@@ -2829,6 +3117,7 @@ export function useAdminArticleWrite()
         seoChecking,
         seoStatusText,
         articleForm,
+        authoringDocumentContext,
         authoringDocumentIdentity,
         articleRightsUsingSiteDefaults,
         articleRightsInheritanceText,
