@@ -48,7 +48,11 @@ internal static class ArticleBulkFileJournalProcessWorker
                     }
                     return ValueTask.CompletedTask;
                 });
-            var framework = new ArticleBulkExecutionFramework(planAuthority, journal, time);
+            var framework = new ArticleBulkExecutionFramework(
+                planAuthority,
+                journal,
+                new DeterministicExecutionAuthority(),
+                time);
             ArticleBulkIdempotencyResolution current = await journal.ResolveIdempotencyAsync(
                 "idempotency-1",
                 ExecutionIdentity(plan),
@@ -63,6 +67,7 @@ internal static class ArticleBulkFileJournalProcessWorker
             {
                 admission = await framework.AdmitAsync(
                     plan,
+                    Confirmation(plan),
                     "plan-store:one",
                     "attempt-1",
                     "idempotency-1",
@@ -107,7 +112,9 @@ internal static class ArticleBulkFileJournalProcessWorker
     }
 
     private static string ExecutionIdentity(ArticleBulkPlan plan)
-        => ArticleBulkDigest.Of(new
+    {
+        ArticleBulkPlanConfirmation confirmation = Confirmation(plan);
+        return ArticleBulkDigest.Of(new
         {
             plan.ContentDigest,
             plan.RegistryDigest,
@@ -115,11 +122,13 @@ internal static class ArticleBulkFileJournalProcessWorker
             plan.Strategy,
             plan.ParametersDigest,
             plan.FrozenSetDigest,
+            ConfirmationDigest = confirmation.ContentDigest,
             actor = plan.Actor,
             source = plan.Source,
             policyDigest = plan.PolicyDigest,
             permissionPolicyDigest = plan.PermissionPolicyDigest
         });
+    }
 
     private static ArticleBulkPlanRequest CreateRequest()
         => new(
@@ -141,6 +150,21 @@ internal static class ArticleBulkFileJournalProcessWorker
             ArticleBulkDigest.Of("permission-policy"),
             s_now,
             s_now.AddMinutes(30));
+
+    private static ArticleBulkPlanConfirmation Confirmation(ArticleBulkPlan plan)
+    {
+        var unsigned = new ArticleBulkPlanConfirmation(
+            "confirmation-1",
+            plan.PlanIdentity,
+            plan.ContentDigest,
+            plan.Actor.AuthorityDigest,
+            s_now,
+            string.Empty);
+        return unsigned with
+        {
+            ContentDigest = ArticleBulkDigest.Of(unsigned)
+        };
+    }
 
     private sealed class SelectionAuthority(IEnumerable<string> articleIds) : IArticleBulkSelectionAuthority
     {
@@ -180,6 +204,28 @@ internal static class ArticleBulkFileJournalProcessWorker
                 await Task.Yield();
             }
         }
+    }
+
+    private sealed class DeterministicExecutionAuthority : IArticleBulkExecutionAuthority
+    {
+        public Task<ArticleBulkExecutionAuthoritySnapshot> ReadCurrentAsync(
+            ArticleBulkPlan plan,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new ArticleBulkExecutionAuthoritySnapshot(
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest,
+                ArticleBulkDigest.Of("execution-authority"),
+                !plan.Executable && plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+                    ? ArticleBulkDigest.Of("canonical-zero-write")
+                    : null));
+
+        public Task ValidateGroupOutcomeAsync(
+            ArticleBulkPlan plan,
+            ArticleBulkGroupCommitOutcome outcome,
+            string? groupReceiptDigest,
+            string? zeroWriteProofDigest,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private static async IAsyncEnumerable<string> Stream(

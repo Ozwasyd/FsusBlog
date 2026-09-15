@@ -749,6 +749,8 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
             || !IsContentDigest(request.RegistryDigest)
             || !IsContentDigest(request.ParametersDigest)
             || !IsContentDigest(request.FrozenSetDigest)
+            || !IsContentDigest(request.ConfirmationDigest)
+            || !IsContentDigest(request.AdmissionAuthorityReceiptDigest)
             || firstHead.IdempotencyKeyDigest != storageKey
             || !IsContentDigest(firstHead.PlanDigest)
             || firstEvent.Ordinal != 0

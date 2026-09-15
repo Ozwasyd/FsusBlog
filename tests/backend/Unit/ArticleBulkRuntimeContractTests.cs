@@ -25,10 +25,15 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             time);
         ArticleBulkPlan plan = await planAuthority.CreateAsync(Request("lifecycle.archive", ids));
         var journal = new DeterministicJournalAuthority();
-        var framework = new ArticleBulkExecutionFramework(planAuthority, journal, time);
+        var framework = new ArticleBulkExecutionFramework(
+            planAuthority,
+            journal,
+            new DeterministicExecutionAuthority(),
+            time);
 
         ArticleBulkAdmission admission = await framework.AdmitAsync(
             plan,
+            Confirmation(plan),
             "plan-store:blocked",
             "attempt-blocked",
             "idempotency-blocked",
@@ -52,6 +57,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         var fixture = await RuntimeFixture.CreateAsync();
         ArticleBulkAdmission first = await fixture.Framework.AdmitAsync(
             fixture.Plan,
+            Confirmation(fixture.Plan),
             "plan-store:one",
             "attempt-1",
             "idempotency-1",
@@ -61,6 +67,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             fixture.Plan.PermissionPolicyDigest);
         ArticleBulkAdmission duplicate = await fixture.Framework.AdmitAsync(
             fixture.Plan,
+            Confirmation(fixture.Plan),
             "plan-store:one",
             "attempt-2",
             "idempotency-1",
@@ -77,6 +84,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         fixture.Time.UtcNow = fixture.Plan.ExpiresAtUtc;
         ArticleBulkAdmission expiredDuplicate = await fixture.Framework.AdmitAsync(
             fixture.Plan,
+            Confirmation(fixture.Plan),
             "plan-store:one",
             "attempt-expired-duplicate",
             "idempotency-1",
@@ -91,6 +99,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkContractException expired = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
             fixture.Framework.AdmitAsync(
                 fixture.Plan,
+                Confirmation(fixture.Plan),
                 "plan-store:one",
                 "attempt-3",
                 "idempotency-2",
@@ -116,11 +125,16 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             ids,
             ArticleBulkSelectionKind.Query));
         var journal = new DeterministicJournalAuthority();
-        var framework = new ArticleBulkExecutionFramework(planAuthority, journal, time);
+        var framework = new ArticleBulkExecutionFramework(
+            planAuthority,
+            journal,
+            new DeterministicExecutionAuthority(),
+            time);
 
         Assert.Equal("article-bulk.execution-drift",
             (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
                 plan,
+                Confirmation(plan),
                 "plan-store:drift",
                 "attempt-policy-drift",
                 "idempotency-policy-drift",
@@ -133,6 +147,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         selection.ResolvedIds = ["article-1", "article-3"];
         ArticleBulkAdmission admission = await framework.AdmitAsync(
             plan,
+            Confirmation(plan),
             "plan-store:sealed-selection",
             "attempt-sealed-selection",
             "idempotency-sealed-selection",
@@ -144,6 +159,129 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         Assert.Equal(["article-1", "article-2"], plan.Items.Select(static item => item.ArticleId));
         Assert.Equal(ArticleBulkExecutionState.Planned, admission.Head.State);
         Assert.Single(journal.Events);
+    }
+
+    [Fact]
+    public async Task AdmissionRereadsCurrentRevisionPermissionAndPolicyBeforeJournalCreation()
+    {
+        string[] ids = ["article-1"];
+        var time = new MutableTimeProvider(s_now);
+        var preflight = new DeterministicPreflightAuthority();
+        var planAuthority = new ArticleBulkPlanAuthority(
+            new DeterministicSelectionAuthority(ids),
+            preflight,
+            time);
+        ArticleBulkPlan plan = await planAuthority.CreateAsync(Request("category.add", ids));
+        var journal = new DeterministicJournalAuthority();
+        var executionAuthority = new DeterministicExecutionAuthority();
+        var framework = new ArticleBulkExecutionFramework(
+            planAuthority,
+            journal,
+            executionAuthority,
+            time);
+
+        preflight.RevisionPrefix = "changed-revision";
+        Assert.Equal(
+            "article-bulk.execution-article-drift",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
+                plan,
+                Confirmation(plan),
+                "plan-store:revision-drift",
+                "attempt-revision-drift",
+                "idempotency-revision-drift",
+                plan.Actor,
+                plan.Source,
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest))).Code);
+        Assert.Empty(journal.Events);
+
+        preflight.RevisionPrefix = "revision";
+        preflight.PermissionPrefix = "changed-permission";
+        Assert.Equal(
+            "article-bulk.execution-article-drift",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
+                plan,
+                Confirmation(plan),
+                "plan-store:permission-drift",
+                "attempt-permission-drift",
+                "idempotency-permission-drift",
+                plan.Actor,
+                plan.Source,
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest))).Code);
+        Assert.Empty(journal.Events);
+
+        preflight.PermissionPrefix = "permission";
+        executionAuthority.PermissionPolicyDigestOverride = Digest("changed-current-permission-policy");
+        Assert.Equal(
+            "article-bulk.execution-authority-drift",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
+                plan,
+                Confirmation(plan),
+                "plan-store:permission-policy-drift",
+                "attempt-permission-policy-drift",
+                "idempotency-permission-policy-drift",
+                plan.Actor,
+                plan.Source,
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest))).Code);
+        Assert.Empty(journal.Events);
+
+        executionAuthority.PermissionPolicyDigestOverride = null;
+        executionAuthority.PolicyDigestOverride = Digest("changed-current-policy");
+        Assert.Equal(
+            "article-bulk.execution-authority-drift",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
+                plan,
+                Confirmation(plan),
+                "plan-store:policy-drift",
+                "attempt-policy-drift",
+                "idempotency-policy-drift",
+                plan.Actor,
+                plan.Source,
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest))).Code);
+        Assert.Empty(journal.Events);
+    }
+
+    [Fact]
+    public async Task ReplannedCandidateRejectsConfirmationFromReplacedPlan()
+    {
+        string[] ids = ["article-1"];
+        var time = new MutableTimeProvider(s_now);
+        var planAuthority = new ArticleBulkPlanAuthority(
+            new DeterministicSelectionAuthority(ids),
+            new DeterministicPreflightAuthority(),
+            time);
+        ArticleBulkPlan original = await planAuthority.CreateAsync(Request("category.add", ids));
+        ArticleBulkPlanConfirmation oldConfirmation = Confirmation(original);
+        ArticleBulkPlan replanned = await planAuthority.ReplanAsync(
+            original,
+            Request("category.add", ids) with
+            {
+                PlanIdentity = "plan-2",
+                ReplanOfPlanDigest = original.ContentDigest
+            });
+        var journal = new DeterministicJournalAuthority();
+        var framework = new ArticleBulkExecutionFramework(
+            planAuthority,
+            journal,
+            new DeterministicExecutionAuthority(),
+            time);
+
+        Assert.Equal(
+            "article-bulk.confirmation-invalid",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
+                replanned,
+                oldConfirmation,
+                "plan-store:replanned",
+                "attempt-replanned",
+                "idempotency-replanned",
+                replanned.Actor,
+                replanned.Source,
+                replanned.PolicyDigest,
+                replanned.PermissionPolicyDigest))).Code);
+        Assert.Empty(journal.Events);
     }
 
     [Fact]
@@ -498,6 +636,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         await fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, head);
         Assert.Equal(commitSucceeds ? 2 : 0, head.SucceededCount);
         Assert.Equal(commitSucceeds ? 0 : 2, head.FailedCount);
+        Assert.Equal(1, fixture.ExecutionAuthority.GroupOutcomeValidationCalls);
     }
 
     [Fact]
@@ -703,6 +842,21 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             static pair => JsonSerializer.SerializeToElement(pair.Value),
             StringComparer.Ordinal);
 
+    private static ArticleBulkPlanConfirmation Confirmation(ArticleBulkPlan plan)
+    {
+        var unsigned = new ArticleBulkPlanConfirmation(
+            "confirmation-1",
+            plan.PlanIdentity,
+            plan.ContentDigest,
+            plan.Actor.AuthorityDigest,
+            s_now,
+            string.Empty);
+        return unsigned with
+        {
+            ContentDigest = ArticleBulkDigest.Of(unsigned)
+        };
+    }
+
     private static string Digest(string seed) =>
         ArticleBulkDigest.Of(seed);
 
@@ -735,6 +889,9 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
 
     private sealed class DeterministicPreflightAuthority(string? blockedArticleId = null) : IArticleBulkPreflightAuthority
     {
+        internal string RevisionPrefix { get; set; } = "revision";
+        internal string PermissionPrefix { get; set; } = "permission";
+
         internal int ObservedCount
         {
             get; private set;
@@ -756,15 +913,58 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
                     articleId,
                     Exists: true,
                     SiteId: blocked ? "another-site" : actor.SiteId,
-                    Revision: $"revision-{articleId}",
+                    Revision: $"{RevisionPrefix}-{articleId}",
                     Lifecycle: operation.Id == "lifecycle.archive" ? "draft" : "inbox",
                     Permitted: !blocked,
                     Applicable: true,
-                    PermissionDigest: Digest($"permission-{articleId}"),
+                    PermissionDigest: Digest($"{PermissionPrefix}-{articleId}"),
                     StateDigest: Digest($"state-{articleId}"),
                     DependencyDigests: [Digest($"dependency-{articleId}")]);
                 await Task.Yield();
             }
+        }
+    }
+
+    private sealed class DeterministicExecutionAuthority : IArticleBulkExecutionAuthority
+    {
+        internal string? PolicyDigestOverride
+        {
+            get;
+            set;
+        }
+
+        internal string? PermissionPolicyDigestOverride
+        {
+            get;
+            set;
+        }
+
+        internal int GroupOutcomeValidationCalls
+        {
+            get;
+            private set;
+        }
+
+        public Task<ArticleBulkExecutionAuthoritySnapshot> ReadCurrentAsync(
+            ArticleBulkPlan plan,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new ArticleBulkExecutionAuthoritySnapshot(
+                PolicyDigestOverride ?? plan.PolicyDigest,
+                PermissionPolicyDigestOverride ?? plan.PermissionPolicyDigest,
+                Digest("execution-authority"),
+                !plan.Executable && plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+                    ? Digest("canonical-zero-write")
+                    : null));
+
+        public Task ValidateGroupOutcomeAsync(
+            ArticleBulkPlan plan,
+            ArticleBulkGroupCommitOutcome outcome,
+            string? groupReceiptDigest,
+            string? zeroWriteProofDigest,
+            CancellationToken cancellationToken)
+        {
+            GroupOutcomeValidationCalls++;
+            return Task.CompletedTask;
         }
     }
 
@@ -784,11 +984,13 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkPlan plan,
         MutableTimeProvider time,
         DeterministicJournalAuthority journal,
+        DeterministicExecutionAuthority executionAuthority,
         ArticleBulkExecutionFramework framework)
     {
         internal ArticleBulkPlan Plan { get; } = plan;
         internal MutableTimeProvider Time { get; } = time;
         internal DeterministicJournalAuthority Journal { get; } = journal;
+        internal DeterministicExecutionAuthority ExecutionAuthority { get; } = executionAuthority;
         internal ArticleBulkExecutionFramework Framework { get; } = framework;
 
         internal static async Task<RuntimeFixture> CreateAsync(string operationId = "category.add", int itemCount = 1)
@@ -801,11 +1003,22 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
                 time);
             ArticleBulkPlan plan = await planAuthority.CreateAsync(Request(operationId, ids));
             var journal = new DeterministicJournalAuthority();
-            return new RuntimeFixture(plan, time, journal, new ArticleBulkExecutionFramework(planAuthority, journal, time));
+            var executionAuthority = new DeterministicExecutionAuthority();
+            return new RuntimeFixture(
+                plan,
+                time,
+                journal,
+                executionAuthority,
+                new ArticleBulkExecutionFramework(
+                    planAuthority,
+                    journal,
+                    executionAuthority,
+                    time));
         }
 
         internal Task<ArticleBulkAdmission> AdmitAsync() => Framework.AdmitAsync(
             Plan,
+            Confirmation(Plan),
             "plan-store:one",
             "attempt-1",
             "idempotency-1",

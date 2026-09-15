@@ -138,7 +138,7 @@ public sealed class ArticleBulkProductionAuthorityTests
     }
 
     [Fact]
-    public async Task MissingDirectQueryOwnerRemainsExplicitlyUnavailable()
+    public async Task MissingDirectQueryAndExecutionOwnersRemainExplicitlyUnavailable()
     {
         var selection = new ArticleBulkSelectionAuthority(
             Substitute.For<IAuthorSavedViewStore>(),
@@ -156,6 +156,9 @@ public sealed class ArticleBulkProductionAuthorityTests
                     ArticleBulkDigest.Of("query")),
                 actor,
                 CancellationToken.None))).Code);
+        var execution = new UnavailableArticleBulkExecutionAuthority();
+        await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
+            execution.ReadCurrentAsync(null!, CancellationToken.None));
         Assert.Equal(
             ["article-property-query", "author-article-query", "author-search-query"],
             ArticleBulkProductionAuthorityAvailability.SelectionDependencies
@@ -175,6 +178,9 @@ public sealed class ArticleBulkProductionAuthorityTests
         Assert.Contains(services, descriptor =>
             descriptor.ServiceType == typeof(IArticleBulkSelectionAuthority)
             && descriptor.ImplementationType == typeof(ArticleBulkSelectionAuthority));
+        Assert.Contains(services, descriptor =>
+            descriptor.ServiceType == typeof(IArticleBulkExecutionAuthority)
+            && descriptor.ImplementationType == typeof(UnavailableArticleBulkExecutionAuthority));
         Assert.DoesNotContain(services, descriptor =>
             descriptor.ServiceType.Name.Contains("Controller", StringComparison.Ordinal)
             || descriptor.ServiceType.Name.Contains("Endpoint", StringComparison.Ordinal));
