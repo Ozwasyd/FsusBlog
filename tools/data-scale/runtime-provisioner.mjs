@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
     assertDedicatedContainer,
@@ -343,4 +344,316 @@ export class DataScaleRuntimeProvisioner
         this.state.stepIndex = 9;
         return { status: 'stopped' };
     }
+}
+
+/**
+ * Refuse caller-forced shared/dev/candidate containers before provisioning.
+ * Dedicated names come only from DataScaleRuntimeProvisioner plans.
+ */
+export function assertNoForcedSharedRuntimeEnv(environment = process.env, {
+    mode = 'reject'
+} = {})
+{
+    const forced = [
+        'FSUSBLOG_POSTGRES_CONTAINER_NAME',
+        'FSUSBLOG_PG_CONTAINER',
+        'FSUSBLOG_REDIS_CONTAINER_NAME'
+    ];
+    for (const name of forced)
+    {
+        const value = environment[name];
+        if (!value || !String(value).trim())
+        {
+            continue;
+        }
+        if (!isForbiddenContainerName(String(value).trim()))
+        {
+            continue;
+        }
+        if (mode === 'sanitize')
+        {
+            delete environment[name];
+            continue;
+        }
+        throw new Error(
+            `${name}=${value} forces a shared or development container; `
+            + 'data-scale must provision a dedicated-scenario runtime and must not fall back'
+        );
+    }
+}
+
+export function buildLaneEnvironmentFromPlan(plan, {
+    dataScaleRunId,
+    parentSchedulerRunId,
+    planPath,
+    receiptPath = null
+} = {})
+{
+    if (!plan || plan.runtimeRequirement !== 'dedicated-scenario')
+    {
+        throw new Error('lane environment requires a dedicated-scenario runtime plan');
+    }
+    return {
+        FSUSBLOG_DATA_SCALE_RUN_ID: dataScaleRunId || plan.dataScaleRunId,
+        FSUSBLOG_TEST_NAMESPACE: plan.namespace,
+        FSUSBLOG_POSTGRES_CONTAINER_NAME: plan.postgres.containerName,
+        FSUSBLOG_REDIS_CONTAINER_NAME: plan.redis.containerName,
+        FSUSBLOG_DATA_SCALE_BACKEND_CONTAINER_NAME: plan.backend.containerName,
+        FSUSBLOG_AOT_CACHE_DIR: plan.roots.aotRoot,
+        FSUSBLOG_PUBLIC_AOT_CACHE_DIR: plan.roots.aotRoot,
+        FSUSBLOG_SEARCH_DIR: plan.roots.searchRoot,
+        FSUSBLOG_SEARCH_INDEX_DIR: plan.roots.searchRoot,
+        FSUSBLOG_HOTREAD_ROOT: plan.roots.hotReadRoot,
+        FSUSBLOG_DATA_SCALE_DATA_ROOT: plan.roots.dataRoot,
+        FSUSBLOG_DATA_SCALE_RUNTIME_PLAN_PATH: planPath,
+        ...(receiptPath ? { FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH: receiptPath } : {}),
+        ...(parentSchedulerRunId
+            ? { FSUSBLOG_DATA_SCALE_PARENT_SCHEDULER_RUN_ID: parentSchedulerRunId }
+            : {})
+    };
+}
+
+export function writeLaneEnvironmentFile(filePath, environment)
+{
+    const absolute = path.resolve(filePath);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    const body = Object.entries(environment)
+        .map(([key, value]) => `${key}=${shellSingleQuote(String(value))}`)
+        .join('\n');
+    fs.writeFileSync(absolute, `${body}\n`);
+    return absolute;
+}
+
+function shellSingleQuote(value)
+{
+    return `'${value.replace(/'/gu, `'\"'\"'`)}'`;
+}
+
+/**
+ * Executable lane entry: each data-scale run gets a fresh dedicated plan/roots.
+ * mode=plan-identity creates plan+roots+env without Docker (unit/fake-probe).
+ * mode=full additionally requires Docker create success and fails closed (no shared fallback).
+ */
+export async function provisionLaneRuntime({
+    repositoryRoot = '.',
+    tier = 'scale-m',
+    dataScaleRunId = null,
+    parentSchedulerRunId = null,
+    namespace = 'data-scale',
+    mode = 'plan-identity',
+    emitEnvPath,
+    environment = process.env,
+    dockerRunner = null,
+    processRunner = null
+} = {})
+{
+    assertNoForcedSharedRuntimeEnv(environment, { mode: 'sanitize' });
+
+    if (!emitEnvPath || !String(emitEnvPath).trim())
+    {
+        throw new Error('emitEnvPath is required so the lane can bind dedicated runtime identity');
+    }
+    if (!['plan-identity', 'full'].includes(mode))
+    {
+        throw new Error(`unsupported data-scale provision mode: ${mode}`);
+    }
+
+    const provisioner = new DataScaleRuntimeProvisioner({
+        repositoryRoot,
+        dataScaleRunId,
+        parentSchedulerRunId,
+        namespace,
+        tier,
+        dockerRunner,
+        processRunner
+    });
+
+    await provisioner.provisionDedicatedResources();
+
+    if (mode === 'full')
+    {
+        await createDedicatedContainers(provisioner);
+    }
+
+    const planRelative = path.join(provisioner.plan.roots.dataRoot, 'runtime-plan.json');
+    const planAbsolute = path.resolve(provisioner.repositoryRoot, planRelative);
+    fs.mkdirSync(path.dirname(planAbsolute), { recursive: true });
+    fs.writeFileSync(planAbsolute, `${JSON.stringify(provisioner.plan, null, 2)}\n`);
+
+    const laneEnv = buildLaneEnvironmentFromPlan(provisioner.plan, {
+        dataScaleRunId: provisioner.dataScaleRunId,
+        parentSchedulerRunId: provisioner.parentSchedulerRunId,
+        planPath: planRelative
+    });
+    const envAbsolute = writeLaneEnvironmentFile(emitEnvPath, laneEnv);
+
+    return {
+        provisioner,
+        plan: provisioner.plan,
+        planPath: planRelative,
+        envPath: envAbsolute,
+        environment: laneEnv,
+        mode,
+        exclusiveResources: [...provisioner.plan.exclusiveResources]
+    };
+}
+
+async function createDedicatedContainers(provisioner)
+{
+    const labels = provisioner.plan.ownershipLabels;
+    const labelArgs = Object.entries(labels).flatMap(([key, value]) => ['--label', `${key}=${value}`]);
+
+    for (const resource of [
+        {
+            role: 'postgres',
+            name: provisioner.plan.postgres.containerName,
+            volume: provisioner.plan.postgres.volumeName,
+            image: 'postgres:16-alpine'
+        },
+        {
+            role: 'redis',
+            name: provisioner.plan.redis.containerName,
+            volume: provisioner.plan.redis.volumeName,
+            image: 'redis:7-alpine'
+        }
+    ])
+    {
+        const volumeResult = provisioner.dockerRunner([
+            'volume', 'create',
+            ...labelArgs,
+            resource.volume
+        ]);
+        if (volumeResult.status !== 0)
+        {
+            provisioner.state.provisionFailed = true;
+            throw new Error(
+                `failed to create dedicated ${resource.role} volume ${resource.volume}; `
+                + 'fallback to shared postgres/redis is prohibited'
+            );
+        }
+
+        const createResult = provisioner.dockerRunner([
+            'create',
+            '--name', resource.name,
+            ...labelArgs,
+            '--mount', `type=volume,source=${resource.volume},target=/var/lib/${resource.role === 'postgres' ? 'postgresql/data' : 'redis'}`,
+            resource.image
+        ]);
+        if (createResult.status !== 0)
+        {
+            provisioner.state.provisionFailed = true;
+            throw new Error(
+                `failed to create dedicated ${resource.role} container ${resource.name}; `
+                + 'fallback to shared postgres/redis is prohibited'
+            );
+        }
+    }
+}
+
+function parseProvisionArgs(argv)
+{
+    const options = {
+        tier: 'scale-m',
+        mode: 'plan-identity',
+        emitEnvPath: null,
+        repositoryRoot: process.cwd(),
+        dataScaleRunId: null,
+        parentSchedulerRunId: null,
+        namespace: 'data-scale'
+    };
+    for (let index = 0; index < argv.length; index += 1)
+    {
+        const arg = argv[index];
+        const next = argv[index + 1];
+        if (arg === 'provision')
+        {
+            continue;
+        }
+        if (arg === '--tier' && next)
+        {
+            options.tier = next;
+            index += 1;
+            continue;
+        }
+        if (arg === '--mode' && next)
+        {
+            options.mode = next;
+            index += 1;
+            continue;
+        }
+        if (arg === '--emit-env' && next)
+        {
+            options.emitEnvPath = next;
+            index += 1;
+            continue;
+        }
+        if (arg === '--repository-root' && next)
+        {
+            options.repositoryRoot = next;
+            index += 1;
+            continue;
+        }
+        if (arg === '--data-scale-run-id' && next)
+        {
+            options.dataScaleRunId = next;
+            index += 1;
+            continue;
+        }
+        if (arg === '--parent-scheduler-run-id' && next)
+        {
+            options.parentSchedulerRunId = next;
+            index += 1;
+            continue;
+        }
+        if (arg === '--namespace' && next)
+        {
+            options.namespace = next;
+            index += 1;
+            continue;
+        }
+        throw new Error(`unknown runtime-provisioner argument: ${arg}`);
+    }
+    return options;
+}
+
+async function main(argv)
+{
+    if (argv[0] !== 'provision')
+    {
+        process.stderr.write(
+            'usage: node tools/data-scale/runtime-provisioner.mjs provision '
+            + '--emit-env <path> [--tier scale-m] [--mode plan-identity|full]\n'
+        );
+        process.exitCode = 2;
+        return;
+    }
+    try
+    {
+        const options = parseProvisionArgs(argv);
+        const result = await provisionLaneRuntime(options);
+        process.stdout.write(`${JSON.stringify({
+            schema: 'fsusblog.data-scale-lane-provision.v1',
+            status: 'ok',
+            mode: result.mode,
+            dataScaleRunId: result.plan.dataScaleRunId,
+            planPath: result.planPath,
+            envPath: path.relative(options.repositoryRoot, result.envPath),
+            exclusiveResources: result.exclusiveResources,
+            postgresContainer: result.plan.postgres.containerName,
+            redisContainer: result.plan.redis.containerName
+        }, null, 2)}\n`);
+    }
+    catch (error)
+    {
+        process.stderr.write(`[data-scale:provisioner] ${error instanceof Error ? error.message : String(error)}\n`);
+        process.exitCode = 1;
+    }
+}
+
+const invokedDirectly = process.argv[1]
+    && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (invokedDirectly)
+{
+    await main(process.argv.slice(2));
 }

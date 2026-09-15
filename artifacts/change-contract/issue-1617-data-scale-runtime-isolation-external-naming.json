@@ -6,7 +6,8 @@
             "paths": [
                 "tools/data-scale/runtime-plan.mjs",
                 "tools/data-scale/runtime-provisioner.mjs",
-                "tools/test/lanes/runtime-evidence-probe.mjs"
+                "tools/test/lanes/runtime-evidence-probe.mjs",
+                "tools/test/run-release-reliability-scenarios.mjs"
             ],
             "reason": "Preserve process environment and configuration variable spelling while establishing data-scale runtime isolation."
         },

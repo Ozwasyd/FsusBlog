@@ -181,3 +181,54 @@ test('scheduler isolation fails if data-scale shares runtime with soak or load',
         assert.ok(!soakScenario.scheduler.exclusiveResources.includes(res), `soak must not share ${res}`);
     }
 });
+
+test('provisionLaneRuntime emits dedicated env and sanitizes shared forced containers', async (t) =>
+{
+    const { provisionLaneRuntime } = await import('../../tools/data-scale/runtime-provisioner.mjs');
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-lane-api-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+
+    const sanitized = await provisionLaneRuntime({
+        repositoryRoot: temp,
+        tier: 'scale-xs',
+        dataScaleRunId: 'run-sanitize-01',
+        parentSchedulerRunId: 'sched-sanitize-01',
+        mode: 'plan-identity',
+        emitEnvPath: path.join(temp, 'sanitized.env'),
+        environment: {
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-dev-postgres'
+        }
+    });
+    assert.match(
+        sanitized.environment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+        /^fsusblog-data-scale-pg-run-sanitize-01$/
+    );
+    assert.notEqual(
+        sanitized.environment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+        'fsusblog-dev-postgres'
+    );
+
+    const result = await provisionLaneRuntime({
+        repositoryRoot: temp,
+        tier: 'scale-m',
+        dataScaleRunId: 'run-lane-api-01',
+        parentSchedulerRunId: 'sched-lane-api-01',
+        mode: 'plan-identity',
+        emitEnvPath: path.join(temp, 'dedicated.env'),
+        environment: {}
+    });
+
+    assert.equal(result.plan.runtimeRequirement, 'dedicated-scenario');
+    assert.deepEqual(result.exclusiveResources, [
+        'data-scale-artifacts',
+        'data-scale-postgres',
+        'data-scale-redis',
+        'data-scale-runtime'
+    ]);
+    assert.match(result.environment.FSUSBLOG_POSTGRES_CONTAINER_NAME, /^fsusblog-data-scale-pg-run-lane-api-01$/);
+    assert.equal(fs.existsSync(path.join(temp, 'dedicated.env')), true);
+    assert.equal(
+        fs.existsSync(path.join(temp, result.planPath)),
+        true
+    );
+});

@@ -7,15 +7,28 @@ TIER="${FSUSBLOG_SCALE_TIER:-${1:-scale-xs}}"
 DATA_SCALE_ROOT="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}"
 OUT_DIR="$DATA_SCALE_ROOT/$TIER"
 RELEASE_SUMMARY_DIR="$DATA_SCALE_ROOT/release-summaries"
-if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" ]]; then
-    if [[ -n "${FSUSBLOG_PG_CONTAINER:-}" ]]; then
-        export FSUSBLOG_POSTGRES_CONTAINER_NAME="$FSUSBLOG_PG_CONTAINER"
+PROVISION_MODE="${FSUSBLOG_DATA_SCALE_PROVISION_MODE:-full}"
+PROVISIONER_SCRIPT="${FSUSBLOG_DATA_SCALE_PROVISIONER_SCRIPT:-$ROOT_DIR/tools/data-scale/runtime-provisioner.mjs}"
+NODE_BIN="${FSUSBLOG_NODE:-node}"
+
+# Fail closed: never *use* shared/dev/candidate containers. Clear ambient injected
+# names so DataScaleRuntimeProvisioner is the only source of runtime identity.
+clear_if_shared_container() {
+    local var_name="$1"
+    local value="${!var_name:-}"
+    if [[ -z "$value" ]]; then
+        return 0
     fi
-fi
-if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == "fsusblog-dev-postgres" || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == fsusblog-dev-* || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == fsusblog-test-postgres-* || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == fsusblog-candidate-* ]]; then
-    printf '[data-scale] dedicated-scenario runtime container is required; shared or development container %s is prohibited\n' "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-<empty>}" >&2
-    exit 1
-fi
+    case "$value" in
+        fsusblog-dev-postgres|fsusblog-dev-redis|fsusblog-dev-*|fsusblog-test-postgres-*|fsusblog-test-redis-*|fsusblog-candidate-*)
+            printf '[data-scale] ignoring shared/development container %s from %s; provisioning dedicated-scenario runtime\n' "$value" "$var_name" >&2
+            unset "$var_name"
+            ;;
+    esac
+}
+clear_if_shared_container FSUSBLOG_POSTGRES_CONTAINER_NAME
+clear_if_shared_container FSUSBLOG_PG_CONTAINER
+clear_if_shared_container FSUSBLOG_REDIS_CONTAINER_NAME
 
 mkdir -p "$OUT_DIR"
 mkdir -p "$RELEASE_SUMMARY_DIR"
@@ -42,6 +55,44 @@ case "$TIER" in
         ;;
     *)
         printf '[data-scale] unknown tier %s\n' "$TIER" >&2
+        exit 1
+        ;;
+esac
+
+PROVISION_ENV="$OUT_DIR/dedicated-runtime.env"
+PROVISION_ARGS=(
+    "$PROVISIONER_SCRIPT"
+    provision
+    --tier "$TIER"
+    --mode "$PROVISION_MODE"
+    --emit-env "$PROVISION_ENV"
+    --repository-root "$ROOT_DIR"
+)
+if [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
+    PROVISION_ARGS+=(--parent-scheduler-run-id "$FSUSBLOG_TEST_RUN_ID")
+fi
+if [[ -n "${FSUSBLOG_TEST_NAMESPACE:-}" ]]; then
+    PROVISION_ARGS+=(--namespace "$FSUSBLOG_TEST_NAMESPACE")
+fi
+if [[ -n "${FSUSBLOG_DATA_SCALE_RUN_ID:-}" ]]; then
+    PROVISION_ARGS+=(--data-scale-run-id "$FSUSBLOG_DATA_SCALE_RUN_ID")
+fi
+
+printf '[data-scale] provisioning dedicated-scenario runtime via DataScaleRuntimeProvisioner mode=%s\n' "$PROVISION_MODE"
+"$NODE_BIN" "${PROVISION_ARGS[@]}"
+# shellcheck disable=SC1090
+set -a
+# Source only the provisioner-emitted dedicated identity; do not re-read local.env.
+source "$PROVISION_ENV"
+set +a
+
+if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" || -z "${FSUSBLOG_REDIS_CONTAINER_NAME:-}" ]]; then
+    printf '[data-scale] provisioner did not emit dedicated postgres/redis identity\n' >&2
+    exit 1
+fi
+case "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" in
+    fsusblog-dev-postgres|fsusblog-dev-*|fsusblog-test-postgres-*|fsusblog-candidate-*)
+        printf '[data-scale] provisioner emitted forbidden postgres container %s\n' "$FSUSBLOG_POSTGRES_CONTAINER_NAME" >&2
         exit 1
         ;;
 esac
