@@ -160,17 +160,38 @@
       ]
     },
     {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260905ArticleTemplates.cs",
+      "sha256": "eaa50b0a6ab74b0c368b6a4ae0d47de2afb845b25b0dfd1cf0cb7cc1ac60601b",
+      "symbols": [
+        "SchemaMigrationCatalog20260905ArticleTemplates"
+      ]
+    },
+    {
       "path": "src/migration/Catalogs/SchemaMigrationCatalog20260906AuthoringCanvasOperations.cs",
-      "sha256": "c25bbfaddf188ba0554295341527312670c6ffbea1d7bc67c24d4607dda1d967",
+      "sha256": "fa8f1527f5d7fd5241230f98bdc4303a1046389b0629a5fed2dd5c0d50d9f93c",
       "symbols": [
         "SchemaMigrationCatalog20260906AuthoringCanvasOperations"
       ]
     },
     {
       "path": "src/migration/Catalogs/SchemaMigrationCatalog20260907.cs",
-      "sha256": "f1a67bec83c2b81aff4e79db4c29414093ac1929d8e73e8ec083c8dae888d161",
+      "sha256": "84d9e3f7730250353b1d0fd32feeb211a208bd44a821b7e7f6c6d1925a0412b3",
       "symbols": [
         "SchemaMigrationCatalog20260907"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260908ArticleCreate.cs",
+      "sha256": "4df569cafefe2761ab0e1bb3132b2c8ec5908e013672bc026c02e930aa1c68c8",
+      "symbols": [
+        "SchemaMigrationCatalog20260908ArticleCreate"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260913BanStateProjection.cs",
+      "sha256": "0565cf86b7048a4e215f9ff45a0ecbccaa8e25bac431c71e0b5e2e669e7eee28",
+      "symbols": [
+        "SchemaMigrationCatalog20260913BanStateProjection"
       ]
     },
     {
@@ -185,6 +206,13 @@
       "sha256": "268bbbae36b6781b9052c5defa15051b3ded0a6cf0b44f5fcf7d8e9cb6c2bdc3",
       "symbols": [
         "AccountEnrollmentMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AdminSessionProjectionMigrationDefinitions.cs",
+      "sha256": "ad3a275cb08b2efcce402c2d5d9ed8ceea86037567e7d4fa825b8e667e4ec8eb",
+      "symbols": [
+        "AdminSessionProjectionMigrationDefinitions"
       ]
     },
     {
@@ -213,6 +241,13 @@
       "sha256": "65e43e8cceef8cbc9be32837cc4742ee469cef5323bbf51f41f95ce743367526",
       "symbols": [
         "ArticleCommentPolicyMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleCreateAuthorityMigrationDefinitions.cs",
+      "sha256": "32d29aad560eac13556b6064f3a312ed26d84d44be0eaabb89d6d689838e34cb",
+      "symbols": [
+        "ArticleCreateAuthorityMigrationDefinitions"
       ]
     },
     {
@@ -272,6 +307,13 @@
       ]
     },
     {
+      "path": "src/migration/Definitions/ArticleTemplateAuthorityMigrationDefinitions.cs",
+      "sha256": "fe1b4c398847019d1cd16a62f3335bf20d211d9f373710759ec4975130d55f1f",
+      "symbols": [
+        "ArticleTemplateAuthorityMigrationDefinitions"
+      ]
+    },
+    {
       "path": "src/migration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs",
       "sha256": "0270d6bcaabd04863538353113946a1e723513346f977bec56270403265fdf99",
       "symbols": [
@@ -319,6 +361,13 @@
       "sha256": "ca930cd1b3699bb934032b068e97bcf33eed05a055569bb698f0e8df7104cdf7",
       "symbols": [
         "AuthorSavedViewMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/BanStateProjectionMigrationDefinitions.cs",
+      "sha256": "842ccf33a40e2ca272f94d2829e72a742f2d6ce42519a26b4f48766126b44e52",
+      "symbols": [
+        "BanStateProjectionMigrationDefinitions"
       ]
     },
     {
@@ -587,7 +636,7 @@
     },
     {
       "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
-      "sha256": "66e9ac4a2111ba16d8338db993194cd6dda73ad2215952948c92a92d1920d429",
+      "sha256": "e475645bc732e2698a2621a6cc95b466c419cd3d931e24f9c2e53d29bfbf7185",
       "symbols": [
         "OfflineMigrationCatalogEntries",
         "OfflineMigrationClassification",
@@ -667,7 +716,7 @@
     },
     {
       "path": "src/migration/SchemaMigrationManifest.cs",
-      "sha256": "81c2edc75aea93033367a2de2a3be92c5b7284aa105469384bf3a960b4de5fdd",
+      "sha256": "7b1bca51f73a929b72ac5f1ae80a62ef2badc3fbec329e27f70672819df63583",
       "symbols": [
         "SchemaMigrationManifest"
       ]
@@ -1086,8 +1135,18 @@
         "oldPathsDeleted": []
       },
       {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260905ArticleTemplates.cs",
+        "newSha256": "eaa50b0a6ab74b0c368b6a4ae0d47de2afb845b25b0dfd1cf0cb7cc1ac60601b",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260905ArticleTemplates"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
         "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260906AuthoringCanvasOperations.cs",
-        "newSha256": "c25bbfaddf188ba0554295341527312670c6ffbea1d7bc67c24d4607dda1d967",
+        "newSha256": "fa8f1527f5d7fd5241230f98bdc4303a1046389b0629a5fed2dd5c0d50d9f93c",
         "oldFiles": [],
         "movedSymbols": [],
         "newSymbols": [
@@ -1097,11 +1156,31 @@
       },
       {
         "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260907.cs",
-        "newSha256": "f1a67bec83c2b81aff4e79db4c29414093ac1929d8e73e8ec083c8dae888d161",
+        "newSha256": "84d9e3f7730250353b1d0fd32feeb211a208bd44a821b7e7f6c6d1925a0412b3",
         "oldFiles": [],
         "movedSymbols": [],
         "newSymbols": [
           "SchemaMigrationCatalog20260907"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260908ArticleCreate.cs",
+        "newSha256": "4df569cafefe2761ab0e1bb3132b2c8ec5908e013672bc026c02e930aa1c68c8",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260908ArticleCreate"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260913BanStateProjection.cs",
+        "newSha256": "0565cf86b7048a4e215f9ff45a0ecbccaa8e25bac431c71e0b5e2e669e7eee28",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260913BanStateProjection"
         ],
         "oldPathsDeleted": []
       },
@@ -1146,6 +1225,16 @@
         "oldPathsDeleted": [
           "src/backend/Infrastructure/SchemaMigration/Definitions/AccountEnrollmentMigrationDefinitions.cs"
         ]
+      },
+      {
+        "newPath": "src/migration/Definitions/AdminSessionProjectionMigrationDefinitions.cs",
+        "newSha256": "ad3a275cb08b2efcce402c2d5d9ed8ceea86037567e7d4fa825b8e667e4ec8eb",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "AdminSessionProjectionMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
       },
       {
         "newPath": "src/migration/Definitions/AnonymousEligibilityPredicateMigrationDefinitions.cs",
@@ -1226,6 +1315,16 @@
         "oldPathsDeleted": [
           "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleCommentPolicyMigrationDefinitions.cs"
         ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleCreateAuthorityMigrationDefinitions.cs",
+        "newSha256": "32d29aad560eac13556b6064f3a312ed26d84d44be0eaabb89d6d689838e34cb",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "ArticleCreateAuthorityMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
       },
       {
         "newPath": "src/migration/Definitions/ArticleDraftBaseRevisionMigrationDefinitions.cs",
@@ -1388,6 +1487,16 @@
         ]
       },
       {
+        "newPath": "src/migration/Definitions/ArticleTemplateAuthorityMigrationDefinitions.cs",
+        "newSha256": "fe1b4c398847019d1cd16a62f3335bf20d211d9f373710759ec4975130d55f1f",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "ArticleTemplateAuthorityMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
         "newPath": "src/migration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs",
         "newSha256": "0270d6bcaabd04863538353113946a1e723513346f977bec56270403265fdf99",
         "oldFiles": [
@@ -1486,6 +1595,16 @@
         "movedSymbols": [],
         "newSymbols": [
           "AuthorSavedViewMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Definitions/BanStateProjectionMigrationDefinitions.cs",
+        "newSha256": "842ccf33a40e2ca272f94d2829e72a742f2d6ce42519a26b4f48766126b44e52",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "BanStateProjectionMigrationDefinitions"
         ],
         "oldPathsDeleted": []
       },
@@ -2232,7 +2351,7 @@
       },
       {
         "newPath": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
-        "newSha256": "66e9ac4a2111ba16d8338db993194cd6dda73ad2215952948c92a92d1920d429",
+        "newSha256": "e475645bc732e2698a2621a6cc95b466c419cd3d931e24f9c2e53d29bfbf7185",
         "oldFiles": [],
         "movedSymbols": [],
         "newSymbols": [
@@ -2396,7 +2515,7 @@
       },
       {
         "newPath": "src/migration/SchemaMigrationManifest.cs",
-        "newSha256": "81c2edc75aea93033367a2de2a3be92c5b7284aa105469384bf3a960b4de5fdd",
+        "newSha256": "7b1bca51f73a929b72ac5f1ae80a62ef2badc3fbec329e27f70672819df63583",
         "oldFiles": [
           {
             "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs",
@@ -2569,7 +2688,7 @@
       "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"
     ]
   },
-  "contentDigest": "1daae11289589400f4550375eceef0f2ef0407cd5670cd71256051e1407bda83",
+  "contentDigest": "0de4403349b803556119e690b80ec0bf87002f0e857987d2ecc64f218701b1ac",
   "testFiles": [
     {
       "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
@@ -2577,7 +2696,7 @@
     },
     {
       "path": "tests/migration/MigrationAssemblyBoundaryTests.cs",
-      "sha256": "b61097bc9b250fd1679d5f046f106cb92a7b006fe5bd08f3f7df7ddd2d40ea99"
+      "sha256": "a2a241a9359712c801ba5efb9b713fc9c2e17635f4c710c4a82bcb95cb9affd3"
     },
     {
       "path": "tests/migration/OfflineMigrationCommandLineTests.cs",
@@ -2596,22 +2715,22 @@
       "sha256": "5ab89b14fd6de0fcdea83656facca23980405c604230da63deab3aaf57d0011e"
     }
   ],
-  "testContentDigest": "76f94b7943be55cfb9a07080ea38c72b48c74392a77d2898ea6c4b9831dec4ef",
-  "verificationInputDigest": "46dafc02bb1be79ff598473de7fabda4f85d3c18454ecac5bed4b4f3d2dec0ea",
+  "testContentDigest": "ef941999b7922a6a67b7162dbdea78eb7306c6a1c03718c802908ee75d7d865a",
+  "verificationInputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
   "verificationResults": [
     {
       "command": "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "46dafc02bb1be79ff598473de7fabda4f85d3c18454ecac5bed4b4f3d2dec0ea",
-      "summary": "0 個警告 | 0 個錯誤 | 經過時間 00:00:02.44"
+      "inputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
+      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:00.71"
     },
     {
       "command": "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "46dafc02bb1be79ff598473de7fabda4f85d3c18454ecac5bed4b4f3d2dec0ea",
-      "summary": "<repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll 的測試回合 (.NETCoreApp,Version=v10.0) | 總共有 1 個測試檔案與指定的模式相符。 | 已通過! - 失敗:     0，通過:    36，略過:     0，總計:    36，持續時間: 144 ms - FsusBlog.Migration.Tests.dll (net10.0)"
+      "inputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
+      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 135 ms - FsusBlog.Migration.Tests.dll (net10.0)"
     }
   ]
 }

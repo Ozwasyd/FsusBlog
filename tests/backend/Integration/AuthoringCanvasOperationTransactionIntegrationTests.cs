@@ -28,6 +28,9 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             await CreateCanvasWithNoteAsync(db, "before");
         var transaction = new PostgresAuthoringCanvasOperationTransaction(db, store, TimeProvider.System);
         var engine = new AuthoringCanvasOperationEngine(store, transaction, new TrustedReferenceValidator());
+        var databaseVerifier = new AuthoringCanvasOperationDatabaseVerifier(db, store, transaction);
+        AuthoringCanvasOperationDatabaseBaseline databaseBaseline =
+            await databaseVerifier.CaptureBaselineAsync(s_owner, canvasId);
         AuthoringCanvasOperationSnapshot initial = await SnapshotAsync(store, canvasId);
         AuthoringCanvasNode after = before with
         {
@@ -49,6 +52,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
         Assert.Equal(2, await CountAsync(db, "authoring_canvas_operation_command_fact"));
         Assert.Equal(2, await CountAsync(db, "authoring_canvas_operation_fact"));
         Assert.Equal(1, await CountAsync(db, "authoring_canvas_operation_receipt"));
+        await AssertDocumentValidAsync(store, canvasId);
 
         AuthoringCanvasHistoryWindow appliedHistory = await transaction.ReadHistoryAsync(s_owner, canvasId);
         AuthoringCanvasOperationReceipt undone = await engine.UndoAsync(new AuthoringCanvasHistoryRequest(
@@ -63,6 +67,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             AuthoringCanvasJournalMode.Undo));
         Assert.Equal(0, undone.UndoDepth);
         Assert.Equal(1, undone.RedoDepth);
+        await AssertDocumentValidAsync(store, canvasId);
 
         AuthoringCanvasHistoryWindow undoneHistory = await transaction.ReadHistoryAsync(s_owner, canvasId);
         AuthoringCanvasOperationReceipt redone = await engine.RedoAsync(new AuthoringCanvasHistoryRequest(
@@ -77,6 +82,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             AuthoringCanvasJournalMode.Redo));
         Assert.Equal(1, redone.UndoDepth);
         Assert.Equal(0, redone.RedoDepth);
+        await AssertDocumentValidAsync(store, canvasId);
 
         AuthoringCanvasHistoryWindow redoneHistory = await transaction.ReadHistoryAsync(s_owner, canvasId);
         _ = await engine.UndoAsync(new AuthoringCanvasHistoryRequest(
@@ -89,6 +95,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             redoneHistory.HistoryDigest,
             applied.JournalId,
             AuthoringCanvasJournalMode.Undo));
+        await AssertDocumentValidAsync(store, canvasId);
         AuthoringCanvasOperationSnapshot branchBefore = await SnapshotAsync(store, canvasId);
         AuthoringCanvasNode branchSource = Assert.Single(branchBefore.Nodes);
         AuthoringCanvasNode branchTarget = branchSource with
@@ -111,6 +118,18 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             current);
         Assert.True(verified.Valid, string.Join(',', verified.Reasons));
         Assert.Single(currentHistory.UndoEntries);
+        await AssertDocumentValidAsync(store, canvasId);
+        AuthoringCanvasOperationDatabaseVerificationResult databaseVerified =
+            await databaseVerifier.VerifyAsync(databaseBaseline);
+        Assert.True(databaseVerified.Valid, string.Join(',', databaseVerified.Reasons));
+        Assert.Equal(5, databaseVerified.VerifiedJournalEntries);
+
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE article SET marker = 'mutated-outside-canvas' WHERE id = 1;");
+        AuthoringCanvasOperationDatabaseVerificationResult externalMutation =
+            await databaseVerifier.VerifyAsync(databaseBaseline);
+        Assert.False(externalMutation.Valid);
+        Assert.Contains("external_article_or_relation_mutation_detected", externalMutation.Reasons);
 
         await db.Ado.ExecuteCommandAsync(
             "UPDATE authoring_canvas_operation_receipt SET undo_depth = 99 WHERE journal_id = @JournalId;",
@@ -265,7 +284,17 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             () => engine.ApplyAsync(request));
 
         Assert.Equal("canvas_operation_snapshot_integrity_invalid", exception.Code);
-        await AssertUnchangedAsync(db, store, canvasId, original);
+        AuthoringCanvasDocumentHeader current = (await store.GetAsync(s_owner, canvasId))!;
+        Assert.Equal(original.Revision, current.Revision);
+        Assert.Equal(original.ContentDigest, current.ContentDigest);
+        Assert.Equal(0, await CountAsync(db, "authoring_canvas_operation_journal"));
+        Assert.Equal(0, await CountAsync(db, "authoring_canvas_operation_receipt"));
+        Assert.Equal(2, await CountAsync(db, "external_canvas_operation_marker"));
+        AuthoringCanvasVerificationResult verification = await store.VerifyAsync(s_owner, canvasId);
+        Assert.False(verification.Valid);
+        Assert.Contains(verification.Reasons, static reason => reason.StartsWith(
+            "node_digest_mismatch:",
+            StringComparison.Ordinal));
     }
 
     [Fact]
@@ -327,6 +356,14 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             """
             CREATE TABLE admin_principal(id bigint PRIMARY KEY);
             INSERT INTO admin_principal(id) VALUES (1);
+            CREATE TABLE article(id integer PRIMARY KEY, marker text NOT NULL);
+            CREATE TABLE article_revision(id bigint PRIMARY KEY, article_id integer NOT NULL);
+            CREATE TABLE article_tag(article_id integer NOT NULL, tag_id integer NOT NULL);
+            CREATE TABLE article_mutation_outbox_edge(id bigint PRIMARY KEY, article_id integer NOT NULL);
+            INSERT INTO article(id, marker) VALUES (1, 'article');
+            INSERT INTO article_revision(id, article_id) VALUES (1, 1);
+            INSERT INTO article_tag(article_id, tag_id) VALUES (1, 1);
+            INSERT INTO article_mutation_outbox_edge(id, article_id) VALUES (1, 1);
             CREATE TABLE external_canvas_operation_marker(id integer PRIMARY KEY, marker text NOT NULL);
             INSERT INTO external_canvas_operation_marker(id, marker) VALUES (1, 'article'), (2, 'relation');
             """);
@@ -412,6 +449,15 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
         Assert.Equal(0, await CountAsync(db, "authoring_canvas_operation_journal"));
         Assert.Equal(0, await CountAsync(db, "authoring_canvas_operation_receipt"));
         Assert.Equal(2, await CountAsync(db, "external_canvas_operation_marker"));
+        await AssertDocumentValidAsync(store, canvasId);
+    }
+
+    private static async Task AssertDocumentValidAsync(
+        IAuthoringCanvasDocumentStore store,
+        Guid canvasId)
+    {
+        AuthoringCanvasVerificationResult verification = await store.VerifyAsync(s_owner, canvasId);
+        Assert.True(verification.Valid, string.Join(',', verification.Reasons));
     }
 
     private static async Task ApplyMigrationAsync(SqlSugarClient db, ISchemaMigrationDescriptor migration)

@@ -13,7 +13,7 @@ internal static class SchemaMigrationCatalog20260907
             Dependencies:
             [
                 new SchemaMigrationCatalogDependency(
-                    ArticleTemplateAuthorityMigrationDefinitions.MigrationId,
+                    AuthoringCanvasOperationJournalMigrationDefinitions.MigrationId,
                     SchemaMigrationPhase.PostCodeFirst)
             ],
             Descriptors:

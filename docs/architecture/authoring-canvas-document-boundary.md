@@ -1,7 +1,10 @@
 # Authoring canvas document boundary
 
-`IAuthoringCanvasDocumentStore` is the single server persistence authority for a
-private authoring canvas. A document is owned by the exact
+`IAuthoringCanvasDocumentStore` is the server authority for direct lifecycle and
+record writes to a private authoring canvas. `AuthoringCanvasOperationEngine`
+and its one PostgreSQL transaction adapter are the only additional write path:
+they apply the closed operation registry atomically with its append-only journal
+and do not expose a generic second document store. A document is owned by the exact
 `(admin_principal_id, site_scope)` pair and carries schema version, monotonic
 revision, title, viewport snapshot, bounded counts, timestamps and a transition
 digest. Calls for an absent document and calls using the wrong owner or site
@@ -41,6 +44,15 @@ revisions, and records the applied transition receipt and digest in the same
 transaction. Reusing a request ID with the identical command returns the prior
 receipt; reusing it for another command fails closed.
 
+Canvas operations use the same document lock, revision CAS, content digest and
+idempotency coordinate. An apply, undo or redo updates the document-owned facts,
+appends the operation journal and operation receipt, and appends a matching
+document receipt in one database transaction. Consequently `VerifyAsync` stays
+valid after every operation; a document receipt mismatch is never an accepted
+precondition. Undo and redo retain bounded sealed before/after facts rather than
+whole-document snapshots, and an apply after undo closes the redo branch while
+preserving its audit entries.
+
 One owner/site pair may hold 100 canvases. One canvas may hold 10,000 nodes and
 10,000 edges. Read pages contain at most 256 records; strings, geometry, viewport
 and note fields have contract constants and database checks. Exceeding a budget
@@ -78,6 +90,11 @@ another canvas.
 
 `VerifyAsync` walks nodes and edges through bounded pages and compares their
 closed-record digests, counts, endpoints and the current document receipt. The
+operation database verifier independently reloads the document, journal and
+receipts, replays the sealed facts, calls the document verifier and compares
+article, revision, relation and mutation-outbox generations captured before the
+operation sequence. This proves both canvas integrity and zero external-authority
+mutation without trusting the operation engine's in-memory result. The
 PostgreSQL integration suite covers both record kinds, all five node kinds,
 CAS/idempotency, owner/site privacy, scoped deletion, tamper and the
 0/1/100/10,000 bounds. `tools/governance/check-authoring-canvas-authority.mjs`
@@ -86,5 +103,5 @@ payload field, graph-position reuse or article/relation/property/graph write is
 introduced.
 
 This boundary does not inline-edit or copy referenced content and does not
-implement an operation history, undo/redo, runtime route, UI, edge-to-link
-conversion, package exchange, collaboration, plug-in nodes or public canvases.
+implement a runtime route, UI, edge-to-link conversion, package exchange,
+collaboration, plug-in nodes or public canvases.
