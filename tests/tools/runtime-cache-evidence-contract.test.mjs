@@ -294,6 +294,71 @@ test('singleflight rebuild counts are exact per cold identity group', () => {
   assert.ok(errors.some((error) => error.includes('rebuild counts must exactly match')))
 })
 
+test('hot and featured atomic publication is derived from request-bound raw evidence', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const scenario = catalog.scenarios.find((item) => item.id === 'hot-featured-frame')
+  scenario.requirements = { atomicRedisPublication: true }
+  const expected = {
+    hotPublicationCount: 1,
+    featuredPublicationCount: 1,
+    hotAtomicPublisherCount: 1,
+    featuredAtomicPublisherCount: 1
+  }
+  const evidence = makeEvidence(scenario, repositoryRoot, {
+    catalog,
+    mutateRaw: (raw) => {
+      for (const [index, request] of raw.requests.entries()) {
+        raw.cacheEvents.push({
+          requestId: request.id,
+          subcaseId: request.subcaseId,
+          sequence: 1,
+          elapsedMilliseconds: 1,
+          family: `article-${request.subcaseId}-frame`,
+          identityDigest: payloadDigest,
+          outcome: 'published',
+          source: raw.authority.cache
+        })
+        raw.redisCommands.push({
+          requestId: request.id,
+          subcaseId: request.subcaseId,
+          verb: 'EVALSHA',
+          category: 'atomic-script',
+          source: raw.authority.redis
+        })
+      }
+    },
+    mutateReceipt: (receipt) => {
+      const assertion = receipt.assertions.find((item) => item.id === 'atomic-redis-publication')
+      assertion.expected = expected
+      assertion.actual = expected
+      receipt.commandSummary.redis = {
+        count: 2,
+        byVerb: { EVALSHA: 2 },
+        byCategory: { 'atomic-script': 2 }
+      }
+    }
+  })
+
+  assert.deepEqual(validateRuntimeCacheReceipt(evidence.receipt, {
+    catalog,
+    repositoryRoot,
+    expectedSource: sourceSnapshot
+  }), [])
+
+  let missingAtomicCommand = rewriteRaw(repositoryRoot, evidence, (raw) => {
+    raw.redisCommands = []
+  })
+  missingAtomicCommand.rawEvidence.rowCounts.redisCommands = 0
+  missingAtomicCommand.commandSummary.redis = { count: 0, byVerb: {}, byCategory: {} }
+  missingAtomicCommand = sealReceipt(missingAtomicCommand)
+  assert.ok(validateRuntimeCacheReceipt(missingAtomicCommand, {
+    catalog,
+    repositoryRoot,
+    expectedSource: sourceSnapshot
+  }).some((error) => error.includes('atomic Redis publication was not proven')))
+})
+
 test('raw request, command, cache and rollup closure is recomputed independently', () => {
   const repositoryRoot = createRepository()
   const catalog = tinyCatalog()

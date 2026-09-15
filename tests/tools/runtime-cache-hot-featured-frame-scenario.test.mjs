@@ -9,7 +9,7 @@ const identityDigest = (value) => `sha256:${createHash('sha256').update(value).d
 function scenario() {
   return {
     id: 'hot-featured-frame',
-    subcases: ['hot', 'featured', 'atomic-publication'],
+    subcases: ['hot', 'featured'],
     requests: 4,
     concurrency: 2,
     warmupRequests: 0,

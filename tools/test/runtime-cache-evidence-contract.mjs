@@ -179,6 +179,22 @@ function redisRollup(commands) {
   return { count: commands.length, byVerb, byCategory }
 }
 
+function hotFeaturedAtomicPublication(raw) {
+  const summary = {}
+  for (const [subcaseId, family] of [
+    ['hot', 'article-hot-frame'],
+    ['featured', 'article-featured-frame']
+  ]) {
+    const publications = raw.cacheEvents.filter((event) =>
+      event.subcaseId === subcaseId && event.family === family && event.outcome === 'published')
+    summary[`${subcaseId}PublicationCount`] = publications.length
+    summary[`${subcaseId}AtomicPublisherCount`] = publications.filter((event) =>
+      raw.redisCommands.some((command) =>
+        command.requestId === event.requestId && command.category === 'atomic-script')).length
+  }
+  return summary
+}
+
 function databaseRollup(commands) {
   const byFingerprint = {}
   for (const command of commands) increment(byFingerprint, command.fingerprint)
@@ -426,7 +442,19 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
       && commandsForSubcase(raw, 'databaseCommands', 'cursorless-deep') > requirements.cursorlessDeepDbCommandsMax) errors.push('cursorless deep database command budget exceeded')
   if (requirements.uniqueKeys != null && Number(findAssertion(receipt, 'unique-key-count')?.actual) !== requirements.uniqueKeys) errors.push(`unique key count must equal ${requirements.uniqueKeys}`)
   if (requirements.classificationCount != null && Number(findAssertion(receipt, 'classification-count')?.actual) !== requirements.classificationCount) errors.push(`classification count must equal ${requirements.classificationCount}`)
-  if (requirements.atomicRedisPublication && findAssertion(receipt, 'atomic-redis-publication')?.actual !== true) errors.push('atomic Redis publication was not proven')
+  if (requirements.atomicRedisPublication) {
+    const expected = {
+      hotPublicationCount: 1,
+      featuredPublicationCount: 1,
+      hotAtomicPublisherCount: 1,
+      featuredAtomicPublisherCount: 1
+    }
+    const assertion = findAssertion(receipt, 'atomic-redis-publication')
+    const observed = raw ? hotFeaturedAtomicPublication(raw) : assertion?.actual
+    if (!assertion || !exactArray(assertion.actual, observed) || !exactArray(observed, expected)) {
+      errors.push('atomic Redis publication was not proven')
+    }
+  }
   if (requirements.unsampledL1AllocationBytesMax != null) {
     const assertion = findAssertion(receipt, 'unsampled-l1-zero-allocation')
     const actual = assertion?.actual
