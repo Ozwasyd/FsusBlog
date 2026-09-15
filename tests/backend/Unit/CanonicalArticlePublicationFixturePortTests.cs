@@ -171,10 +171,46 @@ public sealed class CanonicalArticlePublicationFixturePortTests
     }
 
     [Fact]
-    public void ArticleProductionNormalizers_NormalizeTagIds_DeduplicatesAndSorts()
+    public void ArticleProductionNormalizers_NormalizeTagIds_DeduplicatesPreservingFirstSeenOrder()
     {
         var result = ArticleProductionNormalizers.NormalizeTagIds([5, 3, 1, 5, 2, -1, 0]);
-        Assert.Equal([1, 2, 3, 5], result);
+        Assert.Equal([5, 3, 1, 2, -1, 0], result);
+    }
+
+    [Fact]
+    public void ArticleService_SharedSeams_AreReferencedByProductionSources()
+    {
+        string service = System.IO.File.ReadAllText(
+            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string mutations = System.IO.File.ReadAllText(
+            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.Mutations.cs"));
+        string cache = System.IO.File.ReadAllText(
+            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.CacheAndInvalidation.cs"));
+        string responsibility = System.IO.File.ReadAllText(
+            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Integrity/ArticleResponsibilityManifest.cs"));
+
+        Assert.Contains("ArticleProductionNormalizers.NormalizeArticleRights", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsSnapshotBuilder.Build", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsPolicyPersistence.UpsertAsync", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleProductionNormalizers.NormalizeText", cache, StringComparison.Ordinal);
+        Assert.Contains("ArticleProductionNormalizers.NormalizeTagIds", cache, StringComparison.Ordinal);
+        Assert.Contains("ArticleResponsibilitySnapshotBuilder.Build", responsibility, StringComparison.Ordinal);
+        Assert.DoesNotContain("private sealed record ArticleRightsWriteModel", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsNormalizedModel", mutations, StringComparison.Ordinal);
+    }
+
+    private static string FindRepoRoot()
+    {
+        string? dir = AppContext.BaseDirectory;
+        while (!string.IsNullOrEmpty(dir))
+        {
+            if (System.IO.File.Exists(System.IO.Path.Combine(dir, "AGENTS.md")))
+            {
+                return dir;
+            }
+            dir = System.IO.Directory.GetParent(dir)?.FullName;
+        }
+        throw new InvalidOperationException("repository root not found");
     }
 
     [Fact]

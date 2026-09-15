@@ -80,19 +80,6 @@ public partial class ArticleService(
         long AdminPrincipalId,
         string ClientMutationId,
         string RequestHash);
-    private sealed record ArticleRightsWriteModel(
-        bool Enabled,
-        string LicenseType,
-        string? CopyrightHolder,
-        int? CopyrightYear,
-        string? RightsStatement,
-        string? AttributionTemplate,
-        string CopyPolicy,
-        int MaxExcerptChars,
-        bool AllowCodeCopy,
-        bool ShowPublicBadge,
-        bool ProofBindingEnabled);
-
     private const int MaxPageSize = 100;
     private const string ArticleListCursorWhereClause = " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
     private const string ArticleListTotalCountColumn = "__TotalCount";
@@ -756,7 +743,7 @@ public partial class ArticleService(
         var tagIds = NormalizeTagIds(dto.TagIds);
         ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(summary, content);
         string safeSummary = summaryProjection.Text;
-        ArticleRightsWriteModel rights = ResolveCreateArticleRights(dto);
+        ArticleRightsNormalizedModel rights = ResolveCreateArticleRights(dto);
         DateTime now = UtcNow;
         ArticleStatus status = (ArticleStatus)dto.Status;
         ValidateWriteTarget(status, dto.ScheduledPublishAt, now);
@@ -1273,234 +1260,42 @@ public partial class ArticleService(
         ArticleStatus status,
         DateTime? publishedAt,
         DateTime? scheduledPublishAt,
-        ArticleRightsWriteModel rights,
+        ArticleRightsNormalizedModel rights,
         DateTime createdAt)
     {
         long policyId = await EnsureArticleRightsPolicyAsync(articleId, rights).ConfigureAwait(false);
-        string contentCanonicalHash = "sha256:" + ArticleCanonicalHashV1.ComputeHashHex(new ArticleCanonicalInput(
-            ArticleId: articleId,
-            ArticleRevisionId: revision.Id,
-            RevisionNo: revision.RevisionNo,
-            PublicRouteKey: $"article:{articleId}",
-            Title: title,
-            Summary: summary,
-            CoverImageUrl: coverImageUrl,
-            CategoryId: categoryId,
-            TagIds: tagIds,
-            Status: (int)status,
-            PublishedAt: publishedAt,
-            ScheduledPublishAt: scheduledPublishAt,
-            MarkdownContent: content));
-        string policyHash = ArticleRightsCanonicalHashV1.ComputeHashHex(new ArticleRightsCanonicalInput(
-            ArticleId: articleId,
-            ArticleRevisionId: revision.Id,
-            RevisionNo: revision.RevisionNo,
-            LicenseType: rights.LicenseType,
-            CopyrightHolder: rights.CopyrightHolder,
-            CopyrightYear: rights.CopyrightYear,
-            RightsStatement: rights.RightsStatement,
-            AttributionTemplate: rights.AttributionTemplate,
-            CopyPolicy: rights.CopyPolicy,
-            MaxExcerptChars: rights.MaxExcerptChars,
-            AllowCodeCopy: rights.AllowCodeCopy,
-            ShowPublicBadge: rights.ShowPublicBadge,
-            CanonicalUrl: null,
-            ContentCanonicalHash: contentCanonicalHash));
-
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            """
-            INSERT INTO article_rights_snapshot (
-                article_id,
-                article_revision_id,
-                revision_no,
-                article_rights_policy_id,
-                enabled,
-                license_type,
-                copyright_holder,
-                copyright_year,
-                rights_statement,
-                attribution_template,
-                copy_policy,
-                max_excerpt_chars,
-                allow_code_copy,
-                show_public_badge,
-                proof_binding_enabled,
-                canonical_url,
-                policy_hash,
-                content_canonical_hash,
-                created_at
-            )
-            VALUES (
-                @ArticleId,
-                @ArticleRevisionId,
-                @RevisionNo,
-                @PolicyId,
-                @Enabled,
-                @LicenseType,
-                @CopyrightHolder,
-                @CopyrightYear,
-                @RightsStatement,
-                @AttributionTemplate,
-                @CopyPolicy,
-                @MaxExcerptChars,
-                @AllowCodeCopy,
-                @ShowPublicBadge,
-                @ProofBindingEnabled,
-                @CanonicalUrl,
-                @PolicyHash,
-                @ContentCanonicalHash,
-                @CreatedAt
-            )
-            RETURNING id;
-            """,
-            new SugarParameter("@ArticleId", articleId),
-            new SugarParameter("@ArticleRevisionId", revision.Id),
-            new SugarParameter("@RevisionNo", revision.RevisionNo),
-            new SugarParameter("@PolicyId", policyId),
-            new SugarParameter("@Enabled", rights.Enabled),
-            new SugarParameter("@LicenseType", rights.LicenseType),
-            NullableStringParameter("@CopyrightHolder", rights.CopyrightHolder),
-            NullableInt32Parameter("@CopyrightYear", rights.CopyrightYear),
-            NullableStringParameter("@RightsStatement", rights.RightsStatement),
-            NullableStringParameter("@AttributionTemplate", rights.AttributionTemplate),
-            new SugarParameter("@CopyPolicy", rights.CopyPolicy),
-            new SugarParameter("@MaxExcerptChars", rights.MaxExcerptChars),
-            new SugarParameter("@AllowCodeCopy", rights.AllowCodeCopy),
-            new SugarParameter("@ShowPublicBadge", rights.ShowPublicBadge),
-            new SugarParameter("@ProofBindingEnabled", rights.ProofBindingEnabled),
-            NullableStringParameter("@CanonicalUrl", null),
-            new SugarParameter("@PolicyHash", policyHash),
-            new SugarParameter("@ContentCanonicalHash", contentCanonicalHash),
-            new SugarParameter("@CreatedAt", createdAt));
-        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        var (snapshot, _, _) = ArticleRightsSnapshotBuilder.Build(
+            articleId,
+            revision.Id,
+            revision.RevisionNo,
+            policyId,
+            title,
+            content,
+            summary,
+            coverImageUrl,
+            categoryId,
+            tagIds,
+            status,
+            publishedAt,
+            scheduledPublishAt,
+            rights,
+            createdAt);
+        long snapshotId = await _db.Insertable(snapshot).ExecuteReturnBigIdentityAsync(Ct).ConfigureAwait(false);
+        if (snapshotId <= 0)
         {
             throw new InvalidOperationException($"Article rights snapshot was not created for article {articleId} revision {revision.Id}.");
         }
 
-        return reader.ReadInt64("id");
+        return snapshotId;
     }
 
-    private async Task<long> EnsureArticleRightsPolicyAsync(int articleId, ArticleRightsWriteModel rights)
-    {
-        ArticleRightsPolicy? current = await _db.Queryable<ArticleRightsPolicy>()
-            .Where(item => item.ArticleId == articleId)
-            .FirstAsync(Ct)
-            .ConfigureAwait(false);
-        if (current is not null && ToRightsWriteModel(current) == rights)
-        {
-            return current.Id;
-        }
+    private Task<long> EnsureArticleRightsPolicyAsync(int articleId, ArticleRightsNormalizedModel rights)
+        => ArticleRightsPolicyPersistence.UpsertAsync(_db, articleId, rights, DateTime.UtcNow, Ct);
 
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            """
-            INSERT INTO article_rights_policy (
-                article_id,
-                enabled,
-                license_type,
-                copyright_holder,
-                copyright_year,
-                rights_statement,
-                attribution_template,
-                copy_policy,
-                max_excerpt_chars,
-                allow_code_copy,
-                show_public_badge,
-                proof_binding_enabled,
-                created_at,
-                updated_at
-            )
-            VALUES (
-                @ArticleId,
-                @Enabled,
-                @LicenseType,
-                @CopyrightHolder,
-                @CopyrightYear,
-                @RightsStatement,
-                @AttributionTemplate,
-                @CopyPolicy,
-                @MaxExcerptChars,
-                @AllowCodeCopy,
-                @ShowPublicBadge,
-                @ProofBindingEnabled,
-                @Now,
-                @Now
-            )
-            ON CONFLICT (article_id)
-            DO UPDATE SET
-                enabled = EXCLUDED.enabled,
-                license_type = EXCLUDED.license_type,
-                copyright_holder = EXCLUDED.copyright_holder,
-                copyright_year = EXCLUDED.copyright_year,
-                rights_statement = EXCLUDED.rights_statement,
-                attribution_template = EXCLUDED.attribution_template,
-                copy_policy = EXCLUDED.copy_policy,
-                max_excerpt_chars = EXCLUDED.max_excerpt_chars,
-                allow_code_copy = EXCLUDED.allow_code_copy,
-                show_public_badge = EXCLUDED.show_public_badge,
-                proof_binding_enabled = EXCLUDED.proof_binding_enabled,
-                updated_at = EXCLUDED.updated_at
-            RETURNING id;
-            """,
-            new SugarParameter("@ArticleId", articleId),
-            new SugarParameter("@Enabled", rights.Enabled),
-            new SugarParameter("@LicenseType", rights.LicenseType),
-            NullableStringParameter("@CopyrightHolder", rights.CopyrightHolder),
-            NullableInt32Parameter("@CopyrightYear", rights.CopyrightYear),
-            NullableStringParameter("@RightsStatement", rights.RightsStatement),
-            NullableStringParameter("@AttributionTemplate", rights.AttributionTemplate),
-            new SugarParameter("@CopyPolicy", rights.CopyPolicy),
-            new SugarParameter("@MaxExcerptChars", rights.MaxExcerptChars),
-            new SugarParameter("@AllowCodeCopy", rights.AllowCodeCopy),
-            new SugarParameter("@ShowPublicBadge", rights.ShowPublicBadge),
-            new SugarParameter("@ProofBindingEnabled", rights.ProofBindingEnabled),
-            new SugarParameter("@Now", DateTime.UtcNow));
-        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
-        {
-            throw new InvalidOperationException($"Article rights policy was not upserted for article {articleId}.");
-        }
+    private static ArticleRightsNormalizedModel NormalizeArticleRights(ArticleRightsRequestCoreModel? request)
+        => ArticleProductionNormalizers.NormalizeArticleRights(request);
 
-        return reader.ReadInt64("id");
-    }
-
-    private static ArticleRightsWriteModel NormalizeArticleRights(ArticleRightsRequestCoreModel? request)
-    {
-        if (request is null)
-        {
-            return new ArticleRightsWriteModel(
-                Enabled: true,
-                LicenseType: "all-rights-reserved",
-                CopyrightHolder: null,
-                CopyrightYear: null,
-                RightsStatement: null,
-                AttributionTemplate: null,
-                CopyPolicy: "append-attribution",
-                MaxExcerptChars: 300,
-                AllowCodeCopy: true,
-                ShowPublicBadge: true,
-                ProofBindingEnabled: true);
-        }
-
-        ArticleRightsRequestCoreModel value = request.Value;
-        if (value.MaxExcerptChars < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(value.MaxExcerptChars), value.MaxExcerptChars, "MaxExcerptChars cannot be negative.");
-        }
-
-        return new ArticleRightsWriteModel(
-            Enabled: value.Enabled,
-            LicenseType: NormalizeRightsToken(value.LicenseType, "all-rights-reserved", 48),
-            CopyrightHolder: NormalizeOptionalRightsText(value.CopyrightHolder, 256),
-            CopyrightYear: value.CopyrightYear,
-            RightsStatement: NormalizeOptionalRightsText(value.RightsStatement, 4000),
-            AttributionTemplate: NormalizeOptionalRightsText(value.AttributionTemplate, 4000),
-            CopyPolicy: NormalizeRightsToken(value.CopyPolicy, "append-attribution", 48),
-            MaxExcerptChars: value.MaxExcerptChars,
-            AllowCodeCopy: value.AllowCodeCopy,
-            ShowPublicBadge: value.ShowPublicBadge,
-            ProofBindingEnabled: value.ProofBindingEnabled);
-    }
-
-    private static ArticleRightsWriteModel ResolveCreateArticleRights(ArticleWriteRequestCoreModel request)
+    private static ArticleRightsNormalizedModel ResolveCreateArticleRights(ArticleWriteRequestCoreModel request)
     {
         ArticleRightsMutationMode mutation = ResolveRightsMutation(request);
         return mutation switch

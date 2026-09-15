@@ -92,3 +92,18 @@ test("governance rejects removing recompute sentinel rejection", () =>
     const violations = checkCanonicalArticlePublicationAuthority(target);
     assert.ok(violations.some((v) => v.includes("recompute sentinel")));
 });
+
+test("governance rejects production not calling shared seams", () =>
+{
+    const target = fixture();
+    mutate(target, "src/backend/Services/ArticleService.cs", (source) =>
+        source
+            .replaceAll("ArticleProductionNormalizers.NormalizeArticleRights", "NormalizeArticleRightsLocal")
+            .replaceAll("ArticleRightsSnapshotBuilder.Build", "BuildRightsLocal")
+            .replaceAll("ArticleRightsPolicyPersistence.UpsertAsync", "UpsertRightsLocal")
+    );
+    const violations = checkCanonicalArticlePublicationAuthority(target);
+    assert.ok(violations.some((v) => v.includes("ArticleProductionNormalizers.NormalizeArticleRights")
+        || v.includes("ArticleRightsSnapshotBuilder.Build")
+        || v.includes("ArticleRightsPolicyPersistence.UpsertAsync")));
+});

@@ -203,16 +203,17 @@ public sealed class CanonicalArticlePublicationFixturePort(
             .ConfigureAwait(false);
         contentValidation.ThrowIfWriteBlocked();
 
-        // Idempotency check bound to run, semantic role, and plan
-        Guid clientMutationId = DeriveClientMutationId(
+        // Idempotency check bound to run, semantic role, and plan.
+        // Materialize Guid.ToString outside the expression tree so SqlSugar does not emit to_char(uuid, ...).
+        string clientMutationId = DeriveClientMutationId(
             request.Binding.RunId,
             request.Binding.Namespace,
-            request.Plan.SemanticRole);
+            request.Plan.SemanticRole).ToString("D");
         string requestHash = ComputeRequestHash(request.Plan);
 
         ArticleMutationCommand? existingCommand = await db.Queryable<ArticleMutationCommand>()
             .Where(c => c.AdminPrincipalId == request.Binding.AdminPrincipalId
-                     && c.ClientMutationId == clientMutationId.ToString("D"))
+                     && c.ClientMutationId == clientMutationId)
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -307,10 +308,10 @@ public sealed class CanonicalArticlePublicationFixturePort(
                 Summary = safeSummary,
                 CoverImageUrl = coverImageUrl,
                 CategoryId = request.Plan.CategoryId,
-                TagIds = string.Join(',', tagIds),
+                TagIds = string.Join(',', tagIds.OrderBy(static id => id)),
                 ContentBlockId = contentBlockId,
                 MarkdownContent = string.Empty,
-                DiffSummary = "canonical publication",
+                DiffSummary = "initial publish",
                 CreatedByAdminPrincipalId = request.Binding.AdminPrincipalId,
                 RollbackSourceRevisionId = null,
                 RollbackReason = null,
@@ -331,25 +332,14 @@ public sealed class CanonicalArticlePublicationFixturePort(
             await assetStore.ReplaceCurrentArticleAsync(articleId, assetWrites, cancellationToken).ConfigureAwait(false);
             await assetStore.ReplaceRevisionAsync(revisionId, articleId, assetWrites, cancellationToken).ConfigureAwait(false);
 
-            // 7. Rights Policy & Snapshot
+            // 7. Rights Policy & Snapshot (production-shared upsert + snapshot builder)
             ArticleRightsNormalizedModel rights = ArticleProductionNormalizers.NormalizeArticleRights(request.Plan.Rights);
-            long policyId = await db.Insertable(new ArticleRightsPolicy
-            {
-                ArticleId = articleId,
-                Enabled = rights.Enabled,
-                LicenseType = rights.LicenseType,
-                CopyrightHolder = rights.CopyrightHolder,
-                CopyrightYear = rights.CopyrightYear,
-                RightsStatement = rights.RightsStatement,
-                AttributionTemplate = rights.AttributionTemplate,
-                CopyPolicy = rights.CopyPolicy,
-                MaxExcerptChars = rights.MaxExcerptChars,
-                AllowCodeCopy = rights.AllowCodeCopy,
-                ShowPublicBadge = rights.ShowPublicBadge,
-                ProofBindingEnabled = rights.ProofBindingEnabled,
-                CreatedAt = now,
-                UpdatedAt = now
-            }).ExecuteReturnBigIdentityAsync().ConfigureAwait(false);
+            long policyId = await ArticleRightsPolicyPersistence.UpsertAsync(
+                db,
+                articleId,
+                rights,
+                now,
+                cancellationToken).ConfigureAwait(false);
 
             var (rightsSnapshot, contentCanonicalHash, policyHash) = ArticleRightsSnapshotBuilder.Build(
                 articleId,
@@ -448,7 +438,7 @@ public sealed class CanonicalArticlePublicationFixturePort(
             var command = new ArticleMutationCommand
             {
                 AdminPrincipalId = request.Binding.AdminPrincipalId,
-                ClientMutationId = clientMutationId.ToString("D"),
+                ClientMutationId = clientMutationId,
                 RequestHash = requestHash,
                 ArticleId = articleId,
                 RevisionId = revisionId,
@@ -621,7 +611,9 @@ public sealed class CanonicalArticlePublicationFixturePort(
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException($"Outbox event for revision {revisionId} missing on replay.");
 
-        using System.Data.IDataReader? reader = await db.Ado.GetDataReaderAsync(
+        string auditChainId;
+        string auditRecordHash;
+        using (System.Data.IDataReader? reader = await db.Ado.GetDataReaderAsync(
             """
             SELECT chain_id, record_hash
             FROM sys_audit_log
@@ -631,14 +623,15 @@ public sealed class CanonicalArticlePublicationFixturePort(
             LIMIT 1;
             """,
             new SugarParameter("@TargetId", articleId.ToString(CultureInfo.InvariantCulture)))
-            .ConfigureAwait(false);
-
-        if (reader is null || !reader.Read())
+            .ConfigureAwait(false))
         {
-            throw new InvalidOperationException($"Audit log for article {articleId} missing on replay.");
+            if (reader is null || !reader.Read())
+            {
+                throw new InvalidOperationException($"Audit log for article {articleId} missing on replay.");
+            }
+            auditChainId = reader.GetString(0);
+            auditRecordHash = reader.GetString(1);
         }
-        string auditChainId = reader.GetString(0);
-        string auditRecordHash = reader.GetString(1);
 
         ArticleBody body = await db.Queryable<ArticleBody>()
             .Where(b => b.ArticleId == articleId)
@@ -674,9 +667,9 @@ public sealed class CanonicalArticlePublicationFixturePort(
             AdminPrincipalId: binding.AdminPrincipalId,
             ArticleId: articleId,
             RevisionId: revisionId,
-            RevisionNo: 1,
+            RevisionNo: existingCommand.RevisionNo,
             PublicationId: publicationId,
-            PublicationNo: 1,
+            PublicationNo: existingCommand.ReleaseNo,
             RightsSnapshotId: rightsSnapshotId,
             ContentCanonicalHash: rightsSnapshot.ContentCanonicalHash,
             PolicyHash: rightsSnapshot.PolicyHash,

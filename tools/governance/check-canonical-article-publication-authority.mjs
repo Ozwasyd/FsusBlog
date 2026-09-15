@@ -15,8 +15,12 @@ export const requiredAuthorityFiles = Object.freeze([
     "src/backend/Services/Fixtures/CanonicalArticlePublicationVerifier.cs",
     "src/backend/Services/Articles/ArticleProductionNormalizers.cs",
     "src/backend/Services/Articles/ArticleRightsSnapshotBuilder.cs",
+    "src/backend/Services/Articles/ArticleRightsPolicyPersistence.cs",
     "src/backend/Infrastructure/Integrity/ArticleResponsibilitySnapshotBuilder.cs",
-    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Services/ArticleService.cs",
+    "src/backend/Services/ArticleService.CacheAndInvalidation.cs",
+    "src/backend/Infrastructure/Integrity/ArticleResponsibilityManifest.cs"
 ]);
 
 export function checkCanonicalArticlePublicationAuthority(repositoryRoot = defaultRoot)
@@ -132,7 +136,46 @@ export function checkCanonicalArticlePublicationAuthority(repositoryRoot = defau
         violations.push("CanonicalArticlePublicationVerifier must verify audit log persistence from sys_audit_log");
     }
 
-    // 9. Verifier must check receipt digest
+    // 9. Production must call shared normalizer / rights / responsibility seams (no parallel fork)
+    const articleServiceSource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Services/ArticleService.cs"),
+        "utf8"
+    );
+    const cacheSource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Services/ArticleService.CacheAndInvalidation.cs"),
+        "utf8"
+    );
+    const responsibilitySource = readFileSync(
+        path.join(repositoryRoot, "src/backend/Infrastructure/Integrity/ArticleResponsibilityManifest.cs"),
+        "utf8"
+    );
+    if (!articleServiceSource.includes("ArticleProductionNormalizers.NormalizeArticleRights"))
+    {
+        violations.push("ArticleService must call ArticleProductionNormalizers.NormalizeArticleRights");
+    }
+    if (!articleServiceSource.includes("ArticleRightsSnapshotBuilder.Build"))
+    {
+        violations.push("ArticleService must call ArticleRightsSnapshotBuilder.Build");
+    }
+    if (!articleServiceSource.includes("ArticleRightsPolicyPersistence.UpsertAsync"))
+    {
+        violations.push("ArticleService must call ArticleRightsPolicyPersistence.UpsertAsync");
+    }
+    if (!cacheSource.includes("ArticleProductionNormalizers.NormalizeText")
+        || !cacheSource.includes("ArticleProductionNormalizers.NormalizeTagIds"))
+    {
+        violations.push("ArticleService cache helpers must delegate NormalizeText/NormalizeTagIds to ArticleProductionNormalizers");
+    }
+    if (!responsibilitySource.includes("ArticleResponsibilitySnapshotBuilder.Build"))
+    {
+        violations.push("ArticleResponsibilityAuthoringService must call ArticleResponsibilitySnapshotBuilder.Build");
+    }
+    if (!portSource.includes("ArticleRightsPolicyPersistence.UpsertAsync"))
+    {
+        violations.push("CanonicalArticlePublicationFixturePort must reuse ArticleRightsPolicyPersistence.UpsertAsync");
+    }
+
+    // 10. Verifier must check receipt digest
     if (!verifierSource.includes("receipt_digest_tamper_detected") || !verifierSource.includes("ComputeReceiptDigest"))
     {
         violations.push("CanonicalArticlePublicationVerifier must verify receipt digest against canonical parameters");
