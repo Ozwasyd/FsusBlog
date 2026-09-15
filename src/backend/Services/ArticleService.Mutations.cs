@@ -35,7 +35,7 @@ namespace FsusBlog.Server.Services;
 
 public partial class ArticleService
 {
-    private async Task<ArticleRightsWriteModel> ResolveUpdateArticleRightsAsync(
+    private async Task<ArticleRightsNormalizedModel> ResolveUpdateArticleRightsAsync(
         int articleId,
         ArticleWriteRequestCoreModel request,
         ArticleRollbackMetadata? rollback)
@@ -95,7 +95,7 @@ public partial class ArticleService
             ? ArticleRightsMutationMode.Replace
             : request.RightsMutation;
 
-    private static ArticleRightsWriteModel ToRightsWriteModel(ArticleRightsPolicy policy)
+    private static ArticleRightsNormalizedModel ToRightsWriteModel(ArticleRightsPolicy policy)
         => new(
             policy.Enabled,
             policy.LicenseType,
@@ -109,7 +109,7 @@ public partial class ArticleService
             policy.ShowPublicBadge,
             policy.ProofBindingEnabled);
 
-    private static ArticleRightsWriteModel ToRightsWriteModel(ArticleRightsSnapshot snapshot)
+    private static ArticleRightsNormalizedModel ToRightsWriteModel(ArticleRightsSnapshot snapshot)
         => new(
             snapshot.Enabled,
             snapshot.LicenseType,
@@ -123,23 +123,11 @@ public partial class ArticleService
             snapshot.ShowPublicBadge,
             snapshot.ProofBindingEnabled);
 
-    private static string? NormalizeOptionalRightsText(string? value, int maxLength)
-    {
-        string normalized = NormalizeText(value, maxLength);
-        return normalized.Length == 0 ? null : normalized;
-    }
-
     private static SugarParameter NullableStringParameter(string name, string? value)
         => new(name, (object?)value ?? DBNull.Value, System.Data.DbType.String);
 
     private static SugarParameter NullableInt32Parameter(string name, int? value)
         => new(name, (object?)value ?? DBNull.Value, System.Data.DbType.Int32);
-
-    private static string NormalizeRightsToken(string? value, string fallback, int maxLength)
-    {
-        string? normalized = NormalizeText(value, maxLength);
-        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
-    }
 
     private async Task<string> RecordArticleMutationOutboxAsync(
         int articleId,
@@ -330,12 +318,12 @@ public partial class ArticleService
             tagIds,
             status,
             scheduledPublishAt);
-        ArticleRightsWriteModel rights = await ResolveUpdateArticleRightsAsync(id, dto, rollback).ConfigureAwait(false);
+        ArticleRightsNormalizedModel rights = await ResolveUpdateArticleRightsAsync(id, dto, rollback).ConfigureAwait(false);
         ArticleRightsPolicy? currentRightsPolicy = await _db.Queryable<ArticleRightsPolicy>()
             .Where(item => item.ArticleId == id)
             .FirstAsync(ct)
             .ConfigureAwait(false);
-        ArticleRightsWriteModel currentRights = currentRightsPolicy is null
+        ArticleRightsNormalizedModel currentRights = currentRightsPolicy is null
             ? NormalizeArticleRights(null)
             : ToRightsWriteModel(currentRightsPolicy);
         bool candidateNoChange = !force

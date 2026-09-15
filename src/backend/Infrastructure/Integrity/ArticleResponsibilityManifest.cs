@@ -459,9 +459,6 @@ public sealed class ArticleResponsibilityAuthoringService(
                     issues);
         }
 
-        string authorsJson = JsonSerializer.Serialize(draft.Authors, s_jsonOptions);
-        string? reviewerJson = draft.Reviewer is null ? null : JsonSerializer.Serialize(draft.Reviewer, s_jsonOptions);
-        string sourcesJson = JsonSerializer.Serialize(draft.Sources, s_jsonOptions);
         ArticleResponsibilitySaveResponse? response = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
@@ -495,6 +492,14 @@ public sealed class ArticleResponsibilityAuthoringService(
 
             int nextVersion = checked(currentVersion + 1);
             DateTime createdAt = UtcNow;
+            ArticleResponsibilitySnapshot built = ArticleResponsibilitySnapshotBuilder.Build(
+                articleId,
+                articleRevisionId,
+                coordinates.RevisionNo,
+                nextVersion,
+                previous?.Id,
+                draft,
+                createdAt);
             long snapshotId = await InsertSnapshotAsync(
                 articleId,
                 articleRevisionId,
@@ -502,9 +507,9 @@ public sealed class ArticleResponsibilityAuthoringService(
                 nextVersion,
                 previous?.Id,
                 draft,
-                authorsJson,
-                reviewerJson,
-                sourcesJson,
+                built.AuthorsJson,
+                built.ReviewerJson,
+                built.SourcesJson,
                 createdAt,
                 cancellationToken);
 

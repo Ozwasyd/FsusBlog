@@ -35,9 +35,29 @@ public static class ArticleProductionNormalizers
 
     public static List<int> NormalizeTagIds(IEnumerable<int>? tagIds)
     {
-        return tagIds is null
-            ? []
-            : tagIds.Where(static id => id > 0).Distinct().OrderBy(static id => id).Take(MaxTagIds).ToList();
+        // Production-preserving semantics: first-seen order, Distinct, keep non-positive IDs
+        // (canonical hash sorts tags; invalid IDs fail later in write validation / hash inputs).
+        if (tagIds is null)
+        {
+            return [];
+        }
+
+        var result = new List<int>(MaxTagIds);
+        var seen = new HashSet<int>();
+        foreach (int id in tagIds)
+        {
+            if (result.Count >= MaxTagIds)
+            {
+                break;
+            }
+
+            if (seen.Add(id))
+            {
+                result.Add(id);
+            }
+        }
+
+        return result;
     }
 
     public static ArticleRightsNormalizedModel NormalizeArticleRights(ArticleRightsRequestCoreModel? request)

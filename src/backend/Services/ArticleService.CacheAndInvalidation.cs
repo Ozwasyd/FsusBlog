@@ -17,6 +17,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
 
@@ -271,34 +272,11 @@ public partial class ArticleService
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string NormalizeText(string? value, int maxLen)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-        var trimmed = value.Trim();
-        return trimmed.Length > maxLen ? trimmed[..maxLen] : trimmed;
-    }
+        => ArticleProductionNormalizers.NormalizeText(value, maxLen);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static List<int> NormalizeTagIds(IReadOnlyList<int>? tagIds)
-    {
-        if (tagIds == null || tagIds.Count == 0)
-        {
-            return [];
-        }
-
-        var result = new List<int>(Math.Min(tagIds.Count, MaxTagIds));
-        var set = new HashSet<int>();
-        for (int i = 0; i < tagIds.Count && result.Count < MaxTagIds; i++)
-        {
-            var id = tagIds[i];
-            if (set.Add(id))
-            {
-                result.Add(id);
-            }
-        }
-
-        return result;
-    }
+        => ArticleProductionNormalizers.NormalizeTagIds(tagIds);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static List<ArticleTag> BuildArticleTags(int articleId, List<int> tagIds)
