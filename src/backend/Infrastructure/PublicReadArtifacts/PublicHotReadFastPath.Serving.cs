@@ -114,6 +114,7 @@ public static partial class PublicHotReadFastPath
         bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
 
         if (IsDynamicRelatedReadingPath(span)
+            || IsDynamicArticleSearchPath(span)
             || (!classified && !allowlistedBinaryCandidate))
         {
             return false;
@@ -334,6 +335,11 @@ public static partial class PublicHotReadFastPath
         ReadOnlySpan<char> articleId = path[Prefix.Length..^suffix.Length];
         return TryParsePositiveInt(articleId, out _);
     }
+
+    // Search is a live index query (required ?q=), not a HotRead artifact. Capture
+    // would reject the query string with HTTP 400 and never reach BinaryEndpoints.
+    private static bool IsDynamicArticleSearchPath(ReadOnlySpan<char> path)
+        => path.Equals("/api/binary/article/search/query.aeds".AsSpan(), StringComparison.Ordinal);
 
     private static bool IsPublicHtmlCandidatePath(ReadOnlySpan<char> path)
     {

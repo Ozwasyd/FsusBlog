@@ -331,6 +331,146 @@ JOIN tmp_data_scale_tags tag ON tag.rn = (article.seed % 8) + 1
 WHERE article.seed % 3 = 0
 ON CONFLICT DO NOTHING;
 
+-- Public read / search require current publication + revision graph.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+INSERT INTO admin_principal(handle, displayname, status, validationversion, isroot, permissions, createdatutc, totpenabled)
+SELECT
+  'data-scale-seed',
+  'Data Scale Seed',
+  'Active',
+  1,
+  true,
+  '*',
+  (SELECT business_now FROM data_scale_context),
+  false
+WHERE NOT EXISTS (
+  SELECT 1 FROM admin_principal WHERE handle = 'data-scale-seed'
+);
+
+WITH public_articles AS (
+  SELECT a.article_id, a.seed, art.title, art.summary, art.coverimageurl, art.categoryid, art.published_at, art.createtime, body.markdown_content
+  FROM tmp_data_scale_articles a
+  JOIN article art ON art.id = a.article_id
+  JOIN article_body body ON body.article_id = a.article_id
+  WHERE a.is_public
+),
+blocks AS (
+  INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
+  SELECT
+    encode(sha256(convert_to(markdown_content, 'UTF8')), 'hex'),
+    markdown_content,
+    octet_length(markdown_content),
+    (SELECT business_now FROM data_scale_context)
+  FROM public_articles
+  ON CONFLICT (content_hash) DO UPDATE SET markdown_content = EXCLUDED.markdown_content
+  RETURNING id, content_hash, markdown_content
+),
+tagged AS (
+  SELECT
+    pa.*,
+    blocks.id AS content_block_id,
+    COALESCE((
+      SELECT string_agg(tag.tagid::text, ',' ORDER BY tag.tagid)
+      FROM article_tag tag
+      WHERE tag.articleid = pa.article_id
+    ), '') AS tag_ids
+  FROM public_articles pa
+  JOIN blocks ON blocks.markdown_content = pa.markdown_content
+),
+revisions AS (
+  INSERT INTO article_revision(
+    article_id, revision_no, title, summary, cover_image_url, categoryid, tag_ids,
+    content_block_id, markdown_content, diff_summary, created_by_admin_principal_id, created_at
+  )
+  SELECT
+    article_id,
+    1,
+    title,
+    summary,
+    coverimageurl,
+    categoryid,
+    tag_ids,
+    content_block_id,
+    markdown_content,
+    'data-scale-seed',
+    (SELECT id FROM admin_principal WHERE handle = 'data-scale-seed' LIMIT 1),
+    (SELECT business_now FROM data_scale_context)
+  FROM tagged
+  RETURNING id, article_id, revision_no, title, summary, categoryid, tag_ids, content_block_id, markdown_content
+),
+policies AS (
+  INSERT INTO article_rights_policy(
+    article_id, enabled, license_type, copy_policy, max_excerpt_chars,
+    allow_code_copy, show_public_badge, proof_binding_enabled, created_at, updated_at
+  )
+  SELECT
+    article_id,
+    true,
+    'all-rights-reserved',
+    'excerpt-only',
+    240,
+    true,
+    true,
+    false,
+    (SELECT business_now FROM data_scale_context),
+    (SELECT business_now FROM data_scale_context)
+  FROM revisions
+  ON CONFLICT (article_id) DO UPDATE SET updated_at = EXCLUDED.updated_at
+  RETURNING id, article_id
+),
+snapshots AS (
+  INSERT INTO article_rights_snapshot(
+    article_id, article_revision_id, revision_no, article_rights_policy_id, enabled,
+    license_type, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge,
+    proof_binding_enabled, policy_hash, content_canonical_hash, created_at
+  )
+  SELECT
+    r.article_id,
+    r.id,
+    r.revision_no,
+    p.id,
+    true,
+    'all-rights-reserved',
+    'excerpt-only',
+    240,
+    true,
+    true,
+    false,
+    encode(sha256(convert_to('data-scale-policy:' || r.article_id::text, 'UTF8')), 'hex'),
+    encode(sha256(convert_to(r.markdown_content, 'UTF8')), 'hex'),
+    (SELECT business_now FROM data_scale_context)
+  FROM revisions r
+  JOIN policies p ON p.article_id = r.article_id
+  RETURNING id, article_id, article_revision_id, revision_no
+),
+publications AS (
+  INSERT INTO article_publication(
+    article_id, publication_no, article_revision_id, revision_no, rights_snapshot_id,
+    transition_kind, published_at, created_at
+  )
+  SELECT
+    s.article_id,
+    1,
+    s.article_revision_id,
+    s.revision_no,
+    s.id,
+    'publish',
+    COALESCE((SELECT published_at FROM article WHERE id = s.article_id), (SELECT business_now FROM data_scale_context)),
+    (SELECT business_now FROM data_scale_context)
+  FROM snapshots s
+  RETURNING id, article_id, article_revision_id
+)
+UPDATE article art
+SET
+  current_revision_id = publications.article_revision_id,
+  current_publication_id = publications.id,
+  last_published_at = COALESCE(art.published_at, (SELECT business_now FROM data_scale_context)),
+  public_updated_at = COALESCE(art.published_at, (SELECT business_now FROM data_scale_context))
+FROM publications
+WHERE art.id = publications.article_id;
+
+
 WITH root_plan AS (
   SELECT
     gs::bigint AS seq,
@@ -758,10 +898,10 @@ jq -n \
     rebuilds: {
       search: {
         status: "probe-required",
-        command: ("runtime-evidence-probe data-scale " + $tier + " " + $summary),
+        command: ("node tools/data-scale/search-evidence.mjs materialize --tier " + $tier),
         artifactCount: null,
         sizeBytes: null,
-        reason: "probe verifies canonical search index evidence for seeded namespace"
+        reason: "probe materializes live search index receipt then verifies product Search HTTP API"
       },
       aot: {
         status: "probe-required",

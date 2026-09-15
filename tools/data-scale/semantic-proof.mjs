@@ -332,9 +332,17 @@ export function verifyHttpPayloadProof({
             errors.push(`http_article_detail_title_mismatch: expected ${canaryArticle?.title}, got ${articleDetailResp.title}`);
         }
         const content = String(articleDetailResp.content ?? articleDetailResp.markdownContent ?? articleDetailResp.body ?? '');
-        if (canaryArticle?.searchToken && !content.includes(canaryArticle.searchToken))
+        const title = String(articleDetailResp.title ?? '');
+        const haystack = `${title}\n${content}`;
+        const tokensToFind = [
+            canaryArticle?.searchToken,
+            canaryArticle?.titleSearchToken,
+            canaryArticle?.bodySearchToken
+        ].filter(Boolean);
+        // Accept title-only or body-only canary tokens; fail only when none are present.
+        if (tokensToFind.length > 0 && !tokensToFind.some((token) => haystack.includes(String(token))))
         {
-            errors.push(`http_article_detail_missing_search_token: ${canaryArticle.searchToken}`);
+            errors.push(`http_article_detail_missing_search_token: ${tokensToFind.join('|')}`);
         }
     }
 

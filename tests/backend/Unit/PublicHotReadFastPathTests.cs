@@ -687,6 +687,29 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public async Task TryServeAsync_ArticleSearchQuery_BypassesHotReadAndContinuesToEndpoint()
+    {
+        var context = CreateContext("/api/binary/article/search/query.aeds");
+        context.Request.QueryString = new QueryString("?q=title_canary");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Null(context.Features.Get<PublicHotReadRequestFeature>());
+    }
+
+    [Fact]
     public async Task TryServeAsync_PublicBody_IsRejectedBeforeNormalPipeline()
     {
         var context = CreateContext("/api/binary/article/42.aeds");
@@ -899,6 +922,7 @@ public sealed class PublicHotReadFastPathTests
     [Theory]
     [InlineData("/api/notifications/stream")]
     [InlineData("/api/binary/article/42/related.aeds")]
+    [InlineData("/api/binary/article/search/query.aeds")]
     [InlineData("/api/binary/comments/article/42")]
     public void EarlyClassifier_NonArtifactRoutesRemainNormalPipelineWithoutSecurityBypassMetric(string path)
     {
@@ -1030,6 +1054,7 @@ public sealed class PublicHotReadFastPathTests
     [InlineData("/tag/9", true)]
     [InlineData("/tag/fsus", false)]
     [InlineData("/api/binary/article/42/related.aeds", false)]
+    [InlineData("/api/binary/article/search/query.aeds", false)]
     [InlineData("/assets/app.js", false)]
     public void RequestFeatureSecurityGate_CoversBinaryAndPublicHtmlArtifacts(string path, bool expected)
     {
@@ -1620,6 +1645,7 @@ public sealed class PublicHotReadFastPathTests
     [Theory]
     [InlineData("/api/binary/system/info.aeds")]
     [InlineData("/api/binary/article/42/related.aeds")]
+    [InlineData("/api/binary/article/search/query.aeds")]
     [InlineData("/assets/app.js")]
     public void RequestFeature_DoesNotAttachToNormalOrDynamicRelatedRequests(string path)
     {

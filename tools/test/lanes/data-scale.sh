@@ -97,6 +97,44 @@ case "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" in
         ;;
 esac
 
+# Bridge dedicated dataRoot seed artifacts into the tier measurement directory.
+if [[ -n "${FSUSBLOG_DATA_SCALE_DATA_ROOT:-}" ]]; then
+    DATA_ROOT_ABS="$(cd "$ROOT_DIR" && readlink -m -- "$FSUSBLOG_DATA_SCALE_DATA_ROOT")"
+    for artifact in seed.json seed-receipt.json artifact-rebuild.json; do
+        if [[ -f "$DATA_ROOT_ABS/$artifact" ]]; then
+            cp -f -- "$DATA_ROOT_ABS/$artifact" "$OUT_DIR/$artifact"
+        fi
+    done
+    # Keep probe summary and search receipt under the tier OUT_DIR contract while
+    # search/aot/hotread roots stay on the dedicated run paths from the env file.
+    export FSUSBLOG_DATA_SCALE_OUT_DIR="$OUT_DIR"
+fi
+
+PRODUCT_BACKEND_PID_FILE="$OUT_DIR/product-backend.pid"
+PRODUCT_BACKEND_LOG_FILE="$OUT_DIR/product-backend.log"
+PRODUCT_BACKEND_ENV_FILE="$OUT_DIR/product-backend.env"
+cleanup_product_backend() {
+    if [[ -f "$PRODUCT_BACKEND_PID_FILE" ]]; then
+        "$NODE_BIN" "$ROOT_DIR/tools/data-scale/product-backend.mjs" stop "$PRODUCT_BACKEND_PID_FILE" >/dev/null 2>&1 || true
+    fi
+}
+trap cleanup_product_backend EXIT
+
+# Product HTTP backend is required for requiredKinds all-ok on mode=full.
+# plan-identity lanes keep identity-only receipts without live Docker ports.
+if [[ "$PROVISION_MODE" == "full" ]]; then
+    printf '[data-scale] starting product backend against dedicated runtime\n'
+    "$NODE_BIN" "$ROOT_DIR/tools/data-scale/product-backend.mjs" start-live \
+        "$ROOT_DIR" "$PRODUCT_BACKEND_ENV_FILE" "$PRODUCT_BACKEND_LOG_FILE" "$PRODUCT_BACKEND_PID_FILE"
+
+    # shellcheck disable=SC1090
+    set -a
+    source "$PRODUCT_BACKEND_ENV_FILE"
+    set +a
+else
+    printf '[data-scale] provision mode=%s skips product backend start\n' "$PROVISION_MODE"
+fi
+
 set +e
 bash "${FSUSBLOG_DATA_SCALE_PROBE_SCRIPT:-$ROOT_DIR/tools/data-scale/probe.sh}" "$TIER"
 probe_status=$?
