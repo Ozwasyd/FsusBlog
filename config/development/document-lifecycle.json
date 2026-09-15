@@ -255,6 +255,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/block-anchor-contract.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2440
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/authoring-canvas-document-boundary.md",
             "status": "current",
             "owner": "backend",

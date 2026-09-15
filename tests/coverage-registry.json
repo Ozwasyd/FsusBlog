@@ -5295,6 +5295,33 @@
             ]
         },
         {
+            "id": "block-anchor-contract-static-governance",
+            "description": "Canonical block-anchor identity, source marker, URL fragment, standard Markdown projection, consumer digest coordinate, and closed error taxonomy remain one exact FsusUI #289-owned contract.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/BlockLinks/BlockAnchorContracts.cs",
+                "src/shared/Contracts/BlockLinks/BlockAnchorCodec.cs",
+                "src/shared/Contracts/BlockLinks/BlockAnchorMarkdown.cs",
+                "src/shared/Contracts/BlockLinks/BlockAnchorContractValidator.cs",
+                "src/shared/Contracts/BlockLinks/BlockAnchorContractDigest.cs",
+                "src/shared/Contracts/BlockLinks/BlockAnchorIndependentVerifier.cs",
+                "src/shared/Contracts/BlockLinks/block-anchor-contract.schema.json",
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs",
+                "src/shared/FsusBlog.Shared.csproj",
+                "tests/backend/Unit/BlockAnchorContractTests.cs",
+                "tools/governance/check-block-anchor-contract.mjs",
+                "tests/tools/block-anchor-contract.test.mjs",
+                "docs/architecture/block-anchor-contract.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate anchor identities or grammar authorities; source/fragment prefix drift; percent decoding, aliases, normalization or automatic collision suffixes; route, slug, DOM, source-offset, database, sidecar or content-hash target identities; open schemas; missing contract/version/consumer digests; unsupported #^, wikilink, HTML or second syntax; and missing independent round-trip verification.",
+            "minimumRequirement": "Focused C# tests cover minimum/maximum and malformed IDs, exact source-marker and URL-fragment round trips, route-only slug encoding, standard Markdown parsing, duplicate/collision no-suffix behavior, error taxonomy, consumer digest tamper and embedded schema. Independent Node mutations kill duplicate authorities, parser/normalizer/fallback paths, schema drift, missing upstream delegation and missing forbidden-syntax evidence.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "article-embed-authoring-static-governance",
             "description": "Article embed authoring resolution remains one closed deterministic resolver over sealed authority snapshots: permission-safe current targets, safe projections, typed attribution, authoring-only eligibility marks, cycle and budget bounds, stale cancellation, per-resolution memoization, receipts and independent verification without HTML, latest reuse, title resolution or cross-user caches.",
             "owner": "ServerContractAgent",
