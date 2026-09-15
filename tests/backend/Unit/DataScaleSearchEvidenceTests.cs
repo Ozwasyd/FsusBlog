@@ -150,6 +150,19 @@ public sealed class DataScaleSearchEvidenceTests
         Assert.NotEqual(dbLikeMatch, indexHasTerm);
     }
 
+
+    [Fact]
+    public void JsShardQuery_CannotSubstituteForSearchHttpApi()
+    {
+        // Positive proof must bind product Search HTTP API executions, not JS shard postings.
+        const string ProductSearchRoute = "/api/binary/article/search/query.aeds";
+        const string JsShardSubstitute = "js-querySearchShard";
+
+        Assert.Contains("/article/search/", ProductSearchRoute, StringComparison.Ordinal);
+        Assert.DoesNotContain("querySearchShard", ProductSearchRoute, StringComparison.Ordinal);
+        Assert.NotEqual(ProductSearchRoute, JsShardSubstitute);
+    }
+
     private static List<string> ValidateReceipt(DataScaleSearchReceiptModel receipt)
     {
         var errors = new List<string>();
