@@ -1,6 +1,6 @@
 {
-    "schema": "fsusblog.comment-fixture-inventory.v1",
-    "version": 1,
+    "schema": "fsusblog.comment-fixture-inventory.v2",
+    "version": 2,
     "producerId": "comment-moderation",
     "strategy": "transaction-fixture",
     "runtimeReferences": {
@@ -33,6 +33,90 @@
         "reply_to_comment_id",
         "root_id"
     ],
+    "threadDepthPolicy": {
+        "identity": "CommentThreads:MaxDepth",
+        "owner": "comment-thread-lifecycle",
+        "defaultValue": 32,
+        "minimumValue": 2,
+        "maximumValue": 256,
+        "rejectionCode": "comment_thread_depth_limit"
+    },
+    "stateRegistries": {
+        "moderationReasons": [
+            {
+                "id": "approved-none",
+                "owner": "comment-moderation-lifecycle",
+                "status": "approved",
+                "value": ""
+            },
+            {
+                "id": "pending-none",
+                "owner": "comment-moderation-lifecycle",
+                "status": "pending",
+                "value": ""
+            },
+            {
+                "id": "rejected-fixture",
+                "owner": "comment-moderation-lifecycle",
+                "status": "rejected",
+                "value": "fixture_rejected"
+            },
+            {
+                "id": "spam-fixture",
+                "owner": "comment-moderation-lifecycle",
+                "status": "spam",
+                "value": "fixture_spam"
+            }
+        ],
+        "regionStates": [
+            {
+                "classification": "global",
+                "id": "global",
+                "owner": "comment-moderation-lifecycle",
+                "provider": "test-fixture-verified-region",
+                "version": "region-policy-v2026-06"
+            },
+            {
+                "classification": "manual-review",
+                "id": "manual-review",
+                "owner": "comment-moderation-lifecycle",
+                "provider": "test-fixture-verified-region",
+                "version": "region-policy-v2026-06"
+            }
+        ],
+        "signalStates": [
+            {
+                "classification": "risky",
+                "id": "verified",
+                "owner": "comment-moderation-lifecycle",
+                "provider": "fsus-antispammodel",
+                "version": "fsusblog-antispam-signal-v1"
+            }
+        ],
+        "evidenceStates": [
+            {
+                "classification": "region-policy-decision",
+                "id": "blocked-region",
+                "owner": "comment-moderation-lifecycle",
+                "provider": "comment_blocked_region",
+                "version": "region-policy-v2026-06"
+            },
+            {
+                "classification": "region-policy-decision",
+                "id": "region-compliance",
+                "owner": "comment-moderation-lifecycle",
+                "provider": "comment_region_compliance",
+                "version": "region-policy-v2026-06"
+            },
+            {
+                "classification": "model-signal",
+                "id": "signal",
+                "owner": "comment-moderation-lifecycle",
+                "provider": "fsus-antispammodel",
+                "version": "fsusblog-antispam-signal-v1"
+            }
+        ]
+    },
     "stateRules": {
         "mutuallyExclusiveIdentityFields": [
             "actorMode",
