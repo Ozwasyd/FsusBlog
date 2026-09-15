@@ -1100,7 +1100,7 @@ public partial class ArticleService
                     reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
                     reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
                     reader.GetInt32(fViews),
-                    reader.GetDateTime(fTime),
+                    NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime)),
                     reader.GetInt32(fCatId),
                     reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName),
                     reader.GetBoolean(fDel),

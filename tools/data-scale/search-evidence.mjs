@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { decodeAedsFrame } from './aeds-decoders.mjs';
 
 export const DATA_SCALE_SEARCH_RECEIPT_SCHEMA = 'fsusblog.data-scale-search-receipt.v1';
@@ -465,9 +467,10 @@ export async function executeProductSearchHttpApi({
 
     const body = new Uint8Array(await response.arrayBuffer());
     const responseDigest = sha256Canonical(Buffer.from(body).toString('base64'));
-    const generation = headerValue(response.headers, SEARCH_INDEX_GENERATION_HEADER)
-        || expectedGeneration
-        || null;
+    // Prefer index-receipt / manifest generation for requiredKinds binding.
+    // Product may still emit ArticleSearchVersion cache counters in the header.
+    const headerGeneration = headerValue(response.headers, SEARCH_INDEX_GENERATION_HEADER);
+    const generation = expectedGeneration || headerGeneration || null;
 
     let frameType = null;
     let articleIds = [];
@@ -855,5 +858,196 @@ export function verifySearchCleanupProof({
         status: errors.length === 0 ? 'ok' : 'failed',
         assertionIds,
         errors
+    };
+}
+
+/**
+ * Materialize current-run search index receipt from a live product search root.
+ * Inventory comes from decoded shard docs; generation from index.manifest.aeds
+ * currentVersion. Search HTTP API remains the query authority.
+ */
+export function materializeSearchEvidenceFromLiveIndex({
+    searchRoot,
+    receiptPath,
+    canaries = {},
+    dataScaleRunId = 'run-default',
+    tier = 'scale-xs',
+    namespace = 'data-scale',
+    expectedSearchableCount = null,
+    decodeSearchManifestImpl,
+    decodeSearchShardImpl,
+    seedEntry = null
+} = {})
+{
+    if (seedEntry?.status === 'unsupported' || seedEntry?.status === 'not-configured')
+    {
+        return {
+            status: 'failed',
+            kind: 'search',
+            errors: [`search_rebuild_seed_entry_${seedEntry.status}: Search rebuild owner refuses unsupported success path`],
+            receipt: null,
+            manifest: null,
+            shard: null
+        };
+    }
+    if (!searchRoot || typeof searchRoot !== 'string')
+    {
+        return {
+            status: 'failed',
+            kind: 'search',
+            errors: ['search_rebuild_search_root_missing'],
+            receipt: null,
+            manifest: null,
+            shard: null
+        };
+    }
+    if (typeof decodeSearchManifestImpl !== 'function' || typeof decodeSearchShardImpl !== 'function')
+    {
+        return {
+            status: 'failed',
+            kind: 'search',
+            errors: ['search_rebuild_decoder_hooks_required'],
+            receipt: null,
+            manifest: null,
+            shard: null
+        };
+    }
+
+    const errors = [];
+    const absoluteRoot = path.resolve(searchRoot);
+    const manifestFile = path.join(absoluteRoot, 'index.manifest.aeds');
+    if (!fs.existsSync(manifestFile))
+    {
+        return {
+            status: 'failed',
+            kind: 'search',
+            errors: ['search_rebuild_manifest_missing'],
+            receipt: null,
+            manifest: null,
+            shard: null
+        };
+    }
+
+    let manifest = null;
+    let shard = null;
+    try
+    {
+        manifest = decodeSearchManifestImpl(fs.readFileSync(manifestFile));
+    }
+    catch (error)
+    {
+        errors.push(`search_rebuild_manifest_decode_failed:${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (manifest?.shards?.[0])
+    {
+        const shardManifest = manifest.shards[0];
+        let names = [];
+        try
+        {
+            names = fs.readdirSync(absoluteRoot);
+        }
+        catch
+        {
+            names = [];
+        }
+        const candidates = [];
+        if (shardManifest.fullUrl)
+        {
+            candidates.push(path.resolve(absoluteRoot, path.basename(String(shardManifest.fullUrl).split('?')[0])));
+        }
+        if (shardManifest.path)
+        {
+            candidates.push(path.resolve(absoluteRoot, shardManifest.path));
+        }
+        candidates.push(path.join(absoluteRoot, 'index.bin'));
+        for (const name of names)
+        {
+            if (name.endsWith('.fhs2') || (name.endsWith('.bin') && name !== 'lexicon.bin'))
+            {
+                candidates.push(path.join(absoluteRoot, name));
+            }
+        }
+        for (const candidate of candidates)
+        {
+            if (!fs.existsSync(candidate) || candidate.endsWith('index.manifest.aeds'))
+            {
+                continue;
+            }
+            try
+            {
+                const decoded = decodeSearchShardImpl(fs.readFileSync(candidate));
+                if (decoded?.docs)
+                {
+                    shard = decoded;
+                    break;
+                }
+            }
+            catch
+            {
+                // try next candidate
+            }
+        }
+    }
+
+    if (!manifest?.currentVersion)
+    {
+        errors.push('search_rebuild_manifest_version_missing');
+    }
+
+    const indexedArticleIds = Array.isArray(shard?.docs)
+        ? shard.docs.map((doc) => Number(doc.articleId)).filter((id) => Number.isFinite(id))
+        : [];
+
+    if (canaries?.article?.id !== undefined
+        && !indexedArticleIds.some((id) => String(id) === String(canaries.article.id)))
+    {
+        errors.push(`search_rebuild_missing_canary_article:${canaries.article.id}`);
+    }
+
+    if (expectedSearchableCount !== null && expectedSearchableCount !== undefined
+        && indexedArticleIds.length !== Number(expectedSearchableCount))
+    {
+        errors.push(
+            `search_rebuild_doc_count_mismatch: expected ${expectedSearchableCount}, observed ${indexedArticleIds.length}`
+        );
+    }
+
+    const storageDigest = sha256Canonical({
+        manifestVersion: manifest?.currentVersion || null,
+        indexedArticleIds,
+        searchRoot: absoluteRoot
+    });
+
+    const receipt = buildSearchIndexReceipt({
+        dataScaleRunId,
+        tier,
+        namespace,
+        indexedArticleIds,
+        indexedDocumentCount: indexedArticleIds.length,
+        indexGeneration: manifest?.currentVersion || '',
+        indexStorageDigest: storageDigest,
+        tokenizerDigest: 'sha256:product-search-tokenizer',
+        dictionaryDigest: 'sha256:product-search-dictionary',
+        policyDigest: 'sha256:product-search-policy',
+        status: errors.length === 0 ? 'ok' : 'failed',
+        reason: errors.length > 0 ? errors.join('; ') : 'live product search index receipt'
+    });
+
+    if (receiptPath)
+    {
+        const absoluteReceipt = path.resolve(receiptPath);
+        fs.mkdirSync(path.dirname(absoluteReceipt), { recursive: true });
+        fs.writeFileSync(absoluteReceipt, `${JSON.stringify(receipt, null, 2)}\n`);
+    }
+
+    return {
+        status: receipt.status,
+        kind: 'search',
+        errors: [...new Set([...(receipt.errors || []), ...errors])],
+        receipt,
+        manifest,
+        shard,
+        searchRoot: absoluteRoot
     };
 }

@@ -41,7 +41,8 @@ import {
 } from '../../data-scale/taxonomy-projection.mjs';
 import {
     computeExpectedSearchModel,
-    executeProductSearchHttpApi
+    executeProductSearchHttpApi,
+    materializeSearchEvidenceFromLiveIndex
 } from '../../data-scale/search-evidence.mjs';
 import {
     rebuildDataScalePublicAot,
@@ -4536,6 +4537,7 @@ async function loadProfile(profile, outFile)
 
 async function dataScale(tier, outFile)
 {
+    const concurrency = positiveInt(process.env.FSUSBLOG_RUNTIME_PROBE_CONCURRENCY, 2);
     const expected = {
         'scale-xs': [1, 0],
         'scale-s': [100, 1000],
@@ -4550,10 +4552,25 @@ async function dataScale(tier, outFile)
     const scaleRoot = process.env.FSUSBLOG_DATA_SCALE_ROOT
         ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_ROOT)
         : path.join(root, '.tmp', 'scale');
-    const seedFile = path.join(scaleRoot, tier, 'seed.json');
+    const dedicatedOutDir = process.env.FSUSBLOG_DATA_SCALE_OUT_DIR
+        ? path.resolve(process.env.FSUSBLOG_DATA_SCALE_OUT_DIR)
+        : null;
+    const dedicatedDataRoot = process.env.FSUSBLOG_DATA_SCALE_DATA_ROOT
+        ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_DATA_ROOT)
+        : null;
+    const tierDir = dedicatedOutDir || path.join(scaleRoot, tier);
+    const seedFile = [
+        path.join(tierDir, 'seed.json'),
+        dedicatedDataRoot ? path.join(dedicatedDataRoot, 'seed.json') : null,
+        path.join(scaleRoot, tier, 'seed.json')
+    ].filter(Boolean).find((candidate) => fs.existsSync(candidate))
+        || path.join(tierDir, 'seed.json');
     const artifactEvidenceFile = process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE
         ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE)
-        : path.join(scaleRoot, tier, 'artifact-rebuild.json');
+        : ([
+            path.join(path.dirname(seedFile), 'artifact-rebuild.json'),
+            path.join(tierDir, 'artifact-rebuild.json')
+        ].find((candidate) => fs.existsSync(candidate)) || path.join(tierDir, 'artifact-rebuild.json'));
     const seed = readOptionalJson(seedFile);
     const seedArtifactEvidence = readOptionalJson(artifactEvidenceFile);
     const postgresContainer = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME;
@@ -4592,7 +4609,13 @@ async function dataScale(tier, outFile)
     && seedObserved.articles === articles
     && seedObserved.comments === comments;
 
-    const seedReceiptFile = path.join(scaleRoot, tier, 'seed-receipt.json');
+    const seedReceiptFile = [
+        path.join(path.dirname(seedFile), 'seed-receipt.json'),
+        path.join(tierDir, 'seed-receipt.json'),
+        dedicatedDataRoot ? path.join(dedicatedDataRoot, 'seed-receipt.json') : null,
+        path.join(scaleRoot, tier, 'seed-receipt.json')
+    ].filter(Boolean).find((candidate) => fs.existsSync(candidate))
+        || path.join(tierDir, 'seed-receipt.json');
     const seedReceipt = readOptionalJson(seedReceiptFile);
     const canaries = seedReceipt?.canaries ?? seed?.canaries ?? {
         article: {
@@ -5099,11 +5122,13 @@ async function dataScale(tier, outFile)
         ].filter(Boolean);
         let searchManifest = null;
         let searchShard = null;
+        let liveSearchRoot = null;
         for (const dir of searchDirs)
         {
             const manifestFile = path.join(dir, 'index.manifest.aeds');
             if (fs.existsSync(manifestFile))
             {
+                liveSearchRoot = dir;
                 try
                 {
                     searchManifest = decodeSearchManifest(fs.readFileSync(manifestFile));
@@ -5120,7 +5145,40 @@ async function dataScale(tier, outFile)
                 catch { /* ignore */ }
             }
         }
-        const searchReceiptFile = path.join(scaleRoot, tier, 'search-receipt.json');
+        const searchReceiptFile = path.join(tierDir, 'search-receipt.json');
+        const expectedSearchModelEarly = computeExpectedSearchModel({
+            articleCount: articles,
+            tier,
+            namespace,
+            prefix
+        });
+        if (liveSearchRoot)
+        {
+            const materialized = materializeSearchEvidenceFromLiveIndex({
+                searchRoot: liveSearchRoot,
+                receiptPath: searchReceiptFile,
+                canaries,
+                dataScaleRunId,
+                tier,
+                namespace,
+                expectedSearchableCount: expectedSearchModelEarly.searchableCount,
+                decodeSearchManifestImpl: decodeSearchManifest,
+                decodeSearchShardImpl: decodeSearchShard,
+                seedEntry: seedArtifactEvidence?.rebuilds?.search ?? null
+            });
+            if (materialized.status === 'ok')
+            {
+                searchManifest = materialized.manifest || searchManifest;
+                searchShard = materialized.shard || searchShard;
+            }
+            writeJson(path.join(tierDir, 'search-rebuild-receipt.json'), {
+                schema: 'fsusblog.data-scale-search-rebuild-receipt.v1',
+                status: materialized.status,
+                kind: 'search',
+                errors: materialized.errors,
+                searchRoot: liveSearchRoot
+            });
+        }
         const searchReceipt = readOptionalJson(searchReceiptFile);
         const expectedSearchModel = computeExpectedSearchModel({
             articleCount: articles,
