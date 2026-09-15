@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "tools/data-scale/aeds-decoders.mjs",
+                "tools/data-scale/aot-evidence.mjs",
                 "tools/data-scale/semantic-proof.mjs",
                 "tools/test/lanes/runtime-evidence-probe.mjs"
             ],
