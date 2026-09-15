@@ -643,7 +643,7 @@ SELECT jsonb_pretty(jsonb_build_object(
   ),
   'taxonomy', jsonb_build_object(
     'status', 'ok',
-    'projections', (SELECT count(*) FROM article_public_taxonomy_projection WHERE article_id IN (SELECT id FROM tmp_data_scale_articles)),
+    'projections', (SELECT count(*) FROM article_public_taxonomy_projection WHERE article_id IN (SELECT article_id FROM tmp_data_scale_articles)),
     'categories', (
       SELECT jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'articleCount', cp.article_count) ORDER BY c.id)
       FROM tmp_data_scale_categories tmp
@@ -661,27 +661,27 @@ SELECT jsonb_pretty(jsonb_build_object(
     'article', jsonb_build_object(
       'id', (SELECT article_id FROM tmp_data_scale_articles WHERE seed = 1),
       'title', (SELECT title FROM article WHERE id = (SELECT article_id FROM tmp_data_scale_articles WHERE seed = 1)),
-      'titleSearchToken', 'title_canary_' || ctx.tier || '_1',
-      'bodySearchToken', 'body_canary_' || ctx.tier || '_1',
-      'cjkSearchToken', '规模分词检索验证_' || ctx.tier || '_1',
-      'searchToken', 'title_canary_' || ctx.tier || '_1',
+      'titleSearchToken', 'title_canary_' || tier || '_1',
+      'bodySearchToken', 'body_canary_' || tier || '_1',
+      'cjkSearchToken', '规模分词检索验证_' || tier || '_1',
+      'searchToken', 'title_canary_' || tier || '_1',
       'publicStatus', 'published'
     ),
     'category', jsonb_build_object(
-      'id', (SELECT min(id) FROM category WHERE name = ctx.prefix || ':category:1'),
-      'name', ctx.prefix || ':category:1',
-      'articleCount', COALESCE((SELECT article_count FROM category_public_article_count WHERE category_id = (SELECT min(id) FROM category WHERE name = ctx.prefix || ':category:1')), 0)
+      'id', (SELECT min(id) FROM category WHERE name = prefix || ':category:1'),
+      'name', prefix || ':category:1',
+      'articleCount', COALESCE((SELECT article_count FROM category_public_article_count WHERE category_id = (SELECT min(id) FROM category WHERE name = prefix || ':category:1')), 0)
     ),
     'tag', jsonb_build_object(
-      'id', (SELECT min(id) FROM tag WHERE name = ctx.prefix || ':tag:1'),
-      'name', ctx.prefix || ':tag:1',
-      'articleCount', COALESCE((SELECT article_count FROM tag_public_article_count WHERE tag_id = (SELECT min(id) FROM tag WHERE name = ctx.prefix || ':tag:1')), 0)
+      'id', (SELECT min(id) FROM tag WHERE name = prefix || ':tag:1'),
+      'name', prefix || ':tag:1',
+      'articleCount', COALESCE((SELECT article_count FROM tag_public_article_count WHERE tag_id = (SELECT min(id) FROM tag WHERE name = prefix || ':tag:1')), 0)
     ),
     'comment', jsonb_build_object(
-      'id', (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'),
+      'id', (SELECT min(id) FROM comment WHERE content LIKE prefix || ':comment:%'),
       'articleId', (SELECT article_id FROM tmp_data_scale_articles WHERE seed = 1),
-      'contentPrefix', ctx.prefix || ':comment:',
-      'content', (SELECT min(content) FROM comment WHERE id = (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'))
+      'contentPrefix', prefix || ':comment:',
+      'content', (SELECT min(content) FROM comment WHERE id = (SELECT min(id) FROM comment WHERE content LIKE prefix || ':comment:%'))
     )
   ),
   'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
