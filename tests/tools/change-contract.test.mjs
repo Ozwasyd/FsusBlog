@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import test from 'node:test';
 
-const commitlintConfig = await import(new URL('../../commitlint.config.mjs', import.meta.url));
+const {default: commitlintConfig} = await import(new URL('../../commitlint.config.mjs', import.meta.url));
 const {changeContract, changedFilesBetween, parseBlameIgnoreRevisions, validateBlameIgnoreRevisions, validateCommitRange, validateCommitMessage, validateFormatOnlyDiff, validateFormatOnlyPullRequest, validatePerformancePullRequest, validateGeneratedRepairPassThroughException, inspectGeneratedRepairDagHistory, validateReviewedGeneratedRepairDagEvents, validateGeneratedRepairDagEventOrder, reviewedDagHistoryAdmission, validatePostMergeGeneratedOutputRepair, validatePostMergeGeneratedOutputDigestRepair, validatePrContract, pullRequestActor, readFileAtRevision, validateRepositoryBlameIgnore, validateRepositorySources} = await import(new URL('../../tools/governance/change-contract.mjs', import.meta.url));
 const root = resolve(import.meta.dirname, '../..');
 const fixtures = resolve(root, 'tests/fixtures/governance/change-contract');

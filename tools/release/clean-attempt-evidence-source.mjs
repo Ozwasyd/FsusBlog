@@ -347,8 +347,12 @@ export function readCleanAttemptEvidenceSource(file, { repositoryRoot = defaultR
         aggregateReference,
         domainReceiptReference,
         authorityReferences: authorityReferences.map(({
-            ...reference
-        }) => reference),
+            kind,
+            artifactPath,
+            artifactDigest,
+            verificationReceiptPath,
+            verificationReceiptDigest
+        }) => ({ kind, artifactPath, artifactDigest, verificationReceiptPath, verificationReceiptDigest })),
         expectedIdentity: identity,
         verifyAuthority: (reference) =>
         {

@@ -43,63 +43,63 @@ const diagnosticPrograms = new Set([
 // source excerpt so a new or repurposed selector cannot inherit the exception.
 const nonEvidenceFindingOverrides = new Map([
     {
-        findingId: '0161ebbad5c102e4',
+        findingId: '5000d9938a3df5d2',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 461,
-        column: 24,
+        line: 704,
+        column: 32,
         function: 'verifyCommentMatrix',
-        excerpt: 'const fields = matches[0].fields ?? {}',
+        excerpt: 'const fields = matches[0].fields ?? {};',
         indirectVia: null
     },
     {
-        findingId: '93c19c86428bad07',
+        findingId: 'f6d4d636de1b8f9c',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 503,
+        line: 755,
         column: 38,
         function: 'verifyCommentMatrix',
         excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)",
         indirectVia: null
     },
     {
-        findingId: 'bda3eb9cd23f19ee',
+        findingId: '5f90f28470eb0f2f',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 523,
-        column: 13,
+        line: 781,
+        column: 19,
         function: 'verifyCommentMatrix',
-        excerpt: "const root = one('approved-root')[0]",
+        excerpt: "const root = one('approved-root')[0];",
         indirectVia: null
     },
     {
-        findingId: 'dad5302ebd3636da',
+        findingId: '58d506a6fd0f6bc0',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 561,
-        column: 24,
+        line: 824,
+        column: 30,
         function: 'verifyCommentMatrix',
-        excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {",
+        excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)",
         indirectVia: null
     },
     {
-        findingId: '53dda5d48e67b80f',
+        findingId: 'da7d3ba39c964351',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 564,
-        column: 40,
+        line: 828,
+        column: 46,
         function: 'verifyCommentMatrix',
-        excerpt: "const deletedRoot = one('deleted-root')[0]",
+        excerpt: "const deletedRoot = one('deleted-root')[0];",
         indirectVia: null
     },
     {
-        findingId: '1eab0cd97c6edc4c',
+        findingId: 'ed22d6fe97ea8aca',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 565,
-        column: 41,
+        line: 829,
+        column: 47,
         function: 'verifyCommentMatrix',
-        excerpt: "const deletedChild = one('deleted-root-child')[0]",
+        excerpt: "const deletedChild = one('deleted-root-child')[0];",
         indirectVia: null
     }
 ].map((finding) => [finding.findingId, Object.freeze(finding)]));

@@ -136,10 +136,10 @@ test('clean-attempt evidence library keeps its exact scanner finding and canonic
     const finding = generated.scan.findings.find((entry) =>
         entry.file === 'tools/release/clean-attempt-evidence-source.mjs');
     assert.deepEqual(finding, {
-        findingId: '83d7c210423e1bb7',
+        findingId: '123c57abfcd53baa',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/release/clean-attempt-evidence-source.mjs',
-        line: 357,
+        line: 359,
         column: 19,
         function: '<module>',
         excerpt: 'const candidate = authorityReferences.find((item) => item.kind === reference.kind);',
@@ -307,7 +307,7 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 47, 'library-caller': 19, workflow: 2 });
+    { cli: 48, 'library-caller': 19, workflow: 2 });
 });
 
 test('fixture postconditions remain an import-only helper and cannot masquerade as a receipt CLI', (context) =>
@@ -322,18 +322,18 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
         function: entry.function,
         excerpt: entry.excerpt
     })), [
-        { findingId: '0161ebbad5c102e4', line: 461, column: 24, function: 'verifyCommentMatrix',
-            excerpt: 'const fields = matches[0].fields ?? {}' },
-        { findingId: '93c19c86428bad07', line: 503, column: 38, function: 'verifyCommentMatrix',
+        { findingId: '5000d9938a3df5d2', line: 704, column: 32, function: 'verifyCommentMatrix',
+            excerpt: 'const fields = matches[0].fields ?? {};' },
+        { findingId: 'f6d4d636de1b8f9c', line: 755, column: 38, function: 'verifyCommentMatrix',
             excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)" },
-        { findingId: 'bda3eb9cd23f19ee', line: 523, column: 13, function: 'verifyCommentMatrix',
-            excerpt: "const root = one('approved-root')[0]" },
-        { findingId: 'dad5302ebd3636da', line: 561, column: 24, function: 'verifyCommentMatrix',
-            excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {" },
-        { findingId: '53dda5d48e67b80f', line: 564, column: 40, function: 'verifyCommentMatrix',
-            excerpt: "const deletedRoot = one('deleted-root')[0]" },
-        { findingId: '1eab0cd97c6edc4c', line: 565, column: 41, function: 'verifyCommentMatrix',
-            excerpt: "const deletedChild = one('deleted-root-child')[0]" }
+        { findingId: '5f90f28470eb0f2f', line: 781, column: 19, function: 'verifyCommentMatrix',
+            excerpt: "const root = one('approved-root')[0];" },
+        { findingId: '58d506a6fd0f6bc0', line: 824, column: 30, function: 'verifyCommentMatrix',
+            excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)" },
+        { findingId: 'da7d3ba39c964351', line: 828, column: 46, function: 'verifyCommentMatrix',
+            excerpt: "const deletedRoot = one('deleted-root')[0];" },
+        { findingId: 'ed22d6fe97ea8aca', line: 829, column: 47, function: 'verifyCommentMatrix',
+            excerpt: "const deletedChild = one('deleted-root-child')[0];" }
     ]);
     assert(findings.every((entry) => entry.ruleId === 'evidence-selection.first-match'
         && entry.file === source && entry.indirectVia === null));
@@ -351,7 +351,7 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
             'const fields = matches.at(0).fields ?? {}'));
     const replacedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
     assert.throws(() => validateEvidenceLocationClassificationOverrides(replacedSelector),
-        /non-evidence finding override 0161ebbad5c102e4 changed (?:column|excerpt)/u);
+        /non-evidence finding override 5000d9938a3df5d2 changed (?:column|excerpt)/u);
     const findingIds = new Set(findings.map((entry) => entry.findingId));
     const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
     assert.equal(ledgerEntries.length, findings.length);
@@ -464,7 +464,8 @@ test('clean-attempt evidence retains its finding and binds the real CLI through 
     assert.match(callerSource, /loadConfiguredCleanAttemptEvidence\(\{ repositoryRoot, environment \}\)/u);
     const executableSource = fs.readFileSync(path.join(repositoryRoot, executable), 'utf8');
     assert.match(executableSource, /requireCleanAttemptConsumerAdmission\(\{/u);
-    assert.match(executableSource, /options\.command === 'create-correctness'\) createCorrectness\(options\)/u);
+    assert.match(executableSource,
+        /if\s*\(options\.command === 'create-correctness'\)\s*\{\s*createCorrectness\(options\);\s*\}/u);
 
     // An unsupported command proves the real entry point runs without producing evidence.
     const probeArguments = ['locator-entry-probe'];
