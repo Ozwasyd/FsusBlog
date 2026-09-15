@@ -26,6 +26,34 @@ const expectedSoftDelete = Object.freeze({
     physicalDelete: 'forbidden',
     publicPlaceholder: 'required-for-visible-descendants'
 });
+const expectedThreadDepthPolicy = Object.freeze({
+    identity: 'CommentThreads:MaxDepth',
+    owner: 'comment-thread-lifecycle',
+    defaultValue: 32,
+    minimumValue: 2,
+    maximumValue: 256,
+    rejectionCode: 'comment_thread_depth_limit'
+});
+const expectedStateRegistries = Object.freeze({
+    moderationReasons: Object.freeze([
+        Object.freeze({ id: 'approved-none', owner: 'comment-moderation-lifecycle', status: 'approved', value: '' }),
+        Object.freeze({ id: 'pending-none', owner: 'comment-moderation-lifecycle', status: 'pending', value: '' }),
+        Object.freeze({ id: 'rejected-fixture', owner: 'comment-moderation-lifecycle', status: 'rejected', value: 'fixture_rejected' }),
+        Object.freeze({ id: 'spam-fixture', owner: 'comment-moderation-lifecycle', status: 'spam', value: 'fixture_spam' })
+    ]),
+    regionStates: Object.freeze([
+        Object.freeze({ classification: 'global', id: 'global', owner: 'comment-moderation-lifecycle', provider: 'test-fixture-verified-region', version: 'region-policy-v2026-06' }),
+        Object.freeze({ classification: 'manual-review', id: 'manual-review', owner: 'comment-moderation-lifecycle', provider: 'test-fixture-verified-region', version: 'region-policy-v2026-06' })
+    ]),
+    signalStates: Object.freeze([
+        Object.freeze({ classification: 'risky', id: 'verified', owner: 'comment-moderation-lifecycle', provider: 'fsus-antispammodel', version: 'fsusblog-antispam-signal-v1' })
+    ]),
+    evidenceStates: Object.freeze([
+        Object.freeze({ classification: 'region-policy-decision', id: 'blocked-region', owner: 'comment-moderation-lifecycle', provider: 'comment_blocked_region', version: 'region-policy-v2026-06' }),
+        Object.freeze({ classification: 'region-policy-decision', id: 'region-compliance', owner: 'comment-moderation-lifecycle', provider: 'comment_region_compliance', version: 'region-policy-v2026-06' }),
+        Object.freeze({ classification: 'model-signal', id: 'signal', owner: 'comment-moderation-lifecycle', provider: 'fsus-antispammodel', version: 'fsusblog-antispam-signal-v1' })
+    ])
+});
 
 const expectedCapabilityContracts = Object.freeze({
     'comment.actor.public': [['article.published', 'auth.user.active'], ['actorId', 'actorMode', 'commentId'], ['admin.actor-exact', 'database.actor-exact', 'public.actor-exact'], ['actor-canonical', 'actor-projection-parity']],
@@ -105,10 +133,20 @@ function validateRuntimeAuthorities(inventory, errors)
         actorModes: [/public const string Public = "public";/u, /public const string ZkAnonymous = "zk_anonymous";/u],
         moderationStatuses: [/Pending\s*=\s*0/u, /Approved\s*=\s*1/u, /Rejected\s*=\s*2/u],
         revisionOperations: [/const string Created = "created";/u, /const string Edited = "edited";/u, /const string Deleted = "deleted";/u],
-        threadPolicy: [/CommentThreads:MaxDepth/u, /comment_thread_depth_limit/u],
+        threadPolicy: [
+            /DefaultMaxThreadDepth\s*=\s*32/u,
+            /CommentThreads:MaxDepth/u,
+            /Math\.Clamp\([\s\S]+?2,\s*256\)/u,
+            /comment_thread_depth_limit/u
+        ],
         regionPolicy: [/sealed record RegionModerationDecision/u, /RequiresManualReview/u, /HideUntilReviewed/u],
         signalEntity: [/class CommentModerationSignal/u, /ContractVersion/u, /EvidenceJson/u],
-        signalModel: [/class AntiSpamModerationContract/u, /DefaultVersion/u, /AntiSpamModerationEvidence/u]
+        signalModel: [
+            /class AntiSpamModerationContract/u,
+            /DefaultVersion\s*=\s*"fsusblog-antispam-signal-v1"/u,
+            /BuiltIn\s*=\s*"fsus-antispammodel"/u,
+            /AntiSpamModerationEvidence/u
+        ]
     };
     for (const [name, patterns] of Object.entries(anchors))
     {
@@ -123,12 +161,58 @@ function validateRuntimeAuthorities(inventory, errors)
 
     const publicReader = fs.readFileSync(path.join(repositoryRoot, 'src/backend/Services/CommentQueryService.cs'), 'utf8');
     const queueReader = fs.readFileSync(path.join(repositoryRoot, 'src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs'), 'utf8');
+    const regionPolicy = fs.readFileSync(path.join(repositoryRoot, 'src/backend/Services/Moderation/RegionLegalModerationService.cs'), 'utf8');
+    const fixtureModerationPort = fs.readFileSync(path.join(repositoryRoot, 'src/backend/Services/Fixtures/CommentModerationFixturePort.cs'), 'utf8');
     if (!/moderation_status\s*=\s*@Approved/u.test(publicReader)
         || !/CommentModerationStatus\.Approved/u.test(publicReader)
         || !/CommentModerationStatus\.Pending/u.test(queueReader)
         || !/CommentModerationStatus\.Rejected/u.test(queueReader))
     {
         errors.push('public/queue state rules are not backed by current production readers');
+    }
+    if (!/CurrentPolicyVersion\s*=\s*"region-policy-v2026-06"/u.test(regionPolicy)
+        || !/"test-fixture-verified-region"/u.test(fixtureModerationPort)
+        || !/"comment_region_compliance"/u.test(fixtureModerationPort)
+        || !/"comment_blocked_region"/u.test(fixtureModerationPort))
+    {
+        errors.push('region/evidence registries are not backed by current policy and observation authorities');
+    }
+}
+
+function validateStateRegistries(inventory, errors)
+{
+    const registries = inventory?.stateRegistries;
+    exactKeys(registries, ['moderationReasons', 'regionStates', 'signalStates', 'evidenceStates'], 'stateRegistries', errors);
+    for (const [name, expected] of Object.entries(expectedStateRegistries))
+    {
+        const values = registries?.[name];
+        if (!Array.isArray(values))
+        {
+            errors.push(`${name} registry must be an array`);
+            continue;
+        }
+        if (!sortedUnique(values.map((item) => item?.id)))
+        {
+            errors.push(`${name} registry IDs must be sorted and unique`);
+        }
+        for (const item of values)
+        {
+            exactKeys(
+                item,
+                name === 'moderationReasons'
+                    ? ['id', 'owner', 'status', 'value']
+                    : ['classification', 'id', 'owner', 'provider', 'version'],
+                `${name} registry ${item?.id}`,
+                errors);
+            if (item?.owner !== 'comment-moderation-lifecycle')
+            {
+                errors.push(`${name} registry ${item?.id} is unowned`);
+            }
+        }
+        if (stableStringify(values) !== stableStringify(expected))
+        {
+            errors.push(`${name} registry is not the exact closed authority set`);
+        }
     }
 }
 
@@ -137,9 +221,10 @@ export function commentFixtureInventoryErrors(inventory)
     const errors = [];
     exactKeys(inventory, [
         'schema', 'version', 'producerId', 'strategy', 'runtimeReferences', 'actorModes',
-        'moderationStatuses', 'revisionOperations', 'threadRelations', 'stateRules', 'capabilities'
+        'moderationStatuses', 'revisionOperations', 'threadRelations', 'threadDepthPolicy',
+        'stateRegistries', 'stateRules', 'capabilities'
     ], 'inventory', errors);
-    if (inventory?.schema !== 'fsusblog.comment-fixture-inventory.v1' || inventory?.version !== 1)
+    if (inventory?.schema !== 'fsusblog.comment-fixture-inventory.v2' || inventory?.version !== 2)
     {
         errors.push('inventory schema/version is not current');
     }
@@ -167,6 +252,14 @@ export function commentFixtureInventoryErrors(inventory)
     {
         errors.push('thread relation schema is incomplete');
     }
+    exactKeys(inventory?.threadDepthPolicy, [
+        'identity', 'owner', 'defaultValue', 'minimumValue', 'maximumValue', 'rejectionCode'
+    ], 'threadDepthPolicy', errors);
+    if (stableStringify(inventory?.threadDepthPolicy) !== stableStringify(expectedThreadDepthPolicy))
+    {
+        errors.push('thread depth policy identity/value does not match the production boundary');
+    }
+    validateStateRegistries(inventory, errors);
 
     exactKeys(inventory?.runtimeReferences, [
         'actorModes', 'moderationStatuses', 'revisionOperations', 'threadPolicy', 'regionPolicy', 'signalEntity', 'signalModel'
