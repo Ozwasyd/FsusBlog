@@ -223,10 +223,36 @@ public sealed class DocumentExportSandboxRuntime
         ReadOnlyMemory<byte> requestBytes,
         CancellationToken cancellationToken = default)
     {
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportResourceBudgets budgets = ResolveBudgets(provider);
+        long maximumRequestBytes = Math.Min(budgets.MaxInputBytes, budgets.MaxMessageBytes);
+        if (requestBytes.IsEmpty || requestBytes.Length > maximumRequestBytes)
+        {
+            throw new InvalidDataException(
+                "Document export sandbox request must be non-empty and within its input and message budgets.");
+        }
+
+        return await ExecuteAsync(
+            task,
+            input,
+            tool,
+            async (output, token) => await output.WriteAsync(requestBytes, token),
+            cancellationToken);
+    }
+
+    public async Task<DocumentExportSandboxResult> ExecuteAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(writeRequestAsync);
         await _concurrency.WaitAsync(cancellationToken);
         try
         {
-            return await ExecuteOwnedAsync(task, input, tool, requestBytes, cancellationToken);
+            return await ExecuteOwnedAsync(task, input, tool, writeRequestAsync, cancellationToken);
         }
         finally
         {
@@ -234,11 +260,22 @@ public sealed class DocumentExportSandboxRuntime
         }
     }
 
+    internal DocumentExportToolContract RequireRegisteredTool(string formatId)
+    {
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(formatId);
+        if (!provider.ImplementationAvailable
+            || !_tools.TryGetValue(provider.ToolchainId, out DocumentExportToolContract? tool))
+        {
+            throw new InvalidOperationException($"Document export format '{formatId}' has no registered tool.");
+        }
+        return tool;
+    }
+
     private async Task<DocumentExportSandboxResult> ExecuteOwnedAsync(
         DocumentExportTask task,
         DocumentExportFrozenInput input,
         DocumentExportToolContract tool,
-        ReadOnlyMemory<byte> requestBytes,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
         CancellationToken cancellationToken)
     {
         DocumentExportContractValidator.Validate(task, input);
@@ -251,13 +288,6 @@ public sealed class DocumentExportSandboxRuntime
         }
         tool = registered;
         ValidateToolMetadata(provider, tool);
-        if (requestBytes.Length == 0
-            || requestBytes.Length > budgets.MaxInputBytes
-            || requestBytes.Length > budgets.MaxMessageBytes)
-        {
-            throw new InvalidDataException("Document export sandbox request exceeds its input budget.");
-        }
-
         string runId = Guid.NewGuid().ToString("N");
         Dictionary<string, string> environment = MinimalEnvironment();
         DocumentExportSandboxPlan plan = SealPlan(new DocumentExportSandboxPlan(
@@ -329,6 +359,7 @@ public sealed class DocumentExportSandboxRuntime
         bool processTreeTerminated = false;
         bool networkNamespaceIsolated = false;
         bool removed = false;
+        long requestBytesLength = 0;
         byte[] outputBytes = [];
         Exception? failure = null;
         string failureCode = "none";
@@ -338,10 +369,31 @@ public sealed class DocumentExportSandboxRuntime
             Directory.CreateDirectory(outputRoot);
             Directory.CreateDirectory(workRoot);
             Directory.CreateDirectory(brokerRoot);
-            await File.WriteAllBytesAsync(
+            await using (FileStream requestFile = new(
                 Path.Combine(inputRoot, "request.json"),
-                requestBytes.ToArray(),
-                cancellationToken);
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan))
+            await using (var boundedRequest = new BoundedWriteStream(
+                requestFile,
+                Math.Min(budgets.MaxInputBytes, budgets.MaxMessageBytes)))
+            {
+                try
+                {
+                    await writeRequestAsync(boundedRequest, cancellationToken);
+                    await boundedRequest.FlushAsync(cancellationToken);
+                }
+                finally
+                {
+                    requestBytesLength = boundedRequest.BytesWritten;
+                }
+            }
+            if (requestBytesLength == 0)
+            {
+                throw new InvalidDataException("Document export sandbox request is empty.");
+            }
             SnapshotTool(tool, brokerExecutablePath, brokerRuntimeRoot);
             ProcessStartInfo startInfo = BuildStartInfo(
                 runRoot,
@@ -657,7 +709,7 @@ public sealed class DocumentExportSandboxRuntime
             failureCode,
             exitCode,
             terminationSignal,
-            requestBytes.Length,
+            requestBytesLength,
             outputBytes.LongLength,
             outputFileCount,
             DocumentExportDigest.ComputeBytes(Encoding.UTF8.GetBytes(standardOutput)),
@@ -878,7 +930,8 @@ public sealed class DocumentExportSandboxRuntime
             || (receipt.TerminationSignal > 0 && receipt.ExitCode != 128 + receipt.TerminationSignal)
             || receipt.Status != expectedStatus
             || receipt.FailureCode != expectedFailureCode
-            || receipt.InputBytes <= 0
+            || receipt.InputBytes < 0
+            || (receipt.RootProcessId > 0 && receipt.InputBytes == 0)
             || receipt.InputBytes > plan.Budgets.MaxInputBytes
             || receipt.InputBytes > plan.Budgets.MaxMessageBytes
             || receipt.OutputBytes < 0
@@ -1403,6 +1456,82 @@ public sealed class DocumentExportSandboxRuntime
             && expected.RuntimeDigest == actual.RuntimeDigest
             && actual.Arguments is not null
             && expected.Arguments.SequenceEqual(actual.Arguments, StringComparer.Ordinal);
+
+    private sealed class BoundedWriteStream(Stream inner, long maximumBytes) : Stream
+    {
+        public long BytesWritten
+        {
+            get; private set;
+        }
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => BytesWritten;
+        public override long Position
+        {
+            get => BytesWritten;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() => inner.Flush();
+
+        public override Task FlushAsync(CancellationToken cancellationToken)
+            => inner.FlushAsync(cancellationToken);
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            EnsureWithinBudget(count);
+            inner.Write(buffer, offset, count);
+            BytesWritten += count;
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            EnsureWithinBudget(buffer.Length);
+            inner.Write(buffer);
+            BytesWritten += buffer.Length;
+        }
+
+        public override async Task WriteAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken)
+        {
+            EnsureWithinBudget(count);
+            await inner.WriteAsync(buffer.AsMemory(offset, count), cancellationToken);
+            BytesWritten += count;
+        }
+
+        public override async ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureWithinBudget(buffer.Length);
+            await inner.WriteAsync(buffer, cancellationToken);
+            BytesWritten += buffer.Length;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin)
+            => throw new NotSupportedException();
+
+        public override void SetLength(long value)
+            => throw new NotSupportedException();
+
+        private void EnsureWithinBudget(int count)
+        {
+            if (count < 0 || BytesWritten > maximumBytes - count)
+            {
+                throw new DocumentExportBudgetExceededException(
+                    "Document export sandbox request exceeds its input or message budget.",
+                    "input-budget");
+            }
+        }
+    }
 
 }
 

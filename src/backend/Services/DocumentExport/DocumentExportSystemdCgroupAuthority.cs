@@ -193,76 +193,95 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
             }
 
-            IReadOnlyDictionary<string, string> properties = await WaitForAdmissionPropertiesAsync(
-                unitName,
-                cancellationToken,
-                "LoadState",
-                "ActiveState",
-                "SubState",
-                "Type",
-                "Slice",
-                "ControlGroup",
-                "MainPID",
-                "ExecMainPID",
-                "ExecMainStartTimestampMonotonic",
-                "Result",
-                "ExecMainCode",
-                "ExecMainStatus",
-                "CPUUsageNSec",
-                "MemoryPeak",
-                "TasksCurrent",
-                "MemoryAccounting",
-                "TasksAccounting",
-                "MemoryMax",
-                "MemorySwapMax",
-                "TasksMax",
-                "RuntimeMaxUSec",
-                "KillMode",
-                "RemainAfterExit");
-            ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds);
-            string controlGroup = RequireProperty(properties, "ControlGroup");
-            bool terminalAdmission = IsTerminalAdmission(properties);
-            if (terminalAdmission)
+            for (int admissionAttempt = 0; admissionAttempt < 3; admissionAttempt++)
             {
-                ValidateTerminalAdmissionProperties(properties);
-                if (string.IsNullOrEmpty(controlGroup))
+                IReadOnlyDictionary<string, string> properties = await WaitForAdmissionPropertiesAsync(
+                    unitName,
+                    cancellationToken,
+                    "LoadState",
+                    "ActiveState",
+                    "SubState",
+                    "Type",
+                    "Slice",
+                    "ControlGroup",
+                    "MainPID",
+                    "ExecMainPID",
+                    "ExecMainStartTimestampMonotonic",
+                    "Result",
+                    "ExecMainCode",
+                    "ExecMainStatus",
+                    "CPUUsageNSec",
+                    "MemoryPeak",
+                    "TasksCurrent",
+                    "MemoryAccounting",
+                    "TasksAccounting",
+                    "MemoryMax",
+                    "MemorySwapMax",
+                    "TasksMax",
+                    "RuntimeMaxUSec",
+                    "KillMode",
+                    "RemainAfterExit");
+                ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds);
+                string controlGroup = RequireProperty(properties, "ControlGroup");
+                bool terminalAdmission = IsTerminalAdmission(properties);
+                if (terminalAdmission)
                 {
-                    controlGroup = await ResolveTerminalControlGroupAsync(unitName, cancellationToken);
+                    ValidateTerminalAdmissionProperties(properties);
+                    if (string.IsNullOrEmpty(controlGroup))
+                    {
+                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, cancellationToken);
+                    }
                 }
-            }
-            string cgroupPath = ResolveCgroupPath(
-                unitName,
-                controlGroup,
-                requireExisting: !terminalAdmission);
-            int rootProcessId = ParsePositiveInt(
-                FirstNonZeroProperty(properties, "MainPID", "ExecMainPID"),
-                "document export root process ID");
-            (long rootProcessStartIdentity, string rootProcessStartIdentitySource) =
-                ResolveStartIdentity(properties, rootProcessId);
-            DocumentExportCgroupObservation initial;
-            if (terminalAdmission)
-            {
-                initial = CreateTerminalObservation(properties);
-            }
-            else
-            {
-                ValidateCgroupFilesAndLimits(cgroupPath, budgets);
-                initial = ReadObservation(cgroupPath);
-            }
+                string cgroupPath = ResolveCgroupPath(
+                    unitName,
+                    controlGroup,
+                    requireExisting: false);
+                int rootProcessId = ParsePositiveInt(
+                    FirstNonZeroProperty(properties, "MainPID", "ExecMainPID"),
+                    "document export root process ID");
+                (long rootProcessStartIdentity, string rootProcessStartIdentitySource) =
+                    ResolveStartIdentity(properties, rootProcessId);
+                DocumentExportCgroupObservation initial;
+                if (terminalAdmission)
+                {
+                    initial = CreateTerminalObservation(properties);
+                }
+                else
+                {
+                    try
+                    {
+                        if (!Directory.Exists(cgroupPath))
+                        {
+                            throw new DirectoryNotFoundException(
+                                "Document export cgroup retired during admission accounting.");
+                        }
+                        ValidateCgroupFilesAndLimits(cgroupPath, budgets);
+                        initial = ReadObservation(cgroupPath);
+                    }
+                    catch (Exception exception) when (
+                        admissionAttempt < 2
+                        && IsAdmissionSnapshotRaceCandidate(exception))
+                    {
+                        continue;
+                    }
+                }
 
-            return new Execution(
-                this,
-                unitName,
-                controlGroup,
-                cgroupPath,
-                rootProcessId,
-                rootProcessStartIdentity,
-                rootProcessStartIdentitySource,
-                cpuBudgetMicroseconds,
-                runtimeMaxMicroseconds,
-                budgets.MaxWorkingSetBytes,
-                budgets.MaxProcessCount,
-                initial);
+                return new Execution(
+                    this,
+                    unitName,
+                    controlGroup,
+                    cgroupPath,
+                    rootProcessId,
+                    rootProcessStartIdentity,
+                    rootProcessStartIdentitySource,
+                    cpuBudgetMicroseconds,
+                    runtimeMaxMicroseconds,
+                    budgets.MaxWorkingSetBytes,
+                    budgets.MaxProcessCount,
+                    initial);
+            }
+            throw new InvalidDataException(
+                "Document export cgroup retired repeatedly before admission accounting could be qualified.");
         }
         catch (Exception exception)
         {
@@ -979,6 +998,9 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
     internal static bool IsMissingCgroupException(Exception exception)
         => exception is FileNotFoundException or DirectoryNotFoundException;
+
+    internal static bool IsAdmissionSnapshotRaceCandidate(Exception exception)
+        => exception is IOException or PlatformNotSupportedException;
 
     internal static long ParseSystemdDurationMicroseconds(string value, string name)
     {

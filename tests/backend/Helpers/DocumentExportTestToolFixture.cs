@@ -32,12 +32,17 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
 
     public DocumentExportTestToolFixture(
         string? fragment = null,
-        string? responseDigest = null)
+        string? responseDigest = null,
+        IReadOnlyList<string>? observedFeatures = null)
     {
         Root = Path.Combine(Path.GetTempPath(), $"fsusblog-document-export-{Guid.NewGuid():N}");
         RuntimeRoot = Path.Combine(Root, "tool-runtime");
         string responseFragment = fragment ?? DefaultFragment;
-        Tool = CreateTool(RuntimeRoot, responseFragment, responseDigest ?? Digest(responseFragment));
+        Tool = CreateTool(
+            RuntimeRoot,
+            responseFragment,
+            responseDigest ?? Digest(responseFragment),
+            observedFeatures ?? DefaultObservedFeatures);
     }
 
     public string Root
@@ -118,7 +123,8 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
         => CreateTool(
             Path.Combine(Root, Guid.NewGuid().ToString("N")),
             fragment,
-            responseDigest ?? Digest(fragment));
+            responseDigest ?? Digest(fragment),
+            DefaultObservedFeatures);
 
     public void Dispose()
     {
@@ -131,13 +137,15 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
     private static DocumentExportToolContract CreateTool(
         string runtimeRoot,
         string fragment,
-        string responseDigest)
+        string responseDigest,
+        IReadOnlyList<string> observedFeatures)
     {
         Directory.CreateDirectory(runtimeRoot);
         string sourcePath = Path.Combine(runtimeRoot, "worker.c");
         string executablePath = Path.Combine(runtimeRoot, "renderer-worker");
         string source = WorkerSource
             .Replace("FRAGMENT_LITERAL", EscapeJsonCString(fragment), StringComparison.Ordinal)
+            .Replace("FEATURES_LITERAL", EscapeCString(JsonSerializer.Serialize(observedFeatures)), StringComparison.Ordinal)
             .Replace("RESPONSE_DIGEST", responseDigest, StringComparison.Ordinal);
         File.WriteAllText(sourcePath, source, new UTF8Encoding(false));
         using Process compiler = Process.Start(new ProcessStartInfo("/usr/bin/cc")
@@ -173,6 +181,12 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
     private static string EscapeJsonCString(string value)
         => JsonSerializer.Serialize(value)[1..^1]
             .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal)
+            .Replace("\r", "", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal);
+
+    private static string EscapeCString(string value)
+        => value.Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("\"", "\\\"", StringComparison.Ordinal)
             .Replace("\r", "", StringComparison.Ordinal)
             .Replace("\n", "\\n", StringComparison.Ordinal);
@@ -330,12 +344,12 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
             char *input_id = json_string(request, "inputId");
             char *input_digest = json_string(request, "inputDigest");
             char *source_digest = json_string(request, "sourceDigest");
-            char *asset_manifest_digest = json_string(request, "assetManifestDigest");
-            char *font_manifest_digest = json_string(request, "fontManifestDigest");
-            char *reading_style_authority_digest = json_string(request, "readingStyleAuthorityDigest");
             char *renderer_id = json_string(request, "rendererId");
             char *renderer_version = json_string(request, "rendererVersion");
             char *renderer_digest = json_string(request, "rendererDigest");
+            char *asset_manifest_digest = json_string(request, "assetManifestDigest");
+            char *font_manifest_digest = json_string(request, "fontManifestDigest");
+            char *reading_style_authority_digest = json_string(request, "readingStyleAuthorityDigest");
             char *layout_profile = json_string(request, "layoutProfile");
             char *theme_profile = json_string(request, "themeProfile");
             char *locale = json_string(request, "locale");
@@ -348,6 +362,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
                 return 68;
             }
             const char *fragment = "FRAGMENT_LITERAL";
+            const char *features = "FEATURES_LITERAL";
             FILE *output = fopen("/sandbox/output/response.json", "wb");
             if (!output) return 67;
             fprintf(output,
@@ -357,11 +372,9 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
                 "\"readingStyleAuthorityDigest\":\"%s\","
                 "\"rendererId\":\"%s\",\"rendererVersion\":\"%s\",\"rendererDigest\":\"%s\","
                 "\"title\":\"\\u79bb\\u7ebf\\u6587\\u6863\",\"htmlFragment\":\"%s\","
-                "\"observedFeatures\":[\"headings\",\"links\",\"images\",\"tables\",\"code-shiki\","
-                "\"mermaid\",\"katex-latex\",\"footnotes\",\"anchors\",\"embeds\",\"captions\","
-                "\"cjk\",\"rtl\",\"emoji\",\"page-ebook-limits\"],\"contentDigest\":\"RESPONSE_DIGEST\"}",
+                "\"observedFeatures\":%s,\"contentDigest\":\"RESPONSE_DIGEST\"}",
                 input_id, input_digest, source_digest, asset_manifest_digest, font_manifest_digest,
-                reading_style_authority_digest, renderer_id, renderer_version, renderer_digest, fragment);
+                reading_style_authority_digest, renderer_id, renderer_version, renderer_digest, fragment, features);
             fclose(output);
             free(request); free(schema); free(input_id); free(input_digest); free(source_digest);
             free(renderer_id); free(renderer_version); free(renderer_digest);

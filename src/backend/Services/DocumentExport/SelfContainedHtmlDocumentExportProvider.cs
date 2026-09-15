@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text;
-using System.Xml.Linq;
 
 namespace FsusBlog.Server.Services.DocumentExport;
 
@@ -50,20 +50,16 @@ public sealed record DocumentExportProviderResult(
 /// </summary>
 public sealed class SelfContainedHtmlDocumentExportProvider
 {
-    private const string ProviderStyle = "html{color-scheme:light dark}body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.65;background:#fff;color:#18181b}main{max-width:72ch;margin:auto;padding:3rem 1.25rem}img,svg,video{max-width:100%;height:auto}pre{overflow:auto;padding:1rem;background:#f4f4f5;border-radius:.5rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #d4d4d8;padding:.5rem;text-align:start}a{color:#155eef}figure{margin:1.5rem 0}figcaption{color:#52525b;font-size:.9em}@media print{main{max-width:none;padding:0}a{color:inherit}}";
-    private static readonly string s_styleHash = Convert.ToBase64String(
-        System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(ProviderStyle)));
-    private readonly DocumentExportSandboxRuntime _sandbox;
+    private readonly ICanonicalDocumentRendererAdapter _renderer;
 
-    public SelfContainedHtmlDocumentExportProvider(DocumentExportSandboxRuntime sandbox)
+    internal SelfContainedHtmlDocumentExportProvider(ICanonicalDocumentRendererAdapter renderer)
     {
-        _sandbox = sandbox ?? throw new ArgumentNullException(nameof(sandbox));
+        _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
     }
 
     public async Task<DocumentExportProviderResult> ExportAsync(
         DocumentExportTask task,
         DocumentExportFrozenInput input,
-        DocumentExportToolContract tool,
         CancellationToken cancellationToken = default)
     {
         DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
@@ -75,51 +71,26 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             throw new InvalidOperationException("Only the self-contained HTML provider is implemented in this slice.");
         }
 
-        var request = new DocumentExportRendererRequest(
-            DocumentExportContractCatalog.RendererRequestSchema,
-            frozenInput.InputId,
-            frozenInput.ContentDigest,
-            frozenInput.SourceDigest,
-            frozenInput.AssetManifestDigest,
-            frozenInput.FontManifestDigest,
-            frozenInput.ReadingStyleAuthorityDigest,
-            frozenInput.MarkdownUtf8,
-            frozenInput.RendererId,
-            frozenInput.RendererVersion,
-            frozenInput.RendererDigest,
-            frozenInput.LayoutProfile,
-            frozenInput.ThemeProfile,
-            frozenInput.Locale,
-            frozenInput.Assets);
-        byte[] requestBytes = DocumentExportDigest.Serialize(request);
-        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteAsync(
+        CanonicalDocumentRendererResult rendererResult = await _renderer.RenderAsync(
             task,
             frozenInput,
-            tool,
-            requestBytes,
             cancellationToken);
-        DocumentExportSandboxRuntime.ValidateReceipt(
-            sandboxResult.Receipt,
-            sandboxResult.Plan,
-            task,
-            frozenInput,
-            tool,
-            sandboxResult.Plan.HostBuildDigest,
-            sandboxResult.OutputBytes);
-        DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(
-            sandboxResult.OutputBytes);
+        DocumentExportRendererResponse response = rendererResult.Response;
         ValidateRendererResponse(response, frozenInput);
 
         IReadOnlyList<string> observedFeatures = ValidateFeatures(response.ObservedFeatures, provider);
-        XElement article = ValidateAndNormalizeFragment(response.HtmlFragment, frozenInput.Assets);
-        string output = ComposeDocument(response.Title, frozenInput.Locale, article);
-        byte[] outputBytes = Encoding.UTF8.GetBytes(output);
-        if (outputBytes.LongLength > provider.Budgets.MaxOutputBytes)
-        {
-            throw new DocumentExportBudgetExceededException("Self-contained HTML exceeds its output budget.");
-        }
+        byte[] fragmentBytes = DocumentExportHtmlSanitizer.Sanitize(
+            response.HtmlFragment,
+            frozenInput.Assets,
+            provider.Budgets.MaxOutputBytes);
+        byte[] outputBytes = ComposeDocument(
+            response.Title,
+            frozenInput,
+            fragmentBytes,
+            provider.Budgets.MaxOutputBytes);
 
         string[] warnings = WarningsFor(observedFeatures, provider);
+        DocumentExportToolContract tool = rendererResult.Tool;
         DocumentExportProviderReceipt unsigned = new(
             DocumentExportContractCatalog.ResultSchema,
             task.ContentDigest,
@@ -134,7 +105,7 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             frozenInput.ReadingStyleAuthorityDigest,
             tool.ToolId,
             tool.ToolVersion,
-            sandboxResult.Receipt.ContentDigest,
+            rendererResult.SandboxReceipt.ContentDigest,
             provider.OutputMediaType,
             provider.OutputExtension,
             provider.NormalizationPolicy,
@@ -153,10 +124,10 @@ public sealed class SelfContainedHtmlDocumentExportProvider
         };
         return new DocumentExportProviderResult(
             outputBytes,
-            sandboxResult.OutputBytes,
+            rendererResult.ResponseBytes,
             receipt,
-            sandboxResult.Plan,
-            sandboxResult.Receipt);
+            rendererResult.SandboxPlan,
+            rendererResult.SandboxReceipt);
     }
 
     public static DocumentExportRendererResponse SealRendererResponse(DocumentExportRendererResponse response)
@@ -209,8 +180,15 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             result.SandboxOutputBytes);
         ValidateRendererResponse(response, input);
         IReadOnlyList<string> observedFeatures = ValidateFeatures(response.ObservedFeatures, provider);
-        XElement article = ValidateAndNormalizeFragment(response.HtmlFragment, input.Assets);
-        byte[] expectedBytes = Encoding.UTF8.GetBytes(ComposeDocument(response.Title, input.Locale, article));
+        byte[] fragmentBytes = DocumentExportHtmlSanitizer.Sanitize(
+            response.HtmlFragment,
+            input.Assets,
+            provider.Budgets.MaxOutputBytes);
+        byte[] expectedBytes = ComposeDocument(
+            response.Title,
+            input,
+            fragmentBytes,
+            provider.Budgets.MaxOutputBytes);
         string[] expectedWarnings = WarningsFor(observedFeatures, provider);
         DocumentExportProviderReceipt receipt = result.Receipt;
         if (receipt.Schema != DocumentExportContractCatalog.ResultSchema
@@ -250,7 +228,7 @@ public sealed class SelfContainedHtmlDocumentExportProvider
         {
             throw new InvalidDataException("Self-contained HTML receipt digest mismatch.");
         }
-        ValidateDocument(result.Bytes, input);
+        DocumentExportHtmlVerifier.Validate(result.Bytes, input, provider.Budgets.MaxOutputBytes);
     }
 
     internal static void ValidateRendererResponse(
@@ -268,7 +246,10 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             || response.RendererVersion != input.RendererVersion
             || response.RendererDigest != input.RendererDigest
             || string.IsNullOrWhiteSpace(response.Title)
+            || response.Title.Length > 512
             || response.Title.Any(char.IsControl)
+            || string.IsNullOrEmpty(response.HtmlFragment)
+            || response.ObservedFeatures.IsDefault
             || response.ContentDigest != DocumentExportDigest.Compute(response with
             {
                 ContentDigest = string.Empty
@@ -309,183 +290,54 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 
-    private static XElement ValidateAndNormalizeFragment(
-        string htmlFragment,
-        IReadOnlyList<DocumentExportAsset> assets)
+    private static byte[] ComposeDocument(
+        string title,
+        DocumentExportFrozenInput input,
+        ReadOnlySpan<byte> fragmentBytes,
+        long maximumBytes)
     {
-        XElement root;
-        try
-        {
-            root = XElement.Parse($"<article xmlns=\"http://www.w3.org/1999/xhtml\">{htmlFragment}</article>", LoadOptions.PreserveWhitespace);
-        }
-        catch (Exception exception) when (exception is System.Xml.XmlException or ArgumentException)
-        {
-            throw new InvalidDataException("Canonical renderer output is not a deterministic XHTML fragment.", exception);
-        }
-
-        foreach (XElement element in root.DescendantsAndSelf())
-        {
-            string name = element.Name.LocalName.ToLowerInvariant();
-            if (name is "script" or "style" or "link" or "iframe" or "object" or "embed" or "base" or "form")
-            {
-                throw new InvalidDataException($"Element '{name}' is prohibited in self-contained HTML.");
-            }
-            foreach (XAttribute attribute in element.Attributes().ToArray())
-            {
-                string attributeName = attribute.Name.LocalName.ToLowerInvariant();
-                if (attributeName.StartsWith("on", StringComparison.Ordinal)
-                    || attributeName is "srcdoc" or "formaction")
-                {
-                    throw new InvalidDataException("Executable HTML attributes are prohibited.");
-                }
-                if (attributeName is "src" or "href" or "poster")
-                {
-                    ValidateUri(element, attribute);
-                }
-            }
-        }
-
-        Dictionary<string, DocumentExportAsset> expected = assets.Where(asset => asset.Role == "image")
-            .ToDictionary(asset => asset.AssetId, StringComparer.Ordinal);
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (XElement image in root.Descendants().Where(element => element.Name.LocalName == "img"))
-        {
-            string assetId = image.Attribute("data-asset-id")?.Value
-                ?? throw new InvalidDataException("Every rendered image must bind a frozen asset identity.");
-            if (!expected.TryGetValue(assetId, out DocumentExportAsset? asset) || !seen.Add(assetId))
-            {
-                throw new InvalidDataException("Rendered asset identity is missing, duplicated or unknown.");
-            }
-            string expectedUri = $"data:{asset.MediaType};base64,{Convert.ToBase64String(asset.Bytes.AsSpan())}";
-            if (image.Attribute("src")?.Value != expectedUri || image.Attribute("alt")?.Value != asset.AltText)
-            {
-                throw new InvalidDataException("Rendered asset bytes or accessible text drifted from frozen input.");
-            }
-        }
-        if (!seen.SetEquals(expected.Keys))
-        {
-            throw new InvalidDataException("Not every frozen asset was embedded in the document.");
-        }
-        return root;
-    }
-
-    private static void ValidateUri(XElement element, XAttribute attribute)
-    {
-        string value = attribute.Value.Trim();
-        if (value.StartsWith('#'))
-        {
-            return;
-        }
-        if (attribute.Name.LocalName == "src" && value.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-        if (element.Name.LocalName == "a"
-            && attribute.Name.LocalName == "href"
-            && Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-        {
-            element.SetAttributeValue("target", "_blank");
-            element.SetAttributeValue("rel", "noopener noreferrer external");
-            return;
-        }
-        throw new InvalidDataException("Self-contained HTML contains a prohibited resource reference.");
-    }
-
-    private static string ComposeDocument(string title, string locale, XElement article)
-    {
-        string direction = locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)
-            || locale.StartsWith("he", StringComparison.OrdinalIgnoreCase)
+        byte[] styleBytes = DocumentExportReadingStyleAuthority.BuildStyleBytes(
+            input.Assets,
+            input.ThemeProfile,
+            maximumBytes);
+        string styleHash = Convert.ToBase64String(SHA256.HashData(styleBytes));
+        string direction = input.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)
+            || input.Locale.StartsWith("he", StringComparison.OrdinalIgnoreCase)
                 ? "rtl"
                 : "ltr";
         string escapedTitle = System.Net.WebUtility.HtmlEncode(title);
-        string fragment = string.Concat(article.Nodes().Select(node => node.ToString(SaveOptions.DisableFormatting)));
-        return "<!doctype html>\n"
-            + $"<html lang=\"{System.Net.WebUtility.HtmlEncode(locale)}\" dir=\"{direction}\">\n"
-            + "<head>\n<meta charset=\"utf-8\" />\n"
-            + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n"
-            + $"<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'sha256-{s_styleHash}'; base-uri 'none'; form-action 'none'\" />\n"
-            + $"<title>{escapedTitle}</title>\n<style>{ProviderStyle}</style>\n</head>\n"
-            + $"<body><main><article>{fragment}</article></main></body>\n</html>\n";
+        string escapedLocale = System.Net.WebUtility.HtmlEncode(input.Locale);
+        string csp = DocumentExportHtmlVerifier.BuildCsp(styleHash);
+
+        using var output = new DocumentExportBoundedMemoryStream(
+            maximumBytes,
+            "Self-contained HTML exceeds its output budget.",
+            "output-budget");
+        WriteUtf8(output, "<!doctype html>\n");
+        WriteUtf8(output, $"<html lang=\"{escapedLocale}\" dir=\"{direction}\">\n<head>\n");
+        WriteUtf8(output, "<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n");
+        WriteUtf8(output, $"<meta http-equiv=\"Content-Security-Policy\" content=\"{csp}\" />\n");
+        WriteUtf8(output, $"<meta name=\"fsus-reading-authority\" content=\"{input.ReadingStyleAuthorityDigest}\" />\n");
+        WriteUtf8(output, $"<title>{escapedTitle}</title>\n<style>");
+        output.Write(styleBytes);
+        WriteUtf8(output, "</style>\n</head>\n<body><main><article>");
+        output.Write(fragmentBytes);
+        WriteUtf8(output, "</article></main></body>\n</html>\n");
+        return output.ToArray();
     }
 
-    private static void ValidateDocument(byte[] bytes, DocumentExportFrozenInput input)
+    private static void WriteUtf8(Stream output, string value)
     {
-        string html = new UTF8Encoding(false, true).GetString(bytes);
-        if (!html.StartsWith("<!doctype html>\n", StringComparison.Ordinal)
-            || html.Contains('\r', StringComparison.Ordinal))
-        {
-            throw new InvalidDataException("Self-contained HTML encoding or normalization drifted.");
-        }
-        XDocument document;
+        int maximumBytes = Encoding.UTF8.GetMaxByteCount(value.Length);
+        byte[] rented = System.Buffers.ArrayPool<byte>.Shared.Rent(maximumBytes);
         try
         {
-            document = XDocument.Parse(html["<!doctype html>\n".Length..], LoadOptions.PreserveWhitespace);
+            int written = Encoding.UTF8.GetBytes(value, rented);
+            output.Write(rented, 0, written);
         }
-        catch (System.Xml.XmlException exception)
+        finally
         {
-            throw new InvalidDataException("Self-contained HTML is not independently parseable.", exception);
-        }
-        XElement root = document.Root
-            ?? throw new InvalidDataException("Self-contained HTML root is missing.");
-        XElement head = root.Elements().SingleOrDefault(element => element.Name.LocalName == "head")
-            ?? throw new InvalidDataException("Self-contained HTML head is missing.");
-        XElement body = root.Elements().SingleOrDefault(element => element.Name.LocalName == "body")
-            ?? throw new InvalidDataException("Self-contained HTML body is missing.");
-        XElement article = body.Descendants().SingleOrDefault(element => element.Name.LocalName == "article")
-            ?? throw new InvalidDataException("Self-contained HTML article is missing.");
-        string expectedCsp = $"default-src 'none'; img-src data:; style-src 'sha256-{s_styleHash}'; base-uri 'none'; form-action 'none'";
-        if (root.Name.LocalName != "html"
-            || root.Attribute("lang")?.Value != input.Locale
-            || head.Elements().SingleOrDefault(element => element.Name.LocalName == "meta"
-                && element.Attribute("http-equiv")?.Value == "Content-Security-Policy")?.Attribute("content")?.Value != expectedCsp
-            || head.Elements().SingleOrDefault(element => element.Name.LocalName == "style")?.Value != ProviderStyle)
-        {
-            throw new InvalidDataException("Self-contained HTML metadata, locale or CSP drifted.");
-        }
-        ValidateElementClosure(article, input.Assets);
-    }
-
-    private static void ValidateElementClosure(XElement root, IReadOnlyList<DocumentExportAsset> assets)
-    {
-        foreach (XElement element in root.DescendantsAndSelf())
-        {
-            string name = element.Name.LocalName.ToLowerInvariant();
-            if (name is "script" or "link" or "iframe" or "object" or "embed" or "base" or "form")
-            {
-                throw new InvalidDataException("Self-contained HTML contains an active or remote surface.");
-            }
-            foreach (XAttribute attribute in element.Attributes())
-            {
-                string attributeName = attribute.Name.LocalName.ToLowerInvariant();
-                if (attributeName.StartsWith("on", StringComparison.Ordinal)
-                    || attributeName is "srcdoc" or "formaction")
-                {
-                    throw new InvalidDataException("Self-contained HTML contains executable attributes.");
-                }
-                if (attributeName is "src" or "href" or "poster")
-                {
-                    ValidateUri(element, attribute);
-                }
-            }
-        }
-        Dictionary<string, DocumentExportAsset> expected = assets.Where(asset => asset.Role == "image")
-            .ToDictionary(asset => asset.AssetId, StringComparer.Ordinal);
-        XElement[] images = root.Descendants().Where(element => element.Name.LocalName == "img").ToArray();
-        if (images.Length != expected.Count)
-        {
-            throw new InvalidDataException("Self-contained HTML asset closure is incomplete.");
-        }
-        foreach (XElement image in images)
-        {
-            string assetId = image.Attribute("data-asset-id")?.Value
-                ?? throw new InvalidDataException("Self-contained HTML asset identity is missing.");
-            if (!expected.TryGetValue(assetId, out DocumentExportAsset? asset)
-                || image.Attribute("src")?.Value != $"data:{asset.MediaType};base64,{Convert.ToBase64String(asset.Bytes.AsSpan())}"
-                || image.Attribute("alt")?.Value != asset.AltText)
-            {
-                throw new InvalidDataException("Self-contained HTML asset bytes drifted.");
-            }
+            System.Buffers.ArrayPool<byte>.Shared.Return(rented);
         }
     }
 }
