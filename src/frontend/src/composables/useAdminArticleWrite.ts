@@ -802,6 +802,7 @@ export function useAdminArticleWrite()
     let authoritativeArticleContent = '';
     let authoritativeServerDraftContent: string | null = null;
     let articleRecoveryRefreshToken = 0;
+    let initInvocation = 0;
     const recoveryCoordinator = new ArticleRecoveryCoordinator({
         BroadcastChannel: typeof window === 'undefined'
             ? null
@@ -2414,6 +2415,7 @@ export function useAdminArticleWrite()
 
     const initData = async () =>
     {
+        const invocation = ++initInvocation;
         pageLoading.value = true;
         try
         {
@@ -2463,6 +2465,10 @@ export function useAdminArticleWrite()
         }
         finally
         {
+            if (!active || invocation !== initInvocation)
+            {
+                return;
+            }
             suppressDraftSave = false;
             articleDocumentContextAdapter.updateSource(articleForm.content);
             articleDocumentContextAdapter.updateDraftRevision(
