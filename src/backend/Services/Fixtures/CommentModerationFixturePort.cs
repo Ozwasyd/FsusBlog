@@ -2,6 +2,7 @@
 // fixture-catalog: port comment-moderation-lifecycle
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
@@ -9,6 +10,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
@@ -22,14 +24,46 @@ public sealed record CommentModerationFixtureOperation(
     string SemanticStatus,
     string Reason,
     bool RequireRegionEvidence,
-    bool RequireSignalEvidence);
+    bool RequireSignalEvidence)
+{
+    // This is the exact operation digest emitted by the #2159 comment port.
+    // Moderation may consume that identity, but never create or rewrite it.
+    public string CommentReferenceDigest { get; init; } = string.Empty;
+    public string ReasonId { get; init; } = string.Empty;
+    public string? RegionStateId
+    {
+        get; init;
+    }
+    public string? SignalStateId
+    {
+        get; init;
+    }
+}
 
 public sealed record CommentRegionFixtureEvidence(
     long CommentId,
     string Source,
     string RegionCode,
     string PolicyVersion,
-    string DecisionDigest);
+    string DecisionDigest)
+{
+    public string Provider { get; init; } = string.Empty;
+    public bool CanPublish
+    {
+        get; init;
+    }
+    public bool RequiresManualReview
+    {
+        get; init;
+    }
+    public bool HideUntilReviewed
+    {
+        get; init;
+    }
+    public string DecisionReason { get; init; } = string.Empty;
+    public IReadOnlyList<string> BlockedRegions { get; init; } = [];
+    public IReadOnlyList<string> ApplicableRegions { get; init; } = [];
+}
 
 public sealed record CommentSignalFixtureEvidence(
     long SignalId,
@@ -38,13 +72,28 @@ public sealed record CommentSignalFixtureEvidence(
     string ContractVersion,
     string Classification,
     double Confidence,
-    string EvidenceDigest);
+    string EvidenceDigest)
+{
+    public string Source { get; init; } = string.Empty;
+    public string Model { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public double Score
+    {
+        get; init;
+    }
+    public IReadOnlyList<string> EvidenceRefs { get; init; } = [];
+}
 
 public sealed record CommentModerationFixturePlan(
     string Schema,
     CommentFixturePortBinding Binding,
     long AdminPrincipalId,
-    IReadOnlyList<CommentModerationFixtureOperation> Operations);
+    IReadOnlyList<CommentModerationFixtureOperation> Operations)
+{
+    // Narrow #1713 auth-session reference; the numeric principal is not enough
+    // to prove that the fixture consumed the planned admin identity.
+    public string AdminActorReferenceDigest { get; init; } = string.Empty;
+}
 
 public sealed record CommentModerationFixtureEntity(
     string CapabilityId,
@@ -66,7 +115,32 @@ public sealed record CommentModerationFixtureEntity(
     IReadOnlyList<CommentRegionFixtureEvidence> RegionEvidence,
     IReadOnlyList<CommentSignalFixtureEvidence> SignalEvidence,
     IReadOnlyList<string> ModerationEventIds,
-    IReadOnlyList<string> OutboxEventIds);
+    IReadOnlyList<string> OutboxEventIds)
+{
+    public bool AdminVisible
+    {
+        get; init;
+    }
+    public string AdminStatus { get; init; } = string.Empty;
+    public string AdminModerationActor { get; init; } = string.Empty;
+    public string QueueGroup { get; init; } = string.Empty;
+    public string? QueueReason
+    {
+        get; init;
+    }
+    public string QueueActor { get; init; } = string.Empty;
+    public string CommentReferenceDigest { get; init; } = string.Empty;
+    public string ReasonId { get; init; } = string.Empty;
+    public string? RegionStateId
+    {
+        get; init;
+    }
+    public string? SignalStateId
+    {
+        get; init;
+    }
+    public IReadOnlyList<string> ApplicableRegions { get; init; } = [];
+}
 
 public sealed record CommentFixtureRuntimeSemantics(
     string Schema,
@@ -74,13 +148,23 @@ public sealed record CommentFixtureRuntimeSemantics(
     IReadOnlyDictionary<string, string> QueueMembership,
     string SpamRuntimeStatus,
     string SpamEvidenceRequirement,
-    string Source);
+    string Source)
+{
+    public IReadOnlyDictionary<string, string> AdminVisibility
+    {
+        get; init;
+    }
+        = new Dictionary<string, string>(StringComparer.Ordinal);
+}
 
 public sealed record CommentModerationFixtureResult(
     string Schema,
     CommentFixturePortBinding Binding,
     CommentFixtureRuntimeSemantics RuntimeSemantics,
-    IReadOnlyList<CommentModerationFixtureEntity> Entities);
+    IReadOnlyList<CommentModerationFixtureEntity> Entities)
+{
+    public string ContentDigest { get; init; } = string.Empty;
+}
 
 public interface ICommentModerationFixturePort
 {
@@ -114,6 +198,7 @@ public sealed class CommentModerationFixturePort(
     CommentMutationOutboxWorker outboxWorker,
     ISqlSugarClient db) : ICommentModerationFixturePort
 {
+    private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
     private const string PlanSchema = "fsusblog.comment-moderation-fixture-plan.v1";
     private const int MaxOutboxDrainPasses = 16;
     private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
@@ -151,29 +236,62 @@ public sealed class CommentModerationFixturePort(
 
         await DrainOutboxAsync(plan.Operations, cancellationToken).ConfigureAwait(false);
 
-        var queueMembership = new Dictionary<CommentModerationStatus, IReadOnlyList<string>>();
-        foreach (CommentModerationStatus status in new[] {
-            CommentModerationStatus.Pending,
-            CommentModerationStatus.Rejected,
-            CommentModerationStatus.Approved
-        })
+        var queueMembership = new Dictionary<CommentModerationStatus, QueueSnapshot>
         {
-            // Approved membership means presence in the actionable moderation queue;
-            // a plain status browse would list every approved comment and make the
-            // "excluded" assertion unreachable.
-            CommentModerationStatus? queueFilter = status == CommentModerationStatus.Approved ? null : status;
-            queueMembership[status] = await ReadExactQueueAsync(queueFilter, cancellationToken).ConfigureAwait(false);
-        }
+            // The production queue has two read contracts: Pending/null is the
+            // actionable queue, while Rejected/Approved are status-browse projections.
+            // Keep both observations separate so an approved status browse cannot be
+            // mistaken for queue membership.
+            [CommentModerationStatus.Pending] = await ReadExactQueueAsync(
+                CommentModerationStatus.Pending,
+                cancellationToken).ConfigureAwait(false),
+            [CommentModerationStatus.Rejected] = await ReadExactQueueAsync(
+                CommentModerationStatus.Rejected,
+                cancellationToken).ConfigureAwait(false),
+            [CommentModerationStatus.Approved] = await ReadExactQueueAsync(
+                status: null,
+                cancellationToken).ConfigureAwait(false)
+        };
+
+        var adminReadModels = new Dictionary<CommentModerationStatus, QueueSnapshot>
+        {
+            // Read the admin projection independently; sharing the queue result
+            // would make the admin-status proof vacuous for pending/rejected.
+            [CommentModerationStatus.Pending] = await ReadExactQueueAsync(
+                CommentModerationStatus.Pending,
+                cancellationToken).ConfigureAwait(false),
+            [CommentModerationStatus.Rejected] = await ReadExactQueueAsync(
+                CommentModerationStatus.Rejected,
+                cancellationToken).ConfigureAwait(false),
+            [CommentModerationStatus.Approved] = await ReadExactQueueAsync(
+                CommentModerationStatus.Approved,
+                cancellationToken).ConfigureAwait(false)
+        };
 
         var entities = new List<CommentModerationFixtureEntity>(plan.Operations.Count);
         foreach (CommentModerationFixtureOperation operation in plan.Operations.OrderBy(item => item.SemanticRole, StringComparer.Ordinal))
-            entities.Add(await ObserveAsync(operation, plan.AdminPrincipalId, queueMembership, cancellationToken).ConfigureAwait(false));
+            entities.Add(await ObserveAsync(
+                operation,
+                plan.AdminPrincipalId,
+                queueMembership,
+                adminReadModels,
+                cancellationToken).ConfigureAwait(false));
 
-        return new CommentModerationFixtureResult(
+        CommentModerationFixtureResult result = new(
             ResultSchema,
             plan.Binding,
             BuildRuntimeSemantics(entities),
             entities);
+        return result with
+        {
+            ContentDigest = Digest(JsonSerializer.Serialize(new
+            {
+                result.Schema,
+                result.Binding,
+                result.RuntimeSemantics,
+                result.Entities
+            }))
+        };
     }
 
     public async Task TransitionAsync(
@@ -202,7 +320,8 @@ public sealed class CommentModerationFixturePort(
     private async Task<CommentModerationFixtureEntity> ObserveAsync(
         CommentModerationFixtureOperation operation,
         long adminPrincipalId,
-        IReadOnlyDictionary<CommentModerationStatus, IReadOnlyList<string>> queues,
+        IReadOnlyDictionary<CommentModerationStatus, QueueSnapshot> queues,
+        IReadOnlyDictionary<CommentModerationStatus, QueueSnapshot> adminReadModels,
         CancellationToken cancellationToken)
     {
         Comment row = await RequireCommentAsync(operation.CommentId, cancellationToken).ConfigureAwait(false);
@@ -216,17 +335,25 @@ public sealed class CommentModerationFixturePort(
                 && (row.ModeratedByAdminPrincipalId != adminPrincipalId || row.ModeratedAt is null)))
             throw new InvalidOperationException($"Moderation storage observation is incomplete for {operation.SemanticRole}.");
 
-        CommentRegionCompliance? region = await db.Queryable<CommentRegionCompliance>()
+        List<CommentRegionCompliance> regionRows = await db.Queryable<CommentRegionCompliance>()
             .Where(item => item.CommentId == row.Id)
-            .FirstAsync(cancellationToken).ConfigureAwait(false);
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (regionRows.Count > 1)
+            throw new InvalidOperationException($"Comment region evidence is duplicated for {operation.SemanticRole}.");
+        CommentRegionCompliance? region = regionRows.SingleOrDefault();
         List<CommentBlockedRegion> blocked = await db.Queryable<CommentBlockedRegion>()
             .Where(item => item.CommentId == row.Id)
             .OrderBy(item => item.RegionCode, OrderByType.Asc)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (blocked.Select(item => item.RegionCode).Distinct(StringComparer.Ordinal).Count() != blocked.Count)
+            throw new InvalidOperationException($"Comment blocked-region evidence is duplicated for {operation.SemanticRole}.");
         List<CommentModerationSignal> signals = await db.Queryable<CommentModerationSignal>()
             .Where(item => item.CommentId == row.Id)
             .OrderBy(item => item.Id, OrderByType.Asc)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (signals.Count > 1)
+            throw new InvalidOperationException($"Comment moderation signal evidence is duplicated for {operation.SemanticRole}.");
         List<CommentModerationEvent> events = await db.Queryable<CommentModerationEvent>()
             .Where(item => item.CommentId == row.Id)
             .OrderBy(item => item.Id, OrderByType.Asc)
@@ -237,16 +364,31 @@ public sealed class CommentModerationFixturePort(
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         if (operation.RequireRegionEvidence && (region is null || string.IsNullOrWhiteSpace(region.PolicyVersion)
-            || string.IsNullOrWhiteSpace(region.DecisionReason)))
+            || string.IsNullOrWhiteSpace(region.RegionProvider) || string.IsNullOrWhiteSpace(region.DecisionReason)
+            || string.IsNullOrWhiteSpace(region.SubmitRegion) || !double.IsFinite(region.SubmitRegionConfidence)
+            || region.SubmitRegionConfidence is < 0d or > 1d
+            || !HasValidRuleHitsEvidence(region.RuleHitsJson)))
             throw new InvalidOperationException($"Region evidence is missing for {operation.SemanticRole}.");
-        if (operation.RequireSignalEvidence && (signals.Count == 0
+        if (operation.RequireSignalEvidence && (signals.Count != 1
             || signals.Any(item => string.IsNullOrWhiteSpace(item.EvidenceJson)
                 || string.IsNullOrWhiteSpace(item.Provider) || string.IsNullOrWhiteSpace(item.ContractVersion)
-                || string.IsNullOrWhiteSpace(item.Label) || !double.IsFinite(item.Confidence)
-                || item.Confidence is < 0d or > 1d)))
+                || string.IsNullOrWhiteSpace(item.Model) || string.IsNullOrWhiteSpace(item.Label)
+                || !StringComparer.Ordinal.Equals(item.Status, AntiSpamModerationStatuses.Ok)
+                || !double.IsFinite(item.Confidence) || item.Confidence is < 0d or > 1d
+                || !HasStructuredEvidence(item.EvidenceJson))))
             throw new InvalidOperationException($"Signal evidence is missing for {operation.SemanticRole}.");
-        if ((!initialPending && !regionObservation && events.Count == 0) || outbox.Count == 0)
+        if (events.Count == 0 || outbox.Count == 0
+            || outbox.Any(item => !Guid.TryParseExact(item.EventId, "D", out _)
+                || !StringComparer.Ordinal.Equals(item.Status, CommentMutationOutboxStatus.Processed))
+            || events.All(item => item.NextStatus != expectedRuntime))
             throw new InvalidOperationException($"Moderation audit/outbox evidence is missing for {operation.SemanticRole}.");
+
+        bool requiresAdminActor = !initialPending
+            && !(regionObservation && expectedRuntime == CommentModerationStatus.Pending);
+        if (requiresAdminActor && (row.ModeratedByAdminPrincipalId != adminPrincipalId || row.ModeratedAt is null
+            || events.All(item => item.AdminPrincipalId != adminPrincipalId
+                || !StringComparer.Ordinal.Equals(item.ActorType, "admin"))))
+            throw new InvalidOperationException($"Admin moderation actor evidence is missing for {operation.SemanticRole}.");
 
         CommentPermalinkContextDto publicProjection = await publicQueries.GetPermalinkContextAsync(row.ArticleId, row.Id)
             .ConfigureAwait(false);
@@ -254,37 +396,86 @@ public sealed class CommentModerationFixturePort(
         if (publiclyVisible != (expectedRuntime == CommentModerationStatus.Approved))
             throw new InvalidOperationException($"Public moderation projection drifted for {operation.SemanticRole}.");
 
-        IReadOnlyList<string> queueIds = queues[expectedRuntime];
         string commentId = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        int queueOrder = queueIds.ToList().FindIndex(item => StringComparer.Ordinal.Equals(item, commentId));
-        bool queueMember = queueOrder >= 0;
+        QueueSnapshot queueSnapshot = queues[expectedRuntime];
+        QueueSnapshot adminSnapshot = adminReadModels[expectedRuntime];
+        CommentModerationItemResponse? queueItem = FindExactItem(queueSnapshot, commentId);
+        CommentModerationItemResponse? adminItem = FindExactItem(adminSnapshot, commentId);
+        if (adminItem is null || adminItem.Status != expectedRuntime
+            || adminItem.ModeratedByAdminPrincipalId != row.ModeratedByAdminPrincipalId
+            || adminItem.ModeratedAt != row.ModeratedAt
+            || !StringComparer.Ordinal.Equals(adminItem.Reason, row.ModerationReason)
+            || string.IsNullOrWhiteSpace(adminItem.ModerationActor))
+            throw new InvalidOperationException($"Admin moderation read model is incomplete for {operation.SemanticRole}.");
+
+        int queueOrder = queueItem is null
+            ? -1
+            : queueSnapshot.Items.ToList().FindIndex(item => item.Id == commentId);
+        bool queueMember = queueItem is not null;
         bool expectedQueueMember = expectedRuntime is CommentModerationStatus.Pending or CommentModerationStatus.Rejected;
-        if (queueMember != expectedQueueMember)
+        if (queueMember != expectedQueueMember
+            || (queueItem is not null && (queueItem.Status != expectedRuntime
+                || queueItem.ModeratedByAdminPrincipalId != row.ModeratedByAdminPrincipalId
+                || queueItem.ModeratedAt != row.ModeratedAt
+                || !StringComparer.Ordinal.Equals(queueItem.Reason, row.ModerationReason)
+                || string.IsNullOrWhiteSpace(queueItem.ModerationActor))))
             throw new InvalidOperationException($"Queue membership drifted for {operation.SemanticRole}.");
         var regionEvidence = new List<CommentRegionFixtureEvidence>();
         if (region is not null)
-            regionEvidence.Add(new(
+            regionEvidence.Add(new CommentRegionFixtureEvidence(
                 row.Id,
                 "comment_region_compliance",
                 region.SubmitRegion,
                 region.PolicyVersion,
-                Digest($"{region.SubmitRegion}\0{region.PolicyVersion}\0{region.DecisionReason}\0{region.RuleHitsJson}")));
+                Digest(JsonSerializer.Serialize(new
+                {
+                    region.CommentId,
+                    region.SubmitRegion,
+                    region.SubmitRegionConfidence,
+                    region.RegionProvider,
+                    region.PolicyVersion,
+                    region.CanPublish,
+                    region.RequiresManualReview,
+                    region.HideUntilReviewed,
+                    region.DecisionReason,
+                    blockedRegions = RegionLegalModerationService.DeserializeRegions(region.BlockedRegions),
+                    ruleHitsDigest = Digest(region.RuleHitsJson ?? string.Empty)
+                })))
+            {
+                Provider = region.RegionProvider,
+                CanPublish = region.CanPublish,
+                RequiresManualReview = region.RequiresManualReview,
+                HideUntilReviewed = region.HideUntilReviewed,
+                DecisionReason = region.DecisionReason ?? string.Empty,
+                BlockedRegions = RegionLegalModerationService.DeserializeRegions(region.BlockedRegions),
+                ApplicableRegions = BuildApplicableRegions(region)
+            });
         regionEvidence.AddRange(blocked.Select(item =>
             new CommentRegionFixtureEvidence(
                 row.Id,
                 "comment_blocked_region",
                 item.RegionCode,
                 region?.PolicyVersion ?? string.Empty,
-                Digest($"{item.RegionCode}\0{region?.PolicyVersion}\0{region?.RuleHitsJson}"))));
+                Digest(JsonSerializer.Serialize(new
+                {
+                    item.CommentId,
+                    item.RegionCode,
+                    policyVersion = region?.PolicyVersion,
+                    provider = region?.RegionProvider,
+                    decisionReason = region?.DecisionReason,
+                    ruleHitsDigest = Digest(region?.RuleHitsJson ?? string.Empty)
+                })))
+            {
+                Provider = region?.RegionProvider ?? string.Empty,
+                CanPublish = region?.CanPublish ?? false,
+                RequiresManualReview = region?.RequiresManualReview ?? false,
+                HideUntilReviewed = region?.HideUntilReviewed ?? false,
+                DecisionReason = region?.DecisionReason ?? string.Empty,
+                BlockedRegions = RegionLegalModerationService.DeserializeRegions(region?.BlockedRegions),
+                ApplicableRegions = [item.RegionCode]
+            }));
         CommentSignalFixtureEvidence[] signalEvidence = [.. signals.Select(item =>
-            new CommentSignalFixtureEvidence(
-                item.Id,
-                item.CommentId,
-                item.Provider,
-                item.ContractVersion,
-                item.Label,
-                item.Confidence,
-                Digest(item.EvidenceJson ?? string.Empty)))];
+            BuildSignalEvidence(item, operation.RequireSignalEvidence))];
 
         return new CommentModerationFixtureEntity(
             operation.CapabilityId,
@@ -299,21 +490,43 @@ public sealed class CommentModerationFixturePort(
             expectedRuntime.ToString().ToLowerInvariant(),
             queueMember,
             queueOrder,
-            queueIds.Count,
+            queueSnapshot.Items.Count,
             region?.SubmitRegion,
             region?.PolicyVersion,
             region?.RequiresManualReview,
             regionEvidence,
             signalEvidence,
             [.. events.Select(item => item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture))],
-            [.. outbox.Select(item => item.EventId)]);
+            [.. outbox.Select(item => item.EventId)])
+        {
+            AdminVisible = true,
+            AdminStatus = adminItem.Status.ToString().ToLowerInvariant(),
+            AdminModerationActor = adminItem.ModerationActor,
+            QueueGroup = expectedRuntime.ToString().ToLowerInvariant(),
+            QueueReason = (queueItem ?? adminItem).Reason,
+            QueueActor = (queueItem ?? adminItem).ModerationActor,
+            CommentReferenceDigest = operation.CommentReferenceDigest,
+            ReasonId = operation.ReasonId,
+            RegionStateId = operation.RegionStateId,
+            SignalStateId = operation.SignalStateId,
+            ApplicableRegions = BuildApplicableRegions(region)
+        };
     }
+
+    private static IReadOnlyList<string> BuildApplicableRegions(CommentRegionCompliance? region)
+        => region is null
+            ? []
+            : new[] { region.SubmitRegion }
+                .Concat(RegionLegalModerationService.DeserializeRegions(region.BlockedRegions))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray();
 
     private async Task DrainOutboxAsync(
         IReadOnlyList<CommentModerationFixtureOperation> operations,
         CancellationToken cancellationToken)
     {
-        long[] commentIds = operations.Select(static item => item.CommentId).Distinct().ToArray();
+        long[] commentIds = [.. operations.Select(static item => item.CommentId).Distinct()];
         for (int pass = 0; pass < MaxOutboxDrainPasses; pass++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -337,23 +550,156 @@ public sealed class CommentModerationFixturePort(
         throw new InvalidOperationException("Comment mutation outbox did not converge within the bounded worker drain.");
     }
 
-    private async Task<IReadOnlyList<string>> ReadExactQueueAsync(
+    private async Task<QueueSnapshot> ReadExactQueueAsync(
         CommentModerationStatus? status,
         CancellationToken cancellationToken)
     {
-        var ids = new List<string>();
+        var items = new List<CommentModerationItemResponse>();
+        var seenCursors = new HashSet<string>(StringComparer.Ordinal);
         string? cursor = null;
         do
         {
             CommentModerationQueueResponse page = await queue.ListCommentModerationQueuePageAsync(
                 status, 100, cursor, cancellationToken).ConfigureAwait(false);
-            ids.AddRange(page.Items.Select(item => item.Id));
+            items.AddRange(page.Items);
             cursor = page.NextCursor;
+            if (cursor is not null && !seenCursors.Add(cursor))
+                throw new InvalidOperationException($"Moderation queue {status} returned a repeated cursor.");
         }
         while (cursor is not null);
-        if (ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)
+        if (items.Any(item => string.IsNullOrWhiteSpace(item.Id))
+            || items.Select(item => item.Id).Distinct(StringComparer.Ordinal).Count() != items.Count)
             throw new InvalidOperationException($"Moderation queue {status} contains duplicate identities.");
-        return ids;
+        return new QueueSnapshot(status, items);
+    }
+
+    private sealed record QueueSnapshot(
+        CommentModerationStatus? Filter,
+        IReadOnlyList<CommentModerationItemResponse> Items);
+
+    private static CommentModerationItemResponse? FindExactItem(QueueSnapshot snapshot, string commentId)
+    {
+        CommentModerationItemResponse[] matches = [.. snapshot.Items.Where(item =>
+            StringComparer.Ordinal.Equals(item.Id, commentId))];
+        if (matches.Length > 1)
+            throw new InvalidOperationException($"Moderation read model {snapshot.Filter} duplicated comment {commentId}.");
+        return matches.SingleOrDefault();
+    }
+
+    private static CommentSignalFixtureEvidence BuildSignalEvidence(
+        CommentModerationSignal signal,
+        bool requireStructuredEvidence)
+    {
+        bool hasStructuredEvidence = HasStructuredEvidence(signal.EvidenceJson);
+        if (requireStructuredEvidence && !hasStructuredEvidence)
+            throw new InvalidOperationException($"Signal {signal.Id} has no structured evidence.");
+        // Low-risk signals may intentionally have no raw evidence payload. Keep
+        // those signals observable without inventing a raw evidence document: the
+        // digest is a typed projection of the persisted signal columns. Required
+        // signals (the spam fixture) still fail closed unless raw structured
+        // evidence was persisted by the production scorer.
+        string evidenceDigest = hasStructuredEvidence
+            ? Digest(signal.EvidenceJson!)
+            : Digest(JsonSerializer.Serialize(new
+            {
+                signal.CommentId,
+                signal.Provider,
+                signal.Model,
+                signal.ContractVersion,
+                signal.Label,
+                signal.Severity,
+                signal.Confidence,
+                signal.PrimaryReason,
+                signal.NeedsSecondRound,
+                signal.RiskCategories,
+                signal.Status,
+                signal.ThresholdProfile
+            }));
+        return new CommentSignalFixtureEvidence(
+            signal.Id,
+            signal.CommentId,
+            signal.Provider,
+            signal.ContractVersion,
+            signal.Label,
+            signal.Confidence,
+            evidenceDigest)
+        {
+            Source = ResolveSignalSource(signal),
+            Model = signal.Model,
+            Status = signal.Status,
+            Score = signal.Confidence,
+            EvidenceRefs = [evidenceDigest]
+        };
+    }
+
+    private static string ResolveSignalSource(CommentModerationSignal signal)
+    {
+        if (!string.IsNullOrWhiteSpace(signal.MetadataJson))
+        {
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(signal.MetadataJson);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (string key in new[] { "runtime_source", "source" })
+                    {
+                        if (document.RootElement.TryGetProperty(key, out JsonElement value)
+                            && value.ValueKind == JsonValueKind.String
+                            && !string.IsNullOrWhiteSpace(value.GetString()))
+                            return value.GetString()!.Trim();
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                throw new InvalidOperationException($"Signal {signal.Id} metadata is not valid JSON.");
+            }
+        }
+        throw new InvalidOperationException($"Signal {signal.Id} has no explicit source metadata.");
+    }
+
+    private static bool HasValidRuleHitsEvidence(string? ruleHitsJson)
+    {
+        if (string.IsNullOrWhiteSpace(ruleHitsJson))
+            return true;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(ruleHitsJson);
+            return document.RootElement.ValueKind is JsonValueKind.Array or JsonValueKind.Object;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool HasStructuredEvidence(string? evidenceJson)
+    {
+        if (string.IsNullOrWhiteSpace(evidenceJson))
+            return false;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(evidenceJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Array
+                || document.RootElement.GetArrayLength() == 0)
+                return false;
+            foreach (JsonElement evidence in document.RootElement.EnumerateArray())
+            {
+                if (evidence.ValueKind != JsonValueKind.Object
+                    || !evidence.TryGetProperty("category", out JsonElement category)
+                    || category.ValueKind != JsonValueKind.String
+                    || string.IsNullOrWhiteSpace(category.GetString())
+                    || !evidence.TryGetProperty("policy", out JsonElement policy)
+                    || policy.ValueKind != JsonValueKind.String
+                    || string.IsNullOrWhiteSpace(policy.GetString()))
+                    return false;
+            }
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static CommentFixtureRuntimeSemantics BuildRuntimeSemantics(
@@ -362,11 +708,13 @@ public sealed class CommentModerationFixturePort(
         string[] statuses = ["approved", "pending", "rejected", "spam"];
         var visibility = new Dictionary<string, string>(StringComparer.Ordinal);
         var queues = new Dictionary<string, string>(StringComparer.Ordinal);
+        var adminVisibility = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (string status in statuses)
         {
             CommentModerationFixtureEntity entity = entities.Single(item =>
                 item.CapabilityId == $"comment.moderation.{status}");
             visibility[status] = entity.PubliclyVisible ? "visible-exact" : "hidden-exact";
+            adminVisibility[status] = entity.AdminVisible ? "visible-exact" : "hidden-exact";
             queues[status] = entity.QueueMember
                 ? $"included-{entity.QueueBucket}"
                 : "excluded";
@@ -377,7 +725,10 @@ public sealed class CommentModerationFixturePort(
             queues,
             "rejected",
             "provider-version-classification-evidence-ref",
-            "production-comment-query-and-authoring-moderation-queue");
+            "production-comment-query-and-authoring-moderation-queue")
+        {
+            AdminVisibility = adminVisibility
+        };
     }
 
     private async Task<Comment> RequireCommentAsync(long id, CancellationToken cancellationToken)
@@ -397,7 +748,11 @@ public sealed class CommentModerationFixturePort(
     private static void ValidatePlan(CommentModerationFixturePlan plan)
     {
         if (plan.Schema != PlanSchema || !plan.Binding.IsValid()
-            || plan.AdminPrincipalId <= 0 || plan.Operations.Count == 0)
+            || plan.AdminPrincipalId <= 0 || !IsDigest(plan.AdminActorReferenceDigest)
+            || !plan.Binding.AuthPrepareReferenceDigests.Contains(
+                plan.AdminActorReferenceDigest,
+                StringComparer.Ordinal)
+            || plan.Operations.Count == 0)
             throw new InvalidOperationException("Comment moderation fixture plan is invalid.");
         string[] expectedCapabilities =
         [
@@ -423,12 +778,47 @@ public sealed class CommentModerationFixturePort(
         if (plan.Operations.Any(item => expectedStatuses[item.CapabilityId] != item.SemanticStatus))
             throw new InvalidOperationException("Moderation fixture capability/status binding drifted.");
         if (plan.Operations.Select(item => item.CommentId).Distinct().Count() != plan.Operations.Count
-            || plan.Operations.Select(item => item.SemanticRole).Distinct(StringComparer.Ordinal).Count() != plan.Operations.Count)
+            || plan.Operations.Select(item => item.SemanticRole).Distinct(StringComparer.Ordinal).Count() != plan.Operations.Count
+            || plan.Operations.Any(item => !IsDigest(item.CommentReferenceDigest)))
             throw new InvalidOperationException("Moderation fixture states must use independent comment identities.");
+
+        var expectedReasonIds = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["comment.moderation.approved"] = "approved-none",
+            ["comment.moderation.pending"] = "pending-none",
+            ["comment.moderation.rejected"] = "rejected-fixture",
+            ["comment.moderation.spam"] = "spam-fixture",
+            ["comment.region.global"] = "approved-none",
+            ["comment.region.manual-review"] = "pending-none"
+        };
+        var expectedReasons = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["comment.moderation.approved"] = string.Empty,
+            ["comment.moderation.pending"] = string.Empty,
+            ["comment.moderation.rejected"] = "fixture_rejected",
+            ["comment.moderation.spam"] = "fixture_spam",
+            ["comment.region.global"] = string.Empty,
+            ["comment.region.manual-review"] = string.Empty
+        };
+        if (plan.Operations.Any(item => item.ReasonId != expectedReasonIds[item.CapabilityId]
+            || item.Reason != expectedReasons[item.CapabilityId]
+            || (item.CapabilityId == "comment.moderation.spam"
+                ? item.SignalStateId != "verified"
+                : item.SignalStateId is not null)))
+            throw new InvalidOperationException("Moderation fixture reason/signal semantic references drifted.");
+
+        CommentModerationFixtureOperation global = plan.Operations.Single(item => item.CapabilityId == "comment.region.global");
+        CommentModerationFixtureOperation manual = plan.Operations.Single(item => item.CapabilityId == "comment.region.manual-review");
+        if (global.RegionStateId != "global"
+            || manual.RegionStateId != "manual-review"
+            || plan.Operations.Any(item => item.CapabilityId.StartsWith("comment.region.", StringComparison.Ordinal)
+                ? item.RegionStateId is null
+                : item.RegionStateId is not null))
+            throw new InvalidOperationException("Moderation fixture region semantic references drifted.");
     }
 
     private static bool IsDigest(string value) => value.StartsWith("sha256:", StringComparison.Ordinal)
-        && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+        && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept(s_myChars) < 0;
 
     private static string Digest(string value)
         => $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))}";

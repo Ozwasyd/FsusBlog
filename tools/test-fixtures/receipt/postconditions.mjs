@@ -750,10 +750,10 @@ function verifyCommentMatrix(id)
         const one = (role) => comments.filter((item) => item.fields?.semanticRole === role);
         if (id === 'comment-moderation-matrix')
         {
-            const expected = {
-                'approved-root': { status: 'approved', publicVisible: true, queueMember: false, queueBucket: 'approved', queueOrder: -1 },
-                pending: { status: 'pending', publicVisible: false, queueMember: true, queueBucket: 'pending' },
-                rejected: { status: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' },
+                const expected = {
+                'approved-root': { status: 'approved', runtimeStatus: 'approved', publicVisible: true, queueMember: false, queueBucket: 'approved', queueOrder: -1 },
+                pending: { status: 'pending', runtimeStatus: 'pending', publicVisible: false, queueMember: true, queueBucket: 'pending' },
+                rejected: { status: 'rejected', runtimeStatus: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' },
                 spam: { status: 'spam', runtimeStatus: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' }
             };
             const queuePositions = new Set();
@@ -766,6 +766,9 @@ function verifyCommentMatrix(id)
                     return fail(id, `${role} must use one independent comment identity`);
                 }
                 const fields = matches[0].fields ?? {};
+                const expectedReasonId = role === 'approved-root' ? 'approved-none'
+                    : role === 'pending' ? 'pending-none'
+                        : role === 'rejected' ? 'rejected-fixture' : 'spam-fixture';
                 const queueOrder = fields.queueOrder;
                 const queueMembershipSize = fields.queueMembershipSize;
                 const queuePositionValid = Number.isSafeInteger(queueOrder)
@@ -774,9 +777,19 @@ function verifyCommentMatrix(id)
               ? queueOrder >= 0 && queueOrder < queueMembershipSize
               : queueOrder === -1);
                 if (fields.moderationStatus !== state.status
+          || fields.moderationRuntimeStatus !== state.runtimeStatus
+          || !/^sha256:[a-f0-9]{64}$/u.test(String(fields.commentReferenceDigest ?? ''))
+          || fields.reasonId !== expectedReasonId
+          || (role === 'spam' ? fields.signalStateId !== 'verified' : fields.signalStateId != null)
           || fields.publicVisible !== state.publicVisible
           || fields.queueMember !== state.queueMember
           || fields.queueBucket !== state.queueBucket
+          || fields.adminVisible !== true
+          || fields.adminStatus !== state.runtimeStatus
+          || typeof fields.adminModerationActor !== 'string' || fields.adminModerationActor.length === 0
+          || fields.queueGroup !== state.queueBucket
+          || typeof fields.queueActor !== 'string' || fields.queueActor.length === 0
+          || fields.queueReason !== fields.moderationReason
           || !queuePositionValid)
                 {
                     return fail(id, `${role} public/admin/queue projection mismatch`);
@@ -795,10 +808,6 @@ function verifyCommentMatrix(id)
                     }
                     queueSizes.set(state.queueBucket, queueMembershipSize);
                 }
-                if (state.runtimeStatus && fields.moderationRuntimeStatus !== state.runtimeStatus)
-                {
-                    return fail(id, `${role} runtime moderation projection mismatch`);
-                }
                 if (!Array.isArray(fields.outboxEventIds) || fields.outboxEventIds.length === 0
           || new Set(fields.outboxEventIds).size !== fields.outboxEventIds.length
           || fields.outboxEventIds.some((eventId) => !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(eventId)))
@@ -815,12 +824,19 @@ function verifyCommentMatrix(id)
                 }
             }
             const spam = one('spam')[0]?.fields ?? {};
-            if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
+                if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
         || spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)
           || !/^[1-9][0-9]*$/u.test(String(evidence?.signalId ?? ''))
           || typeof evidence?.provider !== 'string' || evidence.provider.length === 0
           || typeof evidence?.contractVersion !== 'string' || evidence.contractVersion.length === 0
           || typeof evidence?.classification !== 'string' || evidence.classification.length === 0
+          || typeof evidence?.source !== 'string' || evidence.source.length === 0
+          || typeof evidence?.model !== 'string' || evidence.model.length === 0
+          || evidence?.status !== 'ok'
+          || !Number.isFinite(evidence?.score) || evidence.score < 0 || evidence.score > 1
+          || evidence.score !== evidence.confidence
+          || !Array.isArray(evidence?.evidenceRefs) || evidence.evidenceRefs.length === 0
+          || evidence.evidenceRefs.some((ref) => !/^sha256:[a-f0-9]{64}$/u.test(String(ref)))
           || !Number.isFinite(evidence?.confidence) || evidence.confidence < 0 || evidence.confidence > 1
           || !/^sha256:[a-f0-9]{64}$/u.test(String(evidence?.evidenceDigest ?? ''))))
             {
@@ -1085,14 +1101,30 @@ function verifyModerationPolicy(ctx)
     for (const row of rows)
     {
         const fields = row.fields ?? {};
+        const expectedStateId = fields.semanticRole === 'region-global' ? 'global' : 'manual-review';
         if (!fields.regionCode || !fields.regionPolicyVersion
+      || fields.regionStateId !== expectedStateId
+      || !Array.isArray(fields.applicableRegions) || !fields.applicableRegions.includes(fields.regionCode)
+      || !/^sha256:[a-f0-9]{64}$/u.test(String(fields.commentReferenceDigest ?? ''))
+      || fields.reasonId !== (fields.semanticRole === 'region-global' ? 'approved-none' : 'pending-none')
       || !Array.isArray(fields.regionEvidence) || fields.regionEvidence.length === 0
       || fields.regionEvidence.some((evidence) => String(evidence?.commentId) !== String(row.id)
         || !['comment_region_compliance', 'comment_blocked_region'].includes(evidence?.source)
         || typeof evidence?.regionCode !== 'string' || evidence.regionCode.length === 0
         || evidence?.policyVersion !== fields.regionPolicyVersion
+        || typeof evidence?.provider !== 'string' || evidence.provider.length === 0
+        || typeof evidence?.decisionReason !== 'string' || evidence.decisionReason.length === 0
+        || !Array.isArray(evidence?.blockedRegions)
+        || typeof evidence?.canPublish !== 'boolean'
+        || typeof evidence?.requiresManualReview !== 'boolean'
+        || typeof evidence?.hideUntilReviewed !== 'boolean'
         || !/^sha256:[a-f0-9]{64}$/u.test(String(evidence?.decisionDigest ?? '')))
-      || !Array.isArray(fields.outboxEventIds) || fields.outboxEventIds.length === 0
+      || fields.adminVisible !== true
+      || fields.adminStatus !== fields.moderationRuntimeStatus
+      || typeof fields.adminModerationActor !== 'string' || fields.adminModerationActor.length === 0
+      || fields.queueGroup !== fields.queueBucket
+      || typeof fields.queueActor !== 'string' || fields.queueActor.length === 0
+        || !Array.isArray(fields.outboxEventIds) || fields.outboxEventIds.length === 0
       || fields.outboxEventIds.some((eventId) => !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(eventId)))
         {
             return fail(id, `region role ${fields.semanticRole ?? row.id} lacks policy/evidence/outbox binding`);

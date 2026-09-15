@@ -10,7 +10,7 @@ const {collectSimulatedCommentFixtureRuntimeEvidence} = await import(new URL('..
 const {normalizeCleanupContract: normalizeCommentCleanupContract} = await import(new URL('../../tools/test-fixtures/receipt/comment-cleanup-contract.mjs', import.meta.url));
 const {buildProducerReceipt, digestCanonical, validateProducerReceipt} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
 const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
-const {createCommentFixtureBackendError} = await import(new URL('../../tools/test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
+const {createCommentFixtureBackendError, verifyCommentModeration} = await import(new URL('../../tools/test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
 const cliEvidenceRoot = path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence');
 const cliRuntimeEvidence = path.join(cliEvidenceRoot, 'comment-fixture-runtime.json');
 const cliCleanupReceipt = path.join(cliEvidenceRoot, 'comment-fixture-cleanup.json');
@@ -247,6 +247,23 @@ test('two parallel local-simulated producer invocations produce terminal accepta
     const rejected = buildCommentFixtureAcceptanceReceipt(cleanup, crossDomainCleanup);
     assert.equal(rejected.status, 'rejected');
     assert.ok(rejected.violations.some((item) => item.id === 'runtime.cleanup-1'));
+});
+
+test('independent moderation verifier rejects semantic evidence tamper', async () =>
+{
+    const runtimeEvidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    for (const mutate of [
+        (result) => result.moderation.entities.find((item) => item.semanticRole === 'spam').queueGroup = 'pending',
+        (result) => result.moderation.entities.find((item) => item.semanticRole === 'spam').signalEvidence[0].source = '',
+        (result) => result.moderation.entities.find((item) => item.semanticRole === 'region-global').regionEvidence[0].decisionReason = '',
+        (result) => result.moderation.entities.find((item) => item.semanticRole === 'rejected').commentReferenceDigest = 'tampered'
+    ])
+    {
+        const result = structuredClone(runtimeEvidence.runs[0]);
+        mutate(result);
+        const verification = await verifyCommentModeration({}, result);
+        assert.equal(verification.ok, false, verification.reason);
+    }
 });
 
 test('comment terminal verifier requires two independent canonical production runs and cleanup observations', () =>
