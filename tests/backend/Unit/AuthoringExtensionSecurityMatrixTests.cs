@@ -104,6 +104,7 @@ public sealed class AuthoringExtensionSecurityMatrixTests
             typeof(AuthoringPackageReceipt),
             typeof(AuthoringLifecycleReceipt),
             typeof(AuthoringBudgetTelemetry),
+            typeof(AuthoringBudgetTelemetryIdentity),
             typeof(AuthoringTransactionReceipt)
         ];
         string[] forbidden = ["Text", "Source", "Payload", "Secret", "Token", "Credential", "StateValue"];
@@ -113,6 +114,10 @@ public sealed class AuthoringExtensionSecurityMatrixTests
             Assert.DoesNotContain(forbidden, fragment =>
                 property.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase));
         }
+
+        Assert.DoesNotContain(
+            typeof(AuthoringBudgetTelemetryIdentity).GetProperties(),
+            static property => property.Name is "DocumentId" or "RequestId");
     }
 
     [Fact]
