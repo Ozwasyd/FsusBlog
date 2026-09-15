@@ -63,3 +63,22 @@ test('security projection durable convergence requires all three complete rows a
     { ...rows[2], ackedNodeIds: '["node-a"]' }
   ]), false)
 })
+
+test('security projection parity groups preserve the concrete projection family', () => {
+  const specs = securityProjectionScenarioInternals.requestSpecs(
+    30,
+    'security-parity',
+    'http://node-a',
+    'http://node-b',
+    'sample')
+  const mutationSpecs = specs.filter((spec) => spec.subcaseId === 'two-node-security-mutation')
+
+  assert.deepEqual(
+    new Set(mutationSpecs.map((spec) => new URL(spec.path, spec.baseUrl).pathname.split('/').at(-1))),
+    new Set(['account', 'ban', 'admin']))
+  assert.equal(new Set(mutationSpecs.map((spec) => spec.parityGroup)).size, 6)
+  for (const spec of mutationSpecs) {
+    const family = new URL(spec.path, spec.baseUrl).pathname.split('/').at(-1)
+    assert.match(spec.parityGroup, new RegExp(`-${family}-node-[ab]$`))
+  }
+})

@@ -79,7 +79,7 @@ function requestSpecs(count, runId, baseUrl, nodeBUrl, phase) {
       baseUrl: target,
       path: `${prefix}/${runId}/hot/${family}?phase=${phase}&ordinal=${index + 1}`,
       subcaseId,
-      parityGroup: `security-${phase}-${subcaseId}-${target === baseUrl ? 'node-a' : 'node-b'}`,
+      parityGroup: `security-${phase}-${subcaseId}-${family}-${target === baseUrl ? 'node-a' : 'node-b'}`,
       headers: {}
     }
   })
@@ -161,4 +161,4 @@ export async function produceSecurityProjectionsReceipt(options) {
   })
 }
 
-export const securityProjectionScenarioInternals = Object.freeze({ bounded, cacheHitEvidence, converged, durableConverged, parseNodes })
+export const securityProjectionScenarioInternals = Object.freeze({ bounded, cacheHitEvidence, converged, durableConverged, parseNodes, requestSpecs })
