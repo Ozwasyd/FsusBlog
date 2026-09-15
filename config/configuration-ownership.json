@@ -98,6 +98,32 @@
             "pathType": "file"
         },
         {
+            "id": "article-relation-catalog",
+            "owner": "article-relation-contract-governance",
+            "canonicalPath": "config/contracts/article-relation-catalog.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-article-relations.mjs",
+                "tests/tools/article-relations.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-article-relations.mjs",
+            "changePolicy": "manual-update-with-closed-catalog-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
+            "id": "article-relation-contract-schema",
+            "owner": "article-relation-contract-governance",
+            "canonicalPath": "config/schemas/article-relation-contract.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-article-relations.mjs",
+                "tests/tools/article-relations.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-article-relations.mjs",
+            "changePolicy": "manual-update-with-closed-schema-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
             "id": "behavior-contract-catalog-schema",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/schemas/behavior-contract-catalog.schema.json",

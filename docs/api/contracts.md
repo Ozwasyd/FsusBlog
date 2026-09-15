@@ -903,6 +903,35 @@ authoring 查询仅接受 authoring set；receipt 只携带 per-edge digests 与
 隐藏边计数。`ArticleEmbedRelationVerifier` 独立重验证来源、重推导 edge、重算全部 digest 并检查
 ticket 只覆盖真实变化的边。本 slice 不执行 relation store、cache、AOT 或 UI——#1808 负责持久化。
 
+### Article relation closed contract
+
+`src/shared/Contracts/ArticleRelations/`、`config/contracts/article-relation-catalog.json` 与
+`config/schemas/article-relation-contract.schema.json` 共同定义 portable article relation 的唯一
+closed/versioned contract authority。本 slice 的 kind catalog 精确包含 `outgoing`、`backlink`、
+`broken`、`visibility-risk` 与 `unlinked-mention`，每个 kind 只有一个 semantic owner，并以
+`ArticleRelationContractCoordinate` 绑定 contract、kind、resolution、visibility 与 lifecycle
+catalog 版本。
+
+`ArticleRelationRecord` 绑定 source article/revision、UTF-16 half-open occurrence range、link text、
+stable target article/heading/block identity、target revision/lifecycle/permission、source/query actor
+与 visibility context、resolution status、index version 及 identity/record digest。target identity 不
+使用 URL、route、slug、title 或 rendered heading text；current public scope 只接受 current source、
+published/allowed target 与 anonymous-public context，draft/private/unknown facts fail closed。
+`ArticleRelationSet` 拒绝 orphan、duplicate 或 tampered records。
+
+unlinked mention 只产生可解释的 `ArticleRelationUnlinkedMentionCandidate`：它携带 matched range、
+候选 stable identities、match rule/reason、confidence、ambiguity 与可选 ignore-decision reference，
+并且 `IsAuthoritative` 永远为 `false`。`ArticleRelationLifecycleEvent` 为 create/edit/publish/schedule/
+archive/delete/restore/rollback/import/migration/rename 指定唯一 owner 与 rebuild/invalidate/reresolve
+obligations。index/query/ignore/prepublish/inspector receipts 绑定 worktree/build、parser/renderer、
+article/schema/permission policy、contract coordinate 与 content digest，只记录 identities/statuses/
+digests，不携带 content。
+
+`ArticleRelationContractValidator` 与 `ArticleRelationDigest` 是独立的 fail-closed validation/sealing
+authority；本 slice 不实现 Markdown parser、relation producer/rebuild、index/query、prepublish/inspector
+或 UI 行为。后续实现必须消费这些 closed contracts，并在上游 source/editor 与 relation lifecycle
+依赖完成且取得对应真实运行时证据后分别验收。
+
 ### `ArticleListItemResponse`
 
 ```json

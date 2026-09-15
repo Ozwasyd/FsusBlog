@@ -6324,6 +6324,21 @@
             ]
         },
         {
+            "file": "tests/tools/article-relations.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ],
+            "staticGovernance": {
+                "id": "article-relations-static-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/generated-output-digest-repair-repository.test.mjs",
             "owner": "manual-diagnostic:tests/tools/generated-output-digest-repair-repository.test.mjs",
             "executionCategory": "manual-diagnostic",

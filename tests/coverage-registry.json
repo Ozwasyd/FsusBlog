@@ -5364,6 +5364,30 @@
             ]
         },
         {
+            "id": "article-relations-static-governance",
+            "description": "Article relation contracts remain one closed, versioned source of truth for outgoing, backlink, broken, visibility-risk and unlinked-mention facts: stable identities, source and target lifecycle/permission facts, explicit visibility scopes, explainable non-authoritative candidates, owned lifecycle obligations and toolchain-bound receipts without parser, index, query, prepublish or UI behavior.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationDigest.cs",
+                "config/contracts/article-relation-catalog.json",
+                "config/schemas/article-relation-contract.schema.json",
+                "tests/backend/Unit/ArticleRelationContractTests.cs",
+                "tools/governance/check-article-relations.mjs",
+                "tests/tools/article-relations.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate relation contract authorities, non-closed kinds or lifecycle/resolution catalogs, unstable URL/slug/title identities, visible booleans, draft/public or unknown permission mixes, orphan or duplicate records, authoritative unlinked candidates, unowned lifecycle obligations, stale contract coordinates, missing identity/record/set/candidate/event/receipt digests, content-bearing receipts, parser or rendered-source inputs, and parser/index/query/prepublish/inspector/UI implementations in the contract slice.",
+            "minimumRequirement": "Focused C# tests cover catalog ownership, stable target coordinates, occurrence facts, resolution and visibility fail-closed states, duplicate/tampered relation sets, explainable unlinked candidates, lifecycle owner/obligation mapping and receipts bound to worktree/build/parser/renderer/schema/policy/content coordinates; independent Node mutations kill duplicate authorities, forbidden inputs, projection fields, removed guards, open schemas and authoritative mention candidates.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "article-scale-plan-static-governance",
             "description": "ArticleScalePlan remains the sole closed provider-neutral scale graph contract and rejects source-level modulo, simplified graph, sentinel hash, manual derived-state, and duplicate plan authority mutations.",
             "owner": "ContentAgent",

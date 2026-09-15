@@ -1,0 +1,87 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "schema": "fsusblog.article-relation-catalog.v1",
+    "contract": "fsusblog.article-relation-contract.v1",
+    "version": 1,
+    "kindCatalogVersion": 1,
+    "resolutionCatalogVersion": 1,
+    "visibilityCatalogVersion": 1,
+    "lifecycleCatalogVersion": 1,
+    "publicQueryPolicy": "current-public-publication-only",
+    "kinds": [
+        {
+            "key": "outgoing",
+            "owner": "source-revision-authority",
+            "sourceFacts": "source-article-revision-range-actor-lifecycle",
+            "targetFacts": "stable-target-article-revision-anchor-rights-lifecycle",
+            "eligibility": ["authoring-query", "public-query", "publication-evidence"],
+            "requiresStableTarget": true,
+            "proofTestId": "article-relation-outgoing-contract"
+        },
+        {
+            "key": "backlink",
+            "owner": "relation-index-authority",
+            "sourceFacts": "source-article-revision-range-actor-lifecycle",
+            "targetFacts": "stable-target-article-revision-anchor-rights-lifecycle",
+            "eligibility": ["authoring-query", "public-query", "publication-evidence"],
+            "requiresStableTarget": true,
+            "proofTestId": "article-relation-backlink-contract"
+        },
+        {
+            "key": "broken",
+            "owner": "resolution-authority",
+            "sourceFacts": "source-article-revision-range-actor-lifecycle",
+            "targetFacts": "stable-target-article-revision-anchor-rights-lifecycle-or-missing",
+            "eligibility": ["authoring-query", "publication-evidence"],
+            "requiresStableTarget": false,
+            "proofTestId": "article-relation-broken-contract"
+        },
+        {
+            "key": "visibility-risk",
+            "owner": "visibility-policy-authority",
+            "sourceFacts": "source-article-revision-range-actor-lifecycle",
+            "targetFacts": "stable-target-article-revision-anchor-rights-lifecycle",
+            "eligibility": ["authoring-query", "publication-evidence"],
+            "requiresStableTarget": true,
+            "proofTestId": "article-relation-visibility-risk-contract"
+        },
+        {
+            "key": "unlinked-mention",
+            "owner": "mention-matcher-authority",
+            "sourceFacts": "source-article-revision-range-actor-lifecycle",
+            "targetFacts": "candidate-target-identities-only",
+            "eligibility": ["authoring-query"],
+            "requiresStableTarget": false,
+            "proofTestId": "article-relation-unlinked-mention-contract"
+        }
+    ],
+    "resolutionStatuses": [
+        "resolved",
+        "missing-target",
+        "missing-anchor",
+        "deleted",
+        "archived",
+        "unauthorized",
+        "private",
+        "draft",
+        "stale",
+        "ambiguous",
+        "unsupported"
+    ],
+    "revisionKinds": ["draft", "current", "published"],
+    "lifecycleStates": ["draft", "scheduled", "published", "archived", "deleted"],
+    "lifecycleEvents": [
+        "create",
+        "edit",
+        "publish",
+        "schedule",
+        "archive",
+        "delete",
+        "restore",
+        "rollback",
+        "import",
+        "migration",
+        "slug-title-heading-rename"
+    ],
+    "receipts": ["index", "query", "ignore-decision", "prepublish", "inspector"]
+}
