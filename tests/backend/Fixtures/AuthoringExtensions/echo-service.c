@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
+#include <unistd.h>
 
 int main(int argc, char **argv)
 {
@@ -27,6 +29,27 @@ int main(int argc, char **argv)
             request == NULL || grants == NULL || payload == NULL || extra != NULL)
         {
             return 3;
+        }
+
+        /* Base64("DETACH_CHILD"). The child deliberately creates a new
+           session and ignores SIGHUP. The host test must still prove that the
+           sandbox namespace/process-tree authority removes it. */
+        if (strcmp(payload, "REVUQUNIX0NISUxE") == 0)
+        {
+            pid_t child = fork();
+            if (child < 0)
+            {
+                return 4;
+            }
+            if (child == 0)
+            {
+                (void)setsid();
+                (void)signal(SIGHUP, SIG_IGN);
+                for (;;)
+                {
+                    sleep(1);
+                }
+            }
         }
 
         printf("RESULT\t%s\t%s\t%s\t%s\n", schema, runtime, request, payload);

@@ -751,7 +751,8 @@ manifest/registry and verified content-addressed package supply chain. Its atomi
 package pointer feeds a fixed Hybrid execution resolver that rechecks the active
 package and never falls back across classes. Verified Worker/Wasm targets may run
 in the bounded Linux bubblewrap sandbox; resolution itself does not start an owned
-service or host adapter. The production trusted-adapter
+service or host adapter. Verified service targets have a separate prlimit/bubblewrap
+process-tree and exact host-brokered network/file boundary. The production trusted-adapter
 registry remains empty pending a real reviewed bridge. It adds no HTTP/AEDS or
 stable Shared ABI and does not widen the generic `.fspkg` Hook plugin system. See the focused
 [authoring extension host boundary](architecture/authoring-extension-host-boundary.md).

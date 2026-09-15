@@ -210,6 +210,10 @@ public sealed class AuthoringExtensionServiceIoBroker
         _network = network;
         _privateStagingRoot = privateStagingRoot;
         Directory.CreateDirectory(privateStagingRoot);
+        if (new DirectoryInfo(privateStagingRoot).LinkTarget is not null)
+        {
+            throw new AuthoringExtensionContractException("Service broker staging root cannot be a reparse boundary.");
+        }
         if (!OperatingSystem.IsWindows())
         {
             File.SetUnixFileMode(
@@ -264,6 +268,13 @@ public sealed class AuthoringExtensionServiceIoBroker
         }
 
         string path = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, cancellationToken);
+        var file = new FileInfo(path);
+        if (!file.Exists || file.Length > grant.MaximumBytes ||
+            (file.Attributes & (FileAttributes.Directory | FileAttributes.Device | FileAttributes.ReparsePoint)) != 0)
+        {
+            throw new AuthoringExtensionContractException("File grant did not resolve to a bounded regular file.");
+        }
+
         await using var stream = new FileStream(
             path,
             FileMode.Open,
