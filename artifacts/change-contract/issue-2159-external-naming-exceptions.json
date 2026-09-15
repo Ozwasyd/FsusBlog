@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs",
+                "tools/test-fixtures/receipt/postconditions.mjs",
+                "tools/test/comment-fixture-governance.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal."
+        }
+    ]
+}
