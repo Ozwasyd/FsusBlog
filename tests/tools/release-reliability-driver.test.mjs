@@ -65,7 +65,6 @@ test('release reliability catalog declares structured executable commands and ev
         'release-soak-min',
         'release-load-peak',
         'release-load-burst',
-        'release-data-scale-m',
         'release-memory-leak-budget',
         'release-open-handle-budget'
     ])
@@ -80,6 +79,31 @@ test('release reliability catalog declares structured executable commands and ev
         assert.ok(
             inherited.includes('FSUSBLOG_REDIS_CONTAINER_NAME'),
             `${scenarioId} must inherit the run-owned Redis container`
+        );
+    }
+    {
+        const dataScale = catalog.scenarios.find(
+            (scenario) => scenario.id === 'release-data-scale-m'
+        );
+        assert.equal(dataScale.command.env.FSUSBLOG_DATA_SCALE_PROVISION_MODE, 'full');
+        assert.equal(
+            dataScale.command.inheritEnv.required.includes('FSUSBLOG_POSTGRES_CONTAINER_NAME'),
+            false,
+            'release-data-scale-m must not require shared bootstrap postgres; lane provisions dedicated runtime'
+        );
+        assert.equal(
+            dataScale.command.inheritEnv.required.includes('FSUSBLOG_REDIS_CONTAINER_NAME'),
+            false,
+            'release-data-scale-m must not require shared bootstrap redis; lane provisions dedicated runtime'
+        );
+        assert.deepEqual(
+            dataScale.scheduler.exclusiveResources,
+            [
+                'data-scale-artifacts',
+                'data-scale-postgres',
+                'data-scale-redis',
+                'data-scale-runtime'
+            ]
         );
     }
     assert.equal(

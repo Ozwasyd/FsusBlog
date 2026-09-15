@@ -32,10 +32,14 @@ function writeExecutable(file, contents)
 
 function run(file, environment)
 {
+    const env = { ...process.env, ...environment };
+    delete env.FSUSBLOG_POSTGRES_CONTAINER_NAME;
+    delete env.FSUSBLOG_PG_CONTAINER;
+    delete env.FSUSBLOG_REDIS_CONTAINER_NAME;
     return spawnSync('bash', [file], {
         encoding: 'utf8',
         cwd: path.resolve(path.dirname(file), '../../..'),
-        env: { ...process.env, ...environment }
+        env
     });
 }
 
@@ -93,24 +97,25 @@ function setupScaleFixture(context)
     fs.mkdirSync(path.dirname(lane), { recursive: true });
     fs.copyFileSync(path.join(root, 'tools/test/lanes/data-scale.sh'), lane);
     writeExecutable(path.join(fixture, 'tools/data-scale/seed.sh'), `#!/usr/bin/env bash
-printf 'data-scale lane must not own seed\\n' >&2
+printf 'data-scale lane must not own seed\n' >&2
 exit 91
 `);
     writeExecutable(path.join(fixture, 'tools/data-scale/probe.sh'), `#!/usr/bin/env bash
 set -euo pipefail
 out="$PWD/.tmp/scale/$1/summary.json"
+mkdir -p "$(dirname "$out")"
 if [[ "\${FAKE_PROBE_MODE:-}" == "current" ]]; then
   printf '%s' "\${FAKE_SUMMARY}" > "$out"
   exit 7
 fi
 if [[ "\${FAKE_PROBE_MODE:-}" == "ordinary" ]]; then
-  printf '{"status":"ok","sentinel":"current"}' > "$out"
+  printf '{"schema":"fsusblog.data-scale-semantic-proof.v2","status":"ok","sentinel":"current"}' > "$out"
   exit 0
 fi
 exit 7
 `);
     writeExecutable(path.join(fixture, 'tools/data-scale/cleanup.sh'), `#!/usr/bin/env bash
-printf 'data-scale lane must not own teardown\\n' >&2
+printf 'data-scale lane must not own teardown\n' >&2
 exit 92
 `);
     return fixture;
@@ -173,7 +178,12 @@ test('data-scale lane rejects stale observations and projects only the current r
     fs.writeFileSync(raw, JSON.stringify({ status: 'ok', sentinel: 'stale', releaseReliability: binding }));
     fs.writeFileSync(projection, JSON.stringify({ status: 'ok', sentinel: 'stale', releaseReliability: binding }));
 
-    let result = run(path.join(fixture, 'tools/test/lanes/data-scale.sh'), { FSUSBLOG_SCALE_TIER: tier });
+    let result = run(path.join(fixture, 'tools/test/lanes/data-scale.sh'), {
+        FSUSBLOG_SCALE_TIER: tier,
+        FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'plan-identity',
+        FSUSBLOG_DATA_SCALE_PROVISIONER_SCRIPT: path.join(root, 'tools/data-scale/runtime-provisioner.mjs'),
+        FSUSBLOG_NODE: process.execPath
+    });
     assert.equal(result.status, 1);
     let output = JSON.parse(fs.readFileSync(projection, 'utf8'));
     assert.equal(output.status, 'failed');
@@ -182,6 +192,9 @@ test('data-scale lane rejects stale observations and projects only the current r
 
     result = run(path.join(fixture, 'tools/test/lanes/data-scale.sh'), {
         FSUSBLOG_SCALE_TIER: tier,
+        FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'plan-identity',
+        FSUSBLOG_DATA_SCALE_PROVISIONER_SCRIPT: path.join(root, 'tools/data-scale/runtime-provisioner.mjs'),
+        FSUSBLOG_NODE: process.execPath,
         FAKE_PROBE_MODE: 'current',
         FAKE_SUMMARY: JSON.stringify({
             status: 'failed',
@@ -198,6 +211,9 @@ test('data-scale lane rejects stale observations and projects only the current r
 
     result = run(path.join(fixture, 'tools/test/lanes/data-scale.sh'), {
         FSUSBLOG_SCALE_TIER: tier,
+        FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'plan-identity',
+        FSUSBLOG_DATA_SCALE_PROVISIONER_SCRIPT: path.join(root, 'tools/data-scale/runtime-provisioner.mjs'),
+        FSUSBLOG_NODE: process.execPath,
         FAKE_PROBE_MODE: 'ordinary'
     });
     assert.equal(result.status, 0);

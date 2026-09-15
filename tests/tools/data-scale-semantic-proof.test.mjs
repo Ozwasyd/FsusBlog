@@ -216,7 +216,7 @@ exit 0
             ...process.env,
             FSUSBLOG_DATA_SCALE_ROOT: temp,
             FSUSBLOG_DATA_SCALE_PROBE_SCRIPT: mockProbe,
-            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'dedicated-postgres-container'
+            FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'plan-identity'
         },
         encoding: 'utf8'
     });

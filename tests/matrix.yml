@@ -7421,10 +7421,10 @@ tiers:
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-m
-      executionDependsOn: [bootstrap]
-      services: [postgres, redis]
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
       parallelizable: false
-      exclusiveResources: [scale-data]
+      exclusiveResources: [data-scale-artifacts, data-scale-postgres, data-scale-redis, data-scale-runtime]
       phase: 5
       cost: high
       resourceClass: database
@@ -7432,8 +7432,8 @@ tiers:
       memoryWeight: 3
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
-      requiresNode: false
+      requiresBootstrap: none
+      requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: backend

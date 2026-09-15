@@ -968,7 +968,7 @@
             "source": "tools/test/lanes/data-scale.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.m",
             "implicitSource": "tests/matrix.yml tier data-scale-m; command tools/test/lanes/data-scale.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "scale-m",
             "profileIds": [
                 "scale-m"

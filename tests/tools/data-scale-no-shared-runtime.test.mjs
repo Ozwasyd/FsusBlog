@@ -76,18 +76,96 @@ test('data-scale cleanup rejects fsusblog-dev-postgres and shared candidate cont
     assert.match(resCandidate.stderr, /prohibited from using shared or development postgres container/);
 });
 
-test('data-scale lane rejects missing or shared postgres container', () =>
+test('data-scale lane ignores forced shared postgres and provisions dedicated identity', (t) =>
 {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-ignore-shared-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const probe = path.join(temp, 'probe.sh');
+    fs.writeFileSync(probe, `#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "$FSUSBLOG_DATA_SCALE_ROOT/scale-xs"
+cat > "$FSUSBLOG_DATA_SCALE_ROOT/scale-xs/summary.json" <<'JSON'
+{"schema":"fsusblog.data-scale-semantic-proof.v2","status":"ok","sampling":{"requests":1,"concurrency":1,"routeCount":1}}
+JSON
+`);
+    fs.chmodSync(probe, 0o755);
+
     const res = spawnSync('bash', [dataScaleLane, 'scale-xs'], {
         cwd: root,
         env: {
             ...process.env,
-            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-dev-postgres'
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-dev-postgres',
+            FSUSBLOG_DATA_SCALE_ROOT: path.join(temp, 'scale'),
+            FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'plan-identity',
+            FSUSBLOG_DATA_SCALE_PROBE_SCRIPT: probe,
+            FSUSBLOG_TEST_RUN_ID: 'sched-ignore-shared-01'
         },
         encoding: 'utf8'
     });
-    assert.notEqual(res.status, 0);
-    assert.match(res.stderr, /dedicated-scenario runtime container is required/);
+    assert.equal(res.status, 0, res.stderr || res.stdout);
+    assert.match(res.stderr, /ignoring shared\/development container fsusblog-dev-postgres/);
+    const envText = fs.readFileSync(path.join(temp, 'scale', 'scale-xs', 'dedicated-runtime.env'), 'utf8');
+    assert.match(envText, /FSUSBLOG_POSTGRES_CONTAINER_NAME='fsusblog-data-scale-pg-/);
+    assert.doesNotMatch(envText, /fsusblog-dev-postgres/);
+});
+
+test('data-scale lane invokes DataScaleRuntimeProvisioner and emits dedicated identity', (t) =>
+{
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-lane-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const probe = path.join(temp, 'probe.sh');
+    fs.writeFileSync(probe, `#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "$FSUSBLOG_DATA_SCALE_ROOT/scale-xs"
+cat > "$FSUSBLOG_DATA_SCALE_ROOT/scale-xs/summary.json" <<'JSON'
+{"schema":"fsusblog.data-scale-semantic-proof.v2","status":"ok","sampling":{"requests":1,"concurrency":1,"routeCount":1}}
+JSON
+`);
+    fs.chmodSync(probe, 0o755);
+
+    const res = spawnSync('bash', [dataScaleLane, 'scale-xs'], {
+        cwd: root,
+        env: {
+            ...process.env,
+            FSUSBLOG_DATA_SCALE_ROOT: path.join(temp, 'scale'),
+            FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'plan-identity',
+            FSUSBLOG_DATA_SCALE_PROBE_SCRIPT: probe,
+            FSUSBLOG_TEST_RUN_ID: 'sched-lane-wire-01',
+            FSUSBLOG_TEST_NAMESPACE: 'data-scale'
+        },
+        encoding: 'utf8'
+    });
+    assert.equal(res.status, 0, res.stderr || res.stdout);
+    assert.match(res.stdout + res.stderr, /DataScaleRuntimeProvisioner|provisioning dedicated-scenario runtime/);
+
+    const envFile = path.join(temp, 'scale', 'scale-xs', 'dedicated-runtime.env');
+    assert.equal(fs.existsSync(envFile), true, 'lane must write provisioner env file');
+    const envText = fs.readFileSync(envFile, 'utf8');
+    assert.match(envText, /FSUSBLOG_POSTGRES_CONTAINER_NAME='fsusblog-data-scale-pg-/);
+    assert.match(envText, /FSUSBLOG_REDIS_CONTAINER_NAME='fsusblog-data-scale-redis-/);
+    assert.doesNotMatch(envText, /fsusblog-dev-postgres/);
+
+    const projection = JSON.parse(fs.readFileSync(
+        path.join(temp, 'scale', 'release-summaries', 'scale-xs.json'),
+        'utf8'
+    ));
+    assert.equal(projection.status, 'ok');
+    assert.deepEqual(projection.expectedSeed, { articles: 1, comments: 0 });
+});
+
+test('matrix data-scale-m uses dedicated exclusives without shared bootstrap', () =>
+{
+    const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
+    const match = matrix.match(/- id: data-scale-m\n([\s\S]*?)\n    - id: /);
+    assert.ok(match, 'data-scale-m tier must exist');
+    const block = match[1];
+    assert.match(block, /requiresBootstrap: none/);
+    assert.match(block, /services: \[\]/);
+    assert.match(block, /executionDependsOn: \[behavior-doc-static-admission\]/);
+    assert.match(block, /exclusiveResources: \[data-scale-artifacts, data-scale-postgres, data-scale-redis, data-scale-runtime\]/);
+    assert.doesNotMatch(block, /requiresBootstrap: full/);
+    assert.doesNotMatch(block, /services: \[postgres, redis\]/);
+    assert.doesNotMatch(block, /exclusiveResources: \[scale-data\]/);
 });
 
 test('data-scale runtime provisioner fails if backend is running when raw seed is attempted', async (t) =>

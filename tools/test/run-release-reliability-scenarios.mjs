@@ -68,16 +68,16 @@ const canonicalScenarioInheritedEnvironment = {
     'release-load-burst': canonicalRuntimeInheritedEnvironment,
     'release-data-scale-m': {
         required: [
-            'FSUSBLOG_DEBUG_BACKEND_URL',
-            'FSUSBLOG_POSTGRES_CONTAINER_NAME',
-            'FSUSBLOG_REDIS_CONTAINER_NAME',
             'FSUSBLOG_TEST_NAMESPACE',
             'FSUSBLOG_TEST_RUN_ID'
         ],
         optional: [
             'FSUSBLOG_AOT_CACHE_DIR',
             'FSUSBLOG_BACKEND_WEBROOT',
+            'FSUSBLOG_DEBUG_BACKEND_URL',
+            'FSUSBLOG_POSTGRES_CONTAINER_NAME',
             'FSUSBLOG_PUBLIC_AOT_CACHE_DIR',
+            'FSUSBLOG_REDIS_CONTAINER_NAME',
             'FSUSBLOG_SEARCH_DIR',
             'FSUSBLOG_SEARCH_INDEX_DIR',
             'FSUSBLOG_WEB_ROOT'
@@ -163,6 +163,7 @@ const canonicalScenarioSemantics = {
     'release-data-scale-m': {
         env: {
             FSUSBLOG_DATA_SCALE_CONCURRENCY: '2',
+            FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'full',
             FSUSBLOG_DATA_SCALE_REQUESTS: '12',
             FSUSBLOG_DATA_SCALE_ROOT: '.tmp/scale',
             FSUSBLOG_SCALE_TIER: 'scale-m'
