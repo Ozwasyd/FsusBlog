@@ -671,6 +671,13 @@ test.describe('article editor production fixture outline rail', () => {
 
     await items.nth(1).click()
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true')
+    await expect(editor).toBeFocused()
+    const selection = await editor.evaluate((element) => ({
+      start: (element as HTMLTextAreaElement).selectionStart,
+      end: (element as HTMLTextAreaElement).selectionEnd
+    }))
+    expect(selection.start).toBeGreaterThan(0)
+    expect(selection.end).toBe(selection.start)
     await page.getByRole('button', { name: '实时' }).click()
     await page.getByRole('button', { name: '源码对照' }).click()
     await expect(page.locator('[data-markdown-chrome="embedded"]')).toHaveCount(1)
