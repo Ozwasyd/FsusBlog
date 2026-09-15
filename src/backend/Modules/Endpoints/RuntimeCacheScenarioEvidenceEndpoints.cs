@@ -61,6 +61,7 @@ internal static class RuntimeCacheScenarioEvidenceEndpoints
         IAdminSessionProjectionMutationCoordinator adminMutations,
         NotificationStreamAccountAdmissionCache admission,
         IUserAccountReader users,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         if (!Authorized(context) || !ValidRunId(runId))
@@ -132,7 +133,7 @@ internal static class RuntimeCacheScenarioEvidenceEndpoints
         var state = new SecurityRunState(
             runId,
             owner,
-            DateTimeOffset.UtcNow.AddSeconds(-1),
+            SecurityEvidenceStartBoundary(timeProvider),
             user.Id,
             user.AccountSubjectHash,
             sessionId,
@@ -627,6 +628,9 @@ internal static class RuntimeCacheScenarioEvidenceEndpoints
 
     private static string SecuritySessionId(string runId)
         => $"rc-{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(runId)))[..40]}";
+
+    internal static DateTimeOffset SecurityEvidenceStartBoundary(TimeProvider timeProvider)
+        => timeProvider.GetUtcNow().AddSeconds(-1);
 
     private sealed record SecurityRunState(
         string RunId,

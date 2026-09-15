@@ -427,9 +427,16 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
   if (requirements.uniqueKeys != null && Number(findAssertion(receipt, 'unique-key-count')?.actual) !== requirements.uniqueKeys) errors.push(`unique key count must equal ${requirements.uniqueKeys}`)
   if (requirements.classificationCount != null && Number(findAssertion(receipt, 'classification-count')?.actual) !== requirements.classificationCount) errors.push(`classification count must equal ${requirements.classificationCount}`)
   if (requirements.atomicRedisPublication && findAssertion(receipt, 'atomic-redis-publication')?.actual !== true) errors.push('atomic Redis publication was not proven')
-  if (requirements.unsampledL1AllocationBytesMax != null && raw) {
-    const allocation = raw.requests.filter((request) => request.subcaseId === 'unsampled-l1-hit').reduce((sum, request) => sum + request.allocatedBytes, 0)
-    if (allocation > requirements.unsampledL1AllocationBytesMax) errors.push('unsampled L1 allocation budget exceeded')
+  if (requirements.unsampledL1AllocationBytesMax != null) {
+    const assertion = findAssertion(receipt, 'unsampled-l1-zero-allocation')
+    const actual = assertion?.actual
+    if (!assertion || actual?.observed !== true || actual?.sameThread !== true ||
+        !Number.isInteger(actual?.maxBytes) || actual.maxBytes > requirements.unsampledL1AllocationBytesMax) {
+      errors.push('unsampled L1 boundary allocation budget exceeded')
+    }
+    if (receipt.input.parameters.unsampledL1AllocationAuthority !== requirements.unsampledL1AllocationAuthority) {
+      errors.push('unsampled L1 allocation authority does not match the catalog')
+    }
   }
 }
 

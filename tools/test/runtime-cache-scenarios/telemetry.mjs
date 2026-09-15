@@ -100,6 +100,7 @@ export async function produceTelemetryReceipt(options) {
           observedBoundaries: boundaries.length,
           sampledBoundaries: hitBoundaries.length - unsampled.length,
           unsampledBoundaries: unsampled.length,
+          unsampledL1AllocationAuthority: 'runtime-cache-l1-boundary',
           cleanupOwnedByScenario: !cleanupDone
         }
       }

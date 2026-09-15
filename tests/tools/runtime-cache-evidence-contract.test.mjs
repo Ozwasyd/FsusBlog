@@ -244,6 +244,40 @@ test('article-detail Redis fault latency is derived from request traces', () => 
   assert.ok(!errors.some((error) => error.includes('did not remain on an L1 path')))
 })
 
+test('telemetry allocation budget uses the authenticated UnifiedCache boundary rather than HTTP transport allocation', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const scenario = catalog.scenarios.find((item) => item.id === 'telemetry')
+  scenario.requirements = {
+    unsampledL1AllocationBytesMax: 0,
+    unsampledL1AllocationAuthority: 'runtime-cache-l1-boundary'
+  }
+  const evidence = makeEvidence(scenario, repositoryRoot, {
+    catalog,
+    mutateRaw: (raw) => { raw.requests[0].allocatedBytes = 12_392 },
+    mutateReceipt: (receipt) => {
+      receipt.input.parameters.unsampledL1AllocationAuthority = 'runtime-cache-l1-boundary'
+      const assertion = receipt.assertions.find((item) => item.id === 'unsampled-l1-zero-allocation')
+      assertion.expected = { observed: true, sameThread: true, maxBytes: 0 }
+      assertion.actual = { observed: true, sameThread: true, maxBytes: 0 }
+    }
+  })
+
+  assert.deepEqual(validateRuntimeCacheReceipt(evidence.receipt, {
+    catalog,
+    repositoryRoot,
+    expectedSource: sourceSnapshot
+  }), [])
+
+  const missingAuthority = structuredClone(evidence.receipt)
+  delete missingAuthority.input.parameters.unsampledL1AllocationAuthority
+  assert.ok(validateRuntimeCacheReceipt(sealReceipt(missingAuthority), {
+    catalog,
+    repositoryRoot,
+    expectedSource: sourceSnapshot
+  }).some((error) => error.includes('allocation authority')))
+})
+
 test('singleflight rebuild counts are exact per cold identity group', () => {
   const repositoryRoot = createRepository()
   const catalog = tinyCatalog()
