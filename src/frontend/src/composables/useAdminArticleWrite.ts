@@ -2830,6 +2830,8 @@ export function useAdminArticleWrite()
         seoStatusText,
         articleForm,
         authoringDocumentIdentity,
+        currentRevisionId,
+        currentRevisionNo,
         articleRightsUsingSiteDefaults,
         articleRightsInheritanceText,
         articleRightsLicenseOptions,

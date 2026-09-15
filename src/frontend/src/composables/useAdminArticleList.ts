@@ -14,6 +14,10 @@ import { useMutationFlow } from '@/composables/useMutationFlow';
 import { useRowStateMotion } from '@/composables/useRowStateMotion';
 import { useViewTask } from '@/composables/useViewTask';
 import { articleRecoveryJournal } from '@/services/articleRecoveryJournal';
+import {
+    articleWorkspaceTabRouter,
+    createArticleWorkspaceOpenInput
+} from '@/services/authoring/articleWorkspaceTabRouter';
 import { showErrorToast } from '@/utils/errorPresentation';
 import { TimeUtils } from '@/utils/time';
 
@@ -439,13 +443,72 @@ export function useAdminArticleList()
         loadDataWithDebounce();
     };
 
+    const openArticleWorkspaceRoute = (
+        row: ArticleListItemResponse,
+        options: { preview: boolean; entrypoint: 'internal-link' | 'rail' | 'quick-switcher' | 'recent-restore'; }
+    ): void =>
+    {
+        const location = {
+            name: 'ManageEditArticle',
+            params: { id: String(row.id) },
+            query: {
+                from: route.fullPath,
+                ...(options.preview ? { preview: 'private' } : {})
+            }
+        } as const;
+        const routePath = router.resolve(location).fullPath;
+        const identity = {
+            articleId: row.id,
+            draftId: `draft:article:${row.id}`,
+            documentId: `document:article:${row.id}`
+        };
+        const status = {
+            dirty: false,
+            saving: false,
+            conflict: false,
+            recovery: false,
+            pendingAttachments: false,
+            permission: 'allowed' as const,
+            lifecycle: row.isDeleted
+                ? 'deleted' as const
+                : row.status === ArticlePublishStatus.Archived
+                    ? 'archived' as const
+                    : 'current' as const,
+            statusRef: `workspace-status:article:${row.id}`
+        };
+        const input = createArticleWorkspaceOpenInput(
+            identity,
+            {
+                documentEpoch: 1,
+                sourceRevision: row.currentRevisionId?.trim()
+                    ? `revision:source:${row.currentRevisionId.trim()}`
+                    : `source:article:${row.id}`,
+                draftRevision: typeof row.revisionNo === 'number'
+                    ? `revision:article:${row.id}:${row.revisionNo}`
+                    : `draft:article:${row.id}`
+            },
+            row.title,
+            status,
+            {
+                tabKind: options.preview ? 'preview' : 'pinned',
+                entrypoint: options.entrypoint,
+                route: routePath
+            }
+        );
+        void articleWorkspaceTabRouter.openOrActivateAndNavigate(input, {
+            currentFullPath: route.fullPath,
+            push: (target) => router.push(target)
+        });
+    };
+
     const handleEdit = (id: number): void =>
     {
-        void router.push({
-            name: 'ManageEditArticle',
-            params: { id: String(id) },
-            query: { from: route.fullPath }
-        });
+        const row = articleList.value.find((item) => item.id === id);
+        if (!row)
+        {
+            return;
+        }
+        openArticleWorkspaceRoute(row, { preview: false, entrypoint: 'internal-link' });
     };
 
     const safeDelete = async (row: ArticleListItemResponse): Promise<void> =>
@@ -495,11 +558,7 @@ export function useAdminArticleList()
                     return;
                 }
 
-                void router.push({
-                    name: 'ManageEditArticle',
-                    params: { id: String(row.id) },
-                    query: { from: route.fullPath, preview: 'private' }
-                });
+                openArticleWorkspaceRoute(row, { preview: true, entrypoint: 'internal-link' });
             },
             delete: () =>
             {
