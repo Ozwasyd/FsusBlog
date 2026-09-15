@@ -46,6 +46,13 @@ public sealed class ClusterMembershipHostedService(
             {
                 logger.LogWarning(ex, "cluster-membership-heartbeat-redis-unavailable");
             }
+            catch (OperationCanceledException ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                // StackExchange.Redis can surface a transport disconnect as a raw
+                // TaskCanceledException instead of the executor's typed failure.
+                // A transient Redis cancellation must not terminate the host.
+                logger.LogWarning(ex, "cluster-membership-heartbeat-redis-cancelled");
+            }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
     }

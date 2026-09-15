@@ -159,6 +159,63 @@ public sealed class ClusterMembershipTests
     }
 
     [Fact]
+    public async Task Heartbeat_RawRedisTransportCancellationDoesNotStopHostedService()
+    {
+        IClusterMembershipStore store = Substitute.For<IClusterMembershipStore>();
+        ILeaseManager leaseManager = Substitute.For<ILeaseManager>();
+        IResponsibilityRuntime responsibilities = Substitute.For<IResponsibilityRuntime>();
+        var secondHeartbeat = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int heartbeatCount = 0;
+
+        store.UpsertNodeAsync(Arg.Any<NodeDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.CompletedTask);
+        store.MarkHeartbeatAsync(Arg.Any<NodeHeartbeat>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref heartbeatCount) == 1)
+                {
+                    return ValueTask.FromException(new TaskCanceledException("redis transport disconnected"));
+                }
+                secondHeartbeat.TrySetResult();
+                return ValueTask.CompletedTask;
+            });
+        store.ListNodesAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<IReadOnlyList<NodeDescriptor>>([]));
+        responsibilities.ListActiveAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<IReadOnlyList<ActiveResponsibility>>([]));
+        leaseManager.TryAcquireAsync(
+                Arg.Any<LeaseKey>(),
+                Arg.Any<NodeId>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<LeaseAcquireResult>(new LeaseAcquireResult(false, null, null)));
+
+        var options = new ClusterMembershipOptions(
+            new NodeId("node-heartbeat-transport-cancellation-test"),
+            Guid.NewGuid(),
+            "test",
+            DateTimeOffset.UtcNow,
+            ClusterRuntimeMode.StaticRole,
+            [ClusterCapabilities.WebApi],
+            TimeSpan.FromMilliseconds(10),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(2));
+        var service = new ClusterMembershipHostedService(
+            store,
+            leaseManager,
+            responsibilities,
+            options,
+            TimeProvider.System,
+            NullLogger<ClusterMembershipHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        await secondHeartbeat.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await service.StopAsync(CancellationToken.None);
+
+        Assert.True(heartbeatCount >= 2);
+    }
+
+    [Fact]
     public void Descriptor_RoundTripsThroughSharedStorePayload()
     {
         NodeDescriptor expected = NodeDescriptor.Create(
