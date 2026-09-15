@@ -6,6 +6,7 @@ import {
   produceMeasuredScenarioReceipt
 } from '../run-runtime-cache-evidence.mjs'
 import { evaluateLogicalPaginationDatabaseCommands } from '../runtime-cache-evidence-contract.mjs'
+import { createScenarioApi } from './runtime-scenario-support.mjs'
 
 function paginationInput(identity) {
   const fixture = JSON.parse(fs.readFileSync(identity.fixtureFile, 'utf8'))
@@ -53,12 +54,14 @@ function cursorlessSpec(input, logicalPage) {
 }
 
 export async function producePaginationReceipt(options) {
-  const { scenario, identity } = options
+  const { scenario, identity, baseUrl } = options
   const input = paginationInput(identity)
   const logicalPages = scenario.requirements.logicalPages
+  const api = options.scenarioApi ? createScenarioApi(options) : null
+  let cacheBoundary
 
   return produceMeasuredScenarioReceipt(options, {
-    warmup: async ({ collect }) => {
+    warmup: async ({ collect, runId }) => {
       const specs = Array.from({ length: scenario.warmupRequests }, () => ({
         method: 'GET',
         path: '/api/binary/system/seo',
@@ -66,7 +69,27 @@ export async function producePaginationReceipt(options) {
         parityGroup: 'pagination-warmup',
         headers: {}
       }))
-      return mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
+      const requests = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
+      if (api) {
+        const baseUrls = [baseUrl]
+        if (options.secondaryBaseUrl && options.secondaryBaseUrl !== baseUrl) {
+          baseUrls.push(options.secondaryBaseUrl)
+        }
+        const results = await Promise.all(baseUrls.map((nodeBaseUrl, index) => api.cleanup(nodeBaseUrl, {
+          scenario: 'pagination',
+          runId,
+          articleId: 0,
+          eventId: null,
+          keyCount: 0,
+          deleteDurable: false,
+          deleteShared: index === 0
+        })))
+        cacheBoundary = {
+          nodes: results,
+          measuredBaseUrl: baseUrl
+        }
+      }
+      return requests
     },
     sample: async ({ collect }) => {
       const logical = []
@@ -117,7 +140,8 @@ export async function producePaginationReceipt(options) {
           articleCount: input.articleCount,
           ownedArticleCount: input.ownedArticleCount,
           logicalPages,
-          cursorlessPages
+          cursorlessPages,
+          cacheBoundary
         }
       }
     }

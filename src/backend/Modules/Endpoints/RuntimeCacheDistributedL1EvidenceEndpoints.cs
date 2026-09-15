@@ -210,6 +210,7 @@ internal static class RuntimeCacheDistributedL1EvidenceEndpoints
         RuntimeCacheCleanupRequest request,
         ICacheInvalidationStore sharedCache,
         ICacheLocalInvalidator localCache,
+        ICacheStringReader cacheReader,
         DistributedInvalidationEventFactory eventFactory,
         ISqlSugarClient db,
         CancellationToken cancellationToken)
@@ -248,6 +249,69 @@ internal static class RuntimeCacheDistributedL1EvidenceEndpoints
             {
                 await sharedCache.RemoveManyAsync(keys, cancellationToken).ConfigureAwait(false);
             }
+        }
+        else if (string.Equals(request.Scenario, "pagination", StringComparison.Ordinal))
+        {
+            if (request.ArticleId != 0 || request.KeyCount != 0 ||
+                !string.IsNullOrEmpty(request.EventId) || request.DeleteDurable)
+            {
+                return Results.BadRequest(new
+                {
+                    error = "runtime_cache_pagination_cleanup_request_invalid"
+                });
+            }
+
+            string? rawVersion = await cacheReader.GetStringAsync(
+                CachePolicyId.ArticleListVersion,
+                "main",
+                cancellationToken).ConfigureAwait(false);
+            if (!long.TryParse(
+                rawVersion,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out long version) || version < 0)
+            {
+                return Results.Problem(
+                    detail: "article list cache version is unavailable for the pagination cache boundary",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            string identity = BuildPublicArticleListCountIdentity(version);
+            CacheKeyIdentity[] keys = [new(CachePolicyId.ArticleListCount, identity)];
+            CacheL1InvalidationReceipt localInvalidation = localCache.InvalidateLocal(keys);
+            if (request.DeleteShared)
+            {
+                await sharedCache.RemoveManyAsync(keys, cancellationToken).ConfigureAwait(false);
+            }
+            string? residual = request.DeleteShared
+                ? await cacheReader.GetStringAsync(
+                    CachePolicyId.ArticleListCount,
+                    identity,
+                    cancellationToken).ConfigureAwait(false)
+                : null;
+            if (residual is not null)
+            {
+                return Results.Problem(
+                    detail: "article list count cache boundary remained populated after cleanup",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            return Results.Ok(new
+            {
+                request.Scenario,
+                request.RunId,
+                request.KeyCount,
+                request.DeleteShared,
+                cacheBoundary = new
+                {
+                    policyId = CachePolicyId.ArticleListCount.ToString(),
+                    identity,
+                    version,
+                    localInvalidationEntries = localInvalidation.EntryCount,
+                    localInvalidationBytes = localInvalidation.Bytes,
+                    residualSharedValue = residual
+                }
+            });
         }
         else
         {
@@ -292,6 +356,9 @@ internal static class RuntimeCacheDistributedL1EvidenceEndpoints
     internal static bool ValidRunId(string value)
         => value.Length is > 0 and <= MaximumRunIdLength && value.All(static character =>
             char.IsAsciiLetterOrDigit(character) || character is '.' or '-');
+
+    internal static string BuildPublicArticleListCountIdentity(long version)
+        => $"public:{version.ToString(System.Globalization.CultureInfo.InvariantCulture)}:0:0:0:-1:";
 
     private static string DistributedIdentity(int articleId) => $"article:{articleId}";
 

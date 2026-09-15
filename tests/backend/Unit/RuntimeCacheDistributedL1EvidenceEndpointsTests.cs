@@ -27,6 +27,14 @@ public sealed class RuntimeCacheDistributedL1EvidenceEndpointsTests
     }
 
     [Theory]
+    [InlineData(0, "public:0:0:0:0:-1:")]
+    [InlineData(47, "public:47:0:0:0:-1:")]
+    public void PaginationEvidenceUsesThePublicCountCacheIdentity(long version, string expected)
+    {
+        Assert.Equal(expected, RuntimeCacheDistributedL1EvidenceEndpoints.BuildPublicArticleListCountIdentity(version));
+    }
+
+    [Theory]
     [InlineData("run-1", true)]
     [InlineData("run.with.dots", true)]
     [InlineData("", false)]
