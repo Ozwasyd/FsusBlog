@@ -7,6 +7,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
@@ -64,6 +65,7 @@ public static class LocalAuthFixtureEndpoints
             HttpContext context,
             IWebHostEnvironment environment,
             [FromServices] AuthCookieService authCookieService,
+            [FromServices] IAdminSessionProjectionAuthorityReader adminSessions,
             string? redirect,
             CancellationToken cancellationToken) =>
         {
@@ -91,6 +93,13 @@ public static class LocalAuthFixtureEndpoints
                 !TryReadCookie(adminStorageStatePath, "AdminSessionId", out string adminSessionId))
             {
                 return Results.Problem("local auth fixture is invalid", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            if (!await adminSessions.RefreshSessionAsync(adminSessionId, cancellationToken))
+            {
+                return Results.Problem(
+                    "local auth fixture admin session projection is not ready",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
 
             ResolvedTemporalRoleContext temporalRoles = ResolvedTemporalRoleContext.FromEnvironment();
