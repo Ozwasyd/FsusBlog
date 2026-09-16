@@ -177,10 +177,11 @@ export default defineConfig({
   testDir: '../../tests/frontend/e2e',
   // Browser-only diagnostics have their own scheduled/manual config. Keeping
   // this deny-list on the ordinary config prevents broad file globs and the
-  // production correctness lane from accidentally re-admitting them.
+  // production correctness lane from accidentally re-admitting them. The UX
+  // viewport runner opts into ux/** explicitly via FSUSBLOG_UX_VIEWPORT_MODE.
   testIgnore: [
     'visual/**',
-    'ux/**',
+    ...(uxViewportMode ? [] : ['ux/**']),
     'diagnostics/**',
     'acceptance/cross-browser-smoke.spec.ts',
     'acceptance/archive-sticky-geometry.spec.ts',

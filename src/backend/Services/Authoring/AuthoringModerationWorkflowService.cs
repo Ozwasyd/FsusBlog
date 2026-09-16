@@ -37,8 +37,10 @@ public sealed class AuthoringModerationWorkflowService(
     IAuthoringAuditWriter auditWriter,
     ILogger<AuthoringModerationWorkflowService> logger,
     CommentModerationQueueStore? moderationQueueStore = null,
-    ICommentMutationOutbox? mutationOutbox = null) : IAuthoringModerationQueue, IAuthoringModerationCommands
+    ICommentMutationOutbox? mutationOutbox = null,
+    TimeProvider? timeProvider = null) : IAuthoringModerationQueue, IAuthoringModerationCommands
 {
+    private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
     private const string ModelRiskBorderlineReviewReason = "model_policy:model_risk_borderline_review";
     public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync(
         CommentModerationStatus? status = null,
@@ -223,7 +225,7 @@ public sealed class AuthoringModerationWorkflowService(
             return false;
         }
 
-        DateTime moderatedAt = DateTime.UtcNow;
+        DateTime moderatedAt = _clock.GetUtcNow().UtcDateTime;
         string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
         int count = 0;
         bool claimConflict = false;
@@ -348,7 +350,7 @@ public sealed class AuthoringModerationWorkflowService(
             }
         }
         var eligibleRows = new List<CommentModerationStateRow>(rows.Count);
-        DateTime moderatedAt = DateTime.UtcNow;
+        DateTime moderatedAt = _clock.GetUtcNow().UtcDateTime;
         string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
         foreach (CommentModerationStateRow row in rows)
         {

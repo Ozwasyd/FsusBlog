@@ -441,6 +441,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
             typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance),
             typeof(CommentMutationOutboxEvent),
+            typeof(CommentModerationEvent),
             typeof(CommentAnonymousNullifier));
 
     private static void SeedArticle(SqlSugarClient db, int articleId)

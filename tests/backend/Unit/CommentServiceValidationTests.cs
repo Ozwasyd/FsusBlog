@@ -391,7 +391,8 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
             typeof(User),
             typeof(Article),
             typeof(Comment),
-            typeof(CommentRegionCompliance));
+            typeof(CommentRegionCompliance),
+            typeof(CommentModerationEvent));
         DateTime createdAt = DateTime.UtcNow.AddMinutes(-1);
         await db.Insertable(new Article
         {

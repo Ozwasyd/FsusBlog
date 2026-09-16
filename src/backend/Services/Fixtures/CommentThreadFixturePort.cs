@@ -223,7 +223,7 @@ public sealed class CommentThreadFixturePort(
     ICommentManagementCapabilityService managementCapabilities,
     ICommentQueryService publicQueries,
     ICommentGovernanceService governance,
-    ICacheStringReader cacheReader,
+    CommentFixtureCacheProbe cacheProbe,
     ISqlSugarClient db) : ICommentThreadFixturePort
 {
     private const string PlanSchema = "fsusblog.comment-thread-fixture-plan.v1";
@@ -827,13 +827,11 @@ public sealed class CommentThreadFixturePort(
             CommentModerationTimelineResult? timeline = await governance.ReadTimelineAsync(row.Id, cancellationToken)
                 .ConfigureAwait(false);
             if (timeline is null || !timeline.Consistent || timeline.Events.Count == 0)
-                throw new InvalidOperationException($"Comment role {role} has incomplete moderation audit evidence.");
+                throw new InvalidOperationException(
+                    $"Comment role {role} has incomplete moderation audit evidence (comment={row.Id}, events={timeline?.Events.Count.ToString(CultureInfo.InvariantCulture) ?? "null"}, consistent={timeline?.Consistent.ToString() ?? "null"}, projected={timeline?.ProjectedStatus.ToString() ?? "null"}, current={row.ModerationStatus}).");
             string cacheIdentity = $"article:{articleId.ToString(CultureInfo.InvariantCulture)}";
-            string cacheGeneration = await cacheReader.GetStringAsync(
-                    CachePolicyId.CommentCursorVersion,
-                    cacheIdentity,
-                    cancellationToken)
-                .ConfigureAwait(false) ?? string.Empty;
+            string cacheGeneration = await RequireReadableCacheGenerationAsync(cacheIdentity, cancellationToken)
+                .ConfigureAwait(false);
             if (!IsCacheGeneration(cacheGeneration))
                 throw new InvalidOperationException($"Comment role {role} has no readable cache generation.");
             entities.Add(new CommentThreadFixtureEntity(
@@ -922,7 +920,8 @@ public sealed class CommentThreadFixturePort(
         if (!IsExactAnonymousOperationReference(reference, binding, expected)
             || !StringComparer.Ordinal.Equals(reference!.ContentDigest, AnonymousContentDigest(row.Content))
             || reference.ParentId != row.ParentId?.ToString(CultureInfo.InvariantCulture)
-            || reference.RootId != (row.RootId ?? row.Id).ToString(CultureInfo.InvariantCulture)
+            || (reference.RootId ?? reference.CommentId.ToString(CultureInfo.InvariantCulture))
+                != (row.RootId ?? row.Id).ToString(CultureInfo.InvariantCulture)
             || reference.ReplyToCommentId != row.ReplyToCommentId?.ToString(CultureInfo.InvariantCulture))
             throw new InvalidOperationException($"Anonymous comment role {role} is not owned by the fixture operation reference.");
         if (custodySecret is not null
@@ -1054,6 +1053,19 @@ public sealed class CommentThreadFixturePort(
 
     private static bool IsCacheGeneration(string value)
         => ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out _);
+
+    private async Task<string> RequireReadableCacheGenerationAsync(string identity, CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            string generation = await cacheProbe.ReadCursorGenerationAsync(identity, cancellationToken)
+                .ConfigureAwait(false) ?? string.Empty;
+            if (IsCacheGeneration(generation))
+                return generation;
+            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+        }
+        return string.Empty;
+    }
 
     private async Task<Comment> RequireCommentAsync(long id, CancellationToken cancellationToken)
         => await db.Queryable<Comment>().Where(item => item.Id == id).FirstAsync(cancellationToken).ConfigureAwait(false)

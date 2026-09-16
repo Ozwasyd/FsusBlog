@@ -354,7 +354,8 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             typeof(Comment),
             typeof(CommentRevision),
             typeof(CommentBlockedRegion),
-            typeof(CommentRegionCompliance));
+            typeof(CommentRegionCompliance),
+            typeof(CommentModerationEvent));
         return connectionString;
     }
 

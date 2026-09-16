@@ -249,7 +249,8 @@ public sealed class CommentAuthorManagementServiceTests(PostgresSchemaMigrationF
             typeof(Comment),
             typeof(CommentManagementChallenge),
             typeof(CommentRevision),
-            typeof(CommentAuthorAppeal));
+            typeof(CommentAuthorAppeal),
+            typeof(CommentModerationEvent));
         return new TestContext(db);
     }
 

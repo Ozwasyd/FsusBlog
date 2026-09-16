@@ -50,6 +50,23 @@ public sealed class AuditRetentionPolicyTests
         Assert.Equal(
             AuditActionCatalog.PublicAotCache,
             AuditRetentionCatalog.GetRequired(AuditActionCatalog.PublicAotCache).Action);
+
+        foreach (string runtimeAction in new[]
+        {
+            "dictionary_checksum_changed",
+            "dictionary_reload_failed",
+            "dictionary_rollback",
+            "region_policy_reload_failed",
+            "model_moderation_auto_disposition",
+            "model_moderation_contract_invalid",
+            "model_moderation_error",
+            "model_moderation_scored",
+            "model_moderation_timeout",
+            "model_moderation_unavailable"
+        })
+        {
+            Assert.Equal(runtimeAction, AuditRetentionCatalog.GetRequired(runtimeAction).Action);
+        }
     }
 
     [Fact]

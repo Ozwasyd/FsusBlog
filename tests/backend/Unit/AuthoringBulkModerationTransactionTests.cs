@@ -72,7 +72,8 @@ public sealed class AuthoringBulkModerationTransactionTests(PostgresSchemaMigrat
             db,
             typeof(Article),
             typeof(Comment),
-            typeof(CommentRegionCompliance));
+            typeof(CommentRegionCompliance),
+            typeof(CommentModerationEvent));
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
         => db.Ado.ExecuteCommand(

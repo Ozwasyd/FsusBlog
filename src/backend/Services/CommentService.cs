@@ -37,9 +37,11 @@ public partial class CommentCommandService(
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IConfiguration? configuration = null,
     ICommentMutationOutbox? mutationOutbox = null,
-    IArticleCommentPolicyService? articleCommentPolicy = null) : ICommentEndpointService, ICommentCommandService
+    IArticleCommentPolicyService? articleCommentPolicy = null,
+    TimeProvider? timeProvider = null) : ICommentEndpointService, ICommentCommandService
 {
     internal const int DefaultMaxThreadDepth = 32;
+    private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
     private const int DefaultMaxChildrenPerNode = 500;
     private const int DefaultMutationTtlHours = 24;
 
@@ -219,7 +221,7 @@ public partial class CommentCommandService(
         CommentManagementCapability? managementCapability = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        DateTime now = DateTime.UtcNow;
+        DateTime now = _clock.GetUtcNow().UtcDateTime;
         bool articleExists = await db.Queryable<Article>()
             .Where(a => a.Id == articleId
                 && !a.IsDeleted
@@ -342,7 +344,7 @@ public partial class CommentCommandService(
             AccountAgeBucket = null,
             AnonymousRateClass = actor.RateClass,
             AnonymousRequiresModeration = actor.RequiresModeration,
-            CreateTime = DateTime.UtcNow,
+            CreateTime = _clock.GetUtcNow().UtcDateTime,
             ParentId = parentId,
             RootId = rootId,
             ReplyToUserId = replyToUserId,
@@ -449,7 +451,7 @@ public partial class CommentCommandService(
 
             if (mutationOutbox is not null)
             {
-                DateTime occurredAt = DateTime.UtcNow;
+                DateTime occurredAt = _clock.GetUtcNow().UtcDateTime;
                 await db.Insertable(new CommentModerationEvent
                 {
                     CommentId = generatedId,
@@ -869,7 +871,7 @@ public partial class CommentCommandService(
     {
         int hours = configuration?.GetValue("Comments:MutationIdempotencyTtlHours", DefaultMutationTtlHours)
             ?? DefaultMutationTtlHours;
-        return DateTime.UtcNow.AddHours(Math.Clamp(hours, 1, 168));
+        return _clock.GetUtcNow().UtcDateTime.AddHours(Math.Clamp(hours, 1, 168));
     }
 
     private static bool TryNormalizeClientMutationId(string? value, out string normalized)
@@ -945,7 +947,7 @@ public partial class CommentCommandService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         Comment? existing = await FindCommentMutationAsync(mutation);
-        if (existing is null || existing.MutationExpiresAtUtc <= DateTime.UtcNow)
+        if (existing is null || existing.MutationExpiresAtUtc <= _clock.GetUtcNow().UtcDateTime)
         {
             return CommentCreateResult.Failed;
         }
@@ -964,7 +966,7 @@ public partial class CommentCommandService(
         {
             await AcquireCommentMutationLockAsync(mutation, cancellationToken);
             Comment? existing = await FindCommentMutationAsync(mutation);
-            if (existing is null || existing.MutationExpiresAtUtc <= DateTime.UtcNow)
+            if (existing is null || existing.MutationExpiresAtUtc <= _clock.GetUtcNow().UtcDateTime)
             {
                 return;
             }
@@ -1045,7 +1047,7 @@ public partial class CommentCommandService(
         string reason,
         long? actorAdminPrincipalId)
     {
-        DateTime deletedAt = DateTime.UtcNow;
+        DateTime deletedAt = _clock.GetUtcNow().UtcDateTime;
         string? normalizedReason = TextHelpers.NormalizeNullable(reason, 256);
         DeleteCommentRow? row = null;
         bool isAttributableUserComment = false;
