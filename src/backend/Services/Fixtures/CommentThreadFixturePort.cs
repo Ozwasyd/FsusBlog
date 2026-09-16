@@ -919,7 +919,8 @@ public sealed class CommentThreadFixturePort(
         if (!IsExactAnonymousOperationReference(reference, binding, expected)
             || !StringComparer.Ordinal.Equals(reference!.ContentDigest, AnonymousContentDigest(row.Content))
             || reference.ParentId != row.ParentId?.ToString(CultureInfo.InvariantCulture)
-            || reference.RootId != (row.RootId ?? row.Id).ToString(CultureInfo.InvariantCulture)
+            || (reference.RootId ?? reference.CommentId.ToString(CultureInfo.InvariantCulture))
+                != (row.RootId ?? row.Id).ToString(CultureInfo.InvariantCulture)
             || reference.ReplyToCommentId != row.ReplyToCommentId?.ToString(CultureInfo.InvariantCulture))
             throw new InvalidOperationException($"Anonymous comment role {role} is not owned by the fixture operation reference.");
         if (custodySecret is not null
