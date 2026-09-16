@@ -538,6 +538,26 @@ public sealed class CommentAuthorManagementService(
                 ActorAdminPrincipalId = null,
                 ActorMode = comment.AuthorMode
             }).ExecuteCommandAsync(cancellationToken);
+            if (next.Status != comment.ModerationStatus)
+            {
+                await db.Insertable(new CommentModerationEvent
+                {
+                    CommentId = commentId,
+                    EventType = next.Status switch
+                    {
+                        CommentModerationStatus.Approved => CommentModerationEventTypes.Approve,
+                        CommentModerationStatus.Rejected => CommentModerationEventTypes.Reject,
+                        CommentModerationStatus.Hidden => CommentModerationEventTypes.Hide,
+                        _ => CommentModerationEventTypes.Pending
+                    },
+                    PreviousStatus = comment.ModerationStatus,
+                    NextStatus = next.Status,
+                    ActorType = accountId.HasValue ? "account" : "anonymous",
+                    ReasonCode = next.ReasonCode,
+                    TransitionSource = "edit",
+                    OccurredAtUtc = now
+                }).ExecuteCommandAsync(cancellationToken);
+            }
             await moderation.PersistVisibilityAsync(commentId, region, cancellationToken);
             await mutationOutbox.EnqueueAsync(BuildOutbox(
                 CommentMutationEventTypes.Edited,
