@@ -45,7 +45,8 @@ public sealed class CommentModerationBoundaryTests
                 typeof(AuditLogChannel),
                 typeof(IAnonymousCommentPolicyService),
                 typeof(IConfiguration),
-                typeof(ICommentMutationOutbox)
+                typeof(ICommentMutationOutbox),
+                typeof(TimeProvider)
             ],
             moderationDependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(

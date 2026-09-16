@@ -65,8 +65,10 @@ public sealed class CommentModerationService(
     AuditLogChannel? audit = null,
     IAnonymousCommentPolicyService? anonymousPolicy = null,
     IConfiguration? configuration = null,
-    ICommentMutationOutbox? mutationOutbox = null) : ICommentModerationService
+    ICommentMutationOutbox? mutationOutbox = null,
+    TimeProvider? timeProvider = null) : ICommentModerationService
 {
+    private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
     public RegionModerationDecision ResolveSubmissionRegion(
         string content,
         int articleId,
@@ -81,7 +83,7 @@ public sealed class CommentModerationService(
             "fallback",
             null,
             null,
-            DateTime.UtcNow));
+            _clock.GetUtcNow().UtcDateTime));
 
     public CommentInitialModerationDecision ResolveInitialState(
         CommentActor actor,
@@ -119,7 +121,7 @@ public sealed class CommentModerationService(
         RegionModerationDecision decision,
         CancellationToken cancellationToken)
     {
-        await db.Insertable(BuildRegionCompliance(commentId, decision)).ExecuteCommandAsync(cancellationToken);
+        await db.Insertable(BuildRegionCompliance(commentId, decision, _clock.GetUtcNow().UtcDateTime)).ExecuteCommandAsync(cancellationToken);
         await ReplaceBlockedRegionsAsync(commentId, decision.BlockedRegions, cancellationToken);
     }
 
@@ -179,7 +181,7 @@ public sealed class CommentModerationService(
         }
 
         CommentModerationStatus previousStatus = comment.ModerationStatus;
-        DateTime moderatedAt = DateTime.UtcNow;
+        DateTime moderatedAt = _clock.GetUtcNow().UtcDateTime;
         string reason = TextHelpers.NormalizeNullable($"model_policy:{disposition.Reason}", 256)
             ?? disposition.Reason;
         AutomaticModerationTarget? target = await LoadTargetAsync(comment.Id, cancellationToken);
@@ -382,9 +384,9 @@ public sealed class CommentModerationService(
 
     private static CommentRegionCompliance BuildRegionCompliance(
         long commentId,
-        RegionModerationDecision decision)
+        RegionModerationDecision decision,
+        DateTime now)
     {
-        DateTime now = DateTime.UtcNow;
         return new CommentRegionCompliance
         {
             CommentId = commentId,
@@ -445,7 +447,7 @@ public sealed class CommentModerationService(
         audit.TryWrite(new AuditRecord(
             AuditSourceCatalog.Comment,
             AuditTypeCatalog.Business,
-            DateTime.UtcNow,
+            _clock.GetUtcNow().UtcDateTime,
             "model_moderation_auto_disposition",
             Encoding.UTF8.GetBytes(context),
             Action: "model_moderation_auto_disposition",

@@ -343,7 +343,8 @@ public sealed class CommentAnonymousFixtureProvider(
     ICommentAnonymousFixtureCapabilityVault capabilities,
     ICommentAnonymousFixtureOperationLedger operationLedger,
     ICommentManagementCapabilityService managementCapabilities,
-    ICommentAuthorManagementService authorManagement) : ICommentAnonymousFixtureProvider
+    ICommentAuthorManagementService authorManagement,
+    TimeProvider? timeProvider = null) : ICommentAnonymousFixtureProvider
 {
     private const long CredentialEpoch = 1;
     private const uint CircuitNumericId = 1;
@@ -445,7 +446,8 @@ public sealed class CommentAnonymousFixtureProvider(
             invalidations,
             localConfiguration,
             outbox,
-            articlePolicy);
+            articlePolicy,
+            timeProvider);
 
         var proofRequest = new ProductionZkProofBackendRequest(
             AnonymousPrivacyContract.CommentCreateActionContext,

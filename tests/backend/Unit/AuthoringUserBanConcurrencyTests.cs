@@ -225,7 +225,8 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             typeof(UserSession),
             typeof(Article),
             typeof(Comment),
-            typeof(CommentRegionCompliance));
+            typeof(CommentRegionCompliance),
+            typeof(CommentModerationEvent));
 
     private static void SeedUser(SqlSugarClient db, int userId)
         => db.Ado.ExecuteCommand(
