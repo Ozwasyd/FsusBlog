@@ -829,11 +829,8 @@ public sealed class CommentThreadFixturePort(
             if (timeline is null || !timeline.Consistent || timeline.Events.Count == 0)
                 throw new InvalidOperationException($"Comment role {role} has incomplete moderation audit evidence.");
             string cacheIdentity = $"article:{articleId.ToString(CultureInfo.InvariantCulture)}";
-            string cacheGeneration = await cacheReader.GetStringAsync(
-                    CachePolicyId.CommentCursorVersion,
-                    cacheIdentity,
-                    cancellationToken)
-                .ConfigureAwait(false) ?? string.Empty;
+            string cacheGeneration = await RequireReadableCacheGenerationAsync(cacheIdentity, cancellationToken)
+                .ConfigureAwait(false);
             if (!IsCacheGeneration(cacheGeneration))
                 throw new InvalidOperationException($"Comment role {role} has no readable cache generation.");
             entities.Add(new CommentThreadFixtureEntity(
@@ -1054,6 +1051,22 @@ public sealed class CommentThreadFixturePort(
 
     private static bool IsCacheGeneration(string value)
         => ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out _);
+
+    private async Task<string> RequireReadableCacheGenerationAsync(string identity, CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            string generation = await cacheReader.GetStringAsync(
+                    CachePolicyId.CommentCursorVersion,
+                    identity,
+                    cancellationToken)
+                .ConfigureAwait(false) ?? string.Empty;
+            if (IsCacheGeneration(generation))
+                return generation;
+            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+        }
+        return string.Empty;
+    }
 
     private async Task<Comment> RequireCommentAsync(long id, CancellationToken cancellationToken)
         => await db.Queryable<Comment>().Where(item => item.Id == id).FirstAsync(cancellationToken).ConfigureAwait(false)
