@@ -133,6 +133,7 @@
     { "id": "article-service-optional-projection", "class": "optional-projection", "idempotent": true },
     { "id": "distributed-state-control-maintenance", "class": "background-maintenance", "idempotent": true },
     { "id": "notification-backlog-read", "class": "distributed-delivery", "idempotent": true },
-    { "id": "notification-publish-order-lease", "class": "coordination-lease", "idempotent": false }
+    { "id": "notification-publish-order-lease", "class": "coordination-lease", "idempotent": false },
+    { "id": "comment-fixture", "class": "background-maintenance", "idempotent": true }
   ]
 }

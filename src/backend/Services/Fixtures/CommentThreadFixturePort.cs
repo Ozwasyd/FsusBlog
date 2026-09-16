@@ -223,7 +223,7 @@ public sealed class CommentThreadFixturePort(
     ICommentManagementCapabilityService managementCapabilities,
     ICommentQueryService publicQueries,
     ICommentGovernanceService governance,
-    ICacheStringReader cacheReader,
+    CommentFixtureCacheProbe cacheProbe,
     ISqlSugarClient db) : ICommentThreadFixturePort
 {
     private const string PlanSchema = "fsusblog.comment-thread-fixture-plan.v1";
@@ -1056,10 +1056,7 @@ public sealed class CommentThreadFixturePort(
     {
         for (int attempt = 0; attempt < 20; attempt++)
         {
-            string generation = await cacheReader.GetStringAsync(
-                    CachePolicyId.CommentCursorVersion,
-                    identity,
-                    cancellationToken)
+            string generation = await cacheProbe.ReadCursorGenerationAsync(identity, cancellationToken)
                 .ConfigureAwait(false) ?? string.Empty;
             if (IsCacheGeneration(generation))
                 return generation;

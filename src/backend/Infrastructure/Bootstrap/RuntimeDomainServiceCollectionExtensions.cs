@@ -93,6 +93,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IMessagingFixtureSeeder, FsusBlog.Server.Services.Fixtures.MessagingFixtureSeeder>();
         if (ShouldAddLocalCommentFixtureServices(configuration, hostEnvironment))
         {
+            services.AddSingleton<FsusBlog.Server.Services.Fixtures.CommentFixtureCacheProbe>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentThreadFixturePort, FsusBlog.Server.Services.Fixtures.CommentThreadFixturePort>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentModerationFixturePort, FsusBlog.Server.Services.Fixtures.CommentModerationFixturePort>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICanonicalArticlePublicationFixturePort, FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationFixturePort>();

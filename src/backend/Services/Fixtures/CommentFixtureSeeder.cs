@@ -113,7 +113,7 @@ public sealed class CommentFixtureSeeder(
     ICommentThreadFixturePort threads,
     ICommentModerationFixturePort moderation,
     IModerationRuntimeStateService runtimeState,
-    ICacheStringReader cacheReader,
+    CommentFixtureCacheProbe cacheProbe,
     IConfiguration configuration) : ICommentFixtureSeeder
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
@@ -573,7 +573,7 @@ public sealed class CommentFixtureSeeder(
     private static string Content(string owner, string role) => $"Fixture comment {owner} {role}";
 
     private async Task<string> ReadCacheGenerationAsync(string identity, CancellationToken cancellationToken)
-        => await cacheReader.GetStringAsync(CachePolicyId.CommentCursorVersion, identity, cancellationToken)
+        => await cacheProbe.ReadCursorGenerationAsync(identity, cancellationToken)
             .ConfigureAwait(false) ?? "0";
 
     private async Task<string> RequireAdvancedCacheGenerationAsync(

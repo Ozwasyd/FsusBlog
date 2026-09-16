@@ -54,7 +54,8 @@ public enum RedisOperationPort : byte
     ArticleServiceOptionalProjection = 35,
     DistributedStateControlMaintenance = 36,
     NotificationBacklogRead = 37,
-    NotificationPublishOrderLease = 38
+    NotificationPublishOrderLease = 38,
+    CommentFixture = 39
 }
 
 public sealed record RedisOperationBudget(
@@ -133,7 +134,8 @@ public sealed class RedisOperationBudgetCatalog
             ["article-service-optional-projection"] = RedisOperationPort.ArticleServiceOptionalProjection,
             ["distributed-state-control-maintenance"] = RedisOperationPort.DistributedStateControlMaintenance,
             ["notification-backlog-read"] = RedisOperationPort.NotificationBacklogRead,
-            ["notification-publish-order-lease"] = RedisOperationPort.NotificationPublishOrderLease
+            ["notification-publish-order-lease"] = RedisOperationPort.NotificationPublishOrderLease,
+            ["comment-fixture"] = RedisOperationPort.CommentFixture
         }.ToFrozenDictionary(StringComparer.Ordinal);
     private static readonly FrozenSet<string> s_idempotencyRequirements =
         new[] { "single-attempt-atomic", "single-attempt-ownership", "idempotent-only", "no-retry" }
