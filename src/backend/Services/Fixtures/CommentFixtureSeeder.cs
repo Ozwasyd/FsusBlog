@@ -599,7 +599,14 @@ public sealed class CommentFixtureSeeder(
         CommentThreadFixtureResult result)
     {
         foreach (CommentThreadFixtureEntity entity in result.Entities)
+        {
+            // A deleted reply keeps its thread identity: comment.delete.reply is an
+            // operation-level capability proven by the deleted revision, while the
+            // entity itself is still classified by its position in the thread.
+            if (entity.CapabilityId == "comment.delete.reply" && target.ContainsKey(entity.SemanticRole))
+                continue;
             target[entity.SemanticRole] = entity;
+        }
         foreach (CommentFixtureZkAuthorityEvidence item in result.ZkAuthorityEvidence)
             evidence.Add(item);
     }
