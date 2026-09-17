@@ -85,8 +85,8 @@ public sealed record CommentThreadFixtureOperation(
     int? AccountId,
     string Content,
     string? ParentRole = null,
-    long? ParentCommentId = null,
-    long? ExistingCommentId = null,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long? ParentCommentId = null,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long? ExistingCommentId = null,
     string? ExpectedFailureCode = null,
     string? AnonymousScope = null,
     string? DisplayLanguage = null,
@@ -99,13 +99,13 @@ public sealed record CommentThreadFixturePlan(
 
 public sealed record CommentThreadFixtureEntity(
     string SemanticRole,
-    long CommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long CommentId,
     int ArticleId,
     string ActorMode,
     int? AccountId,
-    long RootId,
-    long? ParentId,
-    long? ReplyToCommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long RootId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long? ParentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long? ReplyToCommentId,
     int Depth,
     int CurrentVersion,
     bool IsDeleted,
@@ -128,7 +128,7 @@ public sealed record CommentThreadFixtureResult(
     IReadOnlyList<CommentFixtureZkAuthorityEvidence> ZkAuthorityEvidence);
 
 public sealed record CommentThreadFixtureObservationIdentity(
-    long CommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long CommentId,
     int? AccountId,
     string ActorMode,
     string OperationPlanDigest,
@@ -170,8 +170,8 @@ public sealed record CommentThreadFixtureCleanupReceipt(
 public sealed record CommentThreadFixtureCleanupResult(
     string Schema,
     CommentFixturePortBinding Binding,
-    IReadOnlyList<long> DeletedCommentIds,
-    IReadOnlyList<long> StillPublicCommentIds,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> DeletedCommentIds,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> StillPublicCommentIds,
     bool Exact,
     CommentFixtureCrossDomainSentinel? CrossDomainBefore = null,
     CommentFixtureCrossDomainSentinel? CrossDomainAfter = null);
@@ -473,11 +473,11 @@ public sealed class CommentThreadFixturePort(
                         row.ClientMutationId,
                         DeterministicMutationId(receipt.Binding.Owner, expected.SemanticRole))))
                 throw new InvalidOperationException($"Public comment {row.Id} is not owned by the cleanup receipt.");
-            string? anonymousSecret = expected.ActorMode == CommentAuthorModes.ZkAnonymous
-                ? await RequireAnonymousCapabilityAsync(receipt.Binding, expected, cancellationToken).ConfigureAwait(false)
-                : null;
             if (row.IsDeleted)
             {
+                // Already-deleted owned rows only need their custody artifacts
+                // dropped; re-cleanup must stay idempotent and must not require
+                // durable capability references that a previous pass removed.
                 if (expected.ActorMode == CommentAuthorModes.ZkAnonymous)
                 {
                     anonymousCapabilities.Remove(receipt.Binding.Owner, receipt.Binding.TestSession, row.Id);
@@ -486,6 +486,9 @@ public sealed class CommentThreadFixturePort(
                 }
                 continue;
             }
+            string? anonymousSecret = expected.ActorMode == CommentAuthorModes.ZkAnonymous
+                ? await RequireAnonymousCapabilityAsync(receipt.Binding, expected, cancellationToken).ConfigureAwait(false)
+                : null;
             if (expected.AccountId is > 0)
             {
                 await RequireAccountMutationAsync(row.Id, expected.AccountId.Value, CommentManagementPurposes.Delete,
@@ -1056,13 +1059,17 @@ public sealed class CommentThreadFixturePort(
 
     private async Task<string> RequireReadableCacheGenerationAsync(string identity, CancellationToken cancellationToken)
     {
-        for (int attempt = 0; attempt < 20; attempt++)
+        // The cursor generation is produced by the background comment-mutation
+        // outbox dispatcher (default poll ~1s). A cold backend can take several
+        // seconds to claim and process the first events, so the wait window is
+        // intentionally wider than one poll cycle.
+        for (int attempt = 0; attempt < 60; attempt++)
         {
             string generation = await cacheProbe.ReadCursorGenerationAsync(identity, cancellationToken)
                 .ConfigureAwait(false) ?? string.Empty;
             if (IsCacheGeneration(generation))
                 return generation;
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
         }
         return string.Empty;
     }
