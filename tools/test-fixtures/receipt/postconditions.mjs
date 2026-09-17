@@ -790,6 +790,8 @@ function verifyCommentMatrix(id)
           || fields.queueGroup !== state.queueBucket
           || typeof fields.queueActor !== 'string' || fields.queueActor.length === 0
           || fields.queueReason !== fields.moderationReason
+          || fields.cacheIdentity !== `article:${fields.articleId}`
+          || !/^[0-9]+$/u.test(String(fields.cacheGeneration ?? ''))
           || !queuePositionValid)
                 {
                     return fail(id, `${role} public/admin/queue projection mismatch`);

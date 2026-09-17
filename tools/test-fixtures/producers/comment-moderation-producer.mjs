@@ -231,9 +231,22 @@ function validCrossDomainSentinel(value, plan)
             .every((key) => digestPattern.test(String(value[key] ?? '')));
 }
 
+function stableStringify(value)
+{
+    if (value === null || typeof value !== 'object')
+    {
+        return JSON.stringify(value);
+    }
+    if (Array.isArray(value))
+    {
+        return `[${value.map(stableStringify).join(',')}]`;
+    }
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+}
+
 function sameCrossDomainSentinel(left, right)
 {
-    return JSON.stringify(left) === JSON.stringify(right);
+    return stableStringify(left) === stableStringify(right);
 }
 
 export function createCommentFixtureBackendError(httpStatus, payload, text, plan)
@@ -346,6 +359,32 @@ function normalizeResult(raw, context, plan, temporalObservation)
     {
         throw new Error('comment fixture capability proof is partial');
     }
+    const runtimeLease = raw.runtimeLease;
+    const runtimeRestore = raw.runtimeRestore;
+    if (runtimeLease?.schema !== 'fsusblog.comment-moderation-runtime-lease.v1'
+        || runtimeRestore?.schema !== 'fsusblog.comment-moderation-runtime-restore.v1'
+        || JSON.stringify(runtimeLease.binding) !== JSON.stringify(moderationBinding)
+        || JSON.stringify(runtimeRestore.binding) !== JSON.stringify(moderationBinding)
+        || runtimeLease.owner !== cleanupBinding?.owner
+        || runtimeRestore.owner !== cleanupBinding?.owner
+        || runtimeLease.region !== 'US'
+        || runtimeLease.appliedRegionState !== 'manual_review_only'
+        || runtimeRestore.restoredRegionState !== runtimeLease.priorRegionState
+        || runtimeRestore.restoredModelEnabled !== runtimeLease.priorModelEnabled
+        || runtimeRestore.restoredModelProvider !== runtimeLease.priorModelProvider
+        || runtimeRestore.restoredModelProfile !== runtimeLease.priorModelProfile
+        || runtimeRestore.restoredModelThresholdProfile !== runtimeLease.priorModelThresholdProfile
+        || runtimeRestore.restoredModelContractVersion !== runtimeLease.priorModelContractVersion
+        || runtimeRestore.exact !== true
+        || runtimeRestore.restoredStateDigest !== runtimeLease.priorStateDigest
+        || !digestPattern.test(String(runtimeLease.priorStateDigest ?? ''))
+        || !digestPattern.test(String(runtimeLease.appliedStateDigest ?? ''))
+        || runtimeLease.priorStateDigest === runtimeLease.appliedStateDigest
+        || !digestPattern.test(String(runtimeRestore.leaseDigest ?? ''))
+        || !digestPattern.test(String(runtimeRestore.restoredStateDigest ?? '')))
+    {
+        throw new Error('comment fixture moderation runtime lease/restore evidence is missing or inexact');
+    }
     const zkAuthorityEvidence = raw.zkAuthorityEvidence;
     if (!Array.isArray(zkAuthorityEvidence)
         || JSON.stringify(zkAuthorityEvidence.map((item) => item.semanticRole).sort())
@@ -417,8 +456,8 @@ function normalizeResult(raw, context, plan, temporalObservation)
                 signalEvidence: moderation?.signalEvidence ?? [],
                 moderationEventIds: moderation?.moderationEventIds ?? [],
                 auditEventIds: item.auditEventIds ?? [],
-                cacheIdentity: item.cacheIdentity ?? null,
-                cacheGeneration: item.cacheGeneration ?? null,
+                cacheIdentity: moderation?.cacheIdentity ?? item.cacheIdentity ?? null,
+                cacheGeneration: moderation?.cacheGeneration ?? item.cacheGeneration ?? null,
                 depthOverrunFailureCode: item.semanticRole === 'depth-root'
                     ? raw.negativeResults?.['depth-overrun-negative'] ?? null
                     : null,
@@ -486,6 +525,8 @@ function normalizeResult(raw, context, plan, temporalObservation)
         cacheGenerationAfter,
         crossDomainBefore: raw.crossDomainBefore,
         crossDomainAfterPrepare: raw.crossDomainAfterPrepare,
+        runtimeLease,
+        runtimeRestore,
         runtimeSemantics: raw.moderation.runtimeSemantics,
         postconditions: [],
         temporalObservation
@@ -656,6 +697,8 @@ function verifyModerationEntities(result)
     {
         throw new Error('comment fixture moderation result binding is stale');
     }
+    const threadById = new Map(
+        (result.threadEntities ?? []).map((item) => [String(item?.commentId ?? ''), item]));
     const entities = result.moderation.entities;
     if (!Array.isArray(entities) || entities.length !== Object.keys(moderationEntityExpectations).length)
     {
@@ -690,6 +733,17 @@ function verifyModerationEntities(result)
             throw new Error(`${role} moderation/public/admin semantic binding is invalid`);
         }
         requirePositiveFixtureId(entity.commentId, `${role} comment ID`);
+        const thread = threadById.get(String(entity.commentId));
+        if (!Number.isSafeInteger(entity.articleId) || entity.articleId <= 0
+            || entity.cacheIdentity !== `article:${entity.articleId}`
+            || !/^[0-9]+$/u.test(String(entity.cacheGeneration ?? ''))
+            || thread?.cacheIdentity !== entity.cacheIdentity
+            || thread?.articleId !== entity.articleId
+            || !/^[0-9]+$/u.test(String(thread?.cacheGeneration ?? ''))
+            || BigInt(entity.cacheGeneration) > BigInt(thread.cacheGeneration))
+        {
+            throw new Error(`${role} per-state cache observation is invalid`);
+        }
         requireNonEmptyString(entity.adminModerationActor, `${role} admin moderation actor`);
         requireNonEmptyString(entity.queueActor, `${role} queue actor`);
         if (entity.queueReason !== (entity.reason ?? null))
@@ -798,7 +852,20 @@ export async function cleanupCommentModeration(context, result, signal)
     const cleanupBinding = cleanup?.binding ?? cleanup;
     const expectedIds = Object.keys(receipt.ownedComments ?? {}).sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1);
     const deletedIds = (cleanup?.deletedCommentIds ?? []).map(String).sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1);
-    if (cleanup?.schema !== 'fsusblog.comment-thread-fixture-cleanup-result.v1'
+    const observation = cleanup?.moderationObservation;
+    const observedIds = (value) => (value ?? []).map(String)
+        .sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1);
+    if (observation?.schema !== 'fsusblog.comment-moderation-cleanup-observation.v1'
+        || JSON.stringify(observation?.binding) !== JSON.stringify(cleanupBinding)
+        || JSON.stringify(observedIds(observation?.commentIds)) !== JSON.stringify(deletedIds)
+        || JSON.stringify(observedIds(observation?.queueAbsentCommentIds)) !== JSON.stringify(deletedIds)
+        || JSON.stringify(observedIds(observation?.publicHiddenCommentIds)) !== JSON.stringify(deletedIds)
+        || JSON.stringify(observedIds(observation?.softDeletedCommentIds)) !== JSON.stringify(deletedIds)
+        || !digestPattern.test(String(observation?.observationDigest ?? '')))
+    {
+        throw new Error('comment fixture moderation cleanup observation is missing or inexact');
+    }
+    if (cleanup?.schema !== 'fsusblog.comment-fixture-cleanup-result.v1'
         || receipt.crossDomainBefore?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
         || cleanup.crossDomainBefore?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
         || cleanup.crossDomainAfter?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'

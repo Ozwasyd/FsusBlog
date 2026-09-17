@@ -74,7 +74,24 @@ public sealed record CommentFixtureResult(
     string CacheGenerationAfter,
     CommentFixtureCrossDomainSentinel CrossDomainBefore,
     CommentFixtureCrossDomainSentinel CrossDomainAfterPrepare,
-    CommentThreadFixtureCleanupReceipt CleanupReceipt);
+    CommentThreadFixtureCleanupReceipt CleanupReceipt,
+    CommentModerationRuntimeLease RuntimeLease,
+    CommentModerationRuntimeRestore RuntimeRestore);
+
+/// <summary>
+/// Aggregate cleanup result: the thread port's exact owned cleanup plus the
+/// moderation port's independent post-cleanup observation over the same owned
+/// identities.
+/// </summary>
+public sealed record CommentFixtureCleanupResult(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> DeletedCommentIds,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> StillPublicCommentIds,
+    bool Exact,
+    CommentFixtureCrossDomainSentinel? CrossDomainBefore,
+    CommentFixtureCrossDomainSentinel? CrossDomainAfter,
+    CommentModerationCleanupObservation ModerationObservation);
 
 public interface ICommentFixtureSeeder
 {
@@ -82,7 +99,7 @@ public interface ICommentFixtureSeeder
         CommentFixturePlan plan,
         CancellationToken cancellationToken = default);
 
-    Task<CommentThreadFixtureCleanupResult> CleanupAsync(
+    Task<CommentFixtureCleanupResult> CleanupAsync(
         CommentThreadFixtureCleanupReceipt receipt,
         CancellationToken cancellationToken = default);
 }
@@ -112,8 +129,6 @@ public sealed class CommentFixturePreparationException(
 public sealed class CommentFixtureSeeder(
     ICommentThreadFixturePort threads,
     ICommentModerationFixturePort moderation,
-    IModerationRuntimeStateService runtimeState,
-    CommentFixtureCacheProbe cacheProbe,
     IConfiguration configuration) : ICommentFixtureSeeder
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
@@ -122,6 +137,7 @@ public sealed class CommentFixtureSeeder(
     private const string Strategy = "transaction-fixture";
     private const string PlanSchema = "fsusblog.comment-fixture-plan.v1";
     private const string CleanupSchema = "fsusblog.comment-thread-fixture-cleanup.v1";
+    private const string CleanupResultSchema = "fsusblog.comment-fixture-cleanup-result.v1";
     private static readonly string[] s_expectedCapabilities =
     [
         "comment.moderation-matrix",
@@ -143,7 +159,7 @@ public sealed class CommentFixtureSeeder(
         var latest = new Dictionary<string, CommentThreadFixtureEntity>(StringComparer.Ordinal);
         var zkAuthorityEvidence = new List<CommentFixtureZkAuthorityEvidence>();
         CommentFixtureCrossDomainSentinel? crossDomainBefore = null;
-        string? manualReviewRegionPriorState = null;
+        CommentModerationRuntimeLease? runtimeLease = null;
 
         try
         {
@@ -153,30 +169,14 @@ public sealed class CommentFixtureSeeder(
                 admin,
                 cancellationToken).ConfigureAwait(false);
             DateTime now = DateTime.UtcNow;
-            string cacheIdentity = $"article:{articleId.ToString(CultureInfo.InvariantCulture)}";
-            string cacheBefore = await ReadCacheGenerationAsync(cacheIdentity, cancellationToken).ConfigureAwait(false);
+            string cacheBefore = await ReadCommentCacheGenerationAsync(articleId, cancellationToken).ConfigureAwait(false);
 
             RegionModerationDecision global = moderation.ResolveRegion(
                 Content(owner, "region-global"), articleId, primary, RegionCodes.Global, now);
-            manualReviewRegionPriorState = runtimeState.GetRegionState(ManualReviewFixtureRegion);
-            Result<ModerationRuntimeSnapshot> manualReviewState = runtimeState.SetRegionState(
-                ManualReviewFixtureRegion,
-                ModerationRegionStates.ManualReviewOnly,
-                $"comment fixture manual-review matrix {plan.RunId}",
-                now.AddMinutes(15),
-                null,
-                owner);
-            if (!manualReviewState.IsSuccess)
-                throw new InvalidOperationException("Comment fixture could not enable the manual-review-only region runtime state.");
-            Result<ModerationRuntimeSnapshot> modelState = runtimeState.SetModelRuntime(
-                enabled: true,
-                provider: null,
-                modelProfile: null,
-                thresholdProfile: null,
-                reason: $"comment fixture anti-spam model runtime {plan.RunId}",
-                changedBy: owner);
-            if (!modelState.IsSuccess)
-                throw new InvalidOperationException($"Comment fixture could not enable the anti-spam model runtime: {modelState.Error.Message}.");
+            // The moderation port owns the leased region/model runtime state: it
+            // snapshots the exact prior state under the same owner identity and
+            // restores it through the lease on both success and failure paths.
+            runtimeLease = moderation.AcquireRuntimeState(binding, ManualReviewFixtureRegion);
             RegionModerationDecision manual = ResolveManualReviewRegion(owner, articleId, secondary, now);
             if (!global.CanPublish || !manual.CanPublish || !manual.RequiresManualReview
                 || StringComparer.OrdinalIgnoreCase.Equals(global.SubmitRegion, manual.SubmitRegion))
@@ -306,7 +306,7 @@ public sealed class CommentFixtureSeeder(
                 binding,
                 ToOwnedComments(entities),
                 crossDomainBefore);
-            string cacheAfter = await RequireAdvancedCacheGenerationAsync(cacheIdentity, cacheBefore, cancellationToken)
+            string cacheAfter = await RequireAdvancedCacheGenerationAsync(articleId, cacheBefore, cancellationToken)
                 .ConfigureAwait(false);
             var proofs = plan.Capabilities.Select(capability => new CommentFixtureCapabilityProof(
                 capability,
@@ -318,13 +318,7 @@ public sealed class CommentFixtureSeeder(
                 "exact",
                 "exact")).ToArray();
 
-            runtimeState.SetRegionState(
-                ManualReviewFixtureRegion,
-                manualReviewRegionPriorState ?? ModerationRegionStates.Enabled,
-                $"comment fixture restore {plan.RunId}",
-                null,
-                null,
-                owner);
+            CommentModerationRuntimeRestore runtimeRestore = moderation.RestoreRuntimeState(runtimeLease);
             return new CommentFixtureResult(
                 ProducerId,
                 Strategy,
@@ -343,19 +337,25 @@ public sealed class CommentFixtureSeeder(
                 cacheAfter,
                 crossDomainBefore,
                 crossDomainAfterPrepare,
-                cleanup);
+                cleanup,
+                runtimeLease,
+                runtimeRestore);
         }
         catch (Exception preparationError)
         {
-            if (manualReviewRegionPriorState is not null)
+            Exception? cleanupError = (preparationError as CommentThreadFixtureRecoveryException)?.CleanupError;
+            if (runtimeLease is not null)
             {
-                runtimeState.SetRegionState(
-                    ManualReviewFixtureRegion,
-                    manualReviewRegionPriorState,
-                    $"comment fixture restore {plan.RunId}",
-                    null,
-                    null,
-                    owner);
+                try
+                {
+                    moderation.RestoreRuntimeState(runtimeLease);
+                }
+                catch (Exception restoreError)
+                {
+                    cleanupError = cleanupError is null
+                        ? restoreError
+                        : new AggregateException(cleanupError, restoreError);
+                }
             }
             var owned = new Dictionary<long, CommentThreadFixtureOwnedIdentity>();
             foreach ((long id, CommentThreadFixtureOwnedIdentity identity) in ToOwnedComments(latest.Values))
@@ -371,7 +371,6 @@ public sealed class CommentFixtureSeeder(
                 owned,
                 crossDomainBefore);
             CommentThreadFixtureCleanupResult? cleanupResult = null;
-            Exception? cleanupError = (preparationError as CommentThreadFixtureRecoveryException)?.CleanupError;
             if (owned.Count > 0)
             {
                 try
@@ -396,10 +395,27 @@ public sealed class CommentFixtureSeeder(
         }
     }
 
-    public Task<CommentThreadFixtureCleanupResult> CleanupAsync(
+    public async Task<CommentFixtureCleanupResult> CleanupAsync(
         CommentThreadFixtureCleanupReceipt receipt,
         CancellationToken cancellationToken = default)
-        => threads.CleanupAsync(receipt, cancellationToken);
+    {
+        CommentThreadFixtureCleanupResult thread = await threads.CleanupAsync(
+            receipt,
+            cancellationToken).ConfigureAwait(false);
+        CommentModerationCleanupObservation observation = await moderation.VerifyCleanupAsync(
+            receipt.Binding,
+            [.. receipt.OwnedComments.Keys.Order()],
+            cancellationToken).ConfigureAwait(false);
+        return new CommentFixtureCleanupResult(
+            CleanupResultSchema,
+            thread.Binding,
+            thread.DeletedCommentIds,
+            thread.StillPublicCommentIds,
+            thread.Exact,
+            thread.CrossDomainBefore,
+            thread.CrossDomainAfter,
+            observation);
+    }
 
     private RegionModerationDecision ResolveManualReviewRegion(
         string owner,
@@ -572,23 +588,23 @@ public sealed class CommentFixtureSeeder(
 
     private static string Content(string owner, string role) => $"Fixture comment {owner} {role}";
 
-    private async Task<string> ReadCacheGenerationAsync(string identity, CancellationToken cancellationToken)
-        => await cacheProbe.ReadCursorGenerationAsync(identity, cancellationToken)
+    private async Task<string> ReadCommentCacheGenerationAsync(int articleId, CancellationToken cancellationToken)
+        => await moderation.ReadCommentCacheGenerationAsync(articleId, cancellationToken)
             .ConfigureAwait(false) ?? "0";
 
     private async Task<string> RequireAdvancedCacheGenerationAsync(
-        string identity,
+        int articleId,
         string before,
         CancellationToken cancellationToken)
     {
-        for (int attempt = 0; attempt < 20; attempt++)
+        for (int attempt = 0; attempt < 60; attempt++)
         {
-            string current = await ReadCacheGenerationAsync(identity, cancellationToken).ConfigureAwait(false);
+            string current = await ReadCommentCacheGenerationAsync(articleId, cancellationToken).ConfigureAwait(false);
             if (long.TryParse(current, CultureInfo.InvariantCulture, out long currentValue)
                 && long.TryParse(before, CultureInfo.InvariantCulture, out long beforeValue)
                 && currentValue > beforeValue)
                 return current;
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
         }
         throw new InvalidOperationException("Comment cache generation did not advance through the production outbox path.");
     }
