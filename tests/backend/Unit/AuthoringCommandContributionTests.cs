@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 
+using Microsoft.CodeAnalysis.CSharp;
+
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -171,7 +173,7 @@ public sealed class AuthoringCommandContributionTests
 
         Assert.Equal(1, report.Commands);
         Assert.Equal(4, report.Surfaces);
-        Assert.Equal(command, authority.Snapshot().Get(command.CommandId));
+        Assert.Equivalent(command, authority.Snapshot().Get(command.CommandId), strict: true);
         Assert.Throws<AuthoringExtensionContractException>(() => authority.Activate(package, targets));
         Assert.Equal(1, authority.Revoke(command.ExtensionId).Commands);
         Assert.Throws<AuthoringExtensionContractException>(() => authority.Snapshot().Get(command.CommandId));
@@ -316,7 +318,6 @@ public sealed class AuthoringCommandContributionTests
         {
             "addEventListener",
             "keydown",
-            "document.",
             "innerHTML",
             ".splice(",
             "IServiceProvider",
@@ -326,7 +327,19 @@ public sealed class AuthoringCommandContributionTests
         {
             Assert.DoesNotContain(forbidden, source, StringComparison.OrdinalIgnoreCase);
         }
+
+        Assert.False(ContainsIdentifierToken(source, "document"));
+        Assert.False(ContainsIdentifierToken("const message = \"bound to another document.\";", "document"));
+        Assert.True(ContainsIdentifierToken("var body = document.body;", "document"));
     }
+
+    private static bool ContainsIdentifierToken(string source, string identifier) =>
+        CSharpSyntaxTree.ParseText(source)
+            .GetRoot()
+            .DescendantTokens()
+            .Any(token =>
+                token.IsKind(SyntaxKind.IdentifierToken) &&
+                string.Equals(token.ValueText, identifier, StringComparison.OrdinalIgnoreCase));
 
     private static AuthoringCommandRegistry CreateRegistry(ImmutableArray<AuthoringCommandContribution> commands) =>
         new(commands, ImmutableHashSet<string>.Empty, ImmutableHashSet<string>.Empty);
