@@ -28,6 +28,7 @@
                         v-model="rememberMe"
                         name="rememberMe"
                         :disabled="passkeyLoading"
+                        class="login-remember-checkbox"
                     >
                         {{ copy.rememberMe }}
                     </ElCheckbox>
@@ -35,6 +36,7 @@
                         type="primary"
                         :disabled="passkeyLoading"
                         :loading="passkeyLoading"
+                        class="login-passkey-button"
                         @click="handlePasskeyLogin"
                     >
                         <template #icon>
@@ -217,3 +219,25 @@ const {
 
 const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value);
 </script>
+
+<style scoped>
+.login-remember-checkbox
+ {
+    align-items: flex-start;
+}
+
+.login-remember-checkbox :deep(.el-checkbox__label)
+ {
+    white-space: normal;
+    line-height: 1.5;
+}
+
+.login-passkey-button
+ {
+    height: auto;
+    min-height: 40px;
+    padding-block: 8px;
+    white-space: normal;
+    line-height: 1.4;
+}
+</style>
