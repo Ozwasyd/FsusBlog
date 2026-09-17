@@ -270,7 +270,7 @@
             ]
         }
     ],
-    "declarationsDigest": "sha256:121306e0eaabc50afac57324c1c237d90a45f8a8ebbaf1ac27adc1927c47328b",
-    "targetPathsDigest": "sha256:83093e2f4fb4e5694d326e890436ff842df2d7b6174a023675a5819531d9a803",
+    "declarationsDigest": "sha256:88b932a59b05c407d65d3b445f932cdae7bab8a0b1d730cd8824bf5a5767e483",
+    "targetPathsDigest": "sha256:d0bb5e8c2406a91150f9572ec00c1943f9ed82e078dd34825387ee6e3ee1e532",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs"
 }

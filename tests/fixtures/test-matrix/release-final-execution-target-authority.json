@@ -2,7 +2,7 @@
     "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "sourceIndex": "config/testing/release-final-execution-authority-index.json",
-    "sourceIndexDigest": "sha256:10d9e6f78c13020ea4204df973dd94ccdcb66ba0ebbf2644929ec041e435c64b",
+    "sourceIndexDigest": "sha256:fcfb380f51a31773c0dabfdee321ccc64b558105f4d2855d2d54a2e1cd5ec01e",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
     "nodeParserIdentity": {
         "nodeVersion": "v24.18.0",
@@ -20,8 +20,8 @@
     "closureFiles": [
         {
             "path": "src/backend/FsusBlog.Server.csproj",
-            "contentDigest": "sha256:c0ff4649c4db1d21b99964e0c70cfb14c840ea3cb36eaab3ffb56c862b39403d",
-            "indexDigest": "sha256:c0ff4649c4db1d21b99964e0c70cfb14c840ea3cb36eaab3ffb56c862b39403d"
+            "contentDigest": "sha256:50ef0b8f7902ef8cdeaa6ed6eb55370abeb9974d4b6db40e538e102a23b03223",
+            "indexDigest": "sha256:50ef0b8f7902ef8cdeaa6ed6eb55370abeb9974d4b6db40e538e102a23b03223"
         },
         {
             "path": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
@@ -1205,8 +1205,8 @@
         },
         {
             "path": "tests/tools/current-schema-authority.test.mjs",
-            "contentDigest": "sha256:8c0bd8daa8729136e982390c155b195c79f275f8bf629510a937e84ad9fdcf43",
-            "indexDigest": "sha256:8c0bd8daa8729136e982390c155b195c79f275f8bf629510a937e84ad9fdcf43"
+            "contentDigest": "sha256:68b7e6c0c8c4fda81678b6038fcaeaf535cbaee335ac6ce4ef27b2484949eaf9",
+            "indexDigest": "sha256:68b7e6c0c8c4fda81678b6038fcaeaf535cbaee335ac6ce4ef27b2484949eaf9"
         },
         {
             "path": "tests/tools/dependency-automerge.test.mjs",
@@ -1295,8 +1295,8 @@
         },
         {
             "path": "tests/tools/production-build-artifacts.test.mjs",
-            "contentDigest": "sha256:7b927c33e0f36a708c61dfb7c1af37ef3996fd46a7986dd9ae6de5f1cf8a8486",
-            "indexDigest": "sha256:7b927c33e0f36a708c61dfb7c1af37ef3996fd46a7986dd9ae6de5f1cf8a8486"
+            "contentDigest": "sha256:bc1aa4888a678d49a1489d43b0c9a1fe05b544126ca28aaf8f6683cda23f0911",
+            "indexDigest": "sha256:bc1aa4888a678d49a1489d43b0c9a1fe05b544126ca28aaf8f6683cda23f0911"
         },
         {
             "path": "tests/tools/production-build-materialization-benchmark.test.mjs",
@@ -1440,8 +1440,8 @@
         },
         {
             "path": "tools/bootstrap-acceptance-env.sh",
-            "contentDigest": "sha256:26cb0ac0820b44af061ee5505d2b527bd1f2c37168f6755ccf287e3a4805223c",
-            "indexDigest": "sha256:26cb0ac0820b44af061ee5505d2b527bd1f2c37168f6755ccf287e3a4805223c"
+            "contentDigest": "sha256:655bb14f8a3257e711249861e398f83f66d6a9410badb29842e4ff2346fb0ef2",
+            "indexDigest": "sha256:655bb14f8a3257e711249861e398f83f66d6a9410badb29842e4ff2346fb0ef2"
         },
         {
             "path": "tools/build-final-image.sh",
@@ -1550,8 +1550,8 @@
         },
         {
             "path": "tools/ci/production-build-artifacts.mjs",
-            "contentDigest": "sha256:f66b9c2fac8d3d9bd0739b83786fb31db981f413c0130293fcf064ad2efe5211",
-            "indexDigest": "sha256:f66b9c2fac8d3d9bd0739b83786fb31db981f413c0130293fcf064ad2efe5211"
+            "contentDigest": "sha256:a7d97a368e8b28fcdb23b904baa0683c4f9783c2ba81e07820ebc77c6aa0b7c4",
+            "indexDigest": "sha256:a7d97a368e8b28fcdb23b904baa0683c4f9783c2ba81e07820ebc77c6aa0b7c4"
         },
         {
             "path": "tools/configuration/check-appsettings-authority.mjs",
@@ -1737,6 +1737,11 @@
             "path": "tools/db/generate-migration-assembly-receipt.mjs",
             "contentDigest": "sha256:4c96ec75659f282e1fa4865533acaed768181e19017a3e0c7373559742ecfbc9",
             "indexDigest": "sha256:4c96ec75659f282e1fa4865533acaed768181e19017a3e0c7373559742ecfbc9"
+        },
+        {
+            "path": "tools/db/verify-current-schema-test-materialization-receipt.mjs",
+            "contentDigest": "sha256:3696b527b62dc34318306b827ceaf07536cf399cebfad62722a857147c8b85f8",
+            "indexDigest": "sha256:3696b527b62dc34318306b827ceaf07536cf399cebfad62722a857147c8b85f8"
         },
         {
             "path": "tools/deployment/check-production-compose-environment.mjs",
@@ -3210,8 +3215,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:b8c5b809a5b4e06c8995fb430675eba148421487cb260fc339ab954470b9e0fa",
-            "indexDigest": "sha256:b8c5b809a5b4e06c8995fb430675eba148421487cb260fc339ab954470b9e0fa"
+            "contentDigest": "sha256:05a4e8a4db6f11ff1c3188b90b9efc5a78acac7c60cae01662f4a4b176c74b0d",
+            "indexDigest": "sha256:05a4e8a4db6f11ff1c3188b90b9efc5a78acac7c60cae01662f4a4b176c74b0d"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
@@ -3285,8 +3290,8 @@
         },
         {
             "path": "tools/test/execution-envelope-services.mjs",
-            "contentDigest": "sha256:6580ff160bc4a4460593c9e5cb02566a5bda2e33d218f2d16d4adfb66ab65dd4",
-            "indexDigest": "sha256:6580ff160bc4a4460593c9e5cb02566a5bda2e33d218f2d16d4adfb66ab65dd4"
+            "contentDigest": "sha256:a4d89aaae066ce11a720e6f610161bede9bd127d2aa46d19b93cae07c15188e6",
+            "indexDigest": "sha256:a4d89aaae066ce11a720e6f610161bede9bd127d2aa46d19b93cae07c15188e6"
         },
         {
             "path": "tools/test/execution-replay-contract.mjs",
@@ -3295,8 +3300,8 @@
         },
         {
             "path": "tools/test/export-production-build-environment.mjs",
-            "contentDigest": "sha256:7d71777c78cb4c87986eb673038239cfe61b0ce4413d2ef6cb334180f42500bb",
-            "indexDigest": "sha256:7d71777c78cb4c87986eb673038239cfe61b0ce4413d2ef6cb334180f42500bb"
+            "contentDigest": "sha256:a10780dc33d39b77680b10df739c8f7259ba2f70e9e7492c615376331c27f9a7",
+            "indexDigest": "sha256:a10780dc33d39b77680b10df739c8f7259ba2f70e9e7492c615376331c27f9a7"
         },
         {
             "path": "tools/test/frontend-render-structure-receipts.mjs",
@@ -3360,8 +3365,8 @@
         },
         {
             "path": "tools/test/lanes/production-build-artifacts.sh",
-            "contentDigest": "sha256:f61f5fe459b652f970c855c9804277cabed6ec069d6d186daf0ad17e0c86b5e4",
-            "indexDigest": "sha256:f61f5fe459b652f970c855c9804277cabed6ec069d6d186daf0ad17e0c86b5e4"
+            "contentDigest": "sha256:94de93407a76cf85ae0423bb9f0af54897a9851248b620e7b9e4f00a21480866",
+            "indexDigest": "sha256:94de93407a76cf85ae0423bb9f0af54897a9851248b620e7b9e4f00a21480866"
         },
         {
             "path": "tools/test/lanes/project-privacy-zk-prebuild.mjs",
@@ -3770,8 +3775,8 @@
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
-            "contentDigest": "sha256:2344e09f7ffc3e668538483669e2bba7d369789230c2994ac104bdf73332ca15",
-            "indexDigest": "sha256:2344e09f7ffc3e668538483669e2bba7d369789230c2994ac104bdf73332ca15"
+            "contentDigest": "sha256:b7216dea126ad885999b8399bd2808b4ddbd4c7bf1d99b700007db4cfd15e992",
+            "indexDigest": "sha256:b7216dea126ad885999b8399bd2808b4ddbd4c7bf1d99b700007db4cfd15e992"
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",
@@ -4176,6 +4181,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -4604,6 +4610,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -5133,6 +5140,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -5422,6 +5430,7 @@
             "contentDigest": "sha256:e65836d687ee8f2aa0d8c7bffb1c14a26f9630957773d9385ec56d014da28099",
             "indexDigest": "sha256:e65836d687ee8f2aa0d8c7bffb1c14a26f9630957773d9385ec56d014da28099",
             "dependencyClosure": [
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
                 "tools/test-fixtures/receipt/fixture-receipt.mjs",
                 "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
@@ -5474,6 +5483,7 @@
             "contentDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
             "indexDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
             "dependencyClosure": [
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/operations/aeds-frame-cost-evidence.mjs",
                 "tools/operations/check-evidence-metrics.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
@@ -5779,6 +5789,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -6320,6 +6331,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -6861,6 +6873,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -7150,6 +7163,7 @@
             "contentDigest": "sha256:d2b3fb2ffc7c90b9469be929aca3f32117ebc3cb6918a77082a24d6570fd1309",
             "indexDigest": "sha256:d2b3fb2ffc7c90b9469be929aca3f32117ebc3cb6918a77082a24d6570fd1309",
             "dependencyClosure": [
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
                 "tools/test-fixtures/receipt/fixture-receipt.mjs",
                 "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
@@ -7453,6 +7467,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -7994,6 +8009,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -8535,6 +8551,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -9076,6 +9093,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -9371,6 +9389,7 @@
                 "tools/contracts/behavior-owner-binding.mjs",
                 "tools/contracts/behavior-test-binding.mjs",
                 "tools/contracts/behavior-test.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -9733,6 +9752,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -10296,6 +10316,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -11014,6 +11035,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -11555,6 +11577,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -11861,6 +11884,7 @@
                 "tools/contracts/behavior-test-binding.mjs",
                 "tools/contracts/behavior-test.mjs",
                 "tools/contracts/check-behavior-test-evidence.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/deployment/zero-downtime-rehearsal-plan.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
@@ -12235,6 +12259,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -12584,6 +12609,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -12971,6 +12997,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -13579,6 +13606,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -14122,6 +14150,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -14663,6 +14692,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -14934,6 +14964,38 @@
             ]
         },
         {
+            "target": "tools/test/lanes/current-schema-bootstrap-integration.sh",
+            "owners": [
+                "current-schema-bootstrap-integration"
+            ],
+            "declarations": [
+                {
+                    "owner": "current-schema-bootstrap-integration",
+                    "commandKind": null,
+                    "executionMode": null,
+                    "executableKind": "repository-executable",
+                    "argv": [
+                        "tools/test/lanes/current-schema-bootstrap-integration.sh"
+                    ]
+                }
+            ],
+            "contentDigest": "sha256:c9417d606731ad64321c5f29e05403f3ce99a1448a7827e0fb1ad93b1b30f77b",
+            "indexDigest": "sha256:c9417d606731ad64321c5f29e05403f3ce99a1448a7827e0fb1ad93b1b30f77b",
+            "dependencyClosure": [
+                "src/backend/FsusBlog.Server.csproj",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "tools/build-with-data-env.sh",
+                "tools/ci/production-build-artifacts.mjs",
+                "tools/test-matrix/content-addressed-build-cache-contract.mjs",
+                "tools/test-matrix/content-addressed-build-cache-storage.mjs",
+                "tools/test-matrix/content-addressed-build-cache.mjs",
+                "tools/test-matrix/execution-envelope-policy.mjs",
+                "tools/test-matrix/frontend-build-ready-marker.mjs",
+                "tools/test/execution-envelope-services.mjs",
+                "tools/test/process-identity.mjs"
+            ]
+        },
+        {
             "target": "tools/test/lanes/data-scale.sh",
             "owners": [
                 "data-scale-m",
@@ -14998,6 +15060,7 @@
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
                 "tools/data-scale/probe.sh",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -15350,6 +15413,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -15919,6 +15983,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -16461,6 +16526,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -17002,6 +17068,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -17567,6 +17634,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -18108,6 +18176,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -18649,6 +18718,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -18935,8 +19005,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:09df021e63ba8a2c3c7e698018c65c6e3e125f94ecf2145005798ed502a5cf8a",
-            "indexDigest": "sha256:09df021e63ba8a2c3c7e698018c65c6e3e125f94ecf2145005798ed502a5cf8a",
+            "contentDigest": "sha256:1143811abb56e84c114d9e61bed017953ed7bea1acf9d3f7894e7d24baa863a0",
+            "indexDigest": "sha256:1143811abb56e84c114d9e61bed017953ed7bea1acf9d3f7894e7d24baa863a0",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
@@ -19190,6 +19260,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -19395,6 +19466,7 @@
                 "tools/test/execution-envelope-receipt.mjs",
                 "tools/test/execution-envelope-services.mjs",
                 "tools/test/execution-replay-contract.mjs",
+                "tools/test/export-production-build-environment.mjs",
                 "tools/test/frontend-render-structure-receipts.mjs",
                 "tools/test/governance-suite-plan.mjs",
                 "tools/test/homogeneous-two-node-fixture.mjs",
@@ -19790,6 +19862,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -20416,6 +20489,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -20958,6 +21032,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -21250,6 +21325,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -21637,6 +21713,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -21929,8 +22006,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:f61f5fe459b652f970c855c9804277cabed6ec069d6d186daf0ad17e0c86b5e4",
-            "indexDigest": "sha256:f61f5fe459b652f970c855c9804277cabed6ec069d6d186daf0ad17e0c86b5e4",
+            "contentDigest": "sha256:94de93407a76cf85ae0423bb9f0af54897a9851248b620e7b9e4f00a21480866",
+            "indexDigest": "sha256:94de93407a76cf85ae0423bb9f0af54897a9851248b620e7b9e4f00a21480866",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",
@@ -22277,6 +22354,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -22818,6 +22896,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -23441,6 +23520,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -23746,6 +23826,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/behavior-document-consistency-final.mjs",
@@ -24116,6 +24197,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -24657,6 +24739,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -25236,6 +25319,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -25803,6 +25887,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -26127,6 +26212,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -26547,6 +26633,7 @@
                 "tools/db/check-migration-terminal-governance.mjs",
                 "tools/db/check-server-migration-cutover.mjs",
                 "tools/db/generate-migration-assembly-receipt.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -27229,6 +27316,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -27770,6 +27858,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -28311,6 +28400,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -28852,6 +28942,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -29393,6 +29484,7 @@
                 "tools/coverage/merge-coverage.sh",
                 "tools/crypto/check-zk-artifact-ownership.mjs",
                 "tools/crypto/zk-retired-residue.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -30151,8 +30243,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:76afbf82e8cb7a14705fe1a1a5f483d5c9f1152329d75b1d2e5deb877cc277ea",
-            "indexDigest": "sha256:76afbf82e8cb7a14705fe1a1a5f483d5c9f1152329d75b1d2e5deb877cc277ea",
+            "contentDigest": "sha256:98d0ce5d1e001986399d97237d43033dff35519b95664e9f46b18521c0c96496",
+            "indexDigest": "sha256:98d0ce5d1e001986399d97237d43033dff35519b95664e9f46b18521c0c96496",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",
@@ -30173,6 +30265,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/deployment/check-production-compose-environment.mjs",
                 "tools/deployment/verify-container-termination.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
@@ -30391,6 +30484,7 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission.mjs",
                 "tools/docs/check-document-claim-migration-ledger.mjs",
