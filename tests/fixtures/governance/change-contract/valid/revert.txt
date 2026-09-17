@@ -1,0 +1,6 @@
+revert(core): restore previous decoder behavior
+
+Restore the reviewed boundary while the replacement is corrected.
+
+Reverts: abc1234
+Refs: #1163

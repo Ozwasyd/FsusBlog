@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "655d65dd8d00f55ec6bcf2cedf9cbc740045173d",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.108",
+        "command": "dotnet format FsusBlog.slnx whitespace --no-restore"
+    },
+    "paths": [
+        "src/backend/Entities/UserLocalePreference.cs",
+        "src/backend/Models/Dtos/UploadDtos.cs",
+        "src/backend/Services/FileService.cs",
+        "src/shared/Contracts/Governance/BehaviorOwnerAttribute.cs",
+        "src/shared/Contracts/Governance/CoversBehaviorAttribute.cs",
+        "tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs",
+        "tests/backend/Unit/FileServiceTests.cs"
+    ],
+    "firstPassTreeSha256": "5f9c7ddde7ca6f3e2a71df44762df18bdd864180ce6501895b06ec0f3a84d82f",
+    "secondPassTreeSha256": "5f9c7ddde7ca6f3e2a71df44762df18bdd864180ce6501895b06ec0f3a84d82f",
+    "idempotent": true
+}

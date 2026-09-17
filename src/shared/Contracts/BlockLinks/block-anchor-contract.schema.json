@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.dev/contracts/block-anchor.v1.schema.json",
+  "title": "FsusBlog canonical block anchor contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "version",
+    "upstreamContract",
+    "grammar",
+    "sourceMarkerPrefix",
+    "urlFragmentPrefix",
+    "markdownRoutePrefix",
+    "digestAlgorithm",
+    "canonicalSerialization",
+    "verificationReceipt",
+    "errorCodes"
+  ],
+  "properties": {
+    "contract": {
+      "const": "fsusblog.block-anchor-contract.v1"
+    },
+    "version": {
+      "const": 1
+    },
+    "upstreamContract": {
+      "const": "fsusui.markdown-anchor.v1"
+    },
+    "grammar": {
+      "const": "[a-z][a-z0-9-]{0,63}"
+    },
+    "sourceMarkerPrefix": {
+      "const": "^"
+    },
+    "urlFragmentPrefix": {
+      "const": "#"
+    },
+    "markdownRoutePrefix": {
+      "const": "/posts/"
+    },
+    "digestAlgorithm": {
+      "const": "sha256"
+    },
+    "canonicalSerialization": {
+      "const": "length-prefixed-utf8-v1"
+    },
+    "verificationReceipt": {
+      "const": "fsusblog.block-anchor-verification-receipt.v1"
+    },
+    "errorCodes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invalidGrammar",
+        "unsupportedSyntax",
+        "duplicate",
+        "missingArticle",
+        "missingAnchor",
+        "codecMismatch"
+      ],
+      "properties": {
+        "invalidGrammar": { "const": 1 },
+        "unsupportedSyntax": { "const": 2 },
+        "duplicate": { "const": 3 },
+        "missingArticle": { "const": 4 },
+        "missingAnchor": { "const": 5 },
+        "codecMismatch": { "const": 6 }
+      }
+    }
+  }
+}

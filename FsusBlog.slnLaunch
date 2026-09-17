@@ -1,0 +1,28 @@
+[
+  {
+    "Name": "Debug / Client + Docker",
+    "Projects": [
+      {
+        "Path": "src\\frontend\\FsusBlog.Client.esproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "ops\\docker\\docker-compose.dcproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "Debug / Client + NativeServer",
+    "Projects": [
+      {
+        "Path": "src\\frontend\\FsusBlog.Client.esproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\backend\\FsusBlog.Server.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

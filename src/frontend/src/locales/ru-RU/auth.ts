@@ -1,0 +1,84 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'auth' } as const);
+
+import type { LocaleSchema } from '../keys';
+import type { auth as zhCNAuth } from '../zh-CN/auth';
+
+export const auth = {
+    register: {
+        title: 'Создать анонимный аккаунт',
+        description: 'Без привязки email или телефона. Сохраните Recovery Key и добавьте ключ доступа.',
+        publicHandleHeading: 'Публичное имя',
+        publicHandleLabel: 'Публичное имя (необязательно)',
+        publicHandleHint: 'Оставьте пустым для автоматической генерации анонимного имени. TOTP можно включить позже в настройках; коды восстановления TOTP отличаются от Recovery Key.',
+        publicHandlePlaceholder: '3–20 букв, цифр, иероглифов или #',
+        agreementPrefix: 'Я прочитал(а) и принимаю',
+        guidelinesLink: 'правила сайта',
+        submitButtonIdle: 'Создать аккаунт и Recovery Key',
+        submitButtonLoading: 'Создание аккаунта',
+        passkeyEnrollmentTitle: 'Добавить первый ключ доступа',
+        passkeyEnrollmentHint: 'Аккаунт остаётся временным до подтверждения ключа доступа и создания полноценной сессии.',
+        recoveryKeyTitle: 'Сохраните Recovery Key',
+        recoveryKeyHint: 'Recovery Key показывается только один раз. Без него или работающего ключа доступа аккаунт может быть невозможно восстановить.',
+        recoveryKeyVersionPrefix: 'Recovery Key v',
+        recoveryKeyCreatedAtPrefix: 'Создан: ',
+        copyRecoveryKeyCta: 'Скопировать Recovery Key',
+        recoveryKeySavedCheckbox: 'Я сохранил(а) Recovery Key',
+        registerPasskeyCta: 'Добавить ключ доступа',
+        passkeyBoundTitle: 'Ключ доступа добавлен',
+        passkeyBoundHint: 'Используйте ключ доступа для входа и Recovery Key для восстановления аккаунта.',
+        enterAccountCta: 'Перейти в аккаунт',
+        hasAccountLabel: 'Уже есть аккаунт',
+        loginLink: 'Войти',
+        cancelLink: 'На главную'
+    },
+    login: {
+        title: 'Войти',
+        description: 'Публикации, комментарии и обслуживание сайта.',
+        rememberMe: 'Запомнить это устройство',
+        passkeyButton: 'Войти с помощью ключа доступа',
+        passkeyLoading: 'Ожидание устройства',
+        passkeyHint: 'Анонимные аккаунты не привязаны к email или телефону. Используйте зарегистрированное устройство, ключ безопасности или восстановите доступ с помощью Recovery Key.',
+        passkeyFailureHint: 'При неудачной проверке используйте Recovery Key для восстановления доступа.',
+        recoverLink: 'Восстановить доступ с помощью Recovery Key',
+        mfaRequiredTitle: 'Требуется второй фактор',
+        mfaRequiredHint: 'Введите код из приложения или код восстановления.',
+        mfaAriaLabel: 'Выберите способ проверки',
+        mfaModeTOTP: 'Код из приложения',
+        mfaModeRecovery: 'Код восстановления',
+        mfaCodeLabel: 'Код MFA',
+        mfaCodePlaceholder: '6-значный код',
+        mfaRecoveryLabel: 'Код восстановления',
+        mfaRecoveryPlaceholder: 'Код восстановления',
+        mfaSubmit: 'Проверить',
+        registerLink: 'Регистрация',
+        cancelLink: 'Отмена'
+    },
+    recover: {
+        title: 'Восстановить доступ',
+        description: 'Подтвердите Recovery Key и добавьте новый ключ доступа.',
+        sectionTitle: 'Recovery Key',
+        sectionHint: 'Recovery Key восстанавливает аккаунт и не является кодом восстановления TOTP.',
+        keyLabel: 'Recovery Key',
+        keyPlaceholder: 'Вставьте Recovery Key, начинающийся с frk_',
+        keyHelp: 'Без Recovery Key или работающего ключа доступа аккаунт может быть невозможно восстановить.',
+        revokePasskeys: 'Отозвать старые ключи доступа после восстановления',
+        verifyCta: 'Проверить Recovery Key',
+        sessionReadyHint: 'Recovery Key подтверждён. Сессия восстановления истекает {expiresAt}. Добавьте новый ключ доступа.',
+        bindNewPasskeyCta: 'Добавить новый ключ доступа',
+        verifyFailedFallback: 'Проверка Recovery Key не удалась.',
+        returnLoginLink: 'Вернуться ко входу',
+        cancelLink: 'Отмена'
+    },
+    policyModal: {
+        fallbackTitle: 'Условия',
+        privacyTitle: 'Политика конфиденциальности',
+        guidelinesTitle: 'Правила сайта',
+        loadingStatus: 'Загрузка содержания',
+        loadError: 'Не удалось загрузить содержание',
+        retryCta: 'Повторить',
+        emptyStatePrefix: 'Содержание ',
+        emptyStateSuffix: ' не настроено.',
+        acknowledgementCta: 'Ознакомлен(а)',
+        bodyAriaLabel: 'Текст условий'
+    }
+} as const satisfies LocaleSchema<typeof zhCNAuth>;

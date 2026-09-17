@@ -1,0 +1,73 @@
+{
+    "schema": "fsusblog.measurement-noise-policy.v1",
+    "preflightObservationMs": 5000,
+    "postObservationMs": 1000,
+    "sampleIntervalMs": 1000,
+    "admissionDeadlineMs": 60000,
+    "metrics": {
+        "hostCpuUtilization": {
+            "qualification": "blocking",
+            "maximum": 0.9,
+            "unit": "ratio"
+        },
+        "hostRunQueueOrCpuPressure": {
+            "qualification": "blocking",
+            "maximum": 1,
+            "unit": "runnable-per-host-cpu"
+        },
+        "cpuStealOrReadyTime": {
+            "qualification": "blocking",
+            "maximum": 0.05,
+            "unit": "ratio"
+        },
+        "currentRunCpuThrottleTime": {
+            "qualification": "blocking",
+            "maximum": 0.05,
+            "unit": "ratio"
+        },
+        "hostMemoryPressure": {
+            "qualification": "blocking",
+            "maximum": 0.1,
+            "unit": "psi-some-avg10-ratio"
+        },
+        "currentRunMemoryEvents": {
+            "qualification": "blocking",
+            "maximum": 0,
+            "unit": "high-max-oom-event-count"
+        },
+        "majorPageFaults": {
+            "qualification": "blocking",
+            "maximum": 256,
+            "unit": "faults-per-second"
+        },
+        "hostDiskReadWriteBytes": {
+            "qualification": "blocking",
+            "maximum": 209715200,
+            "unit": "bytes-per-second"
+        },
+        "hostDiskQueueOrIoPressure": {
+            "qualification": "blocking",
+            "maximum": 0.1,
+            "unit": "psi-some-avg10-ratio"
+        },
+        "currentRunIoBytes": {
+            "qualification": "diagnostic-only",
+            "unit": "bytes-per-second"
+        },
+        "externalProcessCpuEstimate": {
+            "qualification": "blocking",
+            "maximum": 0.5,
+            "unit": "cpu-cores"
+        },
+        "externalProcessIoEstimate": {
+            "qualification": "blocking",
+            "maximum": 104857600,
+            "unit": "bytes-per-second"
+        },
+        "collectorCoverage": {
+            "qualification": "blocking",
+            "minimum": 1,
+            "unit": "ratio"
+        }
+    }
+}

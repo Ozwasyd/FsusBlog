@@ -1,0 +1,82 @@
+{
+  "schema": "fsusblog.evidence-projection-catalog.v1",
+  "tierId": "integrity-proof-verification",
+  "executionOwner": "backend-unit",
+  "projectFrom": "backend-unit",
+  "requiredTestIds": [
+    "integrity-proof/golden-verifier",
+    "integrity-proof/projector-failure-propagation",
+    "integrity-proof/schema-migrations",
+    "integrity-proof/tamper/algorithm-mismatch",
+    "integrity-proof/tamper/checkpoint-tamper",
+    "integrity-proof/tamper/key-id-tamper",
+    "integrity-proof/tamper/log-deletion",
+    "integrity-proof/tamper/log-reorder",
+    "integrity-proof/tamper/payload-tamper",
+    "integrity-proof/tamper/signature-tamper"
+  ],
+  "requiredCoverageIds": [
+    "integrity-proof-release-evidence",
+    "integrity-proof-schema-migration",
+    "integrity-proof-tamper-matrix",
+    "integrity-proof-verification"
+  ],
+  "requiredArtifactDeclarations": [
+    {
+      "id": "integrity-proof-source-results",
+      "path": ".tmp/test-results/backend/integrity-proof-source.json"
+    }
+  ],
+  "producerAssertions": [
+    {
+      "id": "integrity-proof/golden-verifier",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_GoldenFixtureAcceptsEveryLayerWithoutLeakingPrivateKey",
+      "coverageIds": ["integrity-proof-verification"]
+    },
+    {
+      "id": "integrity-proof/projector-failure-propagation",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationMatrixTests.ProjectionTool_EmitsIndependentReceiptAndPropagatesFailure",
+      "coverageIds": ["integrity-proof-release-evidence"]
+    },
+    {
+      "id": "integrity-proof/schema-migrations",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.SchemaMigrations_CoverIntegrityProofLogAndCheckpointTables",
+      "coverageIds": ["integrity-proof-schema-migration"]
+    },
+    {
+      "id": "integrity-proof/tamper/algorithm-mismatch",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"algorithm-mismatch\", expectedCheck: \"publish-proof-signature\", expectedCode: \"algorithm-mismatch\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    },
+    {
+      "id": "integrity-proof/tamper/checkpoint-tamper",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"checkpoint-tamper\", expectedCheck: \"merkle-checkpoint-root\", expectedCode: \"checkpoint-root-mismatch\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    },
+    {
+      "id": "integrity-proof/tamper/key-id-tamper",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"keyId-tamper\", expectedCheck: \"publish-proof-signature\", expectedCode: \"unknown-key\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    },
+    {
+      "id": "integrity-proof/tamper/log-deletion",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"log-deletion\", expectedCheck: \"transparency-log-chain\", expectedCode: \"seq-gap\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    },
+    {
+      "id": "integrity-proof/tamper/log-reorder",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"log-reorder\", expectedCheck: \"transparency-log-chain\", expectedCode: \"seq-order\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    },
+    {
+      "id": "integrity-proof/tamper/payload-tamper",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"payload-tamper\", expectedCheck: \"canonical-hash\", expectedCode: \"canonical-hash-mismatch\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    },
+    {
+      "id": "integrity-proof/tamper/signature-tamper",
+      "sourceTestId": "FsusBlog.Server.Tests.Unit.IntegrityProofVerificationTests.Verify_TamperMatrixRejectsEveryMutation(tamperCase: \"signature-tamper\", expectedCheck: \"publish-proof-signature\", expectedCode: \"payload-signature-invalid\")",
+      "coverageIds": ["integrity-proof-tamper-matrix"]
+    }
+  ]
+}

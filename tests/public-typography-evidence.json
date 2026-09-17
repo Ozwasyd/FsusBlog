@@ -1,0 +1,105 @@
+{
+    "schema": "fsusblog.public-typography-evidence.v1",
+    "issue": 1018,
+    "status": "implementation-and-central-wiring-complete-validation-pending",
+    "liveIssueSnapshot": {
+        "state": "closed",
+        "stateReason": "completed",
+        "originalImplementationCommit": "d7a1cd35",
+        "commentId": 4930177581,
+        "historicalValidationClaimOnly": true,
+        "blockedBy": [],
+        "blocking": []
+    },
+    "roles": {
+        "display": {
+            "hydrated": "20/24/30px; line-height 1.1/1.05",
+            "aot": "20/24/30px; line-height 1.1/1.05"
+        },
+        "reading": {
+            "hydrated": "16/18px; line-height 1.8/1.9",
+            "aot": "16/18px; line-height 1.8/1.9"
+        },
+        "metadata": {
+            "hydrated": "12/14px; line-height 16/20px",
+            "aot": "12/14px; line-height 16/20px"
+        }
+    },
+    "contrastContract": {
+        "minimumRatio": 4.5,
+        "light": {
+            "background": "#F7F7F8",
+            "tertiaryInformation": "#71717A",
+            "mutedInformation": "#62626A",
+            "decorativeOnly": "#A1A1AA"
+        },
+        "dark": {
+            "background": "#09090B",
+            "tertiaryInformation": "#A1A1AA",
+            "mutedInformation": "#B2B2BA",
+            "decorativeOnly": "#52525B"
+        }
+    },
+    "implementationPaths": [
+        "src/frontend/src/ui-tokens/themeTokens.ts",
+        "src/frontend/src/assets/public-page.css",
+        "src/frontend/public/public-shell-emergency.css",
+        "src/frontend/src/assets/public-shell-foundation.css",
+        "src/frontend/src/assets/markdown.css"
+    ],
+    "acceptanceOwner": {
+        "path": "tests/frontend/checks/static/check-visual-density-governance.mjs",
+        "contracts": [
+            "public production readable copy rejects 9/10/11px and sub-12px rem scales",
+            "Markdown has one paragraph rule and a 16px/1.8 reading body",
+            "display, reading, and metadata role scales remain explicit",
+            "Light/Dark information text calculates to WCAG AA 4.5:1 or greater",
+            "decorative Dot Gray is separate from information-bearing muted tokens",
+            "AOT and hydrated title, summary, and metadata typography remain aligned",
+            "legacy 1.35rem and .96rem AOT scales stay rejected"
+        ],
+        "modifiedByThisPass": false
+    },
+    "boundaryReconciliation": {
+        "supersedesIssue": 1016,
+        "supersession": "Issue #1018 intentionally replaces the historical internal-class selector state from #1016 with an app-owned final-state selector.",
+        "runtimePath": "src/frontend/src/components/public/usePublicStickyGeometry.ts",
+        "testPath": "tests/frontend/unit/components/usePublicStickyGeometry.test.ts",
+        "runtimeSelector": "[data-public-shell-header]",
+        "measuredElementHook": "[data-public-shell-header]",
+        "runtimeDependsOnFsusUiInternalSelector": false
+    },
+    "excludedSystems": [
+        "font registry",
+        "font loading",
+        "theme preview",
+        "PWA brand color",
+        "FsusUI implementation"
+    ],
+    "centralGovernanceReadback": [
+        {
+            "path": "tests/coverage-registry.json",
+            "operation": "registered-present-not-verified",
+            "coverageId": "frontend-public-typography"
+        },
+        {
+            "path": "tests/matrix.yml",
+            "operation": "registered-present-not-verified",
+            "tier": "frontend-static-governance"
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "operation": "none",
+            "reason": "Frontend typography has no backend requirement."
+        },
+        {
+            "path": "tools/test/lanes/static-governance.sh",
+            "operation": "none",
+            "reason": "The existing visual-density owner is already routed by frontend checks."
+        }
+    ],
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
+    }
+}

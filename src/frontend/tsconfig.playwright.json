@@ -1,0 +1,47 @@
+{
+    "compilerOptions": {
+        "target": "ES2023",
+        "lib": [
+            "ES2023",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "ignoreDeprecations": "6.0",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "src/*"
+            ],
+            "@wasm/*": [
+                "wasm/web/*"
+            ],
+            "@playwright/test": [
+                "node_modules/@playwright/test/index.mjs"
+            ],
+            "@playwright/test/*": [
+                "node_modules/@playwright/test/*"
+            ]
+        },
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "verbatimModuleSyntax": true,
+        "moduleDetection": "force",
+        "noEmit": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "types": [
+            "node",
+            "@playwright/test"
+        ],
+        "erasableSyntaxOnly": true
+    },
+    "include": [
+        "playwright.config.ts",
+        "playwright.upload-trigger.config.ts",
+        "../../tests/frontend/**/*.ts",
+        "src/**/*.ts",
+        "wasm/web/**/*.ts"
+    ]
+}

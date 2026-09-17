@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+                "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+                "tests/backend/Unit/DocumentExportSandboxTests.cs"
+            ],
+            "reason": "preserve the fixed HOME, TMPDIR, LANG, PWD, XDG_RUNTIME_DIR and DBUS_SESSION_BUS_ADDRESS boundary spellings while binding the provider environment and the user-systemd control channel to separate closed allowlists"
+        }
+    ]
+}

@@ -1,0 +1,17 @@
+{
+  "singleDomain": [
+    "src/core/Integrity/ArticleRightsCanonicalHashV1.cs"
+  ],
+  "crossDomain": [
+    "src/backend/Infrastructure/Auth/AccountSubjectHasher.cs",
+    "src/core/Integrity/ArticleRightsCanonicalHashV1.cs",
+    "src/backend/Infrastructure/Auth/AccountSubjectHasher.cs"
+  ],
+  "unrelated": [
+    "docs/testing.md",
+    "src/frontend/src/App.vue"
+  ],
+  "unmappedCritical": [
+    "src/backend/Services/Security/NewCriticalBoundary.cs"
+  ]
+}

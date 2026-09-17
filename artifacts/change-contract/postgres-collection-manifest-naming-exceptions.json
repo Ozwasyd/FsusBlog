@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the #3214 fixture-backed classes and source-derived case totals"
+        }
+    ]
+}

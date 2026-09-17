@@ -1,0 +1,34 @@
+template_id: global-baseline
+version: 2026-06
+scope: global
+region:
+region_group: GLOBAL
+source: fsusblog-engineering-preset
+reviewed_by: operator-review-required
+reviewed_at_utc:
+is_builtin: true
+is_enabled: true
+not_legal_advice: true
+description: Engineering preset baseline. Not legal advice; operator review required before production enablement.
+rules:
+    - category: scam
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: malicious_link
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: spam_repeat
+      submit_action: manual_review
+      display_action: manual_review_no_public_display
+    - category: contact_lead
+      submit_action: manual_review
+      display_action: manual_review_no_public_display
+    - category: html_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: child_safety
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: terrorism_extremism
+      submit_action: reject_submit
+      display_action: geo_block

@@ -1,0 +1,86 @@
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Responses;
+using FsusBlog.Shared.Contracts.AuthSystem;
+
+namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
+
+public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
+{
+    public async Task<User?> GetByIdAsync(int id)
+    {
+        var result = await core.GetByIdAsync(id);
+        return result.IsSuccess && result.Value.HasValue
+            ? ToUserEntity(result.Value.Value)
+            : null;
+    }
+
+    public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)
+    {
+        var result = await core.RefreshTokenAsync(refreshToken);
+        return result.IsSuccess
+            ? (true, new TokenResponseDto(result.Value.AccessToken, result.Value.RefreshToken))
+            : (false, null);
+    }
+
+    public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+        => (await core.RevokeRefreshTokenAsync(refreshToken, cancellationToken)).IsSuccess;
+
+    public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
+    {
+        var result = await core.GetAdminUserListAsync(dto.Page, dto.PageSize, dto.Keyword, dto.Status);
+        if (!result.IsSuccess)
+        {
+            return new PageResult<AdminAccountListItemDto> { Total = 0, Items = [] };
+        }
+
+        var page = result.Value;
+        if (page is null)
+        {
+            return new PageResult<AdminAccountListItemDto> { Total = 0, Items = [] };
+        }
+
+        var items = new List<AdminAccountListItemDto>(page.Items.Count);
+        for (int i = 0; i < page.Items.Count; i++)
+        {
+            var item = page.Items[i];
+            items.Add(new AdminAccountListItemDto(
+                item.AccountId,
+                item.IdentityKind,
+                item.PublicHandle,
+                item.PasskeyInitialized,
+                item.RecoveryInitialized,
+                item.PrivacyInitializedAt,
+                item.AnonymousCredentialStatus,
+                item.RiskFlags,
+                item.Status,
+                item.CreateTime,
+                item.DeletedAt));
+        }
+
+        return new PageResult<AdminAccountListItemDto> { Total = page.Total, Items = items };
+    }
+
+    public async Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
+    {
+        var result = await core.AdminChangeStatusAsync(dto.AccountId, dto.Status, dto.Reason);
+        return result.IsSuccess ? (true, "状态更新成功") : (false, result.Error.Message);
+    }
+
+    private static User ToUserEntity(AccountSnapshotContract snapshot)
+        => new()
+        {
+            Id = snapshot.AccountId,
+            Status = snapshot.Status,
+            DeletedAt = snapshot.DeletedAt,
+            PublicHandle = snapshot.PublicHandle,
+            IdentityKind = snapshot.IdentityKind,
+            PasskeyEnabled = snapshot.PasskeyEnabled,
+            RecoveryEnabled = snapshot.RecoveryEnabled,
+            MfaEnabled = snapshot.TotpStepUpEnabled,
+            AnonymousCredentialStatus = snapshot.AnonymousCredentialStatus ?? "active",
+            AnonymousCredentialLevel = snapshot.AnonymousCredentialLevel ?? "basic"
+        };
+}

@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve existing caller-visible JSON and Markdown identifiers while the lifecycle producer records worker sandbox semantics."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/security.md"
+            ],
+            "reason": "Preserve the current security document's caller-visible exactness identifiers while recording the worker sandbox boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionWorkerSandbox.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings while the worker sandbox keeps repository-owned C# identifiers."
+        }
+    ]
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/schemas/redis-operation-budgets.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "operations", "ports"],
+  "properties": {
+    "schema": { "const": "fsusblog.redis-operation-budgets.v1" },
+    "version": { "const": 1 },
+    "operations": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/operation" }
+    },
+    "ports": {
+      "type": "array",
+      "minItems": 39,
+      "maxItems": 39,
+      "items": { "$ref": "#/$defs/port" }
+    }
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "connectDeadlineMs",
+        "commandDeadlineMs",
+        "endToEndDeadlineMs",
+        "retryCount",
+        "idempotencyRequirement",
+        "failAction",
+        "maxConcurrency",
+        "circuitFailureThreshold",
+        "circuitOpenMs",
+        "foreground"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "security-atomic",
+            "coordination-lease",
+            "content-cache-read",
+            "content-cache-write",
+            "optional-projection",
+            "distributed-delivery",
+            "background-maintenance"
+          ]
+        },
+        "connectDeadlineMs": { "type": "integer", "minimum": 1, "maximum": 5000 },
+        "commandDeadlineMs": { "type": "integer", "minimum": 1, "maximum": 5000 },
+        "endToEndDeadlineMs": { "type": "integer", "minimum": 1, "maximum": 5000 },
+        "retryCount": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "idempotencyRequirement": {
+          "enum": ["single-attempt-atomic", "single-attempt-ownership", "idempotent-only", "no-retry"]
+        },
+        "failAction": {
+          "enum": [
+            "fail-closed",
+            "deny-origin-without-lease",
+            "bounded-origin-gate",
+            "return-result-degraded",
+            "use-local-or-base-value",
+            "record-degraded-and-replay",
+            "defer-maintenance"
+          ]
+        },
+        "maxConcurrency": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "circuitFailureThreshold": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "circuitOpenMs": { "type": "integer", "minimum": 1, "maximum": 30000 },
+        "foreground": { "type": "boolean" }
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "class", "idempotent"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": {
+          "enum": [
+            "security-atomic",
+            "coordination-lease",
+            "content-cache-read",
+            "content-cache-write",
+            "optional-projection",
+            "distributed-delivery",
+            "background-maintenance"
+          ]
+        },
+        "idempotent": { "type": "boolean" }
+      }
+    }
+  }
+}

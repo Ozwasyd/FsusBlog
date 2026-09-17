@@ -1,0 +1,93 @@
+{
+  "schema": "fsusblog.test-replacement-receipt.v1",
+  "transactionId": "issue-2614-allow-publish-corpus",
+  "transactionDigest": "sha256:085f066ad5e358da92e2633cf1725ead2c52d8cbc901fc297602f4887c611df5",
+  "beforeTestIds": [
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#accepts-normal-comment-c668ebe04a",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-ad-spam-text-so-post-publish-moderation-can-handl-9fd06a14b4",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-zero-width-obfuscation-text-for-post-publish-mode-329c72a270",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-full-width-and-confusable-ad-terms-for-post-publi-bae42cd918",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#accepts-text-with-common-legitimate-words-containing-3a93069c29"
+  ],
+  "afterTestIds": [
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-normal-comment-ordinary-text-17ea0126ce",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-ad-spam-post-moderation-adverti-d0473f3b07",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-zero-width-obfuscation-zero-wid-e35d30489a",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-full-width-confusable-ad-full-w-ec7554ed32",
+    "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-legitimate-xi-word-legitimate-t-38059d3687"
+  ],
+  "sourceDiffs": [
+    {
+      "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+      "beforeDigest": "sha256:5066bbe89bd0316b3c39eaad6a677c6d67490bd9407bc04297e259fed0855d06",
+      "afterDigest": "sha256:0f7f8333d78b191cc0f63f80ae69971076cd8d1b016eda1b109c8079d306e7a5",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "catalogDiffs": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "beforeDigest": "sha256:b5a54b450ee3d8f77a63c2212f86757b4a3188d8dc642dfa07e1f51df2c029b6",
+      "afterDigest": "sha256:8b21269e9421cce9ea6980348bdb38b3862096a4d8ea1eed00c89dd5a5b41ee7",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "beforeDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "afterDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "beforeDigest": "sha256:7533f533a066cfa776ee5e05dc8b57280ded3de3d3b3a116c8e891a655c3259f",
+      "afterDigest": "sha256:7533f533a066cfa776ee5e05dc8b57280ded3de3d3b3a116c8e891a655c3259f",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/matrix.yml",
+      "beforeDigest": "sha256:27e851c965065743be01f072541dbee41103fe370fbe30c686d685134b8b3799",
+      "afterDigest": "sha256:27e851c965065743be01f072541dbee41103fe370fbe30c686d685134b8b3799",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "beforeDigest": "sha256:0bdd33ef4efaee2e7ee8e02af20b95662d4e81ed3178e74aa65a974738e2d236",
+      "afterDigest": "sha256:0bdd33ef4efaee2e7ee8e02af20b95662d4e81ed3178e74aa65a974738e2d236",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "verificationOutcomes": [
+    {
+      "id": "transaction-schema",
+      "status": "passed"
+    },
+    {
+      "id": "before-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "atomic-file-application",
+      "status": "passed"
+    },
+    {
+      "id": "after-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "catalog-closure",
+      "status": "passed"
+    },
+    {
+      "id": "independent-post-apply",
+      "status": "passed"
+    }
+  ],
+  "verification": "passed",
+  "contentDigest": "sha256:298abc335c4a7ce7fbf5a5e4de1372edc626f623e9800a9704f317a5b5397831"
+}

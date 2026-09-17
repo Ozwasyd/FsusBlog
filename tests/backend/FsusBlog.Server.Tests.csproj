@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <StartupObject>FsusBlog.Server.Tests.TestInfrastructure.PublicAotCrashWorkerProgram</StartupObject>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Fido2" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Nethermind.MclBindings" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="SqlSugarCoreNoDrive" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\backend\FsusBlog.Server.csproj" />
+    <ProjectReference Include="..\..\src\core\FsusBlog.Core.csproj" />
+    <ProjectReference Include="..\..\src\migration\FsusBlog.Migration.csproj" />
+    <ProjectReference Include="..\..\src\shared\FsusBlog.Shared.csproj" />
+    <ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="Fixtures\security-source-analysis\*.cs" />
+    <None Include="Fixtures\security-source-analysis\*.cs" />
+    <Compile Remove="Integration\SchemaMigrationIntegrationTests.cs" />
+    <None Include="Integration\SchemaMigrationIntegrationTests.cs" />
+    <Compile Remove="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
+    <None Include="Integration\AccountSubjectHashMigrationIntegrationTests.cs" />
+  </ItemGroup>
+
+</Project>

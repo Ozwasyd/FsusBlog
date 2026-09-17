@@ -1,0 +1,855 @@
+using System.Text.Json;
+
+using FsusBlog.Migration.Definitions;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using SqlSugar;
+
+using StackExchange.Redis;
+
+namespace FsusBlog.Server.Tests;
+
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
+[Trait("Category", "Integration")]
+[Trait("Dependency", "Docker")]
+public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
+    PostgresSchemaMigrationFixture postgres,
+    PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
+{
+    [Fact]
+    public async Task AdminSessionProjection_LostPubSubAndRestart_ReplaysDurablyOnEveryNode()
+    {
+        string connection = await CreateDatabaseAsync();
+        string prefix = $"test:admin-session-ledger:{Guid.CreateVersion7():N}:";
+        string channel = $"admin-session-{Guid.CreateVersion7():N}";
+        await using ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
+        await using ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+        using ServiceProvider sourceServices = CreateLedgerServices(connection);
+        using ServiceProvider targetServices = CreateLedgerServices(connection);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var update = new AdminSessionProjectionSessionUpdate(
+            "admin-session-1",
+            7,
+            System.Security.Cryptography.SHA256.HashData("token"u8),
+            null,
+            now.AddHours(1),
+            now.AddHours(2),
+            1,
+            1,
+            new AdminSessionProjectionPrincipalUpdate(
+                7,
+                AdminSessionProjectionPrincipalStatus.Active,
+                1,
+                1));
+        var sourceProjection = new AdminSessionProjection(
+            new AdminSessionProjectionLimits(16, 16, 1024 * 1024));
+        var sourceApplier = new AdminProjectionRecordingApplier(sourceProjection);
+        using DistributedInvalidationBus source = CreateBus(
+            "node-a",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            sourceRedis,
+            sourceServices,
+            sourceApplier);
+        await source.StartAsync(CancellationToken.None);
+
+        DistributedInvalidationPublishResult published = await source.PublishAsync(new DistributedInvalidationRequest(
+            DistributedInvalidationEventKinds.AdminSessionProjectionMutation,
+            [],
+            [],
+            [AdminSessionProjectionEventCodec.Format(update)]));
+
+        Assert.Equal(DistributedInvalidationPublishStatus.Degraded, published.Status);
+        await EventuallyAsync(() => sourceApplier.Applied == 1);
+        var targetProjection = new AdminSessionProjection(
+            new AdminSessionProjectionLimits(16, 16, 1024 * 1024));
+        var targetApplier = new AdminProjectionRecordingApplier(targetProjection);
+        using (DistributedInvalidationBus target = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            targetApplier))
+        {
+            await target.StartAsync(CancellationToken.None);
+            await EventuallyAsync(() => targetApplier.Applied == 1);
+            await EventuallyAsync(async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+                return db.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State
+                    == CompleteState;
+            });
+            await target.StopAsync(CancellationToken.None);
+        }
+
+        var restartedApplier = new AdminProjectionRecordingApplier(targetProjection);
+        using (DistributedInvalidationBus restarted = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            restartedApplier))
+        {
+            await restarted.StartAsync(CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.Equal(0, restartedApplier.Applied);
+            await restarted.StopAsync(CancellationToken.None);
+        }
+
+        Assert.True(sourceProjection.MarkReady(1));
+        Assert.True(targetProjection.MarkReady(1));
+        Assert.True(sourceProjection.Validate("admin-session-1", 7, update.AccessTokenHash.Span).IsValid);
+        Assert.True(targetProjection.Validate("admin-session-1", 7, update.AccessTokenHash.Span).IsValid);
+        await source.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task OnlineExpand_ExecutesAgainstLegacyTableWithoutRewritingLegacyState()
+    {
+        string connection = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+        await db.Ado.ExecuteCommandAsync(
+            """
+            CREATE TABLE distributed_invalidation_convergence_obligation (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                obligation_id varchar(64) NOT NULL,
+                event_id varchar(64) NOT NULL,
+                kind varchar(64) NOT NULL,
+                source_node_id varchar(128) NOT NULL,
+                runtime_scope varchar(128) NOT NULL,
+                source_mutation_identity varchar(256) NOT NULL,
+                required_topology_digest varchar(128) NOT NULL,
+                publish_status varchar(32) NOT NULL,
+                transport_status varchar(32) NULL,
+                state varchar(32) NOT NULL,
+                attempt_count integer NOT NULL,
+                last_failure_kind varchar(256) NULL,
+                created_at timestamp NOT NULL
+            );
+            INSERT INTO distributed_invalidation_convergence_obligation (
+                obligation_id,
+                event_id,
+                kind,
+                source_node_id,
+                runtime_scope,
+                source_mutation_identity,
+                required_topology_digest,
+                publish_status,
+                transport_status,
+                state,
+                attempt_count,
+                last_failure_kind,
+                created_at)
+            VALUES (
+                'legacy-obligation',
+                'legacy-event',
+                'article_mutation',
+                'node-a',
+                'legacy-scope',
+                'legacy-mutation',
+                'legacy-topology',
+                'Degraded',
+                'UnderDelivered',
+                'PendingRedelivery',
+                1,
+                NULL,
+                now());
+            """);
+        ISchemaMigrationDescriptor descriptor =
+            DistributedInvalidationDeliveryLedgerMigrationDefinitions.BuildMigration();
+
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            foreach (SchemaMigrationStep step in descriptor.Steps)
+            {
+                await step.ExecuteAsync(db, CancellationToken.None);
+            }
+        });
+
+        Assert.True(transaction.IsSuccess, transaction.ErrorMessage);
+        Assert.Equal(
+            "PendingRedelivery",
+            db.Ado.GetString(
+                "SELECT state FROM distributed_invalidation_convergence_obligation WHERE event_id = 'legacy-event';"));
+        Assert.Equal(
+            7,
+            db.Ado.GetInt(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'distributed_invalidation_convergence_obligation'
+                  AND column_name IN (
+                      'payload_digest',
+                      'payload_json',
+                      'required_node_ids',
+                      'acked_node_ids',
+                      'last_attempt_at',
+                      'reconcile_generation',
+                      'compacted_at');
+                """));
+        foreach (string table in new[]
+        {
+            "distributed_invalidation_inbox",
+            "distributed_invalidation_topology_retirement",
+            "distributed_invalidation_reconcile_coverage"
+        })
+        {
+            Assert.Equal(
+                1,
+                db.Ado.GetInt(
+                    $"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table}';"));
+        }
+    }
+
+    [Fact]
+    public async Task OfflineTarget_MissedPubSub_StartAndFreshProcessCatchUpFromPostgresExactlyOnce()
+    {
+        string connection = await CreateDatabaseAsync();
+        string prefix = $"test:distributed-ledger:{Guid.CreateVersion7():N}:";
+        string channel = $"invalidation-{Guid.CreateVersion7():N}";
+        await using ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
+        await using ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+        using ServiceProvider sourceServices = CreateLedgerServices(connection);
+        using ServiceProvider targetServices = CreateLedgerServices(connection);
+        using DistributedInvalidationBus source = CreateBus(
+            "node-a",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            sourceRedis,
+            sourceServices,
+            new RecordingApplier());
+        await source.StartAsync(CancellationToken.None);
+
+        DistributedInvalidationPublishResult result = await source.PublishAsync(CreateRequest());
+
+        Assert.Equal(DistributedInvalidationPublishStatus.Degraded, result.Status);
+        var recoveredApplier = new RecordingApplier();
+        using (DistributedInvalidationBus recovered = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            recoveredApplier))
+        {
+            await recovered.StartAsync(CancellationToken.None);
+            await EventuallyAsync(() => recoveredApplier.Applied == 1);
+            await EventuallyAsync(async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+                return db.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State
+                    == CompleteState;
+            });
+            await recovered.StopAsync(CancellationToken.None);
+        }
+
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connection);
+        Assert.Equal(CompleteState, verify.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State);
+        Assert.Equal(AppliedState, verify.Queryable<DistributedInvalidationInboxEntity>().Single().ApplyState);
+        Assert.Equal(1, recoveredApplier.Applied);
+
+        var freshProcessApplier = new RecordingApplier();
+        using (DistributedInvalidationBus freshProcess = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            freshProcessApplier))
+        {
+            await freshProcess.StartAsync(CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.Equal(0, freshProcessApplier.Applied);
+            await freshProcess.StopAsync(CancellationToken.None);
+        }
+        await source.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task DisconnectApplyFailureAndRestart_RecoveryPollWorksWithoutNewPubSub()
+    {
+        string connection = await CreateDatabaseAsync();
+        string prefix = $"test:distributed-ledger:{Guid.CreateVersion7():N}:";
+        string channel = $"invalidation-{Guid.CreateVersion7():N}";
+        await using ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
+        await using ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+        using ServiceProvider sourceServices = CreateLedgerServices(connection);
+        using ServiceProvider targetServices = CreateLedgerServices(connection);
+        using DistributedInvalidationBus source = CreateBus(
+            "node-a",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            sourceRedis,
+            sourceServices,
+            new RecordingApplier());
+        await source.StartAsync(CancellationToken.None);
+
+        var failing = new RecordingApplier(failuresBeforeSuccess: int.MaxValue);
+        using (DistributedInvalidationBus target = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            failing))
+        {
+            await target.StartAsync(CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(150));
+            _ = await source.PublishAsync(CreateRequest());
+            await EventuallyAsync(() => failing.Attempts >= 2);
+            await EventuallyAsync(async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+                return db.Queryable<DistributedInvalidationInboxEntity>().Single().ApplyState
+                    == RetryableFailedState;
+            });
+            await target.StopAsync(CancellationToken.None);
+        }
+
+        using (SqlSugarClient failedState = PostgresSqlSugarTestClient.Create(connection))
+        {
+            Assert.Equal(RetryableFailedState, failedState.Queryable<DistributedInvalidationInboxEntity>().Single().ApplyState);
+            Assert.Equal(PartiallyAckedState, failedState.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State);
+        }
+
+        var recovered = new RecordingApplier();
+        using (DistributedInvalidationBus restarted = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            recovered))
+        {
+            await restarted.StartAsync(CancellationToken.None);
+            await EventuallyAsync(() => recovered.Applied == 1);
+            await EventuallyAsync(async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+                return db.Queryable<DistributedInvalidationInboxEntity>().Single().ApplyState
+                    == AppliedState;
+            });
+            await restarted.StopAsync(CancellationToken.None);
+        }
+
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connection);
+        DistributedInvalidationInboxEntity inbox = verify.Queryable<DistributedInvalidationInboxEntity>().Single();
+        Assert.Equal(AppliedState, inbox.ApplyState);
+        Assert.Equal(2, inbox.ApplyAttempt);
+        Assert.Equal(CompleteState, verify.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State);
+        await source.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task RedisSubscriptionDisconnect_RecoveryPollContinuesAndFreshBusReconnects()
+    {
+        string connection = await CreateDatabaseAsync();
+        string prefix = $"test:distributed-ledger:{Guid.CreateVersion7():N}:";
+        string channel = $"invalidation-{Guid.CreateVersion7():N}";
+        RedisChannel physicalChannel = RedisChannel.Literal($"{prefix}{channel}");
+        await using ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
+        await using ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+        using ServiceProvider sourceServices = CreateLedgerServices(connection);
+        using ServiceProvider targetServices = CreateLedgerServices(connection);
+        using DistributedInvalidationBus source = CreateBus(
+            "node-a",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            sourceRedis,
+            sourceServices,
+            new RecordingApplier());
+        var targetApplier = new RecordingApplier();
+        using (DistributedInvalidationBus target = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            targetApplier))
+        {
+            await source.StartAsync(CancellationToken.None);
+            await target.StartAsync(CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(150));
+            await targetRedis.GetSubscriber().UnsubscribeAsync(physicalChannel);
+
+            DistributedInvalidationPublishResult disconnected = await source.PublishAsync(CreateRequest());
+
+            Assert.Equal(DistributedInvalidationPublishStatus.Degraded, disconnected.Status);
+            await EventuallyAsync(() => targetApplier.Applied == 1);
+            await target.StopAsync(CancellationToken.None);
+        }
+
+        var reconnectedApplier = new RecordingApplier();
+        using (DistributedInvalidationBus reconnected = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            reconnectedApplier))
+        {
+            await reconnected.StartAsync(CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(150));
+            _ = await source.PublishAsync(CreateRequest());
+            await EventuallyAsync(() => reconnectedApplier.Applied == 1);
+            await EventuallyAsync(async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+                return db.Queryable<DistributedInvalidationConvergenceObligationEntity>()
+                    .Count(row => row.State == CompleteState) == 2;
+            });
+            await reconnected.StopAsync(CancellationToken.None);
+        }
+
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connection);
+        Assert.Equal(2, verify.Queryable<DistributedInvalidationInboxEntity>().Count());
+        Assert.All(
+            verify.Queryable<DistributedInvalidationInboxEntity>().ToList(),
+            inbox => Assert.Equal(AppliedState, inbox.ApplyState));
+        await source.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task SameEventDifferentDigest_IsDurableTerminalAndBlocksConvergence()
+    {
+        string connection = await CreateDatabaseAsync();
+        string prefix = $"test:distributed-ledger:{Guid.CreateVersion7():N}:";
+        string channel = $"invalidation-{Guid.CreateVersion7():N}";
+        await using ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
+        await using ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+        using ServiceProvider sourceServices = CreateLedgerServices(connection);
+        using ServiceProvider targetServices = CreateLedgerServices(connection);
+        var targetApplier = new RecordingApplier();
+        using DistributedInvalidationBus source = CreateBus(
+            "node-a",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            sourceRedis,
+            sourceServices,
+            new RecordingApplier(),
+            enableIngressLedger: true);
+        using DistributedInvalidationBus target = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            targetApplier,
+            enableIngressLedger: true);
+        await source.StartAsync(CancellationToken.None);
+        await target.StartAsync(CancellationToken.None);
+        await Task.Delay(TimeSpan.FromMilliseconds(150));
+        DistributedInvalidationPublishResult result = await source.PublishAsync(CreateRequest());
+        await EventuallyAsync(() => targetApplier.Applied == 1);
+
+        DistributedInvalidationEvent mismatch = result.Event! with
+        {
+            RouteKeys = ["article:tampered"]
+        };
+        await sourceRedis.GetSubscriber().PublishAsync(
+            RedisChannel.Literal($"{prefix}{channel}"),
+            JsonSerializer.Serialize(mismatch, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        await EventuallyAsync(async () =>
+        {
+            using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+            return db.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State == TerminalFailedState;
+        });
+
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connection);
+        Assert.Equal(TerminalFailedState, verify.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State);
+        Assert.Equal(TerminalFailedState, verify.Queryable<DistributedInvalidationInboxEntity>().Single().ApplyState);
+        var store = CreateStore(verify);
+        DistributedInvalidationConvergenceSnapshot snapshot = await store.SnapshotAsync();
+        Assert.Equal(1, snapshot.TerminalFailedCount);
+        Assert.True(snapshot.Degraded);
+        Assert.Equal(1, targetApplier.Applied);
+        await target.StopAsync(CancellationToken.None);
+        await source.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ConcurrentNodeAcks_AreAtomicAndCannotLoseEitherNode()
+    {
+        string connection = await CreateDatabaseAsync();
+        using SqlSugarClient sourceDb = PostgresSqlSugarTestClient.Create(connection);
+        using SqlSugarClient nodeBDb = PostgresSqlSugarTestClient.Create(connection);
+        using SqlSugarClient nodeCDb = PostgresSqlSugarTestClient.Create(connection);
+        using SqlSugarClient nodeDDb = PostgresSqlSugarTestClient.Create(connection);
+        DistributedInvalidationConvergenceObligationStore source = CreateStore(sourceDb);
+        DistributedInvalidationConvergenceObligationStore nodeB = CreateStore(nodeBDb);
+        DistributedInvalidationConvergenceObligationStore nodeC = CreateStore(nodeCDb);
+        DistributedInvalidationConvergenceObligationStore nodeD = CreateStore(nodeDDb);
+        DistributedInvalidationEvent @event = CreateEvent(
+            "concurrent-ack",
+            "node-a",
+            "scope-concurrent");
+        DistributedInvalidationTopologyManifest topology = DistributedInvalidationTopologyManifest.Create(
+            "channel",
+            ["node-a", "node-b", "node-c", "node-d"]);
+        await source.PrepareOutboxAsync(@event, topology);
+        await nodeB.ReceiveAsync(@event, "node-b");
+        await nodeC.ReceiveAsync(@event, "node-c");
+        await nodeD.ReceiveAsync(@event, "node-d");
+        Assert.True(await nodeB.TryBeginApplyAsync(@event, "node-b"));
+        Assert.True(await nodeC.TryBeginApplyAsync(@event, "node-c"));
+        Assert.True(await nodeD.TryBeginApplyAsync(@event, "node-d"));
+
+        await Task.WhenAll(
+            nodeB.RecordApplyAsync(@event, "node-b", DistributedInvalidationInboxApplyState.Applied, null, 11),
+            nodeC.RecordApplyAsync(@event, "node-c", DistributedInvalidationInboxApplyState.Applied, null, 12));
+
+        DistributedInvalidationConvergenceObligationEntity row =
+            sourceDb.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single();
+        string[] acked = JsonSerializer.Deserialize<string[]>(row.AckedNodeIds!)!;
+        Assert.Equal(["node-a", "node-b", "node-c"], acked);
+        Assert.Equal(PartiallyAckedState, row.State);
+        Assert.Equal(1, (await source.SnapshotAsync()).AckGapCount);
+
+        await nodeD.RecordApplyAsync(
+            @event,
+            "node-d",
+            DistributedInvalidationInboxApplyState.Applied,
+            null,
+            13);
+
+        row = sourceDb.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single();
+        acked = JsonSerializer.Deserialize<string[]>(row.AckedNodeIds!)!;
+        Assert.Equal(["node-a", "node-b", "node-c", "node-d"], acked);
+        Assert.Equal(CompleteState, row.State);
+        Assert.Equal(0, (await source.SnapshotAsync()).AckGapCount);
+    }
+
+    [Fact]
+    public async Task RetirementIsExplicitAndAtomic_TimeoutOrRetentionCannotCompleteMissingAck()
+    {
+        string connection = await CreateDatabaseAsync();
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+        DistributedInvalidationConvergenceObligationStore store = CreateStore(db);
+        DistributedInvalidationEvent @event = CreateEvent(
+            "retirement",
+            "node-a",
+            "scope-retirement");
+        DistributedInvalidationTopologyManifest topology = DistributedInvalidationTopologyManifest.Create(
+            "channel",
+            ["node-a", "node-b"]);
+        await store.PrepareOutboxAsync(@event, topology);
+
+        Assert.Equal(0, await store.CompactCompletedAsync(
+            @event.RuntimeScope,
+            1,
+            DateTimeOffset.UtcNow.AddYears(1)));
+        Assert.Equal(PartiallyAckedState, db.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.RetireNodeAsync(
+            @event.RuntimeScope,
+            "node-b",
+            topology,
+            "still-present"));
+
+        DistributedInvalidationTopologyManifest replacement =
+            DistributedInvalidationTopologyManifest.Create("channel", ["node-a"]);
+        await store.RetireNodeAsync(
+            @event.RuntimeScope,
+            "node-b",
+            replacement,
+            "machine-decommissioned");
+
+        Assert.Equal(CompleteState, db.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State);
+        Assert.Equal(1, db.Queryable<DistributedInvalidationTopologyRetirementEntity>().Count());
+    }
+
+    [Fact]
+    public async Task CompactionRequiresScopeKindCoverage_AndNeverTouchesPendingOrFailed()
+    {
+        string connection = await CreateDatabaseAsync();
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+        DistributedInvalidationConvergenceObligationStore store = CreateStore(db);
+        DistributedInvalidationTopologyManifest topology = DistributedInvalidationTopologyManifest.Create(
+            "channel",
+            ["node-a", "node-b"]);
+        DistributedInvalidationEvent complete = CreateEvent("complete", "node-a", "scope-coverage");
+        await store.PrepareOutboxAsync(complete, topology);
+        await store.ReceiveAsync(complete, "node-b");
+        Assert.True(await store.TryBeginApplyAsync(complete, "node-b"));
+        await store.RecordApplyAsync(
+            complete,
+            "node-b",
+            DistributedInvalidationInboxApplyState.Applied,
+            null,
+            100);
+
+        Assert.Equal(0, await store.CompactCompletedAsync(
+            complete.RuntimeScope,
+            100,
+            DateTimeOffset.UtcNow.AddMinutes(1)));
+        await store.RecordReconcileCoverageAsync(
+            complete.RuntimeScope,
+            "node-b",
+            complete.Kind,
+            99,
+            new string('a', 64));
+        Assert.Equal(0, await store.CompactCompletedAsync(
+            complete.RuntimeScope,
+            100,
+            DateTimeOffset.UtcNow.AddMinutes(1)));
+        await store.RecordReconcileCoverageAsync(
+            complete.RuntimeScope,
+            "node-b",
+            complete.Kind,
+            100,
+            new string('b', 64));
+        Assert.Equal(1, await store.CompactCompletedAsync(
+            complete.RuntimeScope,
+            100,
+            DateTimeOffset.UtcNow.AddMinutes(1)));
+
+        DistributedInvalidationEvent pending = CreateEvent("pending", "node-a", "scope-coverage");
+        await store.PrepareOutboxAsync(pending, topology);
+        DistributedInvalidationEvent failed = CreateEvent("failed", "node-a", "scope-coverage");
+        await store.PrepareOutboxAsync(failed, topology);
+        await store.ReceiveAsync(failed, "node-b");
+        Assert.True(await store.TryBeginApplyAsync(failed, "node-b"));
+        await store.RecordApplyAsync(
+            failed,
+            "node-b",
+            DistributedInvalidationInboxApplyState.TerminalFailed,
+            "injected-terminal",
+            null);
+
+        Assert.Equal(0, await store.CompactCompletedAsync(
+            complete.RuntimeScope,
+            100,
+            DateTimeOffset.UtcNow.AddYears(1)));
+        DistributedInvalidationConvergenceObligationEntity[] protectedRows = db
+            .Queryable<DistributedInvalidationConvergenceObligationEntity>()
+            .Where(row => row.EventId == pending.EventId || row.EventId == failed.EventId)
+            .ToArray();
+        Assert.All(protectedRows, row => Assert.NotNull(row.PayloadJson));
+        Assert.Contains(protectedRows, row => row.State == PartiallyAckedState);
+        Assert.Contains(protectedRows, row => row.State == TerminalFailedState);
+    }
+
+    private async Task<string> CreateDatabaseAsync()
+    {
+        string connection = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(DistributedInvalidationConvergenceObligationEntity),
+            typeof(DistributedInvalidationInboxEntity),
+            typeof(DistributedInvalidationTopologyRetirementEntity),
+            typeof(DistributedInvalidationReconcileCoverageEntity));
+        return connection;
+    }
+
+    private static DistributedInvalidationConvergenceObligationStore CreateStore(ISqlSugarClient db)
+        => new(db, TimeProvider.System, new DistributedInvalidationConvergenceRuntimeState());
+
+    private static ServiceProvider CreateLedgerServices(string connection)
+        => new ServiceCollection()
+            .AddScoped<ISqlSugarClient>(_ => PostgresSqlSugarTestClient.Create(connection))
+            .AddSingleton(TimeProvider.System)
+            .AddSingleton<DistributedInvalidationConvergenceRuntimeState>()
+            .AddScoped<IDistributedInvalidationDeliveryLedger, DistributedInvalidationConvergenceObligationStore>()
+            .BuildServiceProvider();
+
+    private static DistributedInvalidationBus CreateBus(
+        string nodeId,
+        IReadOnlyList<string> nodeIds,
+        string channel,
+        string prefix,
+        IConnectionMultiplexer redis,
+        ServiceProvider services,
+        IDistributedInvalidationLocalApplier applier,
+        bool enableIngressLedger = false)
+    {
+        var options = new DistributedInvalidationOptions
+        {
+            RuntimeMode = RuntimeModeKind.StaticRole,
+            NodeId = nodeId,
+            Channel = channel,
+            Topology = DistributedInvalidationTopologyManifest.Create(channel, nodeIds),
+            ApplyRetryCount = 2,
+            ApplyRetryDelay = TimeSpan.FromMilliseconds(10),
+            RecoveryReplayInterval = TimeSpan.FromMilliseconds(100),
+            DedupeCapacity = 128
+        };
+        var scope = new TestRuntimeScope(prefix);
+        return new DistributedInvalidationBus(
+            new RedisDistributedInvalidationTransport(
+                RedisOperationExecutor.ForTestConnection(redis),
+                scope,
+                options,
+                TimeProvider.System,
+                enableIngressLedger ? services.GetRequiredService<IServiceScopeFactory>() : null),
+            applier,
+            new DistributedInvalidationEventFactory(options, scope, TimeProvider.System),
+            options,
+            new DistributedInvalidationRuntimeState(TimeProvider.System),
+            new CacheInvalidationRuntimeState(),
+            NullLogger<DistributedInvalidationBus>.Instance,
+            services.GetRequiredService<IServiceScopeFactory>());
+    }
+
+    private static DistributedInvalidationRequest CreateRequest()
+        => new(
+            DistributedInvalidationEventKinds.ArticleMutation,
+            ["article"],
+            ["article:42"],
+            ["public-aot"]);
+
+    private static DistributedInvalidationEvent CreateEvent(
+        string eventId,
+        string sourceNodeId,
+        string runtimeScope)
+        => DistributedInvalidationEvent.Create(
+            eventId,
+            DistributedInvalidationEventKinds.ArticleMutation,
+            sourceNodeId,
+            runtimeScope,
+            ["article"],
+            ["article:42"],
+            ["public-aot"],
+            $"trace-{eventId}",
+            TimeProvider.System);
+
+    private static async Task EventuallyAsync(Func<bool> predicate)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (!predicate())
+        {
+            await Task.Delay(25, timeout.Token);
+        }
+    }
+
+    private static async Task EventuallyAsync(Func<Task<bool>> predicate)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (!await predicate())
+        {
+            await Task.Delay(25, timeout.Token);
+        }
+    }
+
+    private sealed class TestRuntimeScope(string prefix) : IRuntimeKeyScope
+    {
+        public string ScopeToken => prefix;
+
+        public string PrefixKey(string key)
+            => string.Concat(prefix, key);
+    }
+
+    private sealed class RecordingApplier(int failuresBeforeSuccess = 0)
+        : IDistributedInvalidationLocalApplier
+    {
+        private int _failures = failuresBeforeSuccess;
+        private long _nextAotGeneration;
+
+        public int Attempts
+        {
+            get;
+            private set;
+        }
+
+        public int Applied
+        {
+            get;
+            private set;
+        }
+
+        public Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
+            DistributedInvalidationEvent invalidation,
+            CancellationToken cancellationToken = default)
+        {
+            Attempts++;
+            if (_failures-- > 0)
+            {
+                throw new InvalidOperationException("injected-apply-failure");
+            }
+            Applied++;
+            long aotGeneration = Interlocked.Increment(ref _nextAotGeneration);
+            return Task.FromResult<DistributedInvalidationLocalApplyResult?>(new(
+                true,
+                true,
+                true,
+                true,
+                DistributedInvalidationRebuildObligationStatus.Durable,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                "ledger-proof",
+                100,
+                aotGeneration));
+        }
+    }
+
+    private sealed class AdminProjectionRecordingApplier(AdminSessionProjection projection)
+        : IDistributedInvalidationLocalApplier
+    {
+        public int Applied
+        {
+            get;
+            private set;
+        }
+
+        public Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
+            DistributedInvalidationEvent invalidation,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (string target in invalidation.ArtifactKeys)
+            {
+                if (!AdminSessionProjectionEventCodec.TryParse(target, out var session, out var principal))
+                {
+                    throw new InvalidDataException("admin-session projection target invalid");
+                }
+                AdminSessionProjectionApplyResult result = session.HasValue
+                    ? projection.Apply(session.Value)
+                    : projection.Apply(principal!.Value);
+                if (!result.Accepted)
+                {
+                    throw new InvalidOperationException($"admin-session projection apply {result.Status}");
+                }
+            }
+            Applied++;
+            return Task.FromResult<DistributedInvalidationLocalApplyResult?>(new(
+                true,
+                true,
+                true,
+                true,
+                DistributedInvalidationRebuildObligationStatus.Queued,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                null,
+                1,
+                0));
+        }
+    }
+
+    private const string PartiallyAckedState = "partially-acked";
+    private const string CompleteState = "complete";
+    private const string AppliedState = "applied";
+    private const string RetryableFailedState = "retryable-failed";
+    private const string TerminalFailedState = "terminal-failed";
+}

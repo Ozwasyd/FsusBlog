@@ -1,0 +1,244 @@
+{
+    "schema": "fsusblog.test-quality-conformance-corpus.v1",
+    "version": "2026-08-26",
+    "fixtures": [
+        {
+            "displayName": "vitest exact state",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-exact-state-fea0268595",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 6
+        },
+        {
+            "displayName": "vitest empty masked case",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-empty-masked-case-efeae0e741",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-ZERO-OUTCOME"],
+            "expectedLine": 10
+        },
+        {
+            "displayName": "vitest constant self proof",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-constant-self-proof-ec84eda5a3",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-CONSTANT-ORACLE"],
+            "expectedLine": 14
+        },
+        {
+            "displayName": "vitest early return",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-early-return-616f272fc6",
+            "expectedOutcome": "unresolved-failed",
+            "expectedRules": ["TQ-EARLY-RETURN", "TQ-UNRESOLVED-FACTS", "TQ-ZERO-OUTCOME"],
+            "expectedLine": 18
+        },
+        {
+            "displayName": "vitest cache name mismatch",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-cache-name-mismatch-7fb55609cc",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-ACTUAL-AS-EXPECTED", "TQ-CONTRACT-ORACLE", "TQ-SELF-COMPARE"],
+            "expectedLine": 23
+        },
+        {
+            "displayName": "vitest unreachable oracle",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-unreachable-oracle-01444a0bbb",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-UNREACHABLE-ORACLE", "TQ-ZERO-OUTCOME"],
+            "expectedLine": 27
+        },
+        {
+            "displayName": "vitest uninformative measurement",
+            "testId": "vitest:tests/frontend/unit/quality.test.ts#vitest-uninformative-measurement-d44e9bde0a",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-UNINFORMATIVE-ORACLE"],
+            "expectedLine": 31
+        },
+        {
+            "displayName": "security http only",
+            "testId": "vitest:tests/frontend/unit/security-quality.test.ts#security-http-only-acad95b256",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-HTTP-200-ONLY-CRITICAL"],
+            "expectedLine": 5
+        },
+        {
+            "displayName": "security snapshot only",
+            "testId": "vitest:tests/frontend/unit/security-quality.test.ts#security-snapshot-only-023a191fe3",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-SNAPSHOT-ONLY-CRITICAL"],
+            "expectedLine": 9
+        },
+        {
+            "displayName": "node assert equal",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-equal-85017c3b75",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 6
+        },
+        {
+            "displayName": "node assert strict equal",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-strict-equal-3a4206058f",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 7
+        },
+        {
+            "displayName": "node assert deep equal",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-deep-equal-14524aea94",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 8
+        },
+        {
+            "displayName": "node assert deep strict equal",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-deep-strict-equal-dea274e96b",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 9
+        },
+        {
+            "displayName": "node assert match",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-match-6b84eeac66",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 10
+        },
+        {
+            "displayName": "node assert throws",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-throws-1c386fd885",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 11
+        },
+        {
+            "displayName": "node assert rejects",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-rejects-4a4c0fb164",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 12
+        },
+        {
+            "displayName": "node assert does not throw",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-does-not-throw-a93fe2fc52",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 13
+        },
+        {
+            "displayName": "node assert fail is observed",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-assert-fail-is-observed-b226dee741",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 14
+        },
+        {
+            "displayName": "node empty worker",
+            "testId": "node-test:tests/tools/quality.test.mjs#node-empty-worker-767f7e3f23",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-DISCOVERABLE-WORKER", "TQ-ZERO-OUTCOME"],
+            "expectedLine": 15
+        },
+        {
+            "displayName": "playwright exact state",
+            "testId": "vitest:tests/frontend/e2e/quality.spec.ts#playwright-exact-state-2231830bb1",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 5
+        },
+        {
+            "displayName": "QualityCorpusTests.XunitExactState",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.XunitExactState#case-0000",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 8
+        },
+        {
+            "displayName": "QualityCorpusTests.FluentExactState",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.FluentExactState#case-0000",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 14
+        },
+        {
+            "displayName": "QualityCorpusTests.CustomAssertionHelper",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.CustomAssertionHelper#case-0000",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 20
+        },
+        {
+            "displayName": "QualityCorpusTests.EmptyMaskedBySibling",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.EmptyMaskedBySibling#case-0000",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-ZERO-OUTCOME"],
+            "expectedLine": 26
+        },
+        {
+            "displayName": "QualityCorpusTests.TestToTestWrapper",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.TestToTestWrapper#case-0000",
+            "expectedOutcome": "failed",
+            "expectedRules": ["TQ-TEST-TO-TEST", "TQ-ZERO-OUTCOME"],
+            "expectedLine": 32
+        },
+        {
+            "displayName": "QualityCorpusTests.ForwarderTarget",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.ForwarderTarget#case-0000",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 38
+        },
+        {
+            "displayName": "QualityCorpusTests.StaticParameterizedCases [case 0: [1]]",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.StaticParameterizedCases#case-0000",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 44
+        },
+        {
+            "displayName": "QualityCorpusTests.StaticParameterizedCases [case 1: [2]]",
+            "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.StaticParameterizedCases#case-0001",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 44
+        },
+        {
+            "displayName": "shell-structured.sh",
+            "testId": "shell:tools/test/shell-structured.sh",
+            "expectedOutcome": "passed",
+            "expectedRules": [],
+            "expectedLine": 1
+        },
+        {
+            "displayName": "shell-exit-only.sh",
+            "testId": "shell:tools/test/shell-exit-only.sh",
+            "expectedOutcome": "unresolved-failed",
+            "expectedRules": ["TQ-UNRESOLVED-FACTS", "TQ-ZERO-OUTCOME"],
+            "expectedLine": 1
+        },
+        {
+            "displayName": "playwright dynamic %s",
+            "testId": "vitest:tests/frontend/e2e/quality.spec.ts#playwright-dynamic-s-a43a36085f",
+            "expectedOutcome": "unresolved-failed",
+            "expectedRules": ["TQ-UNRESOLVED-FACTS", "TQ-ZERO-OUTCOME"],
+            "expectedLine": 10
+        }
+    ],
+    "mutations": [
+        "drop-zero-outcome-rule",
+        "drop-constant-rule",
+        "drop-early-return-rule",
+        "drop-unreachable-rule",
+        "drop-test-to-test-rule",
+        "drop-worker-rule",
+        "drop-self-compare-rule",
+        "drop-uninformative-rule",
+        "drop-actual-as-expected-rule",
+        "drop-contract-rule",
+        "drop-http-only-rule",
+        "drop-snapshot-only-rule",
+        "drop-unresolved-rule",
+        "accept-file-level-mask",
+        "treat-unresolved-as-passed",
+        "remove-symbol-resolution",
+        "delete-violation",
+        "change-case-id",
+        "change-source-span"
+    ]
+}

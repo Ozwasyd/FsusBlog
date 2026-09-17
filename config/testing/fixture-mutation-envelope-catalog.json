@@ -1,0 +1,1357 @@
+{
+    "schema": "fsusblog.mutation-envelope-catalog.v1",
+    "version": 1,
+    "destructiveScope": "fixture-namespace",
+    "contentDigest": "sha256:f41744b22fb924e9c2c07b57daad9232ce5a4abce8b70274e5e53ed8f9c717ae",
+    "profileCatalogDigest": "sha256:35f48f2703d6c7fb00f4baa4029bf2e1feb12abd10fb5e58f9e76e48d45dbe41",
+    "mutationKinds": [
+        "set-wrong-value",
+        "remove-required-row/relation",
+        "add-extra-owned-relation",
+        "delete-owned-file",
+        "truncate-owned-file",
+        "replace-owned-bytes",
+        "delete-owned-cache-key",
+        "modify-owned-cache-key"
+    ],
+    "providers": [
+        "postgresql",
+        "mysql",
+        "sqlite",
+        "redis",
+        "filesystem"
+    ],
+    "semanticDomains": [
+        "admin.disabled",
+        "admin.permission",
+        "article.metadata",
+        "article.tags",
+        "article.views",
+        "comment.moderation",
+        "media",
+        "public.home",
+        "public.projection",
+        "redis.cache",
+        "security.risk",
+        "session.expiry",
+        "user.mfa"
+    ],
+    "entityKinds": [
+        "admin",
+        "article",
+        "comment",
+        "session",
+        "tag",
+        "user"
+    ],
+    "fileRoles": [
+        "original",
+        "thumbnail",
+        "variant"
+    ],
+    "cleanupOwners": [
+        "fixture-receipt.owned-entities",
+        "fixture-receipt.owned-files",
+        "fixture-receipt.owned-keys"
+    ],
+    "envelopes": [
+        {
+            "envelopeId": "mutation/admin-disabled-state",
+            "version": 1,
+            "targetProfileIds": [
+                "auth-basic",
+                "auth-security-matrix"
+            ],
+            "targetCapabilities": [
+                "auth.admin.disabled"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "admin.disabled",
+                        "kind": "admin",
+                        "fields": [
+                            "disabled-state"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "set-wrong-value",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "admin.disabled",
+                        "kind": "admin",
+                        "fields": [
+                            "disabled-state"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "admin.disabled",
+                        "kind": "admin",
+                        "fields": [
+                            "disabled-state"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "admin.permission",
+                        "kind": "admin",
+                        "fields": [
+                            "permission-level"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:2b11318085e811ce470522b71acd0bfd36342b5b73ec9bc5444802169ac6421f"
+        },
+        {
+            "envelopeId": "mutation/admin-permission-denied",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "auth-basic",
+                "comments-moderation",
+                "production-xss"
+            ],
+            "targetCapabilities": [
+                "auth.admin.full-permission",
+                "auth.admin.partial-permission"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "admin.permission",
+                        "kind": "admin",
+                        "fields": [
+                            "permission-grant",
+                            "permission-level"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "set-wrong-value",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "admin.permission",
+                        "kind": "admin",
+                        "fields": [
+                            "permission-grant",
+                            "permission-level"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "admin.permission",
+                        "kind": "admin",
+                        "fields": [
+                            "permission-grant",
+                            "permission-level"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "admin.disabled",
+                        "kind": "admin",
+                        "fields": [
+                            "disabled-state"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:015daf65e5379c5c72e4d140c6df1497ef7c45f1e41e689de06b940c21ceba30"
+        },
+        {
+            "envelopeId": "mutation/article-metadata-timestamp",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "comments-moderation",
+                "production-xss",
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "targetCapabilities": [
+                "public.article.published"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "article.metadata",
+                        "kind": "article",
+                        "fields": [
+                            "published-at",
+                            "updated-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "set-wrong-value",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "article.metadata",
+                        "kind": "article",
+                        "fields": [
+                            "published-at",
+                            "updated-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "article.metadata",
+                        "kind": "article",
+                        "fields": [
+                            "published-at",
+                            "updated-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "article.views",
+                        "kind": "article",
+                        "fields": [
+                            "view-count"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:ae10a6c293ce3601a2038b3a7406b58e16e1bd8b21f82d3eeeb9cb418ff8a246"
+        },
+        {
+            "envelopeId": "mutation/article-tag-relation-drop",
+            "version": 1,
+            "targetProfileIds": [
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "targetCapabilities": [
+                "public.taxonomy.category-tag"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "article.tags",
+                        "kind": "tag",
+                        "fields": [
+                            "article-tag-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "remove-required-row/relation",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "article.tags",
+                        "kind": "tag",
+                        "fields": [
+                            "article-tag-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "article.tags",
+                        "kind": "tag",
+                        "fields": [
+                            "article-tag-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "article.metadata",
+                        "kind": "article",
+                        "fields": [
+                            "published-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:f27599aff1b3f5b0fd29afec781920fba7bba6eab969ba501ff7df03f9b00d3b"
+        },
+        {
+            "envelopeId": "mutation/article-views-inflation",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "comments-moderation",
+                "production-xss",
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "targetCapabilities": [
+                "public.article.published"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "article.views",
+                        "kind": "article",
+                        "fields": [
+                            "view-count"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "set-wrong-value",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "article.views",
+                        "kind": "article",
+                        "fields": [
+                            "view-count"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "article.views",
+                        "kind": "article",
+                        "fields": [
+                            "view-count"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "article.metadata",
+                        "kind": "article",
+                        "fields": [
+                            "published-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:d38553fac1a987c62563c7ceb2cf5ac4db2421ed4577d5e57fd75cd57b57cc0b"
+        },
+        {
+            "envelopeId": "mutation/comment-moderation-status",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "comments-moderation"
+            ],
+            "targetCapabilities": [
+                "comment.moderation-matrix",
+                "moderation.policy-matrix"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "comment.moderation",
+                        "kind": "comment",
+                        "fields": [
+                            "moderation-reason",
+                            "moderation-status",
+                            "moderation-timeline"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "set-wrong-value",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "comment.moderation",
+                        "kind": "comment",
+                        "fields": [
+                            "moderation-reason",
+                            "moderation-status",
+                            "moderation-timeline"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "comment.moderation",
+                        "kind": "comment",
+                        "fields": [
+                            "moderation-reason",
+                            "moderation-status",
+                            "moderation-timeline"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "admin.permission",
+                        "kind": "admin",
+                        "fields": [
+                            "permission-level"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:e4ff055187bfb59262bfdae1304e04094d5771e4131d10f158a53530476c0a12"
+        },
+        {
+            "envelopeId": "mutation/owned-media-bytes-replaced",
+            "version": 1,
+            "targetProfileIds": [
+                "public-content-lifecycle"
+            ],
+            "targetCapabilities": [
+                "public.article.multiple-revisions"
+            ],
+            "semanticTargets": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "variant"
+                    }
+                ]
+            },
+            "mutationKind": "replace-owned-bytes",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "variant"
+                    }
+                ]
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-files",
+            "providerSupport": {
+                "postgresql": false,
+                "mysql": false,
+                "sqlite": false,
+                "redis": false,
+                "filesystem": true
+            },
+            "allowedChanges": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "variant"
+                    }
+                ]
+            },
+            "forbiddenDomains": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "original"
+                    },
+                    {
+                        "domain": "media",
+                        "role": "thumbnail"
+                    }
+                ]
+            },
+            "contentDigest": "sha256:fcf531d229ffe60bd8725352ea4ebc9486cb6dbef83ad2e2457dc453ff0353f9"
+        },
+        {
+            "envelopeId": "mutation/owned-media-missing",
+            "version": 1,
+            "targetProfileIds": [
+                "public-content-lifecycle"
+            ],
+            "targetCapabilities": [
+                "public.article.multiple-publications"
+            ],
+            "semanticTargets": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "original"
+                    }
+                ]
+            },
+            "mutationKind": "delete-owned-file",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "original"
+                    }
+                ]
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-files",
+            "providerSupport": {
+                "postgresql": false,
+                "mysql": false,
+                "sqlite": false,
+                "redis": false,
+                "filesystem": true
+            },
+            "allowedChanges": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "original"
+                    }
+                ]
+            },
+            "forbiddenDomains": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "thumbnail"
+                    }
+                ]
+            },
+            "contentDigest": "sha256:e5f32d1e1fd4ee3257b604707a09c5630d7ccc4479a732924223929d845b9413"
+        },
+        {
+            "envelopeId": "mutation/owned-media-truncated",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "comments-moderation",
+                "production-xss",
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "targetCapabilities": [
+                "public.article.published"
+            ],
+            "semanticTargets": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "thumbnail"
+                    }
+                ]
+            },
+            "mutationKind": "truncate-owned-file",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "thumbnail"
+                    }
+                ]
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-files",
+            "providerSupport": {
+                "postgresql": false,
+                "mysql": false,
+                "sqlite": false,
+                "redis": false,
+                "filesystem": true
+            },
+            "allowedChanges": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "thumbnail"
+                    }
+                ]
+            },
+            "forbiddenDomains": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": [
+                    {
+                        "domain": "media",
+                        "role": "original"
+                    },
+                    {
+                        "domain": "media",
+                        "role": "variant"
+                    }
+                ]
+            },
+            "contentDigest": "sha256:610e14cbfd99d050b394a48591ae3106bf567edbcad95a31265c05016ab84caf"
+        },
+        {
+            "envelopeId": "mutation/public-deleted-projection-cache-stale",
+            "version": 1,
+            "targetProfileIds": [
+                "public-content-lifecycle"
+            ],
+            "targetCapabilities": [
+                "public.article.deleted"
+            ],
+            "semanticTargets": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [
+                    {
+                        "domain": "public.projection",
+                        "generationRole": "deleted-article-projection-generation"
+                    }
+                ],
+                "ownedFiles": []
+            },
+            "mutationKind": "delete-owned-cache-key",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [
+                    {
+                        "domain": "public.projection",
+                        "generationRole": "deleted-article-projection-generation"
+                    }
+                ],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-keys",
+            "providerSupport": {
+                "postgresql": false,
+                "mysql": false,
+                "sqlite": false,
+                "redis": true,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [],
+                "redisKeys": [],
+                "cacheEntries": [
+                    {
+                        "domain": "public.projection",
+                        "generationRole": "deleted-article-projection-generation"
+                    }
+                ],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "article.views",
+                        "kind": "article",
+                        "fields": [
+                            "view-count"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:d3b17f4e339af34bce31d4f2dc7717c6bb950a0d64e4cb4823f0200bdc8b3823"
+        },
+        {
+            "envelopeId": "mutation/public-home-featured-hot",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "targetCapabilities": [
+                "public.home.featured-hot"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "public.home",
+                        "kind": "article",
+                        "fields": [
+                            "featured-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "add-extra-owned-relation",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "public.home",
+                        "kind": "article",
+                        "fields": [
+                            "featured-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "public.home",
+                        "kind": "article",
+                        "fields": [
+                            "featured-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "article.tags",
+                        "kind": "tag",
+                        "fields": [
+                            "article-tag-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:1a9208935940daf4920c114a4ab527587a7233172d54cc635257d370456efacf"
+        },
+        {
+            "envelopeId": "mutation/redis-risk-key-tamper",
+            "version": 1,
+            "targetProfileIds": [
+                "auth-security-matrix"
+            ],
+            "targetCapabilities": [
+                "security.risk.escalated"
+            ],
+            "semanticTargets": {
+                "entities": [],
+                "redisKeys": [
+                    {
+                        "domain": "redis.cache",
+                        "keyRole": "risk-assessment-key"
+                    },
+                    {
+                        "domain": "security.risk",
+                        "keyRole": "risk-flag-key"
+                    }
+                ],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "modify-owned-cache-key",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [],
+                "redisKeys": [
+                    {
+                        "domain": "redis.cache",
+                        "keyRole": "risk-assessment-key"
+                    },
+                    {
+                        "domain": "security.risk",
+                        "keyRole": "risk-flag-key"
+                    }
+                ],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-keys",
+            "providerSupport": {
+                "postgresql": false,
+                "mysql": false,
+                "sqlite": false,
+                "redis": true,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [],
+                "redisKeys": [
+                    {
+                        "domain": "redis.cache",
+                        "keyRole": "risk-assessment-key"
+                    },
+                    {
+                        "domain": "security.risk",
+                        "keyRole": "risk-flag-key"
+                    }
+                ],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "session.expiry",
+                        "kind": "session",
+                        "fields": [
+                            "expires-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:37dc2d52ef3cddf50278e497d125b48da039d6fabe9da5a6e36abee7702afa05"
+        },
+        {
+            "envelopeId": "mutation/session-expiry",
+            "version": 1,
+            "targetProfileIds": [
+                "acceptance-representative",
+                "auth-basic",
+                "auth-security-matrix",
+                "production-xss"
+            ],
+            "targetCapabilities": [
+                "session.multi-device",
+                "session.single-device"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "session.expiry",
+                        "kind": "session",
+                        "fields": [
+                            "expires-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "set-wrong-value",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "session.expiry",
+                        "kind": "session",
+                        "fields": [
+                            "expires-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "session.expiry",
+                        "kind": "session",
+                        "fields": [
+                            "expires-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "user.mfa",
+                        "kind": "user",
+                        "fields": [
+                            "mfa-factor-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:5aaf46f08bb366c5e71ba0e5c6aa0f0a8fc82ff52eab3f8c64b0c28d2cc8af17"
+        },
+        {
+            "envelopeId": "mutation/user-mfa-disable",
+            "version": 1,
+            "targetProfileIds": [
+                "auth-basic",
+                "auth-security-matrix"
+            ],
+            "targetCapabilities": [
+                "auth.user.mfa-enabled"
+            ],
+            "semanticTargets": {
+                "entities": [
+                    {
+                        "domain": "user.mfa",
+                        "kind": "user",
+                        "fields": [
+                            "mfa-factor-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "mutationKind": "remove-required-row/relation",
+            "precondition": {
+                "verifiedReceipt": true,
+                "receiptSchema": "fsusblog.fixture-receipt.v2",
+                "semanticSnapshot": "pre-mutation-verified"
+            },
+            "expectedDriftFacts": {
+                "entities": [
+                    {
+                        "domain": "user.mfa",
+                        "kind": "user",
+                        "fields": [
+                            "mfa-factor-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "expectedRecovery": {
+                "source": "same-profile-current-producer-plan",
+                "restoreTarget": "pre-mutation-verified-semantic-snapshot"
+            },
+            "cleanupOwner": "fixture-receipt.owned-entities",
+            "providerSupport": {
+                "postgresql": true,
+                "mysql": true,
+                "sqlite": true,
+                "redis": false,
+                "filesystem": false
+            },
+            "allowedChanges": {
+                "entities": [
+                    {
+                        "domain": "user.mfa",
+                        "kind": "user",
+                        "fields": [
+                            "mfa-factor-relation"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "forbiddenDomains": {
+                "entities": [
+                    {
+                        "domain": "session.expiry",
+                        "kind": "session",
+                        "fields": [
+                            "expires-at"
+                        ]
+                    }
+                ],
+                "redisKeys": [],
+                "cacheEntries": [],
+                "ownedFiles": []
+            },
+            "contentDigest": "sha256:4e1c7db87689e2470a3c9be879cba194f7b245cc80ffffd6927206018ad7f12c"
+        }
+    ],
+    "sequences": [
+        {
+            "sequenceId": "sequence-article-lifecycle-recovery",
+            "targetProfileIds": [
+                "acceptance-representative",
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "envelopeIds": [
+                "mutation/article-metadata-timestamp",
+                "mutation/article-tag-relation-drop",
+                "mutation/article-views-inflation"
+            ],
+            "providerSupport": {
+                "postgresql": "supported",
+                "mysql": "supported",
+                "sqlite": "supported",
+                "redis": "unsupported",
+                "filesystem": "unsupported"
+            },
+            "qualificationEligible": true
+        },
+        {
+            "sequenceId": "sequence-cache-recovery",
+            "targetProfileIds": [
+                "auth-security-matrix",
+                "public-content-lifecycle"
+            ],
+            "envelopeIds": [
+                "mutation/public-deleted-projection-cache-stale",
+                "mutation/redis-risk-key-tamper"
+            ],
+            "providerSupport": {
+                "postgresql": "unsupported",
+                "mysql": "unsupported",
+                "sqlite": "unsupported",
+                "redis": "supported",
+                "filesystem": "unsupported"
+            },
+            "qualificationEligible": true
+        },
+        {
+            "sequenceId": "sequence-cross-surface-fail-closed",
+            "targetProfileIds": [
+                "auth-basic",
+                "auth-security-matrix",
+                "public-content-lifecycle"
+            ],
+            "envelopeIds": [
+                "mutation/admin-disabled-state",
+                "mutation/owned-media-missing",
+                "mutation/public-home-featured-hot"
+            ],
+            "providerSupport": {
+                "postgresql": "fail-closed",
+                "mysql": "fail-closed",
+                "sqlite": "fail-closed",
+                "redis": "unsupported",
+                "filesystem": "fail-closed"
+            },
+            "qualificationEligible": false
+        },
+        {
+            "sequenceId": "sequence-media-integrity-recovery",
+            "targetProfileIds": [
+                "public-content-lifecycle",
+                "public-minimal"
+            ],
+            "envelopeIds": [
+                "mutation/owned-media-bytes-replaced",
+                "mutation/owned-media-truncated"
+            ],
+            "providerSupport": {
+                "postgresql": "unsupported",
+                "mysql": "unsupported",
+                "sqlite": "unsupported",
+                "redis": "unsupported",
+                "filesystem": "supported"
+            },
+            "qualificationEligible": true
+        },
+        {
+            "sequenceId": "sequence-moderation-security-recovery",
+            "targetProfileIds": [
+                "auth-security-matrix",
+                "comments-moderation"
+            ],
+            "envelopeIds": [
+                "mutation/admin-permission-denied",
+                "mutation/comment-moderation-status",
+                "mutation/session-expiry",
+                "mutation/user-mfa-disable"
+            ],
+            "providerSupport": {
+                "postgresql": "supported",
+                "mysql": "supported",
+                "sqlite": "supported",
+                "redis": "unsupported",
+                "filesystem": "unsupported"
+            },
+            "qualificationEligible": true
+        }
+    ]
+}

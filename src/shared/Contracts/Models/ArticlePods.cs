@@ -1,0 +1,375 @@
+using System.Runtime.InteropServices;
+
+using FsusBlog.Shared.Contracts.Envelopes;
+using FsusBlog.Shared.Contracts.Primitives;
+
+namespace FsusBlog.Shared.Contracts.Models;
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleCategoryView</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleCategoryViewPod
+{
+    public readonly int Id;
+    public readonly Utf8Fixed128 Name;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>Tag</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct TagPod
+{
+    public readonly int Id;
+    public readonly Utf8Fixed128 Name;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>TagWithCount</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct TagWithCountPod
+{
+    public readonly int Id;
+    public readonly Utf8Fixed128 Name;
+    public readonly int ArticleCount;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>Category</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct CategoryPod
+{
+    public readonly int Id;
+    public readonly Utf8Fixed128 Name;
+    public readonly int ArticleCount;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleListItem</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleListItemPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly ArticleCategoryViewPod Category;
+    public readonly Utf8Fixed256 Title;
+    public readonly Utf8SliceRef Summary;
+    public readonly byte IsDeleted;
+    public readonly byte HasIsDeleted;
+    public readonly ushort Reserved0;
+    public readonly uint Reserved1;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetail</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int Reserved0;
+    public readonly ArticleCategoryViewPod Category;
+    public readonly Utf8Fixed256 Title;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef Content;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailV3Header</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV3HeaderPod
+{
+    public readonly uint Magic;
+    public readonly int Version;
+    public readonly uint Flags;
+    public readonly int ArticleRecordOffset;
+    public readonly int ArticleRecordLength;
+    public readonly int TagOffset;
+    public readonly int TagCount;
+    public readonly int RightsRecordOffset;
+    public readonly int RightsRecordLength;
+    public readonly int BlobOffset;
+    public readonly int BlobLength;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailV3Record</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV3RecordPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int CategoryId;
+    public readonly int Status;
+    public readonly long ScheduledPublishAtUnixMs;
+    public readonly long PublishedAtUnixMs;
+    public readonly byte IsDeleted;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+    public readonly Utf8SliceRef CategoryName;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailV4Header</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV4HeaderPod
+{
+    public readonly uint Magic;
+    public readonly int Version;
+    public readonly uint Flags;
+    public readonly int ArticleRecordOffset;
+    public readonly int ArticleRecordLength;
+    public readonly int TagOffset;
+    public readonly int TagCount;
+    public readonly int RightsRecordOffset;
+    public readonly int RightsRecordLength;
+    public readonly int BlobOffset;
+    public readonly int BlobLength;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailV4Record</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV4RecordPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int CategoryId;
+    public readonly int Status;
+    public readonly long ScheduledPublishAtUnixMs;
+    public readonly long PublishedAtUnixMs;
+    public readonly long UpdatedAtUnixMs;
+    public readonly byte IsDeleted;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+    public readonly Utf8SliceRef CategoryName;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailV5Record</c> wire contract.
+/// The version coordinates bind every public detail payload to one immutable publication.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV5RecordPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int CategoryId;
+    public readonly int Status;
+    public readonly long ScheduledPublishAtUnixMs;
+    public readonly long PublishedAtUnixMs;
+    public readonly long UpdatedAtUnixMs;
+    public readonly long CurrentRevisionId;
+    public readonly int RevisionNo;
+    public readonly long CurrentPublicationId;
+    public readonly int PublicationNo;
+    public readonly byte IsDeleted;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+    public readonly Utf8SliceRef CategoryName;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleDetailTagV3Record</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailTagV3RecordPod
+{
+    public readonly int Id;
+    public readonly Utf8SliceRef Name;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleRightsV3Record</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleRightsV3RecordPod
+{
+    public readonly long SnapshotId;
+    public readonly long ArticleRevisionId;
+    public readonly int RevisionNo;
+    public readonly int Flags;
+    public readonly int CopyrightYear;
+    public readonly int MaxExcerptChars;
+    public readonly Utf8SliceRef LicenseType;
+    public readonly Utf8SliceRef CopyrightHolder;
+    public readonly Utf8SliceRef RightsStatement;
+    public readonly Utf8SliceRef AttributionTemplate;
+    public readonly Utf8SliceRef CopyPolicy;
+    public readonly Utf8SliceRef CanonicalUrl;
+    public readonly Utf8SliceRef PolicyHash;
+    public readonly Utf8SliceRef ContentCanonicalHash;
+    public readonly Utf8SliceRef ProofUrl;
+    public readonly Utf8SliceRef ProofStatus;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>FeaturedArticle</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct FeaturedArticlePod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly ArticleCategoryViewPod Category;
+    public readonly Utf8Fixed256 Title;
+    public readonly Utf8SliceRef CoverImageUrl;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RelatedReadingHeader</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RelatedReadingHeaderPod
+{
+    public readonly int RelatedCount;
+    public readonly byte HasPrevious;
+    public readonly byte HasNext;
+    public readonly ushort Reserved0;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RelatedReadingItem</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RelatedReadingItemPod
+{
+    public readonly int Id;
+    public readonly long CreateTimeUnixMs;
+    public readonly byte HasSummary;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef Reason;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleNotice</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleNoticePod
+{
+    public readonly int ArticleId;
+    public readonly long EventTimeUnixMs;
+    public readonly Utf8Fixed64 Action;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleMutationResult</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleMutationResultPod
+{
+    public readonly int ArticleId;
+    public readonly long RevisionId;
+    public readonly int RevisionNo;
+    public readonly long ReleaseId;
+    public readonly int ReleaseNo;
+    public readonly int Status;
+    public readonly long RightsSnapshotId;
+    public readonly int RightsRevisionNo;
+    public readonly byte IdempotencyReplay;
+    public readonly byte ErrorCode;
+    public readonly byte Outcome;
+    public readonly byte Reserved;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>TrashClearResponse</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct TrashClearResponsePod
+{
+    public readonly int Count;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleWriteRequest</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleWriteRequestPod
+{
+    public readonly int CategoryId;
+    public readonly int TagCount;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleRightsWriteRequest</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleRightsWriteRequestPod
+{
+    public readonly Utf8SliceRef LicenseType;
+    public readonly Utf8SliceRef CopyrightHolder;
+    public readonly Utf8SliceRef RightsStatement;
+    public readonly Utf8SliceRef AttributionTemplate;
+    public readonly Utf8SliceRef CopyPolicy;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleListPage</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleListPagePod
+{
+    public readonly PagedPodEnvelope Envelope;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleHotList</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleHotListPod
+{
+    public readonly PodEnvelopeHeader Envelope;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleFeaturedList</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleFeaturedListPod
+{
+    public readonly PodEnvelopeHeader Envelope;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ArticleTagList</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleTagListPod
+{
+    public readonly PodEnvelopeHeader Envelope;
+}

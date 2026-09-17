@@ -1,0 +1,89 @@
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Interfaces;
+
+namespace FsusBlog.Server.Services.VisitLog;
+
+public interface IArticleViewProjectionService
+{
+    Task ApplyAsync(IReadOnlyDictionary<int, int> articleCounts, CancellationToken cancellationToken);
+}
+
+public sealed class ArticleViewProjectionService(
+    IArticleCoreService articleService,
+    ICacheInvalidationDispatcher dispatcher,
+    IHotStatsInvalidationCoalescer hotStatsInvalidation,
+    PublicHotArtifactUpdateQueue publicHotUpdates,
+    ILogger<ArticleViewProjectionService> logger) : IArticleViewProjectionService
+{
+    internal const int MaxPerBatchViewInvalidations = 128;
+
+    public async Task ApplyAsync(IReadOnlyDictionary<int, int> articleCounts, CancellationToken cancellationToken)
+    {
+        if (articleCounts.Count == 0)
+        {
+            return;
+        }
+
+        var result = await articleService
+            .IncreaseViewCountsAsync(new ArticleViewCountBatchCommand(articleCounts), cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlySet<int> updatedArticleIds = result.IsSuccess && result.Value is not null
+            ? result.Value
+            : new HashSet<int>();
+        if (updatedArticleIds.Count == 0)
+        {
+            return;
+        }
+
+        int invalidated = await InvalidateArticleViewsAsync(
+            updatedArticleIds,
+            MaxPerBatchViewInvalidations,
+            cancellationToken).ConfigureAwait(false);
+        if (invalidated < updatedArticleIds.Count)
+        {
+            logger.LogWarning(
+                "article-view-projection-invalidation-capped {UpdatedCount} {InvalidatedCount}",
+                updatedArticleIds.Count,
+                invalidated);
+        }
+
+        await hotStatsInvalidation.MarkStatsDirtyAsync("article-view-projection", cancellationToken).ConfigureAwait(false);
+        await hotStatsInvalidation.MarkHotArticlesDirtyAsync("article-view-projection", cancellationToken).ConfigureAwait(false);
+
+        foreach (int articleId in updatedArticleIds)
+        {
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.BestEffortView,
+                    articleId,
+                    "article-view-projection-batch",
+                    cancellationToken: CancellationToken.None)
+                .ConfigureAwait(false);
+            PublicHotArtifactDeliveryReceipt.RequireDurable(delivery, "article-view-projection-batch");
+        }
+    }
+
+    private async Task<int> InvalidateArticleViewsAsync(
+        IReadOnlySet<int> articleIds,
+        int maxPerBatchViewInvalidations,
+        CancellationToken cancellationToken)
+    {
+        int limit = Math.Min(articleIds.Count, maxPerBatchViewInvalidations);
+        var tasks = new List<Task>(limit);
+        foreach (int articleId in articleIds)
+        {
+            if (tasks.Count >= limit)
+            {
+                break;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            tasks.Add(dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken));
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return tasks.Count;
+    }
+}

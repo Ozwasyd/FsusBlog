@@ -1,0 +1,134 @@
+/*
+ * Public article reading geometry.
+ *
+ * The six named lines are the only owners of article content and wide-media
+ * alignment. Components opt into the wider track with
+ * data-fsus-reading-bleed; they never compensate for a parent padding value.
+ */
+[data-fsus-reading-layout]
+ {
+    --fsusblog-reading-content-max: 760px;
+    --fsusblog-reading-wide-max: 960px;
+    --fsusblog-reading-full-gutter: 8px;
+    --fsusblog-reading-bleed-offset: 8px;
+
+    display: grid;
+    width: 100%;
+    max-width: min(1120px, max(760px, 72vw));
+    margin-inline: auto;
+    grid-template-columns:
+        [full-start] minmax(var(--fsusblog-reading-full-gutter), 1fr)
+        [bleed-start] minmax(0, var(--fsusblog-reading-bleed-offset))
+        [content-start] minmax(
+            0,
+            min(
+                var(--fsusblog-reading-content-max),
+                calc(
+                    100% - 2 * (var(--fsusblog-reading-full-gutter) + var(--fsusblog-reading-bleed-offset))
+                )
+            )
+        )
+        [content-end] minmax(0, var(--fsusblog-reading-bleed-offset))
+        [bleed-end] minmax(var(--fsusblog-reading-full-gutter), 1fr)
+        [full-end];
+}
+
+[data-fsus-reading-layout] > *
+ {
+    grid-column: content;
+    min-width: 0;
+}
+
+[data-fsus-reading-layout] [data-fsus-reading-bleed]
+ {
+    grid-column: bleed;
+    min-width: 0;
+}
+
+[data-fsus-reading-layout] [data-fsus-reading-bleed]:is(figure)
+ {
+    display: grid;
+    grid-template-columns: subgrid;
+}
+
+[data-fsus-reading-layout] [data-fsus-reading-bleed]:is(figure) > :not(figcaption)
+ {
+    grid-column: bleed;
+}
+
+[data-fsus-reading-layout] [data-fsus-reading-bleed]:is(figure) > figcaption
+ {
+    grid-column: content;
+}
+
+/* Preserve the named lines through the runtime renderer wrappers. */
+[data-fsus-reading-layout] > section[itemprop='articleBody'],
+[data-fsus-reading-layout] .article-detail-body,
+[data-fsus-reading-layout] .blog-markdown-renderer,
+[data-fsus-reading-layout] .markdown-renderer,
+[data-fsus-reading-layout] .markdown-renderer > div,
+[data-fsus-reading-layout] .markdown-renderer__virtual-unit
+ {
+    display: grid;
+    grid-column: full;
+    grid-template-columns: subgrid;
+    min-width: 0;
+    contain: none;
+    container-type: normal;
+}
+
+[data-fsus-reading-layout] .markdown-renderer__virtual-spacer
+ {
+    grid-column: full;
+}
+
+[data-fsus-reading-layout] .article-detail-body > :not(.blog-markdown-renderer),
+[data-fsus-reading-layout] .markdown-renderer > div > *,
+[data-fsus-reading-layout] .markdown-renderer__virtual-unit > *
+ {
+    grid-column: content;
+    min-width: 0;
+}
+
+/* Runtime-generated article media and wide code consume the same primitive. */
+[data-fsus-reading-layout] .markdown-body--article p:has(> img),
+[data-fsus-reading-layout] .markdown-body--article figure[data-fsus-reading-bleed],
+[data-fsus-reading-layout] .markdown-body--article pre.shiki
+ {
+    grid-column: bleed;
+}
+
+[data-fsus-reading-layout] .markdown-body--article figure[data-fsus-reading-bleed]
+ {
+    display: grid;
+    grid-template-columns: subgrid;
+}
+
+[data-fsus-reading-layout] .markdown-body--article figure[data-fsus-reading-bleed] > :not(figcaption)
+ {
+    grid-column: bleed;
+}
+
+[data-fsus-reading-layout] .markdown-body--article figure[data-fsus-reading-bleed] > figcaption
+ {
+    grid-column: content;
+}
+
+@media (width >= 640px)
+ {
+    [data-fsus-reading-layout]
+ {
+        --fsusblog-reading-full-gutter: 16px;
+        --fsusblog-reading-bleed-offset: 32px;
+    }
+}
+
+@media (width >= 1024px)
+ {
+    [data-fsus-reading-layout]
+ {
+        --fsusblog-reading-full-gutter: clamp(16px, calc((100% - var(--fsusblog-reading-content-max)) / 8), 32px);
+        --fsusblog-reading-bleed-offset:
+            clamp(8px, calc((100% - var(--fsusblog-reading-content-max)) / 2 - var(--fsusblog-reading-full-gutter)), calc((var(--fsusblog-reading-wide-max) - var(--fsusblog-reading-content-max)) / 2));
+    }
+}

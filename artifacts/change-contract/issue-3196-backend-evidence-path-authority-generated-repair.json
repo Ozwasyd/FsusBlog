@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.post-merge-generated-output-repair.v1",
+    "producerId": "backend-evidence-path-authority",
+    "sourceCommit": "01828fc6e4e6c5769129b044e9de8490ed1ca29d",
+    "mergedPullRequest": 3195,
+    "mergeCommit": "db1102e1171f15be970d60dc808c820e0ffe8dae",
+    "source": {
+        "path": "tests/matrix.yml",
+        "sha256": "a299c05b7de4c335e59f3d689460702375826db1b889722115af91c45b35f517"
+    },
+    "generator": {
+        "path": "tools/test/generate-backend-evidence-path-authority.mjs",
+        "sha256": "232e77059ac7c795d6e1a37bd741db0876622810fe404f6a6d6ff71babe0a071"
+    },
+    "command": "node tools/test/generate-backend-evidence-path-authority.mjs --write",
+    "outputs": [
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "baseSha256": "293f4984e82b3643004837c1a9ae7d671d33fa7f52f9a11a1cb3af2f732ab1f5",
+            "expectedSha256": "c4966163c51f332202d015e983281e322af4da338c09c4490335719cbc2153f7",
+            "currentSha256": "c4966163c51f332202d015e983281e322af4da338c09c4490335719cbc2153f7"
+        }
+    ]
+}

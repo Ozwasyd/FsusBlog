@@ -1,0 +1,22 @@
+using FsusBlog.Core.Common;
+
+using Microsoft.AspNetCore.Http;
+
+namespace FsusBlog.Server.Infrastructure.PublicAot;
+
+public interface IPublicAotShellService
+{
+    Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default);
+
+    Task<PublicAotRenderOutcome> RenderClassifiedAsync(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotAsync(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> InvalidateAllAsync(CancellationToken cancellationToken = default);
+}

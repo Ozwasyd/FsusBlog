@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.governance-handoff.v1",
+    "issue": 1035,
+    "status": "implementation-landed-in-worktree-validation-pending",
+    "localCommit": "d145c05c",
+    "deletedFiles": 3,
+    "deletedTestIds": 7,
+    "owners": [
+        "tools/check-historical-residue.sh",
+        "tests/frontend/checks/static/check-historical-residue-fixture.mjs",
+        "tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
+        "tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"
+    ],
+    "sqlFixturesCovered": true,
+    "centralRetention": "tests/test-retention-replacements.json",
+    "documentation": "docs/testing/issues-1033-1035-test-governance-retirements.md",
+    "verification": {
+        "commandsExecutedInCurrentLandingPhase": [],
+        "result": "not-run-by-instruction"
+    }
+}

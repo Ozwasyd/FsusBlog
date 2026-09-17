@@ -1,0 +1,117 @@
+{
+    "schema": "fsusblog.repository-source-layout.v1",
+    "canonicalSourceRoot": "src",
+    "rootDirectories": [
+        {
+            "path": ".agents",
+            "classification": "automation",
+            "architecturalException": "Repository-scoped Codex Skills contain procedural agent workflows only; they are not product source or product contract authority."
+        },
+        {
+            "path": ".codex",
+            "classification": "tool-configuration",
+            "architecturalException": "Project-scoped Codex custom-agent files configure bounded implementation and review roles only; they are not product source or runtime configuration."
+        },
+        {
+            "path": ".github",
+            "classification": "automation"
+        },
+        {
+            "path": ".config",
+            "classification": "tool-configuration",
+            "architecturalException": "The .NET SDK requires the repository tool manifest at .config/dotnet-tools.json; it contains configuration only and no product source."
+        },
+        {
+            "path": "artifacts",
+            "classification": "generated-artifacts"
+        },
+        {
+            "path": "benchmarks",
+            "classification": "source-exception",
+            "architecturalException": "Benchmark source remains a top-level engineering domain so production code cannot consume it through the canonical src tree."
+        },
+        {
+            "path": "build",
+            "classification": "build-output"
+        },
+        {
+            "path": "cmake",
+            "classification": "source-exception",
+            "architecturalException": "Shared CMake policy source remains a top-level build-system domain and is never shipped as product runtime source."
+        },
+        {
+            "path": "config",
+            "classification": "runtime-configuration"
+        },
+        {
+            "path": "docs",
+            "classification": "documentation"
+        },
+        {
+            "path": "examples",
+            "classification": "source-exception",
+            "architecturalException": "Plugin authoring examples and their checked-in runtime fixtures remain isolated from product source and shipping assemblies."
+        },
+        {
+            "path": "ops",
+            "classification": "source-exception",
+            "architecturalException": "Operator-owned deployment scripts stay outside application source and are never compiled into the product."
+        },
+        {
+            "path": "release-index",
+            "classification": "release-index",
+            "architecturalException": "An optional Git-tracked release index may contain only the small identity and integrity records enforced by release-evidence layout governance; complete bundles remain outside Git."
+        },
+        {
+            "path": "security",
+            "classification": "security-manifests"
+        },
+        {
+            "path": "src",
+            "classification": "canonical-source"
+        },
+        {
+            "path": "tests",
+            "classification": "source-exception",
+            "architecturalException": "Test source and fixtures remain isolated from product compilation under the conventional top-level tests domain."
+        },
+        {
+            "path": "tools",
+            "classification": "source-exception",
+            "architecturalException": "Repository build and governance tools are executable source but remain outside product source and shipping assemblies."
+        }
+    ],
+    "forbiddenRootSourceDirectories": [
+        "circuits",
+        "deploy",
+        "release-evidence"
+    ],
+    "languageOwnership": {
+        "csharpEntrypoint": {
+            "policy": "tests/governance/csharp-entrypoint-ownership.json",
+            "checker": "tools/check-csharp-entrypoint-ownership.mjs"
+        }
+    },
+    "zk": {
+        "circuitSourceRoot": "src/zk/circuits",
+        "generatedArtifactsRoot": "artifacts/zk",
+        "securityManifestsRoot": "security/zk",
+        "runtimeConfigurationRoot": "config/zk",
+        "testFixturesRoot": "tests/fixtures/zk",
+        "circuitSources": [
+            {
+                "id": "anonymous-comment-v5",
+                "path": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
+                "sha256": "8a7ff2f645ce611434fe82118921f277cb1eca5c2533f0cc8e11d2836f560d9d"
+            }
+        ],
+        "jsonSourceBindings": [
+            {
+                "path": "security/zk/contracts/comment-v5-circuit.manifest.json",
+                "pathField": "source",
+                "hashField": "source_sha256",
+                "sourceId": "anonymous-comment-v5"
+            }
+        ]
+    }
+}

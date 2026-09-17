@@ -1,0 +1,639 @@
+{
+  "schema": "fsusblog.release-worker-drill-plan.v1",
+  "rolloutId": "REPLACE_ROLLOUT_ID",
+  "database": {
+    "connectionEnv": "FSUSBLOG_WORKER_DRILL_DATABASE_URL",
+    "timeoutMs": 15000
+  },
+  "security": {
+    "allowedHttpOrigins": [
+      "http://127.0.0.1:8081",
+      "http://127.0.0.1:8082",
+      "http://127.0.0.1:19031"
+    ],
+    "allowedReadTables": [
+      "article",
+      "article_mutation_outbox",
+      "article_mutation_outbox_edge",
+      "article_view_projection_watermark",
+      "asset_library_item",
+      "sys_audit_log",
+      "sys_visit_log"
+    ],
+    "allowedWriteTables": [
+      "article",
+      "article_mutation_outbox",
+      "asset_library_item",
+      "sys_visit_log"
+    ]
+  },
+  "inputs": {
+    "articleId": {
+      "env": "FSUSBLOG_WORKER_DRILL_ARTICLE_ID",
+      "type": "integer",
+      "pattern": "^[1-9][0-9]{0,9}$"
+    },
+    "scheduledArticleId": {
+      "env": "FSUSBLOG_WORKER_DRILL_SCHEDULED_ARTICLE_ID",
+      "type": "integer",
+      "pattern": "^[1-9][0-9]{0,9}$"
+    },
+    "uploadSessionId": {
+      "env": "FSUSBLOG_WORKER_DRILL_UPLOAD_SESSION_ID",
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z._:-]{7,127}$"
+    }
+  },
+  "source": {
+    "container": "fsus-app-blue"
+  },
+  "target": {
+    "container": "fsus-app-green",
+    "releaseId": "REPLACE_TARGET_RELEASE_ID",
+    "generation": 1,
+    "readinessProbe": {
+      "type": "http-json",
+      "url": "http://127.0.0.1:8082/api/ops/health/ready-detail?forceRefresh=true",
+      "method": "GET",
+      "expectedStatuses": [200],
+      "headers": {
+        "Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}
+      },
+      "assertions": [
+        {"pointer": "/releaseId", "equalsVariable": "target.releaseId"},
+        {"pointer": "/body/status", "equals": "ready"},
+        {"pointer": "/body/checks/release/releaseId", "equalsVariable": "target.releaseId"},
+        {"pointer": "/body/checks/deployment/generation", "equalsVariable": "target.generation"},
+        {"pointer": "/body/checks/deployment/canClaimBackgroundWork", "equals": false}
+      ],
+      "timeoutMs": 120000,
+      "pollMs": 500
+    },
+    "takeoverProbe": {
+      "type": "http-json",
+      "url": "http://127.0.0.1:8082/api/ops/deployment/fence/status?releaseId={{target.releaseId}}&slot={{target.slot}}&generation={{target.generation}}&requireActive=true",
+      "method": "GET",
+      "expectedStatuses": [200],
+      "headers": {
+        "Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}
+      },
+      "assertions": [
+        {"pointer": "/releaseId", "equalsVariable": "target.releaseId"},
+        {"pointer": "/body/accepted", "equals": true},
+        {"pointer": "/body/status", "equals": "verified"},
+        {"pointer": "/body/snapshot/releaseId", "equalsVariable": "target.releaseId"},
+        {"pointer": "/body/snapshot/generation", "equalsVariable": "target.generation"},
+        {"pointer": "/body/snapshot/status", "equals": "active"}
+      ],
+      "timeoutMs": 120000,
+      "pollMs": 500
+    }
+  },
+  "sourceTermination": {
+    "type": "docker-kill",
+    "container": "fsus-app-blue",
+    "signal": "SIGKILL",
+    "timeoutMs": 30000
+  },
+  "coordination": {
+    "mode": "file-handshake",
+    "armedFile": "signals/worker-drill-armed.json",
+    "authorizeFile": "signals/worker-drill-terminate-source.json",
+    "terminatedFile": "signals/worker-drill-source-terminated.json",
+    "timeoutMs": 300000,
+    "pollMs": 250
+  },
+  "events": [
+    {
+      "kind": "scheduled-publish",
+      "identity": {"mode": "observed", "probe": "pending", "pointer": "/body/logicalEventId"},
+      "prepare": [
+        {
+          "id": "make-scheduled-article-due",
+          "type": "sql-exec",
+          "sql": "UPDATE article SET scheduled_publish_at = (now() AT TIME ZONE 'utc') - interval '1 minute' WHERE id = {{input.scheduledArticleId}} RETURNING json_build_object('articleId', id, 'status', status, 'scheduledPublishAt', scheduled_publish_at)",
+          "assertions": [{"pointer": "/articleId", "equalsVariable": "input.scheduledArticleId"}]
+        }
+      ],
+      "trigger": [],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/scheduled-publish/pending?articleId={{input.scheduledArticleId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [
+            {"pointer": "/body/kind", "equals": "scheduled-publish"},
+            {"pointer": "/body/pendingCountAtDrain", "minimum": 1}
+          ],
+          "timeoutMs": 120000,
+          "pollMs": 500
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/scheduled-publish/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [
+            {"pointer": "/body/finalEffectCount", "equals": 1},
+            {"pointer": "/body/staleGenerationCommitCount", "equals": 0}
+          ],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"}
+      }
+    },
+    {
+      "kind": "article-mutation-outbox",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-article-outbox"},
+      "prepare": [
+        {
+          "id": "insert-article-outbox-event",
+          "type": "sql-exec",
+          "sql": "INSERT INTO article_mutation_outbox (event_id, aggregate_type, aggregate_id, event_type, payload_json, status, retry_count, next_retry_at, created_at) VALUES ({{logicalEventId}}, 'article', {{input.articleId}}, 'updated', json_build_object('articleId', {{input.articleId}}, 'workerDrillId', {{logicalEventId}})::text, 'pending', 0, (now() AT TIME ZONE 'utc'), (now() AT TIME ZONE 'utc')) RETURNING json_build_object('logicalEventId', event_id, 'outboxId', id, 'status', status)",
+          "assertions": [{"pointer": "/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "trigger": [],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/article-mutation-outbox/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/article-mutation-outbox/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/staleGenerationCommitCount", "equals": 0}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"}
+      }
+    },
+    {
+      "kind": "audit-writer",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-audit-writer"},
+      "prepare": [],
+      "trigger": [
+        {
+          "id": "emit-high-value-audit",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/audit-writer",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}", "requiresDurableWrite": true},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/audit-writer/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/audit-writer/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/actualAuditCount", "equals": 1}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"},
+        "expectedAuditCount": {"probe": "final", "pointer": "/body/expectedAuditCount", "type": "integer"},
+        "actualAuditCount": {"probe": "final", "pointer": "/body/actualAuditCount", "type": "integer"}
+      }
+    },
+    {
+      "kind": "visit-view-projection",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-visit-view"},
+      "prepare": [
+        {
+          "id": "insert-durable-visit",
+          "type": "sql-exec",
+          "sql": "INSERT INTO sys_visit_log (ip_hash, region, createtime, event_type, route_key, article_id, viewer_key_hash, proof_id, dwell_ms) VALUES ('worker-drill', 'ZZ', (now() AT TIME ZONE 'utc'), 'article_read', '/worker-drill', {{input.articleId}}, 'worker-drill', {{logicalEventId}}, 1000) RETURNING json_build_object('logicalEventId', proof_id, 'visitLogId', id, 'articleId', article_id)",
+          "assertions": [{"pointer": "/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "trigger": [],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/visit-view-projection/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/visit-view-projection/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/actualProjectionCount", "equals": 1}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"},
+        "expectedProjectionCount": {"probe": "final", "pointer": "/body/expectedProjectionCount", "type": "integer"},
+        "actualProjectionCount": {"probe": "final", "pointer": "/body/actualProjectionCount", "type": "integer"}
+      }
+    },
+    {
+      "kind": "public-hot-aot",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-public-hot-aot"},
+      "prepare": [],
+      "trigger": [
+        {
+          "id": "request-public-hot-rebuild",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/public-hot-aot",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}", "articleId": "{{input.articleId}}"},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/public-hot-aot/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/public-hot-aot/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/staleGenerationCommitCount", "equals": 0}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"}
+      }
+    },
+    {
+      "kind": "upload-cleanup",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-upload-cleanup"},
+      "prepare": [],
+      "trigger": [
+        {
+          "id": "expire-upload-session",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/upload-cleanup",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}", "uploadSessionId": "{{input.uploadSessionId}}"},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/upload-cleanup/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [
+        {
+          "id": "wake-target-upload-cleanup",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/upload-cleanup/wake-target",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}"},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/upload-cleanup/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/staleGenerationCommitCount", "equals": 0}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"}
+      }
+    },
+    {
+      "kind": "active-singleton-control",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-active-singleton"},
+      "prepare": [],
+      "trigger": [
+        {
+          "id": "start-singleton-control",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/active-singleton-control",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}"},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/active-singleton-control/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}, {"pointer": "/body/sourceOwnerCount", "equals": 1}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/active-singleton-control/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/maximumConcurrentOwnerCount", "maximum": 1}, {"pointer": "/body/staleGenerationCommitCount", "equals": 0}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"},
+        "sourceAttemptCount": {"probe": "final", "pointer": "/body/sourceAttemptCount", "type": "integer"},
+        "targetAttemptCount": {"probe": "final", "pointer": "/body/targetAttemptCount", "type": "integer"},
+        "workerIdentity": {"probe": "final", "pointer": "/body/workerIdentity", "type": "string"}
+      }
+    },
+    {
+      "kind": "multi-consumer-safe-control",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-multi-consumer"},
+      "prepare": [],
+      "trigger": [
+        {
+          "id": "start-multi-consumer-control",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/multi-consumer-safe-control",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}", "consumerCount": 2},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/multi-consumer-safe-control/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}, {"pointer": "/body/consumerCount", "minimum": 2}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/multi-consumer-safe-control/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/staleGenerationCommitCount", "equals": 0}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"},
+        "sourceAttemptCount": {"probe": "final", "pointer": "/body/sourceAttemptCount", "type": "integer"},
+        "targetAttemptCount": {"probe": "final", "pointer": "/body/targetAttemptCount", "type": "integer"},
+        "workerIdentity": {"probe": "final", "pointer": "/body/workerIdentity", "type": "string"}
+      }
+    },
+    {
+      "kind": "forced-source-recovery",
+      "identity": {"mode": "generated", "template": "worker-drill-{{runId}}-forced-recovery"},
+      "prepare": [
+        {
+          "id": "insert-forced-recovery-outbox-event",
+          "type": "sql-exec",
+          "sql": "INSERT INTO article_mutation_outbox (event_id, aggregate_type, aggregate_id, event_type, payload_json, status, retry_count, next_retry_at, created_at) VALUES ({{logicalEventId}}, 'article', {{input.articleId}}, 'updated', json_build_object('articleId', {{input.articleId}}, 'workerDrillId', {{logicalEventId}}, 'forcedSourceRecovery', true)::text, 'pending', 0, (now() AT TIME ZONE 'utc'), (now() AT TIME ZONE 'utc')) RETURNING json_build_object('logicalEventId', event_id, 'outboxId', id, 'status', status)",
+          "assertions": [{"pointer": "/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "trigger": [
+        {
+          "id": "hold-source-worker-after-claim",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/forced-source-recovery/hold-after-claim",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}"},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "beforeTermination": [
+        {
+          "id": "pending",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/forced-source-recovery/pending?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/pendingCountAtDrain", "minimum": 1}, {"pointer": "/body/sourceClaimObserved", "equals": true}, {"pointer": "/body/sourceFinalCommitObserved", "equals": false}],
+          "timeoutMs": 30000,
+          "pollMs": 250
+        }
+      ],
+      "afterTermination": [
+        {
+          "id": "release-target-replay",
+          "type": "http-request",
+          "url": "http://127.0.0.1:19031/actions/forced-source-recovery/release-target",
+          "method": "POST",
+          "headers": {"Authorization": {"env": "FSUSBLOG_WORKER_DRILL_ADMIN_AUTHORIZATION"}},
+          "body": {"logicalEventId": "{{logicalEventId}}", "rolloutId": "{{rolloutId}}"},
+          "expectedStatuses": [202],
+          "assertions": [{"pointer": "/body/logicalEventId", "equalsVariable": "logicalEventId"}]
+        }
+      ],
+      "observations": [
+        {
+          "id": "final",
+          "type": "http-json",
+          "url": "http://127.0.0.1:19031/observations/forced-source-recovery/final?logicalEventId={{logicalEventId}}&rolloutId={{rolloutId}}",
+          "method": "GET",
+          "expectedStatuses": [200],
+          "assertions": [{"pointer": "/body/finalEffectCount", "equals": 1}, {"pointer": "/body/recoveredByTarget", "equals": true}, {"pointer": "/body/staleGenerationCommitCount", "equals": 0}],
+          "timeoutMs": 180000,
+          "pollMs": 500
+        }
+      ],
+      "ledger": {
+        "observedLogicalEventId": {"probe": "final", "pointer": "/body/logicalEventId", "type": "string"},
+        "observedKind": {"probe": "final", "pointer": "/body/kind", "type": "string"},
+        "attemptCount": {"probe": "final", "pointer": "/body/attemptCount", "type": "integer"},
+        "finalEffectCount": {"probe": "final", "pointer": "/body/finalEffectCount", "type": "integer"},
+        "finalEffectKey": {"probe": "final", "pointer": "/body/finalEffectKey", "type": "string"},
+        "finalReleaseId": {"probe": "final", "pointer": "/body/finalReleaseId", "type": "string"},
+        "finalGeneration": {"probe": "final", "pointer": "/body/finalGeneration", "type": "integer"},
+        "staleGenerationCommitCount": {"probe": "final", "pointer": "/body/staleGenerationCommitCount", "type": "integer"},
+        "pendingLogicalEventId": {"probe": "pending", "pointer": "/body/logicalEventId", "type": "string"},
+        "pendingCountAtDrain": {"probe": "pending", "pointer": "/body/pendingCountAtDrain", "type": "integer"},
+        "durableReplaySource": {"probe": "pending", "pointer": "/body/durableReplaySource", "type": "string"},
+        "recoveredByTarget": {"probe": "final", "pointer": "/body/recoveredByTarget", "type": "boolean"},
+        "sourceAttemptCount": {"probe": "final", "pointer": "/body/sourceAttemptCount", "type": "integer"},
+        "targetAttemptCount": {"probe": "final", "pointer": "/body/targetAttemptCount", "type": "integer"}
+      }
+    }
+  ]
+}

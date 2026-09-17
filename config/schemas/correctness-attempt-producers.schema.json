@@ -1,0 +1,81 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/correctness-attempt-producers.v1.json",
+    "title": "FsusBlog correctness attempt producer inventory",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "generatedBy", "sourceDigests", "entries", "contentDigest"],
+    "properties": {
+        "schema": { "const": "fsusblog.correctness-attempt-producers.v1" },
+        "generatedBy": { "const": "tools/test/generate-correctness-attempt-producers.mjs" },
+        "sourceDigests": {
+            "type": "object",
+            "minProperties": 3,
+            "additionalProperties": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        },
+        "entries": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "producerId",
+                    "domain",
+                    "producerKind",
+                    "sourceAuthority",
+                    "canonicalCommand",
+                    "logicalTierIds",
+                    "policyId",
+                    "allowedRetries",
+                    "firstFailureBlocksQualification",
+                    "frameworkRetrySetting",
+                    "artifactOwner",
+                    "executionOwner",
+                    "attemptAdapter",
+                    "migrationState",
+                    "qualificationEligible",
+                    "externalAuthorityKinds",
+                    "authorityBindings"
+                ],
+                "properties": {
+                    "producerId": { "type": "string", "minLength": 1 },
+                    "domain": { "enum": ["test-producers", "browser-contract", "build-release-producers"] },
+                    "producerKind": { "enum": ["unit", "integration", "property", "model", "fuzz", "mutation", "browser-contract", "build", "reliability", "projection", "finalizer"] },
+                    "sourceAuthority": { "type": "string", "minLength": 1 },
+                    "canonicalCommand": { "type": "string", "minLength": 1 },
+                    "logicalTierIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+                    "policyId": { "const": "correctness-first-attempt" },
+                    "allowedRetries": { "const": 0 },
+                    "firstFailureBlocksQualification": { "const": true },
+                    "frameworkRetrySetting": { "const": 0 },
+                    "artifactOwner": { "type": "string", "minLength": 1 },
+                    "executionOwner": { "type": "string", "minLength": 1 },
+                    "attemptAdapter": { "const": "tools/test/attempt-runner.mjs#runProducerAttempts" },
+                    "migrationState": { "const": "migrated" },
+                    "qualificationEligible": { "const": true },
+                    "externalAuthorityKinds": {
+                        "type": "array",
+                        "prefixItems": [
+                            { "const": "execution-envelope" },
+                            { "const": "replay-plan" },
+                            { "const": "temporal-context" }
+                        ],
+                        "items": false
+                    },
+                    "authorityBindings": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["executionEnvelope", "replayPlan", "temporalContext"],
+                        "properties": {
+                            "executionEnvelope": { "type": "string", "minLength": 1 },
+                            "replayPlan": { "const": "config/testing/replay-qualification-producers.json#contentDigest" },
+                            "temporalContext": { "const": "tools/test/temporal-context.mjs#qualificationTemporalContext" }
+                        }
+                    }
+                }
+            }
+        },
+        "contentDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    }
+}

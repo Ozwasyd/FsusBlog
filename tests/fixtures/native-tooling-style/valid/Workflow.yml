@@ -1,0 +1,13 @@
+name: Native style fixture
+on:
+    workflow_dispatch:
+permissions:
+    contents: read
+jobs:
+    verify:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Verify fixture
+              run: |
+                  ./tools/format.sh --check
+                  ./tools/lint.sh scripts

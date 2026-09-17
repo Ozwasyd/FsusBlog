@@ -1,0 +1,103 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "sourceCommit": "f1921d9c633edf1ea6d02c7e649cb01000130e01",
+    "expectedRecords": 19,
+    "expectedMigrated": 19,
+    "records": [
+        {
+            "id": "node-test:tests/browser-contract/fixture-lifecycle.test.mjs#run-identity-fixes-one-session-and-derives-isolated-data-131fc6b40e",
+            "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/issue-1150-production-summary.test.mjs#production-summary-emits-the-explicit-browserless-correc-5074f412d2",
+            "path": "tests/tools/issue-1150-production-summary.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/local-dotnet-lanes.test.mjs#perception-matrix-projects-the-fresh-production-union-an-986237ccbf",
+            "path": "tests/tools/local-dotnet-lanes.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/local-dotnet-lanes.test.mjs#rights-v3-matrix-consumes-the-shared-debug-build-without-6b1ab1dea9",
+            "path": "tests/tools/local-dotnet-lanes.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-runtime-phase-binds-the-exact-browser-probe--0407b014a3",
+            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-static-phase-executes-only-assertions-not-ow-f15aeb0d19",
+            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#runtime-bundle-starts-static-cross-stack-early-and-joins-047150e04c",
+            "path": "tests/tools/runtime-cross-stack-split.test.mjs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/unit/components/PublicPeriodMotif.test.ts#adds-the-dot-to-neutral-empty-states-without-decorating--9d9fdb7b87",
+            "path": "tests/frontend/unit/components/PublicPeriodMotif.test.ts",
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/unit/components/PublicPeriodMotif.test.ts#renders-one-shared-dot-for-each-loading-surface-8e726a065a",
+            "path": "tests/frontend/unit/components/PublicPeriodMotif.test.ts",
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/unit/components/PublicPeriodMotif.test.ts#uses-midpoints-for-inline-list-and-article-metadata-bc92418512",
+            "path": "tests/frontend/unit/components/PublicPeriodMotif.test.ts",
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/unit/contracts/articleTitleAuthority.test.ts#retains-punctuation-and-loading-contracts-f741dfa3ba",
+            "path": "tests/frontend/unit/contracts/articleTitleAuthority.test.ts",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleCanonicalHashTests.cs#ArticleCanonicalHashTests.RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalAnchors",
+            "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.ComputeHash_ChangesWhenBoundFieldChanges",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleRightsCanonicalHashTests.cs#ArticleRightsCanonicalHashTests.RuntimeType_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic",
+            "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CanonicalImplementation_StaysInsideCoreWithoutRuntimeOrExternalDependencies",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.CoreProject_DoesNotReferenceServerOrExternalAnchoringPackages",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.RightsCanonicalWriter_UsesTheGovernedBufferWriterBoundary",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.OwnershipCatalog_MapsEveryCanonicalContractToCurrentOwnersAndGoldenVector",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs#CanonicalHashSourceGovernanceTests.ProductBehaviorTests_DoNotOwnRuntimeShapeOrPayloadFragmentAssertions",
+            "path": "tests/backend/Unit/CanonicalHashSourceGovernanceTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}

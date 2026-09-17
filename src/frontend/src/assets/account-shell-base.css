@@ -1,0 +1,286 @@
+/* Shared account chrome and frame geometry. Identity and admin page composition
+   live in their dedicated ownership files. */
+
+.account-shell
+ {
+    --fsusblog-account-header-height: 5.5625rem;
+
+    background: var(--fsusblog-page-bg, Canvas);
+    color: var(--fsusblog-text-primary);
+    font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
+}
+
+.account-header-link
+ {
+    display: inline-flex;
+    min-width: var(--fsus-control-height-compact);
+    min-height: var(--fsus-control-height-compact);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--fsusblog-panel-border);
+    border-radius: var(--fsus-radius-control);
+    padding-inline: var(--fsus-space-2);
+    background: var(--fsusblog-page-bg);
+    color: var(--fsusblog-text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-decoration: none;
+    text-transform: none;
+    transition:
+        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+        background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+        color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.account-header-link:hover
+ {
+    border-color: var(--fsusblog-color-primary);
+    background: var(--fsusblog-page-bg-soft);
+    color: var(--fsusblog-color-primary);
+}
+
+.account-header-link:focus-visible
+ {
+    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+    outline: none;
+}
+
+.account-site-header
+ {
+    --el-site-header-max-width: var(--fsusblog-container-workbench);
+}
+
+.account-site-header__inner
+ {
+    width: min(100%, var(--fsusblog-container-workbench));
+}
+
+.account-site-header__actions .account-header-link,
+.account-site-header__actions .account-header-theme-action > button,
+.account-site-header__actions .locale-selector__trigger
+ {
+    box-sizing: border-box;
+    height: var(--fsus-control-height-compact);
+    min-height: var(--fsus-control-height-compact);
+    border: 1px solid var(--fsusblog-panel-border);
+    border-radius: var(--fsus-radius-control);
+    background: var(--fsusblog-page-bg);
+    transition:
+        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+        background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+        color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.account-site-header__actions .account-header-link:hover,
+.account-site-header__actions .account-header-theme-action > button:hover,
+.account-site-header__actions .locale-selector__trigger:hover,
+.account-site-header__actions .locale-selector__trigger[aria-expanded="true"]
+ {
+    border-color: var(--fsusblog-color-primary);
+    background: var(--fsusblog-page-bg-soft);
+    color: var(--fsusblog-color-primary);
+}
+
+.account-site-header__actions .account-header-link:focus-visible,
+.account-site-header__actions .account-header-theme-action > button:focus-visible,
+.account-site-header__actions .locale-selector__trigger:focus-visible
+ {
+    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+    outline: none;
+}
+
+.account-header-link--mobile
+ {
+    min-width: var(--fsus-control-height);
+    min-height: var(--fsus-control-height);
+}
+
+.account-header-theme-action--mobile > button,
+.account-site-header__mobile-actions .locale-selector__trigger
+ {
+    min-width: var(--fsus-control-height);
+    min-height: var(--fsus-control-height);
+}
+
+.account-header-brand
+ {
+    display: inline-flex;
+    min-width: 0;
+    min-height: var(--fsus-control-height-compact);
+    align-items: center;
+    gap: var(--fsus-space-2);
+    color: var(--fsusblog-text-primary);
+    text-decoration: none;
+}
+
+.account-skip-link:focus-visible
+ {
+    padding: var(--fsus-space-4);
+    background: var(--fsusblog-text-primary);
+    color: var(--fsusblog-page-bg);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: none;
+}
+
+/* Geometry only: FsusUI Button owns hover/focus/disabled/forced-colors chrome. */
+.account-mobile-drawer-trigger
+{
+    width: var(--fsus-control-height);
+    min-height: var(--fsus-control-height);
+    padding: 0;
+}
+
+
+.account-mobile-drawer
+ {
+    --el-drawer-padding-primary: var(--fsus-space-5);
+
+    display: flex;
+    height: var(--fsus-viewport-block-size);
+    max-height: var(--fsus-viewport-block-size);
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.account-mobile-drawer__title
+ {
+    margin: 0;
+    color: var(--fsusblog-text-primary);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.account-mobile-drawer-nav
+ {
+    flex: 0 0 auto;
+    padding-bottom: var(--fsus-safe-area-inset-bottom);
+}
+
+.account-route-frame
+ {
+    display: flex;
+    width: 100%;
+    max-width: var(--fsusblog-container-workbench);
+    flex: 1 1 auto;
+    gap: var(--fsus-space-5);
+    margin-inline: auto;
+    padding: var(--fsus-space-5) var(--fsus-space-4);
+}
+
+.account-route-frame__sidebar
+ {
+    display: none;
+}
+
+.account-sidebar-frame
+ {
+    padding-bottom: var(--fsus-space-6);
+}
+
+.account-main-scroll
+ {
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    outline: none;
+}
+
+.account-frame-outlet
+ {
+    width: 100%;
+    min-width: 0;
+    margin-inline: auto;
+}
+
+.account-page
+ {
+    width: 100%;
+    min-width: 0;
+}
+
+.account-task-page-header
+ {
+    margin-bottom: var(--fsus-space-6);
+}
+
+@media (width >= 640px)
+ {
+    .account-route-frame
+ {
+        padding: var(--fsus-space-8) var(--fsus-space-6);
+    }
+}
+
+@media (width >= 1024px)
+ {
+    .account-route-frame
+ {
+        gap: var(--fsus-space-8);
+        padding-inline: var(--fsus-space-6);
+    }
+
+    .account-route-frame__sidebar
+ {
+        display: block;
+        width: 18rem;
+        flex: 0 0 auto;
+    }
+
+    .account-main-scroll
+ {
+        padding-bottom: var(--fsus-space-8);
+    }
+}
+
+@media (height <= 520px) and (orientation: landscape)
+ {
+    .account-site-header__inner
+ {
+        padding-block: var(--fsus-space-2);
+    }
+
+    .account-site-header__primary-row
+ {
+        gap: var(--fsus-space-3);
+    }
+
+    .account-site-header__actions
+ {
+        display: none;
+    }
+
+    .account-site-header__mobile-actions
+ {
+        display: inline-flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--fsus-space-2);
+    }
+}
+
+@media (prefers-contrast: more)
+ {
+    .account-layout-root > header
+ {
+        background: var(--fsusblog-page-bg) !important;
+        backdrop-filter: none !important;
+    }
+}
+
+@media (forced-colors: active)
+ {
+    .account-header-link
+ {
+        border-color: ButtonText;
+    }
+
+    .account-header-link:focus-visible
+ {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+    }
+}

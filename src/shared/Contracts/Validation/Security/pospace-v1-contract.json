@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "fsu.pospace/argon2id@v1",
+  "materialDomain": "fsu.pospace.argon2id.v1",
+  "memoryKib": { "min": 19456, "max": 65536, "default": 19456 },
+  "iterations": { "min": 2, "max": 6, "default": 2 },
+  "lanes": { "min": 1, "max": 4, "default": 1 },
+  "targetDurationMs": { "min": 100, "max": 5000, "default": 750 },
+  "saltBytes": 16,
+  "nonceBytes": 16,
+  "proofBytes": 32,
+  "maxUnsupportedReissues": 2,
+  "unsupportedReasons": [
+    "worker_unavailable",
+    "slow_device",
+    "mobile_memory_cap",
+    "memory_tier_cap"
+  ],
+  "materialFields": [
+    "domain",
+    "challengeId",
+    "action",
+    "routeKey",
+    "subjectHash",
+    "clientIpHash",
+    "deviceFpHash",
+    "policyVersion",
+    "nonceHex",
+    "targetDurationMs"
+  ]
+}

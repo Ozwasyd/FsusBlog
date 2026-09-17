@@ -1,0 +1,651 @@
+{
+    "schema": "fsusblog.release-domain-assertion-dispositions.v1",
+    "entries": [
+        {
+            "id": "admin-console/account-navigation",
+            "tierId": "release-admin-console",
+            "disposition": "production-fresh-canonical-projection",
+            "canonicalProducer": "frontend-unit-shard",
+            "requiredTestId": "release-admin-console/account-navigation",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-admin-console.json",
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/components/account/AccountNavigationPanel.test.ts"
+            }
+        },
+        {
+            "id": "admin-console/admin-workbench",
+            "tierId": "release-admin-console",
+            "disposition": "production-fresh-canonical-projection",
+            "canonicalProducer": "frontend-unit-shard",
+            "requiredTestId": "release-admin-console/admin-workbench",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-admin-console.json",
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts"
+            }
+        },
+        {
+            "id": "admin-console/messages-state",
+            "tierId": "release-admin-console",
+            "disposition": "production-fresh-canonical-projection",
+            "canonicalProducer": "frontend-unit-shard",
+            "requiredTestId": "release-admin-console/messages-state",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-admin-console.json",
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/components/user/MessagesStateMachine.test.ts"
+            }
+        },
+        {
+            "id": "admin-console/router-authorization",
+            "tierId": "release-admin-console",
+            "disposition": "production-fresh-canonical-projection",
+            "canonicalProducer": "frontend-unit-shard",
+            "requiredTestId": "release-admin-console/router-authorization",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-admin-console.json",
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/router/index.test.ts"
+            }
+        },
+        {
+            "id": "aot-consumption/distribution-version",
+            "tierId": "release-aot-consumption",
+            "disposition": "browser-diagnostics-canonical-projection",
+            "canonicalProducer": "browser-diagnostics-manual",
+            "requiredTestId": "release-aot-consumption/distribution-version",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-aot-consumption.json",
+            "requiredArtifactIds": [
+                "browser-diagnostics-aot-assertions",
+                "browser-diagnostics-release-runtime-receipt"
+            ],
+            "sourceTestIds": [
+                "browser-diagnostics:release-runtime/release-aot-consumption",
+                "npm:check:distribution-version-coherence"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "browser-diagnostics-release-assertion",
+                "receiptPath": ".tmp/browser-diagnostics/release-runtime-receipt.json",
+                "assertionArtifactPath": ".tmp/browser-diagnostics-runtime/release-runtime/release-aot-consumption.json",
+                "categoryId": "release-runtime",
+                "probeId": "release-aot-consumption",
+                "assertionId": "check:distribution-version-coherence",
+                "assertionIds": [
+                    "check:distribution-version-coherence",
+                    "check:pow-runtime",
+                    "check:public-hydration"
+                ]
+            }
+        },
+        {
+            "id": "aot-consumption/pow-runtime",
+            "tierId": "release-aot-consumption",
+            "disposition": "browser-diagnostics-canonical-projection",
+            "canonicalProducer": "browser-diagnostics-manual",
+            "requiredTestId": "release-aot-consumption/pow-runtime",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-aot-consumption.json",
+            "requiredArtifactIds": [
+                "browser-diagnostics-aot-assertions",
+                "browser-diagnostics-release-runtime-receipt"
+            ],
+            "sourceTestIds": [
+                "browser-diagnostics:release-runtime/release-aot-consumption",
+                "npm:check:pow-runtime"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "browser-diagnostics-release-assertion",
+                "receiptPath": ".tmp/browser-diagnostics/release-runtime-receipt.json",
+                "assertionArtifactPath": ".tmp/browser-diagnostics-runtime/release-runtime/release-aot-consumption.json",
+                "categoryId": "release-runtime",
+                "probeId": "release-aot-consumption",
+                "assertionId": "check:pow-runtime",
+                "assertionIds": [
+                    "check:distribution-version-coherence",
+                    "check:pow-runtime",
+                    "check:public-hydration"
+                ]
+            }
+        },
+        {
+            "id": "aot-consumption/public-hydration",
+            "tierId": "release-aot-consumption",
+            "disposition": "browser-diagnostics-canonical-projection",
+            "canonicalProducer": "browser-diagnostics-manual",
+            "requiredTestId": "release-aot-consumption/public-hydration",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-aot-consumption.json",
+            "requiredArtifactIds": [
+                "browser-diagnostics-aot-assertions",
+                "browser-diagnostics-release-runtime-receipt"
+            ],
+            "sourceTestIds": [
+                "browser-diagnostics:release-runtime/release-aot-consumption",
+                "npm:check:public-hydration"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "browser-diagnostics-release-assertion",
+                "receiptPath": ".tmp/browser-diagnostics/release-runtime-receipt.json",
+                "assertionArtifactPath": ".tmp/browser-diagnostics-runtime/release-runtime/release-aot-consumption.json",
+                "categoryId": "release-runtime",
+                "probeId": "release-aot-consumption",
+                "assertionId": "check:public-hydration",
+                "assertionIds": [
+                    "check:distribution-version-coherence",
+                    "check:pow-runtime",
+                    "check:public-hydration"
+                ]
+            }
+        },
+        {
+            "id": "aot-generation/page-manifest-sync",
+            "tierId": "release-aot-generation",
+            "disposition": "immutable-build-artifact-projection",
+            "canonicalProducer": "release-evidence",
+            "requiredTestId": "release-aot-generation/page-manifest-sync",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-aot-generation.json",
+            "requiredArtifactIds": [
+                "release-evidence-plan"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/public-page-manifest-sync"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "public-page-manifest-sync"
+            }
+        },
+        {
+            "id": "aot-generation/public-aot-contracts",
+            "tierId": "release-aot-generation",
+            "disposition": "immutable-build-artifact-projection",
+            "canonicalProducer": "release-evidence",
+            "requiredTestId": "release-aot-generation/public-aot-contracts",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-aot-generation.json",
+            "requiredArtifactIds": [
+                "release-evidence-plan"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/public-aot-contracts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "public-aot-contracts"
+            }
+        },
+        {
+            "id": "auth-flow/state-transitions",
+            "tierId": "release-auth-flow",
+            "disposition": "production-fresh-canonical-projection",
+            "canonicalProducer": "frontend-unit-shard",
+            "requiredTestId": "release-auth-flow/state-transitions",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-auth-flow.json",
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/components/AuthFlowStates.test.ts"
+            }
+        },
+        {
+            "id": "authoring-flow/ai-assist",
+            "tierId": "release-authoring-flow",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-authoring-flow/ai-assist",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-authoring-flow.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/author-ai-assist"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "author-ai-assist"
+            }
+        },
+        {
+            "id": "authoring-flow/article-workspace",
+            "tierId": "release-authoring-flow",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-authoring-flow/article-workspace",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-authoring-flow.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/views-constraints:article-editor-workspace-governance"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "views-constraints",
+                "nestedId": "views-constraints:article-editor-workspace-governance"
+            }
+        },
+        {
+            "id": "authoring-flow/local-draft",
+            "tierId": "release-authoring-flow",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-authoring-flow/local-draft",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-authoring-flow.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/api/authoring.test.ts",
+                "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file-set",
+                "files": [
+                    "tests/frontend/unit/api/authoring.test.ts",
+                    "tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts"
+                ]
+            }
+        },
+        {
+            "id": "authoring-flow/markdown-state",
+            "tierId": "release-authoring-flow",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-authoring-flow/markdown-state",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-authoring-flow.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/views-constraints:markdown-editor-state-governance"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "views-constraints",
+                "nestedId": "views-constraints:markdown-editor-state-governance"
+            }
+        },
+        {
+            "id": "error-boundary/app-error",
+            "tierId": "release-error-boundary",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-error-boundary/app-error",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-error-boundary.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/utils/appError.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/utils/appError.test.ts"
+            }
+        },
+        {
+            "id": "error-boundary/error-kinds",
+            "tierId": "release-error-boundary",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-error-boundary/error-kinds",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-error-boundary.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/utils/errorKinds.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/utils/errorKinds.test.ts"
+            }
+        },
+        {
+            "id": "error-boundary/errors",
+            "tierId": "release-error-boundary",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-error-boundary/errors",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-error-boundary.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "vitest-file",
+                "file": "tests/frontend/unit/utils/errors.test.ts"
+            }
+        },
+        {
+            "id": "error-boundary/result-boundaries",
+            "tierId": "release-error-boundary",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-error-boundary/result-boundaries",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-error-boundary.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/result-boundaries"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "result-boundaries"
+            }
+        },
+        {
+            "id": "private-preview/admin-feedback",
+            "tierId": "release-private-preview",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-private-preview/admin-feedback",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-private-preview.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/views-constraints:admin-task-feedback"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "views-constraints",
+                "nestedId": "views-constraints:admin-task-feedback"
+            }
+        },
+        {
+            "id": "private-preview/public-private-leakage",
+            "tierId": "release-private-preview",
+            "disposition": "static-governance-producer-projection",
+            "canonicalProducer": "test-quality-lint",
+            "requiredTestId": "release-private-preview/public-private-leakage",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-private-preview.json",
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/public-private-data-leakage"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "public-private-data-leakage"
+            }
+        },
+        {
+            "id": "rbac-negative/attack-matrix",
+            "tierId": "release-rbac-negative",
+            "disposition": "browser-diagnostics-canonical-projection",
+            "canonicalProducer": "browser-diagnostics-manual",
+            "requiredTestId": "release-rbac-negative/attack-matrix",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-rbac-negative.json",
+            "requiredArtifactIds": [
+                "browser-diagnostics-rbac-assertions",
+                "browser-diagnostics-release-runtime-receipt"
+            ],
+            "sourceTestIds": [
+                "browser-diagnostics:release-runtime/release-rbac-negative",
+                "npm:check:security:attack-matrix"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "browser-diagnostics-release-assertion",
+                "receiptPath": ".tmp/browser-diagnostics/release-runtime-receipt.json",
+                "assertionArtifactPath": ".tmp/browser-diagnostics-runtime/release-runtime/release-rbac-negative.json",
+                "categoryId": "release-runtime",
+                "probeId": "release-rbac-negative",
+                "assertionId": "check:security:attack-matrix",
+                "assertionIds": [
+                    "check:security:attack-matrix",
+                    "check:security:permissions"
+                ]
+            }
+        },
+        {
+            "id": "rbac-negative/permissions",
+            "tierId": "release-rbac-negative",
+            "disposition": "browser-diagnostics-canonical-projection",
+            "canonicalProducer": "browser-diagnostics-manual",
+            "requiredTestId": "release-rbac-negative/permissions",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-rbac-negative.json",
+            "requiredArtifactIds": [
+                "browser-diagnostics-rbac-assertions",
+                "browser-diagnostics-release-runtime-receipt"
+            ],
+            "sourceTestIds": [
+                "browser-diagnostics:release-runtime/release-rbac-negative",
+                "npm:check:security:permissions"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "browser-diagnostics-release-assertion",
+                "receiptPath": ".tmp/browser-diagnostics/release-runtime-receipt.json",
+                "assertionArtifactPath": ".tmp/browser-diagnostics-runtime/release-runtime/release-rbac-negative.json",
+                "categoryId": "release-runtime",
+                "probeId": "release-rbac-negative",
+                "assertionId": "check:security:permissions",
+                "assertionIds": [
+                    "check:security:attack-matrix",
+                    "check:security:permissions"
+                ]
+            }
+        },
+        {
+            "id": "static-asset-digest/public-distribution-contract",
+            "tierId": "release-static-asset-digest-coherence",
+            "disposition": "immutable-build-artifact-projection",
+            "canonicalProducer": "release-evidence",
+            "requiredTestId": "release-static-asset-digest-coherence/public-distribution-contract",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-static-asset-digest-coherence.json",
+            "requiredArtifactIds": [
+                "release-evidence-plan"
+            ],
+            "sourceTestIds": [
+                "live-grant:frontend-static-governance/public-distribution-contract"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "frontend-static-governance",
+                "childId": "public-distribution-contract"
+            }
+        },
+        {
+            "id": "static-asset-digest/publish-artifact-slimness",
+            "tierId": "release-static-asset-digest-coherence",
+            "disposition": "immutable-build-artifact-projection",
+            "canonicalProducer": "release-evidence",
+            "requiredTestId": "release-static-asset-digest-coherence/publish-artifact-slimness",
+            "outputReceiptPath": ".tmp/release-evidence/projections/release-static-asset-digest-coherence.json",
+            "requiredArtifactIds": [
+                "release-evidence-plan"
+            ],
+            "sourceTestIds": [
+                "live-grant:collect:release-evidence-precollect/artifact-slimness"
+            ],
+            "replacementProof": {
+                "kind": "structured-producer-assertion",
+                "reportSchema": "fsusblog.release-domain-assertion-report.v1"
+            },
+            "targetOnly": false,
+            "obsolete": false,
+            "producerEvidence": {
+                "kind": "live-grant-child",
+                "lane": "collect:release-evidence-precollect",
+                "childId": "artifact-slimness"
+            }
+        }
+    ]
+}

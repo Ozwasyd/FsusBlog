@@ -1,0 +1,76 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/test-coverage-retention-baseline.schema.json",
+    "title": "FsusBlog test coverage retention baseline",
+    "type": "object",
+    "required": [
+        "schema",
+        "coverage"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.test-coverage-retention-baseline.v1"
+        },
+        "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "coverage": {
+            "type": "object",
+            "required": [
+                "backend",
+                "frontend",
+                "merged"
+            ],
+            "properties": {
+                "backend": {
+                    "$ref": "#/$defs/coverageSummary"
+                },
+                "frontend": {
+                    "$ref": "#/$defs/coverageSummary"
+                },
+                "merged": {
+                    "$ref": "#/$defs/coverageSummary"
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "$defs": {
+        "coverageSummary": {
+            "type": "object",
+            "required": [
+                "summary"
+            ],
+            "properties": {
+                "summary": {
+                    "type": "object",
+                    "required": [
+                        "linecoverage",
+                        "branchcoverage"
+                    ],
+                    "properties": {
+                        "linecoverage": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "branchcoverage": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "methodcoverage": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        }
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": true
+        }
+    }
+}

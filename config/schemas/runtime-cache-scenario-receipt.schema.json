@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsus.dev/schemas/runtime-cache-scenario-receipt.v2.json",
+  "title": "FsusBlog runtime cache scenario receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "catalogDigest", "runId", "scenarioId", "attemptId", "attemptNumber", "subcases", "status", "generatedAt", "source", "runtime", "dependencies", "machine", "input", "windows", "rawEvidence", "requests", "commandSummary", "memory", "latencyMs", "faultTimeline", "cleanupProof", "assertions", "firstFailure", "contentDigest"],
+  "properties": {
+    "schema": { "const": "fsusblog.runtime-cache-scenario-receipt.v2" },
+    "catalogDigest": { "$ref": "#/$defs/digest" },
+    "runId": { "$ref": "#/$defs/id" },
+    "scenarioId": { "enum": ["public-hot-read", "article-detail-l1", "cache-miss-singleflight", "distributed-invalidation", "l1-residency", "pagination", "related-reading", "redis-fault-classes", "revocation", "hot-featured-frame", "sitemap", "security-projections", "telemetry"] },
+    "attemptId": { "$ref": "#/$defs/id" },
+    "attemptNumber": { "type": "integer", "minimum": 1 },
+    "subcases": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "status": { "enum": ["passed", "failed"] },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object", "additionalProperties": false, "required": ["start", "end"],
+      "properties": { "start": { "$ref": "#/$defs/sourceSnapshot" }, "end": { "$ref": "#/$defs/sourceSnapshot" } }
+    },
+    "runtime": {
+      "type": "object", "additionalProperties": false, "required": ["digest", "imageDigest", "dotnetVersion", "processId", "kestrelUrl"],
+      "properties": { "digest": { "$ref": "#/$defs/digest" }, "imageDigest": { "$ref": "#/$defs/digest" }, "dotnetVersion": { "type": "string", "minLength": 1 }, "processId": { "type": "integer", "minimum": 1 }, "kestrelUrl": { "type": "string", "pattern": "^https?://" } }
+    },
+    "dependencies": {
+      "type": "object", "additionalProperties": false, "required": ["postgres", "redis"],
+      "properties": { "postgres": { "$ref": "#/$defs/dependency" }, "redis": { "$ref": "#/$defs/dependency" } }
+    },
+    "machine": {
+      "type": "object", "additionalProperties": false, "required": ["os", "arch", "cpuModel", "logicalCpuCount", "memoryBytes", "runtime"],
+      "properties": { "os": { "type": "string", "minLength": 1 }, "arch": { "type": "string", "minLength": 1 }, "cpuModel": { "type": "string", "minLength": 1 }, "logicalCpuCount": { "type": "integer", "minimum": 1 }, "memoryBytes": { "type": "integer", "minimum": 1 }, "runtime": { "type": "string", "minLength": 1 } }
+    },
+    "input": {
+      "type": "object", "additionalProperties": false, "required": ["fixtureDigest", "requestCount", "concurrency", "parameters"],
+      "properties": { "fixtureDigest": { "$ref": "#/$defs/digest" }, "requestCount": { "type": "integer", "minimum": 1 }, "concurrency": { "type": "integer", "minimum": 1 }, "parameters": { "type": "object" } }
+    },
+    "windows": {
+      "type": "object", "additionalProperties": false, "required": ["warmup", "sample"],
+      "properties": { "warmup": { "$ref": "#/$defs/window" }, "sample": { "$ref": "#/$defs/window" } }
+    },
+    "rawEvidence": { "$ref": "#/$defs/rawEvidenceReference" },
+    "requests": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/request" } },
+    "commandSummary": {
+      "type": "object", "additionalProperties": false, "required": ["redis", "database"],
+      "properties": { "redis": { "$ref": "#/$defs/redisRollup" }, "database": { "$ref": "#/$defs/databaseRollup" } }
+    },
+    "memory": {
+      "type": "object", "additionalProperties": false, "required": ["entries", "logicalBytes", "capacityBytes", "logicalBudgetBytes", "capacityBudgetBytes", "allocatedBytes", "gen0Collections", "gen1Collections", "gen2Collections", "residentBytes"],
+      "properties": {
+        "entries": { "$ref": "#/$defs/nonNegativeInteger" }, "logicalBytes": { "$ref": "#/$defs/nonNegativeInteger" }, "capacityBytes": { "$ref": "#/$defs/nonNegativeInteger" }, "logicalBudgetBytes": { "$ref": "#/$defs/nonNegativeInteger" }, "capacityBudgetBytes": { "$ref": "#/$defs/nonNegativeInteger" }, "allocatedBytes": { "$ref": "#/$defs/nonNegativeInteger" }, "gen0Collections": { "$ref": "#/$defs/nonNegativeInteger" }, "gen1Collections": { "$ref": "#/$defs/nonNegativeInteger" }, "gen2Collections": { "$ref": "#/$defs/nonNegativeInteger" }, "residentBytes": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "latencyMs": { "$ref": "#/$defs/latency" },
+    "faultTimeline": { "type": "array", "items": { "$ref": "#/$defs/faultEvent" } },
+    "cleanupProof": {
+      "type": "object", "additionalProperties": false, "required": ["status", "namespaceRemoved", "activeKeyedEntries", "durableRowsBefore", "durableRowsAfter", "checkedAt"],
+      "properties": { "status": { "enum": ["passed", "failed"] }, "namespaceRemoved": { "type": "boolean" }, "activeKeyedEntries": { "$ref": "#/$defs/nonNegativeInteger" }, "durableRowsBefore": { "$ref": "#/$defs/nonNegativeInteger" }, "durableRowsAfter": { "$ref": "#/$defs/nonNegativeInteger" }, "checkedAt": { "type": "string", "format": "date-time" } }
+    },
+    "assertions": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["id", "status", "expected", "actual"], "properties": { "id": { "$ref": "#/$defs/id" }, "status": { "enum": ["passed", "failed"] }, "expected": {}, "actual": {} } } },
+    "firstFailure": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/firstFailure" }] },
+    "contentDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "sourceSnapshot": { "type": "object", "additionalProperties": false, "required": ["commit", "dirty", "statusDigest", "worktreeFingerprint"], "properties": { "commit": { "$ref": "#/$defs/commit" }, "dirty": { "type": "boolean" }, "statusDigest": { "$ref": "#/$defs/digest" }, "worktreeFingerprint": { "$ref": "#/$defs/digest" } } },
+    "dependency": { "type": "object", "additionalProperties": false, "required": ["version", "topology", "digest"], "properties": { "version": { "type": "string", "minLength": 1 }, "topology": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } } },
+    "window": { "type": "object", "additionalProperties": false, "required": ["startedAt", "endedAt", "requestCount"], "properties": { "startedAt": { "type": "string", "format": "date-time" }, "endedAt": { "type": "string", "format": "date-time" }, "requestCount": { "type": "integer", "minimum": 0 } } },
+    "authority": { "type": "object", "additionalProperties": false, "required": ["requests", "redis", "redisFailure", "database", "cache", "fault"], "properties": { "requests": { "const": "kestrel-request-observation" }, "redis": { "enum": ["stackexchange-redis-profiler", "resp-proxy"] }, "redisFailure": { "const": "redis-operation-executor" }, "database": { "enum": ["npgsql-interceptor", "sqlsugar-aop", "postgres-server-statistics"] }, "cache": { "const": "runtime-cache-evidence-observation" }, "fault": { "const": "runtime-fault-controller" } } },
+    "rowCounts": { "type": "object", "additionalProperties": false, "required": ["requests", "redisCommands", "redisFailureEvents", "cacheEvents", "databaseCommands", "cacheClassifications", "faultEvents"], "properties": { "requests": { "$ref": "#/$defs/nonNegativeInteger" }, "redisCommands": { "$ref": "#/$defs/nonNegativeInteger" }, "redisFailureEvents": { "$ref": "#/$defs/nonNegativeInteger" }, "cacheEvents": { "$ref": "#/$defs/nonNegativeInteger" }, "databaseCommands": { "$ref": "#/$defs/nonNegativeInteger" }, "cacheClassifications": { "$ref": "#/$defs/nonNegativeInteger" }, "faultEvents": { "$ref": "#/$defs/nonNegativeInteger" } } },
+    "rawEvidenceReference": { "type": "object", "additionalProperties": false, "required": ["schema", "path", "digest", "authority", "rowCounts"], "properties": { "schema": { "const": "fsusblog.runtime-cache-raw-evidence.v2" }, "path": { "type": "string", "pattern": "^\\.tmp/perf/runtime-cache/[A-Za-z0-9._/-]+\\.json$" }, "digest": { "$ref": "#/$defs/digest" }, "authority": { "$ref": "#/$defs/authority" }, "rowCounts": { "$ref": "#/$defs/rowCounts" } } },
+    "request": { "type": "object", "additionalProperties": false, "required": ["id", "subcaseId", "method", "path", "status", "payloadDigest", "parityGroup", "layerSource", "latencyMs", "allocatedBytes"], "properties": { "id": { "$ref": "#/$defs/id" }, "subcaseId": { "$ref": "#/$defs/id" }, "method": { "type": "string", "minLength": 1 }, "path": { "type": "string", "minLength": 1 }, "status": { "type": "integer", "minimum": 100, "maximum": 599 }, "payloadDigest": { "$ref": "#/$defs/digest" }, "parityGroup": { "$ref": "#/$defs/id" }, "layerSource": { "enum": ["l0-allow", "l1-frame", "l1-object", "redis", "database", "fail-open", "fail-closed"] }, "latencyMs": { "type": "number", "minimum": 0 }, "allocatedBytes": { "$ref": "#/$defs/nonNegativeInteger" } } },
+    "redisRollup": { "type": "object", "additionalProperties": false, "required": ["count", "byVerb", "byCategory"], "properties": { "count": { "$ref": "#/$defs/nonNegativeInteger" }, "byVerb": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }, "byCategory": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } } } },
+    "databaseRollup": { "type": "object", "additionalProperties": false, "required": ["count", "byFingerprint"], "properties": { "count": { "$ref": "#/$defs/nonNegativeInteger" }, "byFingerprint": { "type": "object", "propertyNames": { "pattern": "^sha256:[a-f0-9]{64}$" }, "additionalProperties": { "type": "integer", "minimum": 0 } } } },
+    "latency": { "type": "object", "additionalProperties": false, "required": ["p50", "p95", "p99", "max"], "properties": { "p50": { "type": "number", "minimum": 0 }, "p95": { "type": "number", "minimum": 0 }, "p99": { "type": "number", "minimum": 0 }, "max": { "type": "number", "minimum": 0 } } },
+    "faultEvent": { "type": "object", "additionalProperties": false, "required": ["atMs", "kind", "state", "classification", "requestId", "subcaseId"], "properties": { "atMs": { "type": "number", "minimum": 0 }, "kind": { "enum": ["latency-5ms", "latency-50ms", "latency-500ms", "latency-15000ms", "disconnect", "recovery"] }, "state": { "enum": ["injected", "observed", "cleared"] }, "classification": { "enum": ["fail-open", "fail-closed", "recovered"] }, "requestId": { "$ref": "#/$defs/id" }, "subcaseId": { "$ref": "#/$defs/id" } } },
+    "firstFailure": { "type": "object", "additionalProperties": false, "required": ["attemptId", "attemptNumber", "capturedAt", "requestId", "subcaseId", "assertionId", "message", "rawEvidenceDigest", "faultTimeline", "contentDigest"], "properties": { "attemptId": { "$ref": "#/$defs/id" }, "attemptNumber": { "type": "integer", "minimum": 1 }, "capturedAt": { "type": "string", "format": "date-time" }, "requestId": { "$ref": "#/$defs/id" }, "subcaseId": { "$ref": "#/$defs/id" }, "assertionId": { "$ref": "#/$defs/id" }, "message": { "type": "string", "minLength": 1 }, "rawEvidenceDigest": { "$ref": "#/$defs/digest" }, "faultTimeline": { "type": "array", "items": { "$ref": "#/$defs/faultEvent" } }, "contentDigest": { "$ref": "#/$defs/digest" } } }
+  }
+}

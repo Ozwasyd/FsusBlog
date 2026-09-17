@@ -1,0 +1,29 @@
+{
+  "schema": "fsusblog.article-summary-projection.v1",
+  "cases": [
+    {
+      "name": "zh-markdown-structure",
+      "maxGraphemes": 200,
+      "markdown": "---\ntheme: dark\ninternal: true\n---\n\n# 标题\n\n这是 [正文](https://example.test/article)。\n\n![封面](https://example.test/cover.png)\n\n```csharp\nthrow new Exception();\n```\n\n<https://example.test/autolink>\n\n访问 https://example.test/raw 获取详情。",
+      "expected": "标题 这是 正文。 访问 获取详情。"
+    },
+    {
+      "name": "en-reference-link-and-indented-code",
+      "maxGraphemes": 200,
+      "markdown": "## Release notes\n\n- Keep **visible** text\n- [docs][guide]\n\n[guide]: https://example.test/docs\n\n    var hidden = true;\n\n<style>.hidden { display: none; }</style>",
+      "expected": "Release notes Keep visible text docs"
+    },
+    {
+      "name": "unicode-grapheme-boundary",
+      "maxGraphemes": 4,
+      "markdown": "😀á👨‍👩‍👧‍👦xyz",
+      "expected": "😀á👨‍👩‍👧‍👦…"
+    },
+    {
+      "name": "prefer-complete-cjk-sentence",
+      "maxGraphemes": 12,
+      "markdown": "第一句完整。第二句包含家庭表情 👨‍👩‍👧‍👦 和更多文字用于截断。",
+      "expected": "第一句完整。"
+    }
+  ]
+}

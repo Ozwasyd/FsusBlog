@@ -1,0 +1,1514 @@
+{
+  "version": "fsusblog-backend-test-governance-v1",
+  "issue": 40,
+  "profiles": [
+    {
+      "id": "backend-api-integration",
+      "command": "tools/test/lanes/backend-api-integration.sh",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-WEBAPPLICATIONFACTORY"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/frontend/checks/runtime/api-contract-matrix.mjs",
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/AdminConsistencyContractTests.cs",
+        "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+        "tests/backend/Unit/ModerationConsoleContractTests.cs",
+        "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs"
+      ]
+    },
+    {
+      "id": "backend-auth-state-machine",
+      "command": "tools/test/lanes/backend-auth-state-machine.sh",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-AUTH-STATE-MACHINE",
+        "BACKEND-SECURITY-MATRIX"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
+        "tests/backend/Unit/ShieldMiddlewareTests.cs",
+        "tools/security/check-security-matrices.mjs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/user-session-revocation-evidence.json",
+        "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
+        "docs/user-session-revocation.md",
+        "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/auth-cookie-expiry-evidence.json",
+        "tests/backend/auth-cookie-expiry-governance-handoff.json",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json"
+      ]
+    },
+    {
+      "id": "backend-concurrency",
+      "command": "tools/test/lanes/backend-concurrency.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-CONCURRENCY-RACES",
+        "BACKEND-IDEMPOTENCY",
+        "BACKEND-REDIS-DB-FAULTS",
+        "BACKEND-CHAOS-TESTING"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Unit/PasskeySignCountConcurrencyTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
+        "tests/backend/legacy-identity-retirement-evidence.json",
+        "tests/backend/Unit/ProductionHealthTests.cs",
+        "tests/backend/online-schema-migration-evidence.json",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
+        "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs",
+        "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs",
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "tests/test-retention-replacements.json",
+        "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+        "tests/backend/user-session-revocation-evidence.json",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json",
+        "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
+        "tests/backend/legacy-identity-retirement-evidence.json"
+      ]
+    },
+    {
+      "id": "backend-property",
+      "command": "tools/test/lanes/backend-property.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-PROPERTY-TESTING",
+        "BACKEND-AEDS-POD-PROPERTIES",
+        "BACKEND-CACHE-KEY-PROPERTIES"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs"
+      ]
+    },
+    {
+      "id": "backend-golden",
+      "command": "tools/test/lanes/backend-golden.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-AEDS-GOLDEN",
+        "BACKEND-GOLDEN-GOVERNANCE",
+        "BACKEND-ERROR-FRAMES"
+      ],
+      "evidencePaths": [
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+        "tests/backend/Unit/PodBinaryCodecTests.cs",
+        "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+      ]
+    },
+    {
+      "id": "backend-test-governance",
+      "command": "tools/test/lanes/backend-test-governance.sh",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-TRACEABILITY",
+        "BACKEND-SEARCH-INDEX-UTF8-SCALAR-OWNER",
+        "BACKEND-TEST-IMPACT",
+        "BACKEND-FLAKY-GOVERNANCE",
+        "BACKEND-TIME-BUDGETS",
+        "BACKEND-RISKCONTROL-TEST-MATRIX",
+        "BACKEND-PERCEPTION-V2-TEST-MATRIX",
+        "BACKEND-PRIVACY-ZK-COMMENT-GATE",
+        "BACKEND-PLATFORM-MEMBERSHIP",
+        "BACKEND-RELEASE-IDENTITY",
+        "BACKEND-CURRENT-SCHEMA-AUTHORITY",
+        "BACKEND-MIGRATION-ASSEMBLY-BOUNDARY",
+        "BACKEND-BLUE-GREEN-SLOTS",
+        "BACKEND-ATOMIC-GATEWAY-SWITCH",
+        "BACKEND-ZERO-DOWNTIME-REHEARSAL"
+      ],
+      "evidencePaths": [
+        "tools/check-backend-test-governance.mjs",
+        "tools/check-test-matrix.mjs",
+        "src/backend/Services/SearchIndexService.Dictionary.cs",
+        "src/backend/Properties/AssemblyInfo.cs",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/Unit/SearchIndexServiceTests.cs",
+        "tests/backend/Unit/CoverageScriptContractTests.cs",
+        "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
+        "tests/tools/backend-test-governance-cpm.test.mjs",
+        "tests/tools/backend-trx-contract.test.mjs",
+        "tests/tools/backend-production-shards.test.mjs",
+        "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+        "tools/test/backend-platform-selection.mjs",
+        "tests/test-retention-replacements.json",
+        "tests/backend/Unit/ReleaseIdentityTests.cs",
+        "tests/tools/release-manifest.test.mjs",
+        "docs/releases/release-identity.md",
+        "tests/tools/deployment-slots.test.mjs",
+        "tools/deployment/image-runtime-contract.sh",
+        "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
+        "tests/tools/gateway-switch.test.mjs",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/matrix.yml",
+        "tests/tools/dead-code-audit-index.test.mjs",
+        "tools/governance/check-dead-code-audit-index.mjs",
+        "tests/tools/online-schema-migration-wrapper.test.mjs",
+        "tests/backend/Unit/SchemaModelInspectorTests.cs",
+        "tools/db/check-current-schema-authority.mjs",
+        "tests/tools/current-schema-authority.test.mjs",
+        "src/migration/FsusBlog.Migration.csproj",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "tests/migration/MigrationAssemblyBoundaryTests.cs",
+        "tools/db/generate-migration-assembly-receipt.mjs",
+        "tools/db/check-migration-assembly-boundary.mjs",
+        "tests/tools/migration-assembly-boundary.test.mjs",
+        "artifacts/schema-migration/migration-assembly-receipt.json",
+        "artifacts/schema-migration/migration-assembly-binding.json",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/ProductionHealthTests.cs",
+        "tests/backend/online-schema-migration-evidence.json",
+        "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/auth-cookie-expiry-evidence.json",
+        "tests/backend/auth-cookie-expiry-governance-handoff.json",
+        "tests/tools/release-storage-lifecycle.test.mjs",
+        "tools/check-background-service-classification.mjs",
+        "tests/tools/security-source-analyzer.test.mjs",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/matrix.yml",
+        "tests/backend/cleanup-worker-human-read-behavior.md",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
+        "tests/tools/release-rollout-state.test.mjs",
+        "tools/deployment/release-worker-drill.mjs",
+        "tests/tools/release-worker-drill.test.mjs",
+        "tools/deployment/release-worker-reconciliation.mjs",
+        "tests/tools/release-worker-reconciliation.test.mjs",
+        "tools/deployment/release-worker-observer-service.mjs",
+        "tests/tools/release-worker-observer-service.test.mjs",
+        "tests/fixtures/deployment/release-worker-observer-service-plan.template.json",
+        "tools/deployment/release-worker-normal-observer.mjs",
+        "tests/tools/release-worker-normal-observer.test.mjs",
+        "tests/fixtures/deployment/release-worker-normal-observer-plan.template.json",
+        "tests/tools/release-rollout-evidence.test.mjs",
+        "tests/tools/release-rollout-bundle.test.mjs",
+        "tools/deployment/release-resource-probe.mjs",
+        "tests/tools/release-rollout-probes.test.mjs",
+        "tools/deployment/release-traffic-probe.mjs",
+        "tools/deployment/release-traffic-evidence-verify.mjs",
+        "tests/tools/release-traffic-probe-session.test.mjs",
+        "tests/fixtures/deployment/release-traffic-session-scenario.json",
+        "tools/deployment/release-notification-probe.mjs",
+        "tests/tools/release-notification-probe.test.mjs",
+        "tests/fixtures/deployment/release-notification-resync-scenario.template.json",
+        "tools/deployment/release-asset-compatibility-probe.mjs",
+        "tests/tools/release-asset-compatibility-probe.test.mjs",
+        "tools/deployment/release-asset-browser-session.mjs",
+        "tools/deployment/release-asset-compatibility-evidence-verify.mjs",
+        "tests/fixtures/deployment/release-asset-browser-scenario.template.json",
+        "tools/deployment/release-migration-qualification.mjs",
+        "tests/tools/release-migration-qualification.test.mjs",
+        "tests/fixtures/deployment/release-migration-qualification-scenario.template.json",
+        "tools/deployment/rehearsal-schema-qualification-probe.mjs",
+        "tests/tools/rehearsal-schema-qualification-probe.test.mjs",
+        "tools/deployment/zero-downtime-rehearsal.sh",
+        "tools/deployment/zero-downtime-rehearsal-plan.mjs",
+        "tests/tools/zero-downtime-rehearsal.test.mjs",
+        "tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json"
+      ]
+    },
+    {
+      "id": "backend-perf",
+      "command": "tools/test/lanes/perf-regression.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-PERF-BENCHMARKS",
+        "BACKEND-LOAD-STRESS-CAPACITY",
+        "BACKEND-HOTPATH-EXECUTABLE-MEASUREMENT",
+        "BACKEND-NATIVE-GROTH16-P99"
+      ],
+      "evidencePaths": [
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/Program.cs",
+        "tests/backend/Unit/StatsPerformanceContractTests.cs",
+        "tests/backend/Unit/RelatedReadingServiceTests.cs",
+        "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
+        "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
+        "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
+        "tests/backend/Unit/SecurityModerationHotPathContractTests.cs",
+        "tests/backend/Unit/ArticleStatusProjectionTests.cs",
+        "benchmarks/core/ServerHotPathBenchmarks.cs",
+        "benchmarks/core/ContentFilterBenchmarks.cs",
+        "tests/performance/backend-hotpath-budgets.json",
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs",
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
+        "tools/test/native-p99-producer-contract.mjs",
+        "tools/test/lanes/backend-perf-native-p99.sh",
+        ".tmp/backend-perf/native-p99/preflight.json",
+        ".tmp/backend-perf/native-p99/measurement.json",
+        ".tmp/backend-perf/native-p99/summary.json"
+      ]
+    },
+    {
+      "id": "backend-benchmark-regression",
+      "command": "tools/test/lanes/backend-benchmark-regression.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-PERF-BENCHMARKS",
+        "BACKEND-LOAD-STRESS-CAPACITY",
+        "BACKEND-HOTPATH-EXECUTABLE-MEASUREMENT"
+      ],
+      "evidencePaths": [
+        "tools/test/lanes/backend-benchmark-regression.sh",
+        "tools/perf/check-backend-benchmark-regression.mjs",
+        "tests/performance/backend-hotpath-budgets.json",
+        "tests/tools/backend-benchmark-regression.test.mjs",
+        "tests/backend/Unit/StatsPerformanceContractTests.cs",
+        "tests/backend/Unit/RelatedReadingServiceTests.cs",
+        "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
+        "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
+        "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
+        "tests/backend/Unit/SecurityModerationHotPathContractTests.cs",
+        "tests/backend/Unit/ArticleStatusProjectionTests.cs",
+        "benchmarks/core/ServerHotPathBenchmarks.cs",
+        "benchmarks/core/ContentFilterBenchmarks.cs",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/Program.cs",
+        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs",
+        "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "backend-mutation",
+      "command": "tools/test/lanes/backend-mutation.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-MUTATION-TESTING"
+      ],
+      "evidencePaths": [
+        ".config/dotnet-tools.json",
+        "config/testing/mutation/default.json",
+        "config/testing/mutation/critical.json",
+        "tools/test/check-stryker-report.mjs",
+        "tests/backend/Unit/SecurityHardening",
+        "tests/backend/security-hardening-evidence.json",
+        "tests/backend/endpoint-security-evidence.json",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs"
+      ]
+    },
+    {
+      "id": "distributed-contract-fast",
+      "command": "tools/test/lanes/distributed-contract-fast.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-DISTRIBUTED-CONTRACT-FAST"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/DistributedContractFastTests.cs",
+        "tests/backend/Unit/DistributedInvalidationBusTests.cs",
+        "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
+        "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
+        "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"
+      ]
+    },
+    {
+      "id": "backend-nightly",
+      "command": "tools/test/lanes/backend-nightly.sh",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-NIGHTLY-EXHAUSTIVE",
+        "BACKEND-BACKUP-RESTORE",
+        "BACKEND-CONTRACT-FUZZ",
+        "BACKEND-SOAK-TESTING"
+      ],
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/check-backend-test-governance.mjs",
+        "config/testing/mutation/default.json"
+      ]
+    },
+    {
+      "id": "legacy-20260517-real-dump",
+      "command": "node tools/test/run-legacy-real-dump-producer.mjs",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-LEGACY-20260517-REAL-DUMP"
+      ],
+      "evidencePaths": [
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tools/test/legacy-real-dump-contract.mjs",
+        "tools/test/run-legacy-real-dump-producer.mjs",
+        "tests/tools/legacy-real-dump-producer.test.mjs",
+        "docs/database-migration.md"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "BACKEND-DISTRIBUTED-CONTRACT-FAST",
+      "risk": "high",
+      "coverage": "RuntimeMode single/static-role/adaptive binding, cluster component gate, lease identity and TTL, checkpoint serialization and replay, Outbox critical failure propagation, distributed invalidation event schema, two-node idempotent local convergence and degraded publication",
+      "evidencePaths": [
+        "tests/backend/Unit/DistributedContractFastTests.cs",
+        "tests/backend/Unit/DistributedInvalidationBusTests.cs",
+        "tests/backend/Unit/PublicAotBackfillLeaseTests.cs",
+        "tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs",
+        "tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-ENDPOINT-HTTP-PIPELINE",
+      "risk": "critical",
+      "coverage": "anonymous-user-admin endpoint matrix, binary status and AEDS error consistency",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/frontend/checks/runtime/api-contract-matrix.mjs",
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/Unit/AdminConsistencyContractTests.cs",
+        "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+        "tests/backend/Unit/ModerationConsoleContractTests.cs",
+        "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-ENDPOINT-AUTH-MATRIX",
+      "risk": "critical",
+      "coverage": "anonymous/user/admin success, auth failure, permission failure, validation failure",
+      "evidencePaths": [
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/frontend/checks/security/check-permission-matrix.mjs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/Unit/AdminConsistencyContractTests.cs",
+        "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+        "tests/backend/Unit/ModerationConsoleContractTests.cs",
+        "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-WEBAPPLICATIONFACTORY",
+      "risk": "high",
+      "coverage": "real ASP.NET Core pipeline, middleware order, filter order, response headers, and exact pre-materialized Public AOT identity/Brotli/gzip response variants",
+      "evidencePaths": [
+        "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs",
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-AUTH-STATE-MACHINE",
+      "risk": "critical",
+      "coverage": "risk-controlled Passkey login, MFA continuation, recovery code, refresh, revoke, banned/deleted transitions",
+      "evidencePaths": [
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/PasskeyServiceTests.cs",
+        "tests/backend/Unit/TotpServiceTests.cs",
+        "tests/backend/Unit/RedisPowServiceTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/user-session-revocation-evidence.json",
+        "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/auth-cookie-expiry-evidence.json",
+        "tests/backend/auth-cookie-expiry-governance-handoff.json",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json",
+        "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
+        "tests/backend/legacy-identity-retirement-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-CONCURRENCY-RACES",
+      "risk": "high",
+      "coverage": "refresh/logout, recovery code, passkey limit, publish/cache, comment/message/notification stream/upload races",
+      "evidencePaths": [
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Unit/DbConcurrencyGateTests.cs",
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs",
+        "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs",
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+        "tests/backend/user-session-revocation-evidence.json",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-TRANSACTIONS",
+      "risk": "high",
+      "coverage": "rollback, commit-before-invalidation, unique/foreign conflicts, migration locks",
+      "evidencePaths": [
+        "tests/backend/Unit/TransactionSideEffectGuardTests.cs",
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-REDIS-DB-FAULTS",
+      "risk": "high",
+      "coverage": "Redis timeout/unavailable/reconnect, L1/L2 coherence, stampede, DB reset/deadlock policy",
+      "evidencePaths": [
+        "tests/backend/Unit/UnifiedCacheTests.cs",
+        "tests/backend/Unit/CacheMissCoordinatorTests.cs",
+        "tests/backend/Unit/CacheMissPathBoundedWaitTests.cs",
+        "tests/backend/Unit/RedisPowServiceTests.cs",
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+        "tests/backend/user-session-revocation-evidence.json",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-AEDS-GOLDEN",
+      "risk": "high",
+      "coverage": "all AedsFrameType entries have cataloged golden family and codec evidence",
+      "evidencePaths": [
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+        "tests/backend/Unit/PodBinaryCodecTests.cs",
+        "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-AEDS-POD-PROPERTIES",
+      "risk": "high",
+      "coverage": "AEDS round trip, truncation, bit flip, malformed frame and POD boundary properties",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs",
+        "tests/backend/Unit/AedsEncoderTests.cs",
+        "tests/backend/Unit/PodValidationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CACHE-KEY-PROPERTIES",
+      "risk": "medium",
+      "coverage": "determinism, namespace separation, bounded public AOT keys",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs",
+        "tests/backend/Unit/PodTimeCodecAndCacheKeyTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-PROPERTY-TESTING",
+      "risk": "high",
+      "coverage": "seeded deterministic property tier for protocols, cache and permissions",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-MUTATION-TESTING",
+      "risk": "high",
+      "coverage": "Stryker.NET config for core/security/binary/cache/authoring/upload/notification stream mutation targets",
+      "evidencePaths": [
+        ".config/dotnet-tools.json",
+        "config/testing/mutation/default.json"
+      ]
+    },
+    {
+      "id": "BACKEND-PERF-BENCHMARKS",
+      "risk": "high",
+      "coverage": "BenchmarkDotNet backend evidence for AEDS, public read path, search, cache, auth, upload, notification stream",
+      "evidencePaths": [
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/Program.cs",
+        "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs",
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-NATIVE-GROTH16-P99",
+      "risk": "high",
+      "coverage": "The ordinary unit lane excludes the native P99 member while backend-perf executes it exactly once with bound Release assembly, native MCL, verifying-key fixture, measurement isolation, one warmup, 32 verified samples, and a 50ms p99 budget",
+      "evidencePaths": [
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
+        "tools/test/native-p99-producer-contract.mjs",
+        "tools/test/lanes/backend-perf-native-p99.sh"
+      ]
+    },
+    {
+      "id": "BACKEND-HOTPATH-EXECUTABLE-MEASUREMENT",
+      "risk": "high",
+      "coverage": "PostgreSQL command counts, controlled parallel and cancellation behavior, segmented binary transport, security normalization, projection output, and BenchmarkDotNet mean and allocation budgets",
+      "evidencePaths": [
+        "tests/backend/Unit/StatsPerformanceContractTests.cs",
+        "tests/backend/Unit/RelatedReadingServiceTests.cs",
+        "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
+        "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
+        "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
+        "tests/backend/Unit/SecurityModerationHotPathContractTests.cs",
+        "tests/backend/Unit/ArticleStatusProjectionTests.cs",
+        "benchmarks/core/ServerHotPathBenchmarks.cs",
+        "benchmarks/core/ContentFilterBenchmarks.cs",
+        "tests/performance/backend-hotpath-budgets.json",
+        "tools/perf/check-backend-benchmark-regression.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-SECURITY-MATRIX",
+      "risk": "critical",
+      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies, production blank and unverified bot/spider User-Agent rejection responses and risk side effects, plus one 15-case TestServer response-compression fail-closed owner with 7 protected/personalized/binary and 8 header/status/media paths",
+      "evidencePaths": [
+        "tools/security/check-security-matrices.mjs",
+        "tests/frontend/checks/security/check-permission-matrix.mjs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
+        "tests/backend/Unit/ShieldMiddlewareTests.cs",
+        "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs",
+        "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
+        "tests/backend/Unit/HumanReadProofRequestBindingTests.cs",
+        "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs",
+        "tests/backend/Unit/AdminOperationsBehaviorTests.cs",
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+        "tests/backend/user-session-revocation-evidence.json",
+        "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/auth-cookie-expiry-evidence.json",
+        "tests/backend/auth-cookie-expiry-governance-handoff.json",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-RISKCONTROL-TEST-MATRIX",
+      "risk": "critical",
+      "coverage": "RiskControl decision modes, provider surfaces, proof binding failures, integration surfaces, browser failure modes, performance p99 budgets and fault modes",
+      "evidencePaths": [
+        "security/matrices/risk-control.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/risk-control-test-matrix.sh"
+      ]
+    },
+    {
+      "id": "BACKEND-PERCEPTION-V2-TEST-MATRIX",
+      "risk": "critical",
+      "coverage": "perception-sealed@v2 contract-only, provider-only and comment.create E2E runtime gates plus the canonical LocalRedis exact-per-test producer covering device authority, Cookie policy, linearizable create/verify/revoke/replace transitions, bounded attempts, binding rejection without attempt consumption, reply-loss readback, stale-index replacement conflict and fail-closed Redis unavailability",
+      "evidencePaths": [
+        "security/matrices/perception-v2.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/security/check-perception-v2-e2e-evidence.mjs",
+        "tools/test/lanes/perception-v2-test-matrix.sh",
+        "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
+        "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
+        "tests/backend/Unit/PerceptionCharacterV3Tests.cs",
+        "tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs",
+        "tests/backend/Unit/PerceptionCharacterV3ResourcePlannerTests.cs",
+        "tools/test/perception-character-v3-redis-fixture.sh",
+        "tools/test/perception-redis-producer.mjs",
+        "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+        ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+        "tests/security/retired-character-challenge-residue.test.mjs",
+        "docs/history/retired-character-challenges.md",
+        "tests/security/perception-v2/perception-harness.test.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-PERCEPTION-V3-BUDGET-LOCAL-REDIS",
+      "risk": "critical",
+      "coverage": "Issue 2527: BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity is not selected by ordinary unit lanes. The canonical LocalRedis producer executes it exactly once with current run/prefix/endpoint/source/assembly and individual TRX outcome binding; exact bytes, retry, subject and egress rejection, ambiguous accounting and burned inventory must agree in real Redis.",
+      "evidencePaths": [
+        "tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs",
+        "tools/test/perception-redis-producer.mjs",
+        "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+        ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+      ]
+    },
+    {
+      "id": "BACKEND-PERCEPTION-V3-CUTOVER-LOCAL-REDIS",
+      "risk": "critical",
+      "coverage": "Issue 2529: RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently is executed exactly once by the canonical LocalRedis producer, never by ordinary lanes, and binds fresh current-run evidence to the real Redis endpoint and isolated prefix. The test retires every V3 namespace while retaining the active generation, revokes envelopes and database rows, proves idempotency without leasing the pool, and fails closed on missing or stale evidence and cleanup.",
+      "evidencePaths": [
+        "tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs",
+        "tools/test/perception-character-v3-redis-fixture.sh",
+        "tools/test/perception-redis-producer.mjs",
+        "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+        ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+      ]
+    },
+    {
+      "id": "BACKEND-PRIVACY-ZK-COMMENT-GATE",
+      "risk": "critical",
+      "coverage": "Privacy/ZK anonymous comment release gate covering credential-free submit, fail-closed proof handling, scoped ticket/nullifier behavior, moderation/log redaction and deterministic high-concurrency pressure cases",
+      "evidencePaths": [
+        "security/matrices/privacy-zk-comment.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/privacy-zk-comment-matrix.sh",
+        "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
+        "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+        "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
+        "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
+        "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+        "tests/frontend/unit/components/ArticleCommentComposer.test.ts"
+      ]
+    },
+    {
+      "id": "BACKEND-AUDIT-GOLDEN",
+      "risk": "medium",
+      "coverage": "audit payload stability and no password/token/secret leakage, including one 23-case ZK-sensitive property owner with 16 exact-name and 7 substring diagnostics",
+      "evidencePaths": [
+        "tests/backend/Unit/AuditLogEventMapperTests.cs",
+        "tests/backend/Unit/AuditAndNormalizerTests.cs",
+        "tests/backend/Unit/AuditProjectionBehaviorTests.cs",
+        "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs",
+        "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-OBSERVABILITY-PRIVACY",
+      "risk": "medium",
+      "coverage": "trace id, metric whitelist, PII-free logs/metrics/RUM ingestion",
+      "evidencePaths": [
+        "tests/backend/Unit/ObservabilityTests.cs",
+        "tests/backend/Unit/RumTelemetryServiceTests.cs",
+        "tests/backend/Unit/AuditProjectionBehaviorTests.cs",
+        "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs",
+        "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs",
+        "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-MIGRATION-FAILURE-DRILLS",
+      "risk": "high",
+      "coverage": "partial failure, idempotency, malformed legacy data, migration locks and history monotonicity",
+      "evidencePaths": [
+        "tests/backend/Unit/SchemaMigrationRegistryTests.cs",
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/legacy-identity-retirement-evidence.json",
+        "tests/backend/Unit/ProductionHealthTests.cs",
+        "tests/backend/online-schema-migration-evidence.json",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CURRENT-SCHEMA-AUTHORITY",
+      "risk": "critical",
+      "coverage": "exact-one provider-neutral current schema model, runtime/generated/migration-target equivalence, inherited and attributed mappings, fail-closed owner and conversion handling, provider physical projections, sealed readiness identity and independent tamper verification",
+      "evidencePaths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+        "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+        "tests/backend/Unit/SchemaModelInspectorTests.cs",
+        "tools/db/check-current-schema-authority.mjs",
+        "tests/tools/current-schema-authority.test.mjs",
+        "docs/database-migration.md"
+      ]
+    },
+    {
+      "id": "BACKEND-MIGRATION-ASSEMBLY-BOUNDARY",
+      "risk": "critical",
+      "coverage": "independent FsusBlog.Migration assembly and namespace, Server-free dependency graph, migration-only legacy ownership, three-provider DDL semantics, stable descriptor checksum plan, no linked duplicate or compatibility re-export, and source-bound symbol/content receipt",
+      "evidencePaths": [
+        "src/migration/FsusBlog.Migration.csproj",
+        "src/migration/SchemaMigrationPrimitives.cs",
+        "src/migration/SchemaMigrationDdlPrimitives.cs",
+        "src/migration/SchemaMigrationExecution.cs",
+        "src/migration/SchemaMigrationManifest.cs",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "tests/migration/MigrationAssemblyBoundaryTests.cs",
+        "tools/db/generate-migration-assembly-receipt.mjs",
+        "tools/db/check-migration-assembly-boundary.mjs",
+        "tests/tools/migration-assembly-boundary.test.mjs",
+        "artifacts/schema-migration/migration-assembly-receipt.json",
+        "artifacts/schema-migration/migration-assembly-binding.json",
+        "docs/database-migration.md"
+      ]
+    },
+    {
+      "id": "BACKEND-BLUE-GREEN-SLOTS",
+      "risk": "critical",
+      "coverage": "single-host blue/green Compose isolation, loopback ports, resource preflight, idempotent start/stop, active-slot protection, durable state and candidate failure containment; Public AOT process-crash recovery has one five-state parent Theory and one non-discoverable, argument-closed command worker with child identity, state, root and output receipts",
+      "evidencePaths": [
+        "tests/tools/deployment-slots.test.mjs",
+        "tools/deployment/slot-start.sh",
+        "tools/deployment/slot-stop.sh",
+        "tools/deployment/slot-status.sh",
+        "tools/deployment/slot-preflight.sh",
+        "tools/deployment/image-runtime-contract.sh",
+        "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
+        "ops/docker/FsusBlog.Server.Dockerfile",
+        "src/backend/FsusBlog.Server.csproj",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "tools/deployment/slot-state.mjs",
+        "ops/docker/docker-compose.production.yml",
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/ProductionHealthTests.cs",
+        "tests/backend/online-schema-migration-evidence.json",
+        "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
+        "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
+        "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/Fixtures/public-aot-crash-worker-governance",
+        "tools/check-backend-test-governance.mjs",
+        "src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs",
+        "src/backend/Services/SearchIndexService.cs",
+        "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+        "tests/backend/storage-lifecycle-evidence.json",
+        "docs/architecture/release-storage-lifecycle.md",
+        "tests/tools/release-storage-lifecycle.test.mjs",
+        "tests/tools/release-rollout-state.test.mjs",
+        "tests/tools/release-worker-drill.test.mjs",
+        "tests/tools/release-worker-reconciliation.test.mjs",
+        "tests/tools/release-rollout-evidence.test.mjs",
+        "tests/tools/release-rollout-probes.test.mjs",
+        "tests/frontend/unit/wasmReleaseAssets.test.ts",
+        "tests/frontend/unit/releaseStorage.test.ts",
+        "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
+        "tests/tools/zero-downtime-rehearsal.test.mjs",
+        "tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json"
+      ]
+    },
+    {
+      "id": "BACKEND-ATOMIC-GATEWAY-SWITCH",
+      "risk": "critical",
+      "coverage": "loopback-only OpenResty upstream generation, immutable release probes, staged/full config validation, fsynced atomic switch, graceful reload, public identity verification, automatic restoration, explicit rollback, durable generation, host locking and restart recovery",
+      "evidencePaths": [
+        "tests/tools/gateway-switch.test.mjs",
+        "tools/deployment/gateway-control.mjs",
+        "tools/deployment/gateway-switch.sh",
+        "tools/deployment/gateway-rollback.sh",
+        "tools/deployment/gateway-recover.sh",
+        "ops/gateway/production-openresty.conf",
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
+        "tests/tools/release-rollout-state.test.mjs",
+        "tests/tools/release-rollout-evidence.test.mjs",
+        "tests/tools/release-rollout-bundle.test.mjs",
+        "tests/tools/release-asset-compatibility-probe.test.mjs",
+        "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
+        "tests/tools/zero-downtime-rehearsal.test.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-ZERO-DOWNTIME-REHEARSAL",
+      "risk": "critical",
+      "coverage": "ordered rollout sealing, shared bounded semantic timing policy with rollout/rehearsal wiring, signed continuous traffic, notification resync, normal and destructive worker reconciliation, browser-bound N-1 assets, online migration qualification and late interruption recovery",
+      "evidencePaths": [
+        "tests/tools/release-rollout-state.test.mjs",
+        "tests/tools/release-rollout-evidence.test.mjs",
+        "tests/tools/release-rollout-bundle.test.mjs",
+        "tests/tools/support/timing-policy.mjs",
+        "tests/tools/timing-policy.test.mjs",
+        "tests/timing-policy-retirement-baseline.json",
+        "tests/tools/release-rollout-probes.test.mjs",
+        "tests/tools/release-traffic-probe-session.test.mjs",
+        "tests/fixtures/deployment/release-traffic-session-scenario.json",
+        "tests/tools/release-notification-probe.test.mjs",
+        "tests/fixtures/deployment/release-notification-resync-scenario.template.json",
+        "tests/tools/release-worker-drill.test.mjs",
+        "tests/tools/release-worker-reconciliation.test.mjs",
+        "tools/deployment/release-worker-observer-service.mjs",
+        "tests/tools/release-worker-observer-service.test.mjs",
+        "tests/tools/release-worker-normal-observer.test.mjs",
+        "tests/fixtures/deployment/release-worker-observer-service-plan.template.json",
+        "tests/fixtures/deployment/release-worker-normal-observer-plan.template.json",
+        "tests/tools/release-asset-compatibility-probe.test.mjs",
+        "tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts",
+        "tests/fixtures/deployment/release-asset-browser-scenario.template.json",
+        "tests/tools/release-migration-qualification.test.mjs",
+        "tests/tools/rehearsal-schema-qualification-probe.test.mjs",
+        "tests/fixtures/deployment/release-migration-qualification-scenario.template.json",
+        "tests/tools/zero-downtime-rehearsal.test.mjs",
+        "tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json"
+      ]
+    },
+    {
+      "id": "BACKEND-RELEASE-IDENTITY",
+      "risk": "critical",
+      "coverage": "immutable release manifest, registry digest binding, runtime release identity, production startup/readiness fail-closed, no-build deploy and release evidence coherence",
+      "evidencePaths": [
+        "tests/backend/Unit/ReleaseIdentityTests.cs",
+        "tests/backend/Unit/ProductionStartupValidatorTests.cs",
+        "tests/tools/release-manifest.test.mjs",
+        "tools/release/release-manifest.mjs",
+        "tools/operations/test-release-evidence-fixture.sh",
+        "tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs",
+        "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-BACKUP-RESTORE",
+      "risk": "medium",
+      "coverage": "backup/restore drill, corrupt backup rejection, version mismatch policy",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-UPLOAD-ASSETS",
+      "risk": "high",
+      "coverage": "named invalid initialization matrix with exact validation codes/reasons and zero filesystem side effects, named WebP/JPEG/ICO initialization matrix with exact session manifest metadata and isolated storage topology, real uploaded-part ranges and next-part hints across gaps/retries/restart, incomplete completion side-effect guards, successful completion, MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup and path traversal",
+      "evidencePaths": [
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
+        "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-PLATFORM-MEMBERSHIP",
+      "risk": "high",
+      "coverage": "one Platform=Unix authority projects ordinary, CI and Production planned membership; Windows records not-selected while Linux/macOS require executed pass/fail evidence; UnixMode receipts bind actual 0700 mode, six group/other deny assertions, owner artifact usability and overbroad existing-root convergence; UnixRequestPath receipts bind the exact complete, abort and four expired operations to nonenumerable-root denial, public request results and session/index postconditions; UnixSymlinkBoundary binds physical root/link/target identities, real outside-root denial, an inside-root positive control and cleanup; platform-specific runtime returns or unbound runtime evidence fail governance",
+      "evidencePaths": [
+        "tools/test/backend-platform-selection.mjs",
+        "tools/test/lanes/_suite-support.sh",
+        "tools/test/run-backend-production-shards.mjs",
+        "tools/check-backend-test-governance.mjs",
+        "tests/tools/backend-production-shards.test.mjs",
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
+        "tests/backend/Fixtures/platform-runtime-governance/planned-unix-test.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/missing-platform-trait.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/missing-platform-evidence-trait.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/platform-evidence-without-platform.fixture.cs.txt",
+        "tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt"
+      ]
+    },
+    {
+      "id": "BACKEND-MESSAGES",
+      "risk": "high",
+      "coverage": "participant state, unread count, admin broadcast, revoke, closed conversation, notification stream recipient targeting",
+      "evidencePaths": [
+        "tests/backend/Unit/MessageCenterServiceTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-NOTIFICATION-STREAM",
+      "risk": "high",
+      "coverage": "notification stream handshake, binary framing, recipient routing, runtime checks and pressure evidence",
+      "evidencePaths": [
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/NotificationStreamFramePumpTests.cs",
+        "tests/frontend/checks/runtime/check-notification-stream-runtime.mjs",
+        "tests/frontend/checks/load/check-notification-stream-pressure.mjs",
+        "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
+        "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts",
+        "tests/tools/release-worker-drill.test.mjs",
+        "tests/tools/release-rollout-probes.test.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-COMMENT-MODERATION",
+      "risk": "high",
+      "coverage": "pending, approve, reject, restore, batch transition, hit reasons, content filter side effects",
+      "evidencePaths": [
+        "tests/backend/Unit/CommentServiceValidationTests.cs",
+        "tests/backend/Unit/ContentFilterServiceTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-SCHEDULED-PUBLISH",
+      "risk": "high",
+      "coverage": "due/future/archived/deleted scheduled article, idempotent worker, cache/search/AOT invalidation",
+      "evidencePaths": [
+        "tests/backend/Unit/ScheduledPublishWorkerTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-FAKE-CLOCK",
+      "risk": "medium",
+      "coverage": "token, refresh, session, scheduled publish, cache TTL, PoW, upload expiry without sleeps",
+      "evidencePaths": [
+        "tests/backend/Unit/ScheduledPublishWorkerTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
+        "tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-ERROR-FRAMES",
+      "risk": "high",
+      "coverage": "validation, unauthorized, forbidden, not found, conflict, PoW, MFA, banned/deleted, protocol, exception",
+      "evidencePaths": [
+        "tests/backend/Unit/GlobalExceptionMiddlewareTests.cs",
+        "tests/backend/Unit/InfraHelperTests.cs",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/endpoint-security-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-IDEMPOTENCY",
+      "risk": "medium",
+      "coverage": "upload complete, delete/restore article, logout, mark-read, cache invalidation, migration, draft save",
+      "evidencePaths": [
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Unit/SchemaMigrationRegistryTests.cs",
+        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs",
+        "tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/recovery-passkey-completion-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-CONTRACT-FUZZ",
+      "risk": "medium",
+      "coverage": "malformed AEDS, wrong content-type, oversized/slow body, invalid UTF-8, path traversal, JWT/cookie fuzz",
+      "evidencePaths": [
+        "tests/backend/Unit/AedsEncoderTests.cs",
+        "tests/frontend/checks/security/check-security-attack-matrix.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-CHAOS-TESTING",
+      "risk": "medium",
+      "coverage": "Redis kill/restart, PostgreSQL reset/deadlock, disk full, notification stream slow consumer, exact default 256/257 plus configured 5→32/33 and 99999→4096/4097 frame-capacity boundaries, pooled frame final-release ownership, clock skew",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+        "tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs",
+        "tests/tools/zero-downtime-rehearsal.test.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-SOAK-TESTING",
+      "risk": "medium",
+      "coverage": "long run mixed read/write, continuous notification stream, upload churn, Redis cache churn, search rebuild churn",
+      "evidencePaths": [
+        "tools/test/lanes/soak.sh",
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-LOAD-STRESS-CAPACITY",
+      "risk": "medium",
+      "coverage": "load-smoke, stress, capacity, soak distinction with evidence history",
+      "evidencePaths": [
+        "tests/frontend/checks/load/check-load-public-api.mjs",
+        "tests/frontend/checks/load/check-notification-stream-pressure.mjs",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-DATA-SCALE",
+      "risk": "medium",
+      "coverage": "small/medium/large article/comment/search/cache/admin/migration synthetic scale tiers",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
+      ]
+    },
+    {
+      "id": "BACKEND-GOLDEN-GOVERNANCE",
+      "risk": "medium",
+      "coverage": "AEDS, API error, audit, SEO/AOT, feed/sitemap, search manifest, migration schema golden versioning",
+      "evidencePaths": [
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-SEARCH-INDEX-UTF8-SCALAR-OWNER",
+      "risk": "high",
+      "coverage": "SearchIndexService.GetUtf8ScalarLength is the single production internal owner consumed by tokenizer, dictionary compiler and runtime reader; SearchIndexServiceTests.GetUtf8ScalarLength_ReturnsCorrectRuneLength directly asserts all 10 leading-byte boundaries and a compiled read-path test covers valid 2/3/4-byte dictionary terms",
+      "evidencePaths": [
+        "src/backend/Services/SearchIndexService.Dictionary.cs",
+        "src/backend/Properties/AssemblyInfo.cs",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/Unit/SearchIndexServiceTests.cs",
+        "tools/test/search-index-utf8-scalar-governance.mjs",
+        "tests/test-retention-replacements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-TEST-IMPACT",
+      "risk": "medium",
+      "coverage": "changed file to affected backend tests mapping",
+      "evidencePaths": [
+        "tools/dotnet-affected-tests.sh",
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-NIGHTLY-EXHAUSTIVE",
+      "risk": "high",
+      "coverage": "mutation, high-seed property, stress/capacity, chaos, soak, full Docker integration, backup/restore, fuzz",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "config/testing/mutation/default.json"
+      ]
+    },
+    {
+      "id": "BACKEND-TRACEABILITY",
+      "risk": "critical",
+      "coverage": "test matrix maps high-risk backend requirements to commands, evidence, owner, risk and coverage",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/matrix.yml",
+        "tools/check-backend-test-governance.mjs",
+        "tests/dead-code-audit-governance-handoff.json",
+        "security/evidence-contracts/active-release-fencing-implementation.json",
+        "tests/backend/security-hardening-governance-handoff.json",
+        "tests/backend/endpoint-security-governance-handoff.json",
+        "tests/frontend/archive-sticky-geometry-governance-handoff.json",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/test-retention-replacements.json",
+        "tests/backend/cleanup-worker-human-read-behavior.md",
+        "tools/check-background-service-classification.mjs",
+        "tests/backend/Fixtures/background-service-classification.json",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
+        "tests/backend/auth-cookie-expiry-evidence.json",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/auth-cookie-expiry-governance-handoff.json",
+        "tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json"
+      ]
+    },
+    {
+      "id": "BACKEND-FLAKY-GOVERNANCE",
+      "risk": "medium",
+      "coverage": "quarantine owner, expiry, retry evidence and failure signature",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-TIME-BUDGETS",
+      "risk": "medium",
+      "coverage": "fast, integration, security, resilience, load, production, property and mutation time budgets",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/matrix.yml",
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "tests/backend/rate-limiter-rejection-sampler-evidence.json"
+      ]
+    },
+    {
+      "id": "BACKEND-LEGACY-20260517-REAL-DUMP",
+      "risk": "critical",
+      "coverage": "exact-one dedicated execution of the private 20260517 PostgreSQL custom dump restore, double migration, retained legacy counts and current postconditions with source, dump and PostgreSQL runtime identity",
+      "evidencePaths": [
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "tools/test/legacy-real-dump-contract.mjs",
+        "tools/test/run-legacy-real-dump-producer.mjs",
+        "tests/tools/legacy-real-dump-producer.test.mjs",
+        "docs/database-migration.md"
+      ]
+    },
+    {
+      "id": "BACKEND-IMAGE-UPLOAD-RUNTIME",
+      "risk": "high",
+      "coverage": "real image upload compression, hashing, session initialization, part acknowledgement, resumable snapshot, missing-part recovery, completion, abort cleanup and late-response isolation",
+      "evidencePaths": [
+        "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+      ]
+    }
+  ],
+  "endpointFamilies": [
+    {
+      "id": "authoring",
+      "routePrefixes": ["/api/binary/author"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-AUDIT-GOLDEN"
+      ]
+    },
+    {
+      "id": "distribution",
+      "routePrefixes": ["/feed"],
+      "routePatterns": ["/api/Article/rss", "/sitemap.xml", "/sitemap/{page:int}.xml", "/robots.txt"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "id": "integrity-verification",
+      "routePrefixes": ["/integrity"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-GOLDEN-GOVERNANCE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "id": "admin-integrity-console",
+      "routePrefixes": ["/api/admin/integrity/console"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AUDIT-GOLDEN"
+      ]
+    },
+    {
+      "id": "local-auth-fixture",
+      "routePrefixes": ["/__local/auth-fixture", "/api/local/auth-fixture"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
+      "id": "notification-stream-drill",
+      "routePrefixes": ["/_fsus/testing/notification-stream"],
+      "requirements": [
+        "BACKEND-NOTIFICATION-STREAM",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
+      "id": "public-aot",
+      "routePrefixes": ["/api/public", "/internal/public-aot"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-GOLDEN-GOVERNANCE",
+        "BACKEND-WEBAPPLICATIONFACTORY"
+      ]
+    },
+    {
+      "id": "site-subscription-service",
+      "routePrefixes": ["/api/binary/subscriptions"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "id": "security-admin",
+      "routePrefixes": ["/api/binary/admin/security"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AUDIT-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-api",
+      "routePrefixes": ["/api/binary"],
+      "requirements": [
+        "BACKEND-AEDS-GOLDEN",
+        "BACKEND-ENDPOINT-AUTH-MATRIX"
+      ]
+    },
+    {
+      "id": "binary-admin-users",
+      "routePrefixes": ["/api/binary/admin/users"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
+      "id": "binary-anonymous-credential",
+      "routePrefixes": ["/api/binary/anonymous-credential"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-anonymous-governance",
+      "routePrefixes": ["/api/binary/admin/anonymous-governance"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-articles",
+      "routePrefixes": ["/api/binary/article", "/api/binary/admin/article"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SCHEDULED-PUBLISH",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-read-proof",
+      "routePrefixes": ["/api/binary/read-proof"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-security-challenge",
+      "routePrefixes": ["/api/binary/security/challenge"],
+      "requirements": [
+        "BACKEND-RISKCONTROL-TEST-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-auth",
+      "routePrefixes": ["/api/binary/auth"],
+      "requirements": [
+        "BACKEND-AUTH-STATE-MACHINE",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-comments",
+      "routePrefixes": ["/api/binary/comment"],
+      "requirements": [
+        "BACKEND-COMMENT-MODERATION",
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-files",
+      "routePrefixes": ["/api/binary/file"],
+      "requirements": [
+        "BACKEND-UPLOAD-ASSETS",
+        "BACKEND-ENDPOINT-AUTH-MATRIX"
+      ]
+    },
+    {
+      "id": "binary-messages",
+      "routePrefixes": ["/api/binary/messages", "/api/binary/admin/messages"],
+      "requirements": [
+        "BACKEND-MESSAGES",
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-stats",
+      "routePrefixes": ["/api/binary/stats"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-subscriptions",
+      "routePrefixes": ["/api/binary/subscriptions"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-system",
+      "routePrefixes": ["/api/binary/system"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AUDIT-GOLDEN",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-taxonomy",
+      "routePrefixes": ["/api/binary/category", "/api/binary/tag"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-telemetry",
+      "routePrefixes": ["/api/binary/telemetry"],
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "binary-uploads",
+      "routePrefixes": ["/api/binary/upload"],
+      "requirements": [
+        "BACKEND-UPLOAD-ASSETS",
+        "BACKEND-IDEMPOTENCY",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "id": "release-schema-qualification",
+      "routePrefixes": ["/api/release-evidence"],
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-MIGRATION-FAILURE-DRILLS"
+      ]
+    }
+  ],
+  "timeBudgets": [
+    {
+      "tier": "fast",
+      "budget": "30s"
+    },
+    {
+      "tier": "integration",
+      "budget": "3min"
+    },
+    {
+      "tier": "security",
+      "budget": "10min"
+    },
+    {
+      "tier": "resilience",
+      "budget": "8min"
+    },
+    {
+      "tier": "load-smoke",
+      "budget": "20min"
+    },
+    {
+      "tier": "production",
+      "budget": "60min"
+    },
+    {
+      "tier": "backend-property",
+      "budget": "2min"
+    },
+    {
+      "tier": "backend-mutation",
+      "budget": "nightly-only"
+    }
+  ],
+  "flakyGovernance": {
+    "quarantineList": ".tmp/flaky/backend-quarantine.json",
+    "requiredFields": [
+      "owner",
+      "expiryDate",
+      "failureSignature",
+      "retryCount",
+      "evidence"
+    ]
+  }
+}

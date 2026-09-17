@@ -1,0 +1,74 @@
+[
+  {
+    "id": "N01-classification-skill-digest-missing",
+    "expectedCode": "blog-ui-authority-binding"
+  },
+  {
+    "id": "N02-classification-candidate-drift",
+    "expectedCode": "blog-ui-authority-binding"
+  },
+  {
+    "id": "N03-classification-policy-drift",
+    "expectedCode": "blog-ui-domain-policy-binding"
+  },
+  {
+    "id": "N04-system-dispute-without-matching-adjudication",
+    "expectedCode": "blog-ui-adjudication-binding"
+  },
+  {
+    "id": "N05-adjudication-modifies-component",
+    "expectedCode": "blog-ui-adjudicator-read-only"
+  },
+  {
+    "id": "N06-adjudication-policy-drift",
+    "expectedCode": "blog-ui-domain-policy-binding"
+  },
+  {
+    "id": "N07-ux-accepted-with-blocker",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N08-ux-rejected-without-blocker",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N09-ux-verification-class-drift",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N10-ux-candidate-drift",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N11-ux-verifier-writes-component",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N12-ux-policy-drift",
+    "expectedCode": "blog-ui-domain-policy-binding"
+  },
+  {
+    "id": "N13-consumer-private-selector-workaround",
+    "expectedCode": "blog-ui-consumer-workaround"
+  },
+  {
+    "id": "N14-missing-fsusui-skill",
+    "expectedCode": "blog-ui-authority-binding"
+  },
+  {
+    "id": "N15-behavior-green-skips-ux",
+    "expectedCode": "blog-ui-ux-acceptance-required"
+  },
+  {
+    "id": "N16-overlapping-ui-owner",
+    "expectedCode": "blog-ui-owner-overlap"
+  },
+  {
+    "id": "N17-baseline-identity-drift",
+    "expectedCode": "blog-ui-baseline-identity"
+  },
+  {
+    "id": "N18-orchestration-fields-in-receipt",
+    "expectedCode": "blog-ui-orchestration-authority-leak"
+  }
+]

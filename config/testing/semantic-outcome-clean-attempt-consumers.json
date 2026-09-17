@@ -1,0 +1,59 @@
+{
+    "schema": "fsusblog.semantic-outcome-clean-attempt-consumer-inventory.v1",
+    "unifiedAttemptVerifier": "tools/release/clean-first-attempt-verifier.mjs#cleanFirstAttemptVerdict",
+    "candidateVerificationMode": "external-owner-only",
+    "migrationState": "migrated",
+    "qualificationEligible": true,
+    "consumers": [
+        {
+            "id": "finalizer",
+            "entrypoints": [
+                "tools/test-matrix/release-final-evidence-contract.mjs",
+                "tools/test/lanes/release-final.sh"
+            ],
+            "candidateAuthorityIssue": 2656,
+            "candidateProducerId": "release-finalizer-semantic-outcome",
+            "candidateProducerAuthorityId": "tools/test-matrix/outcomes/release-finalizer-adapter.mjs",
+            "candidateSchema": "fsusblog.producer-semantic-outcome-candidate.v1",
+            "candidateSchemaAuthority": "config/schemas/producer-semantic-outcome-candidate.schema.json",
+            "attemptSchema": "fsusblog.test-attempt-receipt.v1",
+            "aggregateSchema": "fsusblog.test-attempt-aggregate-receipt.v1",
+            "outputSchemas": ["fsusblog.release-final-test-evidence-binding.v1"],
+            "rawEvidenceAccess": [],
+            "producerInvocation": null
+        },
+        {
+            "id": "immutable-build",
+            "entrypoints": [
+                "tools/operations/check-release-evidence-manifest.mjs",
+                "tools/release/test-evidence-receipts.mjs"
+            ],
+            "candidateAuthorityIssue": 2654,
+            "candidateProducerId": "immutable-build-semantic-outcome",
+            "candidateProducerAuthorityId": "tools/test-matrix/outcomes/immutable-build-adapter.mjs",
+            "candidateSchema": "fsusblog.producer-semantic-outcome-candidate.v1",
+            "candidateSchemaAuthority": "config/schemas/producer-semantic-outcome-candidate.schema.json",
+            "attemptSchema": "fsusblog.test-attempt-receipt.v1",
+            "aggregateSchema": "fsusblog.test-attempt-aggregate-receipt.v1",
+            "outputSchemas": ["fsusblog.ci-production-build-receipt.v1"],
+            "rawEvidenceAccess": [],
+            "producerInvocation": null
+        },
+        {
+            "id": "release-projection",
+            "entrypoints": [
+                "tools/test-matrix/release-domain-projection-receipt.mjs"
+            ],
+            "candidateAuthorityIssue": 2655,
+            "candidateProducerId": "release-projection-semantic-outcome",
+            "candidateProducerAuthorityId": "tools/test-matrix/outcomes/release-projection-adapter.mjs",
+            "candidateSchema": "fsusblog.producer-semantic-outcome-candidate.v1",
+            "candidateSchemaAuthority": "config/schemas/producer-semantic-outcome-candidate.schema.json",
+            "attemptSchema": "fsusblog.test-attempt-receipt.v1",
+            "aggregateSchema": "fsusblog.test-attempt-aggregate-receipt.v1",
+            "outputSchemas": ["fsusblog.evidence-projection-receipt.v1"],
+            "rawEvidenceAccess": [],
+            "producerInvocation": null
+        }
+    ]
+}

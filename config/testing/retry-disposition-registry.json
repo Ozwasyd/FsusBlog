@@ -1,0 +1,140 @@
+{
+    "schema": "fsusblog.retry-disposition-registry.v1",
+    "scannerVersion": "fsusblog-hidden-retry-scanner-v1",
+    "sourceDigestAlgorithm": "sha256",
+    "entries": [
+        {
+            "producerId": "node-default-fixture-provider",
+            "findingId": "sha256:c90eb5df14d9d2f85a45bc1dc1a59d5423e3669ec37af058ef2c7ac7a88108f9",
+            "location": {
+                "path": "tests/browser-contract/default-fixture-provider.mjs",
+                "start": {
+                    "line": 1207,
+                    "column": 5
+                },
+                "end": {
+                    "line": 1242,
+                    "column": 58
+                }
+            },
+            "ruleId": "retry.node-producer-loop",
+            "classification": "non-retry",
+            "policyId": null,
+            "action": "restore-only",
+            "owner": "browser-contract",
+            "sourceDigest": "sha256:412946a68f399f545ca35ec0dc0d64f5f09c1fd1f680a22f182b0f5962bbec8a",
+            "syntaxDigest": "sha256:5c3558aef7a50b3673894621ac243c18e539d91b3f852029823426aa090a6cf0"
+        },
+        {
+            "producerId": "node-run-production-xss-matrix",
+            "findingId": "sha256:c433e5eae1198f5101e297059b63d61b32e1063cee588da489a353940714426d",
+            "location": {
+                "path": "tests/frontend/checks/security/run-production-xss-matrix.mjs",
+                "start": {
+                    "line": 1145,
+                    "column": 5
+                },
+                "end": {
+                    "line": 1148,
+                    "column": 61
+                }
+            },
+            "ruleId": "retry.node-producer-loop",
+            "classification": "non-retry",
+            "policyId": null,
+            "action": "restore-only",
+            "owner": "browser-contract",
+            "sourceDigest": "sha256:cc6849c1022444fad1fdc3ba860a9043f862db02cfa7a303e69a6970de33699f",
+            "syntaxDigest": "sha256:0a6693237be6d637278a3af1f65e6a3497d3e71b312306ad9b5294f1b509c7e4"
+        },
+        {
+            "producerId": "flaky-diagnostic-runner",
+            "findingId": "sha256:a6e5178b037e51ff17f9c8e63f94375c2762e29eb65f5d88626e92e7ccca87d2",
+            "location": {
+                "path": "tools/ci/run-flaky-governed.mjs",
+                "start": {
+                    "line": 348,
+                    "column": 3
+                },
+                "end": {
+                    "line": 350,
+                    "column": 32
+                }
+            },
+            "ruleId": "retry.node-attempt-loop",
+            "classification": "diagnostic",
+            "policyId": "diagnostic-browser-process-crash",
+            "action": "instrument",
+            "owner": "test-governance",
+            "sourceDigest": "sha256:9be27206eba015e7340f1cd91a82a641925ceff607d9e5778acb5b37db7bf59b",
+            "syntaxDigest": "sha256:b31e47ba2a5db67a14092017ea1b28d3b56309b6c29d6589584a79f4b4136503"
+        },
+        {
+            "producerId": "shell-165c6fe25465",
+            "findingId": "sha256:b137051d24a9cc7f624a640bfa457db12cfa75e98997045bf166f5cbda11630b",
+            "location": {
+                "path": "tools/deployment/zero-downtime-topology.sh",
+                "start": {
+                    "line": 108,
+                    "column": 9
+                },
+                "end": {
+                    "line": 108,
+                    "column": 76
+                }
+            },
+            "ruleId": "retry.shell-or-reinvoke",
+            "classification": "non-retry",
+            "policyId": null,
+            "action": "restore-only",
+            "owner": "deployment",
+            "sourceDigest": "sha256:71c93e2811c49fc5a49c161ac29d16548589b2797db23bf0bc2094ce74177449",
+            "syntaxDigest": "sha256:165c6fe25465c82068f53d51251103acca7f53f728c7a24e185ffbf84bd5717e"
+        },
+        {
+            "producerId": "shell-d6f2155724eb",
+            "findingId": "sha256:5bd29560fdb3c963d96d97aeaf71ab7403c42222c2c3101d041f19083be28ec7",
+            "location": {
+                "path": "tools/deployment/zero-downtime-topology.sh",
+                "start": {
+                    "line": 112,
+                    "column": 13
+                },
+                "end": {
+                    "line": 112,
+                    "column": 70
+                }
+            },
+            "ruleId": "retry.shell-or-reinvoke",
+            "classification": "non-retry",
+            "policyId": null,
+            "action": "restore-only",
+            "owner": "deployment",
+            "sourceDigest": "sha256:71c93e2811c49fc5a49c161ac29d16548589b2797db23bf0bc2094ce74177449",
+            "syntaxDigest": "sha256:d6f2155724eb88421b23854e8aff6a380238243397ee841252481f4a541af502"
+        },
+        {
+            "producerId": "shell-bdcce7a77881",
+            "findingId": "sha256:c7470181e638e2de97127144fad69553c93dfd17d1bc3ae3cf209e543bf3edec",
+            "location": {
+                "path": "tools/dev/start.sh",
+                "start": {
+                    "line": 132,
+                    "column": 4
+                },
+                "end": {
+                    "line": 132,
+                    "column": 66
+                }
+            },
+            "ruleId": "retry.shell-or-reinvoke",
+            "classification": "non-retry",
+            "policyId": null,
+            "action": "restore-only",
+            "owner": "development",
+            "sourceDigest": "sha256:dc01ab33bdbd3634a00dda66ca7639555ad19352dc524a7d870e58f490524c71",
+            "syntaxDigest": "sha256:bdcce7a77881b6b9ab628eb719eb3893ea4fe57f40b9516969c02ec1e46f2901"
+        }
+    ],
+    "contentDigest": "sha256:7341cff543c41952331b84f3eb55bce4ec4b6fea5d48791c389f8f23c32abdb1"
+}

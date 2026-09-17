@@ -1,0 +1,17 @@
+{
+    "$schema": "../schemas/static-client-payload-budget.schema.json",
+    "schema": "fsusblog.static-client-payload-budget.v1",
+    "budgetModel": "audited-baseline-no-growth",
+    "baseline": {
+        "fileCount": 3427,
+        "totalBytes": 84449100,
+        "root": "client-dist",
+        "pathOrder": "posix-relative-utf8-byte-ascending",
+        "recordFormat": "path-utf8 NUL size-base10-ascii NUL content-sha256-lowerhex LF",
+        "inventoryAlgorithm": "sha256-path-nul-size-nul-content-sha256-lf-v1",
+        "inventorySha256": "sha256:4f66a4a2739982e26c1376ce37e10cc75e4678b3ba171e82baa440182777e0c2"
+    },
+    "maxTotalBytes": {
+        "derivation": "baseline.totalBytes"
+    }
+}

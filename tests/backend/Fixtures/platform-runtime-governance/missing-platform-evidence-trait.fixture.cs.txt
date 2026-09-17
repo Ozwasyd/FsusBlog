@@ -1,0 +1,8 @@
+[Fact]
+[Trait("Platform", "Unix")]
+[UnsupportedOSPlatform("windows")]
+public void MissingPlatformEvidenceMembership()
+{
+    output.WriteLine("backend-platform-runtime-evidence {}");
+    Assert.True(true);
+}

@@ -1,0 +1,135 @@
+{
+    "schema": "fsusblog.correctness-budget-policy.v1",
+    "maximumTierSchedulerBudgetMs": 7200000,
+    "policies": [
+        {
+            "tierId": "production-correctness",
+            "producer": "tools/test/lanes/production-correctness-receipt.sh",
+            "measurementWindowMs": "not-applicable",
+            "notApplicableReason": "receipt-only-final-correctness-join",
+            "preparationUpperBoundMs": 30000,
+            "postMeasurementUpperBoundMs": 30000,
+            "terminationGraceMs": 15000,
+            "producerExecutionBudgetMs": 600000,
+            "tierSchedulerBudgetMs": 600000,
+            "profileGlobalBudgetMs": 600000,
+            "timeoutPhases": [
+                "preparation",
+                "post-measurement",
+                "termination",
+                "scheduler",
+                "global"
+            ],
+            "producerTimeoutPhase": "termination",
+            "observeOnly": false
+        },
+        {
+            "tierId": "release-final",
+            "producer": "tools/test/lanes/release-final.sh",
+            "measurementWindowMs": "not-applicable",
+            "notApplicableReason": "finalizer-only-receipt-signing",
+            "preparationUpperBoundMs": 30000,
+            "postMeasurementUpperBoundMs": 30000,
+            "terminationGraceMs": 15000,
+            "producerExecutionBudgetMs": 600000,
+            "tierSchedulerBudgetMs": 600000,
+            "profileGlobalBudgetMs": 600000,
+            "timeoutPhases": [
+                "preparation",
+                "post-measurement",
+                "termination",
+                "scheduler",
+                "global"
+            ],
+            "producerTimeoutPhase": "termination",
+            "observeOnly": false
+        },
+        {
+            "tierId": "production",
+            "producer": "tools/test/lanes/production-correctness-receipt.sh",
+            "measurementWindowMs": "not-applicable",
+            "notApplicableReason": "receipt-only-production-join",
+            "preparationUpperBoundMs": 30000,
+            "postMeasurementUpperBoundMs": 30000,
+            "terminationGraceMs": 15000,
+            "producerExecutionBudgetMs": 600000,
+            "tierSchedulerBudgetMs": 7200000,
+            "profileGlobalBudgetMs": 7200000,
+            "timeoutPhases": [
+                "preparation",
+                "post-measurement",
+                "termination",
+                "scheduler",
+                "global"
+            ],
+            "producerTimeoutPhase": "termination",
+            "observeOnly": false
+        },
+        {
+            "tierId": "soak-short-runtime",
+            "producer": "tools/test/lanes/soak.sh",
+            "measurementWindowMs": 300000,
+            "minimumMeasurementWindowMs": 300000,
+            "preparationUpperBoundMs": 30000,
+            "postMeasurementUpperBoundMs": 30000,
+            "terminationGraceMs": 15000,
+            "producerExecutionBudgetMs": 375000,
+            "tierSchedulerBudgetMs": 1800000,
+            "profileGlobalBudgetMs": 1800000,
+            "timeoutPhases": [
+                "preparation",
+                "measurement",
+                "post-measurement",
+                "termination",
+                "scheduler",
+                "global"
+            ],
+            "producerTimeoutPhase": "termination",
+            "observeOnly": false
+        },
+        {
+            "tierId": "soak-long-scheduled",
+            "producer": "tools/test/lanes/soak.sh",
+            "measurementWindowMs": "not-applicable",
+            "notApplicableReason": "externally-scheduled-evidence-import",
+            "preparationUpperBoundMs": 30000,
+            "postMeasurementUpperBoundMs": 30000,
+            "terminationGraceMs": 15000,
+            "producerExecutionBudgetMs": 300000,
+            "tierSchedulerBudgetMs": 300000,
+            "profileGlobalBudgetMs": 300000,
+            "timeoutPhases": [
+                "preparation",
+                "post-measurement",
+                "termination",
+                "scheduler",
+                "global"
+            ],
+            "producerTimeoutPhase": "termination",
+            "observeOnly": true,
+            "hardSafetyBudgetMs": 300000
+        },
+        {
+            "tierId": "soak-long-evidence-import",
+            "producer": "tools/test/lanes/soak.sh",
+            "measurementWindowMs": "not-applicable",
+            "notApplicableReason": "externally-scheduled-evidence-import",
+            "preparationUpperBoundMs": 30000,
+            "postMeasurementUpperBoundMs": 30000,
+            "terminationGraceMs": 15000,
+            "producerExecutionBudgetMs": 300000,
+            "tierSchedulerBudgetMs": 300000,
+            "profileGlobalBudgetMs": 300000,
+            "timeoutPhases": [
+                "preparation",
+                "post-measurement",
+                "termination",
+                "scheduler",
+                "global"
+            ],
+            "producerTimeoutPhase": "termination",
+            "observeOnly": true,
+            "hardSafetyBudgetMs": 300000
+        }
+    ]
+}

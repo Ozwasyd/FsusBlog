@@ -1,0 +1,351 @@
+schema: fsusblog.security-matrix.privacy-zk-comment.v1
+family: privacy.zk-comment
+version: privacy-zk-comment-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
+evidenceClassRegistry:
+    contract:
+        - security/evidence-contracts/release-bundle-storage.json
+    fixture:
+        - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
+    implementation-attestation:
+        - security/evidence-contracts/anonymous-credential-blind-issuance.json
+        - security/evidence-contracts/comment-author-mode-retirement.json
+        - security/evidence-contracts/public-revocation-distribution.json
+    fresh-run-evidence:
+        - .tmp/security/privacy-zk-comment-matrix.json
+    release-closeout-evidence:
+        - .tmp/release-evidence/<release-identity>/manifest.json
+cryptoDecision:
+    adr: docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md
+    credentialScheme: RFC 9474 blind RSA credential
+    proofSystem: Groth16 anonymous comment proof
+    circuit_id: fsus.anonymous.comment.v5
+    public_input_layout_version: 6
+    verifying_key_hash: trusted setup vk hash binding
+    nullifier: nullifier = PRF(credential_secret, action_context, scope)
+    credentialRoot: credential root membership for active or grace epoch
+    revocationRoot: revocation root non-revocation witness
+    productionMode: fail-closed until blind issuer, Groth16, trusted setup and native verifier are complete
+scenarios:
+    - id: PRIVACY-ZK-AUTHOR-MODE-RETIREMENT
+      scenario: production comment creation accepts only explicit public or identity-clean zk anonymous while historical server-visible pseudonyms remain display-only
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              retired-anonymous-zero-write,
+              public-explicit-opt-in,
+              zk-no-identity-headers,
+              zk-unavailable-no-downgrade,
+              root-expired-fail-closed,
+              proof-invalid-fail-closed,
+              legacy-migration-preserves-display-structure-visibility,
+              legacy-nullifier-isolated,
+          ]
+      localCommands:
+          [check:comment-author-mode-retirement, check:privacy-zk-contract]
+      code:
+          - src/backend/Services/Security/AnonymousCommentPolicyService.cs
+          - src/backend/Services/Security/CommentActorResolver.cs
+          - src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs
+          - src/frontend/src/composables/useArticleDetailView.ts
+      tests:
+          - tests/backend/Unit/CommentAuthorModeRetirementTests.cs
+          - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
+          - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
+          - tests/frontend/unit/components/ArticleCommentComposer.test.ts
+      evidence:
+          - security/evidence-contracts/comment-author-mode-retirement.json
+
+    - id: PRIVACY-ZK-CIRCUIT-CONTRACT
+      scenario: active v5 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              blind-credential-possession,
+              credential-root-membership,
+              revocation-non-membership-witness,
+              nullifier-secret-action-scope-binding,
+              policy-bucket-legality,
+              no-userId-username-inputs,
+              no-stable-credential-public-input,
+              complete-wire-transcript-unlinkability-100-scopes,
+              legacy-layout-fail-closed,
+              tamper-root,
+              tamper-revocation-root,
+              tamper-scope,
+              tamper-non-current-layout,
+          ]
+      localCommands: [check:privacy-zk-contract]
+      code:
+          - security/zk/contracts/comment-v5-circuit.manifest.json
+          - security/zk/contracts/comment-v5-tamper-cases.manifest.json
+          - tools/security/comment-privacy-build-contract.mjs
+          - tools/security/check-zk-comment-v5-unlinkability.mjs
+      tests:
+          - tests/security/comment-privacy-build-contract.test.mjs
+          - tests/security/zk-comment-v5-unlinkability.test.mjs
+          - tools/security/comment-privacy-build-contract.mjs
+      evidence:
+          - .tmp/security/comment-privacy-build-contract.json
+          - .tmp/security/comment-v5-unlinkability.json
+
+    - id: PRIVACY-ZK-TRUSTED-SETUP
+      scenario: v5 layout-6 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              ceremony-manifest-fail-closed,
+              vk-hash-binding,
+              srs-transcript-consistency,
+              public-input-layout-upgrade-new-ceremony,
+              pk-vk-artifact-paths,
+              placeholder-vk-hash-rejected,
+          ]
+      localCommands: [check:privacy-zk-contract]
+      code:
+          - docs/zk/trusted-setup-ceremony.md
+          - security/zk/provenance/comment-v5-trusted-setup.manifest.json
+          - config/zk/anonymous-comment-v5-verifying-key.manifest.json
+          - tools/security/comment-privacy-build-contract.mjs
+      tests:
+          - tests/security/comment-privacy-build-contract.test.mjs
+          - tools/security/comment-privacy-build-contract.mjs
+      evidence:
+          - .tmp/security/comment-privacy-build-contract.json
+
+    - id: PRIVACY-ZK-TRANSPORT
+      scenario: anonymous submit keeps browser credentials out and rejects credential-bearing requests
+      owner: InteropGlueAgent
+      status: automated
+      requiredCases:
+          [
+              no-cookie,
+              no-authorization,
+              cookie-rejected,
+              authorization-rejected,
+              comment.user_id:null,
+          ]
+      localCommands:
+          [
+              check:privacy-zk-contract,
+              check:privacy-zk-frontend,
+              check:privacy-zk-backend,
+              check:privacy-zk-concurrency,
+          ]
+      code:
+          - src/frontend/src/api/comment.ts
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
+          - src/backend/Infrastructure/Filters/RejectIdentifiedPrincipalFilter.cs
+      tests:
+          - tests/frontend/unit/api/comment.test.ts
+          - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
+          - tests/backend/Unit/AnonymousCommentSubmitTests.cs
+      evidence:
+          - .tmp/security/privacy-zk-comment-matrix.json
+
+    - id: PRIVACY-ZK-FAIL-CLOSED
+      scenario: zk failures fail closed without anonymous or public downgrade
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              zk-failure-no-anonymous-downgrade,
+              zk-failure-no-public-publish,
+              verifier-unavailable-fail-closed,
+              root-expired-fail-closed,
+              proof-invalid-fail-closed,
+          ]
+      code:
+          - src/backend/Services/Security/ZkAnonymousProofService.cs
+          - src/backend/Services/Security/AnonymousCommentTicketService.cs
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
+      tests:
+          - tests/backend/Unit/ZkProofVerifierTests.cs
+          - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
+          - tests/backend/Unit/AnonymousCommentPolicyTests.cs
+      evidence:
+          - .tmp/security/privacy-zk-comment-matrix.json
+
+    - id: PRIVACY-ZK-TICKET-NULLIFIER
+      scenario: ticket and nullifier lifetimes are one-shot, scoped, blocked and limit-aware
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              ticket-consume-once,
+              ticket-expired-rejected,
+              same-article-scope-stable-nullifier,
+              different-article-scope-different-nullifier,
+              blocked-nullifier-rejected,
+              scope-limit-exceeded-rejected,
+          ]
+      code:
+          - src/backend/Services/Security/AnonymousCommentTicketService.cs
+          - src/backend/Services/Security/AnonymousCredentialRootLifecycleService.cs
+          - src/backend/Services/Security/AnonymousCredentialRootService.cs
+          - src/backend/Services/Security/CommentAnonymousNullifierService.cs
+          - src/frontend/src/privacy/commentPrivacyRuntime.ts
+      tests:
+          - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
+          - tests/backend/Unit/AnonymousCommentSubmitTests.cs
+          - tests/backend/Unit/PodBinaryCodecTests.cs
+          - tests/backend/Unit/BackendGoldenCatalogTests.cs
+          - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
+      evidence:
+          - .tmp/security/privacy-zk-comment-matrix.json
+
+    - id: PRIVACY-ZK-MODERATION-LOGGING
+      scenario: moderation, provider and logging surfaces cannot re-identify anonymous accounts
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              provider-no-userId-username-proof-raw-nullifier,
+              log-redaction-proof-witness-credential-secret-raw-nullifier-cookie-authorization,
+              admin-no-account-reversal,
+              public-signature-explicit-opt-in,
+          ]
+      code:
+          - src/backend/Services/Moderation/AntiSpamModerationService.cs
+          - src/backend/Models/Moderation/AntiSpamModerationModels.cs
+          - src/backend/Infrastructure/Audit/AuditEventService.cs
+          - src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue
+      tests:
+          - tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs
+          - tests/frontend/unit/api/anonymousGovernance.test.ts
+          - tests/frontend/unit/adapters/binary/commentAdapter.test.ts
+      evidence:
+          - .tmp/security/privacy-zk-comment-matrix.json
+
+    - id: PRIVACY-ZK-FRONTEND-RUNTIME
+      scenario: frontend privacy runtime uses fake timers, mocked transport, worker transfers, abort races and non-ZK public copy
+      owner: InteropGlueAgent
+      status: automated
+      requiredCases:
+          [
+              fake-timers-ticket-ttl,
+              mocked-fetch-credentials-omit,
+              worker-transferable-payload,
+              article-switch-abort-race,
+              ui-no-zk-terms,
+          ]
+      code:
+          - src/frontend/src/privacy/commentPrivacyRuntime.ts
+          - src/frontend/src/privacy/commentPrivacyWorkerClient.ts
+          - src/frontend/src/components/article/ArticleCommentComposer.vue
+          - src/frontend/src/composables/useArticleDetailView.ts
+      tests:
+          - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
+          - tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts
+          - tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts
+          - tests/frontend/unit/api/comment.test.ts
+          - tests/frontend/unit/components/ArticleCommentComposer.test.ts
+          - tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts
+      evidence:
+          - .tmp/security/privacy-zk-comment-matrix.json
+
+    - id: PRIVACY-ZK-CONCURRENCY
+      scenario: high concurrency paths are deterministic, bounded and nonblocking
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              concurrent-same-nullifier-scope-policy-limit,
+              concurrent-ticket-consume-once,
+              root-snapshot-cached-high-frequency,
+              verifier-bounded-concurrency,
+              anonymous-ticket-identity-filter-cheap-reject,
+              comment-submit-invalidation-nonblocking,
+          ]
+      code:
+          - src/backend/Services/Security/AnonymousCommentTicketService.cs
+          - src/backend/Services/Security/CommentAnonymousNullifierService.cs
+          - src/backend/Services/Security/ProductionZkProofVerifier.cs
+          - src/backend/Services/Security/ZkAnonymousProofService.cs
+          - src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs
+      tests:
+          - tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs
+          - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
+          - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
+          - tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs
+          - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
+          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
+      evidence:
+          - .tmp/security/privacy-zk-comment-matrix.json
+
+    - id: PRIVACY-ZK-PUBLIC-REVOCATION-DISTRIBUTION
+      scenario: all credentials fetch the same public immutable revocation snapshot or delta and construct non-membership witnesses locally
+      owner: InteropGlueAgent
+      status: automated
+      requiredCases:
+          [
+              same-url-size-response-shape-two-credentials,
+              no-commitment-handle-leaf-stable-id,
+              retired-endpoint-410-no-body-parse,
+              full-snapshot-local-witness,
+              exact-base-delta-update,
+              tamper-content-hash-reject,
+              tamper-binding-reject,
+              root-mismatch-reject,
+              epoch-version-rollback-reject,
+              stale-reject,
+              low-memory-download-budget,
+              worker-cpu-budget,
+              no-handle-log-telemetry,
+          ]
+      localCommands:
+          [
+              check:public-revocation-distribution,
+              check:privacy-zk-frontend,
+              check:privacy-zk-backend,
+          ]
+      code:
+          - src/backend/Services/Security/AnonymousCredentialRevocationArtifactService.cs
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs
+          - src/frontend/src/privacy/commentPrivacyRevocationLocal.ts
+          - src/frontend/src/workers/privacy/commentPrivacy.worker.ts
+          - src/frontend/src/api/comment.ts
+      tests:
+          - tests/backend/Unit/AnonymousCredentialRevocationArtifactServiceTests.cs
+          - tests/backend/Unit/AnonymousCredentialRootEndpointTests.cs
+          - tests/frontend/unit/api/comment.test.ts
+          - tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts
+      evidence:
+          - security/evidence-contracts/public-revocation-distribution.json
+
+    - id: PRIVACY-ZK-PROD-SMOKE
+      scenario: production ZK smoke validates native verifier, browser prover evidence, ticket issue, anonymous submit and pending DB state without identity headers or sensitive payload logs
+      owner: ServerContractAgent
+      status: optional-gate
+      requiredCases:
+          [
+              happy-path-smoke,
+              cookie-contamination-negative-smoke,
+              ticket-replay-negative-smoke,
+              tampered-proof-negative-smoke,
+              feature-flag-off-expected-unavailable,
+              cross-scope-nullifier-independence-smoke,
+              complete-transcript-unlinkability-100-scopes,
+              legacy-layout-rejected,
+              real-native-verifier-wasm-prover-evidence,
+              proof-ticket-credential-redacted,
+          ]
+      localCommands:
+          [check:privacy-zk-prod-smoke, check:privacy-zk-prod-release]
+      code:
+          - tools/security/run-privacy-zk-prod-smoke.mjs
+          - src/backend/Services/Security/ProductionZkProofVerifier.cs
+          - src/backend/Services/Security/AnonymousCommentTicketService.cs
+          - src/backend/Services/CommentService.cs
+          - src/frontend/src/privacy/commentPrivacyWasmProver.ts
+      tests:
+          - tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs
+          - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
+          - tests/security/privacy-zk-prod-smoke.test.mjs
+          - tests/security/privacy-zk-prod-release.test.mjs
+      evidence:
+          - .tmp/security/privacy-zk-prod-smoke.json

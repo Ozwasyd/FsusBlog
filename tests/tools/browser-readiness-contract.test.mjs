@@ -1,0 +1,229 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+const {
+    checkBrowserReadinessContract,
+    inspectBrowserReadinessSource,
+    inspectMeasurementHelper
+} = await import(new URL('../../tools/testing/check-browser-readiness-contract.mjs', import.meta.url));
+const {
+    applicationReadyPredicate,
+    inspectFontLoadingReadiness,
+    waitForAuthPermissionReady,
+    waitForNotificationSuppressed,
+    waitForPublicHydration,
+    waitForServiceWorkerCacheReady,
+    waitForSpaRoute
+} = await import(new URL('../frontend/support/playwright/readiness.mjs', import.meta.url));
+
+test('application readiness accepts a visible SPA shell once the runtime loader is closed', () =>
+{
+    const previousDocument = globalThis.document;
+    const previousHTMLElement = globalThis.HTMLElement;
+    const previousWindow = globalThis.window;
+    class FakeElement
+    {}
+    const app = Object.assign(new FakeElement(), {
+        getBoundingClientRect: () => ({ width: 1280, height: 720 })
+    });
+    const spaShell = new FakeElement();
+    globalThis.HTMLElement = FakeElement;
+    globalThis.document = {
+        readyState: 'complete',
+        querySelector: (selector) => selector === '#app' ? app : selector === '#fsus-aot-shell' ? spaShell : null,
+        getElementById: (id) => id === 'global-loader' ? { hidden: true } : null
+    };
+    globalThis.window = {
+        getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity: '1' })
+    };
+    try
+    {
+        assert.equal(applicationReadyPredicate(), true);
+    }
+    finally
+    {
+        globalThis.document = previousDocument;
+        globalThis.HTMLElement = previousHTMLElement;
+        globalThis.window = previousWindow;
+    }
+});
+
+test('font readiness reports pre-probe loaded weights, glyph probes and error faces', async () =>
+{
+    const previousDocument = globalThis.document;
+    const faces = [
+        { family: '"Google Sans"', status: 'loaded', style: 'normal', weight: '400' },
+        { family: '"Google Sans"', status: 'loaded', style: 'normal', weight: '500' },
+        { family: '"Google Sans"', status: 'loaded', style: 'normal', weight: '700' },
+        { family: 'Broken Face', status: 'error', style: 'normal', weight: '400' }
+    ];
+    const loadCalls = [];
+    globalThis.document = {
+        fonts: {
+            status: 'loaded',
+            ready: Promise.resolve(),
+            check: () => true,
+            load: async (query, text) =>
+            {
+                loadCalls.push([query, text]);
+                return faces.filter((face) => face.family === '"Google Sans"');
+            },
+            [Symbol.iterator]: () => faces[Symbol.iterator]()
+        }
+    };
+    try
+    {
+        const page = {
+            evaluate: async (predicate, argument) => await predicate(argument)
+        };
+        const report = await inspectFontLoadingReadiness(page, [{
+            family: 'Google Sans',
+            representativeText: 'Àéñçõ',
+            weights: [400, 500, 700]
+        }]);
+
+        assert.equal(report.fontSetStatusBeforeProbe, 'loaded');
+        assert.equal(report.fontSetStatusAfterProbe, 'loaded');
+        assert.deepEqual(report.families[0].loadedWeightsBeforeProbe, [400, 500, 700]);
+        assert.deepEqual(report.families[0].probes.map((probe) => probe.check), [true, true, true]);
+        assert.deepEqual(loadCalls, [
+            ['400 1em "Google Sans"', 'Àéñçõ'],
+            ['500 1em "Google Sans"', 'Àéñçõ'],
+            ['700 1em "Google Sans"', 'Àéñçõ']
+        ]);
+        assert.deepEqual(report.errorFacesBeforeProbe, [{
+            family: 'Broken Face',
+            status: 'error',
+            style: 'normal',
+            weight: '400'
+        }]);
+        assert.deepEqual(report.errorFacesAfterProbe, report.errorFacesBeforeProbe);
+    }
+    finally
+    {
+        globalThis.document = previousDocument;
+    }
+});
+
+class FakePage
+{
+    constructor({ fail = false } = {})
+    {
+        this.fail = fail;
+        this.calls = [];
+    }
+
+    async waitForFunction(_predicate, _argument, options)
+    {
+        this.calls.push(['function', options.timeout]);
+        if (this.fail)
+        {
+            throw new Error('fixture timeout');
+        }
+    }
+
+    async waitForURL(_predicate, options)
+    {
+        this.calls.push(['url', options.timeout]);
+        if (this.fail)
+        {
+            throw new Error('fixture timeout');
+        }
+    }
+}
+
+class FakeLocator
+{
+    constructor({ fail = false } = {})
+    {
+        this.fail = fail;
+    }
+
+    async waitFor()
+    {
+        if (this.fail)
+        {
+            throw new Error('fixture timeout');
+        }
+    }
+}
+
+const hydrationReadiness = (page) => waitForPublicHydration(page, { timeoutMs: 17 });
+const spaRouteReadiness = (page, locator) =>
+    waitForSpaRoute(page, '/archive', { content: locator, timeoutMs: 17 });
+const serviceWorkerReadiness = (page) => waitForServiceWorkerCacheReady(page, { timeoutMs: 17 });
+const notificationReadiness = (page) => waitForNotificationSuppressed(page, { timeoutMs: 17 });
+const authPermissionReadiness = (page, locator) => waitForAuthPermissionReady(page, {
+    pathPrefix: '/user/manage',
+    content: locator,
+    timeoutMs: 17
+});
+
+async function assertReadinessSuccess(run)
+{
+    await run(new FakePage(), new FakeLocator());
+}
+
+async function assertReadinessTimeout(run)
+{
+    await assert.rejects(
+        run(new FakePage({ fail: true }), new FakeLocator({ fail: true })),
+        (error) =>
+        {
+            assert.match(error.message, /Browser readiness condition|SPA route|authenticated permission route/u);
+            assert.match(error.message, /17ms/u);
+            assert.match(error.message, /fixture timeout/u);
+            return true;
+        }
+    );
+}
+
+test('hydration readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(hydrationReadiness));
+test('hydration readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(hydrationReadiness));
+test('SPA route readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(spaRouteReadiness));
+test('SPA route readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(spaRouteReadiness));
+test('service worker/cache readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(serviceWorkerReadiness));
+test('service worker/cache readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(serviceWorkerReadiness));
+test('notification suppression readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(notificationReadiness));
+test('notification suppression readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(notificationReadiness));
+test('auth/permission readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(authPermissionReadiness));
+test('auth/permission readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(authPermissionReadiness));
+
+test('negative governance fixture reports file and line for forbidden waits', () =>
+{
+    const violations = inspectBrowserReadinessSource(
+        "await page.goto('/', { waitUntil:\n  'networkidle' })\nawait page\n  .waitForTimeout(500)\nawait page.waitForURL('/ready')\n  .catch(() => {})\n",
+        'tests/frontend/checks/runtime/fixture.mjs'
+    );
+    assert.deepEqual(violations, [
+        'tests/frontend/checks/runtime/fixture.mjs:1: networkidle is not a correctness readiness condition',
+        'tests/frontend/checks/runtime/fixture.mjs:4: direct page.waitForTimeout is forbidden in correctness assets',
+        'tests/frontend/checks/runtime/fixture.mjs:5: readiness timeout must not be silently ignored'
+    ]);
+});
+
+test('positive governance fixture accepts the metadata-bound measurement helper', () =>
+{
+    const source = `
+    async function runBrowserMeasurementWindow(page, { purpose, maxWindowMs, evidenceClass }) {
+      const allowed = ['performance', 'soak']
+      await page.waitForTimeout(maxWindowMs)
+    }
+  `;
+    assert.deepEqual(inspectMeasurementHelper(source), []);
+});
+
+test('current correctness assets satisfy the browser readiness policy', async () =>
+{
+    assert.deepEqual(await checkBrowserReadinessContract(), []);
+});

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TieredPGO>true</TieredPGO>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Contracts/ArticleEmbeds/article-embed-contract.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleEmbeds.article-embed-contract.schema.json" />
+    <EmbeddedResource Include="Contracts/ArticleVault/article-vault-root-manifest.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-root-manifest.schema.json" />
+    <EmbeddedResource Include="Contracts/ArticleVault/article-vault-article-manifest.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-article-manifest.schema.json" />
+    <EmbeddedResource Include="Contracts/ArticleVault/article-vault-metadata-manifest.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-metadata-manifest.schema.json" />
+    <EmbeddedResource Include="Contracts/ArticleVault/article-vault-sync-plan.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-sync-plan.schema.json" />
+    <EmbeddedResource Include="Contracts/Plugins/plugin-manifest.schema.json"
+                      LogicalName="FsusBlog.Contracts.Plugins.plugin-manifest.schema.json" />
+    <EmbeddedResource Include="Contracts/BlockLinks/block-anchor-contract.schema.json"
+                      LogicalName="FsusBlog.Contracts.BlockLinks.block-anchor-contract.schema.json" />
+  </ItemGroup>
+
+</Project>

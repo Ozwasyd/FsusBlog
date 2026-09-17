@@ -1,0 +1,9 @@
+{
+  "schema": "fsusblog.schema-compatibility-coordinate.v1",
+  "canonicalRegex": "^[0-9]{14}-[0-9a-f]{12}$",
+  "legacyRegex": "^[0-9]{8}-[a-z0-9][a-z0-9-]{2,119}$",
+  "minimum": "00000000000000-000000000000",
+  "maximum": "99999999999999-ffffffffffff",
+  "legacyMinimum": "00000000-legacy-bootstrap",
+  "legacyMaximum": "99999999-online-schema-v1"
+}

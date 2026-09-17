@@ -1,0 +1,22 @@
+template_id: sg-public-harmony-baseline
+version: 2026-06
+scope: region
+region: SG
+region_group: SEA
+source: fsusblog-engineering-preset
+reviewed_by: operator-review-required
+reviewed_at_utc:
+is_builtin: true
+is_enabled: true
+not_legal_advice: true
+description: Singapore public harmony engineering preset. Not legal advice; operator review required.
+rules:
+    - category: racial_religious_harmony
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: public_order_risk
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: scam
+      submit_action: manual_review_no_public_display
+      display_action: geo_block

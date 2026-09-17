@@ -1,0 +1,84 @@
+{
+    "schema": "fsusblog.schema-migration-primitives.v1",
+    "issue": 1134,
+    "defaultDialect": "PostgreSql",
+    "supportedDialects": [
+        "PostgreSql",
+        "MySql",
+        "Sqlite"
+    ],
+    "identifier": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$",
+        "qualifiedNamesAllowed": false,
+        "rawInterpolationAllowed": false
+    },
+    "columnDefinition": {
+        "types": [
+            "smallint",
+            "integer",
+            "bigint",
+            "boolean",
+            "bytea",
+            "text",
+            "timestamp",
+            "varchar(n)"
+        ],
+        "nullability": [
+            "NULL",
+            "NOT NULL"
+        ],
+        "defaults": [
+            "integer",
+            "boolean",
+            "now()",
+            "string-literal"
+        ],
+        "multipleStatementsAllowed": false
+    },
+    "ddlStepKinds": [
+        "EnsureTable",
+        "EnsureColumn",
+        "RenameTable",
+        "RenameColumn",
+        "DropColumn",
+        "DropTable",
+        "DropIndex",
+        "CreateIndex"
+    ],
+    "execution": {
+        "construction": "SchemaMigrationStep.BuildCommand(ISchemaDdlProvider)",
+        "singleExecutionBoundary": "SchemaMigrationStep.ExecuteAsync",
+        "preview": "SchemaMigrationPreviewer.PreviewAsync",
+        "transactionBoundary": "SchemaMigrationDescriptor.Transactional via SchemaMigrationRunner.UseTranAsync",
+        "crossDialectSnapshot": "tests/migration/schema-ddl-provider-snapshots.json",
+        "legacyEnsureTableBatch": {
+            "firstStatement": "CREATE TABLE",
+            "allowedTrailingStatements": [
+                "CREATE TABLE",
+                "CREATE INDEX",
+                "CREATE UNIQUE INDEX",
+                "same-table INSERT INTO"
+            ],
+            "commentsAllowed": false
+        },
+        "standaloneDdlTemplates": {
+            "singleStatementOnly": true,
+            "commentsAllowed": false,
+            "validatedKinds": [
+                "CREATE INDEX",
+                "CREATE UNIQUE INDEX"
+            ]
+        }
+    },
+    "negativeCases": [
+        "empty_identifier",
+        "qualified_identifier",
+        "quoted_identifier",
+        "statement_terminator_in_identifier",
+        "unsupported_column_type",
+        "ddl_in_column_definition",
+        "wrong_ddl_template_kind",
+        "multiple_unapproved_ddl_template_statements",
+        "commented_ddl_template"
+    ]
+}

@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2580,
+    "sourceCommit": "89ad921bd07d3364f47224680a4ffecc6b789b41",
+    "expectedRecords": 2,
+    "expectedMigrated": 2,
+    "records": [
+        {
+            "id": "node-test:tests/tools/release-rollout-probes.test.mjs#semantic-probe-latency-adapts-to-pressure-without-growin-e356870d9f",
+            "path": "tests/tools/release-rollout-probes.test.mjs",
+            "assertionTargets": [
+                "behavior:bounded semantic scale mathematics",
+                "behavior:release rollout semantic latency wiring"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "node-test:tests/tools/zero-downtime-rehearsal.test.mjs#semantic-rehearsal-delays-stay-pressure-aware-without-co-47f685ac22",
+            "path": "tests/tools/zero-downtime-rehearsal.test.mjs",
+            "assertionTargets": [
+                "behavior:bounded semantic scale mathematics",
+                "behavior:zero downtime rehearsal semantic delay wiring"
+            ],
+            "disposition": "migrated"
+        }
+    ]
+}

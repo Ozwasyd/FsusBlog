@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.runtime-publish-selection-policy.v1",
+    "decision": "retain-baseline",
+    "candidateProfileId": "throughput-glibc",
+    "operatorReason": "Retain the current production baseline unless the sealed candidate clears every relative and absolute gate.",
+    "options": {
+        "baselineProfileId": "throughput-musl",
+        "minimumSamples": 3,
+        "maximumCvPercent": 5,
+        "minimumSafeRpsDeltaPercent": -2,
+        "maximumP999DeltaPercent": 5,
+        "maximumRssDeltaPercent": 10,
+        "maximumGcPauseDeltaPercent": 5,
+        "maximumReadyDeltaPercent": 5,
+        "maximumRolloutDeltaPercent": 5,
+        "maximumRecoveryDeltaPercent": 5,
+        "maximumBlueGreenOverlapDeltaPercent": 5,
+        "minimumMaterialDeltaPercent": 2,
+        "maximumGcPauseP99Ms": 25,
+        "maximumReadyMs": 3000,
+        "maximumRolloutMs": 30000,
+        "maximumRecoveryMs": 30000,
+        "maximumBlueGreenOverlapBytes": 2147483648
+    }
+}

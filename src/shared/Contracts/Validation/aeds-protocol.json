@@ -1,0 +1,1002 @@
+{
+    "schemaVersion": 1,
+    "header": {
+        "size": 16,
+        "magic": "0x53444541",
+        "version": 2
+    },
+    "retiredFrameValues": [
+        {
+            "value": 40,
+            "reason": "legacy-admin-password-reset"
+        },
+        {
+            "value": 43,
+            "reason": "legacy-password-login"
+        },
+        {
+            "value": 44,
+            "reason": "legacy-password-register"
+        },
+        {
+            "value": 45,
+            "reason": "legacy-username-mutation"
+        },
+        {
+            "value": 46,
+            "reason": "legacy-password-mutation"
+        },
+        {
+            "value": 180,
+            "reason": "precise-anonymous-credential-ticket-request"
+        },
+        {
+            "value": 181,
+            "reason": "precise-anonymous-credential-ticket-response"
+        }
+    ],
+    "anonymousPrivacyContract": {
+        "circuitId": "fsus.anonymous.comment.v5",
+        "publicInputLayoutVersion": 6,
+        "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
+        "blindRsaModulusBytes": 384,
+        "maxGroth16ProofBytes": 4096,
+        "anonymousTicketPublicInputs": [
+            "action_context",
+            "scope",
+            "credential_root",
+            "revocation_root",
+            "nullifier_hash",
+            "is_eligible",
+            "may_comment",
+            "rate_class",
+            "requires_moderation"
+        ]
+    },
+    "frameTypes": [
+        {
+            "name": "Unknown",
+            "value": 0
+        },
+        {
+            "name": "ArticleList",
+            "value": 1
+        },
+        {
+            "name": "ArticleDetail",
+            "value": 2
+        },
+        {
+            "name": "ArticleHot",
+            "value": 3
+        },
+        {
+            "name": "ArticleSearch",
+            "value": 4
+        },
+        {
+            "name": "CommentArticleCursor",
+            "value": 5
+        },
+        {
+            "name": "CommentUserCursor",
+            "value": 6
+        },
+        {
+            "name": "AdminStats",
+            "value": 7
+        },
+        {
+            "name": "CommentThreadReplyCursor",
+            "value": 8
+        },
+        {
+            "name": "CategoryList",
+            "value": 9
+        },
+        {
+            "name": "TagList",
+            "value": 10
+        },
+        {
+            "name": "RecentCommentStats",
+            "value": 11
+        },
+        {
+            "name": "RegionStats",
+            "value": 12
+        },
+        {
+            "name": "SeoConfig",
+            "value": 13
+        },
+        {
+            "name": "PageContent",
+            "value": 14
+        },
+        {
+            "name": "ArticleFeatured",
+            "value": 15
+        },
+        {
+            "name": "TrashClearResponse",
+            "value": 16
+        },
+        {
+            "name": "AdminUserList",
+            "value": 17
+        },
+        {
+            "name": "AuthLoginFlow",
+            "value": 18
+        },
+        {
+            "name": "CurrentUserSnapshot",
+            "value": 19
+        },
+        {
+            "name": "UploadInit",
+            "value": 20
+        },
+        {
+            "name": "UploadStatus",
+            "value": 21
+        },
+        {
+            "name": "UploadPartAck",
+            "value": 22
+        },
+        {
+            "name": "UploadComplete",
+            "value": 23
+        },
+        {
+            "name": "UploadPartMap",
+            "value": 24
+        },
+        {
+            "name": "AuthSessionList",
+            "value": 25
+        },
+        {
+            "name": "SiteComplianceConfig",
+            "value": 26
+        },
+        {
+            "name": "ArticleRelatedReading",
+            "value": 27
+        },
+        {
+            "name": "HumanReadChallengeResponse",
+            "value": 28
+        },
+        {
+            "name": "HumanReadSubmitResponse",
+            "value": 29
+        },
+        {
+            "name": "PowChallenge",
+            "value": 30
+        },
+        {
+            "name": "UploadInitRequest",
+            "value": 31
+        },
+        {
+            "name": "UploadCompleteRequest",
+            "value": 32
+        },
+        {
+            "name": "CategoryWriteRequest",
+            "value": 33
+        },
+        {
+            "name": "TagWriteRequest",
+            "value": 34
+        },
+        {
+            "name": "SeoConfigUpdateRequest",
+            "value": 35
+        },
+        {
+            "name": "PageContentUpdateRequest",
+            "value": 36
+        },
+        {
+            "name": "FileDeleteRequest",
+            "value": 38
+        },
+        {
+            "name": "AdminChangeUserStatusRequest",
+            "value": 39
+        },
+        {
+            "name": "ArticleWriteRequest",
+            "value": 41
+        },
+        {
+            "name": "AuthDeleteAccountRequest",
+            "value": 47
+        },
+        {
+            "name": "MfaSetupStart",
+            "value": 48
+        },
+        {
+            "name": "MfaSetupVerify",
+            "value": 49
+        },
+        {
+            "name": "MfaProfile",
+            "value": 50
+        },
+        {
+            "name": "MfaChallengeResult",
+            "value": 51
+        },
+        {
+            "name": "MfaSetupVerifyRequest",
+            "value": 52
+        },
+        {
+            "name": "MfaPasswordProofRequest",
+            "value": 53
+        },
+        {
+            "name": "MfaChallengeStartRequest",
+            "value": 54
+        },
+        {
+            "name": "MfaChallengeVerifyRequest",
+            "value": 55
+        },
+        {
+            "name": "ConversationList",
+            "value": 56
+        },
+        {
+            "name": "ConversationDetail",
+            "value": 57
+        },
+        {
+            "name": "ConversationMessage",
+            "value": 58
+        },
+        {
+            "name": "ConversationCreateRequest",
+            "value": 59
+        },
+        {
+            "name": "ConversationReplyRequest",
+            "value": 60
+        },
+        {
+            "name": "ConversationStatusRequest",
+            "value": 61
+        },
+        {
+            "name": "SystemMessageRequest",
+            "value": 62
+        },
+        {
+            "name": "PasskeyRegisterBegin",
+            "value": 63
+        },
+        {
+            "name": "PasskeyLoginBegin",
+            "value": 64
+        },
+        {
+            "name": "PasskeyCredentialList",
+            "value": 65
+        },
+        {
+            "name": "PasskeyRegisterCompleteRequest",
+            "value": 66
+        },
+        {
+            "name": "PasskeyLoginCompleteRequest",
+            "value": 67
+        },
+        {
+            "name": "PasskeyCredentialFriendlyNameUpdateRequest",
+            "value": 68
+        },
+        {
+            "name": "NotificationEvent",
+            "value": 69
+        },
+        {
+            "name": "NotificationHeartbeat",
+            "value": 70
+        },
+        {
+            "name": "PublicAotBootstrap",
+            "value": 71
+        },
+        {
+            "name": "SiteComplianceConfigUpdateRequest",
+            "value": 72
+        },
+        {
+            "name": "HumanReadChallengeRequest",
+            "value": 73
+        },
+        {
+            "name": "HumanReadSubmitRequest",
+            "value": 74
+        },
+        {
+            "name": "RumMetricBatchRequest",
+            "value": 75
+        },
+        {
+            "name": "RumMetricIngestResponse",
+            "value": 76
+        },
+        {
+            "name": "AuthorDraftSaveRequest",
+            "value": 77
+        },
+        {
+            "name": "ArticlePreviewRequest",
+            "value": 78
+        },
+        {
+            "name": "PrepublishCheckRequest",
+            "value": 79
+        },
+        {
+            "name": "AiAssistRequest",
+            "value": 80
+        },
+        {
+            "name": "AdminCacheActionRequest",
+            "value": 81
+        },
+        {
+            "name": "IntegrityFixRequest",
+            "value": 82
+        },
+        {
+            "name": "ModerationRuntimeGlobalStateRequest",
+            "value": 83
+        },
+        {
+            "name": "ModerationRuntimeRegionStateRequest",
+            "value": 84
+        },
+        {
+            "name": "ModerationDictionaryStateRequest",
+            "value": 85
+        },
+        {
+            "name": "ModerationEffectivePolicyPreviewRequest",
+            "value": 86
+        },
+        {
+            "name": "ModerationModelRuntimeRequest",
+            "value": 87
+        },
+        {
+            "name": "ModerationReplayPreviewRequest",
+            "value": 88
+        },
+        {
+            "name": "CommentModerationRequest",
+            "value": 89
+        },
+        {
+            "name": "CommentModerationBulkRequest",
+            "value": 90
+        },
+        {
+            "name": "ContentImportRequest",
+            "value": 91
+        },
+        {
+            "name": "AuthorDraftResponse",
+            "value": 92
+        },
+        {
+            "name": "AuthorDraftDiscardResponse",
+            "value": 93
+        },
+        {
+            "name": "ArticlePreviewResponse",
+            "value": 94
+        },
+        {
+            "name": "PrepublishCheckResponse",
+            "value": 95
+        },
+        {
+            "name": "AiAssistResponse",
+            "value": 96
+        },
+        {
+            "name": "AssetLibraryList",
+            "value": 97
+        },
+        {
+            "name": "AssetCleanupResponse",
+            "value": 98
+        },
+        {
+            "name": "AuthorTaxonomyCategoryList",
+            "value": 99
+        },
+        {
+            "name": "AuthorTaxonomyTagList",
+            "value": 100
+        },
+        {
+            "name": "AuthorAnalytics",
+            "value": 101
+        },
+        {
+            "name": "AuditLogList",
+            "value": 102
+        },
+        {
+            "name": "AuditLogSummary",
+            "value": 103
+        },
+        {
+            "name": "AuditLogDetail",
+            "value": 104
+        },
+        {
+            "name": "AuditTamperVerifyResponse",
+            "value": 105
+        },
+        {
+            "name": "OpsHealth",
+            "value": 106
+        },
+        {
+            "name": "BackupStatus",
+            "value": 107
+        },
+        {
+            "name": "DangerousOperationPolicy",
+            "value": 108
+        },
+        {
+            "name": "CacheDiagnostics",
+            "value": 109
+        },
+        {
+            "name": "AdminCacheActionResponse",
+            "value": 110
+        },
+        {
+            "name": "IntegrityReport",
+            "value": 111
+        },
+        {
+            "name": "IntegrityFixPreview",
+            "value": 112
+        },
+        {
+            "name": "IntegrityFixResponse",
+            "value": 113
+        },
+        {
+            "name": "CommentModerationQueue",
+            "value": 114
+        },
+        {
+            "name": "CommentModerationBulkResponse",
+            "value": 115
+        },
+        {
+            "name": "CommentModerationResult",
+            "value": 116
+        },
+        {
+            "name": "ContentExport",
+            "value": 117
+        },
+        {
+            "name": "ContentBackupExport",
+            "value": 118
+        },
+        {
+            "name": "ContentImportResponse",
+            "value": 119
+        },
+        {
+            "name": "ArticleRevisionList",
+            "value": 120
+        },
+        {
+            "name": "ArticleRevisionDetail",
+            "value": 121
+        },
+        {
+            "name": "ArticleRevisionRollbackResponse",
+            "value": 122
+        },
+        {
+            "name": "ModerationOverview",
+            "value": 123
+        },
+        {
+            "name": "ModerationDictionarySnapshot",
+            "value": 124
+        },
+        {
+            "name": "ModerationDictionaryReloadResponse",
+            "value": 125
+        },
+        {
+            "name": "ModerationRuntimeStatus",
+            "value": 126
+        },
+        {
+            "name": "ModerationRegionList",
+            "value": 127
+        },
+        {
+            "name": "ModerationRegionGroupList",
+            "value": 128
+        },
+        {
+            "name": "ModerationPolicyTemplateList",
+            "value": 129
+        },
+        {
+            "name": "ModerationEffectivePolicy",
+            "value": 130
+        },
+        {
+            "name": "RegionPolicySummaryList",
+            "value": 131
+        },
+        {
+            "name": "ModerationModelStatus",
+            "value": 132
+        },
+        {
+            "name": "ModerationReplayPreview",
+            "value": 133
+        },
+        {
+            "name": "AntiCrawlerOptionsUpdateRequest",
+            "value": 134
+        },
+        {
+            "name": "SecurityRiskResetRequest",
+            "value": 135
+        },
+        {
+            "name": "AntiCrawlerRuleRequest",
+            "value": 136
+        },
+        {
+            "name": "AntiCrawlerListEntryRequest",
+            "value": 137
+        },
+        {
+            "name": "AntiCrawlerSimulationRequest",
+            "value": 138
+        },
+        {
+            "name": "PowOptionsUpdateRequest",
+            "value": 139
+        },
+        {
+            "name": "SecurityOverview",
+            "value": 140
+        },
+        {
+            "name": "AntiCrawlerOverview",
+            "value": 141
+        },
+        {
+            "name": "AntiCrawlerPolicySnapshot",
+            "value": 142
+        },
+        {
+            "name": "CrawlerRangesAdminStatus",
+            "value": 143
+        },
+        {
+            "name": "CrawlerRangeSyncResponse",
+            "value": 144
+        },
+        {
+            "name": "SecurityRiskEventList",
+            "value": 145
+        },
+        {
+            "name": "SecurityRiskSnapshotList",
+            "value": 146
+        },
+        {
+            "name": "SecurityRiskResetResponse",
+            "value": 147
+        },
+        {
+            "name": "AntiCrawlerRuleList",
+            "value": 148
+        },
+        {
+            "name": "AntiCrawlerRuleResponse",
+            "value": 149
+        },
+        {
+            "name": "AntiCrawlerRuleDeleteResponse",
+            "value": 150
+        },
+        {
+            "name": "AntiCrawlerListEntryList",
+            "value": 151
+        },
+        {
+            "name": "AntiCrawlerListEntryResponse",
+            "value": 152
+        },
+        {
+            "name": "AntiCrawlerListEntryDeleteResponse",
+            "value": 153
+        },
+        {
+            "name": "AntiCrawlerSimulationResult",
+            "value": 154
+        },
+        {
+            "name": "PowOverview",
+            "value": 155
+        },
+        {
+            "name": "PowPolicySnapshot",
+            "value": 156
+        },
+        {
+            "name": "SiteSubscriptionRequest",
+            "value": 157
+        },
+        {
+            "name": "SiteSubscriptionResponse",
+            "value": 158
+        },
+        {
+            "name": "RecoveryKeyCreateResponse",
+            "value": 159
+        },
+        {
+            "name": "RecoveryKeyVerifyRequest",
+            "value": 160
+        },
+        {
+            "name": "RecoveryKeyVerifyResponse",
+            "value": 161
+        },
+        {
+            "name": "RecoveryKeySessionRequest",
+            "value": 162
+        },
+        {
+            "name": "IdentityAccountSnapshot",
+            "value": 163
+        },
+        {
+            "name": "CommentPolicySnapshot",
+            "value": 164
+        },
+        {
+            "name": "CommentPolicyUpdateRequest",
+            "value": 165
+        },
+        {
+            "name": "CommentCreateV2Request",
+            "value": 166
+        },
+        {
+            "name": "CommentAuthorView",
+            "value": 167
+        },
+        {
+            "name": "AnonymousGovernanceActionRequest",
+            "value": 168
+        },
+        {
+            "name": "AnonymousGovernanceActionResponse",
+            "value": 169
+        },
+        {
+            "name": "AdminSessionList",
+            "value": 170
+        },
+        {
+            "name": "SecurityChallengeAssignment",
+            "value": 171
+        },
+        {
+            "name": "SecurityChallengeEnvelope",
+            "value": 172
+        },
+        {
+            "name": "SecurityChallengeIssueRequest",
+            "value": 173
+        },
+        {
+            "name": "SecurityChallengeVerifyRequest",
+            "value": 174
+        },
+        {
+            "name": "SecurityChallengeIssueResponse",
+            "value": 175
+        },
+        {
+            "name": "SecurityChallengeVerifyResponse",
+            "value": 176
+        },
+        {
+            "name": "Reserved177",
+            "value": 177
+        },
+        {
+            "name": "Reserved178",
+            "value": 178
+        },
+        {
+            "name": "AnonymousCredentialRootSnapshot",
+            "value": 179
+        },
+        {
+            "name": "AnonymousCommentCreateRequest",
+            "value": 182
+        },
+        {
+            "name": "AnonymousPrivacyStateSnapshot",
+            "value": 183
+        },
+        {
+            "name": "PerceptionSealedChallengeV2",
+            "value": 184
+        },
+        {
+            "name": "PerceptionSealedResultV2",
+            "value": 185
+        },
+        {
+            "name": "RetiredCredentialSpecificRevocationRequest",
+            "value": 186
+        },
+        {
+            "name": "RetiredCredentialSpecificRevocationResponse",
+            "value": 187
+        },
+        {
+            "name": "AdminPrincipalSnapshot",
+            "value": 188
+        },
+        {
+            "name": "AuthAnonymousBootstrapRequest",
+            "value": 189
+        },
+        {
+            "name": "AuthUpdatePublicHandleRequest",
+            "value": 190
+        },
+        {
+            "name": "ArticleResponsibilityRequest",
+            "value": 191
+        },
+        {
+            "name": "ArticleResponsibilityResponse",
+            "value": 192
+        },
+        {
+            "name": "BlindCredentialIssuerMetadata",
+            "value": 193
+        },
+        {
+            "name": "BlindCredentialIssueRequest",
+            "value": 194
+        },
+        {
+            "name": "BlindCredentialIssueResponse",
+            "value": 195
+        },
+        {
+            "name": "AnonymousCredentialRevocationSnapshot",
+            "value": 196
+        },
+        {
+            "name": "AnonymousCredentialRevocationDelta",
+            "value": 197
+        },
+        {
+            "name": "AnonymousCommentTicketRequest",
+            "value": 198
+        },
+        {
+            "name": "AnonymousCommentTicketResponse",
+            "value": 199
+        },
+        {
+            "name": "SecurityChallengeCancelRequest",
+            "value": 200
+        },
+        {
+            "name": "ConversationReadRequest",
+            "value": 201
+        },
+        {
+            "name": "AccountConversationReplyRequest",
+            "value": 202
+        },
+        {
+            "name": "ConversationDetailV2",
+            "value": 203
+        },
+        {
+            "name": "ConversationDetailV3",
+            "value": 204
+        },
+        {
+            "name": "CommentCreateResult",
+            "value": 205
+        },
+        {
+            "name": "AdminConversationList",
+            "value": 206
+        },
+        {
+            "name": "AdminConversationDetail",
+            "value": 207
+        },
+        {
+            "name": "CommentTreeRootCursor",
+            "value": 208
+        },
+        {
+            "name": "CommentChildCursor",
+            "value": 209
+        },
+        {
+            "name": "CommentPermalinkContext",
+            "value": 210
+        },
+        {
+            "name": "ConversationStatusMutationResult",
+            "value": 211
+        },
+        {
+            "name": "PasskeySignalState",
+            "value": 212
+        },
+        {
+            "name": "ArticleRevisionRollbackRequest",
+            "value": 213
+        },
+        {
+            "name": "AnonymousCommentCreateResult",
+            "value": 214
+        },
+        {
+            "name": "CommentManagementChallengeRequest",
+            "value": 215
+        },
+        {
+            "name": "CommentManagementChallengeResponse",
+            "value": 216
+        },
+        {
+            "name": "CommentAuthorEditRequest",
+            "value": 217
+        },
+        {
+            "name": "CommentAuthorMutationResult",
+            "value": 218
+        },
+        {
+            "name": "CommentAuthorStatusRequest",
+            "value": 219
+        },
+        {
+            "name": "CommentAuthorStatusResult",
+            "value": 220
+        },
+        {
+            "name": "CommentAuthorAppealRequest",
+            "value": 221
+        },
+        {
+            "name": "CommentRevisionList",
+            "value": 222
+        },
+        {
+            "name": "CommentReportRequest",
+            "value": 223
+        },
+        {
+            "name": "CommentReportResult",
+            "value": 224
+        },
+        {
+            "name": "CommentModerationTimeline",
+            "value": 225
+        },
+        {
+            "name": "CommentAppealDecisionRequest",
+            "value": 226
+        },
+        {
+            "name": "CommentAppealDecisionResult",
+            "value": 227
+        },
+        {
+            "name": "ArticleResponsibilityHistory",
+            "value": 228
+        },
+        {
+            "name": "CommentModerationClaimRequest",
+            "value": 229
+        },
+        {
+            "name": "CommentModerationClaimMutationRequest",
+            "value": 230
+        },
+        {
+            "name": "CommentModerationClaimResponse",
+            "value": 231
+        },
+        {
+            "name": "PluginPackageInstallRequest",
+            "value": 232
+        },
+        {
+            "name": "PluginAdminSnapshot",
+            "value": 233
+        },
+        {
+            "name": "PluginAdminMutationRequest",
+            "value": 234
+        },
+        {
+            "name": "ClusterRuntimeSnapshot",
+            "value": 235
+        },
+        {
+            "name": "ClusterNodeStateRequest",
+            "value": 236
+        },
+        {
+            "name": "ClusterSchedulerStateRequest",
+            "value": 237
+        },
+        {
+            "name": "ClusterLeaseReleaseRequest",
+            "value": 238
+        },
+        {
+            "name": "UserLocalePreference",
+            "value": 239
+        },
+        {
+            "name": "EmptySuccess",
+            "value": 240
+        },
+        {
+            "name": "MutationId",
+            "value": 241
+        },
+        {
+            "name": "UserLocalePreferenceUpdateRequest",
+            "value": 242
+        },
+        {
+            "name": "TaxonomyExactMetadata",
+            "value": 243
+        },
+        {
+            "name": "ApiError",
+            "value": 251
+        }
+    ]
+}

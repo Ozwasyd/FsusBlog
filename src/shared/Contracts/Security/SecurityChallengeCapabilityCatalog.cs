@@ -1,0 +1,135 @@
+namespace FsusBlog.Shared.Contracts.Security;
+
+/// <summary>
+/// Identifies whether a challenge is executed by an interactive UI or a headless client.
+/// </summary>
+public enum SecurityChallengeExecutionMode : byte
+{
+    Ui = 0,
+    Headless = 1
+}
+
+/// <summary>
+/// Describes the runtime provider, executor, host, cancellation, and surface support for one challenge kind.
+/// </summary>
+public sealed record SecurityChallengeCapability(
+    SecurityChallengeKind Kind,
+    string WireName,
+    bool KindKnown,
+    bool ProviderAvailable,
+    bool UiExecutorAvailable,
+    bool HeadlessExecutorAvailable,
+    bool UiHostAvailable,
+    bool HeadlessHostAvailable,
+    bool Cancellable,
+    IReadOnlySet<string> Surfaces);
+
+/// <summary>
+/// Reports the capability checks used to decide whether a challenge is eligible for the requested surface.
+/// </summary>
+public sealed record SecurityChallengeCapabilityResolution(
+    SecurityChallengeCapability Capability,
+    bool ManifestCompatible,
+    bool ProviderAvailable,
+    bool ExecutorAvailable,
+    bool HostAvailable,
+    bool PolicyEligible,
+    string? UnavailableReason);
+
+/// <summary>
+/// Low-information capability manifest shipped with the server and frontend build.
+/// It contains no device, identity, token or proof data.
+/// </summary>
+public static class SecurityChallengeCapabilityCatalog
+{
+    public const string ManifestVersion = "2026.07.22.1";
+    public const string NotificationSubscribeAction = "notification.subscribe";
+
+    public static readonly IReadOnlyList<SecurityChallengeCapability> All =
+    [
+        Entry(SecurityChallengeKind.Unknown, false, false, false, false, false, false, false),
+        Entry(SecurityChallengeKind.Sha256PowV1, true, true, true, true, true, true, true, "*"),
+        Entry(SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, true, true, true, true, true, "*"),
+        Entry(SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false, false, false),
+        Entry(SecurityChallengeKind.PasskeyStepUpV1, true, true, false, false, false, false, false),
+        Entry(SecurityChallengeKind.AdminPasskeyStepUpV1, true, true, false, false, false, false, false),
+        Entry(SecurityChallengeKind.RecoveryKeyProofV1, true, false, false, false, false, false, false),
+        Entry(SecurityChallengeKind.AnonymousCredentialProofV1, true, false, false, false, false, false, false),
+        Entry(SecurityChallengeKind.ZkAnonymousCommentProofV1, true, false, false, false, false, false, false),
+        Entry(SecurityChallengeKind.PerceptionLocalizationV2, true, true, true, false, true, false, true, "*"),
+        Entry(SecurityChallengeKind.PerceptionMicroInteractionV2, true, true, true, false, true, false, true, "*"),
+        Entry(SecurityChallengeKind.PerceptionCharacterV3, true, true, true, false, true, false, true, "*")
+    ];
+
+    private static readonly IReadOnlyDictionary<SecurityChallengeKind, SecurityChallengeCapability> s_byKind =
+        All.ToDictionary(static item => item.Kind);
+
+    public static SecurityChallengeCapability Get(SecurityChallengeKind kind)
+        => s_byKind.TryGetValue(kind, out SecurityChallengeCapability? capability)
+            ? capability
+            : s_byKind[SecurityChallengeKind.Unknown];
+
+    public static SecurityChallengeCapabilityResolution Resolve(
+        SecurityChallengeKind kind,
+        string? action,
+        SecurityChallengeExecutionMode mode,
+        string? manifestVersion = null,
+        bool? providerAvailable = null)
+    {
+        SecurityChallengeCapability capability = Get(kind);
+        bool compatible = string.IsNullOrWhiteSpace(manifestVersion)
+            || string.Equals(manifestVersion, ManifestVersion, StringComparison.Ordinal);
+        bool provider = providerAvailable ?? capability.ProviderAvailable;
+        bool executor = mode == SecurityChallengeExecutionMode.Ui
+            ? capability.UiExecutorAvailable
+            : capability.HeadlessExecutorAvailable;
+        bool surfaceAvailable = capability.Surfaces.Contains("*")
+            || capability.Surfaces.Contains((action ?? string.Empty).Trim());
+        bool host = surfaceAvailable && (mode == SecurityChallengeExecutionMode.Ui
+            ? capability.UiHostAvailable
+            : capability.HeadlessHostAvailable);
+        bool eligible = capability.KindKnown && provider && compatible && executor && host;
+        string? reason = !capability.KindKnown ? "kind_unknown"
+            : !provider ? "provider_unavailable"
+            : !compatible ? "version_incompatible"
+            : !executor ? "executor_unavailable"
+            : !host ? "host_unavailable"
+            : null;
+
+        return new SecurityChallengeCapabilityResolution(
+            capability,
+            compatible,
+            provider,
+            executor,
+            host,
+            eligible,
+            reason);
+    }
+
+    public static SecurityChallengeExecutionMode ResolveMode(string? action)
+        => string.Equals((action ?? string.Empty).Trim(), NotificationSubscribeAction, StringComparison.Ordinal)
+            ? SecurityChallengeExecutionMode.Headless
+            : SecurityChallengeExecutionMode.Ui;
+
+    private static SecurityChallengeCapability Entry(
+        SecurityChallengeKind kind,
+        bool known,
+        bool provider,
+        bool uiExecutor,
+        bool headlessExecutor,
+        bool uiHost,
+        bool headlessHost,
+        bool cancellable,
+        params string[] surfaces)
+        => new(
+            kind,
+            SecurityChallengeContracts.ToWireName(kind),
+            known,
+            provider,
+            uiExecutor,
+            headlessExecutor,
+            uiHost,
+            headlessHost,
+            cancellable,
+            surfaces.ToHashSet(StringComparer.Ordinal));
+}

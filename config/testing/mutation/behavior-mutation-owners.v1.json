@@ -1,0 +1,80 @@
+{
+    "schema": "fsusblog.behavior-mutation-owners.v1",
+    "version": 1,
+    "description": "Reviewed per-behavior C# implementation-owner mutation closure for the four mutation-required release behaviors. Derived from the behavior-fact-extractor registry consumedInputs (C# files under the mutation source projects), the reviewed AEDS critical slice (config/testing/mutation/critical.json + release-parity-subset.json) for binary-api-aeds-contract, and explicit disambiguation for security sources shared by the auth-session and config-error extractors (MfaChallengeService.cs, PasskeyService.cs, RecoveryKeyService.cs, and UserSecurityStepUpService.cs are assigned to authentication-session-permission, whose fact keys own authentication and step-up behavior). Exact disjoint source ownership is required so every Stryker mutant attributes to exactly one behavior.",
+    "sourceProjects": [
+        "src/backend",
+        "src/core"
+    ],
+    "behaviors": [
+        {
+            "behaviorId": "binary-api-aeds-contract",
+            "provenance": "config/testing/mutation/critical.json + release-parity-subset.json reviewed AEDS v2 wire core plus backend binary transport closure",
+            "sourceFiles": [
+                "src/backend/Infrastructure/Binary/AedsBinaryWriter.cs",
+                "src/backend/Infrastructure/Binary/BinaryEndpointRequestContext.cs",
+                "src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs",
+                "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+                "src/core/Algorithms/AedsCrc16.cs",
+                "src/core/Algorithms/AedsDecoderValidator.cs",
+                "src/core/Algorithms/AedsEncoder.cs",
+                "src/core/Algorithms/AedsFrameBufferWriter.cs",
+                "src/core/Algorithms/AedsFrameSensitivity.cs",
+                "src/core/Algorithms/AedsFrameType.cs",
+                "src/core/Algorithms/AedsOwnedFrameBuilder.cs",
+                "src/core/Algorithms/IAedsEncoder.cs",
+                "src/core/Algorithms/OwnedAedsFrame.cs"
+            ]
+        },
+        {
+            "behaviorId": "authentication-session-permission",
+            "provenance": "behavior-fact-extractors.json auth-session-permission-fact-extractor consumedInputs (C# under src/backend/src/core); shared authentication and step-up sources disambiguated to this behavior",
+            "sourceFiles": [
+                "src/backend/Entities/UserSessionAuthenticationContext.cs",
+                "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+                "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Services/Security/AdminPrincipalService.cs",
+                "src/backend/Services/Security/MfaChallengeService.cs",
+                "src/backend/Services/Security/PasskeyService.cs",
+                "src/backend/Services/Security/RecoveryKeyService.cs",
+                "src/backend/Services/Security/UserSecurityStepUpService.cs",
+                "src/backend/Services/UserLoginWorkflowService.cs",
+                "src/backend/Services/UserSessionCommandService.cs"
+            ]
+        },
+        {
+            "behaviorId": "configuration-error-security-policy",
+            "provenance": "behavior-fact-extractors.json config-error-security-policy-fact-extractor consumedInputs (C# under src/backend/src/core); shared authentication and step-up sources are owned by authentication-session-permission per shared-file disambiguation",
+            "sourceFiles": [
+                "src/backend/Entities/AnonymousCommentPolicy.cs",
+                "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
+                "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+                "src/backend/Models/Security/SecurityAdminModels.cs",
+                "src/backend/Services/Security/RedisPowService.cs",
+                "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+                "src/backend/Services/Security/SecurityChallengeOrchestrator.cs",
+                "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
+                "src/core/Common/ErrorCode.cs"
+            ]
+        },
+        {
+            "behaviorId": "article-comment-lifecycle-outbox",
+            "provenance": "behavior-fact-extractors.json content-lifecycle-fact-extractor consumedInputs (C# under src/backend/src/core)",
+            "sourceFiles": [
+                "src/backend/Entities/Article.cs",
+                "src/backend/Entities/Comment.cs",
+                "src/backend/Entities/CommentMutationOutbox.cs",
+                "src/backend/Models/Moderation/AntiSpamModerationModels.cs",
+                "src/backend/Services/ArticleMutationSideEffects.cs",
+                "src/backend/Services/ArticlePublicationTransition.cs",
+                "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
+                "src/backend/Services/CommentService.cs",
+                "src/backend/Services/Moderation/CommentModerationTransitions.cs",
+                "src/core/Services/Articles/ArticleStatusTransitionPolicy.cs"
+            ]
+        }
+    ]
+}

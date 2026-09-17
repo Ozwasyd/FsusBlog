@@ -1,0 +1,169 @@
+# Kestrel serves the application while the external gateway owns public ingress.
+
+services:
+    fsusblog.server:
+        # Slot-specific names allow blue and green releases to coexist.
+        container_name: ${FSUSBLOG_CONTAINER_NAME:?Set slot-specific container name (fsus-app-blue or fsus-app-green)}
+        image: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}
+        pull_policy: always
+        labels:
+            io.fsusblog.release.slot: ${FSUSBLOG_RELEASE_SLOT:?Set blue or green release slot}
+            io.fsusblog.release.id: ${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
+            io.fsusblog.release.created-at-utc: ${FSUSBLOG_RELEASE_CREATED_AT_UTC:?Set createdAtUtc from release-manifest.json}
+            io.fsusblog.release.commit: ${FSUSBLOG_COMMIT_SHA:?Set commitSha from release-manifest.json}
+            io.fsusblog.release.image-ref: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}
+            io.fsusblog.release.image-digest: ${FSUSBLOG_IMAGE_DIGEST:?Set image digest from release-manifest.json}
+            io.fsusblog.deployment.project: ${FSUSBLOG_COMPOSE_PROJECT_NAME:?Set slot-specific Compose project}
+            io.fsusblog.deployment.mode: ${FSUSBLOG_DEPLOYMENT_MODE:-candidate}
+            io.fsusblog.deployment.generation: ${FSUSBLOG_DEPLOYMENT_GENERATION:?Set immutable candidate runtime generation}
+        restart: always
+        stop_grace_period: ${FSUSBLOG_STOP_GRACE_PERIOD:-60s}
+        cap_drop:
+            - ALL
+        security_opt:
+            - no-new-privileges:true
+        ulimits:
+            core:
+                soft: 0
+                hard: 0
+        environment:
+            - ASPNETCORE_ENVIRONMENT=${FSUSBLOG_ASPNETCORE_ENVIRONMENT:-Production}
+            # Ordinary production slots must not emit managed dumps, diagnostic-port captures, or OS core files.
+            - DOTNET_DbgEnableMiniDump=0
+            - COMPlus_DbgEnableMiniDump=0
+            - DOTNET_EnableDiagnostics=0
+            - FSUSBLOG_RELEASE_ID=${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
+            - FSUSBLOG_RELEASE_CREATED_AT_UTC=${FSUSBLOG_RELEASE_CREATED_AT_UTC:?Set createdAtUtc from release-manifest.json}
+            - FSUSBLOG_RELEASE_SLOT=${FSUSBLOG_RELEASE_SLOT:?Set the candidate or active release slot}
+            - FSUSBLOG_IMAGE_REF=${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}
+            - FSUSBLOG_IMAGE_DIGEST=${FSUSBLOG_IMAGE_DIGEST:?Set image digest from release-manifest.json}
+            - FSUSBLOG_COMMIT_SHA=${FSUSBLOG_COMMIT_SHA:?Set commitSha from release-manifest.json}
+            - FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json
+            - FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:?Set the exact currently active N-1 release id}
+            - FSUSBLOG_DEPLOYMENT_MODE=${FSUSBLOG_DEPLOYMENT_MODE:-candidate}
+            - FSUSBLOG_DEPLOYMENT_GENERATION=${FSUSBLOG_DEPLOYMENT_GENERATION:?Set immutable candidate runtime generation}
+            - FSUSBLOG_DRAIN_TIMEOUT_SECONDS=${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-45}
+            - ActiveReleaseFence__RefreshIntervalMs=${ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS:?Set active release fence refresh interval in milliseconds}
+            - ActiveReleaseFence__StaleThresholdSeconds=${ACTIVE_RELEASE_FENCE_STALE_THRESHOLD_SECONDS:?Set active release fence hard-stale threshold in seconds}
+            - FSUSBLOG_RELEASE_ASSET_ROOT=/app/release-assets
+            - FSUSBLOG_SPA_MANIFEST_DESCRIPTOR=/app/release-assets/${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}/spa-manifest-descriptor.json
+            - FSUSBLOG_PRODUCTION_BUILD_RECEIPT=/app/release-assets/${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}/production-build-receipt.json
+            - FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived
+            - FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared
+            - FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances
+            - Deployment__NotificationStreamDrillEnabled=${FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED:-false}
+            - SchemaMigration__QualificationEnabled=${FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED:-false}
+            - FSUSBLOG_DATA_ROOT=/app/data
+            - DataProtection__KeyRingPath=/app/data-protection/keyring
+            - DataProtection__ApplicationName=FsusBlog
+            # 数据库连接：由外部 .env 驱动
+            # Username=/Password= 是 PostgreSQL/Npgsql 连接串凭据关键字；不要在 appsettings*.json 中恢复 Admin:Username/Admin:Password/Admin:Role 应用身份配置。
+            - ConnectionStrings__DefaultConnection=Host=${EXTERNAL_DB_HOST};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
+            - ConnectionStrings__Redis=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
+            # Redis 连接：前缀对齐 appsettings.json 中的 RedisOptions 节点
+            - RedisOptions__Configuration=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
+            # CORS 配置：支持逗号分隔的动态域名字符串
+            - CORS_ALLOWED_HOSTS=${CORS_ALLOWED_HOSTS}
+            # Host / reverse-proxy trust boundary. 生产环境禁止 wildcard Host 和任意 X-Forwarded-* 来源。
+            - AllowedHosts=${APP_ALLOWED_HOSTS}
+            - ReverseProxy__KnownProxies=${REVERSE_PROXY_KNOWN_PROXIES:-127.0.0.1}
+            - ReverseProxy__KnownNetworks=${REVERSE_PROXY_KNOWN_NETWORKS:-}
+            # 映射 SEO 基础地址
+            - Seo__BaseUrl=${SITE_BASEURL}
+            # Passkey / WebAuthn 生产来源：Origins 必须与可信站点来源保持一致
+            - Fido2__ServerDomain=${FIDO2_SERVER_DOMAIN}
+            - Fido2__ServerName=${FIDO2_SERVER_NAME:-FsusBlog}
+            - Fido2__Origins__0=${SITE_BASEURL}
+            # 生产默认启用匿名身份/admin principal 平面，避免 legacy sys_user.role=admin 授权兜底。
+            - FSUSBLOG_ANONYMOUS_IDENTITY_MODE=${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}
+            # ZK-Prod 默认开启；缺少真实 trusted setup、VK、issuer key 或 root snapshot 时由 readiness fail-closed。
+            - AnonymousIdentity__ZkProd__Enabled=${FSUSBLOG_ZK_PROD_ENABLED:-true}
+            - AnonymousIdentity__ZkProd__RequireNativeVerifier=true
+            - AnonymousIdentity__ZkProd__RequireCredential=true
+            - AnonymousIdentity__ZkProd__RequireTrustedSetupVerified=true
+            - AnonymousIdentity__ZkProd__AllowDevVerifier=false
+            - AnonymousIdentity__ZkProd__FallbackToLegacyAnonymous=false
+            - AnonymousIdentity__ZkProd__VerifierBackend=native_groth16
+            - AnonymousIdentity__ZkProd__TrustedSetupVerified=${FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED:-true}
+            - AnonymousIdentity__ZkProd__CredentialReady=${FSUSBLOG_ZK_CREDENTIAL_READY:-true}
+            - AnonymousIdentity__ZkProd__VerifyingKeyHash=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}
+            - AnonymousIdentity__ZkProd__TrustedSetupManifestPath=${FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST}
+            - AnonymousIdentity__ZkProd__VerifyingKeyManifestPath=${FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST}
+            - AnonymousIdentity__ZkVerifier__Enabled=${FSUSBLOG_ZK_VERIFIER_ENABLED:-true}
+            - AnonymousIdentity__ZkVerifier__VerifyingKeyHash=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}
+            - AnonymousIdentity__ZkVerifier__NativeGroth16__LibraryPath=${FSUSBLOG_ZK_NATIVE_VERIFIER_LIB:-managed:mcl}
+            - AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeyPath=${FSUSBLOG_ZK_GROTH16_VERIFYING_KEY}
+            - AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeySha256=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}
+            - AnonymousCredentialIssuer__IssuerPublicKeyId=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID}
+            - AnonymousCredentialIssuer__BlindRsa__Enabled=${FSUSBLOG_ZK_BLIND_ISSUER_ENABLED:-true}
+            - AnonymousCredentialIssuer__BlindRsa__Profile=rfc9474-rsabssa-sha384-pss-randomized-3072
+            - AnonymousCredentialIssuer__BlindRsa__KeyId=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID}
+            - AnonymousCredentialIssuer__BlindRsa__PublicKeyHash=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH}
+            - AnonymousCredentialIssuer__BlindRsa__PrivateKeyPath=${FSUSBLOG_ZK_ISSUER_PRIVATE_KEY}
+        networks:
+            - fsus-app-network
+            - fsus-infra-network
+        volumes:
+            - fsus-storage:/app/storage
+            - fsus-aot-cache:/app/wwwroot/aot-cache
+            - fsus-logs:/app/Logs
+            - fsus-slot-data:/app/data
+            - fsus-data-protection:/app/data-protection
+            - ${FSUSBLOG_RELEASE_ASSET_STORE:?Set the host append-only release asset store}/releases:/app/release-assets:ro
+            - ${FSUSBLOG_RELEASE_MANIFEST_HOST_PATH:?Set the validated host release manifest path}:/app/release-manifest.json:ro
+            - fsus-release-derived:/app/release-derived
+            - ${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}:/app/config/zk:ro
+            - ${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}:/app/secrets/zk:ro
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "wget -qO- http://127.0.0.1:8080/health/live >/dev/null || exit 1",
+                ]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 45s
+        logging:
+            driver: json-file
+            options:
+                max-size: "50m"
+                max-file: "5"
+        # 资源限制按 2C/2G VPS 的实用中高压基线给出；更高规格可通过 compose override 覆盖。
+        deploy:
+            resources:
+                limits:
+                    cpus: ${FSUSBLOG_SLOT_CPU_LIMIT:-2.00}
+                    memory: ${FSUSBLOG_SLOT_MEMORY_LIMIT:-2048M}
+                reservations:
+                    cpus: ${FSUSBLOG_SLOT_CPU_RESERVATION:-0.50}
+                    memory: ${FSUSBLOG_SLOT_MEMORY_RESERVATION:-512M}
+        # Kestrel stays on loopback; public traffic must enter through the gateway.
+        ports:
+            - "127.0.0.1:${FSUSBLOG_SLOT_PORT:?Set blue=8081 or green=8082}:8080"
+
+networks:
+    fsus-app-network:
+        driver: bridge
+    fsus-infra-network:
+        external: true # 假设基础设施网络（DB/Redis）已存在，符合生产环境安全性要求
+
+# 定义具名卷，确保持久化数据由 Docker 引擎统一管理权限映射
+volumes:
+    fsus-storage:
+        name: ${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:?Set the migrated shared public-assets volume explicitly}
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: /var/lib/fsusblog/storage
+    fsus-aot-cache:
+        name: ${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}
+    fsus-logs:
+        name: ${FSUSBLOG_SLOT_LOGS_VOLUME:?Set slot-specific logs volume}
+    fsus-slot-data:
+        name: ${FSUSBLOG_SLOT_DATA_VOLUME:?Set slot-specific data volume}
+    fsus-data-protection:
+        name: ${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:?Set the shared DataProtection volume explicitly}
+    fsus-release-derived:
+        name: ${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME:-fsusblog-release-derived}

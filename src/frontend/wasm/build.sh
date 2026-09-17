@@ -1,0 +1,634 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WASM_ROOT="${ROOT_DIR}/wasm"
+WASM_SOURCE_DIR="${WASM_ROOT}"
+WASM_POW_SOURCE_DIR="${WASM_ROOT}/pow"
+RUN_WASM_ROOT="${FSUSBLOG_WASM_ARTIFACT_ROOT:-${WASM_ROOT}}"
+OUT_DIR="${FSUSBLOG_FRONTEND_WASM_ROOT:-${ROOT_DIR}/public/wasm}"
+BUILD_SIMD_DIR="${RUN_WASM_ROOT}/build-simd"
+BUILD_BASIC_DIR="${RUN_WASM_ROOT}/build-basic"
+BUILD_RELAXED_POW_DIR="${RUN_WASM_ROOT}/build-pow-relaxed"
+BUILD_THREADS_POW_DIR="${RUN_WASM_ROOT}/build-pow-threads"
+STAGE_DIR="${RUN_WASM_ROOT}/stage"
+STAGE_SIMD_DIR="${STAGE_DIR}/wasm-simd"
+STAGE_BASIC_DIR="${STAGE_DIR}/wasm-basic"
+STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
+STAGE_THREADS_POW_DIR="${STAGE_DIR}/wasm-pow-threads"
+BUILD_IMAGE_CODEC="${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}"
+REPOSITORY_ROOT="${FSUSBLOG_REPOSITORY_ROOT:-$(cd "${ROOT_DIR}/../.." && pwd)}"
+COMMENT_PRIVACY_BUILD_CONTRACT="${REPOSITORY_ROOT}/tools/security/comment-privacy-build-contract.mjs"
+ACTIVE_WASM_CHILD_PIDS=()
+
+CleanupWasmChildren() {
+    local childPid
+    for childPid in "${ACTIVE_WASM_CHILD_PIDS[@]}"; do
+        kill "$childPid" >/dev/null 2>&1 || true
+        wait "$childPid" >/dev/null 2>&1 || true
+    done
+    ACTIVE_WASM_CHILD_PIDS=()
+}
+
+trap CleanupWasmChildren EXIT
+
+DetectCpuCount() {
+    local detected=""
+    if command -v nproc >/dev/null 2>&1; then
+        detected="$(nproc)"
+    elif command -v getconf >/dev/null 2>&1; then
+        detected="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+    fi
+    if [[ "${detected}" =~ ^[1-9][0-9]*$ ]]; then
+        printf '%s\n' "${detected}"
+    else
+        printf '1\n'
+    fi
+}
+
+ResolveCpuBudget() {
+    local detectedCpu
+    detectedCpu="$(DetectCpuCount)"
+    IFS=$'\t' read -r \
+        WASM_CPU_BUDGET \
+        WASM_CPU_BUDGET_SOURCE \
+        WASM_MEMORY_BUDGET_GIB \
+        WASM_MEMORY_BUDGET_SOURCE \
+        WASM_MEMORY_WORKER_LIMIT \
+        WASM_VARIANT_WORKERS \
+        < <(
+            FSUSBLOG_WASM_DETECTED_CPU="${detectedCpu}" "${FSUSBLOG_NODE:-node}" --input-type=module <<'NODE'
+import os from 'node:os'
+
+const positive = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+const hostCpu = Math.max(1, Math.floor(positive(process.env.FSUSBLOG_WASM_DETECTED_CPU)
+  ?? os.availableParallelism?.()
+  ?? os.cpus().length))
+const cpuVariables = [
+  'FSUSBLOG_STEP_CPU_BUDGET',
+  'FSUSBLOG_WASM_CPU_BUDGET',
+  'FSUSBLOG_BUILD_CPU_BUDGET',
+  'FSUSBLOG_BUILD_MAX_WORKERS',
+  'FSUSBLOG_BUNDLE_CPU_UNITS',
+  'FSUSBLOG_BUNDLE_CPU_BUDGET',
+  'FSUSBLOG_BUNDLE_MAX_WORKERS',
+  'FSUSBLOG_VITEST_MAX_WORKERS'
+]
+const selectedCpu = cpuVariables
+  .map((name) => ({ name, value: positive(process.env[name]) }))
+  .find((entry) => entry.value !== null)
+const cpuBudget = Math.max(1, Math.min(hostCpu, Math.floor(selectedCpu?.value ?? hostCpu)))
+const freeMemoryGiB = os.freemem() / (1024 ** 3)
+const totalMemoryGiB = os.totalmem() / (1024 ** 3)
+const memoryVariables = ['FSUSBLOG_STEP_MEMORY_GIB', 'FSUSBLOG_BUNDLE_MEMORY_GIB']
+const selectedMemory = memoryVariables
+  .map((name) => ({ name, value: positive(process.env[name]) }))
+  .find((entry) => entry.value !== null)
+const memoryBudgetGiB = Math.min(freeMemoryGiB, selectedMemory?.value ?? freeMemoryGiB)
+const memoryGiBPerCpu = totalMemoryGiB / hostCpu
+const schedulerManaged = selectedCpu !== undefined && selectedMemory !== undefined
+  && ['FSUSBLOG_STEP_CPU_BUDGET', 'FSUSBLOG_BUNDLE_CPU_UNITS', 'FSUSBLOG_BUNDLE_CPU_BUDGET'].includes(selectedCpu.name)
+  && ['FSUSBLOG_STEP_MEMORY_GIB', 'FSUSBLOG_BUNDLE_MEMORY_GIB'].includes(selectedMemory.name)
+// A complete scheduler grant has already been admitted against live CPU and
+// memory. Applying the host-average memory-per-CPU ratio again would reject
+// the scheduler's deliberately packed 2-CPU build grant and serialize all
+// variants. Direct invocation still needs the host-derived memory guard.
+const memoryWorkerLimit = schedulerManaged
+  ? cpuBudget
+  : Math.max(1, Math.floor(memoryBudgetGiB / memoryGiBPerCpu))
+const variantWorkers = Math.max(1, Math.min(4, cpuBudget, memoryWorkerLimit))
+process.stdout.write(`${[
+  cpuBudget,
+  selectedCpu?.name ?? 'detected-cpu',
+  memoryBudgetGiB.toFixed(6),
+  selectedMemory?.name ?? 'detected-free-memory',
+  memoryWorkerLimit,
+  variantWorkers
+].join('\t')}\n`)
+NODE
+        )
+}
+
+PrintResourcePlan() {
+    local remaining=4 wave=1 active base extra index jobs total childMemory
+    printf '[build:wasm] cpu_budget=%s source=%s memory_budget_gib=%s memory_source=%s memory_worker_limit=%s variant_workers=%s variants=4\n' \
+        "${WASM_CPU_BUDGET}" "${WASM_CPU_BUDGET_SOURCE}" \
+        "${WASM_MEMORY_BUDGET_GIB}" "${WASM_MEMORY_BUDGET_SOURCE}" \
+        "${WASM_MEMORY_WORKER_LIMIT}" "${WASM_VARIANT_WORKERS}"
+    while ((remaining > 0)); do
+        active="${WASM_VARIANT_WORKERS}"
+        if ((active > remaining)); then
+            active="${remaining}"
+        fi
+        childMemory="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
+        base=$((WASM_CPU_BUDGET / active))
+        extra=$((WASM_CPU_BUDGET % active))
+        total=0
+        printf '[build:wasm] wave=%s jobs=' "${wave}"
+        for ((index = 0; index < active; index += 1)); do
+            jobs="${base}"
+            if ((index < extra)); then
+                jobs=$((jobs + 1))
+            fi
+            ((index > 0)) && printf ','
+            printf '%s' "${jobs}"
+            total=$((total + jobs))
+        done
+        printf ' total=%s memory_gib_per_child=%s\n' "${total}" "${childMemory}"
+        remaining=$((remaining - active))
+        wave=$((wave + 1))
+    done
+}
+
+ResolveCpuBudget
+if [[ "${1:-}" == "--check-source-paths" ]]; then
+    [[ -f "${WASM_SOURCE_DIR}/CMakeLists.txt" ]] || {
+        echo "[build:wasm] missing wasm source: ${WASM_SOURCE_DIR}/CMakeLists.txt" >&2
+        exit 1
+    }
+    [[ -f "${WASM_POW_SOURCE_DIR}/CMakeLists.txt" ]] || {
+        echo "[build:wasm] missing pow wasm source: ${WASM_POW_SOURCE_DIR}/CMakeLists.txt" >&2
+        exit 1
+    }
+    printf '[build:wasm] source-paths ok wasm=%s pow=%s artifact-root=%s\n' \
+        "${WASM_SOURCE_DIR}" "${WASM_POW_SOURCE_DIR}" "${RUN_WASM_ROOT}"
+    exit 0
+fi
+if [[ "${1:-}" == "--print-resource-plan" ]]; then
+    PrintResourcePlan
+    exit 0
+fi
+
+COMMENT_PRIVACY_BUILD_MODE="$(FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \
+    "${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-mode)"
+COMMENT_PRIVACY_PROVER_KEY=""
+if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then
+    COMMENT_PRIVACY_PROVER_KEY="$(FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \
+        "${FSUSBLOG_NODE:-node}" "${COMMENT_PRIVACY_BUILD_CONTRACT}" --print-proving-key)"
+fi
+printf '[build:wasm] comment_privacy=%s circuit=fsus.anonymous.comment.v5 layout=6\n' \
+    "${COMMENT_PRIVACY_BUILD_MODE}"
+
+mkdir -p \
+    "${OUT_DIR}" \
+    "${BUILD_SIMD_DIR}" \
+    "${BUILD_BASIC_DIR}" \
+    "${BUILD_RELAXED_POW_DIR}" \
+    "${BUILD_THREADS_POW_DIR}" \
+    "${STAGE_SIMD_DIR}" \
+    "${STAGE_BASIC_DIR}" \
+    "${STAGE_RELAXED_POW_DIR}" \
+    "${STAGE_THREADS_POW_DIR}"
+rm -f \
+    "${OUT_DIR}/aeds_decoder.js" \
+    "${OUT_DIR}/aeds_decoder.wasm" \
+    "${OUT_DIR}/aeds_decoder"_*.js \
+    "${OUT_DIR}/aeds_decoder"_*.wasm \
+    "${OUT_DIR}/aeds-runtime-manifest.json" \
+    "${OUT_DIR}/fsus_pow_"*.js \
+    "${OUT_DIR}/fsus_pow_"*.wasm \
+    "${OUT_DIR}/search_"*.js \
+    "${OUT_DIR}/search_"*.wasm \
+    "${OUT_DIR}/image_codec_"*.js \
+    "${OUT_DIR}/image_codec_"*.wasm \
+    "${OUT_DIR}/comment-privacy-prover.js" \
+    "${OUT_DIR}/comment-privacy-prover.zkey" \
+    "${OUT_DIR}/comment-privacy-prover.manifest.json" \
+    "${OUT_DIR}/comment_privacy_runtime.js" \
+    "${OUT_DIR}/comment_privacy_runtime.wasm"
+
+if [[ -n "${FSUSBLOG_EM_CACHE:-}" ]]; then
+    export EM_CACHE="${FSUSBLOG_EM_CACHE}"
+elif [[ -z "${EM_CACHE:-}" ]]; then
+    # Keep Emscripten's compiler cache on a physical repository path. The test
+    # artifact root may be a tmpfs symlink on disk-constrained hosts; Emscripten
+    # otherwise emits SDK source paths relative to the symlink spelling and
+    # resolves them from the CMake build directory, breaking fresh system-library
+    # generation. This ignored dependency cache intentionally survives fresh
+    # output cleanup, matching the already-installed toolchain contract.
+    export EM_CACHE="${ROOT_DIR}/../../.cache/emscripten"
+fi
+mkdir -p "${EM_CACHE}"
+
+# Some distro Emscripten packages ship with FROZEN_CACHE=True and a read-only
+# /usr/share/emscripten/cache. Project builds need Emscripten ports such as
+# libjpeg for full wasm image-codec support, so use the writable project cache
+# above unless the caller explicitly overrides this knob.
+if [[ "${FSUSBLOG_EM_FROZEN_CACHE+x}" == "x" ]]; then
+    export EM_FROZEN_CACHE="${FSUSBLOG_EM_FROZEN_CACHE}"
+else
+    export EM_FROZEN_CACHE=""
+fi
+
+USER_CMAKE_ARGS=()
+if [[ -n "${FSUSBLOG_WASM_CMAKE_ARGS:-}" ]]; then
+    # Example (vcpkg + emscripten):
+    # FSUSBLOG_WASM_CMAKE_ARGS='-DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=wasm32-emscripten -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/home/dev/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake'
+    # shellcheck disable=SC2206
+    USER_CMAKE_ARGS=(${FSUSBLOG_WASM_CMAKE_ARGS})
+fi
+
+VersionLessThan() {
+    [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n 1)" == "$1" && "$1" != "$2" ]]
+}
+
+CmakeIsSupported() {
+    local candidate="$1" version
+    [[ -x "${candidate}" ]] || return 1
+    version="$("${candidate}" --version 2>/dev/null | head -n 1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+    [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+    # Every configure path below uses `cmake --fresh`, which was introduced in
+    # CMake 3.24. Reusing an older distro CMake makes the container build fail
+    # only after the expensive codec dependency bootstrap has completed.
+    if VersionLessThan "${version}" "3.24.0"; then
+        return 1
+    fi
+    if ! VersionLessThan "${version}" "4.2.0" && VersionLessThan "${version}" "4.3.3"; then
+        return 1
+    fi
+    # The release toolchain contract pins one exact CMake identity; any other
+    # supported version falls through to the pinned ensure-cmake.sh bootstrap.
+    if [[ "${version}" != "${PINNED_CMAKE_VERSION}" ]]; then
+        return 1
+    fi
+    CMAKE_VERSION="${version}"
+    return 0
+}
+
+SelectCmake() {
+    local candidate resolved
+    if [[ -n "${FSUSBLOG_WASM_CMAKE:-}" ]]; then
+        candidate="${FSUSBLOG_WASM_CMAKE}"
+        resolved="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+        if CmakeIsSupported "${resolved}"; then
+            CMAKE_BIN="${resolved}"
+            return
+        fi
+        echo "[build:wasm] FSUSBLOG_WASM_CMAKE is missing or unsupported: ${candidate}" >&2
+        exit 1
+    fi
+
+    candidate="$(command -v cmake 2>/dev/null || true)"
+    if [[ -n "${candidate}" ]]; then
+        resolved="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+        if CmakeIsSupported "${resolved}"; then
+            CMAKE_BIN="${resolved}"
+            return
+        fi
+    fi
+
+    candidate="$("${ROOT_DIR}/../../tools/frontend/ensure-cmake.sh")"
+    resolved="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+    if CmakeIsSupported "${resolved}"; then
+        CMAKE_BIN="${resolved}"
+        return
+    fi
+
+    echo "[build:wasm] dependency bootstrap returned an unsupported CMake: ${resolved}" >&2
+    exit 1
+}
+
+# The wasm toolchain contract (tools/frontend/ensure-wasm.mjs
+# wasmToolchainContract.cmakeVersion) only accepts the CMake version that
+# tools/frontend/ensure-cmake.sh bootstraps. Read that single pin so a
+# supported-but-different host CMake cannot produce artifacts whose manifest
+# toolchain the release contract always rejects.
+PINNED_CMAKE_VERSION="$(sed -nE 's/^CMAKE_VERSION="([^"]+)"$/\1/p' "${REPOSITORY_ROOT}/tools/frontend/ensure-cmake.sh" | head -n 1)"
+[[ "${PINNED_CMAKE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "[build:wasm] unable to resolve the pinned CMake version from tools/frontend/ensure-cmake.sh" >&2
+    exit 1
+}
+
+SelectCmake
+echo "[build:wasm] cmake=${CMAKE_BIN} version=${CMAKE_VERSION}"
+
+EMCMAKE_CMD=()
+if [[ -n "${FSUSBLOG_EMCMAKE:-}" ]]; then
+    EMCMAKE_CMD=("${FSUSBLOG_EMCMAKE}")
+elif command -v emcmake >/dev/null 2>&1; then
+    EMCMAKE_CMD=("$(command -v emcmake)")
+else
+    EMSCRIPTEN_ROOT="$(dirname "$(command -v emcc)")"
+    PYTHON_BIN="${FSUSBLOG_PYTHON:-$(command -v python || true)}"
+    [[ -n "${PYTHON_BIN}" && -f "${EMSCRIPTEN_ROOT}/emcmake.py" ]] || {
+        echo "[build:wasm] unable to resolve emcmake or emcmake.py" >&2
+        exit 1
+    }
+    EMCMAKE_CMD=("${PYTHON_BIN}" "${EMSCRIPTEN_ROOT}/emcmake.py")
+fi
+RunEmcmake() {
+    "${EMCMAKE_CMD[@]}" "$@"
+}
+PrintResourcePlan
+
+WASM_OPT_BIN="${FSUSBLOG_WASM_OPT:-}"
+if [[ -z "${WASM_OPT_BIN}" ]]; then
+    WASM_OPT_BIN="$("${ROOT_DIR}/../../tools/frontend/ensure-binaryen.sh")"
+fi
+[[ -x "${WASM_OPT_BIN}" ]] || {
+    echo "[build:wasm] pinned wasm-opt is missing: ${WASM_OPT_BIN}" >&2
+    exit 1
+}
+WASM_OPT_VERSION="$(${WASM_OPT_BIN} --version)"
+[[ "${WASM_OPT_VERSION}" == *"123"* ]] || {
+    echo "[build:wasm] wasm-opt must be pinned to Binaryen version 123, got: ${WASM_OPT_VERSION}" >&2
+    exit 1
+}
+EMSCRIPTEN_VERSION="$(emcc --version | sed -nE '1s/.* ([0-9]+\.[0-9]+\.[0-9]+) .*/\1/p')"
+[[ -n "${EMSCRIPTEN_VERSION}" ]] || {
+    echo "[build:wasm] unable to resolve Emscripten version" >&2
+    exit 1
+}
+export FSUSBLOG_WASM_TOOLCHAIN_EMSCRIPTEN="${EMSCRIPTEN_VERSION}"
+export FSUSBLOG_WASM_TOOLCHAIN_BINARYEN="123"
+export FSUSBLOG_WASM_TOOLCHAIN_CMAKE="${CMAKE_VERSION}"
+export FSUSBLOG_WASM_TOOLCHAIN_VCPKG="${FSUSBLOG_VCPKG_COMMIT:-eae1680538b86f962455c27abca2aad0dc304a4d}"
+export FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE="emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8"
+echo "[build:wasm] emscripten=${EMSCRIPTEN_VERSION} binaryen=${WASM_OPT_VERSION}"
+
+# Emscripten 6.0.0 ships a py-filelock UnixFileLock whose _release unlinks the
+# lock file before unlocking it. Parallel variant builds then let a waiter
+# re-create and flock a second inode while the releaser still owns the first
+# one, so two emcc processes enter the cache critical section at once and the
+# same system library gets generated concurrently (upstream: emscripten#24609,
+# unfixed in the pinned emsdk image). flock ownership alone is a correct mutex
+# as long as the lock file stays resident, so drop the unlink here before any
+# emcc runs. The patch is idempotent and refuses to touch an unknown filelock.
+HardenEmscriptenCacheLock() {
+    local filelockPy
+    filelockPy="$(dirname "$(command -v emcc)")/tools/filelock.py"
+    [[ -f "${filelockPy}" ]] || return 0
+    grep -q 'fsusblog: persistent emscripten cache lock' "${filelockPy}" && return 0
+    command -v python3 >/dev/null 2>&1 || {
+        echo "[build:wasm] emscripten cache lock is vulnerable but python3 is unavailable" >&2
+        exit 1
+    }
+    python3 - "${filelockPy}" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path) as handle:
+    source = handle.read()
+vulnerable = """    def _release(self):
+        fd = self._lock_file_fd
+        self._lock_file_fd = None
+        os.unlink(self._lock_file)
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return None
+"""
+replacement = """    def _release(self):
+        # fsusblog: persistent emscripten cache lock (upstream issue
+        # emscripten#24609): unlinking the lock file lets a waiter recreate it
+        # and flock a different inode while the releaser still holds the old
+        # one, so keep the lock file resident and rely on flock alone.
+        fd = self._lock_file_fd
+        self._lock_file_fd = None
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return None
+"""
+if vulnerable not in source:
+    print("[build:wasm] emscripten filelock.py does not match the vulnerable _release fingerprint; refusing to patch", file=sys.stderr)
+    sys.exit(1)
+with open(path, "w") as handle:
+    handle.write(source.replace(vulnerable, replacement, 1))
+print("[build:wasm] hardened emscripten cache lock against parallel unlink race (emscripten#24609)")
+PY
+}
+HardenEmscriptenCacheLock
+
+if [[ "${FSUSBLOG_WASM_DISABLE_VCPKG_AUTODETECT:-0}" != "1" ]]; then
+    VCPKG_ROOT_CANDIDATE="${VCPKG_ROOT:-/home/dev/vcpkg}"
+    if [[ -d "${VCPKG_ROOT_CANDIDATE}/installed/wasm32-emscripten" ]]; then
+        USER_CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=${VCPKG_ROOT_CANDIDATE}/installed/wasm32-emscripten")
+    fi
+fi
+
+OptimizePowWasm() {
+    local file="$1"
+    local tmp="${file}.opt"
+    local name
+    name="$(basename "${file}")"
+    local featureArgs=(--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext)
+    case "${name}" in
+        fsus_pow_simd.wasm)
+            featureArgs+=(--enable-simd)
+            ;;
+        fsus_pow_relaxed.wasm)
+            featureArgs+=(--enable-simd --enable-relaxed-simd)
+            ;;
+        fsus_pow_threads.wasm)
+            featureArgs+=(--enable-simd --enable-threads)
+            ;;
+    esac
+    if "${WASM_OPT_BIN}" -O4 "${featureArgs[@]}" "${file}" -o "${tmp}" >/dev/null 2>&1; then
+        mv -f "${tmp}" "${file}"
+    else
+        rm -f "${tmp}"
+        echo "[build:wasm] wasm-opt skipped for ${file}" >&2
+    fi
+}
+
+OptimizeAedsSpeedWasm() {
+    local file="$1"
+    local tmp="${file}.opt"
+    rm -f "${tmp}"
+    if ! "${WASM_OPT_BIN}" -O4 \
+        --enable-simd \
+        --enable-bulk-memory \
+        --enable-nontrapping-float-to-int \
+        "${file}" -o "${tmp}"; then
+        rm -f "${tmp}"
+        echo "[build:wasm] mandatory AEDS speed wasm-opt failed: ${file}" >&2
+        return 1
+    fi
+    mv -f "${tmp}" "${file}"
+}
+
+OptimizePowWasmParallel() {
+    local files=("$@")
+    local fileIndex=0 remaining active childMemoryGib slot
+    local optimizePids=() optimizeFiles=() failedOptimizations=()
+    while ((fileIndex < ${#files[@]})); do
+        remaining=$((${#files[@]} - fileIndex))
+        active="${WASM_VARIANT_WORKERS}"
+        ((active > remaining)) && active="${remaining}"
+        childMemoryGib="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
+        optimizePids=()
+        optimizeFiles=()
+        ACTIVE_WASM_CHILD_PIDS=()
+        for ((slot = 0; slot < active; slot += 1)); do
+            FSUSBLOG_STEP_CPU_BUDGET=1 \
+                FSUSBLOG_STEP_MEMORY_GIB="${childMemoryGib}" \
+                FSUSBLOG_COMMAND_MANIFEST_WORKERS=1 \
+                FSUSBLOG_NODE_TEST_CONCURRENCY=1 \
+                OptimizePowWasm "${files[fileIndex]}" &
+            optimizePids+=("$!")
+            ACTIVE_WASM_CHILD_PIDS+=("$!")
+            optimizeFiles+=("${files[fileIndex]}")
+            fileIndex=$((fileIndex + 1))
+        done
+        for ((slot = 0; slot < ${#optimizePids[@]}; slot += 1)); do
+            if ! wait "${optimizePids[slot]}"; then
+                failedOptimizations+=("${optimizeFiles[slot]}")
+            fi
+        done
+        ACTIVE_WASM_CHILD_PIDS=()
+    done
+    if ((${#failedOptimizations[@]} > 0)); then
+        printf '[build:wasm] %s wasm optimizations failed: %s\n' \
+            "${#failedOptimizations[@]}" "${failedOptimizations[*]}" >&2
+        return 1
+    fi
+}
+
+BuildSimd() {
+    local jobs="$1"
+    local targets=(
+        FsusPowEngine
+        aeds_decoder_speed
+        FsusSearchRuntime
+        FsusCommentPrivacyRuntime
+    )
+    if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
+        targets+=(FsusImageCodec)
+    fi
+    cd "${BUILD_SIMD_DIR}"
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWASM_SIMD=ON \
+        -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
+        -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_SIMD_DIR}" \
+        "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+    "${CMAKE_BIN}" --build . --target "${targets[@]}" --parallel "${jobs}"
+}
+
+BuildBasic() {
+    local jobs="$1"
+    # The scalar publication contract carries the compatibility-first AEDS tier.
+    local targets=(
+        FsusPowEngine
+        aeds_decoder_basic
+        FsusSearchRuntime
+    )
+    if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
+        targets+=(FsusImageCodec)
+    fi
+    cd "${BUILD_BASIC_DIR}"
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWASM_SIMD=OFF \
+        -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
+        -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_BASIC_DIR}" \
+        "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+    "${CMAKE_BIN}" --build . --target "${targets[@]}" --parallel "${jobs}"
+}
+
+BuildRelaxedPow() {
+    local jobs="$1"
+    cd "${BUILD_RELAXED_POW_DIR}"
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWASM_RELAXED_SIMD=ON \
+        -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
+        "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+    "${CMAKE_BIN}" --build . --parallel "${jobs}"
+}
+
+BuildThreadsPow() {
+    local jobs="$1"
+    cd "${BUILD_THREADS_POW_DIR}"
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWASM_THREADS=ON \
+        -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \
+        "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+    "${CMAKE_BIN}" --build . --parallel "${jobs}"
+}
+
+build_modes=(BuildSimd BuildBasic BuildRelaxedPow BuildThreadsPow)
+mode_index=0
+failed_modes=()
+while ((mode_index < ${#build_modes[@]})); do
+    remaining=$((${#build_modes[@]} - mode_index))
+    active="${WASM_VARIANT_WORKERS}"
+    ((active > remaining)) && active="${remaining}"
+    base_jobs=$((WASM_CPU_BUDGET / active))
+    extra_jobs=$((WASM_CPU_BUDGET % active))
+    build_pids=()
+    build_names=()
+    ACTIVE_WASM_CHILD_PIDS=()
+    childMemoryGib="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
+    for ((slot = 0; slot < active; slot += 1)); do
+        jobs="${base_jobs}"
+        ((slot < extra_jobs)) && jobs=$((jobs + 1))
+        build_name="${build_modes[mode_index]}"
+        FSUSBLOG_STEP_CPU_BUDGET="${jobs}" \
+            FSUSBLOG_STEP_MEMORY_GIB="${childMemoryGib}" \
+            FSUSBLOG_COMMAND_MANIFEST_WORKERS="${jobs}" \
+            FSUSBLOG_NODE_TEST_CONCURRENCY="${jobs}" \
+            "${build_name}" "${jobs}" &
+        build_pids+=("$!")
+        ACTIVE_WASM_CHILD_PIDS+=("$!")
+        build_names+=("${build_name}")
+        mode_index=$((mode_index + 1))
+    done
+
+    for ((slot = 0; slot < ${#build_pids[@]}; slot += 1)); do
+        if ! wait "${build_pids[slot]}"; then
+            failed_modes+=("${build_names[slot]}")
+        fi
+    done
+    ACTIVE_WASM_CHILD_PIDS=()
+done
+if ((${#failed_modes[@]} > 0)); then
+    printf '[build:wasm] %s build variants failed: %s\n' "${#failed_modes[@]}" "${failed_modes[*]}" >&2
+    exit 1
+fi
+
+cp -f "${STAGE_SIMD_DIR}/aeds_decoder_speed.js" "${OUT_DIR}/aeds_decoder_speed.js"
+cp -f "${STAGE_SIMD_DIR}/aeds_decoder_speed.wasm" "${OUT_DIR}/aeds_decoder_speed.wasm"
+cp -f "${STAGE_BASIC_DIR}/aeds_decoder_basic.js" "${OUT_DIR}/aeds_decoder_basic.js"
+cp -f "${STAGE_BASIC_DIR}/aeds_decoder_basic.wasm" "${OUT_DIR}/aeds_decoder_basic.wasm"
+OptimizeAedsSpeedWasm "${OUT_DIR}/aeds_decoder_speed.wasm"
+cp -f "${STAGE_SIMD_DIR}/fsus_pow_simd.js" "${OUT_DIR}/fsus_pow_simd.js"
+cp -f "${STAGE_SIMD_DIR}/fsus_pow_simd.wasm" "${OUT_DIR}/fsus_pow_simd.wasm"
+cp -f "${STAGE_BASIC_DIR}/fsus_pow_basic.js" "${OUT_DIR}/fsus_pow_basic.js"
+cp -f "${STAGE_BASIC_DIR}/fsus_pow_basic.wasm" "${OUT_DIR}/fsus_pow_basic.wasm"
+cp -f "${STAGE_RELAXED_POW_DIR}/fsus_pow_relaxed.js" "${OUT_DIR}/fsus_pow_relaxed.js"
+cp -f "${STAGE_RELAXED_POW_DIR}/fsus_pow_relaxed.wasm" "${OUT_DIR}/fsus_pow_relaxed.wasm"
+cp -f "${STAGE_THREADS_POW_DIR}/fsus_pow_threads.js" "${OUT_DIR}/fsus_pow_threads.js"
+cp -f "${STAGE_THREADS_POW_DIR}/fsus_pow_threads.wasm" "${OUT_DIR}/fsus_pow_threads.wasm"
+OptimizePowWasmParallel \
+    "${OUT_DIR}/fsus_pow_basic.wasm" \
+    "${OUT_DIR}/fsus_pow_simd.wasm" \
+    "${OUT_DIR}/fsus_pow_relaxed.wasm" \
+    "${OUT_DIR}/fsus_pow_threads.wasm"
+cp -f "${STAGE_SIMD_DIR}/search_simd.js" "${OUT_DIR}/search_simd.js"
+cp -f "${STAGE_SIMD_DIR}/search_simd.wasm" "${OUT_DIR}/search_simd.wasm"
+cp -f "${STAGE_BASIC_DIR}/search_basic.js" "${OUT_DIR}/search_basic.js"
+cp -f "${STAGE_BASIC_DIR}/search_basic.wasm" "${OUT_DIR}/search_basic.wasm"
+cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.js" "${OUT_DIR}/comment_privacy_runtime.js"
+cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.wasm" "${OUT_DIR}/comment_privacy_runtime.wasm"
+cp -f "${WASM_ROOT}/comment_privacy/comment-privacy-prover.js" "${OUT_DIR}/comment-privacy-prover.js"
+if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then
+    cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"
+fi
+if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
+    cp -f "${STAGE_SIMD_DIR}/image_codec_simd.js" "${OUT_DIR}/image_codec_simd.js"
+    cp -f "${STAGE_SIMD_DIR}/image_codec_simd.wasm" "${OUT_DIR}/image_codec_simd.wasm"
+    cp -f "${STAGE_BASIC_DIR}/image_codec_basic.js" "${OUT_DIR}/image_codec_basic.js"
+    cp -f "${STAGE_BASIC_DIR}/image_codec_basic.wasm" "${OUT_DIR}/image_codec_basic.wasm"
+fi
+
+if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then
+    FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \
+        node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"
+fi
+node "${ROOT_DIR}/../../tools/frontend/ensure-wasm.mjs" write-manifest
+
+echo "Wasm artifacts emitted to ${OUT_DIR}"

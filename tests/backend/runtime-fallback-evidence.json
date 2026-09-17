@@ -1,0 +1,107 @@
+{
+    "schema": "fsusblog.runtime-fallback-evidence.v2",
+    "relatedIssues": [
+        1013,
+        1430
+    ],
+    "status": "runtime-retired-external-milestones-deferred",
+    "testOwner": "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
+    "milestoneManifest": "tests/backend/runtime-fallback-milestones.json",
+    "canonicalDocuments": [
+        "docs/operations.md",
+        "docs/security.md",
+        "docs/database-migration.md",
+        "docs/architecture/public-aot-artifact-storage-boundary.md",
+        "docs/production.md"
+    ],
+    "items": [
+        {
+            "id": "A3-1",
+            "state": "retired",
+            "removed": [
+                "CleanupLegacySessionRootSweepAsync",
+                "CleanupExpiredSessionsAsync legacy root-sweep call"
+            ],
+            "runtimeReplacement": "expiration-bucket index",
+            "testIds": [
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.UploadSessionCleanup_SourceUsesExpirationBucketIndex",
+                "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_1_UploadCleanupHasNoLegacySessionRootSweep"
+            ]
+        },
+        {
+            "id": "A3-2",
+            "state": "retired",
+            "removed": [
+                "LegacySha256EmailHash",
+                "@legacy_email_hash",
+                "legacy runtime OR lookup"
+            ],
+            "runtimeReplacement": "hmac-v1 only",
+            "migrationId": "20260709-post-site-subscription-hmac-finalize",
+            "testIds": [
+                "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_FinalizesLegacySiteSubscriptionHashes",
+                "xunit:tests/backend/Unit/SubscriptionEndpointsContractTests.cs#SubscriptionEndpointsContractTests.SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash",
+                "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_2_SubscriptionRuntimeUsesOnlyCurrentHmacIdentity"
+            ]
+        },
+        {
+            "id": "A3-3",
+            "state": "retired",
+            "removed": [
+                "LegacyArticleContentColumnExistsAsync",
+                "s_legacyArticleContentColumnState",
+                "a.content fallback and grouping"
+            ],
+            "runtimeReplacement": "article_body markdown_content only",
+            "requiredMigrationId": "20260418-post-content-cleanup",
+            "testIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.ArticleService_SourceDoesNotQueryLegacyArticleContentColumn",
+                "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_3_ArticleReadersHaveNoLegacyContentColumnFallback"
+            ]
+        },
+        {
+            "id": "A3-4",
+            "state": "retired",
+            "removed": [
+                "_allowLegacyPlainCookieRead",
+                "ShouldAllowLegacyPlainCookieRead",
+                "ReadCookie allowPlainFallback",
+                "ProductionStartupValidator legacy switch guard",
+                "application settings entry"
+            ],
+            "runtimeReplacement": "current host-prefixed production cookies and explicit current dev transport cookies",
+            "testIds": [
+                "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback",
+                "xunit:tests/backend/Unit/ProductionStartupValidatorTests.cs#ProductionStartupValidatorTests.ValidateCore_IgnoresRemovedLegacyPlainCookieReadSwitch",
+                "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_4_LegacyPlainCookieSwitchCannotRestoreFallback"
+            ]
+        },
+        {
+            "id": "A3-7",
+            "state": "retired",
+            "removed": [
+                "MatchesLegacyBase64UrlPayloadHash",
+                "IsHydrationSidecarHashValid legacy OR branch"
+            ],
+            "runtimeReplacement": "canonical lowercase hexadecimal SHA-256 only",
+            "testIds": [
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#PublicAotFileShellCacheTests.TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_TreatsDocumentAsMiss",
+                "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_7_PublicAotAcceptsOnlyCanonicalHexSidecarHash"
+            ]
+        },
+        {
+            "id": "A3-8",
+            "state": "retired",
+            "removed": [
+                "AdminOperationsService clear-legacy-public-artifacts action"
+            ],
+            "runtimeReplacement": "SchemaMigrationRunner ClearLegacyPublicArtifactsStep",
+            "migrationId": "20260709-post-clear-legacy-public-artifacts",
+            "testIds": [
+                "xunit:tests/backend/Unit/SchemaMigrationRegistryTests.cs#SchemaMigrationRegistryTests.GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep",
+                "xunit:tests/backend/Unit/PublicContentInvalidationFlowTests.cs#PublicContentInvalidationFlowTests.AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions",
+                "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_8_LegacyArtifactClearIsOneTimeMigrationNotAdminRuntimeAction"
+            ]
+        }
+    ]
+}

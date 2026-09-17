@@ -1,0 +1,46 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.media-shape-catalog.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "owner",
+        "formats",
+        "aspects",
+        "consumerClasses",
+        "shapes",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.media-shape-catalog.v1"
+        },
+        "owner": {
+            "const": "media-shape-catalog"
+        },
+        "formats": {
+            "type": "array",
+            "minItems": 4
+        },
+        "aspects": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6
+        },
+        "consumerClasses": {
+            "type": "array",
+            "minItems": 10,
+            "uniqueItems": true
+        },
+        "shapes": {
+            "type": "array",
+            "minItems": 18,
+            "maxItems": 18
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+    }
+}

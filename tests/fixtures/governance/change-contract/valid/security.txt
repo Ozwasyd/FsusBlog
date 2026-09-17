@@ -1,0 +1,6 @@
+security(auth): harden session transition checks
+
+Keep the public history limited to the defensive boundary.
+
+Security-Disclosure: not-applicable
+Refs: #1163

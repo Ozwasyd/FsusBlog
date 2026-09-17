@@ -1,0 +1,140 @@
+[
+  {
+    "id": "vue-v-html",
+    "filePath": "fixture.vue",
+    "source": "<template>\n  <div v-html=\"unsafe\" />\n</template>\n",
+    "expected": { "sink": "vue-v-html", "line": 2, "column": 8 }
+  },
+  {
+    "id": "vue-bound-srcdoc",
+    "filePath": "fixture.vue",
+    "source": "<template>\n  <iframe :srcdoc=\"unsafe\" />\n</template>\n",
+    "expected": { "sink": "vue-srcdoc", "line": 2, "column": 11 }
+  },
+  {
+    "id": "vue-static-srcdoc",
+    "filePath": "fixture.vue",
+    "source": "<template>\n  <iframe srcdoc=\"unsafe\" />\n</template>\n",
+    "expected": { "sink": "vue-srcdoc", "line": 2, "column": 11 }
+  },
+  {
+    "id": "inner-html",
+    "filePath": "fixture.ts",
+    "source": "node.innerHTML = unsafe\n",
+    "expected": { "sink": "dom-innerHTML-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "computed-inner-html",
+    "filePath": "fixture.ts",
+    "source": "node['innerHTML'] = unsafe\n",
+    "expected": { "sink": "dom-innerHTML-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "concatenated-inner-html",
+    "filePath": "fixture.ts",
+    "source": "node['inner' + 'HTML'] = unsafe\n",
+    "expected": { "sink": "dom-innerHTML-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "outer-html",
+    "filePath": "fixture.ts",
+    "source": "node.outerHTML = unsafe\n",
+    "expected": { "sink": "dom-outerHTML-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "insert-adjacent-html",
+    "filePath": "fixture.ts",
+    "source": "node.insertAdjacentHTML('beforeend', unsafe)\n",
+    "expected": { "sink": "dom-insertAdjacentHTML", "line": 1, "column": 1 }
+  },
+  {
+    "id": "render-inner-html-prop",
+    "filePath": "fixture.ts",
+    "source": "h('div', { innerHTML: unsafe })\n",
+    "expected": { "sink": "render-innerHTML-prop", "line": 1, "column": 12 }
+  },
+  {
+    "id": "jsx-inner-html-prop",
+    "filePath": "fixture.tsx",
+    "source": "<div innerHTML={unsafe} />\n",
+    "expected": { "sink": "jsx-innerHTML-prop", "line": 1, "column": 6 }
+  },
+  {
+    "id": "document-write",
+    "filePath": "fixture.ts",
+    "source": "document.write(unsafe)\n",
+    "expected": { "sink": "dom-document-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "document-writeln",
+    "filePath": "fixture.ts",
+    "source": "document.writeln(unsafe)\n",
+    "expected": { "sink": "dom-document-write", "line": 1, "column": 1 }
+  },
+  {
+    "id": "destructured-document-write",
+    "filePath": "fixture.ts",
+    "source": "const { write } = document\nwrite(unsafe)\n",
+    "expected": { "sink": "dom-document-write", "line": 2, "column": 1 }
+  },
+  {
+    "id": "contextual-fragment",
+    "filePath": "fixture.ts",
+    "source": "range.createContextualFragment(unsafe)\n",
+    "expected": { "sink": "dom-createContextualFragment", "line": 1, "column": 1 }
+  },
+  {
+    "id": "dom-parser-text-html",
+    "filePath": "fixture.ts",
+    "source": "new DOMParser().parseFromString(unsafe, 'text/html')\n",
+    "expected": { "sink": "domparser-text-html", "line": 1, "column": 1 }
+  },
+  {
+    "id": "set-attribute-srcdoc",
+    "filePath": "fixture.ts",
+    "source": "frame.setAttribute('srcdoc', unsafe)\n",
+    "expected": { "sink": "dom-setAttribute-srcdoc", "line": 1, "column": 1 }
+  },
+  {
+    "id": "aliased-call",
+    "filePath": "fixture.ts",
+    "source": "const commit = node.insertAdjacentHTML\ncommit('beforeend', unsafe)\n",
+    "expected": { "sink": "dom-insertAdjacentHTML", "line": 2, "column": 1 }
+  },
+  {
+    "id": "destructured-call",
+    "filePath": "fixture.ts",
+    "source": "const { insertAdjacentHTML: commit } = node\ncommit('beforeend', unsafe)\n",
+    "expected": { "sink": "dom-insertAdjacentHTML", "line": 2, "column": 1 }
+  },
+  {
+    "id": "typescript-parse-error",
+    "filePath": "fixture.ts",
+    "source": "const x = {\n",
+    "expected": { "sink": "typescript-parse-error", "line": 2, "column": 1 }
+  },
+  {
+    "id": "safe-vue-interpolation",
+    "filePath": "fixture.vue",
+    "source": "<template>\n  <div>{{ unsafe }}</div>\n</template>\n",
+    "expected": null
+  },
+  {
+    "id": "safe-text-content",
+    "filePath": "fixture.ts",
+    "source": "node.textContent = unsafe\n",
+    "expected": null
+  },
+  {
+    "id": "safe-create-element",
+    "filePath": "fixture.ts",
+    "source": "const node = document.createElement('div')\nnode.textContent = unsafe\n",
+    "expected": null
+  },
+  {
+    "id": "safe-fsusui-markdown-renderer",
+    "filePath": "fixture.vue",
+    "source": "<template>\n  <MarkdownRenderer :content=\"markdown\" />\n</template>\n",
+    "expected": null
+  }
+]

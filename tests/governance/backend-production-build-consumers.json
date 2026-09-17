@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.backend-production-build-consumers.v1",
+    "issue": 1389,
+    "producer": {
+        "bundle": "backend-tests",
+        "configuration": "Release",
+        "receipt": ".tmp/test-runs/<runId>/backend-tests-ready.json",
+        "requests": [
+            {
+                "id": "backend-server-build",
+                "target": "src/backend/FsusBlog.Server.csproj",
+                "role": "canonical-runtime"
+            },
+            {
+                "id": "backend-tests-build",
+                "target": "tests/backend/FsusBlog.Server.Tests.csproj",
+                "role": "canonical-test-assembly"
+            },
+            {
+                "id": "backend-benchmark-build",
+                "target": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+                "role": "separate-benchmark-input"
+            }
+        ]
+    },
+    "consumers": [
+        { "id": "backend-exact-union", "binding": "build-receipt+test-dll-digest" },
+        { "id": "perception-v2", "binding": "exact-union-summary+test-dll-digest" },
+        { "id": "rights-v3", "binding": "exact-union-summary+trx-digests" },
+        { "id": "integrity-proof", "binding": "backend-producer-receipt+artifact-digests" },
+        { "id": "privacy-zk", "binding": "exact-union-summary+trx-digests" },
+        { "id": "cross-stack", "binding": "no-backend-artifact" }
+    ],
+    "forbiddenProductionRequests": [
+        "Debug backend compatibility build",
+        "filtered backend build",
+        "governance postlude testhost"
+    ]
+}

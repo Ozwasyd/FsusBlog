@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.zk.verifying-key-config.v2",
+    "circuit_id": "fsus.anonymous.comment.v5",
+    "public_input_layout_version": 6,
+    "trusted_setup_manifest": "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+    "circuit_manifest": "security/zk/contracts/comment-v5-circuit.manifest.json",
+    "artifact_status": "setup-required",
+    "production_usable": false,
+    "verifying_key_path": "artifacts/zk/comment-v5/comment_v5_verifying_key.bin",
+    "verifying_key_hash": "",
+    "fail_closed_policy": {
+        "reject_legacy_layouts": true,
+        "requires_verified_setup": true,
+        "requires_nonempty_hash_when_production_usable": true
+    }
+}

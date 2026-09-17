@@ -1,0 +1,24 @@
+{
+  "version": "fsusblog-layout-archetype-matrix-v1",
+  "sourceIssue": 1313,
+  "coverage": {
+    "viewports": ["desktop", "mobile"],
+    "themes": ["light", "dark"],
+    "media": ["reduced-motion", "high-contrast"],
+    "contracts": ["keyboard", "focus-visible", "hit-targets", "horizontal-overflow", "aot-hydration-parity"]
+  },
+  "archetypes": [
+    { "surface": "public", "kind": "feed", "path": "/", "label": "public-home", "primary": "main header", "screenshotTarget": "main header", "snapshot": true, "critical": true },
+    { "surface": "public", "kind": "reading", "path": "/article/{articleId}", "label": "public-article", "primary": "main", "screenshotTarget": "main", "snapshot": true, "critical": true },
+    { "surface": "public", "kind": "index", "path": "/archive", "label": "public-archive", "primary": "main", "screenshotTarget": "main", "snapshot": false, "critical": false },
+    { "surface": "public", "kind": "document", "path": "/about", "label": "public-static-about", "primary": "main", "screenshotTarget": "main", "snapshot": false, "critical": false },
+    { "surface": "public", "kind": "filter-search", "path": "/search?q={searchKeyword}", "label": "public-search", "primary": "main", "screenshotTarget": "main", "snapshot": false, "critical": false },
+    { "surface": "identity", "kind": "identity-settings", "path": "/user/identity", "label": "user-profile", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
+    { "surface": "identity", "kind": "inbox-takeover", "path": "/user/messagebox", "label": "user-messagebox", "primary": "main", "screenshotTarget": ".messages-list-pane .messages-pane-header", "snapshot": true, "critical": true },
+    { "surface": "admin", "kind": "dashboard", "path": "/user/manage", "label": "manage-dashboard", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
+    { "surface": "admin", "kind": "collection", "path": "/user/manage/users", "label": "manage-users", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
+    { "surface": "admin", "kind": "form", "path": "/user/manage/article/write", "label": "manage-write", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
+    { "surface": "admin", "kind": "settings", "path": "/user/manage/settings", "label": "manage-settings", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
+    { "surface": "admin", "kind": "console", "path": "/user/manage/security/risk-control", "label": "manage-security-console", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": false, "critical": false }
+  ]
+}

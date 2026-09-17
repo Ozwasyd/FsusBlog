@@ -1,0 +1,45 @@
+{
+    // Documentation-only template. Do not pass this file to
+    // verify-production-firewall-policy-evidence.sh.
+    //
+    // Final closeout requires a fresh JSON file normalized from the real cloud
+    // security-group export or host-firewall export. Replace every placeholder,
+    // remove comments, and keep generatedAt within the verifier freshness window.
+    "generatedAt": "REPLACE_WITH_UTC_ISO8601_EXPORT_TIME",
+    "evidenceSource": {
+        // Supported verifier values: "aws-security-groups" or "ufw-status".
+        // Prefer generating this object with normalize-cloud-firewall-policy-evidence.sh
+        // or collect-host-firewall-policy-evidence.sh.
+        "kind": "aws-security-groups",
+        "sourceFile": "REPLACE_WITH_REAL_EXPORT_PATH",
+        "sourceSha256": "REPLACE_WITH_SHA256_OF_REAL_EXPORT"
+    },
+    "appliesToHosts": ["fsus.blog", "www.fsus.blog"],
+    "ingressRules": [
+        {
+            "protocol": "tcp",
+            "fromPort": 80,
+            "toPort": 80,
+            "source": "0.0.0.0/0",
+            "action": "allow",
+            "purpose": "http"
+        },
+        {
+            "protocol": "tcp",
+            "fromPort": 443,
+            "toPort": 443,
+            "source": "0.0.0.0/0",
+            "action": "allow",
+            "purpose": "https"
+        },
+        {
+            "protocol": "tcp",
+            "fromPort": 22,
+            "toPort": 22,
+            "source": "REPLACE_WITH_FIXED_MANAGEMENT_IP_OR_VPN_CIDR",
+            "sourceType": "fixed-management-ip",
+            "action": "allow",
+            "purpose": "ssh-management"
+        }
+    ]
+}

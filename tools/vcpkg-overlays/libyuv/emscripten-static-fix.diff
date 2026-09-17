@@ -1,0 +1,40 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -178,11 +178,13 @@
+ add_library( ${ly_lib_static} STATIC ${ly_lib_parts})
+
+ # this creates the shared library (.so)
+-add_library( ${ly_lib_shared} SHARED ${ly_lib_parts})
+-set_target_properties( ${ly_lib_shared} PROPERTIES OUTPUT_NAME "${ly_lib_name}" )
+-set_target_properties( ${ly_lib_shared} PROPERTIES PREFIX "lib" )
+-if(WIN32)
+-  set_target_properties( ${ly_lib_shared} PROPERTIES IMPORT_PREFIX "lib" )
++if(BUILD_SHARED_LIBS)
++  add_library( ${ly_lib_shared} SHARED ${ly_lib_parts})
++  set_target_properties( ${ly_lib_shared} PROPERTIES OUTPUT_NAME "${ly_lib_name}" )
++  set_target_properties( ${ly_lib_shared} PROPERTIES PREFIX "lib" )
++  if(WIN32)
++    set_target_properties( ${ly_lib_shared} PROPERTIES IMPORT_PREFIX "lib" )
++  endif()
+ endif()
+
+ if (BUILD_TOOLS)
+@@ -205,7 +207,9 @@
+ if (JPEG_FOUND)
+   include_directories( ${JPEG_INCLUDE_DIR} )
+   target_link_libraries( ${ly_lib_static} PRIVATE JPEG::JPEG )
+-  target_link_libraries( ${ly_lib_shared} PRIVATE JPEG::JPEG )
++  if(TARGET ${ly_lib_shared})
++    target_link_libraries( ${ly_lib_shared} PRIVATE JPEG::JPEG )
++  endif()
+   add_definitions( -DHAVE_JPEG )
+ endif()
+
+@@ -263,7 +267,6 @@
+ else()
+   target_include_directories(${ly_lib_static} PUBLIC $<INSTALL_INTERFACE:include>)
+   install(TARGETS ${ly_lib_static} EXPORT libyuv-targets)
+-  set_target_properties(${ly_lib_shared} PROPERTIES EXCLUDE_FROM_ALL 1)
+ endif()
+ install(EXPORT libyuv-targets DESTINATION share/libyuv)
+ install ( DIRECTORY ${PROJECT_SOURCE_DIR}/include/		DESTINATION include )

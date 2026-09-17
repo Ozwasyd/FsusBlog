@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-label="Hot read latency profile evidence" data-cover-concept="hot-read-profile">
+  <rect width="960" height="640" fill="#2a271f"/>
+  <rect x="80" y="64" width="800" height="512" rx="14" fill="#373329" stroke="#746d5d" stroke-width="2"/>
+  <rect x="120" y="104" width="208" height="92" rx="8" fill="#403b30"/>
+  <rect x="352" y="104" width="208" height="92" rx="8" fill="#403b30"/>
+  <rect x="584" y="104" width="256" height="92" rx="8" fill="#403b30"/>
+  <rect x="144" y="128" width="88" height="10" rx="5" fill="#8e8674"/>
+  <rect x="144" y="154" width="142" height="18" rx="9" fill="#c6aa70"/>
+  <rect x="376" y="128" width="98" height="10" rx="5" fill="#8e8674"/>
+  <rect x="376" y="154" width="116" height="18" rx="9" fill="#a99a77"/>
+  <rect x="608" y="128" width="108" height="10" rx="5" fill="#8e8674"/>
+  <rect x="608" y="154" width="178" height="18" rx="9" fill="#b4a17b"/>
+  <rect x="120" y="228" width="720" height="304" rx="8" fill="#302d25" stroke="#5f594c"/>
+  <path d="M164 478 H804 M164 414 H804 M164 350 H804 M164 286 H804" fill="none" stroke="#4f4a40" stroke-width="2"/>
+  <path d="M164 264 V500 H804" fill="none" stroke="#817866" stroke-width="3"/>
+  <g fill="#665e4d">
+    <rect x="196" y="404" width="44" height="96" rx="4"/>
+    <rect x="276" y="368" width="44" height="132" rx="4"/>
+    <rect x="356" y="420" width="44" height="80" rx="4"/>
+    <rect x="436" y="332" width="44" height="168" rx="4"/>
+    <rect x="516" y="382" width="44" height="118" rx="4"/>
+    <rect x="596" y="300" width="44" height="200" rx="4"/>
+    <rect x="676" y="354" width="44" height="146" rx="4"/>
+    <rect x="756" y="322" width="44" height="178" rx="4"/>
+  </g>
+  <path d="M218 390 L298 344 L378 382 L458 308 L538 350 L618 278 L698 322 L778 290" fill="none" stroke="#d0ae68" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#e0c180">
+    <circle cx="218" cy="390" r="7"/><circle cx="298" cy="344" r="7"/><circle cx="378" cy="382" r="7"/><circle cx="458" cy="308" r="7"/>
+    <circle cx="538" cy="350" r="7"/><circle cx="618" cy="278" r="7"/><circle cx="698" cy="322" r="7"/><circle cx="778" cy="290" r="7"/>
+  </g>
+</svg>

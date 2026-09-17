@@ -1,0 +1,84 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'auth' } as const);
+
+import type { LocaleSchema } from '../keys';
+import type { auth as zhCNAuth } from '../zh-CN/auth';
+
+export const auth = {
+    register: {
+        title: 'Criar conta anônima',
+        description: 'Sem vínculo com e-mail ou telefone. Salve a Recovery Key e registre uma passkey.',
+        publicHandleHeading: 'Nome público',
+        publicHandleLabel: 'Nome público (opcional)',
+        publicHandleHint: 'Deixe em branco para gerar um nome anônimo. O TOTP pode ser ativado depois nas configurações; os códigos de recuperação TOTP são diferentes da Recovery Key.',
+        publicHandlePlaceholder: '3 a 20 caracteres: letras, números, ideogramas ou #',
+        agreementPrefix: 'Eu li e aceito as',
+        guidelinesLink: 'diretrizes do site',
+        submitButtonIdle: 'Criar conta anônima e gerar Recovery Key',
+        submitButtonLoading: 'Criando conta anônima',
+        passkeyEnrollmentTitle: 'Registrar a primeira passkey',
+        passkeyEnrollmentHint: 'A conta ainda está em estado temporário; apenas após a verificação da passkey ela será ativada e uma sessão completa será emitida.',
+        recoveryKeyTitle: 'Salvar Recovery Key',
+        recoveryKeyHint: 'A Recovery Key é exibida apenas uma vez. Se perdida e sem uma passkey disponível, a conta pode ficar irrecuperável.',
+        recoveryKeyVersionPrefix: 'Recovery Key v',
+        recoveryKeyCreatedAtPrefix: 'Criada em: ',
+        copyRecoveryKeyCta: 'Copiar Recovery Key',
+        recoveryKeySavedCheckbox: 'Eu salvei a Recovery Key',
+        registerPasskeyCta: 'Registrar passkey',
+        passkeyBoundTitle: 'Passkey registrada',
+        passkeyBoundHint: 'Use a passkey para entrar e a Recovery Key para recuperar a conta.',
+        enterAccountCta: 'Acessar a conta',
+        hasAccountLabel: 'Já possui conta',
+        loginLink: 'Entrar',
+        cancelLink: 'Início'
+    },
+    login: {
+        title: 'Entrar',
+        description: 'Escrever, comentar e fazer manutenção do site.',
+        rememberMe: 'Lembrar este dispositivo',
+        passkeyButton: 'Entrar com passkey',
+        passkeyLoading: 'Aguardando dispositivo',
+        passkeyHint: 'Contas anônimas não têm e-mail ou telefone. Use um dispositivo registrado, chave de segurança ou recupere o acesso com a Recovery Key.',
+        passkeyFailureHint: 'Use a Recovery Key se a verificação do dispositivo falhar.',
+        recoverLink: 'Recuperar acesso com Recovery Key',
+        mfaRequiredTitle: 'Verificação em duas etapas necessária',
+        mfaRequiredHint: 'Insira o código do autenticador ou um código de recuperação.',
+        mfaAriaLabel: 'Selecionar método de verificação',
+        mfaModeTOTP: 'Código do autenticador',
+        mfaModeRecovery: 'Código de recuperação',
+        mfaCodeLabel: 'Código MFA',
+        mfaCodePlaceholder: 'Código de 6 dígitos',
+        mfaRecoveryLabel: 'Código de recuperação',
+        mfaRecoveryPlaceholder: 'Código de recuperação',
+        mfaSubmit: 'Verificar',
+        registerLink: 'Cadastrar',
+        cancelLink: 'Cancelar'
+    },
+    recover: {
+        title: 'Recuperar acesso',
+        description: 'Verifique a Recovery Key e registre uma nova passkey.',
+        sectionTitle: 'Recovery Key',
+        sectionHint: 'A Recovery Key é a credencial de recuperação da conta, não um código de recuperação TOTP. Após a verificação, registre uma nova passkey.',
+        keyLabel: 'Recovery Key',
+        keyPlaceholder: 'Cole a Recovery Key que começa com frk_',
+        keyHelp: 'Se a Recovery Key for perdida e não houver passkey disponível, a conta pode ficar irrecuperável.',
+        revokePasskeys: 'Revogar passkeys antigas após a recuperação',
+        verifyCta: 'Verificar Recovery Key',
+        sessionReadyHint: 'Recovery Key verificada. A sessão de recuperação expira em {expiresAt}. Registre uma nova passkey.',
+        bindNewPasskeyCta: 'Registrar nova passkey',
+        verifyFailedFallback: 'Falha na verificação da Recovery Key.',
+        returnLoginLink: 'Voltar para o login',
+        cancelLink: 'Cancelar'
+    },
+    policyModal: {
+        fallbackTitle: 'Detalhes dos termos',
+        privacyTitle: 'Política de privacidade',
+        guidelinesTitle: 'Diretrizes do site',
+        loadingStatus: 'Carregando conteúdo',
+        loadError: 'Não foi possível carregar o conteúdo dos termos',
+        retryCta: 'Tentar novamente',
+        emptyStatePrefix: 'Nenhum conteúdo de ',
+        emptyStateSuffix: ' foi configurado.',
+        acknowledgementCta: 'Eu li',
+        bodyAriaLabel: 'Corpo dos termos'
+    }
+} as const satisfies LocaleSchema<typeof zhCNAuth>;

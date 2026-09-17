@@ -1,0 +1,4 @@
+interface:
+  display_name: "FsusBlog Design Conformance"
+  short_description: "Route visual changes, rendered reviews, and design contracts"
+  default_prompt: "Use $fsusblog-design-conformance to select the applicable FsusBlog design workflow and load only the relevant context."

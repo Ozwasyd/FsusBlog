@@ -1,0 +1,95 @@
+{
+    "schema": "fsusblog.app-config-synthetic-surfaces.v1",
+    "identity": {
+        "sourceCommit": "bd463692c527070335dfc0edcbe9f0ad899cf6e7",
+        "sourceWorktree": "/home/lyuaoss/projects/FsusBlog-issue-1453",
+        "buildArtifactDigest": "sha256:e2acf319125a6e9baf8377b68f62a1828a7e934a49d67d4e6e16c6e647e5ce8d",
+        "fixtureDigest": "sha256:38b7e479761287dbbb27f8bd092b14e779f83d18c72a95bf27b2e556c499c11b",
+        "toolchainDigest": "sha256:85e1bcb570e85a1d59cb8ea8447d7a376ab072ed962811e8c18e48f5bc2e31a9",
+        "securityPolicyDigest": "sha256:3a05c740c2814851c348352e6a1608a0bc06554930aecc5bd78540e33bd8bddf",
+        "containerBudget": {
+            "cpu": 4,
+            "memoryBytes": 4294967296
+        }
+    },
+    "experiments": [
+        {
+            "groupId": "public-aot-capacity",
+            "targetMetric": "latency.p99Ms",
+            "objective": "minimize",
+            "radius": 0.75,
+            "repeats": 3,
+            "surface": {
+                "intercept": 80,
+                "linear": {
+                    "public-aot-ssr-workers": 24,
+                    "public-aot-backfill-concurrency": -18,
+                    "public-aot-backfill-queue": 4
+                },
+                "quadratic": {
+                    "public-aot-backfill-queue": 90
+                },
+                "pairwise": {
+                    "public-aot-ssr-workers*public-aot-backfill-concurrency": 40
+                },
+                "repeatNoise": [-0.2, 0, 0.2]
+            },
+            "forcedFailure": {
+                "knobId": "public-aot-backfill-queue",
+                "absoluteNormalizedDeltaAtLeast": 0.09,
+                "repeat": 1,
+                "reason": "synthetic-queue-capacity-cliff"
+            },
+            "guardrails": {
+                "predictions": {
+                    "rssMiB": 540,
+                    "gcPauseP99Ms": 8,
+                    "timeoutRate": 0
+                },
+                "limits": {
+                    "rssMiB": 768,
+                    "gcPauseP99Ms": 20,
+                    "timeoutRate": 0.001
+                }
+            },
+            "actualDeltaScale": 0.9
+        },
+        {
+            "groupId": "public-hotread-residency",
+            "targetMetric": "request.wireBytes",
+            "objective": "minimize",
+            "radius": 0.5,
+            "repeats": 3,
+            "surface": {
+                "intercept": 1200,
+                "linear": {
+                    "public-hotread-recent-admission": -40,
+                    "public-hotread-min-compression-savings": 160,
+                    "public-hotread-brotli-share": -180,
+                    "public-hotread-gzip-share": 30,
+                    "public-hotread-min-client-share": 120
+                },
+                "quadratic": {
+                    "public-hotread-min-compression-savings": 80
+                },
+                "pairwise": {
+                    "public-hotread-min-compression-savings*public-hotread-brotli-share": -60
+                },
+                "repeatNoise": [-0.5, 0, 0.5]
+            },
+            "guardrails": {
+                "predictions": {
+                    "residentMiB": 620,
+                    "snapshotOverlapMiB": 930,
+                    "fallbackRate": 0.002
+                },
+                "limits": {
+                    "residentMiB": 768,
+                    "snapshotOverlapMiB": 1024,
+                    "fallbackRate": 0.005
+                }
+            },
+            "actualDeltaScale": 0.85
+        }
+    ]
+}

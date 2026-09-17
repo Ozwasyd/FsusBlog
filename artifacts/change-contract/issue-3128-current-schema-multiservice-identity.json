@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs"
+            ],
+            "reason": "The materializer preserves its caller-visible process environment keys while non-PostgreSQL containers complete common identity validation without a database observation."
+        }
+    ]
+}

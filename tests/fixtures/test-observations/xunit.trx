@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun>
+  <TestDefinitions>
+    <UnitTest name="adds values" id="11111111-1111-1111-1111-111111111111">
+      <TestMethod className="FsusBlog.Tests.CalculatorTests" name="Adds" />
+    </UnitTest>
+    <UnitTest name="rejects invalid values" id="22222222-2222-2222-2222-222222222222">
+      <TestMethod className="FsusBlog.Tests.CalculatorTests" name="Rejects" />
+    </UnitTest>
+    <UnitTest name="windows only" id="33333333-3333-3333-3333-333333333333">
+      <TestMethod className="FsusBlog.Tests.PlatformTests" name="WindowsOnly" />
+    </UnitTest>
+  </TestDefinitions>
+  <Results>
+    <UnitTestResult testId="11111111-1111-1111-1111-111111111111" testName="Adds(value: 1)" outcome="Passed" duration="00:00:00.0120000" />
+    <UnitTestResult testId="22222222-2222-2222-2222-222222222222" testName="Rejects(value: -1)" outcome="Failed" duration="00:00:00.0210000">
+      <Output>
+        <ErrorInfo>
+          <Message>Xunit.Sdk.EqualException: Assert.Equal() Failure</Message>
+          <StackTrace>at FsusBlog.Tests.CalculatorTests.Rejects() in /tmp/run-a1/tests/CalculatorTests.cs:line 42</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult testId="33333333-3333-3333-3333-333333333333" testName="WindowsOnly" outcome="NotExecuted" duration="00:00:00.0000000" />
+  </Results>
+</TestRun>

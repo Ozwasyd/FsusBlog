@@ -1,0 +1,17 @@
+dictionary_id: cn-mainland.public-order
+version: 2026-06-01
+scope: regional
+region: CN-MAINLAND
+category: public_order_risk
+match_mode: normalized
+normalization: zh_confusable
+severity_default: critical
+source: internal_review
+reviewed_by: engineering-preset
+updated_at: 2026-06-01T00:00:00Z
+terms:
+    - value: public_order_risk
+      aliases: [rumor_disrupting_public_order]
+      severity: critical
+      reason: cn_mainland_public_order_risk
+      evidence_policy: redact

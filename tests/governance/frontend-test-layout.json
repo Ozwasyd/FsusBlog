@@ -1,0 +1,107 @@
+{
+    "schema": "fsusblog.frontend-test-layout.v1",
+    "project": "frontend",
+    "sourceRoot": "src/frontend",
+    "canonicalTestRoot": "tests/frontend",
+    "sourceTestAllowlist": [],
+    "retiredRoots": [
+        "src/frontend/tests",
+        "src/frontend/tests/frontend"
+    ],
+    "categories": {
+        "test-cases": {
+            "roots": [
+                "tests/frontend/benchmarks",
+                "tests/frontend/checks",
+                "tests/frontend/e2e",
+                "tests/frontend/property",
+                "tests/frontend/typecheck",
+                "tests/frontend/unit",
+                "tests/frontend/unit/support"
+            ],
+            "files": []
+        },
+        "fixtures": {
+            "roots": [
+                "tests/frontend/fixtures",
+                "tests/frontend/unit/fixtures"
+            ],
+            "files": []
+        },
+        "support": {
+            "roots": [
+                "tests/frontend/support",
+                "tests/frontend/checks/support"
+            ],
+            "files": [
+                "tests/frontend/helpers/perceptionCharacterV3Media.ts"
+            ]
+        },
+        "metadata": {
+            "roots": [],
+            "files": [
+                "tests/frontend/README.md",
+                "tests/frontend/package.json",
+                "tests/frontend/archive-sticky-geometry-evidence.json",
+                "tests/frontend/archive-sticky-geometry-governance-handoff.json",
+                "tests/frontend/internal-selector-migration-evidence.json",
+                "tests/frontend/internal-selector-registry.json"
+            ]
+        }
+    },
+    "runnerConfiguration": {
+        "root": "src/frontend",
+        "files": [
+            "src/frontend/vitest.adapters-binary.config.ts",
+            "src/frontend/vitest.bootstrap-hydration.config.ts",
+            "src/frontend/vitest.composables-state.config.ts",
+            "src/frontend/vitest.config.ts",
+            "src/frontend/vitest.model.config.ts",
+            "src/frontend/vitest.perf.config.ts",
+            "src/frontend/vitest.production.config.ts",
+            "src/frontend/vitest.property.config.ts",
+            "src/frontend/vitest.public-renderers.config.ts",
+            "src/frontend/vitest.unit-core.config.ts",
+            "src/frontend/vitest.wasm-bridges.config.ts",
+            "src/frontend/vitest.workers.config.ts"
+        ],
+        "sharedFiles": [
+            "src/frontend/vitest.shared.mjs",
+            "src/frontend/vitest.transform-cache-coverage.mjs"
+        ]
+    },
+    "unitSetup": {
+        "resolverModule": "src/frontend/vitest.shared.mjs",
+        "resolverExport": "frontendUnitSetupFile",
+        "dependencyDedupeExport": "frontendTestDependencyDedupe",
+        "canonicalFile": "tests/frontend/support/unit/setup.ts",
+        "supportFiles": [
+            "tests/frontend/support/unit/setup.ts",
+            "tests/frontend/support/unit/animationFrameEnvironment.ts"
+        ],
+        "configs": [
+            "src/frontend/vitest.adapters-binary.config.ts",
+            "src/frontend/vitest.bootstrap-hydration.config.ts",
+            "src/frontend/vitest.composables-state.config.ts",
+            "src/frontend/vitest.config.ts",
+            "src/frontend/vitest.model.config.ts",
+            "src/frontend/vitest.perf.config.ts",
+            "src/frontend/vitest.property.config.ts",
+            "src/frontend/vitest.public-renderers.config.ts",
+            "src/frontend/vitest.unit-core.config.ts",
+            "src/frontend/vitest.wasm-bridges.config.ts",
+            "src/frontend/vitest.workers.config.ts"
+        ],
+        "transformCacheIdentity": "tools/test/frontend-vitest-transform-cache.mjs",
+        "environmentConsumer": "tests/frontend/unit/runtime/testEnvironment.test.ts"
+    },
+    "visualFixture": {
+        "module": "tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts",
+        "consumer": "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
+        "viteConfig": "src/frontend/vite.config.ts",
+        "requiredDedupe": [
+            "vue",
+            "vue-router"
+        ]
+    }
+}

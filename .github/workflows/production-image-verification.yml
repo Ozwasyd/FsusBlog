@@ -1,0 +1,224 @@
+name: Production Image Verification
+
+on:
+    pull_request:
+        paths:
+            - .github/workflows/production-image-verification.yml
+            - .editorconfig
+            - .globalconfig
+            - Directory.Build.props
+            - Directory.Build.targets
+            - Directory.Packages.props
+            - global.json
+            - build/artifacts/native-zk/**
+            - config/build/backend-docker-inputs.json
+            - config/build/backend-restore.xml
+            - config/deployment/production-compose-environment.json
+            - config/moderation/**
+            - config/testing/bounded-channel-delivery-contracts.json
+            - config/testing/fsusui-baseline.json
+            - docs/architecture/repository-layout.md
+            - ops/docker/**
+            - ops/gateway/**
+            - src/.editorconfig
+            - src/.globalconfig
+            - src/Directory.Build.props
+            - src/Directory.Build.targets
+            - src/Directory.Packages.props
+            - src/global.json
+            - src/backend/**
+            - src/core/**
+            - src/shared/**
+            - tests/browser-diagnostics/local-fsusui-identity.mjs
+            - tests/tools/production-build-workflow.test.mjs
+            - tests/tools/backend-docker-input-closure.test.mjs
+            - tools/build-final-image.sh
+            - tools/.editorconfig
+            - tools/.globalconfig
+            - tools/Directory.Build.props
+            - tools/Directory.Build.targets
+            - tools/Directory.Packages.props
+            - tools/global.json
+            - tools/architecture/.editorconfig
+            - tools/architecture/.globalconfig
+            - tools/architecture/Directory.Build.props
+            - tools/architecture/Directory.Build.targets
+            - tools/architecture/Directory.Packages.props
+            - tools/architecture/global.json
+            - tools/architecture/FsusBlog.DiLifetimeAnalyzer/**
+            - tools/docker/backend-input-closure.mjs
+            - tools/docker/backend-input-environment.mjs
+            - tools/docker/ssr-runtime-closure.mjs
+            - config/build/ssr-runtime-inputs.json
+            - tests/tools/ssr-runtime-closure.test.mjs
+            - tests/tools/production-build-bootstrap.test.mjs
+            - tests/tools/production-build-layout.test.mjs
+            - tools/bootstrap-acceptance-env.sh
+            - tools/build-native.sh
+            - tools/test-matrix/production-build-layout.mjs
+            - tools/test/lanes/production-build-artifacts.sh
+            - tools/deployment/check-production-compose-environment.mjs
+            - tools/deployment/check-production-openresty-config.sh
+            - tools/deployment/verify-container-termination.mjs
+            - tools/test/fsusui-baseline.mjs
+            - tools/test/run-release-reliability-qualified-local.sh
+    schedule:
+        - cron: "23 3 * * *"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    packages: read
+
+concurrency:
+    group: production-image-verification-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    DOTNET_NOLOGO: "true"
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+    GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+
+jobs:
+    contracts:
+        name: Compose and OpenResty contracts
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  persist-credentials: false
+            - name: Setup Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Verify production image workflow and environment contract
+              run: |
+                  node tools/deployment/check-production-compose-environment.mjs
+                  node --test tests/tools/production-build-workflow.test.mjs
+            - name: Validate production OpenResty configuration
+              run: tools/deployment/check-production-openresty-config.sh
+
+    backend-input-cache:
+        name: Backend Docker input cache closure
+        needs: contracts
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Setup Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Setup .NET
+              uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - name: Install backend evaluation isolation
+              run: sudo apt-get update && sudo apt-get install --yes bubblewrap python3
+            - name: Verify candidate backend input cache
+              run: |
+                  node tools/docker/backend-input-closure.mjs probe-buildkit \
+                    --output .tmp/backend-docker-input-buildkit-probe.json
+            - name: Upload backend input cache evidence
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: backend-input-cache-${{ github.run_id }}-${{ github.run_attempt }}
+                  if-no-files-found: warn
+                  include-hidden-files: true
+                  retention-days: 7
+                  path: |
+                      .tmp/backend-docker-input-buildkit-probe.json
+                      .tmp/backend-docker-input-buildkit-probe.json.d/**
+                      .tmp/backend-input-evaluations/**
+
+    final-image:
+        name: Final image (${{ matrix.runtime-profile }})
+        needs: [contracts, backend-input-cache]
+        runs-on: ubuntu-latest
+        timeout-minutes: 90
+        strategy:
+            fail-fast: false
+            matrix:
+                runtime-profile: ${{ fromJSON(github.event_name == 'pull_request' && '["throughput-musl"]' || '["throughput-musl","throughput-glibc"]') }}
+        env:
+            FSUSBLOG_RELEASE_RUN_ID: production-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runtime-profile }}
+            FSUSBLOG_RELEASE_RUNTIME_IMAGE: fsusblog:ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runtime-profile }}
+            FSUSBLOG_RUNTIME_PROFILE_ID: ${{ matrix.runtime-profile }}
+            FSUSBLOG_TEST_NAMESPACE: production-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runtime-profile }}
+            FSUSBLOG_USE_LOCAL_FSUSUI: "1"
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/fsusui-source
+            FSUSBLOG_FSUSUI_BUILD_TOOLS_IMAGE: fsusblog-fsusui-build-tools:${{ github.run_id }}-${{ github.run_attempt }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Resolve pinned FsusUI baseline
+              id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
+            - name: Checkout pinned FsusUI build source
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  path: .tmp/fsusui-source
+                  persist-credentials: false
+            - name: Setup Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Setup .NET
+              uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - name: Install locked frontend dependencies
+              run: npm --prefix src/frontend ci --ignore-scripts --no-audit
+            - name: Install backend evaluation isolation
+              run: sudo apt-get update && sudo apt-get install --yes bubblewrap python3
+            - name: Prepare pinned FsusUI source artifacts
+              run: |
+                  docker build --pull \
+                    --file ops/docker/FsusBlog.Server.Dockerfile \
+                    --target fsusui-build-tools \
+                    --tag "$FSUSBLOG_FSUSUI_BUILD_TOOLS_IMAGE" \
+                    .
+                  docker run --rm \
+                    --user "$(id -u):$(id -g)" \
+                    --env HOME=/tmp/fsusui-home \
+                    --env WASM_BUILD_JOBS=2 \
+                    --volume "$FSUSBLOG_LOCAL_FSUSUI_ROOT:/work" \
+                    --workdir /work \
+                    "$FSUSBLOG_FSUSUI_BUILD_TOOLS_IMAGE" \
+                    bash -c '
+                      set -euo pipefail
+                      corepack pnpm@10.33.0 install --frozen-lockfile --ignore-scripts
+                      corepack pnpm@10.33.0 --dir vue/internal/build-utils run stub
+                      corepack pnpm@10.33.0 run build:theme
+                      corepack pnpm@10.33.0 run ensure:wasm
+                    '
+                  node tests/browser-diagnostics/local-fsusui-identity.mjs
+            - name: Build and smoke-test the production final image
+              run: tools/test/run-release-reliability-qualified-local.sh --runtime-admission-only
+            - name: Upload verification receipts
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: production-image-${{ matrix.runtime-profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  if-no-files-found: warn
+                  include-hidden-files: true
+                  retention-days: 7
+                  path: |
+                      .tmp/ci-production-build/*/receipt.json
+                      .tmp/release-reliability/*/production-image-termination.json
+                      .tmp/release-reliability/*/runtime-admission-candidate.json
+                      .tmp/release-reliability/*/runtime-admission-receipt.json
+                      .tmp/release-reliability/*/runtime-smoke-observation.json
+                      .tmp/backend-input-evaluations/**

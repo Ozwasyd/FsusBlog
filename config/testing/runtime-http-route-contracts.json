@@ -1,0 +1,251 @@
+{
+    "schema": "fsusblog.runtime-http-route-contracts.v1",
+    "producers": {
+        "runtime-load-soak": [
+            "system-seo",
+            "article-list-home-10",
+            "category-list",
+            "tag-list",
+            "article-hot",
+            "article-featured"
+        ],
+        "frontend-load-public-api": [
+            "public-home",
+            "public-article",
+            "public-search-invalid",
+            "system-seo",
+            "pow-challenge",
+            "article-detail",
+            "article-comments",
+            "search-manifest",
+            "article-list-home-5",
+            "article-hot"
+        ]
+    },
+    "routes": [
+        {
+            "routeId": "system-seo",
+            "method": "GET",
+            "pathTemplate": "/api/binary/system/seo",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 13,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 65536,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "article-list-home-10",
+            "method": "GET",
+            "pathTemplate": "/api/binary/article/list/home/1/10.aeds",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 1,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 1048576,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "article-list-home-5",
+            "method": "GET",
+            "pathTemplate": "/api/binary/article/list/home/1/5.aeds",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 1,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 1048576,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "category-list",
+            "method": "GET",
+            "pathTemplate": "/api/binary/category",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 9,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 1048576,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "tag-list",
+            "method": "GET",
+            "pathTemplate": "/api/binary/tag",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 10,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 1048576,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "article-hot",
+            "method": "GET",
+            "pathTemplate": "/api/binary/article/hot/5.aeds",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 3,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 1048576,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "article-featured",
+            "method": "GET",
+            "pathTemplate": "/api/binary/article/featured/4.aeds",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 15,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 1048576,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "public-home",
+            "method": "GET",
+            "pathTemplate": "/",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "text/html"
+            ],
+            "expectedAedsFrameType": null,
+            "minimumBodyBytes": 32,
+            "maximumBodyBytes": 2097152,
+            "semanticValidatorId": "html-document",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "public-article",
+            "method": "GET",
+            "pathTemplate": "/article/:articleId",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "text/html"
+            ],
+            "expectedAedsFrameType": null,
+            "minimumBodyBytes": 32,
+            "maximumBodyBytes": 2097152,
+            "semanticValidatorId": "html-document",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "public-search-invalid",
+            "method": "GET",
+            "pathTemplate": "/search",
+            "expectedStatus": 400,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "text/html"
+            ],
+            "expectedAedsFrameType": null,
+            "minimumBodyBytes": 0,
+            "maximumBodyBytes": 2097152,
+            "semanticValidatorId": "html-document",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "pow-challenge",
+            "method": "GET",
+            "pathTemplate": "/api/binary/auth/pow-challenge",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 30,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 65536,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "no-store",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "article-detail",
+            "method": "GET",
+            "pathTemplate": "/api/binary/article/:articleId.aeds",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 2,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 2097152,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "article-comments",
+            "method": "GET",
+            "pathTemplate": "/api/binary/comment/:articleId",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": 5,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 2097152,
+            "semanticValidatorId": "non-error-frame",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        },
+        {
+            "routeId": "search-manifest",
+            "method": "GET",
+            "pathTemplate": "/search/index.manifest.aeds",
+            "expectedStatus": 200,
+            "redirectPolicy": "forbid",
+            "expectedContentType": [
+                "application/octet-stream"
+            ],
+            "expectedAedsFrameType": null,
+            "minimumBodyBytes": 16,
+            "maximumBodyBytes": 2097152,
+            "semanticValidatorId": "search-manifest",
+            "cacheHeaderPolicy": "any",
+            "authPolicy": "anonymous"
+        }
+    ]
+}

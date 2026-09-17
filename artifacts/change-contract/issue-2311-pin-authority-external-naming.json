@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinApplicationFacade.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinStore.cs",
+                "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs"
+            ],
+            "reason": "preserve caller-visible environment and database adapter spellings while the private pin mutation authority remains server-owned"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "preserve the existing PostgreSQL test-manifest JSON field spellings"
+        }
+    ]
+}

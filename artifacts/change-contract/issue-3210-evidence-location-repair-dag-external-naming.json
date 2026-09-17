@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/repository-layout.md",
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented caller-visible command, path, revision and generated contract spellings while defining the sealed repair DAG"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/test/evidence-location-scanner.mjs"
+            ],
+            "reason": "preserve process environment and Git command spellings at the tooling boundary while sealing isolated repair replay"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-merge-generated-output-repair-dag.schema.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json"
+            ],
+            "reason": "preserve serialized ownership, schema, ledger and acceptance field spellings at the external contract boundary"
+        }
+    ]
+}

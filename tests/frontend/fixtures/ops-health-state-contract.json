@@ -1,0 +1,109 @@
+{
+    "schema": "fsusblog-ops-health-state-contract.v1",
+    "issue": 1896,
+    "surface": {
+        "owner": "FsusBlog",
+        "profile": "task",
+        "uiDecisionClass": "bounded-composition",
+        "verificationClass": "ux-path",
+        "restoresConformance": true
+    },
+    "componentChoice": {
+        "stateComponent": "FsusUiEmptyState",
+        "size": "compact",
+        "illustration": false,
+        "actionComponent": "ElButton",
+        "reason": "OpsHealth is a task route whose workbench data is temporarily unavailable; compact EmptyState is the flat low-noise feedback primitive for a dashboard content region, while Result is reserved for completed operations or exceptional access."
+    },
+    "states": [
+        {
+            "id": "initial-loading",
+            "annunciation": "polite",
+            "assertiveLiveRegions": 0,
+            "hasRetry": false,
+            "hasWorkbench": false
+        },
+        {
+            "id": "failure",
+            "toastAnnunciation": "assertive",
+            "inlineAnnunciation": "off",
+            "assertiveLiveRegions": 1,
+            "inlineReasonVisible": true,
+            "retryDescribedBy": "ops-health-failure-reason",
+            "hasRetry": true,
+            "hasWorkbench": false
+        },
+        {
+            "id": "retry-loading",
+            "annunciation": "polite",
+            "newToastCount": 0,
+            "newAssertiveAnnouncementCount": 0,
+            "hasRetry": true,
+            "retryDisabled": true,
+            "retryLoading": true,
+            "hasWorkbench": false
+        },
+        {
+            "id": "retry-failure",
+            "toastIncrementPerAdmittedRequest": 1,
+            "assertiveAnnouncementIncrementPerAdmittedRequest": 1,
+            "inlineAnnunciation": "off",
+            "inlineReasonVisible": true,
+            "retryDescribedBy": "ops-health-failure-reason",
+            "hasRetry": true,
+            "hasWorkbench": false
+        },
+        {
+            "id": "success",
+            "hasRetry": false,
+            "hasInlineFailureReason": false,
+            "hasWorkbench": true
+        }
+    ],
+    "behaviorCases": [
+        "success",
+        "initial-loading",
+        "failure",
+        "single-assertive-live-region",
+        "accessible-inline-failure-reason",
+        "retry-success",
+        "retry-failure",
+        "repeated-retry",
+        "unmount-stale-response"
+    ],
+    "renderMatrix": {
+        "viewports": [375, 768, 1440],
+        "themes": ["light", "dark"],
+        "modes": ["default", "zoom-200", "forced-colors"],
+        "states": ["initial-loading", "failure", "retry-loading", "success"],
+        "requirements": [
+            "no-horizontal-overflow",
+            "visible-keyboard-focus",
+            "screen-reader-reason-and-retry",
+            "minimum-44px-retry-hit-target"
+        ]
+    },
+    "forbiddenMutations": [
+        "native-retry-moved-to-child",
+        "second-native-retry-inside-result",
+        "inline-failure-restores-assertive-live-region",
+        "failure-calls-toast-twice",
+        "initial-loading-shows-failure",
+        "double-click-starts-concurrent-loads",
+        "toast-only-without-recovery-action",
+        "toast-only-without-inline-reason",
+        "hidden-retry-action",
+        "private-el-selector-css",
+        "published-mode-falls-back-to-legacy-dom"
+    ],
+    "outOfScope": [
+        "getOpsHealth-response",
+        "getOpsHealth-cache",
+        "automatic-polling",
+        "service-health-semantics",
+        "OpsHealthWorkbench",
+        "navigation",
+        "new-wrapper",
+        "hero-or-illustration-or-marketing-cta"
+    ]
+}

@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2748,
+    "sourceCommit": "d6b9726fc927000c2a438721d4daf73dbd405f3b",
+    "expectedRecords": 1,
+    "expectedMigrated": 1,
+    "records": [
+        {
+            "id": "vitest:tests/frontend/e2e/public-article-reading-layout.spec.ts#viewport-width-px-theme-zoom-100-keeps-no-media-article--a355cf7b44",
+            "path": "tests/frontend/e2e/public-article-reading-layout.spec.ts",
+            "disposition": "migrated"
+        }
+    ]
+}

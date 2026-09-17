@@ -1,0 +1,79 @@
+name: Documentation report
+description: Report stale, missing, confusing, or incorrect project documentation.
+title: "[Docs] "
+labels: ["type:docs", "area:docs", "status:triage", "evidence:needs-docs"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
+              Remove secrets, tokens, private domains, real IPs, real emails, production logs, and private deployment details before posting publicly.
+    - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Identify the documentation snapshot with a canonical ReleaseId or full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
+    - type: input
+      id: document
+      attributes:
+          label: Affected document path or URL
+          description: Link or name the exact document, heading, route, or README section.
+          placeholder: "docs/development.md#local-setup"
+      validations:
+          required: true
+    - type: dropdown
+      id: category
+      attributes:
+          label: Documentation problem type
+          options:
+              - Stale content
+              - Missing content
+              - Confusing instructions
+              - Incorrect content
+              - Release evidence drift
+              - Other
+      validations:
+          required: true
+    - type: textarea
+      id: current
+      attributes:
+          label: Current text or section
+          description: Quote only the smallest needed excerpt or describe the missing section.
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected correction
+          description: Describe the corrected wording, link, command, or evidence.
+      validations:
+          required: true
+    - type: textarea
+      id: related-flow
+      attributes:
+          label: Related command, feature, route, API, or deployment flow
+          placeholder: "npm run check:views-constraints, /api/binary/article, Docker Compose setup, etc."
+      validations:
+          required: true
+    - type: dropdown
+      id: stability-impact
+      attributes:
+          label: Affects status, contract classification, or release evidence?
+          options:
+              - "Yes"
+              - "No"
+              - "Unsure"
+      validations:
+          required: true
+    - type: checkboxes
+      id: confirmation
+      attributes:
+          label: Public report confirmation
+          options:
+              - label: This is not a security vulnerability report.
+                required: true
+              - label: I removed secrets, tokens, private domains, real IP addresses, real emails, production logs, and private deployment details.
+                required: true

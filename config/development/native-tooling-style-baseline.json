@@ -1,0 +1,6 @@
+{
+    "schema": "fsusblog.native-tooling-style-baseline.v1",
+    "sourceCommit": "2777a3be7c36dc61497b49a32c540f98ab514da8",
+    "semantics": "An entry exempts only the exact pre-rule content digest; editing the file removes the exemption.",
+    "files": []
+}

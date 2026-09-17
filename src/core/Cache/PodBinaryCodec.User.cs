@@ -1,0 +1,1207 @@
+using System.Buffers;
+using System.Runtime.InteropServices;
+
+using FsusBlog.Core.Mapping.Codecs;
+using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Shared.Contracts.AuthSystem;
+using FsusBlog.Shared.Contracts.Models;
+using FsusBlog.Shared.Contracts.Outputs;
+
+namespace FsusBlog.Core.Cache;
+
+/// <summary>
+/// Provides binary serialization and decoding operations for user contracts.
+/// </summary>
+public static partial class PodBinaryCodec
+{
+    private const string DefaultIdentityKind = "anonymous_account";
+
+    /// <summary>
+    /// Writes the <c>AuthLoginFlow</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteAuthLoginFlow(AuthLoginFlowDto flow, IBufferWriter<byte> destination)
+    {
+        string identityKind = NormalizeIdentityKind(flow.IdentityKind);
+        var mutable = new MutableAuthLoginFlowPod
+        {
+            AccountId = flow.AccountId,
+            AuthPhase = string.Equals(flow.AuthPhase, "mfa_required", StringComparison.OrdinalIgnoreCase)
+                ? (byte)2
+                : string.Equals(flow.AuthPhase, "enrollment_required", StringComparison.OrdinalIgnoreCase)
+                    ? (byte)3
+                    : (byte)1,
+            MfaMode = string.Equals(flow.MfaMode, "risk", StringComparison.OrdinalIgnoreCase)
+                ? (byte)1
+                : string.Equals(flow.MfaMode, "standard", StringComparison.OrdinalIgnoreCase)
+                    ? (byte)2
+                    : (byte)0,
+            HasChallengeToken = string.IsNullOrWhiteSpace(flow.ChallengeToken) ? (byte)0 : (byte)1,
+            HasIdentityKind = (byte)1,
+            IdentityKind = PodUtf8Codec.ToFixed64(identityKind),
+            ReservedIdentity = default,
+            ChallengeToken = PodUtf8Codec.ToFixed64(flow.ChallengeToken ?? string.Empty)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableAuthLoginFlowPod, AuthLoginFlowPod>(mutable));
+    }
+
+    /// <summary>
+    /// Encodes the <c>AuthLoginFlow</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeAuthLoginFlow(AuthLoginFlowDto flow)
+        => EncodeToArray(Marshal.SizeOf<AuthLoginFlowPod>(), writer => WriteAuthLoginFlow(flow, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>AuthLoginFlow</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeAuthLoginFlow(ReadOnlyMemory<byte> source, out AuthLoginFlowDto flow)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out AuthLoginFlowPod pod) ||
+            pod.AuthPhase is < 1 or > 3 ||
+            pod.MfaMode > 2 ||
+            pod.HasChallengeToken > 1 ||
+            pod.HasIdentityKind > 1)
+        {
+            flow = default;
+            return false;
+        }
+
+        flow = new AuthLoginFlowDto(
+            pod.AccountId,
+            pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind,
+            pod.AuthPhase == 2 ? "mfa_required" : pod.AuthPhase == 3 ? "enrollment_required" : "authenticated",
+            pod.MfaMode == 1 ? "risk" : pod.MfaMode == 2 ? "standard" : null,
+            pod.HasChallengeToken == 1 ? PodUtf8Codec.FromFixed64(pod.ChallengeToken) : null);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>CurrentUserSnapshot</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteCurrentUserSnapshot(CurrentUserSnapshotDto snapshot, IBufferWriter<byte> destination)
+    {
+        string identityKind = NormalizeIdentityKind(snapshot.IdentityKind);
+        var mutable = new MutableCurrentUserSnapshotPod
+        {
+            AccountId = snapshot.AccountId,
+            Status = snapshot.Status,
+            DeletedAtUnixMs = snapshot.DeletedAt.HasValue ? PodTimeCodec.ToUnixMs(snapshot.DeletedAt.Value) : 0,
+            HasDeletedAt = snapshot.DeletedAt.HasValue ? (byte)1 : (byte)0,
+            HasIdentityKind = (byte)1,
+            Reserved1 = 0,
+            IdentityKind = PodUtf8Codec.ToFixed64(identityKind),
+            ReservedIdentity = default,
+            BanReason = PodUtf8Codec.ToFixed256(snapshot.BanReason ?? string.Empty)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableCurrentUserSnapshotPod, CurrentUserSnapshotPod>(mutable));
+    }
+
+    /// <summary>
+    /// Encodes the <c>CurrentUserSnapshot</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeCurrentUserSnapshot(CurrentUserSnapshotDto snapshot)
+        => EncodeToArray(Marshal.SizeOf<CurrentUserSnapshotPod>(), writer => WriteCurrentUserSnapshot(snapshot, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>CurrentUserSnapshot</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeCurrentUserSnapshot(ReadOnlyMemory<byte> source, out CurrentUserSnapshotDto snapshot)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out CurrentUserSnapshotPod pod) ||
+            pod.HasDeletedAt > 1 ||
+            pod.HasIdentityKind > 1)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = new CurrentUserSnapshotDto(
+            pod.AccountId,
+            pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind,
+            pod.Status,
+            NullUserFieldIfEmpty(PodUtf8Codec.FromFixed256(pod.BanReason)),
+            pod.HasDeletedAt == 1 ? PodTimeCodec.FromUnixMs(pod.DeletedAtUnixMs) : null);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>IdentityAccountSnapshot</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(256);
+        bool hasPublicHandle = !string.IsNullOrWhiteSpace(snapshot.PublicHandle);
+        bool hasAnonymousCredential =
+            !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialStatus) ||
+            !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialLevel);
+        bool hasBanReason = !string.IsNullOrWhiteSpace(snapshot.BanReason);
+        string identityKind = NormalizeIdentityKind(snapshot.IdentityKind);
+        var mutable = new MutableIdentityAccountSnapshotPod
+        {
+            AccountId = snapshot.AccountId,
+            Reserved0 = 0,
+            Status = snapshot.Status,
+            DeletedAtUnixMs = snapshot.DeletedAt.HasValue ? PodTimeCodec.ToUnixMs(snapshot.DeletedAt.Value) : 0,
+            HasPublicHandle = hasPublicHandle ? (byte)1 : (byte)0,
+            PasskeyEnabled = snapshot.PasskeyEnabled ? (byte)1 : (byte)0,
+            RecoveryEnabled = snapshot.RecoveryEnabled ? (byte)1 : (byte)0,
+            HasTotpStepUpEnabled = snapshot.TotpStepUpEnabled.HasValue ? (byte)1 : (byte)0,
+            TotpStepUpEnabled = snapshot.TotpStepUpEnabled == true ? (byte)1 : (byte)0,
+            HasAnonymousCredential = hasAnonymousCredential ? (byte)1 : (byte)0,
+            HasDeletedAt = snapshot.DeletedAt.HasValue ? (byte)1 : (byte)0,
+            HasBanReason = hasBanReason ? (byte)1 : (byte)0,
+            Reserved1 = 0,
+            PublicHandle = PodUtf8Codec.AppendSlice(hasPublicHandle ? snapshot.PublicHandle : string.Empty, payload),
+            AnonymousCredentialStatus = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialStatus : string.Empty, payload),
+            AnonymousCredentialLevel = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialLevel ?? string.Empty : string.Empty, payload),
+            IdentityKind = PodUtf8Codec.AppendSlice(identityKind, payload),
+            BanReason = PodUtf8Codec.AppendSlice(hasBanReason ? snapshot.BanReason : string.Empty, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableIdentityAccountSnapshotPod, IdentityAccountSnapshotPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>IdentityAccountSnapshot</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot)
+        => EncodeToArray(Marshal.SizeOf<IdentityAccountSnapshotPod>() + 256, writer => WriteIdentityAccountSnapshot(snapshot, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>IdentityAccountSnapshot</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeIdentityAccountSnapshot(ReadOnlyMemory<byte> source, out IdentityAccountSnapshotCoreModel snapshot)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out IdentityAccountSnapshotPod pod) ||
+            pod.HasPublicHandle > 1 ||
+            pod.PasskeyEnabled > 1 ||
+            pod.RecoveryEnabled > 1 ||
+            pod.HasTotpStepUpEnabled > 1 ||
+            pod.TotpStepUpEnabled > 1 ||
+            pod.HasAnonymousCredential > 1 ||
+            pod.HasDeletedAt > 1 ||
+            pod.HasBanReason > 1 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            snapshot = default;
+            return false;
+        }
+
+        string identityKind = NormalizeIdentityKind(NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.IdentityKind, payload)));
+        snapshot = new IdentityAccountSnapshotCoreModel(
+            pod.AccountId,
+            pod.HasPublicHandle == 1 ? PodProjector.ReadSlice(pod.PublicHandle, payload) : null,
+            pod.PasskeyEnabled == 1,
+            pod.RecoveryEnabled == 1,
+            pod.HasTotpStepUpEnabled == 1 ? pod.TotpStepUpEnabled == 1 : null,
+            pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialStatus, payload)) : null,
+            pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialLevel, payload)) : null,
+            identityKind,
+            pod.Status,
+            pod.HasBanReason == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.BanReason, payload)) : null,
+            pod.HasDeletedAt == 1 ? PodTimeCodec.FromUnixMs(pod.DeletedAtUnixMs) : null);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>UserSessions</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteUserSessions(IReadOnlyList<UserSessionSummaryDto> sessions, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(sessions.Count);
+        foreach (UserSessionSummaryDto session in sessions)
+        {
+            var mutable = new MutableUserSessionSummaryPod
+            {
+                CreatedAtUnixMs = PodTimeCodec.ToUnixMs(session.CreatedAt),
+                LastSeenAtUnixMs = session.LastSeenAt.HasValue ? PodTimeCodec.ToUnixMs(session.LastSeenAt.Value) : 0,
+                IsCurrent = session.IsCurrent ? (byte)1 : (byte)0,
+                HasLastSeenAt = session.LastSeenAt.HasValue ? (byte)1 : (byte)0,
+                HasPasskeyFriendlyName = session.PasskeyFriendlyName is null ? (byte)0 : (byte)1,
+                Reserved0 = 0,
+                SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
+                DeviceLabel = PodUtf8Codec.ToFixed64(session.DeviceLabel),
+                AuthenticationMethod = PodUtf8Codec.ToFixed32(session.AuthenticationMethod),
+                AuthenticationStrength = PodUtf8Codec.ToFixed32(session.AuthenticationStrength),
+                DurationPolicy = PodUtf8Codec.ToFixed32(session.DurationPolicy),
+                PasskeyFriendlyName = PodUtf8Codec.ToFixed256(session.PasskeyFriendlyName)
+            };
+            writer.WritePod(CastUserPod<MutableUserSessionSummaryPod, UserSessionSummaryPod>(mutable));
+        }
+    }
+
+    /// <summary>
+    /// Encodes the <c>UserSessions</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeUserSessions(IReadOnlyList<UserSessionSummaryDto> sessions)
+        => EncodeToArray(sizeof(int) + sessions.Count * Marshal.SizeOf<UserSessionSummaryPod>(), writer => WriteUserSessions(sessions, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>UserSessions</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeUserSessions(ReadOnlyMemory<byte> source, out IReadOnlyList<UserSessionSummaryDto> sessions)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadInt32(out int count) || count < 0)
+        {
+            sessions = Array.Empty<UserSessionSummaryDto>();
+            return false;
+        }
+
+        var items = new List<UserSessionSummaryDto>(count);
+        for (int i = 0; i < count; i++)
+        {
+            if (!reader.TryReadPod(out UserSessionSummaryPod pod) ||
+                pod.IsCurrent > 1 ||
+                pod.HasLastSeenAt > 1 ||
+                pod.HasPasskeyFriendlyName > 1 ||
+                pod.Reserved0 != 0)
+            {
+                sessions = Array.Empty<UserSessionSummaryDto>();
+                return false;
+            }
+
+            items.Add(new UserSessionSummaryDto(
+                SessionId: PodUtf8Codec.FromFixed64(pod.SessionId),
+                DeviceLabel: PodUtf8Codec.FromFixed64(pod.DeviceLabel),
+                CreatedAt: PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs),
+                LastSeenAt: pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
+                AuthenticationMethod: PodUtf8Codec.FromFixed32(pod.AuthenticationMethod),
+                AuthenticationStrength: PodUtf8Codec.FromFixed32(pod.AuthenticationStrength),
+                PasskeyFriendlyName: pod.HasPasskeyFriendlyName == 1
+                    ? PodUtf8Codec.FromFixed256(pod.PasskeyFriendlyName)
+                    : null,
+                DurationPolicy: PodUtf8Codec.FromFixed32(pod.DurationPolicy),
+                IsCurrent: pod.IsCurrent == 1));
+        }
+
+        sessions = items;
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>AdminSessions</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteAdminSessions(IReadOnlyList<AdminSessionSummaryDto> sessions, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(sessions.Count);
+        foreach (AdminSessionSummaryDto session in sessions)
+        {
+            var mutable = new MutableAdminSessionSummaryPod
+            {
+                CreatedAtUnixMs = PodTimeCodec.ToUnixMs(session.CreatedAtUtc),
+                LastSeenAtUnixMs = session.LastSeenAtUtc.HasValue ? PodTimeCodec.ToUnixMs(session.LastSeenAtUtc.Value) : 0,
+                IdleExpiresAtUnixMs = PodTimeCodec.ToUnixMs(session.IdleExpiresAtUtc),
+                AbsoluteExpiresAtUnixMs = PodTimeCodec.ToUnixMs(session.AbsoluteExpiresAtUtc),
+                IsCurrent = session.IsCurrent ? (byte)1 : (byte)0,
+                IsRevoked = session.IsRevoked ? (byte)1 : (byte)0,
+                HasLastSeenAt = session.LastSeenAtUtc.HasValue ? (byte)1 : (byte)0,
+                Reserved = 0,
+                SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
+                DeviceFingerprint = PodUtf8Codec.ToFixed128(session.DeviceFingerprint ?? string.Empty),
+                UserAgent = PodUtf8Codec.ToFixed128(session.UserAgent ?? string.Empty)
+            };
+            writer.WritePod(CastUserPod<MutableAdminSessionSummaryPod, AdminSessionSummaryPod>(mutable));
+        }
+    }
+
+    /// <summary>
+    /// Encodes the <c>AdminSessions</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeAdminSessions(IReadOnlyList<AdminSessionSummaryDto> sessions)
+        => EncodeToArray(sizeof(int) + sessions.Count * Marshal.SizeOf<AdminSessionSummaryPod>(), writer => WriteAdminSessions(sessions, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>AdminSessions</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeAdminSessions(ReadOnlyMemory<byte> source, out IReadOnlyList<AdminSessionSummaryDto> sessions)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadInt32(out int count) || count < 0)
+        {
+            sessions = Array.Empty<AdminSessionSummaryDto>();
+            return false;
+        }
+
+        var items = new List<AdminSessionSummaryDto>(count);
+        for (int i = 0; i < count; i++)
+        {
+            if (!reader.TryReadPod(out AdminSessionSummaryPod pod) ||
+                pod.IsCurrent > 1 ||
+                pod.IsRevoked > 1 ||
+                pod.HasLastSeenAt > 1)
+            {
+                sessions = Array.Empty<AdminSessionSummaryDto>();
+                return false;
+            }
+
+            items.Add(new AdminSessionSummaryDto(
+                PodUtf8Codec.FromFixed64(pod.SessionId),
+                NullIfEmpty(PodUtf8Codec.FromFixed128(pod.DeviceFingerprint)),
+                NullIfEmpty(PodUtf8Codec.FromFixed128(pod.UserAgent)),
+                PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs),
+                pod.HasLastSeenAt == 1 ? PodTimeCodec.FromUnixMs(pod.LastSeenAtUnixMs) : null,
+                PodTimeCodec.FromUnixMs(pod.IdleExpiresAtUnixMs),
+                PodTimeCodec.FromUnixMs(pod.AbsoluteExpiresAtUnixMs),
+                pod.IsCurrent == 1,
+                pod.IsRevoked == 1));
+        }
+
+        sessions = items;
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>MfaSetupStart</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteMfaSetupStart(MfaSetupStartDto dto, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(512);
+        var mutable = new MutableMfaSetupStartPod
+        {
+            Enabled = dto.Enabled ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            Reserved1 = 0,
+            Secret = PodUtf8Codec.AppendSlice(dto.Secret, payload),
+            OtpAuthUrl = PodUtf8Codec.AppendSlice(dto.OtpAuthUrl, payload),
+            Issuer = PodUtf8Codec.AppendSlice(dto.Issuer, payload),
+            Account = PodUtf8Codec.AppendSlice(dto.Account, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableMfaSetupStartPod, MfaSetupStartPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Attempts to decode the <c>MfaSetupStart</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeMfaSetupStart(ReadOnlyMemory<byte> source, out MfaSetupStartDto dto)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out MfaSetupStartPod pod) || pod.Enabled > 1 || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            dto = default;
+            return false;
+        }
+
+        dto = new MfaSetupStartDto(
+            pod.Enabled == 1,
+            PodProjector.ReadSlice(pod.Secret, payload),
+            PodProjector.ReadSlice(pod.OtpAuthUrl, payload),
+            PodProjector.ReadSlice(pod.Issuer, payload),
+            PodProjector.ReadSlice(pod.Account, payload));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>MfaSetupVerify</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteMfaSetupVerify(MfaSetupVerifyDto dto, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        var header = new MutableMfaSetupVerifyPod
+        {
+            Enabled = dto.Enabled ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            Reserved1 = 0,
+            RecoveryCodeCount = dto.RecoveryCodes.Count
+        };
+        writer.WritePod(CastUserPod<MutableMfaSetupVerifyPod, MfaSetupVerifyPod>(header));
+        foreach (string code in dto.RecoveryCodes)
+        {
+            writer.WritePod(CastUserPod<MutableMfaRecoveryCodePod, MfaRecoveryCodePod>(
+                new MutableMfaRecoveryCodePod { Code = PodUtf8Codec.ToFixed64(code) }));
+        }
+    }
+
+    /// <summary>
+    /// Encodes the <c>MfaSetupVerify</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeMfaSetupVerify(MfaSetupVerifyDto dto)
+        => EncodeToArray(8 + dto.RecoveryCodes.Count * Marshal.SizeOf<MfaRecoveryCodePod>(), writer => WriteMfaSetupVerify(dto, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>MfaSetupVerify</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeMfaSetupVerify(ReadOnlyMemory<byte> source, out MfaSetupVerifyDto dto)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out MfaSetupVerifyPod header) || header.Enabled > 1 || header.RecoveryCodeCount < 0)
+        {
+            dto = new MfaSetupVerifyDto();
+            return false;
+        }
+
+        var codes = new List<string>(header.RecoveryCodeCount);
+        for (int i = 0; i < header.RecoveryCodeCount; i++)
+        {
+            if (!reader.TryReadPod(out MfaRecoveryCodePod code))
+            {
+                dto = new MfaSetupVerifyDto();
+                return false;
+            }
+
+            codes.Add(PodUtf8Codec.FromFixed64(code.Code));
+        }
+
+        dto = new MfaSetupVerifyDto { Enabled = header.Enabled == 1, RecoveryCodes = codes };
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>MfaProfile</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteMfaProfile(MfaProfileDto dto, IBufferWriter<byte> destination)
+    {
+        var mutable = new MutableMfaProfilePod
+        {
+            VerifiedAtUnixMs = dto.VerifiedAt.HasValue ? PodTimeCodec.ToUnixMs(dto.VerifiedAt.Value) : 0,
+            Enabled = dto.Enabled ? (byte)1 : (byte)0,
+            HasVerifiedAt = dto.VerifiedAt.HasValue ? (byte)1 : (byte)0,
+            Reserved = 0
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableMfaProfilePod, MfaProfilePod>(mutable));
+    }
+
+    /// <summary>
+    /// Attempts to decode the <c>MfaProfile</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeMfaProfile(ReadOnlyMemory<byte> source, out MfaProfileDto dto)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out MfaProfilePod pod) || pod.Enabled > 1 || pod.HasVerifiedAt > 1)
+        {
+            dto = default;
+            return false;
+        }
+
+        dto = new MfaProfileDto(pod.Enabled == 1, pod.HasVerifiedAt == 1 ? PodTimeCodec.FromUnixMs(pod.VerifiedAtUnixMs) : null);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>MfaChallengeResult</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteMfaChallengeResult(MfaChallengeResultDto dto, IBufferWriter<byte> destination)
+    {
+        string identityKind = dto.User.HasValue ? NormalizeIdentityKind(dto.User.Value.IdentityKind) : string.Empty;
+        var mutable = new MutableMfaChallengeResultPod
+        {
+            AccountId = dto.User?.AccountId ?? 0,
+            Verified = dto.Verified ? (byte)1 : (byte)0,
+            HasProofToken = string.IsNullOrWhiteSpace(dto.ProofToken) ? (byte)0 : (byte)1,
+            HasUser = dto.User.HasValue ? (byte)1 : (byte)0,
+            HasIdentityKind = dto.User.HasValue ? (byte)1 : (byte)0,
+            IdentityKind = PodUtf8Codec.ToFixed64(identityKind),
+            ReservedIdentity = default,
+            Action = PodUtf8Codec.ToFixed64(dto.Action),
+            ProofToken = PodUtf8Codec.ToFixed128(dto.ProofToken ?? string.Empty)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableMfaChallengeResultPod, MfaChallengeResultPod>(mutable));
+    }
+
+    /// <summary>
+    /// Attempts to decode the <c>MfaChallengeResult</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeMfaChallengeResult(ReadOnlyMemory<byte> source, out MfaChallengeResultDto dto)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out MfaChallengeResultPod pod) ||
+            pod.Verified > 1 ||
+            pod.HasProofToken > 1 ||
+            pod.HasUser > 1 ||
+            pod.HasIdentityKind > 1)
+        {
+            dto = default;
+            return false;
+        }
+
+        AuthIdentitySnapshotDto? user = pod.HasUser == 1
+            ? new AuthIdentitySnapshotDto(
+                pod.AccountId,
+                pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind)
+            : null;
+        dto = new MfaChallengeResultDto(
+            pod.Verified == 1,
+            PodUtf8Codec.FromFixed64(pod.Action),
+            pod.HasProofToken == 1 ? PodUtf8Codec.FromFixed128(pod.ProofToken) : null,
+            user);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>MfaPasswordProofRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteMfaPasswordProofRequest(MfaPasswordProofRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(256);
+        var mutable = new MutableMfaPasswordProofRequestPod
+        {
+            Password = PodUtf8Codec.AppendSlice(request.Password, payload),
+            Code = PodUtf8Codec.AppendSlice(request.Code ?? string.Empty, payload),
+            RecoveryCode = PodUtf8Codec.AppendSlice(request.RecoveryCode ?? string.Empty, payload)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableMfaPasswordProofRequestPod, MfaPasswordProofRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>MfaPasswordProofRequest</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeMfaPasswordProofRequest(MfaPasswordProofRequestCoreModel request)
+        => EncodeToArray(256, writer => WriteMfaPasswordProofRequest(request, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>MfaPasswordProofRequest</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeMfaPasswordProofRequest(ReadOnlyMemory<byte> source, out MfaPasswordProofRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out MfaPasswordProofRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new MfaPasswordProofRequestCoreModel(
+            PodProjector.ReadSlice(pod.Password, payload),
+            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.Code, payload)),
+            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.RecoveryCode, payload)));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>MfaChallengeVerifyRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteMfaChallengeVerifyRequest(MfaChallengeVerifyRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(256);
+        var mutable = new MutableMfaChallengeVerifyRequestPod
+        {
+            ChallengeToken = PodUtf8Codec.AppendSlice(request.ChallengeToken, payload),
+            Action = PodUtf8Codec.AppendSlice(request.Action ?? string.Empty, payload),
+            Code = PodUtf8Codec.AppendSlice(request.Code ?? string.Empty, payload),
+            RecoveryCode = PodUtf8Codec.AppendSlice(request.RecoveryCode ?? string.Empty, payload)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableMfaChallengeVerifyRequestPod, MfaChallengeVerifyRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>MfaChallengeVerifyRequest</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeMfaChallengeVerifyRequest(MfaChallengeVerifyRequestCoreModel request)
+        => EncodeToArray(256, writer => WriteMfaChallengeVerifyRequest(request, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>MfaChallengeVerifyRequest</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeMfaChallengeVerifyRequest(ReadOnlyMemory<byte> source, out MfaChallengeVerifyRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out MfaChallengeVerifyRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new MfaChallengeVerifyRequestCoreModel(
+            PodProjector.ReadSlice(pod.ChallengeToken, payload),
+            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.Action, payload)),
+            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.Code, payload)),
+            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.RecoveryCode, payload)));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>RecoveryKeyCreateResponse</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteRecoveryKeyCreateResponse(RecoveryKeyCreateResponseCoreModel response, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(128);
+        var mutable = new MutableRecoveryKeyCreateResponsePod
+        {
+            KeyVersion = response.KeyVersion,
+            Reserved0 = 0,
+            CreatedAtUnixMs = PodTimeCodec.ToUnixMs(response.CreatedAt),
+            RecoveryKey = PodUtf8Codec.AppendSlice(response.RecoveryKey, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableRecoveryKeyCreateResponsePod, RecoveryKeyCreateResponsePod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Attempts to decode the <c>RecoveryKeyCreateResponse</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeRecoveryKeyCreateResponse(ReadOnlyMemory<byte> source, out RecoveryKeyCreateResponseCoreModel response)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out RecoveryKeyCreateResponsePod pod) || pod.KeyVersion <= 0 || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            response = default;
+            return false;
+        }
+
+        response = new RecoveryKeyCreateResponseCoreModel(
+            PodProjector.ReadSlice(pod.RecoveryKey, payload),
+            pod.KeyVersion,
+            PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>RecoveryKeyVerifyRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteRecoveryKeyVerifyRequest(RecoveryKeyVerifyRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(128);
+        var mutable = new MutableRecoveryKeyVerifyRequestPod
+        {
+            RevokeSessions = request.RevokeSessions ? (byte)1 : (byte)0,
+            RevokePasskeys = request.RevokePasskeys ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            RecoveryKey = PodUtf8Codec.AppendSlice(request.RecoveryKey, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableRecoveryKeyVerifyRequestPod, RecoveryKeyVerifyRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Attempts to decode the <c>RecoveryKeyVerifyRequest</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeRecoveryKeyVerifyRequest(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out RecoveryKeyVerifyRequestPod pod) ||
+            pod.RevokeSessions > 1 ||
+            pod.RevokePasskeys > 1 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new RecoveryKeyVerifyRequestCoreModel(
+            PodProjector.ReadSlice(pod.RecoveryKey, payload),
+            pod.RevokeSessions == 1,
+            pod.RevokePasskeys == 1);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>RecoveryKeyVerifyResponse</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteRecoveryKeyVerifyResponse(RecoveryKeyVerifyResponseCoreModel response, IBufferWriter<byte> destination)
+    {
+        var mutable = new MutableRecoveryKeyVerifyResponsePod
+        {
+            Reserved0 = 0,
+            Reserved1 = 0,
+            ExpiresAtUnixMs = PodTimeCodec.ToUnixMs(response.ExpiresAt),
+            RecoverySessionToken = PodUtf8Codec.ToFixed128(response.RecoverySessionToken)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableRecoveryKeyVerifyResponsePod, RecoveryKeyVerifyResponsePod>(mutable));
+    }
+
+    /// <summary>
+    /// Attempts to decode the <c>RecoveryKeyVerifyResponse</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeRecoveryKeyVerifyResponse(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyResponseCoreModel response)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out RecoveryKeyVerifyResponsePod pod))
+        {
+            response = default;
+            return false;
+        }
+
+        string recoverySessionToken = PodUtf8Codec.FromFixed128(pod.RecoverySessionToken);
+        if (string.IsNullOrWhiteSpace(recoverySessionToken))
+        {
+            response = default;
+            return false;
+        }
+
+        response = new RecoveryKeyVerifyResponseCoreModel(
+            recoverySessionToken,
+            PodTimeCodec.FromUnixMs(pod.ExpiresAtUnixMs));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>AuthAnonymousBootstrapRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(64);
+        string publicHandle = request.PublicHandle?.Trim() ?? string.Empty;
+        bool hasPublicHandle = publicHandle.Length > 0;
+        var mutable = new MutableAuthAnonymousBootstrapRequestPod
+        {
+            AcceptedGuidelines = request.AcceptedGuidelines ? (byte)1 : (byte)0,
+            HasPublicHandle = hasPublicHandle ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            PublicHandle = PodUtf8Codec.AppendSlice(hasPublicHandle ? publicHandle : string.Empty, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableAuthAnonymousBootstrapRequestPod, AuthAnonymousBootstrapRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>AuthAnonymousBootstrapRequest</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request)
+        => EncodeToArray(96, writer => WriteAuthAnonymousBootstrapRequest(request, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>AuthAnonymousBootstrapRequest</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeAuthAnonymousBootstrapRequest(ReadOnlyMemory<byte> source, out AuthAnonymousBootstrapRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out AuthAnonymousBootstrapRequestPod pod) ||
+            pod.AcceptedGuidelines > 1 ||
+            pod.HasPublicHandle > 1 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new AuthAnonymousBootstrapRequestCoreModel(
+            pod.HasPublicHandle == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.PublicHandle, payload)) : null,
+            pod.AcceptedGuidelines == 1);
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>AuthDeleteAccountRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteAuthDeleteAccountRequest(AuthDeleteAccountRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(256);
+        var mutable = new MutableAuthDeleteAccountRequestPod
+        {
+            ConfirmText = PodUtf8Codec.AppendSlice(request.ConfirmText, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableAuthDeleteAccountRequestPod, AuthDeleteAccountRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>AuthDeleteAccountRequest</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeAuthDeleteAccountRequest(AuthDeleteAccountRequestCoreModel request)
+        => EncodeToArray(256, writer => WriteAuthDeleteAccountRequest(request, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>AuthDeleteAccountRequest</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeAuthDeleteAccountRequest(ReadOnlyMemory<byte> source, out AuthDeleteAccountRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out AuthDeleteAccountRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new AuthDeleteAccountRequestCoreModel(
+            PodProjector.ReadSlice(pod.ConfirmText, payload));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>AdminUserPage</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteAdminUserPage(AdminUserPageContract page, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(page.Total);
+        writer.WriteInt32(page.Items.Count);
+
+        foreach (AdminAccountListItemContract item in page.Items)
+        {
+            var mutable = new MutableUserListItemPod
+            {
+                AccountId = item.AccountId,
+                Status = item.Status,
+                RiskFlags = item.RiskFlags,
+                Reserved = 0,
+                CreateTimeUnixMs = PodTimeCodec.ToUnixMs(item.CreateTime),
+                PrivacyInitializedAtUnixMs = item.PrivacyInitializedAt.HasValue ? PodTimeCodec.ToUnixMs(item.PrivacyInitializedAt.Value) : 0,
+                DeletedAtUnixMs = item.DeletedAt.HasValue ? PodTimeCodec.ToUnixMs(item.DeletedAt.Value) : 0,
+                IdentityKind = PodUtf8Codec.ToFixed32(item.IdentityKind),
+                PublicHandle = PodUtf8Codec.ToFixed64(item.PublicHandle ?? string.Empty),
+                AnonymousCredentialStatus = PodUtf8Codec.ToFixed32(item.AnonymousCredentialStatus),
+                ReservedCredentialClass = default,
+                HasPublicHandle = string.IsNullOrWhiteSpace(item.PublicHandle) ? (byte)0 : (byte)1,
+                PasskeyInitialized = item.PasskeyInitialized ? (byte)1 : (byte)0,
+                RecoveryInitialized = item.RecoveryInitialized ? (byte)1 : (byte)0,
+                HasPrivacyInitializedAt = item.PrivacyInitializedAt.HasValue ? (byte)1 : (byte)0,
+                HasDeletedAt = item.DeletedAt.HasValue ? (byte)1 : (byte)0,
+                Reserved2 = 0,
+                Reserved3 = 0
+            };
+            writer.WritePod(CastUserPod<MutableUserListItemPod, UserListItemPod>(mutable));
+        }
+    }
+
+    /// <summary>
+    /// Encodes the <c>AdminUserPage</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeAdminUserPage(AdminUserPageContract page)
+        => EncodeToArray(8 + page.Items.Count * Marshal.SizeOf<UserListItemPod>(), writer => WriteAdminUserPage(page, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>AdminUserPage</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeAdminUserPage(ReadOnlyMemory<byte> source, out AdminUserPageContract page)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadInt32(out int total) || !reader.TryReadInt32(out int count) || total < 0 || count < 0)
+        {
+            page = new AdminUserPageContract();
+            return false;
+        }
+
+        var items = new List<AdminAccountListItemContract>(count);
+        for (int i = 0; i < count; i++)
+        {
+            if (!reader.TryReadPod(out UserListItemPod pod) ||
+                pod.HasPublicHandle > 1 ||
+                pod.PasskeyInitialized > 1 ||
+                pod.RecoveryInitialized > 1 ||
+                pod.HasPrivacyInitializedAt > 1 ||
+                pod.HasDeletedAt > 1 ||
+                !string.IsNullOrEmpty(PodUtf8Codec.FromFixed32(pod.ReservedCredentialClass)))
+            {
+                page = new AdminUserPageContract();
+                return false;
+            }
+
+            items.Add(new AdminAccountListItemContract(
+                pod.AccountId,
+                PodUtf8Codec.FromFixed32(pod.IdentityKind),
+                pod.HasPublicHandle == 1 ? PodUtf8Codec.FromFixed64(pod.PublicHandle) : null,
+                pod.PasskeyInitialized == 1,
+                pod.RecoveryInitialized == 1,
+                pod.HasPrivacyInitializedAt == 1 ? PodTimeCodec.FromUnixMs(pod.PrivacyInitializedAtUnixMs) : null,
+                PodUtf8Codec.FromFixed32(pod.AnonymousCredentialStatus),
+                pod.RiskFlags,
+                pod.Status,
+                PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs),
+                pod.HasDeletedAt == 1 ? PodTimeCodec.FromUnixMs(pod.DeletedAtUnixMs) : null));
+        }
+
+        page = new AdminUserPageContract { Total = total, Items = items };
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the <c>AdminChangeUserStatusRequest</c> contract to the supplied binary destination.
+    /// </summary>
+    public static void WriteAdminChangeUserStatusRequest(AdminChangeUserStatusRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(256);
+        var mutable = new MutableAdminChangeUserStatusRequestPod
+        {
+            AccountId = request.AccountId,
+            Status = request.Status,
+            Reason = PodUtf8Codec.AppendSlice(request.Reason ?? string.Empty, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableAdminChangeUserStatusRequestPod, AdminChangeUserStatusRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Encodes the <c>AdminChangeUserStatusRequest</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeAdminChangeUserStatusRequest(AdminChangeUserStatusRequestCoreModel request)
+        => EncodeToArray(128 + (request.Reason?.Length ?? 0), writer => WriteAdminChangeUserStatusRequest(request, writer));
+
+    /// <summary>
+    /// Attempts to decode the <c>AdminChangeUserStatusRequest</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeAdminChangeUserStatusRequest(ReadOnlyMemory<byte> source, out AdminChangeUserStatusRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out AdminChangeUserStatusRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        string reason = PodProjector.ReadSlice(pod.Reason, payload);
+        request = new AdminChangeUserStatusRequestCoreModel(
+            pod.AccountId,
+            pod.Status,
+            string.IsNullOrWhiteSpace(reason) ? null : reason);
+        return reader.IsConsumed;
+    }
+
+    private static TTo CastUserPod<TFrom, TTo>(TFrom source)
+        where TFrom : unmanaged
+        where TTo : unmanaged
+    {
+        Span<TFrom> from = stackalloc TFrom[1];
+        from[0] = source;
+        return MemoryMarshal.Read<TTo>(MemoryMarshal.AsBytes(from));
+    }
+
+    private static string? NullUserFieldIfEmpty(string value) => value.Length == 0 ? null : value;
+
+    private static string NormalizeIdentityKind(string? value)
+        => string.IsNullOrWhiteSpace(value) ? DefaultIdentityKind : value.Trim();
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAuthLoginFlowPod
+    {
+        public int AccountId;
+        public byte AuthPhase;
+        public byte MfaMode;
+        public byte HasChallengeToken;
+        public byte HasIdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 ReservedIdentity;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 ChallengeToken;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableCurrentUserSnapshotPod
+    {
+        public int AccountId;
+        public int Status;
+        public long DeletedAtUnixMs;
+        public byte HasDeletedAt;
+        public byte HasIdentityKind;
+        public ushort Reserved1;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 ReservedIdentity;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed256 BanReason;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableIdentityAccountSnapshotPod
+    {
+        public int AccountId;
+        public int Reserved0;
+        public int Status;
+        public long DeletedAtUnixMs;
+        public byte HasPublicHandle;
+        public byte PasskeyEnabled;
+        public byte RecoveryEnabled;
+        public byte HasTotpStepUpEnabled;
+        public byte TotpStepUpEnabled;
+        public byte HasAnonymousCredential;
+        public byte HasDeletedAt;
+        public byte HasBanReason;
+        public uint Reserved1;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialStatus;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialLevel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BanReason;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableUserSessionSummaryPod
+    {
+        public long CreatedAtUnixMs;
+        public long LastSeenAtUnixMs;
+        public byte IsCurrent;
+        public byte HasLastSeenAt;
+        public byte HasPasskeyFriendlyName;
+        public byte Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 DeviceLabel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AuthenticationMethod;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AuthenticationStrength;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 DurationPolicy;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed256 PasskeyFriendlyName;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAdminSessionSummaryPod
+    {
+        public long CreatedAtUnixMs;
+        public long LastSeenAtUnixMs;
+        public long IdleExpiresAtUnixMs;
+        public long AbsoluteExpiresAtUnixMs;
+        public byte IsCurrent;
+        public byte IsRevoked;
+        public byte HasLastSeenAt;
+        public byte Reserved;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 DeviceFingerprint;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 UserAgent;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaSetupStartPod
+    {
+        public byte Enabled;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Secret;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef OtpAuthUrl;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Issuer;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Account;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaSetupVerifyPod
+    {
+        public byte Enabled;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public int RecoveryCodeCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaRecoveryCodePod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 Code;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaProfilePod
+    {
+        public long VerifiedAtUnixMs;
+        public byte Enabled;
+        public byte HasVerifiedAt;
+        public ushort Reserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaChallengeResultPod
+    {
+        public int AccountId;
+        public byte Verified;
+        public byte HasProofToken;
+        public byte HasUser;
+        public byte HasIdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 ReservedIdentity;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 Action;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 ProofToken;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaPasswordProofRequestPod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Password;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Code;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryCode;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableMfaChallengeVerifyRequestPod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ChallengeToken;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Action;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Code;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryCode;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRecoveryKeyCreateResponsePod
+    {
+        public int KeyVersion;
+        public int Reserved0;
+        public long CreatedAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryKey;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRecoveryKeyVerifyRequestPod
+    {
+        public byte RevokeSessions;
+        public byte RevokePasskeys;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryKey;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRecoveryKeyVerifyResponsePod
+    {
+        public int Reserved0;
+        public int Reserved1;
+        public long ExpiresAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 RecoverySessionToken;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAuthAnonymousBootstrapRequestPod
+    {
+        public byte AcceptedGuidelines;
+        public byte HasPublicHandle;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAuthDeleteAccountRequestPod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ConfirmText;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableUserListItemPod
+    {
+        public int AccountId;
+        public int Status;
+        public int RiskFlags;
+        public int Reserved;
+        public long CreateTimeUnixMs;
+        public long PrivacyInitializedAtUnixMs;
+        public long DeletedAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 IdentityKind;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 PublicHandle;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AnonymousCredentialStatus;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 ReservedCredentialClass;
+        public byte HasPublicHandle;
+        public byte PasskeyInitialized;
+        public byte RecoveryInitialized;
+        public byte HasPrivacyInitializedAt;
+        public byte HasDeletedAt;
+        public byte Reserved2;
+        public ushort Reserved3;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableAdminChangeUserStatusRequestPod
+    {
+        public int AccountId;
+        public int Status;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Reason;
+    }
+}

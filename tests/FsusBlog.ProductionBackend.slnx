@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Runtime/">
+    <Project Path="../src/shared/FsusBlog.Shared.csproj" />
+    <Project Path="../src/core/FsusBlog.Core.csproj" />
+    <Project Path="../src/backend/FsusBlog.Server.csproj" />
+  </Folder>
+  <Folder Name="/Quality/">
+    <Project Path="backend/FsusBlog.Server.Tests.csproj" />
+    <Project Path="../benchmarks/core/FsusBlog.Core.Benchmarks.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment keys already present in the governed validator while typing its internal behavior reference."
+        }
+    ]
+}

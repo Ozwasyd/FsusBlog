@@ -1,0 +1,9 @@
+TAP version 13
+ok 1 - accepts canonical input
+# duration_ms 4.5
+not ok 2 - rejects malformed input
+# duration_ms 9
+  error: TypeError: malformed input
+  stack: at parser (/tmp/attempt-acde1234/tools/parser.mjs:31:9)
+ok 3 - requires optional runtime # SKIP - runtime unavailable
+1..3

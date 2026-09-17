@@ -1,0 +1,8 @@
+{
+  "name": "fsusblog-fsusui-boundary-violation-fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ozwasyd/element-plus": "1.5.0"
+  }
+}

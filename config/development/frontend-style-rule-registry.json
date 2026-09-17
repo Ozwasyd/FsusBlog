@@ -1,0 +1,186 @@
+{
+    "schema": "fsusblog.frontend-style-rule-registry.v1",
+    "rules": [
+        {
+            "id": "@stylistic/indent",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "fixability": "safe"
+        },
+        {
+            "id": "@stylistic/brace-style",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "fixability": "safe"
+        },
+        {
+            "id": "@stylistic/semi",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "fixability": "safe"
+        },
+        {
+            "id": "@stylistic/max-statements-per-line",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "import-x/order",
+            "owner": "FrontendDependencyBoundaryOwner",
+            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "fixability": "safe"
+        },
+        {
+            "id": "import-x/no-relative-parent-imports",
+            "owner": "FrontendDependencyBoundaryOwner",
+            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "@typescript-eslint/consistent-type-imports",
+            "owner": "FrontendTypeSafetyOwner",
+            "sourceScopes": ["typescript", "vue-script"],
+            "fixability": "safe"
+        },
+        {
+            "id": "@typescript-eslint/naming-convention",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["typescript", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "@typescript-eslint/no-floating-promises",
+            "owner": "FrontendReliabilityOwner",
+            "sourceScopes": ["typescript", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "@typescript-eslint/no-misused-promises",
+            "owner": "FrontendReliabilityOwner",
+            "sourceScopes": ["typescript", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "@typescript-eslint/no-unsafe-*",
+            "owner": "FrontendTypeSafetyOwner",
+            "sourceScopes": ["typescript", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "jsdoc/check-types",
+            "owner": "ToolingStyleOwner",
+            "sourceScopes": ["node-mjs"],
+            "fixability": "manual"
+        },
+        {
+            "id": "vue/html-indent",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["vue-template"],
+            "fixability": "safe"
+        },
+        {
+            "id": "vue/max-attributes-per-line",
+            "owner": "FrontendLanguageStyleOwner",
+            "sourceScopes": ["vue-template"],
+            "fixability": "safe"
+        },
+        {
+            "id": "vue/component-name-in-template-casing",
+            "owner": "FrontendContractOwner",
+            "sourceScopes": ["vue-template"],
+            "fixability": "safe"
+        },
+        {
+            "id": "vue/prop-name-casing",
+            "owner": "FrontendContractOwner",
+            "sourceScopes": ["vue-template", "vue-script"],
+            "fixability": "manual"
+        },
+        {
+            "id": "@stylistic/indentation",
+            "owner": "FrontendStyleOwner",
+            "sourceScopes": ["css", "scss", "vue-style"],
+            "fixability": "safe"
+        },
+        {
+            "id": "@stylistic/block-opening-brace-newline-before",
+            "owner": "FrontendStyleOwner",
+            "sourceScopes": ["css", "scss", "vue-style"],
+            "fixability": "safe"
+        },
+        {
+            "id": "declaration-block-single-line-max-declarations",
+            "owner": "FrontendStyleOwner",
+            "sourceScopes": ["css", "scss", "vue-style"],
+            "fixability": "manual"
+        },
+        {
+            "id": "scss/dollar-variable-pattern",
+            "owner": "FrontendStyleOwner",
+            "sourceScopes": ["scss", "vue-style"],
+            "fixability": "manual"
+        }
+    ],
+    "registeredExceptions": [
+        {
+            "id": "vue-composable-function",
+            "externalOrEcosystemSurface": "Vue composable",
+            "rule": "useXxx camelCase",
+            "reason": "Vue reactivity discovery and caller contracts use the ecosystem-required use prefix"
+        },
+        {
+            "id": "typescript-structural-interface",
+            "externalOrEcosystemSurface": "TypeScript structural type",
+            "rule": "PascalCase without mandatory I prefix",
+            "reason": "the authoritative #1157 mapping reserves I-prefix enforcement for C# interfaces"
+        },
+        {
+            "id": "javascript-private-field",
+            "externalOrEcosystemSurface": "ECMAScript private field",
+            "rule": "#camelCase",
+            "reason": "language-enforced privacy replaces C# underscore and static prefixes"
+        },
+        {
+            "id": "module-constant",
+            "externalOrEcosystemSurface": "JavaScript module binding",
+            "rule": "camelCase unless the external contract requires UPPER_CASE",
+            "reason": "matches the authoritative #1157 cross-language mapping"
+        },
+        {
+            "id": "json-browser-wasm-contract",
+            "externalOrEcosystemSurface": "JSON key, browser event, storage key or Wasm export",
+            "rule": "preserve external spelling and adapt to camelCase internally",
+            "reason": "formatting cannot change API, AEDS, browser or persistence contracts"
+        },
+        {
+            "id": "html-aria-data-contract",
+            "externalOrEcosystemSurface": "HTML, ARIA and data-* attribute",
+            "rule": "preserve standards-defined kebab spelling",
+            "reason": "template identifiers are browser contracts rather than internal symbols"
+        },
+        {
+            "id": "css-selector-custom-property",
+            "externalOrEcosystemSurface": "CSS class, BEM selector and custom property",
+            "rule": "kebab-case/BEM spelling",
+            "reason": "selectors and tokens are DOM/CSS contracts"
+        },
+        {
+            "id": "vue-custom-event",
+            "externalOrEcosystemSurface": "existing public Vue emit name",
+            "rule": "preserve caller-facing event spelling",
+            "reason": "event renames require a semantic migration and are never formatter fixes"
+        }
+    ],
+    "cssPropertyOrder": {
+        "mode": "semantic-preserve",
+        "owner": "FrontendStyleOwner",
+        "reason": "token dependencies, logical-property fallbacks and component state grouping take precedence over arbitrary alphabetical order"
+    },
+    "specializedGovernance": {
+        "owner": "ExistingGovernanceOwners",
+        "sourceScope": "src/frontend/package.json scripts named check:*",
+        "fixability": "manual",
+        "preservation": "generic AST lint is additive; no existing check:* command may be removed or rewritten by this issue"
+    }
+}

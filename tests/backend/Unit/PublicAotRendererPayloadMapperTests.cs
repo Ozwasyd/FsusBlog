@@ -1,0 +1,253 @@
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Shared.Contracts.Outputs;
+
+namespace FsusBlog.Server.Tests.Unit;
+
+public sealed class PublicAotRendererPayloadMapperTests
+{
+    private static readonly DateTimeOffset s_renderTimestamp =
+        new(2026, 7, 27, 12, 34, 56, TimeSpan.Zero);
+
+    [Fact]
+    public void HomeOptions_UseFlatBootstrapShape()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home", "/", "/", string.Empty),
+            new PublicHomePageSnapshot(
+                Seo(),
+                Page: 1,
+                Size: 10,
+                Total: 1,
+                Items:
+                [
+                    new PublicAotArticleSummarySnapshot(
+                        10,
+                        "Home article",
+                        "Summary",
+                        7,
+                        DateTime.UnixEpoch,
+                        new PublicAotArticleCategorySnapshot(2, "Category"),
+                        [new PublicAotArticleTagSnapshot(3, "Tag")])
+                ],
+                FeaturedArticles:
+                [
+                    new PublicAotFeaturedArticleSnapshot(
+                        10,
+                        "Home article",
+                        "/cover.svg",
+                        7,
+                        DateTime.UnixEpoch,
+                        new PublicAotArticleCategorySnapshot(2, "Category"))
+                ],
+                HotArticles:
+                [
+                    new PublicAotHotArticleSnapshot(10, "Home article", 7)
+                ])
+            {
+                NextCursor = "opaque-next-cursor",
+                HasMore = true
+            },
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+
+        Assert.False(options.ContainsKey("response"));
+        Assert.Equal("home", options["routeKey"]);
+        Assert.Equal("2026-07-27T12:34:56.0000000Z", options["renderTimestamp"]);
+        Assert.Equal(1, options["total"]);
+        Assert.Equal("opaque-next-cursor", options["nextCursor"]);
+        Assert.Equal(true, options["hasMore"]);
+        Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["articles"]));
+        Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["featuredArticles"]));
+        Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["hotArticles"]));
+    }
+
+    [Fact]
+    public void ArticleDetailOptions_UseHydrationBodyContentName()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+            new PublicArticlePageSnapshot(
+                Seo(),
+                ArticleId: 42,
+                Title: "Article",
+                Content: "# Body",
+                Summary: "Summary",
+                Views: 9,
+                AuthorName: "Author",
+                CreateTime: DateTime.UnixEpoch,
+                Category: new PublicAotArticleCategorySnapshot(2, "Category"),
+                Tags: [new PublicAotArticleTagSnapshot(3, "Tag")],
+                Rights: Rights(),
+                RelatedReading: null)
+            {
+                Authors =
+                [
+                    new PublicAotResponsiblePersonSnapshot("Alice", "https://example.test/alice"),
+                    new PublicAotResponsiblePersonSnapshot("Bob", null)
+                ]
+            },
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+
+        Assert.False(options.ContainsKey("content"));
+        Assert.Equal("# Body", options["bodyContent"]);
+        Dictionary<string, object?>[] authors = Assert.IsType<Dictionary<string, object?>[]>(options["authors"]);
+        Assert.Equal(new[] { "Alice", "Bob" }, authors.Select(static author => author["name"] as string ?? string.Empty).ToArray());
+    }
+
+    [Fact]
+    public void ArticleDetailOptions_TreatDatabaseTimestampsAsUtc()
+    {
+        var databaseTimestamp = new DateTime(2026, 7, 17, 0, 56, 33, DateTimeKind.Unspecified);
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+            new PublicArticlePageSnapshot(
+                Seo(),
+                ArticleId: 42,
+                Title: "Article",
+                Content: "# Body",
+                Summary: "Summary",
+                Views: 9,
+                AuthorName: "Author",
+                CreateTime: databaseTimestamp,
+                Category: new PublicAotArticleCategorySnapshot(2, "Category"),
+                Tags: [],
+                Rights: Rights(),
+                RelatedReading: null)
+            {
+                PublishedAt = databaseTimestamp,
+                UpdatedAt = databaseTimestamp
+            },
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        const string Expected = "2026-07-17T00:56:33.0000000Z";
+
+        Assert.Equal(Expected, options["createTime"]);
+        Assert.Equal(Expected, options["publishedAt"]);
+        Assert.Equal(Expected, options["updatedAt"]);
+    }
+
+    [Fact]
+    public void ArticleDetailOptions_ExposeRightsForPublicHydration()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+            new PublicArticlePageSnapshot(
+                Seo(),
+                ArticleId: 42,
+                Title: "Article",
+                Content: "# Body",
+                Summary: "Summary",
+                Views: 9,
+                AuthorName: "Author",
+                CreateTime: DateTime.UnixEpoch,
+                Category: new PublicAotArticleCategorySnapshot(2, "Category"),
+                Tags: [],
+                Rights: Rights(),
+                RelatedReading: null),
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        IReadOnlyDictionary<string, object?> rights = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["rights"]);
+
+        Assert.Equal("901", rights["snapshotId"]);
+        Assert.Equal("CC-BY-4.0", rights["licenseType"]);
+        Assert.Equal("append-attribution", rights["copyPolicy"]);
+        Assert.Equal("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", rights["policyHash"]);
+    }
+
+    [Fact]
+    public void FilterOptions_ExposeFilterSubObject()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.Filter, PublicPageId.Filter, "category:2", "/category/2", "/category/2", string.Empty),
+            new PublicFilterPageSnapshot(
+                Seo(),
+                RouteKey: "category:2",
+                FilterType: "category",
+                FilterKey: "category:2",
+                FilterId: 2,
+                FilterName: "Category",
+                Description: "Category description",
+                IsInvalidTarget: false,
+                PageIndex: 1,
+                PageSize: 10,
+                Total: 0,
+                Articles: [],
+                Title: "Category"),
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        IReadOnlyDictionary<string, object?> filter = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["filter"]);
+
+        Assert.Equal("category", filter["filterType"]);
+        Assert.Equal("category:2", filter["filterKey"]);
+        Assert.Equal(2, filter["filterId"]);
+        Assert.Equal("Category", filter["filterName"]);
+        Assert.Equal("Category description", filter["description"]);
+        Assert.Equal(false, filter["isInvalidTarget"]);
+        Assert.Equal(1, filter["pageIndex"]);
+        Assert.Equal(10, filter["pageSize"]);
+        Assert.Equal(0, filter["total"]);
+    }
+
+    [Fact]
+    public void FilterOptions_PreserveNullDescriptionWhenTaxonomyHasNone()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.Filter, PublicPageId.Filter, "tag:3", "/tag/3", "/tag/3", string.Empty),
+            new PublicFilterPageSnapshot(
+                Seo(),
+                RouteKey: "tag:3",
+                FilterType: "tag",
+                FilterKey: "tag:3",
+                FilterId: 3,
+                FilterName: "Tag",
+                Description: null,
+                IsInvalidTarget: false,
+                PageIndex: 1,
+                PageSize: 10,
+                Total: 0,
+                Articles: [],
+                Title: "Tag"),
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        IReadOnlyDictionary<string, object?> filter = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["filter"]);
+
+        Assert.Equal("tag", filter["filterType"]);
+        Assert.Equal("Tag", filter["filterName"]);
+        Assert.Null(filter["description"]);
+    }
+
+    private static IReadOnlyDictionary<string, object?> GetOptions(IReadOnlyDictionary<string, object?> payload)
+        => Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(payload["options"]);
+
+    private static PublicAotSeoSnapshot Seo()
+        => new("FsusBlog", "Description", "https://example.test");
+
+    private static PublicAotArticleRightsSnapshot Rights()
+        => new(
+            SnapshotId: 901,
+            RevisionId: 801,
+            RevisionNo: 7,
+            Enabled: true,
+            LicenseType: "CC-BY-4.0",
+            CopyrightHolder: "Fsus",
+            CopyrightYear: 2026,
+            RightsStatement: "Reuse with attribution.",
+            AttributionTemplate: "{title} - {holder}",
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: true,
+            ProofBindingEnabled: true,
+            CanonicalUrl: "https://fsus.example/article/42",
+            PolicyHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ContentCanonicalHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ProofUrl: "urn:fsus:rights-proof:901",
+            ProofStatus: "ready");
+}

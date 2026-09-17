@@ -1,0 +1,29 @@
+{
+  "schema": "fsusblog.security.perception-character-v3-release-target.v1",
+  "algorithm": "fsu.challenge/perception-character-artifact@v3",
+  "wireName": "perceptionCharacterV3",
+  "contractDigest": "7206502fb3b558a0f5f1250b18ab0ab8eedf46df74d8449c9ea9b15295a335f4",
+  "aedsSchemaFingerprint": "7e279af324c5265575bccb4128ea412da4070e3338c087c3bd7068d104355403",
+  "frames": {
+    "issueRequest": 173,
+    "verifyRequest": 174,
+    "issueResponse": 175,
+    "verifyResponse": 176
+  },
+  "unionKind": 14,
+  "media": {
+    "visual": {
+      "mediaType": "image/png",
+      "physicalWidth": 384,
+      "physicalHeight": 144,
+      "displayWidth": 320,
+      "displayHeight": 120,
+      "maximumBytes": 32768
+    },
+    "audio": {
+      "mediaType": "audio/ogg; codecs=opus",
+      "maximumBytes": 49152
+    }
+  },
+  "targetFingerprint": "8b7b263245748fd9066542b1d0e0a0f05ee08aa732ca3a386b25907b69587f1a"
+}

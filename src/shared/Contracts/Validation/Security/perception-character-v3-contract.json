@@ -1,0 +1,315 @@
+{
+    "schema": "fsusblog.security.perception-character-v3.v1",
+    "enum": "PerceptionCharacterV3",
+    "wireName": "perceptionCharacterV3",
+    "algorithm": "fsu.challenge/perception-character-artifact@v3",
+    "version": 3,
+    "answer": {
+        "alphabet": "ACDEFGHJKMNPQRTUVWXY234679",
+        "length": 5,
+        "space": 11881376,
+        "entropyBits": 23.50219859070546,
+        "rejectionByteLimitExclusive": 234,
+        "normalization": "ASCIIUpper(RemoveASCIIWhitespace(x))"
+    },
+    "canonicalEncoding": {
+        "name": "EncodeLP",
+        "fieldCountBytes": 2,
+        "fieldLengthBytes": 4,
+        "integerByteOrder": "big-endian",
+        "stringEncoding": "strict-UTF-8-no-BOM",
+        "answerFieldOrder": [
+            "domain",
+            "version",
+            "challengeId",
+            "envelopeId",
+            "action",
+            "routeKey",
+            "subjectHash",
+            "deviceBindingHash",
+            "policyVersion",
+            "artifactHash",
+            "representation",
+            "mediaType",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
+            "normalizedAnswer"
+        ],
+        "aadFieldOrder": [
+            "enum",
+            "wireName",
+            "algorithm",
+            "version",
+            "challengeId",
+            "envelopeId",
+            "action",
+            "routeKey",
+            "artifactHash",
+            "representation",
+            "mediaType",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
+            "issuedAtUnixMs",
+            "expiresAtUnixMs",
+            "tokenKeyVersion"
+        ],
+        "stateFieldOrder": [
+            "answerTag",
+            "artifactHash",
+            "mediaType",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
+            "challengeId",
+            "envelopeId",
+            "action",
+            "routeKey",
+            "subjectHash",
+            "deviceBindingHash",
+            "clientIpBindingHash",
+            "policyVersion",
+            "attemptBudget",
+            "representation",
+            "issuedAtUnixMs",
+            "expiresAtUnixMs",
+            "tokenKeyVersion",
+            "answerKeyVersion"
+        ]
+    },
+    "cryptography": {
+        "answerDomain": "fsus.perception-character.answer",
+        "answerMac": "HMAC-SHA-256",
+        "keyBytes": 32,
+        "stateCipher": "AES-256-GCM",
+        "nonceBytes": 12,
+        "tagBytes": 16,
+        "tokenPrefixHex": "03",
+        "tokenKeyVersionLengthBytes": 2,
+        "tokenEncoding": "base64url-no-padding"
+    },
+    "raster": {
+        "pixelFormat": "Gray4",
+        "physicalWidth": 384,
+        "physicalHeight": 144,
+        "displayWidth": 320,
+        "displayHeight": 120,
+        "glyphVariantsPerSymbol": 6,
+        "glyphBaseWidth": 5,
+        "glyphBaseHeight": 7,
+        "glyphAtlasWidth": 7,
+        "glyphAtlasHeight": 9,
+        "glyphScalePixels": 10,
+        "layout": {
+            "firstOriginX": 39,
+            "centerOffsetX": 26,
+            "centerY": 72,
+            "advancePixels": 61
+        },
+        "glyphAtlasBaseRows": {
+            "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+            "C": ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+            "D": ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+            "E": ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+            "F": ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+            "G": ["01111", "10000", "10000", "10111", "10001", "10001", "01110"],
+            "H": ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+            "J": ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
+            "K": ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+            "M": ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+            "N": ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+            "P": ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+            "Q": ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+            "R": ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+            "T": ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+            "U": ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+            "V": ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+            "W": ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
+            "X": ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+            "Y": ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+            "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+            "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+            "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+            "6": ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
+            "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+            "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"]
+        },
+        "glyphVariantOffsets": [
+            [[0, 0]],
+            [[0, 0], [1, 0]],
+            [[0, 0], [0, 1]],
+            [[0, 0], [1, 0], [0, 1]],
+            [[0, 0], [-1, 0], [0, 1]],
+            [[0, 0], [0, -1], [1, 0]]
+        ],
+        "translationX": {
+            "min": -12,
+            "max": 12
+        },
+        "translationY": {
+            "min": -10,
+            "max": 10
+        },
+        "rotationDegrees": {
+            "min": -14,
+            "max": 14
+        },
+        "shearX": {
+            "min": -0.18,
+            "max": 0.18
+        },
+        "scaleX": {
+            "min": 0.9,
+            "max": 1.12
+        },
+        "scaleY": {
+            "min": 0.92,
+            "max": 1.14
+        },
+        "baselineOffsetPixels": {
+            "min": -8,
+            "max": 8
+        },
+        "overlapPixels": {
+            "min": 4,
+            "max": 16
+        },
+        "displacement": {
+            "latticeColumns": 9,
+            "latticeRows": 5,
+            "componentMinPixels": -7,
+            "componentMaxPixels": 7,
+            "maximumMagnitudePixels": 9.899494936611665,
+            "interpolation": "Catmull-Rom-bicubic"
+        },
+        "interferenceCurves": {
+            "minCount": 2,
+            "maxCount": 5,
+            "x0": {"min": 0, "max": 72},
+            "x1": {"min": 132, "max": 252},
+            "x2": {"min": 311, "max": 383},
+            "endpointY": {"min": 12, "max": 131},
+            "controlY": {"min": 0, "max": 143},
+            "minWidthPixels": 1,
+            "maxWidthPixels": 3,
+            "minGray": 32,
+            "maxGray": 144
+        },
+        "occluders": {
+            "minCount": 1,
+            "maxCount": 3,
+            "centerX": {"min": 18, "max": 365},
+            "centerY": {"min": 15, "max": 128},
+            "minWidthPixels": 8,
+            "maxWidthPixels": 28,
+            "minHeightPixels": 6,
+            "maxHeightPixels": 20,
+            "minGray": 72,
+            "maxGray": 184
+        },
+        "noise": {
+            "name": "structured-cell-bias-v1",
+            "cellWidthPixels": 24,
+            "cellHeightPixels": 12,
+            "levelBiasMin": -1,
+            "levelBiasMax": 1,
+            "formula": "clamp4(round(gray8*15/255)+bias[floor(y/12)][floor(x/24)])"
+        }
+    },
+    "media": {
+        "visual": {
+            "mediaType": "image/png",
+            "format": "PNG",
+            "colorType": 0,
+            "bitDepth": 4,
+            "alpha": false,
+            "interlace": 0,
+            "filter": 0,
+            "compression": "zlib-deflate-level-9",
+            "maximumBytes": 32768
+        },
+        "audio": {
+            "mediaType": "audio/ogg; codecs=opus",
+            "container": "Ogg",
+            "codec": "Opus",
+            "channels": 1,
+            "inputSampleRate": 48000,
+            "preSkip": 312,
+            "outputGainQ8": 0,
+            "mappingFamily": 0,
+            "frameDurationMs": 20,
+            "bitrateBitsPerSecond": 16000,
+            "application": "voip",
+            "vbr": false,
+            "complexity": 5,
+            "maximumBytes": 49152
+        }
+    },
+    "state": {
+        "attemptBudget": 2,
+        "states": [
+            "active",
+            "consumed",
+            "exhausted",
+            "expired",
+            "revoked"
+        ],
+        "publicErrors": [
+            "retryable",
+            "reissueRequired",
+            "unavailable",
+            "rejected"
+        ]
+    },
+    "representations": [
+        "visual",
+        "audio"
+    ],
+    "wire": {
+        "issuePublicFields": [
+            "algorithm",
+            "challengeId",
+            "envelopeId",
+            "representation",
+            "mediaType",
+            "mediaBytes",
+            "physicalWidth",
+            "physicalHeight",
+            "displayWidth",
+            "displayHeight",
+            "attemptBudget",
+            "policyVersion",
+            "issuedAtUnixMs",
+            "expiresAtUnixMs",
+            "stateToken"
+        ],
+        "verifyFields": [
+            "algorithm",
+            "challengeId",
+            "envelopeId",
+            "representation",
+            "answer",
+            "stateToken"
+        ],
+        "forbiddenTruthFields": [
+            "answerHash",
+            "answerTag",
+            "artifactHash",
+            "expectedAnswer",
+            "glyphId",
+            "glyphVariant",
+            "noiseParameters",
+            "phonemes",
+            "rasterSeed",
+            "recipe",
+            "renderParameters",
+            "signature",
+            "solveDurationMs",
+            "warpLattice"
+        ]
+    }
+}

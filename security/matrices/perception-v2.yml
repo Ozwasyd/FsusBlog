@@ -1,0 +1,225 @@
+schema: fsusblog.security-matrix.perception-v2.v1
+family: project.perception-v2
+version: perception-v2-test-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
+scenarios:
+    - id: PERCEPTION-V2-CONTRACTS
+      scenario: AEDS frame, forbidden-fields, recipeHash and sealedToken contracts are covered
+      owner: ServerContractAgent
+      status: automated
+      validationClass: contract-only
+      requiredCases:
+          [
+              AEDS frame,
+              forbidden-fields,
+              answer,
+              glyphIds,
+              charIds,
+              expectedPoint,
+              recipeHash,
+              sealedToken,
+          ]
+      code:
+          - src/shared/Contracts/Security/PerceptionSealedChallengeV2Contracts.cs
+          - src/shared/Contracts/Models/SecurityChallengePods.cs
+          - src/core/Algorithms/AedsFrameType.cs
+          - src/shared/Contracts/Validation/aeds-protocol.json
+      tests:
+          - tests/backend/Unit/SecurityChallengeContractTests.cs
+          - tests/backend/Unit/RenderRecipeV2ContractTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+          - tests/frontend/unit/workers/security/perceptionV2Renderer.test.ts
+      evidence:
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-UNIT-CRYPTO
+      scenario: AEAD, O(1) verify, constant-time compare, binding mismatch and solveDuration are covered
+      owner: ServerContractAgent
+      status: automated
+      validationClass: provider-only
+      requiredCases:
+          [
+              AEAD,
+              O(1) verify,
+              constant-time compare,
+              challengeId-mismatch,
+              action-mismatch,
+              routeKey-mismatch,
+              subjectHash-mismatch,
+              clientIpHash-mismatch,
+              deviceFpHash-mismatch,
+              policyVersion-mismatch,
+              recipeHash-mismatch,
+              solveDuration,
+          ]
+      code:
+          - src/backend/Services/Security/PerceptionSealedTokenService.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Service.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
+      tests:
+          - tests/backend/Unit/PerceptionSealedTokenServiceTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+      evidence:
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-INTEGRATION-HOTPATH
+      scenario: issue-no-db-redis-write, verify-redis-setnx-incr, async-audit and verify-no-image-recompute are covered
+      owner: ServerContractAgent
+      status: automated
+      validationClass: provider-only
+      requiredCases:
+          [
+              issue-no-db-redis-write,
+              verify-redis-setnx-incr,
+              async-audit,
+              verify-no-image-recompute,
+          ]
+      code:
+          - src/backend/Services/Security/PerceptionChallengeV2Service.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
+          - src/backend/Services/Security/ChallengeV2EventWriter.cs
+      tests:
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
+          - tests/backend/Unit/ChallengeV2EventWriterTests.cs
+          - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs
+      evidence:
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-GENERATOR-STRUCTURE
+      scenario: family-structural-builders, variant-structural-delta, localization-target-visual-binding and recipeHash-structural-tamper are covered
+      owner: ServerContractAgent
+      status: automated
+      requiredCases:
+          [
+              family-structural-builders,
+              variant-structural-delta,
+              localization-target-visual-binding,
+              recipeHash-structural-tamper,
+          ]
+      code:
+          - src/backend/Services/Security/PerceptionChallengeV2GeneratorPolicy.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
+          - src/shared/Contracts/Security/RenderRecipeV2Contracts.cs
+      tests:
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+      evidence:
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-E2E-FRONTEND
+      scenario: localization, micro-interaction disabled/enabled, worker-failure and mobile-fallback are covered
+      owner: InteropGlueAgent
+      status: automated
+      validationClass: e2e-runtime
+      requiredCases:
+          [
+              localization,
+              micro-interaction-disabled,
+              micro-interaction-enabled,
+              worker-failure,
+              mobile-fallback,
+          ]
+      code:
+          - src/frontend/src/services/securityPerceptionV2Client.ts
+          - src/frontend/src/workers/security/perception-v2.worker.ts
+          - src/frontend/src/workers/security/perception-v2.renderer.ts
+          - src/frontend/src/views/admin/security/SecurityPerceptionV2.vue
+      tests:
+          - tests/frontend/unit/workers/security/perceptionV2Renderer.test.ts
+          - tests/frontend/e2e/security/perception-v2-worker.spec.ts
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
+      evidence:
+          - src/frontend/test-results/playwright/security
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-E2E-RUNTIME
+      scenario: comment.create issue -> render -> verify -> proof -> business action resume is covered
+      owner: ServerContractAgent
+      status: automated
+      validationClass: e2e-runtime
+      requiredCases:
+          [
+              comment.create,
+              issue,
+              render,
+              verify,
+              proof,
+              business-action-resume,
+              wrong-answer,
+              expired,
+              duplicate-submit,
+              action-mismatch,
+              route-mismatch,
+              async-audit-queue-nonblocking,
+          ]
+      code:
+          - src/backend/Services/Security/PerceptionChallengeV2Service.cs
+          - src/backend/Services/Security/PerceptionChallengeV2Providers.cs
+          - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
+          - src/backend/Services/Security/SecurityChallengeProofService.cs
+      tests:
+          - tests/backend/Unit/PerceptionChallengeV2E2eTests.cs
+          - tools/security/check-perception-v2-e2e-evidence.mjs
+      evidence:
+          - .tmp/security/perception-v2-e2e-runtime.json
+          - .tmp/release-evidence/perception-v2-release-evidence.json
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-PERFORMANCE-BUDGETS
+      scenario: grouped rates stay bounded and aggregate consistently while issue p99, verify p99, payload size and client render p95 budgets fail CI when exceeded
+      owner: ServerContractAgent
+      status: automated
+      validationClass: provider-only
+      performanceBudget:
+          issueP99Ms: 8
+          verifyP99Ms: 32
+          payloadP95Bytes: 6200
+          clientRenderP95Ms: 55
+      requiredCases:
+          [
+              issue-p99,
+              verify-p99,
+              payload-size,
+              client-render-p95,
+              group-rate-probability-bounds,
+              group-rate-weighted-aggregation,
+              budget-ci-fail,
+          ]
+      code:
+          - benchmarks/security/perception-v2/perception-harness.mjs
+          - benchmarks/security/perception-v2/run.mjs
+          - tools/test/lanes/perception-v2-redteam.sh
+      tests:
+          - tests/security/perception-v2/perception-harness.test.mjs
+          - tools/test/lanes/perception-v2-redteam.sh
+      evidence:
+          - .tmp/security/perception-v2/pr/perception-v2-report.json
+          - .tmp/security/perception-v2-test-matrix.json
+
+    - id: PERCEPTION-V2-FAILURE-MODES
+      scenario: Redis unavailable, Postgres slow write, provider missing and policy load failure are covered
+      owner: ServerContractAgent
+      status: automated
+      validationClass: provider-only
+      requiredFaults:
+          [
+              redis-unavailable,
+              postgres-slow-write,
+              provider-missing,
+              policy-load-failure,
+          ]
+      code:
+          - src/backend/Services/Security/PerceptionChallengeV2Service.cs
+          - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
+          - src/backend/Services/Security/SecurityPolicySnapshotService.cs
+          - src/backend/Infrastructure/Operations/ProductionHealth.cs
+      tests:
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+          - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
+          - tests/backend/Unit/SecurityChallengeOrchestratorTests.cs
+          - tests/backend/Unit/SecurityPolicySnapshotPersistenceTests.cs
+          - tests/backend/Unit/ProductionHealthTests.cs
+      evidence:
+          - .tmp/security/perception-v2-test-matrix.json

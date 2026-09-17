@@ -1,0 +1,32 @@
+{
+  "testResults": [
+    {
+      "name": "tests/unit/math.test.ts",
+      "assertionResults": [
+        {
+          "ancestorTitles": ["math", "parameterized"],
+          "title": "adds [1, 2, 3]",
+          "status": "passed",
+          "duration": 8,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": ["math", "negative"],
+          "title": "duplicate name",
+          "status": "failed",
+          "duration": 13,
+          "failureMessages": [
+            "AssertionError: expected 2 to be 3\n at /var/tmp/worker-deadbeef/tests/unit/math.test.ts:24:17\n server http://127.0.0.1:43127 at 2026-07-23T01:02:03.456Z"
+          ]
+        },
+        {
+          "ancestorTitles": ["math", "unsupported"],
+          "title": "duplicate name",
+          "status": "skipped",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ]
+    }
+  ]
+}

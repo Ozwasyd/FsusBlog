@@ -1,0 +1,189 @@
+{
+    "schema": "fsusblog.browser-contract-invariant-owners.v1",
+    "invariants": [
+        {
+            "id": "invariant-owner-registry",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "browser contract invariant registry assigns one canonical owner per layer"
+            }
+        },
+        {
+            "id": "catalog-shape",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "release browser contract exposes a six-scenario catalog with fixed serial metadata"
+            }
+        },
+        {
+            "id": "capability-selection",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "immutable fixture capability selects five baseline scenarios or the sixth WebAuthn success path"
+            }
+        },
+        {
+            "id": "declarative-topology",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "browser contract declarative topology rejects noncanonical session configuration"
+            }
+        },
+        {
+            "id": "receipt-schema",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "receipt exposes one managed Chromium, zero retries, and exact scenario IDs"
+            }
+        },
+        {
+            "id": "failure-classification",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "failure classification keeps browser crashes separate from product and contract failures"
+            }
+        },
+        {
+            "id": "fixture-adapter-boundary",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "fixture adapter consumes one immutable namespace without exposing infrastructure commands"
+            }
+        },
+        {
+            "id": "runner-interface-policy",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "runner source enforces one managed launch, one context factory, and process-group timeout"
+            }
+        },
+        {
+            "id": "trace-retention-policy",
+            "layer": "static",
+            "owner": {
+                "file": "tests/tools/browser-contract.test.mjs",
+                "test": "authenticated Browser Contract evidence never retains or uploads raw Playwright traces"
+            }
+        },
+        {
+            "id": "namespace-resource-isolation",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "run identity derives isolated database and Redis resources from commit run and lane"
+            }
+        },
+        {
+            "id": "source-build-identity",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "fixture source identity is complete, dedicated, and cannot fall back to GITHUB_SHA"
+            }
+        },
+        {
+            "id": "provider-process-ownership",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "provider process-group ownership is bound to one invocation before delayed KILL"
+            }
+        },
+        {
+            "id": "fixture-provider-header",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "fixture provider must explicitly disable the test-session header"
+            }
+        },
+        {
+            "id": "prepare-cleanup-lifecycle",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "single prepare seals stable entities and cleanup is idempotent without leaking storage secrets"
+            }
+        },
+        {
+            "id": "prepare-failure-cleanup",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "prepare failure fails closed, attempts cleanup, and never leaves a sealed manifest"
+            }
+        },
+        {
+            "id": "storage-state-permissions",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "storage state must be created with exact 0600 permissions"
+            }
+        },
+        {
+            "id": "cleanup-retry-state",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "cleanup failure is separate, retains recovery state, and remains retryable"
+            }
+        },
+        {
+            "id": "prepare-failure-recovery",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "prepare failure retains its handle and a failed cleanup retries cleanly without replacing the primary error"
+            }
+        },
+        {
+            "id": "startup-cleanup-retry",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "runner records failed and successful startup cleanup attempts while retaining the primary contract failure"
+            }
+        },
+        {
+            "id": "startup-cleanup-exhaustion",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "runner retains primary failure when every startup cleanup attempt fails"
+            }
+        },
+        {
+            "id": "primary-cleanup-failure-composition",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "terminal state keeps primary and cleanup outcomes independent across failure combinations"
+            }
+        },
+        {
+            "id": "terminal-persistence",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "terminal finalization is idempotent, rejects conflicts, and persists once after a writer retry"
+            }
+        },
+        {
+            "id": "signal-cleanup-finalization",
+            "layer": "dynamic",
+            "owner": {
+                "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
+                "test": "signal finalization after a primary error preserves interruption phase and primary classification"
+            }
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+{
+  "status": "ok",
+  "generatedAt": "2026-06-11T03:47:01Z",
+  "nugetAudit": "nuget/",
+  "npmAudit": "npm-audit.json",
+  "lockFiles": {
+    "npm": "src/frontend/package-lock.json",
+    "nuget": "packages.lock.json next to each audited .csproj",
+    "ciLockedMode": true
+  },
+  "policy": {
+    "nuget": "fail on high or critical vulnerabilities",
+    "npm": "npm audit --omit=dev --audit-level=high"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "suites": [
+    {
+      "title": "account",
+      "file": "tests/frontend/e2e/account.spec.ts",
+      "suites": [
+        {
+          "title": "navigation",
+          "specs": [
+            {
+              "title": "opens parameterized destination [profile]",
+              "file": "tests/frontend/e2e/account.spec.ts",
+              "line": 18,
+              "column": 5,
+              "tests": [
+                {
+                  "projectName": "chromium",
+                  "results": [
+                    { "status": "passed", "duration": 105 }
+                  ]
+                },
+                {
+                  "projectName": "mobile-chromium",
+                  "results": [
+                    {
+                      "status": "failed",
+                      "duration": 140,
+                      "error": {
+                        "name": "Error",
+                        "message": "expect(locator).toBeVisible() failed",
+                        "stack": "at /tmp/run-12345678/tests/frontend/e2e/account.spec.ts:22:11"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "blocked by interrupted fixture",
+              "file": "tests/frontend/e2e/account.spec.ts",
+              "line": 30,
+              "column": 5,
+              "tests": [
+                {
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "status": "interrupted",
+                      "duration": 2,
+                      "error": {
+                        "name": "FixtureError",
+                        "message": "worker interrupted",
+                        "stack": "at /tmp/worker-abcdef12/tests/frontend/e2e/account.spec.ts:30:5"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

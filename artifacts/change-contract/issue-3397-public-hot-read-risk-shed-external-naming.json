@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Observability/FsusObservability.cs",
+                "src/backend/Infrastructure/Security/SecurityRiskEventPersistence.cs",
+                "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs"
+            ],
+            "reason": "Preserve process environment spelling while request-path Shield/risk persistence sheds durable SQL under a saturated queue."
+        }
+    ]
+}

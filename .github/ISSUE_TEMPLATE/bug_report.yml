@@ -1,0 +1,96 @@
+name: Bug report
+description: Report a reproducible FsusBlog defect.
+title: "[Bug] "
+labels: ["type:bug", "status:triage", "evidence:needs-repro"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
+    - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Include the canonical ReleaseId for a built artifact or the full 40-character commit SHA for source-based reproduction.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
+    - type: dropdown
+      id: deployment
+      attributes:
+          label: Deployment mode
+          options:
+              - Development
+              - Self-hosted
+              - Production-like
+              - Other
+      validations:
+          required: true
+    - type: textarea
+      id: environment
+      attributes:
+          label: OS, browser, and runtime
+          description: Include OS, browser version, .NET SDK, Node/npm, Docker, PostgreSQL, Redis, and relevant deployment details.
+          placeholder: "Ubuntu 24.04, Chrome 126, .NET 10 SDK, Node 24, PostgreSQL 17, Redis 7"
+      validations:
+          required: true
+    - type: textarea
+      id: steps
+      attributes:
+          label: Steps to reproduce
+          description: Provide a minimal ordered reproduction.
+          placeholder: |
+              1. Start ...
+              2. Open ...
+              3. Click ...
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected behavior
+      validations:
+          required: true
+    - type: textarea
+      id: actual
+      attributes:
+          label: Actual behavior
+      validations:
+          required: true
+    - type: textarea
+      id: backend-logs
+      attributes:
+          label: Backend logs
+          description: Paste the smallest sanitized log excerpt if applicable. Remove tokens, cookies, IPs, emails, and secrets.
+          render: text
+    - type: textarea
+      id: frontend-console
+      attributes:
+          label: Frontend console errors
+          description: Paste sanitized console output if applicable.
+          render: text
+    - type: textarea
+      id: evidence
+      attributes:
+          label: Screenshots, trace, or additional evidence
+          description: Attach screenshots or Playwright/network traces when useful. Do not attach private data.
+    - type: dropdown
+      id: fresh-demo
+      attributes:
+          label: Reproduces on fresh demo seed data?
+          options:
+              - "Yes"
+              - "No"
+              - "Not tested"
+              - "Not applicable"
+      validations:
+          required: true
+    - type: checkboxes
+      id: confirmation
+      attributes:
+          label: Public report confirmation
+          options:
+              - label: This is not a security vulnerability report.
+                required: true
+              - label: I removed secrets, tokens, private domains, real emails, and real IP addresses from the report.
+                required: true

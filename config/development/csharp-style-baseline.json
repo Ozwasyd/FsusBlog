@@ -1,0 +1,153 @@
+{
+    "schema": "fsusblog.csharp-style-baseline.v1",
+    "generatedFrom": "56511df07ea301a23fcc055114c9369660954b4e",
+    "policySha256": "29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200",
+    "violationCount": 33,
+    "fileCount": 16,
+    "files": [
+        {
+            "path": "src/backend/Infrastructure/Audit/AuditTamperEvidence.cs",
+            "sourceSha256": "3a136ad20ba655f3fffdc97e4ea876867fa2bc283ca80cf8da22e42b34d388ef",
+            "violationCount": 1,
+            "violationDigest": "cf9cb76dd81c8a398d3d8e03f84a2617b4b5be32a5ef1e77b1bae0cc3256b1a8",
+            "rules": {
+                "type-name": 1
+            }
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs",
+            "sourceSha256": "e091dc995c6b68805ad872372307fb206ee52913f937d673b1a054e81d7651cf",
+            "violationCount": 1,
+            "violationDigest": "9782ffad395ad4167b165f96977ea8005334fdb64f5776c7527a62cb98b220be",
+            "rules": {
+                "using-order": 1
+            }
+        },
+        {
+            "path": "src/backend/Infrastructure/Observability/FsusObservabilityServiceCollectionExtensions.cs",
+            "sourceSha256": "bbbb66e515f5f5ae88d6ee1d472b5664897aa17a335d638fbd3b8adc714a86a5",
+            "violationCount": 1,
+            "violationDigest": "77850dfe85943403b0d096b33d3ffb750a53c7276c0755744f86c32051e77df7",
+            "rules": {
+                "using-order": 1
+            }
+        },
+        {
+            "path": "src/backend/Infrastructure/Operations/BoundedQueueDrainContracts.cs",
+            "sourceSha256": "376acbc88cf3e2856d70240c36a285598183be88bc8e7269f9f4a779675f5c40",
+            "violationCount": 1,
+            "violationDigest": "b42d4dd46081d7163615cb91443d9e1f5b79647cc7d38271bc8bb375c6efda70",
+            "rules": {
+                "local-name": 1
+            }
+        },
+        {
+            "path": "src/backend/Infrastructure/Security/PrivateAssetRoutePrivacy.cs",
+            "sourceSha256": "44f58ab25ac87bac2b33e27839a7d241ee7d4bfee4dacc2971ba36cf859b0574",
+            "violationCount": 2,
+            "violationDigest": "627ffb0ad0106f52b69f17486180751e98250b01be77517993950a214e46cb9b",
+            "rules": {
+                "xml-documentation": 2
+            }
+        },
+        {
+            "path": "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs",
+            "sourceSha256": "9a85b38da89df7e0775be4b44189919d33715df4af096ee9a039c36a1942ef0a",
+            "violationCount": 12,
+            "violationDigest": "b67cbdc64badc2b72becc585a25408a35da555b1c0be06b063376a80676dbc7b",
+            "rules": {
+                "xml-documentation": 12
+            }
+        },
+        {
+            "path": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs",
+            "sourceSha256": "938e85958a525cba34ed29caeede7e4ba9a0ee725591ef16d6b9330ff7fc80cb",
+            "violationCount": 2,
+            "violationDigest": "34b77e5352b0ddaa19c748755df53174b5e95df0ea00a7c55dc919989821a18e",
+            "rules": {
+                "xml-documentation": 2
+            }
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthorSavedViewContracts.cs",
+            "sourceSha256": "dfab40771aac8b37427665dc2d0c155e7ac00473a50385cf7a31575795ae493a",
+            "violationCount": 3,
+            "violationDigest": "18381414d222c5576903216a4437157d0566c080cf63814263bd811b4809a78a",
+            "rules": {
+                "enum-name": 3
+            }
+        },
+        {
+            "path": "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+            "sourceSha256": "f8b3d0fa5eb83c9985ac00c30fc1c5b8c9ab6342102157ddcc196feee8724906",
+            "violationCount": 2,
+            "violationDigest": "4e854d0f34724cb19cbde314ac41ad7fe2e323e925325ef461e03b4ed1fac685",
+            "rules": {
+                "using-order": 2
+            }
+        },
+        {
+            "path": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+            "sourceSha256": "6fb7353c0cf29f025e05546301933774b669f368191ce108d787904553c1823a",
+            "violationCount": 1,
+            "violationDigest": "d9cead6c823c55887210544e79c512d58ebd468048e098f51be1bb89db8ea09c",
+            "rules": {
+                "allman-brace": 1
+            }
+        },
+        {
+            "path": "src/backend/Services/UserService.cs",
+            "sourceSha256": "d728b7f63974b73830a5bd75a7cdd49db7ddf776dec15c592e0f1985556e63b6",
+            "violationCount": 1,
+            "violationDigest": "d95c8223556a268cafb82466937dd716541dcc032d0b15a0c32133d0a179237a",
+            "rules": {
+                "roslyn-exception-contract": 1
+            }
+        },
+        {
+            "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+            "sourceSha256": "307013b98197ab528a41e3dd235d8a99feca32f6e471637c28f9ce1ec5bef34e",
+            "violationCount": 1,
+            "violationDigest": "d2284326fc8f0de6fced9930ee805fefca7519587a2f57294310be69df0bff51",
+            "rules": {
+                "private-static-field-name": 1
+            }
+        },
+        {
+            "path": "tests/backend/Unit/PrivateAssetDeliveryTests.cs",
+            "sourceSha256": "f2154f5ae47cc1d2c0da56110caf8e9ea19b66437485b1d6a41e5d78cbd3fd61",
+            "violationCount": 1,
+            "violationDigest": "a50e5202df6b32ddcb85f06a5ef7f4ccbc3f905cd972d65891a23f542403b0e5",
+            "rules": {
+                "using-order": 1
+            }
+        },
+        {
+            "path": "tests/backend/Unit/PublicHotReadRiskProjectionTests.cs",
+            "sourceSha256": "52d7494a94a4a285201d9e83f2f75056d0010565631de5ae40f2248fc09b3890",
+            "violationCount": 1,
+            "violationDigest": "73203ac06b83f059bd64c107eff85ed4e95cf960f17dfcac9625a45223fc56d1",
+            "rules": {
+                "method-name": 1
+            }
+        },
+        {
+            "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+            "sourceSha256": "2e43a7e5805a6afe020a63cb416f19c455eb203817e542663b5140f605fb5fd6",
+            "violationCount": 2,
+            "violationDigest": "ffbf55555e8d6c39e6abb3d3bb6114c65d27bb6aafb06568fb4dcbbdab530982",
+            "rules": {
+                "using-order": 2
+            }
+        },
+        {
+            "path": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+            "sourceSha256": "45987d557546568042feb97090be27ede06bf6b630db820e6f36a8b340cde54c",
+            "violationCount": 1,
+            "violationDigest": "2371975a5b2106a6d2bc573b0ca0d86ffe16c72043774f17b274e5bd85635ee5",
+            "rules": {
+                "using-order": 1
+            }
+        }
+    ]
+}

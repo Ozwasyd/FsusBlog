@@ -1,0 +1,48 @@
+{
+  "schema": "fsusblog.article-editor-production-fixture.v1",
+  "titles": {
+    "empty": "",
+    "short": "把复杂问题写清楚",
+    "long": "从一次真实故障复盘中整理可验证的工程决策，并让标题在编辑列内自然换行",
+    "mixed": "AEDS 运行时边界：从 CJK 到 Latin without a poster-sized heading"
+  },
+  "viewports": [
+    { "id": "mobile", "width": 375, "height": 812 },
+    { "id": "tablet", "width": 768, "height": 1024 },
+    { "id": "wide-tablet", "width": 1024, "height": 768 },
+    { "id": "laptop", "width": 1366, "height": 768 },
+    { "id": "desktop", "width": 1440, "height": 900 }
+  ],
+  "themes": ["light", "dark"],
+  "zoom": [1, 1.5, 2],
+  "inspectorViews": ["publish", "rights", "check", "preview", "versions", "resources"],
+  "states": ["empty", "loading", "error", "success", "partial"],
+  "authoringStates": [
+    "ready",
+    "permission-denied",
+    "pending",
+    "error",
+    "stale",
+    "generation-replaced",
+    "aborted",
+    "thousand"
+  ],
+  "authoringSurfaces": ["toolbar", "selection", "slash", "palette"],
+  "maximumAuthoringContributions": 1000,
+  "inputModalities": ["keyboard", "touch"],
+  "largeContent": {
+    "rightsParagraphs": 24,
+    "revisions": 100,
+    "assets": 1000,
+    "issues": 120
+  },
+  "geometry": {
+    "maximumDocumentWidthDelta": 8
+  },
+  "bodyCommands": {
+    "primaryKeys": ["heading", "bold", "italic", "link", "quote", "code"],
+    "forbiddenKeys": ["h1", "heading-1"],
+    "structureKeys": ["heading-3", "heading-4", "heading-5", "heading-6"],
+    "insertKeys": ["ul", "ol", "task", "block", "latex", "mermaid", "table", "hr"]
+  }
+}

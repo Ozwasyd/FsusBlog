@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-label="Public route audit interface evidence" data-cover-concept="route-audit-interface">
+  <rect width="960" height="640" fill="#202a37"/>
+  <rect x="72" y="56" width="816" height="528" rx="14" fill="#2c3847" stroke="#607086" stroke-width="2"/>
+  <rect x="72" y="56" width="816" height="52" rx="14" fill="#354355"/>
+  <rect x="72" y="94" width="816" height="14" fill="#354355"/>
+  <circle cx="108" cy="82" r="6" fill="#8292a8"/>
+  <circle cx="132" cy="82" r="6" fill="#8292a8"/>
+  <circle cx="156" cy="82" r="6" fill="#8292a8"/>
+  <rect x="112" y="144" width="168" height="400" rx="8" fill="#25313f" stroke="#4a596d"/>
+  <rect x="136" y="176" width="96" height="12" rx="6" fill="#7895bf"/>
+  <rect x="136" y="214" width="112" height="8" rx="4" fill="#65758b"/>
+  <rect x="136" y="242" width="88" height="8" rx="4" fill="#65758b"/>
+  <rect x="136" y="270" width="120" height="8" rx="4" fill="#65758b"/>
+  <rect x="312" y="144" width="536" height="112" rx="8" fill="#344254" stroke="#53647a"/>
+  <rect x="344" y="174" width="248" height="14" rx="7" fill="#aeb9c8"/>
+  <rect x="344" y="204" width="392" height="9" rx="4.5" fill="#718198"/>
+  <rect x="344" y="226" width="328" height="9" rx="4.5" fill="#718198"/>
+  <rect x="312" y="280" width="256" height="264" rx="8" fill="#273442" stroke="#53647a"/>
+  <rect x="592" y="280" width="256" height="264" rx="8" fill="#273442" stroke="#53647a"/>
+  <rect x="344" y="312" width="192" height="104" rx="5" fill="#3b4a5d"/>
+  <path d="M366 390 L398 362 L430 374 L470 330 L514 348" fill="none" stroke="#7fa5d8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="344" y="448" width="156" height="10" rx="5" fill="#8896a9"/>
+  <rect x="344" y="474" width="116" height="8" rx="4" fill="#66768c"/>
+  <rect x="624" y="312" width="192" height="32" rx="5" fill="#405066"/>
+  <rect x="640" y="324" width="92" height="8" rx="4" fill="#9fabbc"/>
+  <rect x="624" y="364" width="192" height="32" rx="5" fill="#405066"/>
+  <rect x="640" y="376" width="132" height="8" rx="4" fill="#9fabbc"/>
+  <rect x="624" y="416" width="192" height="32" rx="5" fill="#405066"/>
+  <rect x="640" y="428" width="108" height="8" rx="4" fill="#9fabbc"/>
+  <rect x="624" y="480" width="88" height="28" rx="14" fill="#7895bf"/>
+</svg>

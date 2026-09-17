@@ -1,0 +1,65 @@
+name: Physical execution platforms
+
+on:
+    pull_request:
+        paths:
+            - .github/workflows/physical-execution-platforms.yml
+            - config/testing/physical-execution-process-policy.json
+            - tools/test/physical-execution-**
+            - tools/test/process-identity.mjs
+            - tests/tools/physical-execution-process-tree.test.mjs
+    push:
+        branches:
+            - master
+        paths:
+            - .github/workflows/physical-execution-platforms.yml
+            - config/testing/physical-execution-process-policy.json
+            - tools/test/physical-execution-**
+            - tools/test/process-identity.mjs
+            - tests/tools/physical-execution-process-tree.test.mjs
+
+permissions:
+    contents: read
+
+jobs:
+    linux-preexec:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Provision Linux exec helper and user cgroup authority
+              shell: bash
+              run: |
+                  test "$RUNNER_ENVIRONMENT" = github-hosted
+                  test "$(id -u)" -ne 0
+                  python3 -I -S -c 'import os, secrets, sys; assert sys.version_info >= (3, 6); assert callable(os.execve)'
+                  sudo systemctl start "user@$(id -u).service"
+                  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+                  export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+                  echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
+                  echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
+                  systemctl --user show-environment > /dev/null
+            - name: Execute canonical Linux containment and admission suite
+              shell: bash
+              run: |
+                  node --input-type=module -e '
+                  import { runPhysicalExecution } from "./tools/test/physical-execution-process-tree.mjs";
+                  await runPhysicalExecution({
+                      command: [process.execPath, "--test", "tests/tools/physical-execution-process-tree.test.mjs"],
+                      cwd: process.cwd(), env: process.env, signal: AbortSignal.timeout(120000),
+                      stdout: process.stdout, stderr: process.stderr
+                  });'
+    windows-job-object:
+        runs-on: windows-latest
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version-file: .nvmrc
+            - name: Compile and execute native Job Object containment
+              shell: pwsh
+              run: node --test tests/tools/physical-execution-process-tree.test.mjs

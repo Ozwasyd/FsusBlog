@@ -1,0 +1,13 @@
+{
+  "name": "@fsusblog/plugin-sdk",
+  "version": "0.0.0-local",
+  "private": true,
+  "packageManager": "npm@11.13.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    }
+  }
+}

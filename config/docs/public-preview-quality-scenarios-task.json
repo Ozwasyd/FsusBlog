@@ -1,0 +1,356 @@
+{
+    "schema": "fsusblog.public-preview-quality-scenarios.v1",
+    "qualityScenarios": [
+        {
+            "id": "admin-dashboard-desktop-1366",
+            "route": "ManageDashboard",
+            "scope": "admin",
+            "viewport": {
+                "width": 1366,
+                "height": 768
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "quick",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "admin-dashboard-desktop-1440",
+            "route": "ManageDashboard",
+            "scope": "admin",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "admin-dashboard-mobile",
+            "route": "ManageDashboard",
+            "scope": "admin",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "article-editor-desktop-1366",
+            "route": "ManageWriteArticle",
+            "scope": "admin",
+            "viewport": {
+                "width": 1366,
+                "height": 768
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "article-editor-desktop-1440",
+            "route": "ManageWriteArticle",
+            "scope": "admin",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "article-editor-mobile",
+            "route": "ManageWriteArticle",
+            "scope": "admin",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "comment-moderation-desktop-1366",
+            "route": "ManageModerationComments",
+            "scope": "admin",
+            "viewport": {
+                "width": 1366,
+                "height": 768
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "comment-moderation-desktop-1440",
+            "route": "ManageModerationComments",
+            "scope": "admin",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "comment-moderation-mobile",
+            "route": "ManageModerationComments",
+            "scope": "admin",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "security-console-desktop-1366",
+            "route": "ManageSecurityDashboard",
+            "scope": "admin",
+            "viewport": {
+                "width": 1366,
+                "height": 768
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "security-console-desktop-1440",
+            "route": "ManageSecurityDashboard",
+            "scope": "admin",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "security-console-mobile",
+            "route": "ManageSecurityDashboard",
+            "scope": "admin",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "operations-status-desktop-1366",
+            "route": "ManageOpsHealth",
+            "scope": "admin",
+            "viewport": {
+                "width": 1366,
+                "height": 768
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "operations-status-desktop-1440",
+            "route": "ManageOpsHealth",
+            "scope": "admin",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task"
+        },
+        {
+            "id": "operations-status-mobile",
+            "route": "ManageOpsHealth",
+            "scope": "admin",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task"
+        }
+    ]
+}

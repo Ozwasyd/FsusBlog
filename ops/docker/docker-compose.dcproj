@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" Sdk="Microsoft.Docker.Sdk">
+	<PropertyGroup Label="Globals">
+		<ProjectVersion>2.1</ProjectVersion>
+		<DockerTargetOS>Linux</DockerTargetOS>
+		<ProjectGuid>81dded9d-158b-e303-5f62-77a2896d2a5a</ProjectGuid>
+		<DockerComposeProjectPath>docker-compose.production.yml</DockerComposeProjectPath>
+
+		<!-- Visual Studio attaches to the backend service; the frontend runs separately under Vite. -->
+		<DockerServiceName>fsusblog.server</DockerServiceName>
+		<!-- The backend project does not own a browser launch target. -->
+		<DockerLaunchBrowser>false</DockerLaunchBrowser>
+	</PropertyGroup>
+
+	<!-- Debug adds the development overlay; Release consumes only the production composition. -->
+	<PropertyGroup>
+		<DockerComposeBaseConfiguration>docker-compose.production.yml</DockerComposeBaseConfiguration>
+
+		<DockerComposeBaseConfiguration Condition="'$(Configuration)' == 'Debug'">$(DockerComposeBaseConfiguration);docker-compose.development-backend.yml</DockerComposeBaseConfiguration>
+
+		<DockerComposeBaseConfiguration Condition="'$(Configuration)' == 'Release'">$(DockerComposeBaseConfiguration)</DockerComposeBaseConfiguration>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- DependentUpon keeps the overlay nested under the production composition in Visual Studio. -->
+		<None Include="docker-compose.development-backend.yml">
+			<DependentUpon>docker-compose.production.yml</DependentUpon>
+		</None>
+		<None Include="docker-compose.production.yml" />
+		<None Include="..\..\.dockerignore" />
+		<None Include="Properties\launchSettings.json" />
+	</ItemGroup>
+</Project>

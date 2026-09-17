@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/contracts/article-embed-contract.schema.json",
+  "title": "FsusBlog article embed contract",
+  "oneOf": [
+    { "$ref": "#/$defs/providerRequest" },
+    { "$ref": "#/$defs/providerResult" },
+    { "$ref": "#/$defs/dependencyCoordinate" }
+  ],
+  "$defs": {
+    "targetKind": {
+      "enum": ["article", "heading", "block"]
+    },
+    "scope": {
+      "enum": ["authoring", "publication-plan"]
+    },
+    "sha256": {
+      "type": "string",
+      "format": "fsusblog-lowercase-sha256"
+    },
+    "portableArticleIdentity": {
+      "type": "string",
+      "format": "fsusblog-portable-article-identity-v1",
+      "description": "article: followed by one canonical lowercase non-empty UUID; never a DB ID, slug, title, route, URL, file path or endpoint"
+    },
+    "headingIdentity": {
+      "type": "string",
+      "format": "fsusblog-portable-heading-identity-v1",
+      "description": "heading: followed by one canonical lowercase non-empty UUID"
+    },
+    "blockAnchor": {
+      "type": "string",
+      "format": "fsusui-markdown-block-anchor-v1",
+      "description": "FsusUI #289 canonical anchor without a caret"
+    },
+    "sourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["portableArticleIdentity", "kind", "headingIdentity", "blockAnchor"],
+      "properties": {
+        "portableArticleIdentity": { "$ref": "#/$defs/portableArticleIdentity" },
+        "kind": { "$ref": "#/$defs/targetKind" },
+        "headingIdentity": {
+          "oneOf": [{ "$ref": "#/$defs/headingIdentity" }, { "type": "null" }]
+        },
+        "blockAnchor": {
+          "oneOf": [{ "$ref": "#/$defs/blockAnchor" }, { "type": "null" }]
+        }
+      }
+    },
+    "directiveProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parserContract", "targetToken", "mode", "rawRange"],
+      "properties": {
+        "parserContract": { "const": "fsusui.markdown-embed-directive.v1" },
+        "targetToken": { "type": "string", "minLength": 1 },
+        "mode": { "$ref": "#/$defs/targetKind" },
+        "rawRange": { "$ref": "#/$defs/sourceRange" }
+      },
+      "description": "Consumes target, mode and range from @ozwasyd/element-plus/markdown-runtime parseMarkdownEmbedLine; it is not a Markdown parser"
+    },
+    "documentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "epoch"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "epoch": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "actorContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorIdentity", "siteIdentity", "permissionContextDigest"],
+      "properties": {
+        "actorIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "siteIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "permissionContextDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "runtimeContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerId", "providerVersion", "runtimeVersion", "runtimeDigest"],
+      "properties": {
+        "providerId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "providerVersion": { "type": "integer", "minimum": 1 },
+        "runtimeVersion": { "const": "fsusblog.article-embed-provider.v1" },
+        "runtimeDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "providerRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "requestId",
+        "hostPortableArticleIdentity",
+        "hostDocument",
+        "sourceRevision",
+        "directive",
+        "target",
+        "requestedScope",
+        "actor",
+        "runtime",
+        "contentDigest",
+        "requestDigest",
+        "abortSignal"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-embed-provider-request.v1" },
+        "schemaVersion": { "const": 1 },
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "hostPortableArticleIdentity": { "$ref": "#/$defs/portableArticleIdentity" },
+        "hostDocument": { "$ref": "#/$defs/documentIdentity" },
+        "sourceRevision": { "type": "integer", "minimum": 1 },
+        "directive": { "$ref": "#/$defs/directiveProjection" },
+        "target": { "$ref": "#/$defs/target" },
+        "requestedScope": { "$ref": "#/$defs/scope" },
+        "actor": { "$ref": "#/$defs/actorContext" },
+        "runtime": { "$ref": "#/$defs/runtimeContext" },
+        "contentDigest": { "$ref": "#/$defs/sha256" },
+        "requestDigest": { "$ref": "#/$defs/sha256" },
+        "abortSignal": {
+          "type": "object",
+          "x-runtime-only": true,
+          "description": "Required browser AbortSignal or equivalent .NET CancellationToken; excluded from serialization and digests"
+        }
+      }
+    },
+    "projectionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "projectionIdentity", "contentDigest"],
+      "properties": {
+        "kind": { "enum": ["markdown", "safe-projection"] },
+        "projectionIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "contentDigest": { "$ref": "#/$defs/sha256" }
+      },
+      "description": "Reference only; HTML, DOM, Vue components, iframes and private service objects are not fields"
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourcePortableArticleIdentity", "sourceRevision", "displayText", "attributionDigest"],
+      "properties": {
+        "sourcePortableArticleIdentity": { "$ref": "#/$defs/portableArticleIdentity" },
+        "sourceRevision": { "type": "integer", "minimum": 1 },
+        "displayText": { "type": "string", "maxLength": 512 },
+        "attributionDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depth", "nodes", "bytes", "elapsedMilliseconds"],
+      "properties": {
+        "depth": { "type": "integer", "minimum": 0 },
+        "nodes": { "type": "integer", "minimum": 0 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "elapsedMilliseconds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "errorCode": {
+      "enum": [
+        "missing",
+        "ambiguous",
+        "invalid-target",
+        "permission-denied",
+        "permission-unknown",
+        "private",
+        "draft",
+        "unpublished",
+        "archived",
+        "deleted",
+        "heading-missing",
+        "heading-duplicate",
+        "block-missing",
+        "block-duplicate",
+        "cycle",
+        "depth-exceeded",
+        "size-exceeded",
+        "time-exceeded",
+        "stale-source",
+        "stale-target",
+        "stale-runtime"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "safeReasonCode"],
+      "properties": {
+        "code": { "$ref": "#/$defs/errorCode" },
+        "safeReasonCode": { "type": "string", "format": "fsusblog-safe-reason-code" }
+      }
+    },
+    "dependencyCoordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "target",
+        "resolvedRevision",
+        "targetVersionIdentity",
+        "projectionIdentity",
+        "projectionDigest",
+        "dependencyDigest"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-embed-dependency-coordinate.v1" },
+        "schemaVersion": { "const": 1 },
+        "target": { "$ref": "#/$defs/target" },
+        "resolvedRevision": { "type": "integer", "minimum": 1 },
+        "targetVersionIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "projectionIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "projectionDigest": { "$ref": "#/$defs/sha256" },
+        "dependencyDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "providerResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "requestId",
+        "requestDigest",
+        "status",
+        "coordinate",
+        "projection",
+        "attribution",
+        "visibility",
+        "lifecycle",
+        "permission",
+        "budgets",
+        "error",
+        "resultDigest"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-embed-provider-result.v1" },
+        "schemaVersion": { "const": 1 },
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "requestDigest": { "$ref": "#/$defs/sha256" },
+        "status": { "enum": ["resolved", "failed"] },
+        "coordinate": {
+          "oneOf": [{ "$ref": "#/$defs/dependencyCoordinate" }, { "type": "null" }]
+        },
+        "projection": {
+          "oneOf": [{ "$ref": "#/$defs/projectionReference" }, { "type": "null" }]
+        },
+        "attribution": {
+          "oneOf": [{ "$ref": "#/$defs/attribution" }, { "type": "null" }]
+        },
+        "visibility": { "enum": ["public", "private", "unknown"] },
+        "lifecycle": { "enum": ["draft", "scheduled", "published", "archived", "deleted", "unknown"] },
+        "permission": { "enum": ["allowed", "denied", "unknown"] },
+        "budgets": { "$ref": "#/$defs/budgets" },
+        "error": {
+          "oneOf": [{ "$ref": "#/$defs/error" }, { "type": "null" }]
+        },
+        "resultDigest": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "x-fsusblog-contract": {
+    "schema": "fsusblog.article-embed-contract.v1",
+    "contractVersion": 1,
+    "digestAlgorithm": "sha256",
+    "canonicalSerialization": "length-prefixed-utf8-v1",
+    "sourceGrammar": {
+      "ownerPackage": "@ozwasyd/element-plus/markdown-runtime",
+      "parserExport": "parseMarkdownEmbedLine",
+      "parserContract": "fsusui.markdown-embed-directive.v1",
+      "modeRequired": true,
+      "modes": ["article", "heading", "block"],
+      "blogParserForbidden": true
+    },
+    "dependencyConsumers": ["article-relation", "article-package", "document-export"],
+    "versionPolicy": {
+      "authoring": "current-authorized-target",
+      "publicationPlan": "frozen-public-target-coordinate"
+    }
+  }
+}

@@ -1,0 +1,114 @@
+# Repository source ownership
+
+FsusBlog product implementation source belongs under `src/`. Whether `.csproj`,
+`package.json`, or a compiler discovers a file does not determine whether it is
+source: handwritten ZK circuit definitions, shaders, protocol schemas, and SQL
+migrations are all compilable domain source.
+
+## ZK ownership boundary
+
+| Ownership | Canonical path | Contents |
+| --- | --- | --- |
+| Handwritten source | `src/zk/circuits/` | v2/v5 circuit definitions and adjacent documentation |
+| Generated artifacts | `artifacts/zk/` | R1CS, proving/verifying keys, ceremony outputs, and Wasm prover bundles |
+| ZK contracts | `security/zk/contracts/` | circuit, tamper, and feasibility contracts |
+| ZK provenance | `security/zk/provenance/` | source/artifact hashes, trusted-setup state, local review, and artifact ownership |
+| Runtime configuration | `config/zk/` | active circuit/verifying-key selection and fail-closed binding |
+| Test fixtures | `tests/fixtures/zk/` | witnesses, proofs, tamper vectors, and deterministic fixture manifests |
+| Build/check tooling | `tools/crypto/`, `tools/security/` | compiler, artifact generator, and semantic validators |
+
+These directories are not interchangeable: generated artifacts cannot enter `src/`, runtime configuration is not source, and test fixtures cannot qualify as ceremony evidence for production readiness.
+
+## Security ownership boundary
+
+Root files may not be scattered under `security/`. Matrices, policies, ZK contracts,
+ZK provenance, and static evidence contracts live in `security/matrices/`,
+`security/policies/`, `security/zk/contracts/`, `security/zk/provenance/`, and
+`security/evidence-contracts/`; the catalog is `security/catalog/security-domain.json`.
+For the complete classification, runtime paths, and fallback constraints, see
+[`docs/security/security-domain-layout.md`](../security/security-domain-layout.md).
+
+## Shared contract ownership
+
+`src/shared/Contracts/` is the sole product-source root for cross-stack contracts. Handwritten security-protocol JSON lives in `src/shared/Contracts/Validation/Security/`, and cross-language generators live in `tools/contracts/`; generated C# and TypeScript consumers may live in Shared and frontend, but cannot become authorities. Root `contracts/security/` and `tools/frontend/` do not hold cross-stack security-protocol source or generators.
+
+Content-lifecycle document exactness reuses the existing ownership of
+`config/contracts/behavior-contracts.json`, `config/contracts/document-claim-migration-ledger.json`,
+and `config/contracts/generated-fact-sections.json`. `tools/docs/content-doc-exactness.mjs`
+only produces current-run mutation/terminal receipts and independently verifies them; it owns no second behavior, claim, state, transition, or Outbox registry.
+
+## Schema migration ownership
+
+`src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from the Server-side `OnlineSchemaMigrationCatalog` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/backend/Infrastructure/SchemaMigration/` retains only current-schema authority/inspector, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
+
+## Configuration ownership
+
+Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.
+
+The Change Contract post-merge generated-repair schema is `config/schemas/post-merge-generated-output-repair.schema.json`, explicitly registered by `config/configuration-ownership.json`; the producer allowlist exists only in the trusted `tools/governance/change-contract-registry.mjs` and cannot be inferred from historical directories, mtime, or the newest file. Multi-step repairs with dependencies use `config/schemas/post-merge-generated-output-repair-dag.schema.json`; its trusted registry seals the sole canonical repair and external-naming manifest paths, ordered steps, generator closure, dependency consumption, and complete output ownership, so a v1 single-producer manifest, arbitrary evidence path, or unregistered command cannot substitute. If a merged PR omitted declared external-naming evidence, `config/schemas/post-merge-external-naming-evidence-repair.schema.json` binds the original PR's exact base/head/merge, unchanged source blob/revision, registered surface, and missing artifact digest; an ordinary external-naming manifest must still change with its affected source, and repair may not rewrite source.
+
+Release Reliability separates scenario and action authorities: `config/testing/release-reliability-scenario-catalog.json` owns the exact-seven scenarios, command semantics, environment contract, and structured lifecycle-action references; `config/testing/release-reliability-lifecycle-action-registry.json` alone owns the 35 actions' process calls, timeouts, receipts, state domains, and failure-safe cleanup contract, whose JSON Schema is `config/schemas/release-reliability-lifecycle-action-registry.schema.json`. `config/testing/runtime-state-domain-registry.json` is the closed-world action-state vocabulary. `config/testing/physical-execution-process-policy.json` alone owns tree termination, bounded pipe close, and consecutive zero-member observation, not registry action timeouts. `tools/test/release-reliability-lifecycle-actions.mjs` loads the contract and is the sole outer executor via `tools/test/physical-execution-process-tree.mjs`; it runs each action and seals a process-tree receipt. `tools/test/release-reliability-lifecycle.mjs` only executes actions/observes real state, while `tools/test/verify-release-reliability-lifecycle-action.mjs` independently rereads the raw receipt. Soak/load/data-scale/mutation/resource lanes do not own lifecycle receipts and cannot self-certify precondition, reset, or postcondition. A data-scale lane measures only the fixture/runtime prepared by its dedicated runtime owner; its seed and teardown remain with their respective owner authorities.
+
+## Operations ownership
+
+Operations templates have one top-level root, `ops/`. Production containers/Compose, development dependencies, gateway templates, and privacy-operation examples belong to `ops/docker/`, `ops/development/`, `ops/gateway/`, and `ops/privacy/`. Zero-downtime resource thresholds are configuration in `config/deployment/`, not templates; executable deployment and general operations remain in `tools/deployment/` and `tools/operations/`. Backend environment templates are owned by `config/examples/`; the root `.env.example` and `.env.production.example` paths are retired. See [`docs/operations-layout.md`](../operations-layout.md) for the path table, historical local-proxy removal decision, and fallback boundary.
+
+Backend Docker SDK stage 的唯一输入 inventory 是
+`config/build/backend-docker-inputs.json`。`tools/docker/backend-input-closure.mjs`
+用 production publish properties 读取真实 `ProjectReference`、repo-local MSBuild
+imports 与编译/发布 items，双向核对 inventory 后才生成隔离的 named build context；
+`ops/docker/FsusBlog.Server.Dockerfile` 只消费其中的 `restore`、`compile` 与
+`publish` domain。frontend/WASM、release evidence、docs/tests 和无关 tooling
+不能回退进入 backend SDK stage，新增 project/import 或越界 item 会 fail closed。
+`config/build/backend-restore.xml` 是该 context 的显式 NuGet configuration：host
+evaluation 与 Docker restore/publish 指向同一文件，不复制用户级 configuration 或凭证。
+settings lookup 必须返回该文件的 exact singleton；空结果不能解释为没有 host configuration。
+所有 closure evaluation 通过 `tools/docker/backend-input-environment.mjs` 使用 Linux
+`bubblewrap` 与 canonical physical runner：repository 只读挂载到 `/src`，网络和 `/tmp`
+隔离；passwd/group/NSS 为 task-owned synthetic identity，不挂载 host home 或配置。
+缺少隔离能力时失败，不回退 host evaluation。SDK stage 和 evaluation 同时要求 `/src`
+以外的根目录 MSBuild/NuGet/editor 配置不存在；真实 environment/process/log receipt
+保存在 `.tmp/backend-input-evaluations/`，不进入 backend compile cache key。
+materializer 分别观察实际 restore/publish properties 的输入并取闭包并集；Configuration、
+RuntimeIdentifier 与完整 publish request 写入无时间的 profile markers，参与 restore domain
+digest，且每个 Docker consumer 在调用前验证。Debug probe 明确传递 Debug request，不借用
+Release observation；实际 publish 调用次数与各 target 的发布语义保持不变。
+候选分支使用 `backend-input-closure.mjs probe-buildkit` 在 tracked-clean Git snapshot
+上执行 cold、无关输入、backend source 与 MSBuild import 四组真实 BuildKit build；
+materializer domain digest 是稳定 cache key，raw progress 另行证明无关输入的
+restore/compile/publish vertex 命中真实 BuildKit cache，backend/MSBuild 输入变化则 miss；
+实际 SDK image 与 root-context witness 还会双向证明 `.env` 等无关文件存在于 build
+context 但没有进入 `/src`。
+
+闭包测试的唯一 physical owner 是 lifecycle registry 中的
+`backend-docker-input-closure` real-subprocess entry，由 matrix 的 `static-governance`
+执行，并绑定同名 coverage entry；production-image workflow 不再重复 raw 执行测试。
+该 workflow 的 PR filters 覆盖 inventory 声明的 project、restore、external item 与
+publish roots，也覆盖各 project ancestor 的隐式 MSBuild/editor/SDK 配置。
+production-build-artifacts 同时绑定 restore XML，并在 matrix 中声明 inventory、restore、
+checker 和 Dockerfile 的触发输入。Local closure/materialization fixtures 不能替代实际
+BuildKit cache、SDK image 文件排除或 cold final-image runtime 验收。
+
+## Language entrypoint ownership
+
+`src/frontend/` is owned by `FsusBlog.Client.esproj`, Vite, and the JavaScript/TypeScript toolchain; it may not contain a C# application entry point. Every C# source file must be within a `.csproj` directory boundary or explicitly registered as a file-based app with owner, dependency declaration, invocation command, tests, and output contract. `tests/governance/repository-source-layout.json` binds this language boundary to `tests/governance/csharp-entrypoint-ownership.json` and `tools/check-csharp-entrypoint-ownership.mjs`; protocol-fixture generators also need stable `generate`/`check` commands and may not hard-code `/tmp` or `/var/tmp`. See [`docs/testing/issue-1174-csharp-entrypoint-ownership.md`](../testing/issue-1174-csharp-entrypoint-ownership.md) for the full decision.
+
+Issue #1166 moved the original top-level `circuits/` path to `src/zk/circuits/`. The v2 and v5 source bytes' SHA-256 remain unchanged; v2 R1CS IR and Groth16 binary may legitimately change because they embed `source_path`, so corresponding artifact, circuit, trusted-setup, and local-review hashes must be updated. The migration changes neither circuit ID, public input/witness layout, constraint count, proof system, curve, ceremony state, nor the fail-closed `production_usable=false` state.
+
+## Root exceptions
+
+`src/` is the sole canonical product-source root. `benchmarks/`, `tests/`, `tools/`, and `ops/` contain executable source under benchmark-isolation, test-isolation, repository-tooling, and operator-tooling exceptions; they do not enter product source or shipping assemblies. `.config/` is the framework root required by the .NET tool manifest. Every other top-level directory must be declared in `tests/governance/repository-source-layout.json` as artifact, configuration, documentation, security, or automation ownership; a new source-like root also needs an explicit `architecturalException`, or the checker fails closed. Top-level `release-evidence/` is retired and forbidden: historical reports belong in `docs/reports/`, static contracts in `security/evidence-contracts/`, fixtures in `tests/fixtures/evidence/`, and a fresh bundle only in untracked `.tmp/release-evidence/`. Optional `release-index/` is the sole exception and may contain only the minimal identity/integrity JSON checked by `check-release-evidence-layout.mjs`; it cannot store a bundle or replace its immutable storage reference.
+
+## Verification
+
+```sh
+node tools/check-repository-source-layout.mjs
+node tools/check-csharp-entrypoint-ownership.mjs
+node tools/security/check-security-domain-layout.mjs
+node tools/security/comment-privacy-build-contract.mjs
+node tools/crypto/check-zk-artifact-ownership.mjs
+node tools/security/check-zk-comment-v5-manifests.mjs
+node --test tests/tools/zk-source-layout.test.mjs
+```
+
+`tools/check-repository-source-layout.mjs` reads the top-level inventory from the Git index and rejects a reintroduced root `circuits/`, `deploy/`, or `release-evidence/`, undeclared top-level directories, unjustified source exceptions, old circuit-source references, source-hash drift, and manifest/R1CS source-binding drift. It also confirms that C# entry-point ownership policy/checkers remain attached to the canonical source-layout contract; the C# project/file-app/global-output/protocol-fixture checker aggregates those specific violations.

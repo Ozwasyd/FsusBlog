@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsus.dev/schemas/test-observation-artifact.v1.json",
+  "title": "FsusBlog run-local test observation artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "observedAt",
+    "sourceState",
+    "sourceClosureDigest",
+    "runner",
+    "run",
+    "producer",
+    "observations",
+    "contentDigest"
+  ],
+  "properties": {
+    "schema": { "const": "fsusblog.test-observation-artifact.v1" },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "sourceState": { "$ref": "#/$defs/sourceState" },
+    "sourceClosureDigest": { "$ref": "#/$defs/digest" },
+    "runner": { "$ref": "#/$defs/runner" },
+    "run": { "$ref": "#/$defs/run" },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework", "reference", "digest"],
+      "properties": {
+        "framework": { "$ref": "#/$defs/framework" },
+        "reference": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "contentDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "sourceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "worktreeFingerprint"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "arch", "runtime", "browser", "project"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "arch": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 },
+        "browser": { "type": ["string", "null"] },
+        "project": { "type": ["string", "null"] }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "attemptKind", "evidenceClass"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "attemptKind": { "enum": ["primary", "retry", "diagnostic"] },
+        "evidenceClass": { "type": "string", "minLength": 1 }
+      }
+    },
+    "framework": { "enum": ["xunit-trx", "vitest", "node-tap", "playwright"] },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "testId",
+        "suite",
+        "framework",
+        "partition",
+        "outcome",
+        "durationMs",
+        "failureSignature",
+        "sourceState",
+        "sourceClosureDigest",
+        "runner",
+        "run",
+        "producer",
+        "attempt"
+      ],
+      "properties": {
+        "testId": { "type": "string", "minLength": 1 },
+        "suite": { "type": "string", "minLength": 1 },
+        "framework": { "$ref": "#/$defs/framework" },
+        "partition": { "type": "string", "minLength": 1 },
+        "outcome": { "enum": ["passed", "failed", "skipped", "blocked"] },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "failureSignature": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/digest" }
+          ]
+        },
+        "sourceState": { "$ref": "#/$defs/sourceState" },
+        "sourceClosureDigest": { "$ref": "#/$defs/digest" },
+        "runner": { "$ref": "#/$defs/runner" },
+        "run": { "$ref": "#/$defs/run" },
+        "producer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reference", "digest"],
+          "properties": {
+            "reference": { "type": "string", "minLength": 1 },
+            "digest": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "attempt": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

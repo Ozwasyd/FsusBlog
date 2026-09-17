@@ -1,0 +1,166 @@
+{
+  "schema": "fsusblog.backend-production-build-authority-comparison.v1",
+  "issue": 1389,
+  "measuredAt": "2026-07-22",
+  "measurementScope": {
+    "fresh": true,
+    "repeatsPerSide": 3,
+    "hostIsolation": "sequential-before-then-after",
+    "focusedBuildRequests": [
+      "src/backend/FsusBlog.Server.csproj Release",
+      "tests/backend/FsusBlog.Server.Tests.csproj Release"
+    ],
+    "excludedDeclaredConsumer": "The Release benchmark build remains declared in the production consumer inventory but is outside this focused backend test-union harness.",
+    "rawEvidenceDigests": {
+      "before": "sha256:17af8b243bf8d8e3dcc3aeacb10c972c573c0378384aef9f8953ea6081a8e615",
+      "after": "sha256:4bf2fffaf24ef3a2ee585f4f4ae9e9672456b401f5dabadabb86f9b524bfaf35"
+    }
+  },
+  "interpretation": {
+    "authoritativeUniverseUnchanged": true,
+    "governanceRequirementRetained": true,
+    "governancePostludeRetired": true,
+    "performanceBudgetAsserted": false,
+    "note": "All raw CPU, wall, and bin/obj values are retained. Only execution-set equality and the structural testhost reduction are acceptance invariants; timing and size variation are not reclassified as failures."
+  },
+  "before": {
+    "schema": "fsusblog.backend-production-build-authority-measurement.v1",
+    "sourceState": {
+      "commit": "b2a8f430a178e043386178383e959dc44fe17874",
+      "worktreeDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "machine": {
+      "cpu": 8,
+      "memoryBytes": 16366100480
+    },
+    "summary": {
+      "status": "success",
+      "sampleCount": 3,
+      "conclusionStable": true,
+      "buildRequestCount": 2,
+      "testhostStartupCount": 2,
+      "executedTestCaseCount": 4862,
+      "executedMethodCount": 3705
+    },
+    "samples": [
+      {
+        "repeat": 1,
+        "status": "success",
+        "buildRequestCount": 2,
+        "testhostStartupCount": 2,
+        "executedTestCaseCount": 4862,
+        "executedMethodCount": 3705,
+        "exactOnce": true,
+        "allPassed": true,
+        "buildCpuSeconds": 25.020000000000003,
+        "unionCpuSeconds": 445.88,
+        "wallSeconds": 536.075,
+        "timedWallSeconds": 536,
+        "binObjBytes": 172185345,
+        "executionMode": "single-testhost-with-governance-postlude"
+      },
+      {
+        "repeat": 2,
+        "status": "success",
+        "buildRequestCount": 2,
+        "testhostStartupCount": 2,
+        "executedTestCaseCount": 4862,
+        "executedMethodCount": 3705,
+        "exactOnce": true,
+        "allPassed": true,
+        "buildCpuSeconds": 23.36,
+        "unionCpuSeconds": 463.03999999999996,
+        "wallSeconds": 534.718,
+        "timedWallSeconds": 534.66,
+        "binObjBytes": 172185175,
+        "executionMode": "single-testhost-with-governance-postlude"
+      },
+      {
+        "repeat": 3,
+        "status": "success",
+        "buildRequestCount": 2,
+        "testhostStartupCount": 2,
+        "executedTestCaseCount": 4862,
+        "executedMethodCount": 3705,
+        "exactOnce": true,
+        "allPassed": true,
+        "buildCpuSeconds": 21.720000000000002,
+        "unionCpuSeconds": 414.62,
+        "wallSeconds": 503.765,
+        "timedWallSeconds": 503.71999999999997,
+        "binObjBytes": 172185189,
+        "executionMode": "single-testhost-with-governance-postlude"
+      }
+    ]
+  },
+  "after": {
+    "schema": "fsusblog.backend-production-build-authority-measurement.v1",
+    "sourceState": {
+      "commit": "b2a8f430a178e043386178383e959dc44fe17874",
+      "worktreeDigest": "sha256:8cfe9a1fffc2768a3cabacdaebca822db8a4fdd32e503ea190bce9a3e4b5e9b1"
+    },
+    "machine": {
+      "cpu": 8,
+      "memoryBytes": 16366100480
+    },
+    "summary": {
+      "status": "success",
+      "sampleCount": 3,
+      "conclusionStable": true,
+      "buildRequestCount": 2,
+      "testhostStartupCount": 1,
+      "executedTestCaseCount": 4862,
+      "executedMethodCount": 3705
+    },
+    "samples": [
+      {
+        "repeat": 1,
+        "status": "success",
+        "buildRequestCount": 2,
+        "testhostStartupCount": 1,
+        "executedTestCaseCount": 4862,
+        "executedMethodCount": 3705,
+        "exactOnce": true,
+        "allPassed": true,
+        "buildCpuSeconds": 42.89,
+        "unionCpuSeconds": 424.90999999999997,
+        "wallSeconds": 550.272,
+        "timedWallSeconds": 550.2,
+        "binObjBytes": 206466828,
+        "executionMode": "single-testhost-exact-union"
+      },
+      {
+        "repeat": 2,
+        "status": "success",
+        "buildRequestCount": 2,
+        "testhostStartupCount": 1,
+        "executedTestCaseCount": 4862,
+        "executedMethodCount": 3705,
+        "exactOnce": true,
+        "allPassed": true,
+        "buildCpuSeconds": 42.6,
+        "unionCpuSeconds": 569.64,
+        "wallSeconds": 607.16,
+        "timedWallSeconds": 607.09,
+        "binObjBytes": 206467341,
+        "executionMode": "single-testhost-exact-union"
+      },
+      {
+        "repeat": 3,
+        "status": "success",
+        "buildRequestCount": 2,
+        "testhostStartupCount": 1,
+        "executedTestCaseCount": 4862,
+        "executedMethodCount": 3705,
+        "exactOnce": true,
+        "allPassed": true,
+        "buildCpuSeconds": 43.4,
+        "unionCpuSeconds": 416.52,
+        "wallSeconds": 523.367,
+        "timedWallSeconds": 523.31,
+        "binObjBytes": 206467505,
+        "executionMode": "single-testhost-exact-union"
+      }
+    ]
+  }
+}

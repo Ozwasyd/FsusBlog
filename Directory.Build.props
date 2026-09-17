@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>14.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FSUSBLOG_PRODUCTION_BUILD_ROOT)' != ''">
+    <BaseOutputPath>$(FSUSBLOG_PRODUCTION_BUILD_ROOT)/dotnet/$(MSBuildProjectName)/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(FSUSBLOG_PRODUCTION_BUILD_ROOT)/dotnet/$(MSBuildProjectName)/obj/</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(FSUSBLOG_PRODUCTION_BUILD_ROOT)/dotnet/$(MSBuildProjectName)/obj/</MSBuildProjectExtensionsPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+    <UseSharedCompilation>true</UseSharedCompilation>
+    <MSBUILDDISABLENODEREUSE>1</MSBUILDDISABLENODEREUSE>
+  </PropertyGroup>
+</Project>

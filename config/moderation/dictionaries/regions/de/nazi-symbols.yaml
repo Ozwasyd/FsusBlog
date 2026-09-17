@@ -1,0 +1,17 @@
+dictionary_id: de.nazi-symbols
+version: 2026-06-01
+scope: regional
+region: EU-DE
+category: hate_speech
+match_mode: normalized
+normalization: default
+severity_default: critical
+source: internal_review
+reviewed_by: engineering-preset
+updated_at: 2026-06-01T00:00:00Z
+terms:
+    - value: de_hate_symbol
+      aliases: []
+      severity: critical
+      reason: de_hate_symbol
+      evidence_policy: redact

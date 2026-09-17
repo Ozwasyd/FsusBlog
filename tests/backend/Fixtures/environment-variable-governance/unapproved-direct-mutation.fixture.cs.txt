@@ -1,0 +1,7 @@
+public sealed class UnapprovedEnvironmentVariableTests
+{
+    public void MutatesProcessEnvironment()
+    {
+        Environment.SetEnvironmentVariable("FSUSBLOG_FIXTURE", "value");
+    }
+}

@@ -1,0 +1,112 @@
+# Frontend style enforcement
+
+`docs/development/coding-conventions.md` is the cross-language authority. This document records the executable TypeScript, JavaScript, Vue and CSS mapping implemented by ESLint and Stylelint; it does not replace the authority or any AEDS, security, privacy, accessibility, motion, UI or performance gate.
+
+## AST toolchain
+
+The authoritative frontend formatter is the AST-aware pair in `tools/frontend/style-toolchain/`: ESLint 10 with typescript-eslint Project Service and eslint-plugin-vue, plus Stylelint 17 with Vue/SCSS custom syntaxes. Prettier is intentionally not an authority because it cannot preserve the repository's Allman brace contract. The toolchain has an independent lockfile so linting never needs GitHub Packages or a published FsusUI build.
+
+The covered source sets are:
+
+- `src/frontend/src/**` for TypeScript, JavaScript, Vue, CSS and SCSS;
+- `src/frontend/wasm/web/**` for the TypeScript/JavaScript Wasm adapter;
+- `src/frontend/scripts/**` and hand-written `src/frontend/public/**/*.js` to preserve the previous JavaScript security scope;
+- `tools/**/*.mjs` and `tests/**/*.mjs` for Node tooling;
+- generated, public artifacts, vendored dependencies, minified files and intentional fixture directories only through explicit policy exclusions.
+
+Run the changed-file gate from the frontend package:
+
+```bash
+npm --prefix src/frontend run lint
+npm --prefix src/frontend run format:check
+```
+
+Both commands resolve to the same aggregate entrypoint:
+
+```bash
+node tools/frontend/check-frontend-style.mjs --mode changed
+```
+
+It reports all ESLint and Stylelint findings in stable file/line/rule order with no maximum-error cutoff. Use `--base origin/master` on stacked branches and repeat `--file <path>` for an explicit selection.
+
+## C# mapping
+
+TypeScript, JavaScript and Vue script use 4 spaces, Allman braces, explicit semicolons, one statement/declaration per line and platform/third-party/internal/relative import groups. Type imports are separate. Typed source enables promise misuse, floating promise, unsafe any/assertion/member access, fallthrough, unreachable and dependency-boundary rules through TypeScript's Project Service rather than a text scanner.
+
+Type-like and Vue component names are PascalCase; parameters and locals are camelCase. The #1157 mapping deliberately keeps `useXxx` for Vue composables, PascalCase without a mandatory `I` for TypeScript structural interfaces, `#camelCase` for ECMAScript private fields, and camelCase for normal module bindings. These are named entries in `config/development/frontend-style-rule-registry.json`, not implicit ecosystem exceptions.
+
+Vue templates use 4-space indentation, one attribute per multiline row, stable closing brackets and PascalCase component references. Standard HTML, ARIA and `data-*` spellings remain browser contracts. Existing public emit names remain unchanged until a semantic caller migration is reviewed.
+
+CSS, SCSS and Vue style blocks use 4 spaces, an Allman opening brace and one declaration per line. CSS classes, BEM selectors and custom properties remain kebab-case contracts; SCSS internal variables, mixins and functions use camelCase. Property order is centrally set to `semantic-preserve`: token dependencies, logical-property fallbacks and component state grouping are not destroyed for alphabetical churn.
+
+## Baseline and modes
+
+The full baseline-aware scan is:
+
+```bash
+node tools/frontend/check-frontend-style.mjs --mode full
+```
+
+`config/development/frontend-style-baseline.json` records historical violations by file-content digest. An unchanged file may retain only its exact baseline; touching the file invalidates that allowance. `strict-full` ignores the baseline and is the eventual migration proof:
+
+```bash
+node tools/frontend/check-frontend-style.mjs --mode strict-full
+```
+
+Regenerate a reviewed baseline without changing source:
+
+```bash
+node tools/frontend/check-frontend-style.mjs --mode full --update-baseline
+```
+
+The updater rejects new debt, count increases, and equal-count diagnostic identity
+replacement. A malformed historical aggregate can be corrected only with
+`--reviewed-baseline-correction config/development/frontend-style-baseline-corrections.json`.
+That closed authority binds the unchanged source digest, exact previous and corrected
+counts, violation digests and rule maps. Its bytes must already exist at refreshed
+`refs/remotes/origin/master`; a candidate cannot add or edit its own correction. The
+previous rule sum must prove the malformed aggregate, the corrected rule sum must equal
+the corrected count, and the authority becomes unusable once the baseline entry is
+replaced.
+
+The independently reviewed parent-import residual is closed in
+`config/development/frontend-style-reviewed-residual.json`. It binds exactly 149
+`tests/**` and `tools/**` paths and 329
+`eslint/import-x/no-relative-parent-imports` diagnostics to the unsuppressed source
+SHA-256, canonical diagnostic identity and message digest, per-rule count, prior owner
+commit, review issue, reason and terminal condition. Its aggregate declares zero other
+diagnostics. Validate the authority without updating the baseline:
+
+```bash
+node tools/frontend/reviewed-residual-classification.mjs
+```
+
+A downstream baseline update that reaches any bound unsuppressed source must consume the
+whole authority with
+`--reviewed-residual-classification config/development/frontend-style-reviewed-residual.json`.
+The authority bytes must already exist unchanged on an ancestor at refreshed
+`refs/remotes/origin/master`. Candidate-authored or missing bytes, extra, omitted,
+duplicate or reordered entries, stale source/rule/diagnostic/owner identity, partial
+consumption and reuse after a successful update all fail closed. The authority only
+admits the exact 329-diagnostic current set from the bound source bytes and requires the
+reviewed prior-consumer plus still-unconsumed remote baseline projections. It does not
+update the baseline itself and never suppresses `strict-full`.
+
+`--migrate-baseline-paths tests/test-asset-semantic-renames.json` is limited to a
+non-empty set of real one-to-one renames whose old paths are absent and destinations are
+live. Each destination must preserve the exact source digest and the prior diagnostic
+identity after path normalization; a destination already owned by the baseline, or any
+duplicate, cycle, chain or path reuse, fails closed. `referenceFiles` are audit context
+only and never authorize a violation identity replacement or a new baseline path.
+
+The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
+
+## Governance preservation
+
+The policy pins the count, ID digest and definition digest of all existing `check:*` scripts. Generic lint is additive: a change that removes or rewrites an AEDS, security, privacy, accessibility, UI or performance command fails before linting. Every new generic rule has an owner, source scope and fixability in the rule registry.
+
+External JSON keys, browser events, storage keys, Wasm exports, HTML attributes and CSS contracts are preserved as literals or mapping metadata while internal identifiers follow the language mapping. A formatter commit must never rename these surfaces.
+
+## Mechanical migration
+
+This rules commit contains config, fixtures, a transparent baseline and documentation only. After all active frontend feature branches land, mechanical formatting must be a separate commit. Naming and behavior fixes remain separate again. Only the reviewed pure-format SHA may then be appended to `.git-blame-ignore-revs`, followed by a regenerated empty baseline and strict-full proof.

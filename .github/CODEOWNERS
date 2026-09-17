@@ -1,0 +1,46 @@
+# Default owner
+* @Ozwasyd
+
+# GitHub and community workflow
+.github/ @Ozwasyd
+/docs/CONTRIBUTING.md @Ozwasyd
+/docs/SECURITY.md @Ozwasyd
+/docs/CODE_OF_CONDUCT.md @Ozwasyd
+/docs/SUPPORT.md @Ozwasyd
+
+# Backend, shared contracts, and backend tests
+src/backend/ @Ozwasyd
+src/shared/ @Ozwasyd
+src/core/ @Ozwasyd
+tests/backend/ @Ozwasyd
+
+# Frontend, public hydration, and frontend tests
+src/frontend/ @Ozwasyd
+tests/frontend/ @Ozwasyd
+
+# Contracts, tools, documentation, and evidence ownership
+tools/ @Ozwasyd
+docs/ @Ozwasyd
+security/evidence-contracts/ @Ozwasyd
+security/catalog/ @Ozwasyd
+security/matrices/ @Ozwasyd
+security/policies/ @Ozwasyd
+security/zk/contracts/ @Ozwasyd
+security/zk/provenance/ @Ozwasyd
+tests/fixtures/evidence/ @Ozwasyd
+
+# Security-sensitive areas
+src/backend/Modules/Endpoints/ @Ozwasyd
+src/backend/Infrastructure/Auth/ @Ozwasyd
+src/backend/Infrastructure/Helpers/JwtHelper.cs @Ozwasyd
+src/backend/Infrastructure/Filters/BannedUserMiddleware.cs @Ozwasyd
+src/backend/Infrastructure/Operations/ProductionStartupValidator.cs @Ozwasyd
+/src/backend/Infrastructure/PublicAot/ @Ozwasyd
+src/backend/Services/ @Ozwasyd
+src/frontend/src/api/ @Ozwasyd
+src/frontend/src/bootstrap/ @Ozwasyd
+/src/zk/ @Ozwasyd
+/config/zk/ @Ozwasyd
+/security/ @Ozwasyd
+/ops/ @Ozwasyd
+/config/deployment/ @Ozwasyd

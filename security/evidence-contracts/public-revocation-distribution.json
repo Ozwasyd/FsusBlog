@@ -1,0 +1,51 @@
+{
+    "schemaVersion": "fsus.public-revocation-distribution.evidence.v1",
+    "evidenceClass": "implementation-attestation",
+    "freshExecution": false,
+    "releaseBound": false,
+    "productionFreshRun": false,
+    "generatedFrom": {
+        "kind": "issue-implementation",
+        "source": "issue-1139-focused-validation"
+    },
+    "issue": 1139,
+    "implementationStatus": "implemented-focused-validation-required",
+    "networkContract": {
+        "method": "GET",
+        "credentials": "omit",
+        "requestBody": false,
+        "credentialSpecificFields": [],
+        "immutableCache": true,
+        "frames": [
+            196,
+            197
+        ],
+        "retiredFrames": [
+            186,
+            187
+        ]
+    },
+    "failClosed": [
+        "epoch",
+        "version",
+        "baseVersion",
+        "revocationRoot",
+        "contentHash",
+        "hashBinding",
+        "expiresAtUnixMs",
+        "downloadBudget",
+        "cpuBudget"
+    ],
+    "privacy": {
+        "localWitnessBoundary": "src/frontend/src/workers/privacy/commentPrivacy.worker.ts",
+        "forbiddenTranscriptFields": [
+            "credentialCommitment",
+            "revocationHandle",
+            "leafKey",
+            "stableId",
+            "accountId"
+        ],
+        "accountMapping": false
+    },
+    "rollback": "hot-disable ZK anonymous runtime gate; keep public artifacts read-only; never restore retired endpoint"
+}

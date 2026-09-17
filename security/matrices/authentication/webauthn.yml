@@ -1,0 +1,122 @@
+schema: fsusblog.security-matrix.webauthn.v1
+family: authentication.webauthn
+version: webauthn-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
+scenarios:
+    - id: WEBAUTHN-RP-ID
+      scenario: RP ID must match configured production domain and reject drift
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+          - src/backend/Infrastructure/Operations/ProductionStartupValidator.cs
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-ORIGIN
+      scenario: browser origin must match allowed WebAuthn origins
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+          - docs/security.md
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-RESIDENT-KEY
+      scenario: residentKey and discoverable credential policy is explicit
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-USER-VERIFICATION
+      scenario: userVerification policy is explicit and challenge-bound
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-EXCLUDE-CREDENTIALS
+      scenario: duplicate credential registration is blocked with excludeCredentials
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-COUNTER-CLONE
+      scenario: signature counter distinguishes unsupported authenticators, monotonic advance, non-monotonic risk and concurrent CAS conflicts
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+          - docs/security/passkey-counter-risk-response.md
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/backend/Unit/PasskeySignCountConcurrencyTests.cs
+          - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-METADATA-PROJECTION
+      scenario: assertion metadata and PasskeyEnabled projection remain atomic, conflict-safe and repairable from credential facts
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Services/Security/PasskeyService.cs
+          - src/backend/Services/Security/PasskeyProjectionConsistencyService.cs
+          - src/frontend/src/composables/passkeyRecoveryCapability.ts
+          - docs/security/passkey-metadata-projection.md
+      tests:
+          - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
+          - tests/backend/Unit/PasskeySignCountConcurrencyTests.cs
+          - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
+          - tests/backend/Integration/PasskeyProjectionConsistencyIntegrationTests.cs
+          - tests/backend/Unit/PasskeyProjectionCommandTests.cs
+          - tests/frontend/unit/composables/passkeyRecoveryCapability.test.ts
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-CONDITIONAL-MEDIATION
+      scenario: conditional mediation support is feature-detected and not required for baseline auth
+      owner: InteropGlueAgent
+      status: automated
+      code:
+          - src/frontend/src
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      tests:
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
+
+    - id: WEBAUTHN-BROWSER-MATRIX
+      scenario: browser capability drift is tracked for Chromium, Firefox and WebKit
+      owner: InteropGlueAgent
+      status: planned-browser-expansion
+      code:
+          - src/frontend/playwright.config.ts
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      tests:
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      evidence:
+          - src/frontend/test-results/playwright/security

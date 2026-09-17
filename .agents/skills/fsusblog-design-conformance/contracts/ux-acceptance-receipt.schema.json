@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog-design-conformance:ux-acceptance-receipt:v2",
+  "title": "fsusblog-design-conformance.ux-acceptance-receipt.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "domainPolicyDigest",
+    "repository",
+    "classificationReceiptDigest",
+    "candidateSha",
+    "candidateIdentityDigest",
+    "verificationClass",
+    "requiredSkills",
+    "designAuthorityDigests",
+    "fsusUIBaselineDigest",
+    "independenceEvidenceDigest",
+    "productionFixture",
+    "viewportStateMatrix",
+    "inspectedRenderedArtifacts",
+    "blockers",
+    "status",
+    "modifiedPaths",
+    "designSuggestions",
+    "receiptDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog-design-conformance.ux-acceptance-receipt.v2"
+    },
+    "domainPolicyDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repository": {
+      "const": "Ozwasyd/FsusBlog"
+    },
+    "classificationReceiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "candidateIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verificationClass": {
+      "enum": [
+        "ux-local",
+        "ux-path",
+        "ux-system"
+      ]
+    },
+    "requiredSkills": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "digest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "designAuthorityDigests": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "fsusUIBaselineDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "independenceEvidenceDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "productionFixture": {
+      "const": true
+    },
+    "viewportStateMatrix": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "viewport",
+          "state",
+          "theme",
+          "inputModes",
+          "evidenceDigest"
+        ],
+        "properties": {
+          "viewport": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1
+          },
+          "theme": {
+            "enum": [
+              "light",
+              "dark"
+            ]
+          },
+          "inputModes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "pointer",
+                "keyboard",
+                "touch",
+                "screen-reader",
+                "reduced-motion",
+                "zoom"
+              ]
+            }
+          },
+          "evidenceDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "inspectedRenderedArtifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "digest",
+          "inspected",
+          "fixtureClass"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "screenshot",
+              "video",
+              "trace",
+              "accessibility-tree",
+              "screen-reader-report"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "inspected": {
+            "const": true
+          },
+          "fixtureClass": {
+            "const": "production"
+          }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "modifiedPaths": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "designSuggestions": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "receiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "accepted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blockers": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "blockers": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "manifest": {
+    "schema": "fsusblog.browser-test-migration.v1",
+    "expectedEffectiveRecordCount": 5,
+    "browserlessInPlaceSources": [
+      "tests/frontend/checks/public/in-place.mjs"
+    ],
+    "imports": [],
+    "recordGroups": [
+      {
+        "defaults": {
+          "assertionCategory": ["component"],
+          "replacementLayer": "correctness",
+          "replacementTestIds": ["vitest:tests/frontend/unit/replacement.test.ts#replacement"],
+          "browserOnlyRisk": { "present": false, "route": "none", "testIds": [] },
+          "status": "migrated"
+        },
+        "sourceTests": [
+          {
+            "file": "tests/frontend/e2e/old.spec.ts",
+            "testIds": ["vitest:tests/frontend/e2e/old.spec.ts#old"]
+          }
+        ]
+      },
+      {
+        "defaults": {
+          "assertionCategory": ["public-hydration-navigation"],
+          "replacementLayer": "browser-contract",
+          "replacementTestIds": ["browser-contract:public-hydration-history-reload"],
+          "browserOnlyRisk": {
+            "present": true,
+            "route": "browser-contract",
+            "testIds": ["browser-contract:public-hydration-history-reload"]
+          },
+          "status": "retained-diagnostic"
+        },
+        "sourceTests": [
+          {
+            "file": "tests/frontend/e2e/contract.spec.ts",
+            "testIds": ["vitest:tests/frontend/e2e/contract.spec.ts#contract"]
+          }
+        ]
+      },
+      {
+        "defaults": {
+          "assertionCategory": ["visual"],
+          "replacementLayer": "correctness",
+          "replacementTestIds": ["vitest:tests/frontend/unit/visual.test.ts#visual"],
+          "browserOnlyRisk": {
+            "present": true,
+            "route": "diagnostic",
+            "testIds": ["diagnostic:visual"]
+          },
+          "status": "retained-diagnostic"
+        },
+        "sourceTests": [
+          {
+            "file": "tests/frontend/e2e/visual.spec.ts",
+            "testIds": ["vitest:tests/frontend/e2e/visual.spec.ts#visual"]
+          }
+        ]
+      },
+      {
+        "defaults": {
+          "assertionCategory": ["public-hydration"],
+          "replacementLayer": "correctness",
+          "replacementTestIds": ["node-test:tests/tools/browserless.test.mjs#browserless"],
+          "browserOnlyRisk": {
+            "present": true,
+            "route": "browser-contract",
+            "testIds": ["browser-contract:public-hydration-history-reload"]
+          },
+          "status": "migrated-in-place"
+        },
+        "sourceTests": [
+          {
+            "file": "tests/frontend/checks/public/in-place.mjs",
+            "testIds": ["node-script:tests/frontend/checks/public/in-place.mjs"]
+          }
+        ]
+      },
+      {
+        "defaults": {
+          "assertionCategory": ["obsolete-debug-only"],
+          "replacementLayer": "none",
+          "replacementTestIds": [],
+          "browserOnlyRisk": { "present": false, "route": "none", "testIds": [] },
+          "status": "migrated",
+          "removalReason": "The obsolete debug assertion never represented a product contract.",
+          "approval": {
+            "issue": "#1151",
+            "approvedBy": "testing-owner",
+            "approvedAt": "2026-07-18"
+          }
+        },
+        "sourceTests": [
+          {
+            "file": "tests/frontend/e2e/obsolete.spec.ts",
+            "testIds": ["vitest:tests/frontend/e2e/obsolete.spec.ts#obsolete"]
+          }
+        ]
+      }
+    ]
+  },
+  "acceptanceBaseline": {
+    "records": [
+      {
+        "path": "tests/frontend/e2e/old.spec.ts",
+        "id": "vitest:tests/frontend/e2e/old.spec.ts#old",
+        "disposition": "migrated"
+      },
+      {
+        "path": "tests/frontend/e2e/contract.spec.ts",
+        "id": "vitest:tests/frontend/e2e/contract.spec.ts#contract",
+        "disposition": "browser-contract"
+      }
+    ]
+  },
+  "acceptanceReplacements": {
+    "deletedTests": [
+      {
+        "id": "vitest:tests/frontend/e2e/old.spec.ts#old",
+        "replacementTestIds": ["vitest:tests/frontend/unit/replacement.test.ts#replacement"]
+      }
+    ]
+  },
+  "diagnosticsMigration": {
+    "records": [
+      {
+        "category": "visual",
+        "sourcePaths": ["tests/frontend/e2e/visual.spec.ts"]
+      }
+    ]
+  },
+  "historicalDeletedRecords": [
+    {
+      "sourceFile": "tests/frontend/e2e/old.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/old.spec.ts#old"
+    }
+  ],
+  "currentRecords": [
+    {
+      "sourceFile": "tests/frontend/e2e/contract.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/contract.spec.ts#contract"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual.spec.ts#visual"
+    },
+    {
+      "sourceFile": "tests/frontend/checks/public/in-place.mjs",
+      "sourceTestId": "node-script:tests/frontend/checks/public/in-place.mjs"
+    }
+  ]
+}

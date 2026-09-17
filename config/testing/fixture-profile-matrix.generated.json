@@ -1,0 +1,1151 @@
+{
+    "schema": "fsusblog.fixture-profile-matrix.v1",
+    "generatedBy": "tools/test-matrix/fixture-profile-contract.mjs",
+    "entries": [
+        {
+            "tierId": "acceptance",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "aeds-compression-profile",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "aeds-frame-cost",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "app-config-local-tuning",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "article-private-preview",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "backend-api-integration",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-auth-state-machine",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-benchmark-regression",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-build-governance",
+            "executionClass": "build",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-build",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-concurrency",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-fast",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-golden",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-mutation",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-mutation-changed-critical",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-nightly",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-perf",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-property",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-test-governance",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "backend-unit",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "behavior-doc-static-admission",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "behavior-document-consistency-final",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "behavior-evidence-post-runtime",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "behavior-evidence-pre-runtime",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "behavior-test-evidence",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "bootstrap",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "browser-contract",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "browser-diagnostics",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "browser-diagnostics-manual",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "browser-diagnostics-nightly",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "browser-performance-regression",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "browser-runtime-risk-diagnostics",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "changed-code-coverage",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "ci",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "coverage-backend",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "coverage-frontend",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "coverage-gate",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "coverage-gate-strict",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "coverage-merge",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "coverage-threshold",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "cross-browser-smoke",
+            "executionClass": "browser",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-browser",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "cross-stack-contract",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "csrf-browser-matrix",
+            "executionClass": "security",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-security",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "current-schema-bootstrap-integration",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "data-scale-evidence-summary",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "data-scale-m",
+            "executionClass": "load",
+            "fixtureProfile": "scale-m",
+            "fixtureProfileReason": "binds-scale-m",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "data-scale-nightly",
+            "executionClass": "load",
+            "fixtureProfile": "scale-l-nightly",
+            "fixtureProfileReason": "binds-scale-l-nightly",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "data-scale-s",
+            "executionClass": "load",
+            "fixtureProfile": "scale-s",
+            "fixtureProfileReason": "binds-scale-s",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "data-scale-xs",
+            "executionClass": "load",
+            "fixtureProfile": "scale-xs",
+            "fixtureProfileReason": "binds-scale-xs",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "distributed-contract-fast",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "endpoint-depth",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "fast",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "fault-injection",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "frontend-build",
+            "executionClass": "build",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-build",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "frontend-fast-summary",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "frontend-property-model-perf",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "frontend-render-structure",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "frontend-runtime-contracts",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "frontend-static-governance",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "frontend-unit-shard",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "homogeneous-two-node-fixture",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "integration",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "integrity-proof-verification",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "legacy-20260517-real-dump",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "load",
+            "executionClass": "load",
+            "fixtureProfile": "scale-xs",
+            "fixtureProfileReason": "binds-scale-xs",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "load-2x-peak",
+            "executionClass": "load",
+            "fixtureProfile": "scale-m",
+            "fixtureProfileReason": "binds-scale-m",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "load-baseline",
+            "executionClass": "load",
+            "fixtureProfile": "scale-xs",
+            "fixtureProfileReason": "binds-scale-xs",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "load-burst",
+            "executionClass": "load",
+            "fixtureProfile": "scale-m",
+            "fixtureProfileReason": "binds-scale-m",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "load-peak",
+            "executionClass": "load",
+            "fixtureProfile": "scale-s",
+            "fixtureProfileReason": "binds-scale-s",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "markdown-preview-release-performance",
+            "executionClass": "browser",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-browser",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "native-fuzz-sanitizer",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "native-smoke",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "perception-character-v3-release-gate",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "perception-v2-redteam-nightly",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "perception-v2-redteam-pr",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "perception-v2-test-matrix",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "performance-evidence-summary",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "pr-smart-gate-plan",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "privacy-zk-comment-matrix",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "production",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "production-build-artifacts",
+            "executionClass": "build",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-build",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "production-correctness",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "production-xss-fast",
+            "executionClass": "browser",
+            "fixtureProfile": "production-xss",
+            "fixtureProfileReason": "binds-production-xss",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "production-xss-release",
+            "executionClass": "browser",
+            "fixtureProfile": "production-xss",
+            "fixtureProfileReason": "binds-production-xss",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "public-hydration-fast",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "public-hydration-nightly",
+            "executionClass": "browser",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-browser",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "release-admin-console",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-aot-consumption",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-aot-generation",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-auth-flow",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-authoring-flow",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-closeout",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-data-scale-m",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-error-boundary",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-evidence",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-final",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-final-flaky-governance",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-final-shard-completeness",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-load-burst",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-load-peak",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-memory-leak-budget",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-mutation-critical-slice",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-open-handle-budget",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-private-preview",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-rbac-negative",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-reliability-fresh",
+            "executionClass": "benchmark",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-benchmark",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-soak-min",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "release-static-asset-digest-coherence",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "resilience",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "rights-v3-test-matrix",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "risk-control-test-matrix",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "runtime-cache-article-detail-l1",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-cache-miss-singleflight",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-distributed-invalidation",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-evidence",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "runtime-cache-hot-featured-frame",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-l1-residency",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-pagination",
+            "executionClass": "runtime",
+            "fixtureProfile": "runtime-cache-pagination",
+            "fixtureProfileReason": "binds-runtime-cache-pagination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-public-hot-read",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-redis-fault-classes",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-related-reading",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-revocation",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-security-projections",
+            "executionClass": "runtime",
+            "fixtureProfile": "auth-security-matrix",
+            "fixtureProfileReason": "binds-auth-security-matrix",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-sitemap",
+            "executionClass": "runtime",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "runtime-cache-telemetry",
+            "executionClass": "runtime",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "security",
+            "executionClass": "security",
+            "fixtureProfile": "auth-security-matrix",
+            "fixtureProfileReason": "binds-auth-security-matrix",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "security-authenticated-dast",
+            "executionClass": "security",
+            "fixtureProfile": "auth-security-matrix",
+            "fixtureProfileReason": "binds-auth-security-matrix",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "soak-long-evidence-import",
+            "executionClass": "load",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-load",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "soak-long-scheduled",
+            "executionClass": "load",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-load",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "soak-short-runtime",
+            "executionClass": "load",
+            "fixtureProfile": "scale-s",
+            "fixtureProfileReason": "binds-scale-s",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "static-governance",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "test-inventory",
+            "executionClass": "build",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-build",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "test-quality-lint",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "ux-viewport-boundaries",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "ux-viewport-plan-progress",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "ux-viewport-smoke",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "ux-viewport-visual",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "validate-matrix",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "visual",
+            "executionClass": "coordination",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "visual-console",
+            "executionClass": "browser",
+            "fixtureProfile": "acceptance-representative",
+            "fixtureProfileReason": "binds-acceptance-representative",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "visual-public",
+            "executionClass": "browser",
+            "fixtureProfile": "public-content-lifecycle",
+            "fixtureProfileReason": "binds-public-content-lifecycle",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": true
+        },
+        {
+            "tierId": "wasm-build-artifacts",
+            "executionClass": "build",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-build",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
+            "tierId": "wasm-fuzz-regression",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        }
+    ],
+    "digest": "sha256:12aa0cde2975477646b8cf37b0836b3bb04c8e3a88c0ef40df830cf6878cb521"
+}

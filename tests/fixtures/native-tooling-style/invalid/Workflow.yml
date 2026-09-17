@@ -1,0 +1,6 @@
+name: Invalid fixture
+jobs:
+  verify:
+    name: First
+    name: Duplicate
+    runs-on: ubuntu-latest

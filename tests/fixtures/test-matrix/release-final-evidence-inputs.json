@@ -1,0 +1,27 @@
+{
+  "schema": "fsusblog.release-final-evidence-inputs.v1",
+  "targetTier": "release-final",
+  "inputs": [
+    "behavior-document-consistency-final",
+    "behavior-evidence-post-runtime",
+    "behavior-evidence-pre-runtime",
+    "browser-contract",
+    "coverage-gate-strict",
+    "native-fuzz-sanitizer",
+    "perception-character-v3-release-gate",
+    "production-correctness",
+    "production-xss-release",
+    "release-admin-console",
+    "release-aot-generation",
+    "release-auth-flow",
+    "release-authoring-flow",
+    "release-closeout",
+    "release-error-boundary",
+    "release-final-flaky-governance",
+    "release-final-shard-completeness",
+    "release-private-preview",
+    "release-reliability-fresh",
+    "release-static-asset-digest-coherence",
+    "test-quality-lint"
+  ]
+}

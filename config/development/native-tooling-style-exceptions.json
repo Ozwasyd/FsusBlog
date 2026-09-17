@@ -1,0 +1,575 @@
+{
+    "schema": "fsusblog.native-tooling-style-exceptions.v1",
+    "precedence": [
+        "external-contract",
+        "language-syntax",
+        "fsusblog-csharp-mapping",
+        "formatter-linter-default"
+    ],
+    "requiredIds": [
+        "c-abi-wasm-export",
+        "compiler-intrinsic",
+        "generated-native",
+        "environment-variable",
+        "shell-environment-variable",
+        "dotnet-configuration-environment",
+        "cmake-cache-environment",
+        "github-actions-schema",
+        "json-wire-key",
+        "css-like-contract"
+    ],
+    "exceptions": [
+        {
+            "id": "c-abi-wasm-export",
+            "authorityExceptionId": "c-abi-wasm-export",
+            "paths": [
+                "src/frontend/wasm/**/src/*exports.cpp",
+                "src/frontend/wasm/aeds/src/exports.cpp",
+                "src/frontend/wasm/comment_privacy/src/comment_privacy.cpp",
+                "src/frontend/wasm/search/src/search_index.cpp",
+                "src/frontend/wasm/pow/src/main.cpp"
+            ],
+            "externalPattern": "^[a-z][a-z0-9_]*$",
+            "internalPattern": "^[A-Z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "decode_io_buffer",
+                "internal": "DecodeIoBuffer"
+            },
+            "negative": {
+                "external": "decode_io_buffer",
+                "internal": "decode_io_buffer"
+            },
+            "reason": "C ABI and Emscripten export spelling is a stable caller-visible contract."
+        },
+        {
+            "id": "compiler-intrinsic",
+            "precedenceClass": "language-syntax",
+            "paths": [
+                "src/frontend/wasm/**/*.cpp",
+                "tests/frontend/fixtures/*.cpp"
+            ],
+            "externalPattern": "^__(?:builtin|attribute|asm)_[A-Za-z0-9_]+$",
+            "internalPattern": "^[A-Z][A-Za-z0-9]*$",
+            "adapterRequired": false,
+            "positive": {
+                "external": "__builtin_trap",
+                "internal": "FailClosed"
+            },
+            "negative": {
+                "external": "__builtin_trap",
+                "internal": "business__builtin_trap"
+            },
+            "reason": "Compiler-provided intrinsic names cannot be renamed."
+        },
+        {
+            "id": "generated-native",
+            "authorityClassificationId": "generated",
+            "paths": [
+                "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+            ],
+            "externalPattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "internalPattern": "^[A-Z][A-Za-z0-9]*$",
+            "adapterRequired": false,
+            "positive": {
+                "external": "payload_length",
+                "internal": "PayloadLength"
+            },
+            "negative": {
+                "external": "payload_length",
+                "internal": "manual_payload_length"
+            },
+            "reason": "The protocol generator owns this ABI-layout header and its member spelling."
+        },
+        {
+            "id": "environment-variable",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/**/*.mjs",
+                "src/**/*.cs"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "testProfile"
+            },
+            "negative": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "FSUSBLOG_TEST_PROFILE"
+            },
+            "reason": "Process environment spelling is external while option variables remain internal."
+        },
+        {
+            "id": "shell-environment-variable",
+            "authorityExceptionId": "shell-environment-variable",
+            "paths": [
+                "tools/**/*.sh"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "testProfile"
+            },
+            "negative": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "FSUSBLOG_TEST_PROFILE"
+            },
+            "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+        },
+        {
+            "id": "release-reliability-runtime-environment",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/test/release-reliability-runtime-environment.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_RELEASE_DERIVED_ROOT",
+                "internal": "releaseDerivedRoot"
+            },
+            "negative": {
+                "external": "FSUSBLOG_RELEASE_DERIVED_ROOT",
+                "internal": "FSUSBLOG_RELEASE_DERIVED_ROOT"
+            },
+            "reason": "The canonical final-image projection and its sole shell executor must change atomically for the same caller-visible process environment keys."
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/evidence-locator-registry.schema.json",
+                "tools/operations/collect-release-evidence.sh",
+                "tools/release/check-release-final.mjs",
+                "tools/release/public-preview-release-evidence.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/current-run-evidence-locator.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/evidence-location-contract.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/lanes/release-final.sh",
+                "tools/test/publish-current-run-evidence-reference.mjs",
+                "tools/test/publish-release-final-evidence-parent.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_.:/-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH",
+                "internal": "releaseFinalEvidencePath"
+            },
+            "negative": {
+                "external": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH",
+                "internal": "FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH"
+            },
+            "reason": "The sealed release locator registry, producer adapters, parent receipt, verifier and release-final consumer must change atomically while preserving their caller-visible JSON keys, schemas, CLI flags and process environment bindings."
+        },
+        {
+            "id": "production-image-verification-contract",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                ".github/workflows/production-image-verification.yml",
+                "config/deployment/production-compose-environment.json",
+                "config/governance/complexity-exemptions.json",
+                "config/governance/custom-rule-registry.json",
+                "tests/governance/operations-layout.json",
+                "tools/deployment/check-production-compose-environment.mjs",
+                "tools/deployment/check-production-openresty-config.sh",
+                "tools/deployment/verify-container-termination.mjs",
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "testProfile"
+            },
+            "negative": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "FSUSBLOG_TEST_PROFILE"
+            },
+            "reason": "The production-image workflow, deploy contract, runtime probes and their governance registrations must change atomically for the same caller-visible environment and orchestration keys."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/bundles/runtime-environment.mjs"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_ACCEPTANCE_SECRET",
+                "internal": "acceptanceSecret"
+            },
+            "negative": {
+                "external": "FSUSBLOG_ACCEPTANCE_SECRET",
+                "internal": "FSUSBLOG_ACCEPTANCE_SECRET"
+            },
+            "reason": "The acceptance bootstrap secret producer and its sole runtime collector must change atomically for the same run-bound process environment keys."
+        },
+        {
+            "id": "risk-policy-provider-consistency",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "docs/security.md",
+                "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+                "src/backend/Infrastructure/Security/RiskActionRegistry.cs",
+                "src/backend/Infrastructure/Security/SecurityRiskPolicySnapshotV2Adapter.cs",
+                "src/backend/Services/Security/SecurityAdminPolicyService.cs"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_PERCEPTION_CHARACTER_V3_ENABLED",
+                "internal": "perceptionCharacterV3Enabled"
+            },
+            "negative": {
+                "external": "FSUSBLOG_PERCEPTION_CHARACTER_V3_ENABLED",
+                "internal": "FSUSBLOG_PERCEPTION_CHARACTER_V3_ENABLED"
+            },
+            "reason": "The current security contract and its four runtime policy/provider owners must change atomically for the same caller-visible configuration mapping."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "docs/testing.generated.md",
+                "src/backend/Services/SearchIndexService.Dictionary.cs",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/coverage-registry.json",
+                "tools/check-backend-test-governance.mjs",
+                "tools/test/csharp-source-mask.mjs",
+                "tools/test/search-index-utf8-scalar-governance.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "search_index_utf8_scalar_owner",
+                "internal": "searchIndexUtf8ScalarOwner"
+            },
+            "negative": {
+                "external": "search_index_utf8_scalar_owner",
+                "internal": "search_index_utf8_scalar_owner"
+            },
+            "reason": "The search UTF-8 scalar production owner, governance registry and generated test documentation must migrate atomically while preserving their existing external JSON, document and tooling identifiers; internal C# symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/contracts/behavior-contracts.json",
+                "config/contracts/behavior-fact-extractors.json",
+                "config/contracts/generated-fact-sections.json",
+                "config/development/authoritative-development-docs.json",
+                "config/schemas/behavior-contract-catalog.schema.json",
+                "config/schemas/behavior-fact-extractor-registry.schema.json",
+                "config/testing/mutation/stryker-tool.v1.json",
+                "docs/api/article-publication-revisions.md",
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/architecture/repository-layout.md",
+                "docs/development/behavior-contracts.generated.md",
+                "docs/releases/blue-green-deployment-runbook.md",
+                "src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs",
+                "tools/check-backend-test-governance.mjs",
+                "tools/contracts/behavior-contract-catalog.mjs",
+                "tools/contracts/behavior-graph-join.mjs",
+                "tools/contracts/behavior-test-binding.mjs",
+                "tools/contracts/generate-behavior-contract-catalog.mjs",
+                "tools/docs/behavior-doc-exactness.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/fact-extractors/governance.mjs",
+                "tools/fact-extractors/post-runtime/adapter.mjs",
+                "tools/fact-extractors/post-runtime/application-runtime.mjs",
+                "tools/fact-extractors/post-runtime/registry.mjs",
+                "tools/fact-extractors/post-runtime/release-deployment.mjs",
+                "tools/fact-extractors/registry.mjs",
+                "tools/fact-extractors/runner.mjs",
+                "tools/fact-extractors/test-matrix/extract.mjs",
+                "tools/mutation/stryker-tool.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test-matrix/produce-behavior-mutation-qualification.mjs",
+                "tools/test-matrix/verify-behavior-mutation-qualification.mjs",
+                "tools/test/changed-critical-mutation-attribution.mjs",
+                "tools/test/changed-critical-mutation-evidence.mjs",
+                "tools/test/changed-critical-mutation.mjs",
+                "tools/test/check-stryker-report.mjs",
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/run-changed-critical-mutation.mjs",
+                "tools/test/run-release-mutation-parity-build.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "post_runtime_observation_application",
+                "internal": "postRuntimeObservationApplication"
+            },
+            "negative": {
+                "external": "post_runtime_observation_application",
+                "internal": "post_runtime_observation_application"
+            },
+            "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/contracts/document-claim-migration-ledger.json",
+                "config/contracts/generated-fact-sections.json",
+                "config/testing/correctness-attempt-producers.json",
+                "docs/api/article-publication-revisions.md",
+                "docs/api/contracts.md",
+                "docs/api/design.md",
+                "docs/architecture/article-deletion-lifecycle.md",
+                "docs/architecture/article-mutation-outbox-versioning.md",
+                "docs/architecture/article-revision-concurrency.md",
+                "docs/architecture/comment-attribution-privacy-boundary.md",
+                "docs/architecture/comment-command-boundary.md",
+                "docs/architecture/comment-moderation-visibility-boundary.md",
+                "docs/architecture/comment-mutation-outbox.md",
+                "docs/architecture/overview.md",
+                "docs/architecture/repository-layout.md",
+                "docs/development/code-intent-governance.md",
+                "docs/development/doc-claim-protocol.md",
+                "tests/coverage-registry.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/docs/check-document-claim-migration-ledger.mjs",
+                "tools/docs/content-doc-exactness.mjs",
+                "tools/fact-extractors/content-lifecycle/extract.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_.-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "content-doc-exactness-receipt.v1",
+                "internal": "contentDocExactnessReceipt"
+            },
+            "negative": {
+                "external": "content-doc-exactness-receipt.v1",
+                "internal": "content-doc-exactness-receipt.v1"
+            },
+            "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/contracts/behavior-fact-extractors.json",
+                "config/contracts/document-claim-migration-ledger.json",
+                "config/contracts/generated-fact-sections.json",
+                "docs/api/schemas-and-errors.md",
+                "docs/architecture/overview.md",
+                "docs/security.md",
+                "docs/security/user-session-authentication-context.md",
+                "tools/docs/auth-security-doc-exactness.mjs",
+                "tools/docs/behavior-doc-exactness.mjs",
+                "tools/docs/generated-fact-sections/renderers.mjs",
+                "tools/docs/prose-claim-verifier/renderers.mjs",
+                "tools/fact-extractors/auth-session-permission/extract.mjs",
+                "tools/fact-extractors/config-error-security-policy/extract.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "auth_security_doc_exactness",
+                "internal": "authSecurityDocExactness"
+            },
+            "negative": {
+                "external": "auth_security_doc_exactness",
+                "internal": "auth_security_doc_exactness"
+            },
+            "reason": "The typed auth/security observations, exact migration ledger, generated and controlled-prose authorities, and terminal verifier must change atomically while preserving their existing external JSON, document and tooling identifiers; internal JavaScript and C# symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "pre-runtime-fact-build-identity-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/schemas/behavior-evidence-pre-runtime-receipt.schema.json",
+                "config/schemas/behavior-graph-receipt.schema.json",
+                "tools/contracts/behavior-graph-join.mjs",
+                "tools/contracts/check-behavior-graph.mjs",
+                "tools/docs/doc-claim-staleness-mutation/runner.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test/bundles/behavior-evidence-pre-runtime.sh"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "pre_runtime_fact_build_identities",
+                "internal": "preRuntimeFactBuildIdentities"
+            },
+            "negative": {
+                "external": "pre_runtime_fact_build_identities",
+                "internal": "pre_runtime_fact_build_identities"
+            },
+            "reason": "The pre-runtime BehaviorGraph receipt schemas, join CLI and shell bundle must migrate atomically while preserving their existing external JSON, command-line and environment identifiers; internal JavaScript and Shell symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "runtime-role-observation-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+                "tools/contracts/lib/runtime-role-observation.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "runtime-role-observation",
+                "internal": "runtimeRoleObservation"
+            },
+            "negative": {
+                "external": "runtime-role-observation",
+                "internal": "runtime-role-observation"
+            },
+            "reason": "The compiled runtime-role observation producer and its JavaScript adapter must preserve their exact external artifact spelling while internal C# and JavaScript symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "active-release-protection-authority",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/deployment/destructive-operation-authority.json",
+                "tools/deployment/check-destructive-operation-authority.mjs",
+                "tools/deployment/destructive-operation-authority.mjs",
+                "tools/deployment/release-rollout.sh",
+                "tools/deployment/slot-start.sh",
+                "tools/deployment/slot-stop.sh",
+                "tools/deployment/verify-destructive-operation.mjs",
+                "tools/storage/gc-release-assets.mjs",
+                "tools/storage/release-gc.mjs"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "fsusblog.destructive-operation-authority.v1",
+                "internal": "destructiveOperationAuthority"
+            },
+            "negative": {
+                "external": "fsusblog.destructive-operation-authority.v1",
+                "internal": "fsusblog.destructive-operation-authority.v1"
+            },
+            "reason": "The active-release destructive-operation authority and its exact deployment and storage consumers must preserve their existing external JSON, CLI, environment and shell identifiers while internal JavaScript and Shell symbols remain governed by the repository mapping."
+        },
+        {
+            "id": "dotnet-configuration-environment",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/**/*.sh"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9]*(?:__[A-Za-z0-9]+)+$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "ConnectionStrings__DefaultConnection",
+                "internal": "defaultConnection"
+            },
+            "negative": {
+                "external": "ConnectionStrings__DefaultConnection",
+                "internal": "ConnectionStrings__DefaultConnection"
+            },
+            "reason": "ASP.NET Core maps double-underscore process environment keys to caller-visible configuration paths."
+        },
+        {
+            "id": "cmake-cache-environment",
+            "authorityExceptionId": "cmake-built-in",
+            "paths": [
+                "**/CMakeLists.txt",
+                "**/*.cmake"
+            ],
+            "externalPattern": "^(?:CMAKE|CTEST|CPACK|FSUSBLOG)_[A-Z0-9_]+$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_WARNINGS_AS_ERRORS",
+                "internal": "warningsAsErrors"
+            },
+            "negative": {
+                "external": "FSUSBLOG_WARNINGS_AS_ERRORS",
+                "internal": "FSUSBLOG_WARNINGS_AS_ERRORS"
+            },
+            "reason": "CMake cache and environment keys are public command-line contracts."
+        },
+        {
+            "id": "github-actions-schema",
+            "authorityExceptionId": "third-party-sdk-callback",
+            "paths": [
+                ".github/workflows/*.yml",
+                ".github/workflows/*.yaml"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": false,
+            "positive": {
+                "external": "runs-on",
+                "internal": "runnerLabel"
+            },
+            "negative": {
+                "external": "runs-on",
+                "internal": "runs-on"
+            },
+            "reason": "Workflow and third-party action keys are defined by an external schema."
+        },
+        {
+            "id": "json-wire-key",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/**/*.json",
+                "security/**/*.json",
+                "tests/**/*.json"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "article_id",
+                "internal": "articleId"
+            },
+            "negative": {
+                "external": "article_id",
+                "internal": "article_id"
+            },
+            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+        },
+        {
+            "id": "css-like-contract",
+            "authorityExceptionId": "css-selector-custom-property",
+            "paths": [
+                "docs/**/*.md",
+                "config/**/*.json"
+            ],
+            "externalPattern": "^(?:\\.[a-z][a-z0-9-]*|--[a-z][a-z0-9-]*)$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": ".article-card",
+                "internal": "articleCardClass"
+            },
+            "negative": {
+                "external": ".article-card",
+                "internal": "article-card"
+            },
+            "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract."
+        }
+    ]
+}

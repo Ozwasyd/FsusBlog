@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/generated-output-digest-repair-repository.mjs",
+                "tools/governance/generated-output-digest-repair-v2.mjs"
+            ],
+            "reason": "Preserve externally defined Git, Node and sandbox process environment spellings at the governance boundary while internal producer and replay option identifiers retain camelCase."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-merge-generated-output-digest-repair.schema.json"
+            ],
+            "reason": "Preserve JSON Schema keywords and the closed digest-repair manifest field spellings consumed by the verifier; schema naming does not authorize new producers or change existing repair policy."
+        }
+    ]
+}

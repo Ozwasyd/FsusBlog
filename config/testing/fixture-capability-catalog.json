@@ -1,0 +1,1408 @@
+{
+    "schema": "fsusblog.fixture-capability-catalog.v1",
+    "stateDomainRegistry": "config/testing/runtime-state-domain-registry.json",
+    "capabilities": [
+        {
+            "id": "audit.chain-multi-record",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-chain-multi-record"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.empty",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.chain-multi-record",
+                "audit.high-value",
+                "audit.investigation-page",
+                "audit.legal-hold-eligible",
+                "audit.pseudonym-retention",
+                "audit.single-valid",
+                "audit.tamper-negative",
+                "audit.unknown-action-negative"
+            ],
+            "postconditionIds": [
+                "audit-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "immutable"
+        },
+        {
+            "id": "audit.high-value",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-high-value"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.investigation-page",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [
+                "audit.chain-multi-record"
+            ],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-investigation-page"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.legal-hold-eligible",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [
+                "audit.high-value"
+            ],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-legal-hold-eligible"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.pseudonym-retention",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-pseudonym-retention"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.single-valid",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-single-valid"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.tamper-negative",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [
+                "audit.pseudonym-retention"
+            ],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-tamper-negative"
+            ],
+            "validityClasses": [
+                "negative-invalid"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "audit.unknown-action-negative",
+            "ownerProducerId": "audit-records",
+            "stateDomains": [
+                "postgres.audit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "audit.empty"
+            ],
+            "postconditionIds": [
+                "audit-unknown-action-negative"
+            ],
+            "validityClasses": [
+                "negative-invalid"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "auth.admin.disabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "admin-disabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.admin.full-permission",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "admin-full-permission"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.admin.partial-permission",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "admin-partial-permission"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.admin.read-only",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "admin-read-only"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.admin.root-bootstrap-empty",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "admin-root-bootstrap-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.active",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-active"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.deleted",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-deleted"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.mfa-disabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-mfa-disabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.mfa-enabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.audit.active-window",
+                "security.credential.active",
+                "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
+                "security.pow.elevated",
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
+            ],
+            "postconditionIds": [
+                "user-mfa-enabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.passkey-enabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-passkey-enabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "auth.user.recovery-enabled",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "user-recovery-enabled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "comment.moderation-matrix",
+            "ownerProducerId": "comment-moderation",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.comment"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "comment-moderation-matrix"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "comment.threaded",
+            "ownerProducerId": "comment-moderation",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.comment"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "comment-threaded"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "development.demo.dataset",
+            "ownerProducerId": "development-demo",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.comment"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "development-demo-dataset"
+            ],
+            "resetContractId": "development-demo-reapply",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "messages.thread",
+            "ownerProducerId": "account-messaging",
+            "stateDomains": [
+                "postgres.auth",
+                "redis.notification"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "messages-thread"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "moderation.policy-matrix",
+            "ownerProducerId": "comment-moderation",
+            "stateDomains": [
+                "postgres.comment",
+                "postgres.settings"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "moderation-policy-matrix"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "notifications.unread",
+            "ownerProducerId": "account-messaging",
+            "stateDomains": [
+                "postgres.auth",
+                "redis.notification"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "notifications-unread"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.account-device-conflict",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-account-device-conflict"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.auto",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-auto"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "preferences.locale.device-explicit",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-device-explicit"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.fixed.non-default",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-fixed-non-default"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "preferences.locale.fixed.zh-cn",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-fixed-default"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "preferences.locale.revision-conflict",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-revision-conflict"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "preferences.locale.two-device-sync",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.settings"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "preference-locale-two-device-sync"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "profile.public-handle.conflict",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "profile-public-handle-conflict"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "profile.public-handle.empty",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "profile-public-handle-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "profile.public-handle.set",
+            "ownerProducerId": "account-profile-preferences",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "profile-public-handle-set"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.archived",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-archived"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.deleted",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-deleted"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.draft",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-draft"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.multiple-publications",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-multiple-publications"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.multiple-revisions",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-multiple-revisions"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.pagination-deep",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-pagination-deep"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.published",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-published"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.revision-history",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-revision-history"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.scheduled",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-scheduled"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.empty",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "postconditionIds": [
+                "public-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.home.featured-hot",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "home-featured-hot"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.search.indexed",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "search-indexed"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.taxonomy.category-tag",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "taxonomy-category-tag"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "scale.article-comment.l",
+            "ownerProducerId": "scale-data",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.comment",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [
+                "scale.article-comment.m",
+                "scale.article-comment.s",
+                "scale.article-comment.xs"
+            ],
+            "postconditionIds": [
+                "scale-l"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "immutable"
+        },
+        {
+            "id": "scale.article-comment.m",
+            "ownerProducerId": "scale-data",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.comment",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [
+                "scale.article-comment.l",
+                "scale.article-comment.s",
+                "scale.article-comment.xs"
+            ],
+            "postconditionIds": [
+                "scale-m"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "immutable"
+        },
+        {
+            "id": "scale.article-comment.s",
+            "ownerProducerId": "scale-data",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.comment",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [
+                "scale.article-comment.l",
+                "scale.article-comment.m",
+                "scale.article-comment.xs"
+            ],
+            "postconditionIds": [
+                "scale-s"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "immutable"
+        },
+        {
+            "id": "scale.article-comment.xs",
+            "ownerProducerId": "scale-data",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.comment",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [
+                "scale.article-comment.l",
+                "scale.article-comment.m",
+                "scale.article-comment.s"
+            ],
+            "postconditionIds": [
+                "scale-xs"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "run",
+            "mutability": "immutable"
+        },
+        {
+            "id": "security.audit.active-window",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "audit-active-window"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.clean",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.audit.active-window",
+                "security.credential.active",
+                "security.credential.revoked",
+                "security.issuance.replay-observed",
+                "security.nullifier.blocked",
+                "security.pow.elevated",
+                "security.rate-limit.blocked",
+                "security.rate-limit.near-limit",
+                "security.risk.escalated",
+                "security.risk.low",
+                "security.subject.banned",
+                "security.subject.unbanned"
+            ],
+            "postconditionIds": [
+                "security-clean"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.credential.active",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "credential-active"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.credential.revoked",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "credential-revoked"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.issuance.replay-observed",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "issuance-replay-observed"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.nullifier.blocked",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "nullifier-blocked"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.pow.elevated",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "pow-elevated"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.rate-limit.blocked",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "rate-limit-blocked"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.rate-limit.near-limit",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "rate-limit-near-limit"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.risk.escalated",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "risk-escalated"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.risk.low",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.security",
+                "redis.cache.private",
+                "redis.rate-limit"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "risk-low"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.subject.banned",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "subject-banned"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "security.subject.unbanned",
+            "ownerProducerId": "security-state",
+            "stateDomains": [
+                "fixture.security-state",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.outbox",
+                "postgres.security",
+                "redis.cache.private"
+            ],
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "conflictsWith": [
+                "security.clean"
+            ],
+            "postconditionIds": [
+                "subject-unbanned"
+            ],
+            "resetContractId": "owned-receipt-exact",
+            "scope": "run",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.expired",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-expired"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.multi-device",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-multi-device"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.refresh-rotated",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-refresh-rotated"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.remembered",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-remembered"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.revoked",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-revoked"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        },
+        {
+            "id": "session.single-device",
+            "ownerProducerId": "auth-session",
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "session-single-device"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "scenario-owned"
+        }
+    ]
+}

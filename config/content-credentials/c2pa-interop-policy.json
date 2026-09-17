@@ -1,0 +1,33 @@
+{
+  "schema": "fsusblog.c2pa-interop-policy.v1",
+  "specification": "C2PA 2.4",
+  "productionDefault": false,
+  "canonicalization": "fsusblog.article-canonical.v1",
+  "primaryTool": {
+    "name": "c2patool",
+    "version": "0.26.60",
+    "implementationFamily": "c2pa-rs",
+    "releaseAsset": "c2patool-v0.26.60-x86_64-unknown-linux-gnu.tar.gz",
+    "releaseAssetSha256": "b601786cbaf4e5b6afa45442782422f606be23acd7c5d8d6fdccadbf27765b7f"
+  },
+  "promotionRequirements": {
+    "independentImplementationFamilies": 2,
+    "offlineOnly": true,
+    "tamperCases": [
+      "markdown",
+      "metadata",
+      "cover",
+      "ingredient",
+      "manifest-url"
+    ],
+    "operationalReceipts": [
+      "static-download",
+      "cache-restore",
+      "redeploy",
+      "key-rotation",
+      "key-revocation",
+      "performance-budget",
+      "privacy-review"
+    ]
+  }
+}

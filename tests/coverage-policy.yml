@@ -1,0 +1,38 @@
+version: fsusblog-coverage-policy-v1
+thresholds:
+    merged:
+        line: 35
+        branch: 20
+        method: 30
+        function: 30
+    backend:
+        line: 75
+        branch: 55
+        method: 95
+    frontend:
+        line: 0
+        branch: 0
+        function: 0
+        statement: 0
+excludedGeneratedFiles:
+    - src/shared/Contracts/Validation/*.g.*
+    - src/frontend/src/generated/**
+temporaryExceptions: []
+releaseFinal:
+    backend:
+        line: 85
+        branch: 75
+    frontend:
+        line: 75
+        branch: 65
+    changedCode:
+        line: 90
+    criticalBackendModules:
+        branch: 90
+        exceptionRequired: true
+        paths:
+            - src/backend/Infrastructure/Auth/**
+            - src/backend/Infrastructure/Middlewares/**
+            - src/backend/Infrastructure/Operations/**
+            - src/backend/Modules/Endpoints/Binary/**
+        approvedExceptions: []

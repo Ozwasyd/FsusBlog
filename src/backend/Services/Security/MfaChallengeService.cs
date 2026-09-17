@@ -1,0 +1,533 @@
+using System.Buffers;
+using System.Buffers.Binary;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
+
+using SqlSugar;
+
+namespace FsusBlog.Server.Services.Security;
+
+public sealed record class MfaChallengeTicket
+{
+    public required string TicketId
+    {
+        get; init;
+    }
+    public required int AccountId
+    {
+        get; init;
+    }
+    public required string AccountSubjectHash
+    {
+        get; init;
+    }
+    public required string Type
+    {
+        get; init;
+    } // login | action
+    public required string Action
+    {
+        get; init;
+    }
+    public bool RememberMe
+    {
+        get; init;
+    }
+    public bool RiskTriggered
+    {
+        get; init;
+    }
+    public string? DeviceSignalHash
+    {
+        get; init;
+    }
+    public int? DeviceSignalEpoch
+    {
+        get; init;
+    }
+    public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
+}
+
+public interface IMfaChallengeService
+{
+    Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, bool rememberMe, string? deviceSignal, CancellationToken cancellationToken = default);
+    Task<MfaChallengeTicket> CreateActionChallengeAsync(int accountId, string accountSubjectHash, string action, bool riskTriggered, string? deviceSignal, CancellationToken cancellationToken = default);
+    Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId, string? deviceSignal, CancellationToken cancellationToken = default);
+    Task<MfaChallengeTicket?> ConsumeChallengeOnceAsync(MfaChallengeTicket expectedTicket, string? deviceSignal, CancellationToken cancellationToken = default);
+    Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent);
+    Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string sessionId, string action, string stepUpMethod, TimeSpan ttl);
+    Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string sessionId, string action, string token);
+}
+
+public sealed class MfaChallengeService(
+    ICacheStringReader cacheReader,
+    ICacheStringWriter cacheWriter,
+    ICacheCounterStore counters,
+    ICacheOneTimeStore oneTimeStore,
+    ICacheInvalidationStore invalidation,
+    ILogger<MfaChallengeService> logger,
+    IUserSessionMetadataProtector sessionMetadata,
+    IConfiguration? configuration = null,
+    ISqlSugarClient? db = null) : IMfaChallengeService
+{
+    public const string ProofFreshnessMinutesConfigurationKey = "Security:StepUp:FreshnessMinutes";
+    public const int MinimumProofFreshnessMinutes = 1;
+    public const int MaximumProofFreshnessMinutes = 15;
+    private const uint TicketMagic = 0x41464D46; // FMFA
+    private const byte TicketVersion = 3;
+    private const int MaxTicketFailures = 5;
+    private const int MaxSubjectWindowFailures = 10;
+    private const int MaxIpWindowFailures = 25;
+    private static readonly TimeSpan s_failureWindowTtl = TimeSpan.FromMinutes(10);
+
+    public Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, bool rememberMe, string? deviceSignal, CancellationToken cancellationToken = default)
+        => CreateAsync(accountId, accountSubjectHash, "login", "login", riskTriggered, rememberMe, deviceSignal, TimeSpan.FromMinutes(5), cancellationToken);
+
+    public Task<MfaChallengeTicket> CreateActionChallengeAsync(int accountId, string accountSubjectHash, string action, bool riskTriggered, string? deviceSignal, CancellationToken cancellationToken = default)
+        => CreateAsync(accountId, accountSubjectHash, "action", action, riskTriggered, rememberMe: false, deviceSignal, TimeSpan.FromMinutes(3), cancellationToken);
+
+    public async Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId, string? deviceSignal, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ticketId))
+        {
+            return null;
+        }
+
+        string? value = await cacheReader.GetStringAsync(CachePolicyId.SecurityMfaChallenge, ticketId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        MfaChallengeTicket? ticket = DecodeTicket(value);
+        return ticket is not null && MatchesDevice(ticket, deviceSignal) ? ticket : null;
+    }
+
+    public async Task<MfaChallengeTicket?> ConsumeChallengeOnceAsync(
+        MfaChallengeTicket expectedTicket,
+        string? deviceSignal,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(expectedTicket.TicketId)
+            || !MatchesDevice(expectedTicket, deviceSignal))
+        {
+            return null;
+        }
+
+        MfaChallengeTicket? current = await GetChallengeAsync(
+            expectedTicket.TicketId,
+            deviceSignal,
+            cancellationToken);
+        if (current is null || current != expectedTicket)
+        {
+            return null;
+        }
+
+        CacheReadResult<MfaChallengeTicket> consumed = await oneTimeStore.ConsumeOnceAndGetAsync(
+            CachePolicyId.SecurityMfaChallenge,
+            expectedTicket.TicketId,
+            value =>
+            {
+                MfaChallengeTicket? decoded = DecodeTicket(Encoding.UTF8.GetString(value.Span));
+                bool matches = decoded is not null
+                    && decoded == expectedTicket
+                    && MatchesDevice(decoded, deviceSignal);
+                return (matches, matches ? decoded : null);
+            },
+            cancellationToken);
+        return consumed.Hit ? consumed.Value : null;
+    }
+
+    public async Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent)
+    {
+        string ticketHash = HashIdentity(ticket.TicketId);
+        string clientIpHash = HashIdentity(clientIp);
+        string userAgentHash = HashIdentity(userAgent ?? string.Empty);
+        string accountSubjectHash = ResolveAccountSubjectHash(ticket.AccountSubjectHash);
+        string ticketIdentity = string.Concat("fail:ticket:", ticket.TicketId);
+        string subjectIdentity = string.Concat("fail:subject:", accountSubjectHash);
+        string ipIdentity = string.Concat("fail:ip:", clientIpHash);
+        long[] failures = await counters.IncrementManyWithExpiryAsync(
+                CachePolicyId.SecurityMfaChallenge,
+                [ticketIdentity, subjectIdentity, ipIdentity],
+                s_failureWindowTtl)
+            .ConfigureAwait(false);
+        FsusObservability.RecordMfaFailureCounterKeys(failures.Length);
+        long ticketFailures = failures[0];
+        long subjectFailures = failures[1];
+        long ipFailures = failures[2];
+
+        bool locked = ticketFailures >= MaxTicketFailures ||
+            subjectFailures >= MaxSubjectWindowFailures ||
+            ipFailures >= MaxIpWindowFailures;
+
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>(
+                "AuditAction",
+                locked ? AuditActionCatalog.MfaChallengeLocked : AuditActionCatalog.MfaChallengeFailed),
+            new KeyValuePair<string, object?>("AccountId", ticket.AccountId),
+            new KeyValuePair<string, object?>("AccountSubjectHash", accountSubjectHash),
+            new KeyValuePair<string, object?>("TicketHash", ticketHash),
+            new KeyValuePair<string, object?>("ClientIpHash", clientIpHash),
+            new KeyValuePair<string, object?>("UserAgentHash", userAgentHash),
+            new KeyValuePair<string, object?>("TicketFailures", ticketFailures));
+        if (locked)
+        {
+            logger.LogWarning(
+                "MFA challenge verification failed. AccountSubjectHash={AccountSubjectHash} TicketHash={TicketHash} Locked={Locked}",
+                accountSubjectHash,
+                ticketHash,
+                locked);
+        }
+        else
+        {
+            logger.LogInformation(
+                "MFA challenge verification failed. AccountSubjectHash={AccountSubjectHash} TicketHash={TicketHash} Locked={Locked}",
+                accountSubjectHash,
+                ticketHash,
+                locked);
+        }
+
+        if (locked)
+        {
+            await invalidation.RemoveAsync(CachePolicyId.SecurityMfaChallenge, ticket.TicketId);
+        }
+
+        return locked;
+    }
+
+    public async Task<string> CreateProofTokenAsync(
+        int accountId,
+        string accountSubjectHash,
+        string sessionId,
+        string action,
+        string stepUpMethod,
+        TimeSpan ttl)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new ArgumentException("Session id is required for an MFA proof.", nameof(sessionId));
+        }
+        if (!UserSessionAuthenticationMethods.IsValid(stepUpMethod))
+        {
+            throw new ArgumentException("Step-up authentication method is invalid.", nameof(stepUpMethod));
+        }
+        string token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        string subject = ResolveAccountSubjectHash(accountSubjectHash);
+        string identity = BuildProofIdentity(accountId, subject, sessionId, action, token);
+        TimeSpan freshness = ResolveProofFreshness();
+        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl < freshness ? ttl : freshness);
+        if (db is not null)
+        {
+            DateTime steppedUpAtUtc = DateTime.UtcNow;
+            int updated = await db.Updateable<UserSession>()
+                .SetColumns(session => session.LastStepUpAtUtc == steppedUpAtUtc)
+                .SetColumns(session => session.LastStepUpMethod == stepUpMethod)
+                .Where(session => session.UserId == accountId
+                    && session.SessionId == sessionId
+                    && session.RevokedAt == null)
+                .ExecuteCommandAsync();
+            if (updated != 1)
+            {
+                await invalidation.RemoveAsync(CachePolicyId.SecurityMfaProof, identity);
+                throw new InvalidOperationException("Cannot mint an MFA proof for an inactive session.");
+            }
+        }
+        return token;
+    }
+
+    public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string sessionId, string action, string token)
+    {
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return Task.FromResult(false);
+        }
+
+        string subject = ResolveAccountSubjectHash(accountSubjectHash);
+        string identity = BuildProofIdentity(accountId, subject, sessionId, action, token);
+        return oneTimeStore.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity);
+    }
+
+    private TimeSpan ResolveProofFreshness()
+    {
+        int minutes = configuration?.GetValue<int?>(ProofFreshnessMinutesConfigurationKey) ?? 5;
+        return TimeSpan.FromMinutes(Math.Clamp(
+            minutes,
+            MinimumProofFreshnessMinutes,
+            MaximumProofFreshnessMinutes));
+    }
+
+    private async Task<MfaChallengeTicket> CreateAsync(
+        int accountId,
+        string accountSubjectHash,
+        string type,
+        string action,
+        bool riskTriggered,
+        bool rememberMe,
+        string? deviceSignal,
+        TimeSpan ttl,
+        CancellationToken cancellationToken)
+    {
+        string ticketId = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        UserSessionMetadataSnapshot metadata = sessionMetadata.Capture(accountId, null, deviceSignal, null);
+        var ticket = new MfaChallengeTicket
+        {
+            TicketId = ticketId,
+            AccountId = accountId,
+            AccountSubjectHash = ResolveAccountSubjectHash(accountSubjectHash),
+            Type = type,
+            Action = action,
+            RememberMe = rememberMe,
+            RiskTriggered = riskTriggered,
+            DeviceSignalHash = metadata.DeviceSignalHash,
+            DeviceSignalEpoch = metadata.DeviceSignalEpoch,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        await cacheWriter.SetStringAsync(CachePolicyId.SecurityMfaChallenge, ticketId, EncodeTicket(ticket), ttl, cancellationToken);
+        return ticket;
+    }
+
+    private string EncodeTicket(MfaChallengeTicket ticket)
+    {
+        byte[] ticketId = Encoding.UTF8.GetBytes(ticket.TicketId);
+        byte[] accountSubjectHash = Encoding.UTF8.GetBytes(ticket.AccountSubjectHash);
+        byte[] type = Encoding.UTF8.GetBytes(ticket.Type);
+        byte[] action = Encoding.UTF8.GetBytes(ticket.Action);
+        byte[] deviceSignalHash = Encoding.UTF8.GetBytes(ticket.DeviceSignalHash ?? string.Empty);
+        int length = 4 + 1 + 4 + 1 + 1 + 8 + 4
+            + 2 + ticketId.Length
+            + 2 + type.Length
+            + 2 + action.Length
+            + 2 + accountSubjectHash.Length
+            + 2 + deviceSignalHash.Length;
+        byte[] bytes = new byte[length];
+        Span<byte> span = bytes;
+        BinaryPrimitives.WriteUInt32LittleEndian(span[..4], TicketMagic);
+        span[4] = TicketVersion;
+        BinaryPrimitives.WriteInt32LittleEndian(span[5..9], ticket.AccountId);
+        span[9] = ticket.RememberMe ? (byte)1 : (byte)0;
+        span[10] = ticket.RiskTriggered ? (byte)1 : (byte)0;
+        BinaryPrimitives.WriteInt64LittleEndian(span[11..19], ticket.CreatedAtUtc.ToUniversalTime().Ticks);
+        BinaryPrimitives.WriteInt32LittleEndian(span[19..23], ticket.DeviceSignalEpoch ?? 0);
+        int offset = 23;
+        WriteString(bytes, ref offset, ticketId);
+        WriteString(bytes, ref offset, type);
+        WriteString(bytes, ref offset, action);
+        WriteString(bytes, ref offset, accountSubjectHash);
+        WriteString(bytes, ref offset, deviceSignalHash);
+        byte[] signingKey = ResolveTicketSigningKey();
+        byte[] mac = HMACSHA256.HashData(signingKey, bytes);
+        byte[] signed = new byte[bytes.Length + mac.Length];
+        bytes.CopyTo(signed.AsSpan());
+        mac.CopyTo(signed.AsSpan(bytes.Length));
+        return Base64UrlEncode(signed);
+    }
+
+    private MfaChallengeTicket? DecodeTicket(string value)
+    {
+        try
+        {
+            byte[] signed = Base64UrlDecode(value);
+            if (signed.Length < 23 + 32)
+            {
+                return null;
+            }
+
+            byte[] signingKey = ResolveTicketSigningKey();
+            ReadOnlySpan<byte> bytes = signed.AsSpan(0, signed.Length - 32);
+            ReadOnlySpan<byte> suppliedMac = signed.AsSpan(signed.Length - 32);
+            byte[] expectedMac = HMACSHA256.HashData(signingKey, bytes);
+            if (!CryptographicOperations.FixedTimeEquals(expectedMac, suppliedMac))
+            {
+                return null;
+            }
+
+            if (bytes.Length < 23 ||
+                BinaryPrimitives.ReadUInt32LittleEndian(bytes[..4]) != TicketMagic ||
+                bytes[4] != TicketVersion)
+            {
+                return null;
+            }
+
+            int accountId = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(5, 4));
+            int deviceSignalEpochValue = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(19, 4));
+            int offset = 23;
+            string ticketId = ReadString(signed, ref offset, bytes.Length);
+            string type = ReadString(signed, ref offset, bytes.Length);
+            string action = ReadString(signed, ref offset, bytes.Length);
+            string accountSubjectHash = ReadString(signed, ref offset, bytes.Length);
+            string deviceSignalHashValue = ReadString(signed, ref offset, bytes.Length);
+            string? deviceSignalHash = string.IsNullOrEmpty(deviceSignalHashValue) ? null : deviceSignalHashValue;
+            int? deviceSignalEpoch = deviceSignalEpochValue == 0 ? null : deviceSignalEpochValue;
+            if (offset != bytes.Length
+                || string.IsNullOrWhiteSpace(ticketId)
+                || string.IsNullOrWhiteSpace(type)
+                || (deviceSignalHash is null) != (deviceSignalEpoch is null)
+                || deviceSignalEpoch is <= 0
+                || !AccountSubjectHashRequirement.TryResolve(
+                    accountSubjectHash,
+                    out string normalizedAccountSubjectHash))
+            {
+                return null;
+            }
+
+            return new MfaChallengeTicket
+            {
+                TicketId = ticketId,
+                AccountId = accountId,
+                AccountSubjectHash = normalizedAccountSubjectHash,
+                Type = type,
+                Action = action,
+                RememberMe = bytes[9] == 1,
+                RiskTriggered = bytes[10] == 1,
+                DeviceSignalHash = deviceSignalHash,
+                DeviceSignalEpoch = deviceSignalEpoch,
+                CreatedAtUtc = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.Slice(11, 8)), DateTimeKind.Utc)
+            };
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private bool MatchesDevice(MfaChallengeTicket ticket, string? deviceSignal)
+    {
+        if (ticket.DeviceSignalHash is null && ticket.DeviceSignalEpoch is null)
+        {
+            return true;
+        }
+        if (ticket.DeviceSignalHash is null || ticket.DeviceSignalEpoch is null)
+        {
+            return false;
+        }
+
+        return sessionMetadata.ProtectDeviceForRead(ticket.AccountId, deviceSignal)
+            .Any(candidate => candidate.Epoch == ticket.DeviceSignalEpoch.Value
+                && CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(candidate.Hash),
+                    Encoding.UTF8.GetBytes(ticket.DeviceSignalHash)));
+    }
+
+    private static void WriteString(byte[] target, ref int offset, byte[] value)
+    {
+        if (value.Length > ushort.MaxValue)
+        {
+            throw new InvalidOperationException("MFA ticket field too large.");
+        }
+
+        BinaryPrimitives.WriteUInt16LittleEndian(target.AsSpan(offset, 2), (ushort)value.Length);
+        offset += 2;
+        value.CopyTo(target.AsSpan(offset));
+        offset += value.Length;
+    }
+
+    private static string ReadString(byte[] source, ref int offset)
+        => ReadString(source, ref offset, source.Length);
+
+    private static string ReadString(byte[] source, ref int offset, int limit)
+    {
+        if (offset + 2 > limit)
+        {
+            throw new ArgumentException("MFA ticket truncated.");
+        }
+
+        int length = BinaryPrimitives.ReadUInt16LittleEndian(source.AsSpan(offset, 2));
+        offset += 2;
+        if (offset + length > limit)
+        {
+            throw new ArgumentException("MFA ticket string truncated.");
+        }
+
+        string value = Encoding.UTF8.GetString(source.AsSpan(offset, length));
+        offset += length;
+        return value;
+    }
+
+    private byte[] ResolveTicketSigningKey()
+    {
+        string? value = configuration?["MfaChallenge:TicketSigningKey"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_MFA_CHALLENGE_TICKET_SIGNING_KEY");
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
+        {
+            throw new InvalidOperationException("MfaChallenge:TicketSigningKey is not configured with at least 32 characters.");
+        }
+
+        return Encoding.UTF8.GetBytes(value.Trim());
+    }
+
+    private static string BuildProofIdentity(int accountId, string subject, string sessionId, string action, string token)
+    {
+        string material = string.Join(
+            ':',
+            "mfa-proof",
+            accountId.ToString(CultureInfo.InvariantCulture),
+            subject,
+            sessionId.Trim(),
+            TextHelpers.LowerTrimmed(action) ?? string.Empty,
+            token.Trim());
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
+    }
+
+    private static string Base64UrlEncode(ReadOnlySpan<byte> bytes)
+        => Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+    private static string ResolveAccountSubjectHash(string? accountSubjectHash)
+        => AccountSubjectHashRequirement.Require(accountSubjectHash, "mfa-challenge");
+
+    private static string HashIdentity(string value)
+    {
+        ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
+        if (trimmed.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        int byteCount = Encoding.UTF8.GetByteCount(trimmed);
+        byte[]? rented = null;
+        Span<byte> bytes = byteCount <= 256
+            ? stackalloc byte[byteCount]
+            : rented = ArrayPool<byte>.Shared.Rent(byteCount);
+
+        try
+        {
+            int bytesWritten = Encoding.UTF8.GetBytes(trimmed, bytes);
+            Span<byte> hash = stackalloc byte[32];
+            SHA256.HashData(bytes[..bytesWritten], hash);
+            return Convert.ToHexStringLower(hash[..16]);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
+    private static byte[] Base64UrlDecode(string value)
+    {
+        string normalized = value.Trim().Replace('-', '+').Replace('_', '/');
+        normalized = normalized.PadRight((normalized.Length + 3) / 4 * 4, '=');
+        return Convert.FromBase64String(normalized);
+    }
+}

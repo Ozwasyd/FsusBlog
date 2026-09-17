@@ -1,0 +1,81 @@
+name: Performance report
+description: Report a measurable performance regression or benchmark result.
+title: "[Performance] "
+labels: ["type:performance", "status:triage"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Performance reports must separate the FsusBlog Kestrel-only internal baseline from optional reverse proxy, CDN, or deployment-layer acceleration.
+    - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Bind measurements to a canonical ReleaseId or full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
+    - type: textarea
+      id: workflow
+      attributes:
+          label: Endpoint, page, or workflow
+          placeholder: "/api/binary/articles/list, public article detail, admin audit log, AOT render, etc."
+      validations:
+          required: true
+    - type: textarea
+      id: dataset
+      attributes:
+          label: Dataset size
+          description: Include article/comment/user counts, asset counts, cache state, and whether seed/demo data was used.
+      validations:
+          required: true
+    - type: textarea
+      id: machine
+      attributes:
+          label: Machine and runtime specs
+          description: CPU, RAM, disk, OS, .NET, Node/npm, Docker, PostgreSQL, Redis, browser if relevant.
+      validations:
+          required: true
+    - type: dropdown
+      id: deployment
+      attributes:
+          label: Deployment mode
+          options:
+              - Kestrel-only local baseline
+              - Kestrel-only production-like baseline
+              - Reverse proxy involved
+              - CDN involved
+              - Unknown
+      validations:
+          required: true
+    - type: input
+      id: command
+      attributes:
+          label: Benchmark or reproduction command
+          placeholder: "./tools/test.sh backend-qps"
+    - type: textarea
+      id: before-after
+      attributes:
+          label: Before/after evidence
+          description: Include latency, throughput, CPU, memory, network, trace, or profiler evidence. Use fenced code blocks for tables.
+      validations:
+          required: true
+    - type: textarea
+      id: symptoms
+      attributes:
+          label: CPU, memory, network, or browser symptoms
+          description: Describe saturation, long tasks, GC pressure, cache misses, payload size, or query symptoms.
+    - type: textarea
+      id: proxy
+      attributes:
+          label: Reverse proxy, CDN, or network layer
+          description: If nginx/OpenResty/CDN/VPN/WAF was involved, describe it and state whether the same result reproduces on Kestrel-only baseline.
+    - type: checkboxes
+      id: confirmation
+      attributes:
+          label: Report hygiene
+          options:
+              - label: I identified whether this is Kestrel-only baseline evidence or optional proxy/CDN deployment evidence.
+                required: true
+              - label: I removed secrets, tokens, private domains, real emails, and real IP addresses from the report.
+                required: true

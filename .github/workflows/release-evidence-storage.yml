@@ -1,0 +1,104 @@
+name: Release Evidence Immutable Storage
+
+on:
+    workflow_call:
+        inputs:
+            source_artifact_name:
+                description: Workflow-local artifact containing one collected release bundle
+                required: true
+                type: string
+            release_id:
+                description: Immutable release identity from the release manifest
+                required: true
+                type: string
+            commit_sha:
+                description: Full 40-character release commit
+                required: true
+                type: string
+            created_at_utc:
+                description: Canonical createdAtUtc from release-manifest.v2
+                required: true
+                type: string
+            image_digest:
+                description: Immutable sha256 image digest
+                required: true
+                type: string
+            target_environment:
+                description: Explicit release target environment
+                required: true
+                type: string
+
+permissions:
+    contents: read
+
+jobs:
+    publish-release-evidence:
+        name: Validate and retain release evidence
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            actions: read
+            contents: read
+        steps:
+            - name: Checkout evidence authority
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  persist-credentials: false
+
+            - name: Download workflow-local bundle
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: ${{ inputs.source_artifact_name }}
+                  path: .tmp/release-evidence/storage-candidate
+
+            - name: Derive immutable artifact name
+              id: identity
+              env:
+                  RELEASE_ID: ${{ inputs.release_id }}
+                  COMMIT_SHA: ${{ inputs.commit_sha }}
+                  CREATED_AT_UTC: ${{ inputs.created_at_utc }}
+              run: |
+                  set -euo pipefail
+                  node tools/release/release-id.mjs validate "$RELEASE_ID" >/dev/null
+                  [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+                  node tools/release/release-id.mjs assert --release-id "$RELEASE_ID" --created-at-utc "$CREATED_AT_UTC" --commit-sha "$COMMIT_SHA" >/dev/null
+                  printf 'artifact_name=fsusblog-release-evidence-%s\n' "$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+            - name: Match and seal immutable release identity
+              env:
+                  RELEASE_ID: ${{ inputs.release_id }}
+                  COMMIT_SHA: ${{ inputs.commit_sha }}
+                  CREATED_AT_UTC: ${{ inputs.created_at_utc }}
+                  IMAGE_DIGEST: ${{ inputs.image_digest }}
+                  TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+              run: |
+                  set -euo pipefail
+                  manifest=.tmp/release-evidence/storage-candidate/manifest.json
+                  jq -e --arg releaseId "$RELEASE_ID" --arg createdAtUtc "$CREATED_AT_UTC" --arg commitSha "$COMMIT_SHA" --arg imageDigest "$IMAGE_DIGEST" --arg targetEnvironment "$TARGET_ENVIRONMENT" '
+                    .releaseIdentity.releaseId == $releaseId
+                    and .releaseIdentity.createdAtUtc == $createdAtUtc
+                    and .commitSha == $commitSha
+                    and .imageDigest == $imageDigest
+                    and .targetEnvironment == $targetEnvironment
+                  ' "$manifest" >/dev/null
+                  node tools/operations/seal-release-evidence-bundle.mjs .tmp/release-evidence/storage-candidate --require-ok
+
+            - name: Upload immutable release bundle
+              id: upload
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: ${{ steps.identity.outputs.artifact_name }}
+                  path: .tmp/release-evidence/storage-candidate/
+                  if-no-files-found: error
+                  retention-days: 90
+                  compression-level: 0
+                  overwrite: false
+
+            - name: Record storage authority
+              env:
+                  ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+                  ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+              run: |
+                  set -euo pipefail
+                  [[ "$ARTIFACT_ID" =~ ^[0-9]+$ ]]
+                  [[ "$ARTIFACT_URL" == https://github.com/*/actions/runs/*/artifacts/* ]]

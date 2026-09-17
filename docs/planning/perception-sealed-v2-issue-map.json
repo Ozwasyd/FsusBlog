@@ -1,0 +1,260 @@
+{
+    "planIssue": {
+        "number": 504,
+        "title": "security(human-verification): track perception-sealed@v2 production plan"
+    },
+    "wireKind": "fsu.challenge/perception-sealed@v2",
+    "lastLiveIssueReadDate": "2026-06-19",
+    "sourceOfTruth": "GitHub issue #504 plus live issue range #505-#525",
+    "productionConstraints": [
+        "server_must_not_generate_png",
+        "server_must_not_rasterize",
+        "server_must_not_recompute_image",
+        "issue_hot_path_must_not_write_postgresql",
+        "issue_hot_path_must_not_write_redis",
+        "verify_hot_path_only_unseals_binds_compares_consumes_and_mints",
+        "postgresql_is_async_audit_and_aggregation_only",
+        "low_risk_avoids_challenge",
+        "medium_risk_uses_character_challenge",
+        "high_risk_uses_localization_plus_pow",
+        "critical_risk_early_rejects_limits_queues_or_pospace",
+        "no_public_json_fallback",
+        "human_read_proof_is_not_write_authorization",
+        "passkey_step_up_remains_separate"
+    ],
+    "coverage": [
+        {
+            "id": "v2_aeds_contract",
+            "issue": 505
+        },
+        {
+            "id": "aead_sealed_token",
+            "issue": 506
+        },
+        {
+            "id": "non_semantic_render_recipe",
+            "issue": 507
+        },
+        {
+            "id": "stateless_issue_path",
+            "issue": 508
+        },
+        {
+            "id": "o1_verify_path",
+            "issue": 509
+        },
+        {
+            "id": "redis_consume_once_attempt_gate",
+            "issue": 510
+        },
+        {
+            "id": "character_challenge",
+            "issue": 511
+        },
+        {
+            "id": "localization_challenge",
+            "issue": 512
+        },
+        {
+            "id": "micro_interaction_challenge",
+            "issue": 513
+        },
+        {
+            "id": "risk_control_policy_matrix",
+            "issue": 514
+        },
+        {
+            "id": "critical_risk_routing",
+            "issue": 515
+        },
+        {
+            "id": "frontend_worker_renderer",
+            "issue": 516
+        },
+        {
+            "id": "frontend_ui_components",
+            "issue": 517
+        },
+        {
+            "id": "label_oracle_hardening",
+            "issue": 518
+        },
+        {
+            "id": "async_audit_hot_path_isolation",
+            "issue": 519
+        },
+        {
+            "id": "observability_readiness",
+            "issue": 520
+        },
+        {
+            "id": "red_team_benchmark",
+            "issue": 521
+        },
+        {
+            "id": "admin_controls_metrics",
+            "issue": 522
+        },
+        {
+            "id": "full_test_matrix",
+            "issue": 523
+        },
+        {
+            "id": "threat_model_protocol_rollout_docs",
+            "issue": 524
+        },
+        {
+            "id": "orchestrator_binary_api_wiring",
+            "issue": 525
+        }
+    ],
+    "units": [
+        {
+            "order": 1,
+            "issue": 505,
+            "title": "security(challenge-v2): add perception-sealed@v2 AEDS contracts",
+            "surface": "shared contract metadata and validation constants",
+            "acceptanceBoundary": "Contracts define issue, assignment, verify, proof and error envelopes without public JSON fallback."
+        },
+        {
+            "order": 2,
+            "issue": 506,
+            "title": "security(challenge-v2): implement AEAD sealed token service",
+            "surface": "sealed token service contract and tests",
+            "acceptanceBoundary": "Token payload is opaque, authenticated, expiry-bound and action-bound; Passkey step-up remains separate."
+        },
+        {
+            "order": 3,
+            "issue": 507,
+            "title": "security(challenge-v2): add non-semantic render recipe schema",
+            "surface": "render recipe schema",
+            "acceptanceBoundary": "Recipe remains non-semantic and client-rendered; server does not rasterize or generate images."
+        },
+        {
+            "order": 4,
+            "issue": 508,
+            "title": "security(challenge-v2): keep challenge issue path stateless and DB/Redis-free",
+            "surface": "issue path service boundary",
+            "acceptanceBoundary": "Issue hot path writes neither PostgreSQL nor Redis and only emits sealed assignments."
+        },
+        {
+            "order": 5,
+            "issue": 509,
+            "title": "security(challenge-v2): implement O(1) verify path without image recomputation",
+            "surface": "verify path service boundary",
+            "acceptanceBoundary": "Verify path does AEAD unseal, binding validation, constant-time compare, Redis gate and proof mint only."
+        },
+        {
+            "order": 6,
+            "issue": 510,
+            "title": "security(challenge-v2): add Redis consume-once and attempt gate",
+            "surface": "Redis consume-once and attempt counters",
+            "acceptanceBoundary": "Replay, expiry and attempt limits fail closed without adding DB writes to the issue hot path."
+        },
+        {
+            "order": 7,
+            "issue": 511,
+            "title": "security(challenge-v2): implement text-task perception provider",
+            "surface": "text-task perception provider",
+            "acceptanceBoundary": "Provider serves non-semantic render recipes with expected text hashed into the sealed token; verify path uses normalized text hash constant-time compare; solver duration policy bounded per risk tier; server does not generate images or embed character IDs."
+        },
+        {
+            "order": 8,
+            "issue": 512,
+            "title": "security(challenge-v2): implement localization perception provider",
+            "surface": "Localization challenge provider",
+            "acceptanceBoundary": "High-risk Localization challenge composes with PoW and does not expose label-oracle detail."
+        },
+        {
+            "order": 9,
+            "issue": 513,
+            "title": "security(challenge-v2): add feature-gated micro-interaction provider",
+            "surface": "Micro Interaction provider",
+            "acceptanceBoundary": "Provider is feature-gated and can stay out of default production policy until benchmarked."
+        },
+        {
+            "order": 10,
+            "issue": 514,
+            "title": "security(risk-control): add perception-sealed@v2 decision matrix",
+            "surface": "RiskControl policy matrix",
+            "acceptanceBoundary": "Low, medium, high and critical risk bands select the expected challenge or rejection path."
+        },
+        {
+            "order": 11,
+            "issue": 515,
+            "title": "security(risk-control): implement early reject, queue, and PoSpace routing for critical risk",
+            "surface": "critical-risk routing policy",
+            "acceptanceBoundary": "Critical risk does not keep spending server resources on perception challenge issue."
+        },
+        {
+            "order": 12,
+            "issue": 516,
+            "title": "frontend(challenge-v2): add worker renderer for non-semantic render recipes",
+            "surface": "frontend worker renderer",
+            "acceptanceBoundary": "Worker renders recipes without server images and without business-form coupling."
+        },
+        {
+            "order": 13,
+            "issue": 517,
+            "title": "frontend(challenge-v2): add FsusUI perception challenge components",
+            "surface": "FsusUI challenge components",
+            "acceptanceBoundary": "Character, Localization and Micro Interaction UI states remain provider-driven and accessible."
+        },
+        {
+            "order": 14,
+            "issue": 518,
+            "title": "security(challenge-v2): harden label-oracle behavior and generic failure responses",
+            "surface": "oracle-hardening policy",
+            "acceptanceBoundary": "Failure responses remain generic and timing/attempt behavior does not reveal labels."
+        },
+        {
+            "order": 15,
+            "issue": 519,
+            "title": "security(challenge-v2): add async audit and risk event writer for hot-path isolation",
+            "surface": "async audit and aggregation boundary",
+            "acceptanceBoundary": "PostgreSQL is used for asynchronous audit and aggregation, not challenge issue hot-path state."
+        },
+        {
+            "order": 16,
+            "issue": 520,
+            "title": "security(observability): add perception-sealed@v2 metrics and readiness gates",
+            "surface": "observability and readiness",
+            "acceptanceBoundary": "Readiness distinguishes disabled, observe, enforce and provider-missing states."
+        },
+        {
+            "order": 17,
+            "issue": 521,
+            "title": "tests(security): add perception-sealed@v2 red-team and regression benchmark",
+            "surface": "red-team benchmark",
+            "acceptanceBoundary": "Benchmarks exercise label-oracle, replay, cost and abuse-path regression cases."
+        },
+        {
+            "order": 18,
+            "issue": 522,
+            "title": "admin(security): add perception-sealed@v2 policy controls and dashboard metrics",
+            "surface": "admin policy controls and dashboard",
+            "acceptanceBoundary": "Admin controls require admin principal and step-up proof; RiskControl proof never replaces MFA proof."
+        },
+        {
+            "order": 19,
+            "issue": 523,
+            "title": "tests(security): add full perception-sealed@v2 contract, integration, E2E, and performance matrix",
+            "surface": "full validation matrix",
+            "acceptanceBoundary": "Matrix covers anonymous, authenticated, admin, notification stream and binary boundaries as applicable."
+        },
+        {
+            "order": 20,
+            "issue": 524,
+            "title": "docs(security): document perception-sealed@v2 threat model, protocol, and rollout",
+            "surface": "threat model, protocol and rollout docs",
+            "acceptanceBoundary": "Docs explain protocol, rollout, emergency disable and non-goals without exposing bypass detail."
+        },
+        {
+            "order": 21,
+            "issue": 525,
+            "title": "security(challenge-v2): wire perception providers into ChallengeOrchestrator and binary challenge API",
+            "surface": "orchestrator and binary API wiring",
+            "acceptanceBoundary": "Providers are invoked through ChallengeOrchestrator and AEDS endpoints fail closed for unsupported kinds."
+        }
+    ]
+}

@@ -1,0 +1,11 @@
+{
+    "name": "@fsusblog/ts-test-ast-adapter",
+    "version": "0.0.0",
+    "private": true,
+    "packageManager": "npm@11.13.0",
+    "type": "module",
+    "description": "Repository-owned TypeScript AST adapter for JS/TS test-case discovery in the canonical test inventory.",
+    "dependencies": {
+        "typescript": "6.0.3"
+    }
+}

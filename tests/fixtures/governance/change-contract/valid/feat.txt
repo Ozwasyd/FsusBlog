@@ -1,0 +1,5 @@
+feat(frontend): expose article reading progress
+
+Keep progress local to the reader session so a failed sync cannot block reading.
+
+Refs: #1163

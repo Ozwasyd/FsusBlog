@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog-design-conformance:ui-classification-receipt:v2",
+  "title": "fsusblog-design-conformance.ui-classification-receipt.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "domainPolicyDigest",
+    "repository",
+    "issueId",
+    "uiImpact",
+    "ownerRepository",
+    "affectedSurfaces",
+    "uiDecisionClass",
+    "verificationClass",
+    "requiredDesignAuthorities",
+    "fsusUIBaseline",
+    "stateEvidenceMatrix",
+    "inScope",
+    "outOfScope",
+    "candidateSha",
+    "candidateIdentityDigest",
+    "classificationEvidenceDigest",
+    "status",
+    "receiptDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog-design-conformance.ui-classification-receipt.v2"
+    },
+    "domainPolicyDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repository": {
+      "const": "Ozwasyd/FsusBlog"
+    },
+    "issueId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "uiImpact": {
+      "const": true
+    },
+    "ownerRepository": {
+      "enum": [
+        "Ozwasyd/FsusBlog",
+        "Ozwasyd/FsusUI"
+      ]
+    },
+    "affectedSurfaces": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "uiDecisionClass": {
+      "enum": [
+        "prescribed",
+        "bounded-composition",
+        "layout-judgment",
+        "interaction-judgment",
+        "system-design-dispute"
+      ]
+    },
+    "verificationClass": {
+      "enum": [
+        "ux-local",
+        "ux-path",
+        "ux-system"
+      ]
+    },
+    "requiredDesignAuthorities": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "digest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "fsusUIBaseline": {
+      "type": "object"
+    },
+    "stateEvidenceMatrix": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "inScope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "outOfScope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "candidateSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "candidateIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "classificationEvidenceDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "const": "frozen"
+    },
+    "receiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

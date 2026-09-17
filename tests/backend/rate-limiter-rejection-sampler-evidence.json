@@ -1,0 +1,133 @@
+{
+    "schema": "fsusblog.rate-limiter-rejection-sampler-evidence.v1",
+    "issue": 1055,
+    "status": "implementation-and-central-wiring-complete-validation-pending",
+    "productionFiles": [
+        "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+        "src/backend/Infrastructure/Security/BoundedRateLimiterRejectionRiskSampler.cs"
+    ],
+    "testFile": "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+    "benchmarkFile": "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs",
+    "securityInvariants": {
+        "maxRiskWritesPerLogicalBucketPerMinute": 4,
+        "maxTrackedBuckets": 4096,
+        "rawRequestPathInKey": false,
+        "unmatchedRouteKindIsFixed": true,
+        "unknownMethodKindIsFixed": true,
+        "maxInlineRouteIdentityCharacters": 192,
+        "minuteTransition": "single-cas-gated-whole-window-replacement",
+        "capacityBehavior": "drop-new-bucket-without-enumeration",
+        "existingBucketBehaviorAtCapacity": "preserve-four-write-limit"
+    },
+    "acceptanceMappings": [
+        {
+            "criterion": "raw paths cannot grow sampling state without bound",
+            "testIds": [
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.MatchedAndUnmatchedHighCardinalityRawPaths_CollapseToLogicalRoutes",
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.RouteIdentity_BoundsLongEndpointMetadataAndUnknownMethods",
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.CapacityBoundary_DropsNewBucketsButPreservesExistingBucketWriteLimit"
+            ]
+        },
+        {
+            "criterion": "capacity overflow does not scan all current buckets",
+            "testIds": [
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.SaturatedBucketLookup_P95RemainsStableFrom64To4096TrackedBuckets"
+            ]
+        },
+        {
+            "criterion": "concurrent rotation is published once",
+            "testIds": [
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.CrossMinuteRotation_ReplacesTheWholeWindowOnceUnderConcurrency"
+            ]
+        },
+        {
+            "criterion": "logical subject and route retain the four-write cap",
+            "testIds": [
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.ConcurrentSameBucket_PreservesExactlyFourRiskWrites",
+                "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.AnonymousLoginAdminNotificationStreamAndBinaryRoutes_KeepIndependentCaps"
+            ]
+        }
+    ],
+    "performanceEvidencePlan": {
+        "testId": "xunit:tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs#RateLimiterRejectionRiskSamplerTests.SaturatedBucketLookup_P95RemainsStableFrom64To4096TrackedBuckets",
+        "smallTrackedBuckets": 64,
+        "largeTrackedBuckets": 4096,
+        "warmupBatchesPerState": 8,
+        "measuredBatchesPerState": 64,
+        "operationsPerBatch": 512,
+        "maxLargeToSmallP95Ratio": 8,
+        "absolutePerOperationNoiseFloorMs": 0.05,
+        "measuredSmallP95Ms": null,
+        "measuredLargeP95Ms": null,
+        "verificationRunId": null
+    },
+    "benchmarkEvidencePlan": {
+        "benchmarkType": "RateLimiterRejectionSamplerBenchmarks",
+        "benchmarkMethod": "DropNewLogicalBucketAtCapacity",
+        "trackedBucketParameters": [
+            64,
+            4096
+        ],
+        "memoryDiagnoser": true,
+        "resultArtifact": null,
+        "verificationRunId": null
+    },
+    "centralGovernanceReadback": [
+        {
+            "path": "benchmarks/core/Program.cs",
+            "status": "present-not-verified",
+            "benchmarkType": "RateLimiterRejectionSamplerBenchmarks",
+            "target": "BenchmarkSwitcher.FromTypes"
+        },
+        {
+            "path": "tests/coverage-registry.json",
+            "status": "present-not-verified",
+            "coverageId": "backend-rate-limiter-rejection-sampler-bounded",
+            "tierIds": [
+                "backend-unit",
+                "backend-concurrency"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+                "tests/backend/rate-limiter-rejection-sampler-evidence.json",
+                "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+            ]
+        },
+        {
+            "path": "tests/matrix.yml",
+            "status": "present-not-verified",
+            "coverageId": "backend-rate-limiter-rejection-sampler-bounded",
+            "tierIds": [
+                "backend-unit",
+                "backend-concurrency"
+            ]
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "status": "present-not-verified",
+            "profileIds": [
+                "backend-concurrency",
+                "backend-perf"
+            ],
+            "requirementIds": [
+                "BACKEND-CONCURRENCY-RACES",
+                "BACKEND-PERF-BENCHMARKS",
+                "BACKEND-LOAD-STRESS-CAPACITY",
+                "BACKEND-TIME-BUDGETS"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+                "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+            ]
+        },
+        {
+            "path": "docs/security.md",
+            "status": "present-not-verified",
+            "anchor": "超限响应：`429 Too Many Requests`"
+        }
+    ],
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
+    }
+}

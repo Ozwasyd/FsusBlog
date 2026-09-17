@@ -1,0 +1,178 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.dev/schemas/required-evidence-catalog.v1.json",
+    "title": "FsusBlog release-final required evidence catalog",
+    "description": "Exact-one machine-readable contract for every release-final correctness authority: owner, producer tiers, receipt schema, current-run locator binding key, required IDs, identity fields, digests, diagnostic scope, local producer command, exactness and output binding key.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "catalogSchema",
+        "source",
+        "version",
+        "contentDigest",
+        "entries"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.required-evidence-authority-ledger.v1"
+        },
+        "catalogSchema": {
+            "const": "fsusblog.required-evidence-catalog.v1"
+        },
+        "source": {
+            "type": "string",
+            "minLength": 1
+        },
+        "version": {
+            "const": 1
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "entries": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/authority"
+            }
+        }
+    },
+    "$defs": {
+        "stableId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/+:-]*$"
+        },
+        "bindingKey": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+            "not": {
+                "anyOf": [
+                    {
+                        "pattern": "[/*\\\\]"
+                    },
+                    {
+                        "pattern": "mtime"
+                    },
+                    {
+                        "pattern": "latest"
+                    },
+                    {
+                        "pattern": "search"
+                    },
+                    {
+                        "pattern": "glob"
+                    },
+                    {
+                        "pattern": "^\\.tmp"
+                    },
+                    {
+                        "pattern": "\\.\\."
+                    }
+                ]
+            }
+        },
+        "authority": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "authorityId",
+                "producerTierIds",
+                "canonicalOwner",
+                "receiptSchema",
+                "locatorBindingKey",
+                "requiredTestIds",
+                "requiredCoverageIds",
+                "requiredArtifactIds",
+                "requiredIdentityFields",
+                "contentDigest",
+                "producerDigest",
+                "allowDiagnostic",
+                "localProducerCommand",
+                "exactness",
+                "outputBindingKey",
+                "producerVerifier"
+            ],
+            "properties": {
+                "authorityId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "producerTierIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                },
+                "canonicalOwner": {
+                    "$ref": "#/$defs/stableId"
+                },
+                "receiptSchema": {
+                    "type": "string",
+                    "pattern": "^fsusblog\\.[a-z0-9_.-]+\\.[a-z0-9-]+$"
+                },
+                "locatorBindingKey": {
+                    "$ref": "#/$defs/bindingKey"
+                },
+                "requiredTestIds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                },
+                "requiredCoverageIds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                },
+                "requiredArtifactIds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                },
+                "requiredIdentityFields": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/stableId"
+                    }
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "producerDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "allowDiagnostic": {
+                    "type": "boolean"
+                },
+                "localProducerCommand": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "exactness": {
+                    "enum": [
+                        "exact-one-authority",
+                        "test-id-exact",
+                        "artifact-set-exact",
+                        "process-boundary-exact",
+                        "diagnostic-only"
+                    ]
+                },
+                "outputBindingKey": {
+                    "$ref": "#/$defs/bindingKey"
+                },
+                "producerVerifier": {
+                    "type": "string",
+                    "pattern": "^tools/[A-Za-z0-9_./-]+(:[A-Za-z0-9_]+)?$"
+                }
+            }
+        }
+    }
+}

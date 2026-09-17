@@ -1,0 +1,8 @@
+style(csharp): normalize backend whitespace
+
+Apply the reviewed repository formatter without changing tokens.
+
+Change-Class: format-only
+Formatter: dotnet-format@10.0.0 :: dotnet format whitespace --no-restore
+Idempotence-Evidence: artifacts/style/idempotence.json
+Refs: #1163

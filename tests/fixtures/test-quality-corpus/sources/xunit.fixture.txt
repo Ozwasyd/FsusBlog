@@ -1,0 +1,63 @@
+using FluentAssertions;
+using Xunit;
+
+namespace FsusBlog.QualityCorpus;
+
+public sealed class QualityCorpusTests
+{
+    [Fact]
+    public void XunitExactState()
+    {
+        Assert.Equal(2, Subject.Load());
+    }
+
+    [Fact]
+    public void FluentExactState()
+    {
+        Subject.Load().Should().Be(2);
+    }
+
+    [Fact]
+    public void CustomAssertionHelper()
+    {
+        AssertExpected(Subject.Load());
+    }
+
+    [Fact]
+    public void EmptyMaskedBySibling()
+    {
+        Subject.Load();
+    }
+
+    [Fact]
+    public void TestToTestWrapper()
+    {
+        ForwarderTarget();
+    }
+
+    [Fact]
+    public void ForwarderTarget()
+    {
+        Assert.Equal(2, Subject.Load());
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void StaticParameterizedCases(int expected)
+    {
+        Assert.Equal(expected, Subject.Identity(expected));
+    }
+
+    private static void AssertExpected(int actual)
+    {
+        Assert.Equal(2, actual);
+    }
+}
+
+internal static class Subject
+{
+    public static int Load() => 2;
+
+    public static int Identity(int value) => value;
+}

@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.ip-anonymization-inventory.v1",
+    "inventoryId": "replace-with-immutable-scan-id",
+    "cutoverAtUtc": "2026-07-15T00:00:00.000Z",
+    "coverage": {
+        "backup": {
+            "complete": true,
+            "scannedAtUtc": "2026-07-15T01:00:00.000Z"
+        },
+        "wal": {
+            "complete": true,
+            "scannedAtUtc": "2026-07-15T01:00:00.000Z"
+        },
+        "log": {
+            "complete": true,
+            "scannedAtUtc": "2026-07-15T01:00:00.000Z"
+        },
+        "etl": {
+            "complete": true,
+            "scannedAtUtc": "2026-07-15T01:00:00.000Z"
+        }
+    },
+    "artifacts": [
+        {
+            "id": "pre-cutover-site-backup",
+            "media": "backup",
+            "storage": "local",
+            "path": "/var/backups/fsusblog/2026-07-14T230000Z.tar.gz.fsbenc",
+            "capturedAtUtc": "2026-07-14T23:00:00.000Z",
+            "rawIpState": "present"
+        },
+        {
+            "id": "pre-cutover-warehouse-export",
+            "media": "etl",
+            "storage": "s3",
+            "uri": "s3://fsusblog-warehouse/private/visit/2026-07-14.parquet",
+            "capturedAtUtc": "2026-07-14T23:30:00.000Z",
+            "rawIpState": "present"
+        }
+    ]
+}

@@ -1,0 +1,68 @@
+name: Monthly IP Anonymization Scan
+
+on:
+    schedule:
+        - cron: "37 4 1 * *"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: monthly-ip-anonymization-scan
+    cancel-in-progress: false
+
+jobs:
+    contract-fixture:
+        name: Full-chain lifecycle fixture
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+            - name: Setup Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+
+            - name: Exercise anonymization to full-chain cleanup
+              run: tools/operations/test-ip-anonymization-lifecycle-fixture.sh
+
+    production-scan:
+        name: Production cross-media verification
+        needs: contract-fixture
+        runs-on: [self-hosted, fsusblog-production-audit]
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+            - name: Setup Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+
+            - name: Verify configuration is mounted
+              env:
+                  FSUSBLOG_IP_ANONYMIZATION_CONFIG: ${{ vars.FSUSBLOG_IP_ANONYMIZATION_CONFIG }}
+              run: '[[ -n "$FSUSBLOG_IP_ANONYMIZATION_CONFIG" && -r "$FSUSBLOG_IP_ANONYMIZATION_CONFIG" ]]'
+
+            - name: Verify every historical raw-IP medium
+              env:
+                  FSUSBLOG_IP_ANONYMIZATION_CONFIG: ${{ vars.FSUSBLOG_IP_ANONYMIZATION_CONFIG }}
+                  FSUSBLOG_REDIS_ADMIN_URL: ${{ secrets.FSUSBLOG_REDIS_ADMIN_URL }}
+                  FSUSBLOG_DATABASE_ADMIN_URL: ${{ secrets.FSUSBLOG_DATABASE_ADMIN_URL }}
+              run: |
+                  node tools/operations/ip-anonymization-lifecycle.mjs verify \
+                    --config "$FSUSBLOG_IP_ANONYMIZATION_CONFIG" \
+                    --output "$RUNNER_TEMP/ip-anonymization-monthly.json"
+
+            - name: Upload restricted scan evidence
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: monthly-ip-anonymization-scan
+                  if-no-files-found: error
+                  retention-days: 90
+                  path: ${{ runner.temp }}/ip-anonymization-monthly.json

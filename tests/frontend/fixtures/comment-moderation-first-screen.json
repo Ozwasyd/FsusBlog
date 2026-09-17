@@ -1,0 +1,29 @@
+{
+    "route": "/user/manage/moderation/comments",
+    "viewports": [
+        { "width": 1366, "height": 768, "minimumVisibleRows": 3 },
+        { "width": 1440, "height": 900, "minimumVisibleRows": 3 },
+        { "width": 768, "height": 1024, "minimumVisibleRows": 1 },
+        { "width": 375, "height": 812, "minimumVisibleRows": 1 }
+    ],
+    "themes": ["light", "dark"],
+    "queueCases": [
+        { "total": 0, "visible": 0, "selected": 0, "activeAdvancedFilters": 0, "riskAlert": false },
+        { "total": 50, "visible": 3, "selected": 0, "activeAdvancedFilters": 0, "riskAlert": false },
+        { "total": 50, "visible": 3, "selected": 1, "activeAdvancedFilters": 1, "riskAlert": false },
+        { "total": 50, "visible": 3, "selected": 10, "activeAdvancedFilters": 7, "riskAlert": true }
+    ],
+    "persistentFilterRoles": ["status", "search", "advanced-filter"],
+    "advancedFilterRoles": ["article", "user", "reason", "region", "model", "runtime", "date"],
+    "geometry": {
+        "primaryToolbarHeightPx": 44,
+        "statusHeightPx": 40,
+        "searchHeightPx": 44,
+        "searchWidthPx": [280, 360],
+        "advancedPanelWidthPx": [360, 420],
+        "advancedFieldGapPx": 16,
+        "advancedFooterActionHeightPx": 44,
+        "selectionHeightPx": [48, 56],
+        "resultsGapPx": [20, 24]
+    }
+}

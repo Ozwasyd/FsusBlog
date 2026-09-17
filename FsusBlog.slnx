@@ -1,0 +1,54 @@
+<Solution>
+  <Folder Name="/Backend/">
+    <Project Path="src/backend/FsusBlog.Server.csproj" />
+    <Project Path="src/migration/FsusBlog.Migration.csproj" />
+  </Folder>
+  <Folder Name="/Frontend/">
+    <Project Path="src/frontend/FsusBlog.Client.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/Shared Kernel/">
+    <Project Path="src/core/FsusBlog.Core.csproj" />
+    <Project Path="src/shared/FsusBlog.Shared.csproj" />
+  </Folder>
+  <Folder Name="/Article Vault/">
+    <Project Path="src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj" />
+    <Project Path="tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Quality/">
+    <Project Path="tests/backend/FsusBlog.Server.Tests.csproj" />
+    <Project Path="tests/migration/FsusBlog.Migration.Tests.csproj" />
+    <Project Path="benchmarks/core/FsusBlog.Core.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/Ops/">
+    <Project Path="ops/docker/docker-compose.dcproj">
+      <Build />
+    </Project>
+    <File Path="ops/docker/docker-compose.production.yml" />
+    <File Path="ops/docker/docker-compose.development-backend.yml" />
+    <File Path="ops/docker/docker-compose.zero-downtime.yml" />
+    <File Path="ops/docker/FsusBlog.Server.Dockerfile" />
+    <File Path="ops/development/dependencies.compose.yml" />
+    <File Path="ops/gateway/production-openresty.conf" />
+    <File Path="ops/gateway/active-upstream.conf.example" />
+    <File Path="ops/gateway/zero-downtime-openresty.conf.template" />
+    <File Path="config/deployment/zero-downtime-resource-policy.json" />
+  </Folder>
+  <Folder Name="/Docs/">
+    <File Path="docs/architecture.md" />
+    <File Path="docs/api/contracts.md" />
+    <File Path="docs/api/design.md" />
+    <File Path="docs/security.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="AGENTS.md" />
+    <File Path="FsusBlog.slnLaunch" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path=".dockerignore" />
+    <File Path=".gitignore" />
+  </Folder>
+</Solution>

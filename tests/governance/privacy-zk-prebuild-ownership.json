@@ -1,0 +1,43 @@
+{
+  "schema": "fsusblog.privacy-zk-prebuild-ownership.v1",
+  "tierId": "privacy-zk-comment-matrix",
+  "uniqueAssertions": [
+    { "id": "author-mode-retirement", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "comment-privacy-boundaries", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "privacy-build-contract", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "privacy-build-negative-fixtures", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "public-revocation", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "unlinkability", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "unlinkability-negative-fixtures", "owner": "privacy-zk-prebuild", "coverageIds": ["privacy-zk-comment-matrix"] },
+    { "id": "zk-artifact-source-ownership", "owner": "privacy-zk-prebuild", "coverageIds": ["repository-source-layout-governance", "zk-artifact-lifecycle-ownership"] }
+  ],
+  "sharedAssertions": [
+    {
+      "id": "frontend-static-contracts",
+      "owner": "frontend-static-governance",
+      "producerReceipt": ".tmp/security/privacy-zk-canonical/frontend-static-governance.json",
+      "requiredAssertionIds": ["frame-schema", "openapi-sync", "security-matrices"],
+      "coverageIds": ["privacy-zk-comment-matrix"],
+      "requiredArtifacts": [
+        { "id": "frontend-static-concurrent-evidence", "path": ".tmp/local-production/frontend-tests/frontend-static-concurrent.json" }
+      ]
+    },
+    {
+      "id": "matrix-ci-workflow-contracts",
+      "owner": "matrix-governance",
+      "producerReceipt": ".tmp/security/privacy-zk-canonical/matrix-governance.json",
+      "requiredAssertionIds": ["matrix-evidence-plan", "matrix-preflight", "matrix-validate"],
+      "coverageIds": ["test-dag"],
+      "requiredArtifacts": [
+        { "id": "matrix-governance-consumer-evidence", "path": ".tmp/physical-execution-projections/validate-matrix-matrix-governance.json" }
+      ]
+    }
+  ],
+  "retiredControls": [
+    {
+      "name": "FSUSBLOG_ZK_MCL_NO_BUILD",
+      "disposition": "deleted-no-runtime-consumer",
+      "reason": "The variable was assigned by the lane but never read by a runtime, build script, or checker."
+    }
+  ]
+}

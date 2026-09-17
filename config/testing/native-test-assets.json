@@ -1,0 +1,82 @@
+{
+  "schema": "fsusblog.native-test-assets.v1",
+  "owner": "WasmEngineAgent",
+  "lifecycle": {
+    "status": "active",
+    "changePolicy": "Every deletion, rename, merge, or retirement must be recorded in tests/test-retention-replacements.json before the asset leaves the active catalog."
+  },
+  "supportAssets": [
+    {
+      "id": "aeds-crc16-native-target-graph",
+      "path": "tests/native/CMakeLists.txt",
+      "kind": "cmake-target-graph"
+    }
+  ],
+  "targets": [
+    {
+      "id": "aeds-crc16-known-vector-smoke",
+      "testId": "native-smoke:aeds-crc16-known-vector",
+      "kind": "smoke",
+      "source": "tests/native/AedsCrc16SmokeTests.cpp",
+      "sourceOwner": "WasmEngineAgent",
+      "cmakeTarget": "FsusNativeSmokeTests",
+      "ctestName": "FsusNativeSmokeTests",
+      "profile": "smoke",
+      "matrixTier": "native-smoke",
+      "lifecycleStatus": "active",
+      "replacementPolicy": "central-retention-ledger"
+    },
+    {
+      "id": "aeds-crc16-input-space-fuzz",
+      "testId": "native-fuzz:aeds-crc16-input-space",
+      "kind": "fuzz",
+      "source": "tests/native/AedsCrc16Fuzz.cpp",
+      "sourceOwner": "WasmEngineAgent",
+      "cmakeTarget": "FsusCrc16Fuzz",
+      "profile": "fuzz-sanitizer",
+      "matrixTier": "native-fuzz-sanitizer",
+      "corpusId": "aeds-crc16-seed-corpus",
+      "lifecycleStatus": "active",
+      "replacementPolicy": "central-retention-ledger"
+    }
+  ],
+  "corpora": [
+    {
+      "id": "aeds-crc16-seed-corpus",
+      "path": "tests/native/corpus/aeds-crc16",
+      "targetId": "aeds-crc16-input-space-fuzz",
+      "required": true
+    }
+  ],
+  "profiles": [
+    {
+      "id": "smoke",
+      "producer": "tools/test/run-native-tests.mjs",
+      "matrixTier": "native-smoke",
+      "receipt": ".tmp/release-evidence/native-smoke.json",
+      "consumers": [
+        "local",
+        "production-fresh"
+      ],
+      "sanitizers": [],
+      "fuzzerFlags": []
+    },
+    {
+      "id": "fuzz-sanitizer",
+      "producer": "tools/test/run-native-tests.mjs",
+      "matrixTier": "native-fuzz-sanitizer",
+      "receipt": ".tmp/release-evidence/native-fuzz-sanitizer.json",
+      "consumers": [
+        "local-resource-controlled",
+        "release-final"
+      ],
+      "sanitizers": [
+        "address",
+        "undefined"
+      ],
+      "fuzzerFlags": [
+        "-runs=<resource-controlled-count>"
+      ]
+    }
+  ]
+}

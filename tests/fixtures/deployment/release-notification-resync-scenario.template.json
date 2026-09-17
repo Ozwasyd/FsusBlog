@@ -1,0 +1,33 @@
+{
+  "schema": "fsusblog.release-notification-resync-scenario.v1",
+  "hashAlgorithm": "sha256-raw-body-v1",
+  "stableContentHashRequired": true,
+  "reconnectDelayMs": {
+    "scheduled": 500,
+    "minimum": 250,
+    "maximum": 1250
+  },
+  "slowClientDrainDeadlineMs": 45000,
+  "modes": {
+    "guest": {
+      "path": "/api/release-evidence/notification-state?audience=guest",
+      "method": "GET",
+      "accept": "application/json",
+      "expectedContentType": "application/json",
+      "watermarkHeader": "X-Fsus-Notification-Watermark",
+      "contentHashHeader": "X-Fsus-Content-Sha256",
+      "minimumBytes": 2,
+      "maximumBytes": 1048576
+    },
+    "auth": {
+      "path": "/api/release-evidence/notification-state?audience=auth",
+      "method": "GET",
+      "accept": "application/json",
+      "expectedContentType": "application/json",
+      "watermarkHeader": "X-Fsus-Notification-Watermark",
+      "contentHashHeader": "X-Fsus-Content-Sha256",
+      "minimumBytes": 2,
+      "maximumBytes": 1048576
+    }
+  }
+}

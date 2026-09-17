@@ -1,0 +1,6 @@
+self-hosted-runner:
+    labels:
+        - fsusblog-production-audit
+config-variables:
+    - FSUSBLOG_DOTNET_BUILD_PARALLELISM
+    - FSUSBLOG_IP_ANONYMIZATION_CONFIG

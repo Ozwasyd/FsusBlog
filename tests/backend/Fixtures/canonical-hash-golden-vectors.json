@@ -1,0 +1,52 @@
+{
+  "schema": "fsusblog.canonical-hash-golden-vectors.v1",
+  "vectors": [
+    {
+      "id": "article-content-v1-unicode-newline",
+      "contract": "article-content",
+      "version": 1,
+      "domain": "fsusblog.integrity.article-canonical.v1",
+      "input": {
+        "articleId": 42,
+        "articleRevisionId": 9001,
+        "revisionNo": 3,
+        "publicRouteKey": "article:42",
+        "title": "发布说明 Café 中文 😀",
+        "summary": null,
+        "coverImageUrl": "/assets/cover.png",
+        "categoryId": 7,
+        "tagIds": [9, 2, 5],
+        "status": 2,
+        "publishedAt": "2026-06-01T08:30:00Z",
+        "scheduledPublishAt": null,
+        "markdownContent": "# 标题\r\n\r\nCafé 中文 😀\r\n"
+      },
+      "payloadBase64": "ZnN1c2Jsb2cuaW50ZWdyaXR5LmFydGljbGUtY2Fub25pY2FsLnYxCmhhc2hWZXJzaW9uOmk6MQphcnRpY2xlSWQ6aTo0MgphcnRpY2xlUmV2aXNpb25JZDppOjkwMDEKcmV2aXNpb25ObzppOjMKcHVibGljUm91dGVLZXk6czpZWEowYVdOc1pUbzBNZz09CnRpdGxlOnM6NVkrUjViaUQ2SyswNXBpT0lFTmhac09wSU9TNHJlYVdoeUR3bjVpQQpzdW1tYXJ5Om4KY292ZXJJbWFnZVVybDpzOkwyRnpjMlYwY3k5amIzWmxjaTV3Ym1jPQpjYXRlZ29yeUlkOmk6Nwp0YWdJZHM6aToyLDUsOQpzdGF0dXM6aToyCnB1Ymxpc2hlZEF0OnQ6MjAyNi0wNi0wMVQwODozMDowMC4wMDAwMDAwWgpzY2hlZHVsZWRQdWJsaXNoQXQ6bgptYXJrZG93bjpzOkl5RG1vSWZwb3BnS0NrTmhac09wSU9TNHJlYVdoeUR3bjVpQUNnPT0K",
+      "hash": "129cb6dac691dccdf53e797da943167ef1e5f3f3972327c221f94e13bcbfab66"
+    },
+    {
+      "id": "article-rights-v1-unicode-newline-hash-prefix",
+      "contract": "article-rights",
+      "version": 1,
+      "domain": "fsusblog.rights.article-policy.v1",
+      "input": {
+        "articleId": 42,
+        "articleRevisionId": 9001,
+        "revisionNo": 3,
+        "licenseType": "CC-BY-4.0",
+        "copyrightHolder": "Fésus Café",
+        "copyrightYear": 2026,
+        "rightsStatement": "Line one\r\nLine two Café",
+        "attributionTemplate": "{title} — {holder} ({year}) {license} {url} {proof}",
+        "copyPolicy": "append-attribution",
+        "maxExcerptChars": 300,
+        "allowCodeCopy": true,
+        "showPublicBadge": true,
+        "canonicalUrl": "https://example.test/articles/cafe",
+        "contentCanonicalHash": "SHA256:ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
+      },
+      "payloadBase64": "ZnN1c2Jsb2cucmlnaHRzLmFydGljbGUtcG9saWN5LnYxCmhhc2hWZXJzaW9uOmk6MQphcnRpY2xlSWQ6aTo0MgphcnRpY2xlUmV2aXNpb25JZDppOjkwMDEKcmV2aXNpb25ObzppOjMKbGljZW5zZVR5cGU6czpRME10UWxrdE5DNHcKY29weXJpZ2h0SG9sZGVyOnM6UnNPcGMzVnpJRU5oWnNPcApjb3B5cmlnaHRZZWFyOmk6MjAyNgpyaWdodHNTdGF0ZW1lbnQ6czpUR2x1WlNCdmJtVUtUR2x1WlNCMGQyOGdRMkZtdzZrPQphdHRyaWJ1dGlvblRlbXBsYXRlOnM6ZTNScGRHeGxmU0RpZ0pRZ2UyaHZiR1JsY24wZ0tIdDVaV0Z5ZlNrZ2UyeHBZMlZ1YzJWOUlIdDFjbXg5SUh0d2NtOXZabjA9CmNvcHlQb2xpY3k6czpZWEJ3Wlc1a0xXRjBkSEpwWW5WMGFXOXUKbWF4RXhjZXJwdENoYXJzOmk6MzAwCmFsbG93Q29kZUNvcHk6YjoxCnNob3dQdWJsaWNCYWRnZTpiOjEKY2Fub25pY2FsVXJsOnM6YUhSMGNITTZMeTlsZUdGdGNHeGxMblJsYzNRdllYSjBhV05zWlhNdlkyRm1aUT09CmNvbnRlbnRDYW5vbmljYWxIYXNoOmg6c2hhMjU2OmFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODkK",
+      "hash": "sha256:fb79f2fe498ac6e39de1d1a65161a773c83324cd776b2ed7346e7a1c68b8c1ef"
+    }
+  ]
+}

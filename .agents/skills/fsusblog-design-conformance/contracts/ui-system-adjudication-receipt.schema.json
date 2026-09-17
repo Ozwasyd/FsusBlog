@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog-design-conformance:ui-system-adjudication-receipt:v2",
+  "title": "fsusblog-design-conformance.ui-system-adjudication-receipt.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "domainPolicyDigest",
+    "repository",
+    "classificationReceiptDigest",
+    "ownerRepository",
+    "authoritativeSkillDigests",
+    "authorityDigests",
+    "activeBaselineIdentityDigest",
+    "candidateSha",
+    "candidateIdentityDigest",
+    "problemClassification",
+    "disposition",
+    "allowedUiDecisionClass",
+    "modifiedPaths",
+    "inScope",
+    "outOfScope",
+    "requiredFollowUpIssue",
+    "status",
+    "adjudicationDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog-design-conformance.ui-system-adjudication-receipt.v2"
+    },
+    "domainPolicyDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repository": {
+      "const": "Ozwasyd/FsusBlog"
+    },
+    "classificationReceiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ownerRepository": {
+      "enum": [
+        "Ozwasyd/FsusBlog",
+        "Ozwasyd/FsusUI"
+      ]
+    },
+    "authoritativeSkillDigests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "authorityDigests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "activeBaselineIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "candidateIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "problemClassification": {
+      "enum": [
+        "owner-dispute",
+        "authority-dispute",
+        "component-api-ownership",
+        "design-system-capability-boundary"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "fsusui-owned",
+        "consumer-owned",
+        "authority-clarified",
+        "requires-authority-change"
+      ]
+    },
+    "allowedUiDecisionClass": {
+      "enum": [
+        "prescribed",
+        "bounded-composition",
+        "layout-judgment",
+        "interaction-judgment"
+      ]
+    },
+    "modifiedPaths": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "inScope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "outOfScope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requiredFollowUpIssue": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "const": "adjudicated"
+    },
+    "adjudicationDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

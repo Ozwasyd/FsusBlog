@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json.schemastore.org/launchsettings.json",
+    "profiles": {
+        "FsusBlog Docker Backend": {
+            "commandName": "DockerCompose",
+            "commandVersion": "1.0",
+            "composeLaunchAction": "None",
+            "serviceActions": {
+                "fsusblog.server": "StartDebugging"
+            }
+        }
+    }
+}

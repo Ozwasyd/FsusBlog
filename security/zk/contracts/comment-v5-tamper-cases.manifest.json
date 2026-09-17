@@ -1,0 +1,104 @@
+{
+    "schema": "fsusblog.zk.tamper-cases.v2",
+    "circuit_id": "fsus.anonymous.comment.v5",
+    "public_input_layout_version": 6,
+    "artifact_class": "tamper-contract",
+    "lifecycle": "active-test-contract",
+    "production_usable": false,
+    "valid_case": {
+        "id": "valid-minimal-policy-predicates",
+        "expected": "accept"
+    },
+    "tamper_cases": [
+        {
+            "id": "tamper-is-eligible",
+            "expected": "reject",
+            "mutates": [
+                "is_eligible",
+                "policy_comparison_witness"
+            ]
+        },
+        {
+            "id": "tamper-may-comment",
+            "expected": "reject",
+            "mutates": [
+                "may_comment",
+                "policy_comparison_witness"
+            ]
+        },
+        {
+            "id": "tamper-rate-class",
+            "expected": "reject",
+            "mutates": [
+                "rate_class",
+                "policy_comparison_witness"
+            ]
+        },
+        {
+            "id": "tamper-requires-moderation",
+            "expected": "reject",
+            "mutates": [
+                "requires_moderation",
+                "policy_comparison_witness"
+            ]
+        },
+        {
+            "id": "tamper-private-credential-level",
+            "expected": "reject",
+            "mutates": [
+                "signed_credential_level"
+            ]
+        },
+        {
+            "id": "tamper-private-reputation",
+            "expected": "reject",
+            "mutates": [
+                "signed_reputation_bucket"
+            ]
+        },
+        {
+            "id": "tamper-private-account-age",
+            "expected": "reject",
+            "mutates": [
+                "signed_account_age"
+            ]
+        },
+        {
+            "id": "tamper-root",
+            "expected": "reject",
+            "mutates": [
+                "credential_root",
+                "credential_membership_proof"
+            ]
+        },
+        {
+            "id": "tamper-revocation-root",
+            "expected": "reject",
+            "mutates": [
+                "revocation_root",
+                "revocation_non_membership_witness"
+            ]
+        },
+        {
+            "id": "tamper-scope",
+            "expected": "reject",
+            "mutates": [
+                "scope"
+            ]
+        },
+        {
+            "id": "tamper-non-current-layout",
+            "expected": "reject",
+            "mutates": [
+                "public_input_layout_version"
+            ]
+        },
+        {
+            "id": "inject-exact-attribute-public-input",
+            "expected": "reject",
+            "mutates": [
+                "public_inputs.credential_level"
+            ]
+        }
+    ]
+}

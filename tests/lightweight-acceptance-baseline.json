@@ -1,0 +1,290 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 1146,
+    "sourceCommit": "73c9c087",
+    "expectedRecords": 35,
+    "expectedMigrated": 31,
+    "expectedBrowserContract": 4,
+    "records": [
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:visible admin routes render cleanly"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#module-ia-preserves-deep-links-browser-back-local-curren-a6cc980e4e",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:module IA preserves deep links, browser back, local current state and account actions"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#audit-log-facet-summary-supports-quick-filter-url-toggle-0c520b6ca5",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:audit log facet summary supports quick filter URL toggle"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#moderation-workbench-applies-a-real-pending-comment-acti-05fd2be668",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:moderation workbench applies a real pending-comment action"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#dashboard-article-write-and-admin-workbench-actions-stay-b1a6a0529b",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:dashboard, article write and admin workbench actions stay usable"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#category-tag-settings-users-and-admin-message-center-sup-82a6b25819",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:category, tag, settings, users and admin message center support main actions"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#mobile-drawer-write-draft-and-quick-taxonomy-actions-sta-27a23f27fe",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "assertionTargets": [
+                "behavior:mobile drawer, write draft and quick taxonomy actions stay usable"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90",
+            "path": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
+            "assertionTargets": [
+                "behavior:register entry enables only after agreement and keeps step-up failures inline"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693",
+            "path": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
+            "assertionTargets": [
+                "behavior:login and register failures stay inline and explicit"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-fallback-and-article-social-images-load-with-cohere-22e82c1f6e",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:home fallback and article social images load with coherent metadata and natural dimensions"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#no-javascript-direct-loads-expose-the-same-authoritative-bf11462acd",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:no-JavaScript direct loads expose the same authoritative head contract"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-article-a-article-b-archive-category-tag-home-and-h-460e81e998",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:Home → article A → article B → archive → category → tag → Home and history keep one coherent head"
+            ],
+            "disposition": "browser-contract"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:visible public routes stay clean and aligned"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:article detail and search page stay clean"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#nonce-is-unique-and-production-trusted-types-reject-raw--442c7d0085",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:nonce is unique and production Trusted Types reject raw script sinks"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#search-is-server-noindex-bounded-to-one-url-and-stays-no-74a10d8d56",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:search is server-noindex, bounded to one URL, and stays noindex through SPA navigation"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#invalid-public-urls-stay-404-before-hydration-and-get-ma-63cc0a1241",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:invalid public URLs stay 404 before hydration and GET matches HEAD"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#trailing-slash-redirects-once-to-the-canonical-path-001e9e869f",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:trailing slash redirects once to the canonical path"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#legacy-tag-name-redirects-once-to-the-stable-id-canonica-0239e23c59",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:legacy tag name redirects once to the stable ID canonical"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#dev-entry-serves-public-aot-for-public-routes-and-spa-sh-6fd28a726d",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:dev entry serves public AOT for public routes and SPA shell for app routes"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#anonymous-routes-stay-stable-c53f6e7785",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:anonymous routes stay stable"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-silently-takes-over-full-app-after-first-inte-394354e37c",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:public AOT silently takes over full app after first intent"
+            ],
+            "disposition": "browser-contract"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-route-can-return-home-without-remount-or-hydr-aee9b5dccb",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:public AOT route can return home without remount or hydration mismatch"
+            ],
+            "disposition": "browser-contract"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#aot-home-click-article-should-navigate-to-article-withou-9fa2a8fe22",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:AOT home click article should navigate to article without takeover failure"
+            ],
+            "disposition": "browser-contract"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#guest-account-login-does-not-trigger-mfa-and-routes-stay-a2c96217f1",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:guest account login does not trigger MFA and routes stay stable"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-account-login-does-not-trigger-mfa-and-routes-stay-137fa61845",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:admin account login does not trigger MFA and routes stay stable"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#protected-redirect-flow-lands-on-requested-page-after-lo-a25fc2ddc1",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:protected redirect flow lands on requested page after login"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:article detail flow renders body comments and reading notice cleanly"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:search flow renders and allows sort switching without runtime errors"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#user-center-routes-render-key-panels-without-runtime-err-84fcb27128",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:user center routes render key panels without runtime errors"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-key-routes-render-first-screen-without-runtime-err-7e08ca0395",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "assertionTargets": [
+                "behavior:admin key routes render first screen without runtime errors"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "assertionTargets": [
+                "behavior:visible user routes load without runtime noise"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#profile-session-actions-and-delete-guard-stay-aligned-9113d42b9d",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "assertionTargets": [
+                "behavior:profile session actions and delete guard stay aligned"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-ffcadfa54d",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "assertionTargets": [
+                "behavior:message center can create a ticket and open detail cleanly"
+            ],
+            "disposition": "migrated"
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "assertionTargets": [
+                "behavior:passkey section is accessible and opens registration modal"
+            ],
+            "disposition": "migrated"
+        }
+    ]
+}

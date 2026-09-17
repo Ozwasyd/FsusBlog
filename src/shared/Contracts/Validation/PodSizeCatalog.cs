@@ -1,0 +1,174 @@
+using FsusBlog.Shared.Contracts.Envelopes;
+using FsusBlog.Shared.Contracts.Models;
+using FsusBlog.Shared.Contracts.Primitives;
+
+namespace FsusBlog.Shared.Contracts.Validation;
+
+/// <summary>
+/// Provides canonical byte sizes for fixed-layout POD wire contracts.
+/// </summary>
+public static class PodSizeCatalog
+{
+    public static readonly int Utf8Fixed32 = PodContractValidation.SizeOf<Utf8Fixed32>();
+    public static readonly int Utf8Fixed64 = PodContractValidation.SizeOf<Utf8Fixed64>();
+    public static readonly int Utf8Fixed128 = PodContractValidation.SizeOf<Utf8Fixed128>();
+    public static readonly int Utf8Fixed256 = PodContractValidation.SizeOf<Utf8Fixed256>();
+    public static readonly int Utf8Fixed512 = PodContractValidation.SizeOf<Utf8Fixed512>();
+    public static readonly int Utf8SliceRef = PodContractValidation.SizeOf<Utf8SliceRef>();
+
+    public static readonly int PodEnvelopeHeader = PodContractValidation.SizeOf<PodEnvelopeHeader>();
+    public static readonly int PageEnvelope = PodContractValidation.SizeOf<PageEnvelope>();
+    public static readonly int CursorEnvelope = PodContractValidation.SizeOf<CursorEnvelope>();
+    public static readonly int PagedPodEnvelope = PodContractValidation.SizeOf<PagedPodEnvelope>();
+    public static readonly int CursorPodEnvelope = PodContractValidation.SizeOf<CursorPodEnvelope>();
+
+    public static readonly int EmptySuccessPod = PodContractValidation.SizeOf<EmptySuccessPod>();
+    public static readonly int MutationIdPod = PodContractValidation.SizeOf<MutationIdPod>();
+    public static readonly int NameMutationRequestPod = PodContractValidation.SizeOf<NameMutationRequestPod>();
+    public static readonly int TaxonomyMetadataMutationRequestPod = PodContractValidation.SizeOf<TaxonomyMetadataMutationRequestPod>();
+    public static readonly int StringMutationRequestPod = PodContractValidation.SizeOf<StringMutationRequestPod>();
+    public static readonly int PasskeyCredentialFriendlyNameUpdateRequestPod = PodContractValidation.SizeOf<PasskeyCredentialFriendlyNameUpdateRequestPod>();
+    public static readonly int ApiErrorPod = PodContractValidation.SizeOf<ApiErrorPod>();
+
+    public static readonly int ArticleListItemPod = PodContractValidation.SizeOf<ArticleListItemPod>();
+    public static readonly int ArticleDetailPod = PodContractValidation.SizeOf<ArticleDetailPod>();
+    public static readonly int ArticleDetailV3HeaderPod = PodContractValidation.SizeOf<ArticleDetailV3HeaderPod>();
+    public static readonly int ArticleDetailV3RecordPod = PodContractValidation.SizeOf<ArticleDetailV3RecordPod>();
+    public static readonly int ArticleDetailV4HeaderPod = PodContractValidation.SizeOf<ArticleDetailV4HeaderPod>();
+    public static readonly int ArticleDetailV4RecordPod = PodContractValidation.SizeOf<ArticleDetailV4RecordPod>();
+    public static readonly int ArticleDetailV5RecordPod = PodContractValidation.SizeOf<ArticleDetailV5RecordPod>();
+    public static readonly int ArticleDetailTagV3RecordPod = PodContractValidation.SizeOf<ArticleDetailTagV3RecordPod>();
+    public static readonly int ArticleRightsV3RecordPod = PodContractValidation.SizeOf<ArticleRightsV3RecordPod>();
+    public static readonly int FeaturedArticlePod = PodContractValidation.SizeOf<FeaturedArticlePod>();
+    public static readonly int RelatedReadingHeaderPod = PodContractValidation.SizeOf<RelatedReadingHeaderPod>();
+    public static readonly int RelatedReadingItemPod = PodContractValidation.SizeOf<RelatedReadingItemPod>();
+    public static readonly int HumanReadChallengeRequestPod = PodContractValidation.SizeOf<HumanReadChallengeRequestPod>();
+    public static readonly int HumanReadChallengeResponsePod = PodContractValidation.SizeOf<HumanReadChallengeResponsePod>();
+    public static readonly int HumanReadSubmitRequestPod = PodContractValidation.SizeOf<HumanReadSubmitRequestPod>();
+    public static readonly int HumanReadSubmitResponsePod = PodContractValidation.SizeOf<HumanReadSubmitResponsePod>();
+    public static readonly int SecurityChallengeAssignmentPod = PodContractValidation.SizeOf<SecurityChallengeAssignmentPod>();
+    public static readonly int SecurityChallengeEnvelopePod = PodContractValidation.SizeOf<SecurityChallengeEnvelopePod>();
+    public static readonly int SecurityChallengeIssueRequestPod = PodContractValidation.SizeOf<SecurityChallengeIssueRequestPod>();
+    public static readonly int SecurityChallengeVerifyRequestPod = PodContractValidation.SizeOf<SecurityChallengeVerifyRequestPod>();
+    public static readonly int SecurityChallengeIssueResponsePod = PodContractValidation.SizeOf<SecurityChallengeIssueResponsePod>();
+    public static readonly int SecurityChallengeProviderPayloadPod = PodContractValidation.SizeOf<SecurityChallengeProviderPayloadPod>();
+    public static readonly int SecurityChallengeVerifyResponsePod = PodContractValidation.SizeOf<SecurityChallengeVerifyResponsePod>();
+    public static readonly int SecurityChallengeCancelRequestPod = PodContractValidation.SizeOf<SecurityChallengeCancelRequestPod>();
+    public static readonly int PerceptionSealedChallengeV2Pod = PodContractValidation.SizeOf<PerceptionSealedChallengeV2Pod>();
+    public static readonly int PerceptionSealedResultV2Pod = PodContractValidation.SizeOf<PerceptionSealedResultV2Pod>();
+    public static readonly int RumMetricBatchRequestPod = PodContractValidation.SizeOf<RumMetricBatchRequestPod>();
+    public static readonly int RumMetricItemPod = PodContractValidation.SizeOf<RumMetricItemPod>();
+    public static readonly int RumMetricValuePod = PodContractValidation.SizeOf<RumMetricValuePod>();
+    public static readonly int RumMetricDimensionPod = PodContractValidation.SizeOf<RumMetricDimensionPod>();
+    public static readonly int RumMetricIngestResponsePod = PodContractValidation.SizeOf<RumMetricIngestResponsePod>();
+    public static readonly int SiteSubscriptionRequestPod = PodContractValidation.SizeOf<SiteSubscriptionRequestPod>();
+    public static readonly int SiteSubscriptionResponsePod = PodContractValidation.SizeOf<SiteSubscriptionResponsePod>();
+    public static readonly int TagPod = PodContractValidation.SizeOf<TagPod>();
+    public static readonly int TagWithCountPod = PodContractValidation.SizeOf<TagWithCountPod>();
+    public static readonly int CategoryPod = PodContractValidation.SizeOf<CategoryPod>();
+    public static readonly int ArticleNoticePod = PodContractValidation.SizeOf<ArticleNoticePod>();
+    public static readonly int ArticleMutationResultPod = PodContractValidation.SizeOf<ArticleMutationResultPod>();
+    public static readonly int TrashClearResponsePod = PodContractValidation.SizeOf<TrashClearResponsePod>();
+    public static readonly int ArticleWriteRequestPod = PodContractValidation.SizeOf<ArticleWriteRequestPod>();
+    public static readonly int ArticleRightsWriteRequestPod = PodContractValidation.SizeOf<ArticleRightsWriteRequestPod>();
+
+    public static readonly int CommentItemPod = PodContractValidation.SizeOf<CommentItemPod>();
+    public static readonly int UserCommentPod = PodContractValidation.SizeOf<UserCommentPod>();
+    public static readonly int CommentPolicySnapshotPod = 41;
+    public static readonly int CommentPolicyUpdateRequestPod = 26;
+    public static readonly int CommentCreateV2RequestPod = PodContractValidation.SizeOf<CommentCreateV2RequestPod>();
+    public static readonly int CommentCreateResultPod = PodContractValidation.SizeOf<CommentCreateResultPod>();
+    public static readonly int CommentAuthorViewPod = PodContractValidation.SizeOf<CommentAuthorViewPod>();
+    public static readonly int BlindCredentialIssuerMetadataPod = PodContractValidation.SizeOf<BlindCredentialIssuerMetadataPod>();
+    public static readonly int BlindCredentialIssueRequestPod = PodContractValidation.SizeOf<BlindCredentialIssueRequestPod>();
+    public static readonly int BlindCredentialIssueResponsePod = PodContractValidation.SizeOf<BlindCredentialIssueResponsePod>();
+    public static readonly int AnonymousCredentialRootSnapshotPod = PodContractValidation.SizeOf<AnonymousCredentialRootSnapshotPod>();
+    public static readonly int AnonymousCommentTicketRequestPod = PodContractValidation.SizeOf<AnonymousCommentTicketRequestPod>();
+    public static readonly int AnonymousCommentTicketResponsePod = PodContractValidation.SizeOf<AnonymousCommentTicketResponsePod>();
+    public static readonly int AnonymousCommentCreateRequestPod = PodContractValidation.SizeOf<AnonymousCommentCreateRequestPod>();
+    public static readonly int AnonymousPrivacyStateSnapshotPod = PodContractValidation.SizeOf<AnonymousPrivacyStateSnapshotPod>();
+    public static readonly int CommentThreadItemPod = PodContractValidation.SizeOf<CommentThreadItemPod>();
+    public static readonly int CommentReplyItemPod = PodContractValidation.SizeOf<CommentReplyItemPod>();
+    public static readonly int CommentThreadCursorPod = PodContractValidation.SizeOf<CommentThreadCursorPod>();
+    public static readonly int CommentReplyCursorPod = PodContractValidation.SizeOf<CommentReplyCursorPod>();
+    public static readonly int CommentTreeNodePod = PodContractValidation.SizeOf<CommentTreeNodePod>();
+    public static readonly int CommentChildCursorPod = PodContractValidation.SizeOf<CommentChildCursorPod>();
+    public static readonly int CommentPermalinkContextPod = PodContractValidation.SizeOf<CommentPermalinkContextPod>();
+
+    public static readonly int MessageInboxPod = PodContractValidation.SizeOf<MessageInboxPod>();
+    public static readonly int CommentPushPod = PodContractValidation.SizeOf<CommentPushPod>();
+    public static readonly int CommentAddedNotifyPod = PodContractValidation.SizeOf<CommentAddedNotifyPod>();
+    public static readonly int GlobalNoticePayloadPod = PodContractValidation.SizeOf<GlobalNoticePayloadPod>();
+    public static readonly int MessageRevokedPayloadPod = PodContractValidation.SizeOf<MessageRevokedPayloadPod>();
+    public static readonly int AccountStatusPayloadPod = PodContractValidation.SizeOf<AccountStatusPayloadPod>();
+    public static readonly int NoticePayloadPod = PodContractValidation.SizeOf<NoticePayloadPod>();
+    public static readonly int CommentRemovedPayloadPod = PodContractValidation.SizeOf<CommentRemovedPayloadPod>();
+    public static readonly int ConversationMessagePreviewPod = PodContractValidation.SizeOf<ConversationMessagePreviewPod>();
+    public static readonly int ConversationListItemPod = PodContractValidation.SizeOf<ConversationListItemPod>();
+    public static readonly int AdminConversationListItemPod = PodContractValidation.SizeOf<AdminConversationListItemPod>();
+    public static readonly int ConversationMessagePod = PodContractValidation.SizeOf<ConversationMessagePod>();
+    public static readonly int ConversationDetailPod = PodContractValidation.SizeOf<ConversationDetailPod>();
+    public static readonly int ConversationDetailV2Pod = PodContractValidation.SizeOf<ConversationDetailV2Pod>();
+    public static readonly int ConversationDetailV3Pod = PodContractValidation.SizeOf<ConversationDetailV3Pod>();
+    public static readonly int AdminConversationDetailPod = PodContractValidation.SizeOf<AdminConversationDetailPod>();
+    public static readonly int ConversationReadRequestPod = PodContractValidation.SizeOf<ConversationReadRequestPod>();
+    public static readonly int AccountConversationReplyRequestPod = PodContractValidation.SizeOf<AccountConversationReplyRequestPod>();
+    public static readonly int ConversationCreateRequestPod = PodContractValidation.SizeOf<ConversationCreateRequestPod>();
+    public static readonly int ConversationStatusRequestPod = PodContractValidation.SizeOf<ConversationStatusRequestPod>();
+    public static readonly int ConversationStatusMutationResultPod = PodContractValidation.SizeOf<ConversationStatusMutationResultPod>();
+    public static readonly int SystemMessageRequestPod = PodContractValidation.SizeOf<SystemMessageRequestPod>();
+
+    public static readonly int TokenResponsePod = PodContractValidation.SizeOf<TokenResponsePod>();
+    public static readonly int LoginResponsePod = PodContractValidation.SizeOf<LoginResponsePod>();
+    public static readonly int AuthLoginFlowPod = PodContractValidation.SizeOf<AuthLoginFlowPod>();
+    public static readonly int CurrentUserSnapshotPod = PodContractValidation.SizeOf<CurrentUserSnapshotPod>();
+    public static readonly int IdentityAccountSnapshotPod = PodContractValidation.SizeOf<IdentityAccountSnapshotPod>();
+    public static readonly int UserLocalePreferencePod = PodContractValidation.SizeOf<UserLocalePreferencePod>();
+    public static readonly int UserLocalePreferenceUpdateRequestPod = PodContractValidation.SizeOf<UserLocalePreferenceUpdateRequestPod>();
+    public static readonly int AuthAnonymousBootstrapRequestPod = PodContractValidation.SizeOf<AuthAnonymousBootstrapRequestPod>();
+    public static readonly int AuthDeleteAccountRequestPod = PodContractValidation.SizeOf<AuthDeleteAccountRequestPod>();
+    public static readonly int UserSessionSummaryPod = PodContractValidation.SizeOf<UserSessionSummaryPod>();
+    public static readonly int AdminSessionSummaryPod = PodContractValidation.SizeOf<AdminSessionSummaryPod>();
+    public static readonly int MfaSetupStartPod = PodContractValidation.SizeOf<MfaSetupStartPod>();
+    public static readonly int MfaSetupVerifyPod = PodContractValidation.SizeOf<MfaSetupVerifyPod>();
+    public static readonly int MfaRecoveryCodePod = PodContractValidation.SizeOf<MfaRecoveryCodePod>();
+    public static readonly int MfaProfilePod = PodContractValidation.SizeOf<MfaProfilePod>();
+    public static readonly int MfaChallengeResultPod = PodContractValidation.SizeOf<MfaChallengeResultPod>();
+    public static readonly int MfaPasswordProofRequestPod = PodContractValidation.SizeOf<MfaPasswordProofRequestPod>();
+    public static readonly int MfaChallengeVerifyRequestPod = PodContractValidation.SizeOf<MfaChallengeVerifyRequestPod>();
+    public static readonly int RecoveryKeyCreateResponsePod = PodContractValidation.SizeOf<RecoveryKeyCreateResponsePod>();
+    public static readonly int RecoveryKeyVerifyRequestPod = PodContractValidation.SizeOf<RecoveryKeyVerifyRequestPod>();
+    public static readonly int RecoveryKeyVerifyResponsePod = PodContractValidation.SizeOf<RecoveryKeyVerifyResponsePod>();
+    public static readonly int UserListItemPod = PodContractValidation.SizeOf<UserListItemPod>();
+    public static readonly int UserListPagePod = PodContractValidation.SizeOf<UserListPagePod>();
+    public static readonly int AdminChangeUserStatusRequestPod = PodContractValidation.SizeOf<AdminChangeUserStatusRequestPod>();
+    public static readonly int PasskeyPublicKeyCredentialParamPod = PodContractValidation.SizeOf<PasskeyPublicKeyCredentialParamPod>();
+    public static readonly int PasskeyCredentialDescriptorPod = PodContractValidation.SizeOf<PasskeyCredentialDescriptorPod>();
+    public static readonly int PasskeyRegisterBeginPod = PodContractValidation.SizeOf<PasskeyRegisterBeginPod>();
+    public static readonly int PasskeyLoginBeginPod = PodContractValidation.SizeOf<PasskeyLoginBeginPod>();
+    public static readonly int PasskeyRegisterCompleteRequestPod = PodContractValidation.SizeOf<PasskeyRegisterCompleteRequestPod>();
+    public static readonly int PasskeyLoginCompleteRequestPod = PodContractValidation.SizeOf<PasskeyLoginCompleteRequestPod>();
+    public static readonly int PasskeyCredentialSummaryPod = PodContractValidation.SizeOf<PasskeyCredentialSummaryPod>();
+    public static readonly int PasskeySignalStatePod = PodContractValidation.SizeOf<PasskeySignalStatePod>();
+    public static readonly int PasskeySignalCredentialPod = PodContractValidation.SizeOf<PasskeySignalCredentialPod>();
+
+    public static readonly int SeoConfigPod = PodContractValidation.SizeOf<SeoConfigPod>();
+    public static readonly int PageContentPod = PodContractValidation.SizeOf<PageContentPod>();
+    public static readonly int SiteComplianceConfigPod = PodContractValidation.SizeOf<SiteComplianceConfigPod>();
+
+    public static readonly int PopularArticlePod = PodContractValidation.SizeOf<PopularArticlePod>();
+    public static readonly int RecentCommentPod = PodContractValidation.SizeOf<RecentCommentPod>();
+    public static readonly int RegionDistributionPod = PodContractValidation.SizeOf<RegionDistributionPod>();
+    public static readonly int SiteStatsPod = PodContractValidation.SizeOf<SiteStatsPod>();
+
+    public static readonly int FileUploadOutputPod = PodContractValidation.SizeOf<FileUploadOutputPod>();
+    public static readonly int UploadInitPod = PodContractValidation.SizeOf<UploadInitPod>();
+    public static readonly int UploadStatusPod = PodContractValidation.SizeOf<UploadStatusPod>();
+    public static readonly int UploadPartMapPod = PodContractValidation.SizeOf<UploadPartMapPod>();
+    public static readonly int UploadPartRangePod = PodContractValidation.SizeOf<UploadPartRangePod>();
+    public static readonly int UploadPartAckPod = PodContractValidation.SizeOf<UploadPartAckPod>();
+    public static readonly int UploadCompletePod = PodContractValidation.SizeOf<UploadCompletePod>();
+    public static readonly int UploadInitRequestPod = PodContractValidation.SizeOf<UploadInitRequestPod>();
+    public static readonly int UploadCompleteRequestPod = PodContractValidation.SizeOf<UploadCompleteRequestPod>();
+    public static readonly int PowChallengePod = PodContractValidation.SizeOf<PowChallengePod>();
+}

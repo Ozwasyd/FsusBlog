@@ -1,0 +1,13 @@
+version: fsusblog-openapi-policy-v1
+defaults:
+    contentType: application/octet-stream
+    protocol: AEDS
+    aedsVersion: 2
+    errorFrame: ApiError
+allowedAuthClassifications:
+    - anonymous
+    - optional
+    - user
+    - admin
+serverOnlyOperations: []
+testOnlyOperations: []

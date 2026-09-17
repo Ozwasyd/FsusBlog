@@ -1,0 +1,1183 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "FsusBlog Test Matrix",
+    "type": "object",
+    "required": [
+        "version",
+        "governance",
+        "aggregateAuthorities",
+        "finalizerAuthorities",
+        "commandGroups",
+        "tiers"
+    ],
+    "properties": {
+        "version": {
+            "type": "string",
+            "pattern": "^fsusblog-test-matrix-v[0-9]+$"
+        },
+        "namespaceTemplate": {
+            "type": "string"
+        },
+        "governance": {
+            "type": "object",
+            "required": [
+                "retention",
+                "sourceLocking",
+                "retiredTiers"
+            ],
+            "properties": {
+                "retention": {
+                    "type": "object",
+                    "required": [
+                        "baseline",
+                        "replacementLedger",
+                        "postBaselines",
+                        "auditOutput",
+                        "automaticDeletion"
+                    ],
+                    "properties": {
+                        "baseline": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "replacementLedger": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "postBaselines": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "uniqueItems": true
+                        },
+                        "auditOutput": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "automaticDeletion": {
+                            "const": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "sourceLocking": {
+                    "type": "object",
+                    "required": [
+                        "backendOwner",
+                        "frontendOwner",
+                        "fixtureReaderOwners",
+                        "delegatedOwners"
+                    ],
+                    "properties": {
+                        "backendOwner": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "frontendOwner": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "fixtureReaderOwners": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/owner"
+                            }
+                        },
+                        "delegatedOwners": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/delegatedOwner"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "retiredTiers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "from",
+                            "to",
+                            "coverageIds",
+                            "reason"
+                        ],
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "coverageIds": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "minItems": 1,
+                                "uniqueItems": true
+                            },
+                            "reason": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "scope": {
+                                "type": "string"
+                            },
+                            "catalogReplacements": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "aggregateAuthorities": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "commandKind",
+                    "ciJob",
+                    "summaryTierIds",
+                    "inputReceiptSchemas",
+                    "outputReceiptSchema"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "commandKind": {
+                        "const": "aggregate"
+                    },
+                    "ciJob": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "summaryTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]*$"
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputReceiptSchemas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "receiptAuthorities": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "commandKind",
+                    "commandSourceId",
+                    "command",
+                    "summaryTierIds",
+                    "inputTierIds",
+                    "inputReceiptSchemas",
+                    "outputReceiptSchema"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "commandKind": {
+                        "const": "receipt"
+                    },
+                    "commandSourceId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "command": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "summaryTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputReceiptSchemas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "finalizerAuthorities": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "commandKind",
+                    "command",
+                    "summaryTierIds",
+                    "inputContractSchema",
+                    "outputReceiptSchema"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "commandKind": {
+                        "const": "finalizer"
+                    },
+                    "command": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "summaryTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputContractSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "commandGroups": {
+            "type": "object",
+            "required": [
+                "frontend-static-governance",
+                "frontend-runtime-contracts"
+            ],
+            "properties": {
+                "frontend-static-governance": {
+                    "$ref": "#/$defs/commandGroup"
+                },
+                "frontend-runtime-contracts": {
+                    "$ref": "#/$defs/commandGroup"
+                }
+            },
+            "additionalProperties": false
+        },
+        "localProfiles": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": [
+                    "budgetMs",
+                    "minimumSupportedCpuUnits",
+                    "memoryReserveShare",
+                    "bundles",
+                    "summaryOnly"
+                ],
+                "properties": {
+                    "budgetMs": {
+                        "type": "number",
+                        "minimum": 1
+                    },
+                    "minimumSupportedCpuUnits": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "enforceBudget": {
+                        "type": "boolean"
+                    },
+                    "memoryReserveShare": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "exclusiveMaximum": 1
+                    },
+                    "summaryOnly": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "uniqueItems": true
+                    },
+                    "externalAuthorities": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "bundles": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "id",
+                                "command",
+                                "deadlineWeight",
+                                "dependsOn",
+                                "members",
+                                "resourceClass",
+                                "cpuWeight",
+                                "memoryWeight",
+                                "minCpuUnits",
+                                "exclusiveResources"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9-]*$"
+                                },
+                                "command": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "deadlineWeight": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "minimumDeadlineShare": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "exclusiveMaximum": 1
+                                },
+                                "dependsOn": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "uniqueItems": true
+                                },
+                                "members": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "uniqueItems": true
+                                },
+                                "resourceClass": {
+                                    "type": "string",
+                                    "enum": [
+                                        "cpu",
+                                        "io",
+                                        "browser",
+                                        "network",
+                                        "benchmark",
+                                        "database"
+                                    ]
+                                },
+                                "cpuWeight": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "memoryWeight": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "minCpuUnits": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "startupMinCpuUnits": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "startupMemoryWeight": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "startupPriority": {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "artifactSubstitutions": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "uniqueItems": true
+                                },
+                                "exclusiveResources": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "uniqueItems": true
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "tiers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "owner",
+                    "command",
+                    "executionDependsOn",
+                    "services",
+                    "parallelizable",
+                    "exclusiveResources",
+                    "phase",
+                    "cost",
+                    "resourceClass",
+                    "cpuWeight",
+                    "memoryWeight",
+                    "minCpuUnits",
+                    "requiresBootstrap",
+                    "requiresNode",
+                    "requiresDotnet",
+                    "requiresPlaywright",
+                    "cacheProfile",
+                    "timeoutMinutes",
+                    "shardable",
+                    "risk",
+                    "cadence",
+                    "requiredFor",
+                    "coverage",
+                    "artifacts",
+                    "evidence",
+                    "ciJob",
+                    "localOnly",
+                    "nightlyOnly",
+                    "fixtureProfile",
+                    "fixtureProfileReason",
+                    "fixtureProfileProof",
+                    "fixtureMutatorAllowed",
+                    "executionClass"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "owner": {
+                        "type": "string"
+                    },
+                    "executionClass": {
+                        "type": "string",
+                        "enum": [
+                            "acceptance",
+                            "benchmark",
+                            "browser",
+                            "build",
+                            "coordination",
+                            "diagnostic",
+                            "development",
+                            "load",
+                            "runtime",
+                            "security",
+                            "static-governance"
+                        ]
+                    },
+                    "qualificationEligible": {
+                        "type": "boolean"
+                    },
+                    "executionMode": {
+                        "type": "string",
+                        "enum": [
+                            "execute",
+                            "projection",
+                            "summary"
+                        ],
+                        "default": "execute"
+                    },
+                    "commandKind": {
+                        "type": "string",
+                        "enum": [
+                            "aggregate",
+                            "finalizer",
+                            "producer",
+                            "projection",
+                            "receipt"
+                        ]
+                    },
+                    "summaryAuthority": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "summaryInputs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "executionOwner": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "projectFrom": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            {
+                                "type": "array",
+                                "minItems": 2,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "uniqueItems": true
+                            }
+                        ]
+                    },
+                    "projectionCatalog": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "requiredTestIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "requiredCoverageIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "requiredArtifactDeclarations": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "id",
+                                "path"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "requiresEvidenceFrom": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "executionDependsOn": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "command": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "services": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "runtimeMode": {
+                        "type": "string",
+                        "enum": [
+                            "single",
+                            "static-role",
+                            "adaptive"
+                        ],
+                        "default": "single"
+                    },
+                    "nodeCount": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3,
+                        "default": 1
+                    },
+                    "artifactStorage": {
+                        "type": "string",
+                        "enum": [
+                            "local",
+                            "shared-volume"
+                        ],
+                        "default": "local"
+                    },
+                    "coordinationStore": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "redis"
+                        ],
+                        "default": "none"
+                    },
+                    "clusterScenario": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "convergence",
+                            "handoff",
+                            "notification",
+                            "lease"
+                        ],
+                        "default": "none"
+                    },
+                    "clusterBootstrap": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "homogeneous"
+                        ],
+                        "default": "none"
+                    },
+                    "clusterFixtures": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "shared-postgres",
+                                "shared-redis",
+                                "shared-artifact-storage"
+                            ]
+                        },
+                        "uniqueItems": true,
+                        "default": []
+                    },
+                    "parallelizable": {
+                        "type": "boolean"
+                    },
+                    "serialReason": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "exclusiveResources": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "countedResources": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "schedulerAuthority": {
+                        "type": "string",
+                        "const": "release-reliability-scenario-catalog"
+                    },
+                    "schedulerProfileDigest": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "timeoutPolicyId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "phase": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "cost": {
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "very-high"
+                        ]
+                    },
+                    "resourceClass": {
+                        "type": "string",
+                        "enum": [
+                            "cpu",
+                            "io",
+                            "browser",
+                            "network",
+                            "benchmark",
+                            "database"
+                        ]
+                    },
+                    "cpuWeight": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    },
+                    "memoryWeight": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    },
+                    "minCpuUnits": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "maxParallel": {
+                        "type": "integer",
+                        "const": 1
+                    },
+                    "executionKey": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+                    },
+                    "executionVariant": {
+                        "type": "string",
+                        "enum": [
+                            "ordinary",
+                            "coverage",
+                            "property",
+                            "model",
+                            "performance",
+                            "runtime"
+                        ]
+                    },
+                    "supersedes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]*$"
+                        },
+                        "uniqueItems": true
+                    },
+                    "cacheInputs": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "requiresBootstrap": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "frontend",
+                            "backend",
+                            "full"
+                        ]
+                    },
+                    "fixtureProfile": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                    },
+                    "selfBootstraps": {
+                        "type": "boolean"
+                    },
+                    "workflowBootstraps": {
+                        "type": "boolean"
+                    },
+                    "prDefault": {
+                        "type": "boolean"
+                    },
+                    "triggerPaths": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "triggerFiles": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "triggerCoverage": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "triggerReason": {
+                        "type": "string"
+                    },
+                    "smartGateMode": {
+                        "type": "string",
+                        "enum": [
+                            "always",
+                            "conditional",
+                            "full-only"
+                        ]
+                    },
+                    "retentionClass": {
+                        "type": "string",
+                        "enum": [
+                            "must-keep",
+                            "conditional",
+                            "redundant-candidate",
+                            "obsolete"
+                        ]
+                    },
+                    "requiresNode": {
+                        "type": "boolean"
+                    },
+                    "requiresDotnet": {
+                        "type": "boolean"
+                    },
+                    "requiresPlaywright": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "chromium",
+                            "all"
+                        ]
+                    },
+                    "evidenceClass": {
+                        "type": "string",
+                        "enum": [
+                            "correctness",
+                            "browser-contract",
+                            "diagnostic"
+                        ]
+                    },
+                    "cacheProfile": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "frontend",
+                            "backend",
+                            "full"
+                        ]
+                    },
+                    "timeoutMinutes": {
+                        "type": "number",
+                        "minimum": 1
+                    },
+                    "shardable": {
+                        "type": "boolean"
+                    },
+                    "defaultShards": {
+                        "type": "integer",
+                        "const": 1
+                    },
+                    "risk": {
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "critical"
+                        ]
+                    },
+                    "cadence": {
+                        "type": "string",
+                        "enum": [
+                            "pr",
+                            "push",
+                            "nightly",
+                            "release-manual"
+                        ]
+                    },
+                    "requiredFor": {
+                        "type": "string",
+                        "enum": [
+                            "fast",
+                            "production",
+                            "release-final",
+                            "none"
+                        ]
+                    },
+                    "coverage": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "artifacts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "ciJob": {
+                        "type": "string"
+                    },
+                    "localOnly": {
+                        "type": "boolean"
+                    },
+                    "nightlyOnly": {
+                        "type": "boolean"
+                    },
+                    "manualOnly": {
+                        "type": "boolean"
+                    },
+                    "fixtureProfileReason": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "fixtureProfileProof": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "fixtureMutatorAllowed": {
+                        "type": "boolean"
+                    }
+                },
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {
+                                "parallelizable": {
+                                    "const": false
+                                }
+                            },
+                            "required": [
+                                "parallelizable"
+                            ]
+                        },
+                        "then": {
+                            "required": [
+                                "maxParallel"
+                            ]
+                        },
+                        "else": {
+                            "not": {
+                                "required": [
+                                    "maxParallel"
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {
+                                "shardable": {
+                                    "const": false
+                                }
+                            },
+                            "required": [
+                                "shardable"
+                            ]
+                        },
+                        "then": {
+                            "required": [
+                                "defaultShards"
+                            ]
+                        },
+                        "else": {
+                            "not": {
+                                "required": [
+                                    "defaultShards"
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {
+                                "executionMode": {
+                                    "const": "projection"
+                                }
+                            },
+                            "required": [
+                                "executionMode"
+                            ]
+                        },
+                        "then": {
+                            "required": [
+                                "executionOwner",
+                                "projectFrom",
+                                "projectionCatalog",
+                                "requiredTestIds",
+                                "requiredCoverageIds",
+                                "requiredArtifactDeclarations",
+                                "requiresEvidenceFrom"
+                            ]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {
+                                "executionMode": {
+                                    "const": "summary"
+                                }
+                            },
+                            "required": [
+                                "executionMode"
+                            ]
+                        },
+                        "then": {
+                            "required": [
+                                "commandKind",
+                                "summaryInputs",
+                                "outputReceiptSchema"
+                            ]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {
+                                "commandKind": {
+                                    "enum": [
+                                        "aggregate",
+                                        "finalizer",
+                                        "receipt"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "commandKind"
+                            ]
+                        },
+                        "then": {
+                            "required": [
+                                "summaryAuthority"
+                            ]
+                        }
+                    }
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false,
+    "$defs": {
+        "owner": {
+            "type": "object",
+            "required": [
+                "path",
+                "reason"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "additionalProperties": false
+        },
+        "delegatedOwner": {
+            "type": "object",
+            "required": [
+                "path",
+                "owner"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "owner": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "additionalProperties": false
+        },
+        "commandGroup": {
+            "type": "object",
+            "required": [
+                "schema",
+                "lane",
+                "commands"
+            ],
+            "properties": {
+                "schema": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "lane": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "commands": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object"
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}

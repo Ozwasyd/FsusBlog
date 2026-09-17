@@ -1,0 +1,248 @@
+/*
+ * FsusBlog motion governance.
+ *
+ * Preset enter/leave/reveal motion is owned by FsusUI via
+ * @ozwasyd/element-plus/motion (see `src/frontend/src/fsusui/blogMotion.ts`
+ * for the Blog-only surface mappings). These CSS aliases are reserved for
+ * application state feedback that is not exposed as an FsusUI preset.
+ */
+
+:root
+ {
+    --blog-motion-fast: var(--fsus-motion-control-fast, 140ms);
+    --blog-motion-control: var(--fsus-motion-control, 220ms);
+    --blog-motion-panel: var(--fsus-motion-panel, 360ms);
+    --blog-motion-overlay: var(--fsus-motion-overlay, 300ms);
+    --blog-motion-ease: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
+    --blog-motion-ease-emphasized: var(--fsus-motion-emphasized, var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)));
+    --blog-motion-highlight-bg: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 5%, transparent);
+    --blog-motion-highlight-border: color-mix(in srgb, var(--fsusblog-color-primary, Highlight) 6%, transparent);
+}
+
+.blog-motion-page-enter,
+.blog-motion-panel-enter
+ {
+    animation: blog-motion-page-enter var(--blog-motion-panel) var(--blog-motion-ease) both;
+}
+
+.blog-motion-state-change
+ {
+    transition:
+        background-color var(--blog-motion-fast) var(--blog-motion-ease),
+        border-color var(--blog-motion-fast) var(--blog-motion-ease),
+        color var(--blog-motion-fast) var(--blog-motion-ease),
+        opacity var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.blog-motion-task-region
+ {
+    transition:
+        background-color var(--blog-motion-fast) var(--blog-motion-ease),
+        border-color var(--blog-motion-fast) var(--blog-motion-ease),
+        opacity var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.blog-motion-task-region--pending
+ {
+    opacity: 0.74;
+}
+
+.blog-motion-task-region--settled
+ {
+    animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
+}
+
+.blog-motion-reading-control
+ {
+    transition:
+        background-color var(--blog-motion-fast) var(--blog-motion-ease),
+        border-color var(--blog-motion-fast) var(--blog-motion-ease),
+        color var(--blog-motion-fast) var(--blog-motion-ease),
+        opacity var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.blog-motion-mobile-bar
+ {
+    transition:
+        opacity var(--blog-motion-fast) var(--blog-motion-ease),
+        transform var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.blog-motion-reading-target
+ {
+    animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
+}
+
+.blog-motion-row-state
+ {
+    transition:
+        background-color var(--blog-motion-fast) var(--blog-motion-ease),
+        border-color var(--blog-motion-fast) var(--blog-motion-ease),
+        box-shadow var(--blog-motion-fast) var(--blog-motion-ease),
+        color var(--blog-motion-fast) var(--blog-motion-ease),
+        opacity var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.blog-motion-row-pending
+ {
+    opacity: 0.72;
+}
+
+.blog-motion-row-updated
+ {
+    animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
+}
+
+.blog-motion-row-error
+ {
+    background-color: color-mix(in srgb, var(--fsusblog-admin-status-danger, var(--fsusblog-color-error, CanvasText)) 5%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fsusblog-admin-status-danger, var(--fsusblog-color-error, CanvasText)) 16%, transparent);
+}
+
+.blog-motion-summary-enter
+ {
+    animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
+}
+
+.blog-motion-highlight
+ {
+    animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
+}
+
+.blog-motion-safe-transform
+ {
+    transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.fsusblog-motion-toast--viewport-bottom
+ {
+    position: fixed !important;
+    left: 50%;
+    top: auto !important;
+    bottom: calc(var(--fsus-safe-area-inset-bottom) + 1rem);
+    box-sizing: border-box;
+    max-inline-size: calc(100vw - 2rem);
+    transform: translate3d(-50%, calc(var(--el-message-stack-y, 0px) * -1), 0);
+}
+
+.fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-enter-from'],
+.fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-leave-to']
+ {
+    opacity: 0;
+    transform: translate3d(-50%, calc((var(--el-message-stack-y, 0px) * -1) + 0.75rem), 0);
+}
+
+.fsusblog-motion-toast--viewport-bottom [class~='el-message__icon']
+ {
+    display: none;
+}
+
+.fsusblog-motion-toast--viewport-bottom [class~='el-message__content'],
+.fsusblog-motion-toast--viewport-bottom [aria-live]
+ {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.fsusblog-motion-toast--viewport-bottom [aria-live]
+ {
+    display: inline-block;
+}
+
+@keyframes blog-motion-page-enter
+ {
+    from
+ {
+        opacity: 0;
+        transform: translateY(0.75rem);
+    }
+
+    to
+ {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes blog-motion-highlight
+ {
+    0%
+ {
+        background-color: var(--blog-motion-highlight-bg);
+        box-shadow: inset 0 0 0 1px var(--blog-motion-highlight-border);
+    }
+
+    100%
+ {
+        background-color: transparent;
+        box-shadow: inset 0 0 0 1px transparent;
+    }
+}
+
+@keyframes fsus-navigation-progress
+ {
+    0%
+ {
+        transform: scaleX(0);
+    }
+
+    70%
+ {
+        transform: scaleX(0.82);
+    }
+
+    100%
+ {
+        transform: scaleX(0.94);
+    }
+}
+
+@media (prefers-reduced-motion: reduce)
+ {
+    html:focus-within
+ {
+        scroll-behavior: auto;
+    }
+
+    .blog-motion-page-enter,
+    .blog-motion-panel-enter,
+    .blog-motion-state-change,
+    .blog-motion-task-region,
+    .blog-motion-task-region--pending,
+    .blog-motion-task-region--settled,
+    .blog-motion-reading-control,
+    .blog-motion-mobile-bar,
+    .blog-motion-reading-target,
+    .blog-motion-row-state,
+    .blog-motion-row-pending,
+    .blog-motion-row-updated,
+    .blog-motion-row-error,
+    .blog-motion-summary-enter,
+    .blog-motion-highlight,
+    .blog-motion-safe-transform,
+    .fsusblog-motion-toast--viewport-bottom,
+    .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-enter-from'],
+    .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-leave-to']
+ {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .fsusblog-motion-toast--viewport-bottom,
+    .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-enter-from'],
+    .fsusblog-motion-toast--viewport-bottom[class~='el-message-fade-leave-to']
+ {
+        transform: translate3d(-50%, calc(var(--el-message-stack-y, 0px) * -1), 0) !important;
+    }
+}
+
+@keyframes locale-selector-spin
+ {
+    to
+ {
+        transform: rotate(360deg);
+    }
+}

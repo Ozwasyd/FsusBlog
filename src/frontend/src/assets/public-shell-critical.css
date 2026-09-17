@@ -1,0 +1,17 @@
+/* src/assets/public-shell-critical.css */
+
+/* IMPORTANT: fsus-theme product overrides MUST be imported LAST. They
+   live in their own per-component CSS bundle (dist/el-fsus-theme.css)
+   after fsus-theme.scss was extracted out of dist/index.css (see
+   FsusUI packages/theme-chalk/src/index.scss). When an fsus-theme
+   override has the same specificity as an element-plus base rule,
+   source order is the only thing that determines the winner — so the
+   base files above must come first. The order below is intentional:
+     public-shell-critical  →  base element-plus CSS  →  fsus-theme overrides */
+@import '@ozwasyd/element-plus/dist/public-shell-critical.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-var.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-radio-group.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-radio-button.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-theme-mode-toggle.css';
+@import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
+@import '@/assets/public-shell-foundation.css';

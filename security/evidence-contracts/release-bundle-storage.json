@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.release-evidence-storage.v1",
+    "evidenceClass": "contract",
+    "freshExecution": false,
+    "releaseBound": false,
+    "productionFreshRun": false,
+    "generatedFrom": {
+        "kind": "repository-governance-contract",
+        "source": "issue-1169"
+    },
+    "authority": {
+        "type": "github-actions-artifact",
+        "workflow": ".github/workflows/release-evidence-storage.yml",
+        "artifactNameTemplate": "fsusblog-release-evidence-{releaseId}",
+        "immutableWithinWorkflowRun": true,
+        "overwriteAllowed": false
+    },
+    "retention": {
+        "days": 90,
+        "deletionPolicy": "expire-after-retention-unless-legal-or-audit-hold",
+        "legalHoldPolicy": "repository-owner-recorded-hold-suspends-expiry",
+        "auditHoldPolicy": "open-security-or-release-investigation-suspends-expiry",
+        "rollbackReferencePolicy": "retain-while-the-release-is-an-active-or-supported-rollback-target"
+    },
+    "releaseIndex": {
+        "schema": "fsusblog.release-evidence-index.v1",
+        "generatedOnlyAfterRequireOk": true,
+        "trackedByDefault": false,
+        "bundleFetchAndDigestVerificationRequired": true
+    }
+}

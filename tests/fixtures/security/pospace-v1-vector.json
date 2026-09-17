@@ -1,0 +1,31 @@
+{
+  "assignment": {
+    "challengeId": "01900000-0000-7000-8000-000000000000",
+    "action": "auth.login",
+    "routeKey": "auth.login",
+    "subjectHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "clientIpHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "deviceFpHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "policyVersion": "risk-policy-v2"
+  },
+  "providerPayload": {
+    "algorithm": "fsu.pospace/argon2id@v1",
+    "saltHex": "000102030405060708090a0b0c0d0e0f",
+    "memoryKib": "19456",
+    "iterations": "2",
+    "lanes": "1",
+    "targetDurationMs": "100"
+  },
+  "nonceHex": "00112233445566778899aabbccddeeff",
+  "expectedProofHex": "b3125c3ae22f4e6e2d5aad929304cf5d2672dca2f8dca3c19480f13ab2fd8b32",
+  "verifyPayload": {
+    "algorithm": "fsu.pospace/argon2id@v1",
+    "saltHex": "000102030405060708090a0b0c0d0e0f",
+    "memoryKib": "19456",
+    "iterations": "2",
+    "lanes": "1",
+    "targetDurationMs": "100",
+    "nonceHex": "00112233445566778899aabbccddeeff",
+    "proofHex": "b3125c3ae22f4e6e2d5aad929304cf5d2672dca2f8dca3c19480f13ab2fd8b32"
+  }
+}

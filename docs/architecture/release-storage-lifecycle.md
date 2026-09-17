@@ -1,0 +1,154 @@
+# Release storage lifecycle
+
+Release storage is classified by lifecycle, not by the container that first wrote a file. Blue and green may read shared durable state, but a candidate may never mutate active release-derived state or replace bytes behind an immutable asset URL.
+
+## State classes
+
+| Class | Contents | Ownership | Mutation rule |
+| --- | --- | --- | --- |
+| Durable shared | PostgreSQL, Redis, public/private content assets, DataProtection key ring, runtime secrets | environment | shared by both slots; backed up and access controlled |
+| Release-derived | Public AOT, public-hot projections, search, SSR, precompressed output, generated manifests | release ID | stage a generation, rename atomically, retain old generation and old release |
+| Immutable cross-release | hashed JS/CSS/Wasm/fonts and asset manifests | release ID plus SHA-256 object | append only; same path/same hash is idempotent, same path/different hash fails closed |
+| Instance-scoped | logs, upload sessions, upload commit temps, temporary files, runtime snapshots | slot/release/instance | never shared as long-lived content; lease-protected cleanup |
+
+`ReleaseStorageLayout` is the path authority. The composition root constructs it once into a singleton `ReleaseStoragePaths` value. Asset services receive that immutable object through DI and must not reread `WebRootPath`, `ContentRootPath`, or asset-related environment variables. The layout validates release, slot and instance identity; constructs non-overlapping roots; rejects cleanup outside the current release; and fail-closes when `PublicAssetRoot`, `PrivateAssetRoot`, `UploadSessionRoot`, or `UploadCommitRoot` overlap each other or land under WebRoot, release-assets, or release-derived bases.
+
+Canonical roots:
+
+```text
+SharedRoot/assets/public          → PublicAssetRoot   (served at /uploads)
+SharedRoot/assets/private         → PrivateAssetRoot
+InstanceRoot/.../upload-sessions  → UploadSessionRoot
+InstanceRoot/.../upload-commit    → UploadCommitRoot
+```
+
+`ReleaseDerivedArtifactPublisher` writes every search or renderer generation to a same-filesystem staging directory, fsyncs it, renames it to `generations/<generation>`, and only then atomically updates `current.json`. It does not delete prior generations.
+
+## Shared security state
+
+Production uses one controlled DataProtection ring and the exact application discriminator `FsusBlog`. Both slots must mount the same key-ring path read/write. `DataProtectionKeyRingProbe` reports only directory/read/write/application-name state; it never returns key names or contents. Cross-slot conformance protects with the old provider and unprotects with the new provider, then performs the reverse direction.
+
+Public illustrations live under `PublicAssetRoot/illustration` and are exposed only through the dedicated `/uploads` static provider bound to `PublicAssetRoot`, not the generic WebRoot static pipeline. Direct uploads and chunk completion stage into instance-scoped `UploadCommitRoot/current`, fsync, and rename onto the public final path with `overwrite: false`. Chunked final names are deterministic from `uploadId`, so a retry returns the same result after validating signature, length, and SHA-256. A pre-existing different payload fails closed. `UploadCommitTempCleanupLease` combines an exclusive handle with a random CAS token; cleanup protects the current instance and the retention window. Upload sessions and their expiration index live under `UploadSessionRoot`; request hot paths delete expiration index entries through an O(1) per-session `expiration.bucket` owner file and must not scan expiration buckets.
+
+One-time migration from the retired `/app/wwwroot/uploads/illustration` layout is owned by `tools/storage/migrate-public-assets.mjs`. It requires an explicit stop-writes confirmation, verifies relative path/length/SHA-256 inventories, installs through same-filesystem rename, is idempotent when already complete, and never dual-reads or falls back to the legacy root. Startup fails closed when the legacy WebRoot uploads directory still contains entries.
+
+## Static assets
+
+`tools/storage/release-assets.mjs` stores each file in both:
+
+- `objects/<sha256>/<relative-path>` for content-addressed retention;
+- `releases/<release-id>/<relative-path>` for the browser URL `/release-assets/<release-id>/<relative-path>`.
+
+An existing destination is accepted only when its SHA-256 is identical. Mutable entry documents receive `no-store,max-age=0,must-revalidate`; all other files receive `public,max-age=31536000,immutable`. `ReleaseAssetStaticFileExtensions.UseFsusReleaseAssets` exposes the retained release directories and emits `X-Fsus-Frontend-Build` without falling back to a different release.
+
+The CI production build receipt is sealed before release materialization. Its
+read-only `frontend-dist` domain binds the original `.vite/manifest.json` and every
+other frontend file by exact receipt-relative path, size, and SHA-256. The later
+`asset-manifest.json` is intentionally absent from that receipt. Materialization
+first validates the complete CI receipt and requires the extracted image source to
+match that exact path/size/digest set before writing the asset store. It then creates
+the release inventory from the copied file set and retains the receipt as
+`releases/<releaseId>/production-build-receipt.json` and creates
+`spa-manifest-descriptor.json`; neither authority may be replaced by a handwritten
+subset.
+
+Production SPA loading does not discover a `dist` directory. The runtime receives
+`FSUSBLOG_SPA_MANIFEST_DESCRIPTOR` and
+`FSUSBLOG_PRODUCTION_BUILD_RECEIPT`, both fixed to the current retained release. The
+descriptor binds `releaseId`, `sourceCommit`, `worktreeFingerprint`,
+`buildReceiptDigest`, `assetRoot`, `manifestPath`, `manifestDigest`, and
+`assetInventoryDigest`, plus its canonical `contentDigest`. Validation requires the
+receipt's `frontend-dist` artifacts, the inventory entries, and the materialized
+release files to be the same set with identical paths, sizes, and digests. The
+descriptor rejects missing, duplicate, extra, or undeclared fields, and `assetRoot`
+must equal the current release directory below `FSUSBLOG_RELEASE_ASSET_ROOT`. Both
+authority paths and every traversed component must stay inside the current release
+root without symlinks.
+
+A missing or mismatched descriptor, receipt, inventory, `index.html`, or Vite
+manifest is a readiness failure. Readiness publishes the validated descriptor,
+receipt, source/worktree, release, manifest, and inventory paths and digests; failure
+publishes those fields as explicit `null` values plus the stable error. Production
+template and stylesheet resolution consume only that validated snapshot; they never
+search another `dist`, webroot asset directory, mtime, or latest candidate.
+
+The Vite manifest is parsed as strict UTF-8 JSON into a typed model; a truncated
+or partially readable document never supplies a usable subset. The required-entry
+catalog is machine-readable and requires exactly one entry for each of `index`,
+`entry-runtime`, `public-page-runtime`, `public-shell-critical`, `tailwind`,
+`markdown`, `public-page`, `full-app-core`, `route-user`, `route-admin`,
+`route-auth`, and `route-error`. `index` must be the manifest's only `isEntry`
+owner. The standalone Public Boot kernel remains a separately emitted preload
+target but is not a second primary document entry. The four public stylesheet
+owners use explicit build-only owner facades and priority-stable, zero-minimum-size
+chunk groups so each owner retains its own `css` binding instead of collapsing
+into `index`. The remaining required JavaScript owners (`public-page-runtime`,
+`full-app-core`, `route-user`, `route-admin`, `route-auth`, and `route-error`)
+also use dedicated zero-minimum-size groups so a generic `minSize` merge cannot
+erase them. The production Vite producer fail-closes when any required owner is
+missing or duplicated, or when any chunk other than `index` remains `isEntry`.
+Production public documents also consume CSS reachable from the
+`public-page-runtime` static import graph. That traversal stops at `index` because
+the base owners are selected explicitly, and at `full-app-core` because SPA
+takeover presentation is not part of the server-rendered public shell.
+
+Every `file` and `css` reference must be a relative `assets/` path, exist in the
+sealed inventory, and resolve to a file whose SHA-256 equals that inventory entry.
+Every static and dynamic import key must resolve to an entry in the same validated
+manifest. Vite/Rolldown may emit legitimate circular chunk relationships, so the
+runtime traverses those graphs with a visited set and deduplicates assets rather
+than requiring a DAG; dangling references still fail closed. Public stylesheets,
+including the article-only markdown owner and the bounded public runtime closure,
+are excluded from the full-app takeover stylesheet set even when a circular
+runtime graph makes them reachable from a takeover owner. Production readiness
+remains failed until all of these checks, including the descriptor/receipt/inventory
+binding, succeed.
+
+`SpaAssetManifestServiceTests.ProductionBuildManifest_SealedRuntimeFixture_IsReadyAndSelectsPublicAndTakeoverAssets`
+is the unique execution-backed entry: it runs the production frontend producer
+into an isolated temporary dist, validates the exact owner and primary-entry
+contract, seals the actual manifest bytes and complete file inventory into a
+receipt and descriptor, and then exercises runtime readiness plus public and
+takeover asset selection from those sealed owners. The producer catalog in
+`src/frontend/vite.config.ts` (`productionRequiredManifestOwners`) must match
+that runtime catalog. Synthetic fixtures cover each missing or duplicate
+required owner, an invalid primary-entry shape, dangling static and dynamic
+imports, and bounded traversal of a circular graph.
+The unique test also asserts that Vite catalog, zero-minimum-size required
+JavaScript groups, and the fail-closed unique-`index` rewrite stay aligned with
+that runtime catalog.
+
+After that validation the runtime derives one canonical asset-set receipt. It
+retains descriptor generation plus raw manifest and inventory digests for audit,
+and records the stable entry file, manifest CSS and preload files, index digest,
+and the sorted per-file digest table for the complete sealed inventory.
+`frontendAssetVersion` derives from the canonical runtime asset-set projection:
+it excludes representation-only metadata ordering but changes when any runtime
+inventory file digest changes. Public AOT entries use that exact value, so an entry
+created for a prior generation is not renderable. Development source-assets remain
+outside this receipt and do not produce Production readiness evidence.
+
+Recovery is release-scoped: correct a rejected manifest by producing and sealing a
+new release inventory and descriptor, then switch the runtime's descriptor and
+receipt configuration together. Do not edit the retained release in place, copy an
+asset from another release, or select a fallback file from a `dist` directory;
+those actions break the immutable path-plus-digest contract and are intentionally
+rejected. Rolling back means selecting the prior complete release descriptor whose
+readiness is `ok`.
+
+The frontend uses the generated canonical ReleaseId contract to normalize
+`VITE_FSUSBLOG_BUILD_ID` once for bootstrap import recovery, Service Worker
+query/cache identity, release-derived search paths, and Wasm release assets.
+Production Vite builds fail closed when the value is missing, a mutable alias,
+SemVer, or otherwise non-canonical; runtime production consumers also reject an
+invalid identity instead of falling back to `unversioned`. Local Vite serve uses
+the explicit `local-unversioned` sentinel, keeps release-derived search/Wasm on
+their development paths, and does not register a production Service Worker.
+
+## Compatibility metadata
+
+`release-compatibility.mjs` records the frontend build ID, backend protocol range, AEDS emitted/decoder range, notification protocol range, service-worker namespace, Wasm ABI range, and asset-manifest hash binding. Materialization writes it as append-only `releases/<release-id>/release-compatibility.json` after hashing `asset-manifest.json`; the retained-asset gate verifies that binding. The generated matrix has explicit N-to-N, N-1-client-to-N-server, previous-client, old-service-worker asset retention, and old-decoder scenarios. Any failed scenario blocks traffic switching.
+
+## Garbage collection boundary
+
+GC is explicit and dry-run by default. `release-gc.mjs` protects active, previous, draining, retention-window, externally referenced, and the minimum newest release count. It derives protected object hashes from protected release manifests, acquires `.gc.lock` with create-new semantics, records before/after evidence, and deletes only with `--apply`. Missing active/previous assets or an unreadable protected manifest aborts the operation.

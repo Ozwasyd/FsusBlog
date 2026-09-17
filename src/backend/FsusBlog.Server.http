@@ -1,0 +1,6 @@
+@FsusBlog.Server_HostAddress = http://localhost:7568
+
+GET {{FsusBlog.Server_HostAddress}}/api/binary/auth/pow-challenge
+Accept: application/octet-stream
+
+###

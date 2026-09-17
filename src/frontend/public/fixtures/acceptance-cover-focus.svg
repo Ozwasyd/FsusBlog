@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-label="Keyboard focus traversal evidence" data-cover-concept="keyboard-focus-traversal">
+  <rect width="960" height="640" fill="#222c2b"/>
+  <rect x="92" y="70" width="776" height="500" rx="16" fill="#2d3a38" stroke="#657873" stroke-width="2"/>
+  <rect x="132" y="112" width="696" height="72" rx="8" fill="#354441"/>
+  <circle cx="172" cy="148" r="14" fill="#89ab9f"/>
+  <rect x="206" y="138" width="214" height="12" rx="6" fill="#a8b9b4"/>
+  <rect x="206" y="160" width="138" height="8" rx="4" fill="#71847e"/>
+  <rect x="132" y="218" width="184" height="128" rx="10" fill="#33413f" stroke="#566963"/>
+  <rect x="388" y="218" width="184" height="128" rx="10" fill="#33413f" stroke="#8fb8aa" stroke-width="6"/>
+  <rect x="644" y="218" width="184" height="128" rx="10" fill="#33413f" stroke="#566963"/>
+  <circle cx="172" cy="258" r="18" fill="#78968c"/>
+  <circle cx="428" cy="258" r="18" fill="#a5c8bc"/>
+  <circle cx="684" cy="258" r="18" fill="#78968c"/>
+  <rect x="164" y="302" width="120" height="9" rx="4.5" fill="#7d8f89"/>
+  <rect x="420" y="302" width="120" height="9" rx="4.5" fill="#a5b6b1"/>
+  <rect x="676" y="302" width="120" height="9" rx="4.5" fill="#7d8f89"/>
+  <path d="M316 282 H372" fill="none" stroke="#8fb8aa" stroke-width="5" stroke-linecap="round"/>
+  <path d="M356 268 L372 282 L356 296" fill="none" stroke="#8fb8aa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M572 282 H628" fill="none" stroke="#8fb8aa" stroke-width="5" stroke-linecap="round"/>
+  <path d="M612 268 L628 282 L612 296" fill="none" stroke="#8fb8aa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="132" y="394" width="696" height="126" rx="12" fill="#273331" stroke="#566963"/>
+  <g fill="#3c4c49" stroke="#6d827c">
+    <rect x="166" y="426" width="72" height="58" rx="7"/>
+    <rect x="252" y="426" width="72" height="58" rx="7"/>
+    <rect x="338" y="426" width="72" height="58" rx="7"/>
+    <rect x="424" y="426" width="214" height="58" rx="7"/>
+    <rect x="652" y="426" width="72" height="58" rx="7"/>
+    <rect x="738" y="426" width="56" height="58" rx="7"/>
+  </g>
+  <rect x="424" y="426" width="214" height="58" rx="7" fill="none" stroke="#a5c8bc" stroke-width="5"/>
+</svg>

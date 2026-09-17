@@ -1,0 +1,605 @@
+{
+    "schema": "fsusblog.required-evidence-authority-ledger.v1",
+    "catalogSchema": "fsusblog.required-evidence-catalog.v1",
+    "source": "tests/fixtures/test-matrix/release-final-evidence-inputs.json",
+    "version": 1,
+    "contentDigest": "sha256:f4b8b4116ff1b6fa8d942c0fbac16a4cda6ccde3ac73c2119148bb6b04b30a57",
+    "entries": [
+        {
+            "authorityId": "behavior-document-consistency-final",
+            "producerTierIds": [
+                "behavior-document-consistency-final"
+            ],
+            "canonicalOwner": "behavior-document-consistency-final",
+            "receiptSchema": "fsusblog.behavior-document-consistency-final-report.v1",
+            "locatorBindingKey": "current-run.behavior-document-consistency-final",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "bash tools/test/bundles/behavior-document-consistency-final.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.behavior-document-consistency-final",
+            "producerVerifier": "tools/docs/behavior-document-consistency-final.mjs",
+            "contentDigest": "sha256:7c544f17a933e22e747d1e88799e0c96ad34b65c0608e4ed97683c9cd481faec",
+            "producerDigest": "sha256:e7d4f7189847646de9049cec640194c10ef0e663061df933c58ef749daf19d37"
+        },
+        {
+            "authorityId": "behavior-evidence-post-runtime",
+            "producerTierIds": [
+                "behavior-evidence-post-runtime"
+            ],
+            "canonicalOwner": "behavior-evidence-post-runtime",
+            "receiptSchema": "fsusblog.behavior-evidence-post-runtime-receipt.v1",
+            "locatorBindingKey": "current-run.behavior-evidence-post-runtime",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "bash tools/test/bundles/behavior-evidence-post-runtime.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.behavior-evidence-post-runtime",
+            "producerVerifier": "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+            "contentDigest": "sha256:602afb4bc74b97d403e3341a94418368d58ea3e157a344cd25c9be70e9627e93",
+            "producerDigest": "sha256:017c5b17a4bdef2a6dc5b97a6b6d730a21441473a1d25f8604fc67a4d03fcf2e"
+        },
+        {
+            "authorityId": "behavior-evidence-pre-runtime",
+            "producerTierIds": [
+                "behavior-evidence-pre-runtime"
+            ],
+            "canonicalOwner": "behavior-evidence-pre-runtime",
+            "receiptSchema": "fsusblog.behavior-evidence-pre-runtime-receipt.v1",
+            "locatorBindingKey": "current-run.behavior-evidence-pre-runtime",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "bash tools/test/bundles/behavior-evidence-pre-runtime.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.behavior-evidence-pre-runtime",
+            "producerVerifier": "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+            "contentDigest": "sha256:20ce82916e2b471ab0e55921dc85a7b79d3adc3814300b6eb4bfce20ca8451d6",
+            "producerDigest": "sha256:8d1042ab7285291b4160e34aa1e656f22a922e0464b0f67dd63fb9643ceffcbc"
+        },
+        {
+            "authorityId": "browser-contract",
+            "producerTierIds": [
+                "browser-contract"
+            ],
+            "canonicalOwner": "browser-contract",
+            "receiptSchema": "fsusblog.browser-contract-receipt.v2",
+            "locatorBindingKey": "current-run.browser-contract",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "bash tools/test/lanes/browser-contract.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.browser-contract",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:196e7f48535449a1ae4a815abd2e0bcdfcc0d85e456c5437411ed87889d38770",
+            "producerDigest": "sha256:e161f957525fbe044ff34ac647e76501741c9dbd29d000e8b07e28bb1c3e011c"
+        },
+        {
+            "authorityId": "coverage-gate-strict",
+            "producerTierIds": [
+                "coverage-gate-strict"
+            ],
+            "canonicalOwner": "coverage-gate-strict",
+            "receiptSchema": "fsusblog.ci.job-result.v1",
+            "locatorBindingKey": "current-run.coverage-gate-strict",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/lanes/coverage-gate-strict.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.coverage-gate-strict",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:8aa1372bc0b438b3668c5db8f5cb07d067db287f43a0bd103dad4f5c92a644c1",
+            "producerDigest": "sha256:aa5d99bee92f1fa4dbdefee87b4a75488da8ce081e0260f28dc8e982236259ed"
+        },
+        {
+            "authorityId": "native-fuzz-sanitizer",
+            "producerTierIds": [
+                "native-fuzz-sanitizer"
+            ],
+            "canonicalOwner": "native-fuzz-sanitizer",
+            "receiptSchema": "fsusblog.native-test-receipt.v1",
+            "locatorBindingKey": "current-run.native-fuzz-sanitizer",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/run-native-tests.mjs --profile fuzz-sanitizer",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.native-fuzz-sanitizer",
+            "producerVerifier": "tools/test/run-native-tests.mjs",
+            "contentDigest": "sha256:b04a4a9bc2bb0fdead500af94fa6c4c1d50d501fc1222451fc216d9e742b986e",
+            "producerDigest": "sha256:bc8a0c9015cce3c72e8b4f338fccb7edee72c4a86b8cd9dd9de53e950e451139"
+        },
+        {
+            "authorityId": "perception-character-v3-release-gate",
+            "producerTierIds": [
+                "perception-character-v3-release-gate"
+            ],
+            "canonicalOwner": "perception-character-v3-release-gate",
+            "receiptSchema": "fsusblog.ci.job-result.v1",
+            "locatorBindingKey": "current-run.perception-character-v3-release-gate",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/lanes/perception-character-v3-release-gate.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.perception-character-v3-release-gate",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:275c5cf9bfb798dc1340a8b985a205e4f3678101c14a0bbc1be3a79c0fde393f",
+            "producerDigest": "sha256:2840545854b49125a2596366b544a48527126d160d311d8cff85f0e0896f5d9e"
+        },
+        {
+            "authorityId": "production-correctness",
+            "producerTierIds": [
+                "production-correctness"
+            ],
+            "canonicalOwner": "production-correctness",
+            "receiptSchema": "fsusblog.browserless-correctness-receipt.v1",
+            "locatorBindingKey": "current-run.production-correctness",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/lanes/production-correctness-receipt.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.production-correctness",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:536da8187369820688dfd94ded7a83b3f90c3e48610073c26dd3fa47dd300798",
+            "producerDigest": "sha256:2922f85edc56e1208df8ad62716b2dd9e20e392ad29c2ba9520464cbfbb62046"
+        },
+        {
+            "authorityId": "production-xss-release",
+            "producerTierIds": [
+                "production-xss-release"
+            ],
+            "canonicalOwner": "production-xss-release",
+            "receiptSchema": "fsusblog.ci.job-result.v1",
+            "locatorBindingKey": "current-run.production-xss-release",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/lanes/production-xss-release.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.production-xss-release",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:07f600f55a07db5dc8cbf8a16674816519157c493f873cee41540f499e2f285f",
+            "producerDigest": "sha256:d17d68e8ebeca1e00a45de1cb496b9d20a67041ff4902163cfcf51d1a3185b30"
+        },
+        {
+            "authorityId": "release-admin-console",
+            "producerTierIds": [
+                "release-admin-console"
+            ],
+            "canonicalOwner": "frontend-unit-shard",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-admin-console",
+            "requiredTestIds": [
+                "release-admin-console/account-navigation",
+                "release-admin-console/admin-workbench",
+                "release-admin-console/messages-state",
+                "release-admin-console/router-authorization"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-admin-console.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-admin-console.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-admin-console",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:bcec7fee14b90b93986c3640c8b14e0f496b9e5ce691902d27ec9479801ea8ac",
+            "producerDigest": "sha256:d4a5fd2559ed53d8b242e8a50b05e0433fbbcf73037d878bd86b96272fbe8aa2"
+        },
+        {
+            "authorityId": "release-aot-generation",
+            "producerTierIds": [
+                "release-aot-generation"
+            ],
+            "canonicalOwner": "release-evidence",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-aot-generation",
+            "requiredTestIds": [
+                "release-aot-generation/page-manifest-sync",
+                "release-aot-generation/public-aot-contracts"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "release-evidence-plan"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-generation.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-aot-generation.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-aot-generation",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:17e7c48b3b982ef037e1ef74116e9b3dccd88594da8823bc253afa6c49cb2633",
+            "producerDigest": "sha256:eed81f2d5508abd1df9e0ed7d48fab3a9798ca1032aaa6f689733299d1e910ee"
+        },
+        {
+            "authorityId": "release-auth-flow",
+            "producerTierIds": [
+                "release-auth-flow"
+            ],
+            "canonicalOwner": "frontend-unit-shard",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-auth-flow",
+            "requiredTestIds": [
+                "release-auth-flow/state-transitions"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "frontend-unit-shard-results"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-auth-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-auth-flow.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-auth-flow",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:6e899bc05d6324ddd138586a077c2a50764f42603c6ca45ff347fc7376ac027f",
+            "producerDigest": "sha256:00c1eeab2a6df4e1b05f9a58acaed94637733075ffb2c35ac850c6f0c2d8b239"
+        },
+        {
+            "authorityId": "release-authoring-flow",
+            "producerTierIds": [
+                "release-authoring-flow"
+            ],
+            "canonicalOwner": "test-quality-lint",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-authoring-flow",
+            "requiredTestIds": [
+                "release-authoring-flow/ai-assist",
+                "release-authoring-flow/article-workspace",
+                "release-authoring-flow/local-draft",
+                "release-authoring-flow/markdown-state"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-authoring-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-authoring-flow.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-authoring-flow",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:d890020d1c2293704184f43d487fb382c21a910a7f21eb6a6baf3579160c5707",
+            "producerDigest": "sha256:7708acb5328d8171a0cd95eb8fe41e9ceee33a97ae7940abbdfea6ef10a17736"
+        },
+        {
+            "authorityId": "release-closeout",
+            "producerTierIds": [
+                "release-closeout"
+            ],
+            "canonicalOwner": "release-closeout",
+            "receiptSchema": "fsusblog.ci.job-result.v1",
+            "locatorBindingKey": "current-run.release-closeout",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/lanes/release-closeout.sh",
+            "exactness": "process-boundary-exact",
+            "outputBindingKey": "release-final.release-closeout",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:3ae8bb1c0d07f707b25f2789f91288e92b292f97883aa46c75dc49c032148f50",
+            "producerDigest": "sha256:339c7966faada42785e9eafc30afe3f922f90ae30205a2b28ed4326e7be88e0e"
+        },
+        {
+            "authorityId": "release-error-boundary",
+            "producerTierIds": [
+                "release-error-boundary"
+            ],
+            "canonicalOwner": "test-quality-lint",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-error-boundary",
+            "requiredTestIds": [
+                "release-error-boundary/app-error",
+                "release-error-boundary/error-kinds",
+                "release-error-boundary/errors",
+                "release-error-boundary/result-boundaries"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-error-boundary.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-error-boundary.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-error-boundary",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:613a6d1e88fbc5ba39b599c386f50e6afcea4bc276be3c27f2cba2882611669d",
+            "producerDigest": "sha256:54b925f3cb08387f816bdc57862d19830ff61c841b59907abc504a4f92be071f"
+        },
+        {
+            "authorityId": "release-final-flaky-governance",
+            "producerTierIds": [
+                "release-final-flaky-governance"
+            ],
+            "canonicalOwner": "release-final-flaky-governance",
+            "receiptSchema": "fsusblog.ci.flaky-registry.v1",
+            "locatorBindingKey": "current-run.release-final-flaky-governance",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/ci/check-flaky-registry.mjs --release-final",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.release-final-flaky-governance",
+            "producerVerifier": "tools/ci/check-flaky-registry.mjs",
+            "contentDigest": "sha256:f0b595846c5fde3122d2e04bcf93191bb15736c2bd62fcbf5a0317308d4e627e",
+            "producerDigest": "sha256:92df3ebe4a918c490f635d18e4f3b9f47c89e1e03303719f879467e7cf6da14f"
+        },
+        {
+            "authorityId": "release-final-shard-completeness",
+            "producerTierIds": [
+                "release-final-shard-completeness"
+            ],
+            "canonicalOwner": "release-final-shard-completeness",
+            "receiptSchema": "fsusblog.ci.job-result.v1",
+            "locatorBindingKey": "current-run.release-final-shard-completeness",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/ci/check-job-summaries.mjs --require-plan --tier production --strict-shards",
+            "exactness": "process-boundary-exact",
+            "outputBindingKey": "release-final.release-final-shard-completeness",
+            "producerVerifier": "tools/ci/check-job-summaries.mjs",
+            "contentDigest": "sha256:e4244ca785fb52131c95b89ddb44991c958d38dba3b04381737efc36e1dd5be9",
+            "producerDigest": "sha256:9a7732bace3268c1926ef3b1a455bc9302ad49e58c529f401cb6b63e6f3876fc"
+        },
+        {
+            "authorityId": "release-private-preview",
+            "producerTierIds": [
+                "release-private-preview"
+            ],
+            "canonicalOwner": "test-quality-lint",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-private-preview",
+            "requiredTestIds": [
+                "release-private-preview/admin-feedback",
+                "release-private-preview/public-private-leakage"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "test-quality-summary"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-private-preview.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-private-preview.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-private-preview",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:f20988e9de7ec5594057e542e333831c0e717b36b5cb4e149626508bc883b531",
+            "producerDigest": "sha256:d3ba99b72e3289c60ffa5caf274b8a5219d01ab146955fdede4d7a98b8d47dd3"
+        },
+        {
+            "authorityId": "release-reliability-fresh",
+            "producerTierIds": [
+                "release-reliability-fresh"
+            ],
+            "canonicalOwner": "release-reliability-fresh",
+            "receiptSchema": "fsusblog.release-reliability-qualified-receipt.v3",
+            "locatorBindingKey": "release-reliability.qualified-receipt",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "authorityId",
+                "buildIdentity",
+                "contentDigest",
+                "receiptPath",
+                "scenarioIds",
+                "sourceIdentity",
+                "verificationStatus"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/run-release-reliability-qualified-local.sh",
+            "exactness": "exact-one-authority",
+            "outputBindingKey": "release-final.release-reliability-fresh",
+            "producerVerifier": "tools/test/verify-release-reliability-receipt.mjs",
+            "contentDigest": "sha256:42a5c22a6afd54d892171bc7215eddce7ada9e8c19c873a45768671f586b4bc5",
+            "producerDigest": "sha256:6387d1f9d2305940975c402774c3db1fafa6a066241b441125385c4a84a5b50d"
+        },
+        {
+            "authorityId": "release-static-asset-digest-coherence",
+            "producerTierIds": [
+                "release-static-asset-digest-coherence"
+            ],
+            "canonicalOwner": "release-evidence",
+            "receiptSchema": "fsusblog.evidence-projection-receipt.v1",
+            "locatorBindingKey": "release-domain.projection.release-static-asset-digest-coherence",
+            "requiredTestIds": [
+                "release-static-asset-digest-coherence/public-distribution-contract",
+                "release-static-asset-digest-coherence/publish-artifact-slimness"
+            ],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [
+                "release-evidence-plan"
+            ],
+            "requiredIdentityFields": [
+                "buildIdentity",
+                "contentDigest",
+                "fileDigest",
+                "namespace",
+                "policyIdentity",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-static-asset-digest-coherence.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
+            "exactness": "test-id-exact",
+            "outputBindingKey": "release-domain.projection.release-static-asset-digest-coherence",
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
+            "contentDigest": "sha256:16c2eb49dcee4f29231ba56398b5ac472880bd1b88067d8c714223a8e8f53314",
+            "producerDigest": "sha256:1f6c39a678176cc2e88232cd84e003608d5a442d69d2f9cd94b01941863fdf36"
+        },
+        {
+            "authorityId": "test-quality-lint",
+            "producerTierIds": [
+                "test-quality-lint"
+            ],
+            "canonicalOwner": "test-quality-lint",
+            "receiptSchema": "fsusblog.ci.job-result.v1",
+            "locatorBindingKey": "current-run.test-quality-lint",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "tools/test/lanes/test-quality-lint.sh",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.test-quality-lint",
+            "producerVerifier": "tools/release/check-release-final.mjs",
+            "contentDigest": "sha256:3c41fb0b59c60359a7739b20ae1d94daebfe6b3cf14bf02b5077409ee6f6faa4",
+            "producerDigest": "sha256:6a5548cdbc9c61041dda4c29050b82260ae100d46d1ff1c6970fdaff3a950762"
+        }
+    ]
+}

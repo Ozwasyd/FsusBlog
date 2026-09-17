@@ -1,0 +1,29 @@
+html,
+body,
+#public-home-editorial-fixture {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--fsusblog-page-bg);
+  color: var(--fsusblog-text-primary);
+}
+
+.public-home-editorial-fixture {
+  box-sizing: border-box;
+  width: min(calc(100% - 32px), 1120px);
+  margin: 0 auto;
+  padding-block: 32px 64px;
+}
+
+html[data-fixture-color-mode='grayscale'] {
+  filter: grayscale(1);
+}
+
+@media (min-width: 768px) {
+  .public-home-editorial-fixture {
+    width: min(calc(100% - 64px), 1120px);
+    padding-block: 48px 80px;
+  }
+}

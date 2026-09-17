@@ -1,0 +1,126 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.generated-fact-section-catalog.v1",
+    "title": "FsusBlog generated fact section catalog",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "digestAlgorithm",
+        "canonicalSerialization",
+        "sections"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.generated-fact-section-catalog.v1"
+        },
+        "digestAlgorithm": {
+            "const": "sha256"
+        },
+        "canonicalSerialization": {
+            "const": "json-utf8-v1"
+        },
+        "sections": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/section"
+            }
+        }
+    },
+    "$defs": {
+        "section": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "sectionId",
+                "documentPath",
+                "renderer",
+                "extractorId",
+                "behaviorId",
+                "factPath",
+                "orderPolicy",
+                "emptyPolicy"
+            ],
+            "properties": {
+                "sectionId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                },
+                "documentPath": {
+                    "type": "string",
+                    "pattern": "^docs/.+\\.md$"
+                },
+                "renderer": {
+                    "enum": [
+                        "scalar",
+                        "boolean",
+                        "enum-set",
+                        "ordered-set",
+                        "key-value-table",
+                        "transition-table",
+                        "failure-mode-table",
+                        "route-table",
+                        "dependency-graph-table"
+                    ]
+                },
+                "extractorId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "behaviorId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "factPath": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Observation key or dotted path into observations; not a source-code path."
+                },
+                "orderPolicy": {
+                    "enum": [
+                        "ordinal",
+                        "preserve",
+                        "not-applicable"
+                    ]
+                },
+                "emptyPolicy": {
+                    "enum": [
+                        "fail",
+                        "render-empty"
+                    ]
+                },
+                "columns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "unit": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "projection": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "forbiddenFields": {
+            "description": "Never admitted on catalog entries or generator config.",
+            "enum": [
+                "expectedValue",
+                "baselineValue",
+                "baselineAllowlist",
+                "allowDiff",
+                "warningOnly",
+                "featureFlag",
+                "mergeManualRows",
+                "lastVerifiedCommit",
+                "compatMarker"
+            ]
+        }
+    }
+}

@@ -1,0 +1,1561 @@
+{
+    "schema": "fsusblog.release-reliability-lifecycle-action-registry.v1",
+    "scenarioCatalog": "config/testing/release-reliability-scenario-catalog.json",
+    "stateDomainRegistry": "config/testing/runtime-state-domain-registry.json",
+    "receiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+    "actions": [
+        {
+            "actionId": "soak-observe-runtime-admission",
+            "scenarioId": "release-soak-min",
+            "phase": "precondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "soak-prepare-evidence-files",
+            "scenarioId": "release-soak-min",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.release-derived"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/soak/short/summary.json"
+            ]
+        },
+        {
+            "actionId": "soak-run-measurement",
+            "scenarioId": "release-soak-min",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/soak/short/summary.json",
+            "expectedReceiptSchema": "catalog-authoritative-evidence",
+            "requiredFields": [
+                "countsAsReleaseFinal",
+                "durationSeconds",
+                "errorRate",
+                "executionMode",
+                "latencyMs",
+                "releaseReliability",
+                "resourceMetricSummary",
+                "sampleCount",
+                "sampling",
+                "status"
+            ],
+            "passStatusValues": [
+                "ok"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 375000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "soak-observe-runtime-stability",
+            "scenarioId": "release-soak-min",
+            "phase": "postcondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "soak-observe-final-runtime-state",
+            "scenarioId": "release-soak-min",
+            "phase": "reset-after",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.measurement-children"
+            ],
+            "safeAfterFailure": true
+        },
+        {
+            "actionId": "peak-observe-runtime-admission",
+            "scenarioId": "release-load-peak",
+            "phase": "precondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "peak-prepare-evidence-files",
+            "scenarioId": "release-load-peak",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.release-derived"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/perf/load-expected-peak/summary.json",
+                ".tmp/perf/release-summaries/load-expected-peak.json"
+            ]
+        },
+        {
+            "actionId": "peak-run-measurement",
+            "scenarioId": "release-load-peak",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/perf/release-summaries/load-expected-peak.json",
+            "expectedReceiptSchema": "catalog-authoritative-evidence",
+            "requiredFields": [
+                "declared",
+                "effective",
+                "metrics",
+                "overrideSource",
+                "overrideSources",
+                "policy",
+                "profile",
+                "releaseReliability",
+                "sampling",
+                "status",
+                "thresholdEvaluation",
+                "thresholds"
+            ],
+            "passStatusValues": [
+                "ok"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 120000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "runtime.backend-process",
+                "runtime.performance-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "peak-observe-runtime-stability",
+            "scenarioId": "release-load-peak",
+            "phase": "postcondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.performance-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "peak-observe-final-runtime-state",
+            "scenarioId": "release-load-peak",
+            "phase": "reset-after",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.measurement-children",
+                "runtime.performance-counters"
+            ],
+            "safeAfterFailure": true
+        },
+        {
+            "actionId": "burst-observe-runtime-admission",
+            "scenarioId": "release-load-burst",
+            "phase": "precondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "burst-prepare-evidence-files",
+            "scenarioId": "release-load-burst",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.release-derived"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/perf/load-burst/summary.json",
+                ".tmp/perf/release-summaries/load-burst.json"
+            ]
+        },
+        {
+            "actionId": "burst-run-measurement",
+            "scenarioId": "release-load-burst",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/perf/release-summaries/load-burst.json",
+            "expectedReceiptSchema": "catalog-authoritative-evidence",
+            "requiredFields": [
+                "declared",
+                "effective",
+                "metrics",
+                "overrideSource",
+                "overrideSources",
+                "policy",
+                "profile",
+                "releaseReliability",
+                "sampling",
+                "status",
+                "thresholdEvaluation",
+                "thresholds"
+            ],
+            "passStatusValues": [
+                "ok"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 60000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "runtime.backend-process",
+                "runtime.performance-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "burst-observe-runtime-stability",
+            "scenarioId": "release-load-burst",
+            "phase": "postcondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.performance-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "burst-observe-final-runtime-state",
+            "scenarioId": "release-load-burst",
+            "phase": "reset-after",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.measurement-children",
+                "runtime.performance-counters"
+            ],
+            "safeAfterFailure": true
+        },
+        {
+            "actionId": "data-scale-require-dedicated-runtime",
+            "scenarioId": "release-data-scale-m",
+            "phase": "precondition",
+            "operation": "observe-data-scale-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "ownerReceipt",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "fixture.data-scale",
+                "postgres.data-scale-fixture",
+                "redis.data-scale-fixture",
+                "runtime.data-scale-backend"
+            ],
+            "safeAfterFailure": false,
+            "ownerReceipt": "data-scale-runtime"
+        },
+        {
+            "actionId": "data-scale-prepare-evidence-files",
+            "scenarioId": "release-data-scale-m",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.release-derived"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/scale/release-summaries/scale-m.json",
+                ".tmp/scale/scale-m/summary.json"
+            ]
+        },
+        {
+            "actionId": "data-scale-run-measurement",
+            "scenarioId": "release-data-scale-m",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/scale/release-summaries/scale-m.json",
+            "expectedReceiptSchema": "fsusblog.data-scale-tier-summary.v1",
+            "requiredFields": [
+                "expectedSeed",
+                "observed",
+                "releaseReliability",
+                "sampling",
+                "schema",
+                "status",
+                "tier"
+            ],
+            "passStatusValues": [
+                "ok"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 600000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "fixture.data-scale",
+                "postgres.data-scale-fixture",
+                "redis.data-scale-fixture",
+                "runtime.data-scale-backend"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "data-scale-observe-dedicated-runtime",
+            "scenarioId": "release-data-scale-m",
+            "phase": "postcondition",
+            "operation": "observe-data-scale-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "ownerReceipt",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "fixture.data-scale",
+                "postgres.data-scale-fixture",
+                "redis.data-scale-fixture",
+                "runtime.data-scale-backend"
+            ],
+            "safeAfterFailure": false,
+            "ownerReceipt": "data-scale-runtime"
+        },
+        {
+            "actionId": "data-scale-require-dedicated-runtime-teardown",
+            "scenarioId": "release-data-scale-m",
+            "phase": "reset-after",
+            "operation": "consume-data-scale-teardown",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "ownerReceipt",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "fixture.data-scale",
+                "postgres.data-scale-fixture",
+                "redis.data-scale-fixture",
+                "runtime.data-scale-backend",
+                "runtime.measurement-children"
+            ],
+            "safeAfterFailure": true,
+            "ownerReceipt": "data-scale-teardown"
+        },
+        {
+            "actionId": "mutation-observe-isolated-output-admission",
+            "scenarioId": "release-mutation-critical-slice",
+            "phase": "precondition",
+            "operation": "observe-mutation",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.mutation-output",
+                "artifact.production-build"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "mutation-prepare-isolated-output",
+            "scenarioId": "release-mutation-critical-slice",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.mutation-output"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/mutation/backend-critical"
+            ]
+        },
+        {
+            "actionId": "mutation-run-measurement",
+            "scenarioId": "release-mutation-critical-slice",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/mutation/backend-critical/authority.json",
+            "expectedReceiptSchema": "fsusblog.stryker-authority.v1",
+            "requiredFields": [
+                "compileErrorMutantIds",
+                "executedMutantIds",
+                "executedTestIds",
+                "executionMatrixDigest",
+                "ignoredMutantIds",
+                "inventory",
+                "inventoryDigest",
+                "killedMutantIds",
+                "noCoverageMutantIds",
+                "plannedMutantIds",
+                "producer",
+                "rawReport",
+                "rawTrace",
+                "releaseQualification",
+                "releaseReliability",
+                "schema",
+                "sliceId",
+                "status",
+                "survivedMutantIds",
+                "testIdentities",
+                "tierId",
+                "timeoutMutantIds",
+                "traceExecution"
+            ],
+            "passStatusValues": [
+                "success"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 900000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "artifact.mutation-output",
+                "artifact.production-build"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "mutation-observe-shared-build-unchanged",
+            "scenarioId": "release-mutation-critical-slice",
+            "phase": "postcondition",
+            "operation": "observe-mutation",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.mutation-output",
+                "artifact.production-build"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "mutation-observe-final-output-state",
+            "scenarioId": "release-mutation-critical-slice",
+            "phase": "reset-after",
+            "operation": "cleanup-mutation-output",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.mutation-output",
+                "artifact.production-build",
+                "runtime.measurement-children"
+            ],
+            "safeAfterFailure": true
+        },
+        {
+            "actionId": "memory-observe-runtime-admission",
+            "scenarioId": "release-memory-leak-budget",
+            "phase": "precondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "memory-prepare-evidence-files",
+            "scenarioId": "release-memory-leak-budget",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.release-derived"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/release-evidence/memory-leak-summary.json",
+                ".tmp/release-resource-budget/memory-leak.json"
+            ]
+        },
+        {
+            "actionId": "memory-run-measurement",
+            "scenarioId": "release-memory-leak-budget",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-evidence/memory-leak-summary.json",
+            "expectedReceiptSchema": "catalog-authoritative-evidence",
+            "requiredFields": [
+                "mode",
+                "policy",
+                "releaseReliability",
+                "runtime",
+                "sampling",
+                "status",
+                "thresholdEvaluation"
+            ],
+            "passStatusValues": [
+                "ok"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 315000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "memory-observe-runtime-stability",
+            "scenarioId": "release-memory-leak-budget",
+            "phase": "postcondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "memory-observe-final-runtime-state",
+            "scenarioId": "release-memory-leak-budget",
+            "phase": "reset-after",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.measurement-children"
+            ],
+            "safeAfterFailure": true
+        },
+        {
+            "actionId": "open-handle-observe-runtime-admission",
+            "scenarioId": "release-open-handle-budget",
+            "phase": "precondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "open-handle-prepare-evidence-files",
+            "scenarioId": "release-open-handle-budget",
+            "phase": "reset-before",
+            "operation": "prepare-evidence-files",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "artifact.release-derived"
+            ],
+            "safeAfterFailure": false,
+            "targets": [
+                ".tmp/release-evidence/open-handle-summary.json",
+                ".tmp/release-resource-budget/open-handle.json"
+            ]
+        },
+        {
+            "actionId": "open-handle-run-measurement",
+            "scenarioId": "release-open-handle-budget",
+            "phase": "measurement",
+            "operation": "run-measurement",
+            "executable": "$scenario.command",
+            "args": [],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-evidence/open-handle-summary.json",
+            "expectedReceiptSchema": "catalog-authoritative-evidence",
+            "requiredFields": [
+                "mode",
+                "policy",
+                "releaseReliability",
+                "runtime",
+                "sampling",
+                "status",
+                "thresholdEvaluation"
+            ],
+            "passStatusValues": [
+                "ok"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 285000,
+                "terminateGraceMs": 5000
+            },
+            "stateDomains": [
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "open-handle-observe-runtime-stability",
+            "scenarioId": "release-open-handle-budget",
+            "phase": "postcondition",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
+            ],
+            "safeAfterFailure": false
+        },
+        {
+            "actionId": "open-handle-observe-final-runtime-state",
+            "scenarioId": "release-open-handle-budget",
+            "phase": "reset-after",
+            "operation": "observe-runtime",
+            "executable": "node",
+            "args": [
+                "tools/test/release-reliability-lifecycle.mjs",
+                "execute-action",
+                "--action-id",
+                "{actionId}"
+            ],
+            "env": {},
+            "cwd": ".",
+            "expectedReceiptPath": ".tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json",
+            "expectedReceiptSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
+            "requiredFields": [
+                "actionId",
+                "contentDigest",
+                "finalObservation",
+                "finishedAt",
+                "invocationId",
+                "phase",
+                "runId",
+                "scenarioId",
+                "schema",
+                "startedAt",
+                "stateDomains",
+                "status"
+            ],
+            "passStatusValues": [
+                "passed"
+            ],
+            "timeoutPolicy": {
+                "timeoutMs": 10000,
+                "terminateGraceMs": 1000
+            },
+            "stateDomains": [
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters",
+                "runtime.measurement-children"
+            ],
+            "safeAfterFailure": true
+        }
+    ]
+}

@@ -1,0 +1,7 @@
+# Retired character challenge migration note
+
+This is the only historical, non-executable record of the removed character-challenge identities. The former wire names were `captchaV1`, `perceptionCharacterV2`, and `perceptionTextTaskV2`; their retired numeric kinds are 3, 10, and 13. They are not aliases, parser inputs, compatibility mappings, policy values, cache schemas, or migration adapters. Current code must reject all three numeric values.
+
+Activation is bound to the active release fence. After the operator verifies the release id, slot, and generation, the cutover clears the shared V2 `attempt` and `used` namespaces. This deliberately makes in-flight LocalizationV2 and MicroInteractionV2 challenges reissue under the active generation. Shared envelopes are handled more narrowly: only envelopes requiring any retired numeric kind are revoked; envelopes containing only current kinds remain valid. The receipt binds the complete operator target map by fingerprint and records the verified fence, affected counts, identifier-set digest, completion state, and rollback disposition without storing envelope identifiers, challenge payloads, or proof material. Closeout recomputes the mapping fingerprint from a separately supplied target JSON.
+
+Rollback does not restore these identities. Before enforcement, an operator may abort the fenced cutover; after activation, operational rollback switches affected actions to `observe` or restores the last-known-good policy so clients receive current challenges again.

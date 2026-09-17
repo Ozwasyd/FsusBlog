@@ -1,0 +1,346 @@
+using System.Buffers;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
+
+using Microsoft.Extensions.Primitives;
+
+namespace FsusBlog.Server.Infrastructure.PublicAot;
+
+public readonly record struct PublicAotHtmlArtifact(
+    ReadOnlyMemory<byte> Utf8Bytes,
+    string ETag,
+    ReadOnlyMemory<byte> BrotliBytes,
+    string BrotliETag,
+    ReadOnlyMemory<byte> GzipBytes,
+    string GzipETag,
+    string ContentType,
+    string CacheControl,
+    string RendererVersion,
+    string FrontendAssetVersion,
+    CspNonceUtf8Template? CspNonceTemplate)
+{
+    public bool IsEmpty => Utf8Bytes.IsEmpty;
+
+    public bool RequiresCspNonceMutation => CspNonceTemplate is not null;
+
+    public long ResidentBytes => Utf8Bytes.Length
+        + BrotliBytes.Length
+        + GzipBytes.Length
+        + (CspNonceTemplate?.ResidentBytes ?? 0);
+
+    public static PublicAotHtmlArtifact Empty(string rendererVersion = "", string frontendAssetVersion = "")
+        => new(
+            ReadOnlyMemory<byte>.Empty,
+            string.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            string.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            string.Empty,
+            "text/html; charset=utf-8",
+            PublicAotHtmlArtifactOptions.DefaultCacheControl,
+            rendererVersion,
+            frontendAssetVersion,
+            CspNonceTemplate: null);
+}
+
+public readonly record struct PublicAotHtmlArtifactVariant(
+    ReadOnlyMemory<byte> Bytes,
+    string ETag,
+    string ContentEncoding);
+
+public sealed class PublicAotHtmlArtifactOptions
+{
+    public const string DefaultCacheControl = "no-cache";
+    public const int DefaultMinPrecompressedHtmlBytes = 1024;
+
+    public bool EnablePrecompressedHtmlVariants { get; set; } = true;
+    public int MinPrecompressedHtmlBytes { get; set; } = DefaultMinPrecompressedHtmlBytes;
+    public string CacheControl { get; set; } = DefaultCacheControl;
+}
+
+internal static class PublicAotHtmlArtifactFactory
+{
+    private const string HtmlContentType = "text/html; charset=utf-8";
+
+    internal static PublicAotHtmlArtifact FromHtml(
+        string html,
+        string rendererVersion,
+        string frontendAssetVersion,
+        string cacheControl = PublicAotHtmlArtifactOptions.DefaultCacheControl,
+        int minPrecompressedHtmlBytes = PublicAotHtmlArtifactOptions.DefaultMinPrecompressedHtmlBytes,
+        bool enablePrecompressedVariants = true)
+    {
+        byte[] utf8 = Encoding.UTF8.GetBytes(html);
+        string etag = CreateEtag(utf8);
+        CspNonceUtf8Template? nonceTemplate = CspNonceUtf8Template.Compile(
+            html,
+            string.Concat(rendererVersion, ':', frontendAssetVersion, ":sha256:", CreateDigest(utf8)));
+        ReadOnlyMemory<byte> brotliBytes = ReadOnlyMemory<byte>.Empty;
+        string brotliEtag = string.Empty;
+        ReadOnlyMemory<byte> gzipBytes = ReadOnlyMemory<byte>.Empty;
+        string gzipEtag = string.Empty;
+
+        int minBytes = Math.Max(0, minPrecompressedHtmlBytes);
+        // A nonce changes the entity for every request. Those documents use
+        // identity streaming and therefore never retain unusable static variants.
+        if (nonceTemplate is null && enablePrecompressedVariants && utf8.Length >= minBytes)
+        {
+            byte[]? compressedBrotli = TryCompress(utf8, "br");
+            if (compressedBrotli is { Length: > 0 })
+            {
+                brotliBytes = compressedBrotli;
+                brotliEtag = CreateEtag(compressedBrotli);
+            }
+
+            byte[]? compressedGzip = TryCompress(utf8, "gzip");
+            if (compressedGzip is { Length: > 0 })
+            {
+                gzipBytes = compressedGzip;
+                gzipEtag = CreateEtag(compressedGzip);
+            }
+        }
+
+        return new PublicAotHtmlArtifact(
+            utf8,
+            etag,
+            brotliBytes,
+            brotliEtag,
+            gzipBytes,
+            gzipEtag,
+            HtmlContentType,
+            string.IsNullOrWhiteSpace(cacheControl) ? PublicAotHtmlArtifactOptions.DefaultCacheControl : cacheControl,
+            rendererVersion,
+            frontendAssetVersion,
+            nonceTemplate);
+    }
+
+    internal static string CreateEtag(ReadOnlySpan<byte> bytes)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
+    }
+
+    internal static string CreateDigest(ReadOnlySpan<byte> bytes)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return Convert.ToHexStringLower(hash);
+    }
+
+    private static byte[]? TryCompress(ReadOnlySpan<byte> bytes, string encoding)
+    {
+        var writer = new ArrayBufferWriter<byte>(Math.Min(Math.Max(bytes.Length / 2, 256), bytes.Length));
+        using var output = new BufferWriterStream(writer);
+        if (encoding == "br")
+        {
+            using (var brotli = new BrotliStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+            {
+                brotli.Write(bytes);
+            }
+        }
+        else
+        {
+            using (var gzip = new GZipStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+            {
+                gzip.Write(bytes);
+            }
+        }
+
+        return writer.WrittenCount < bytes.Length ? writer.WrittenMemory.ToArray() : null;
+    }
+
+    private sealed class BufferWriterStream(IBufferWriter<byte> writer) : Stream
+    {
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => writer is ArrayBufferWriter<byte> arrayWriter ? arrayWriter.WrittenCount : 0;
+
+        public override long Position
+        {
+            get => Length;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin)
+            => throw new NotSupportedException();
+
+        public override void SetLength(long value)
+            => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+            => Write(buffer.AsSpan(offset, count));
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            Span<byte> target = writer.GetSpan(buffer.Length);
+            buffer.CopyTo(target);
+            writer.Advance(buffer.Length);
+        }
+    }
+}
+
+internal static class PublicAotHtmlResponseNegotiation
+{
+    internal static bool AcceptsIdentity(StringValues acceptEncoding)
+        => ParseAcceptEncoding(acceptEncoding).Identity > 0;
+
+    internal static bool TrySelectVariant(
+        StringValues acceptEncoding,
+        PublicAotHtmlArtifact artifact,
+        out PublicAotHtmlArtifactVariant variant)
+    {
+        HtmlEncodingQuality quality = ParseAcceptEncoding(acceptEncoding);
+        double identity = quality.Identity;
+        double gzip = quality.Gzip;
+        double br = quality.Brotli;
+
+        variant = default;
+        double best = -1;
+        if (identity > 0 && !artifact.Utf8Bytes.IsEmpty)
+        {
+            variant = new PublicAotHtmlArtifactVariant(artifact.Utf8Bytes, artifact.ETag, string.Empty);
+            best = identity;
+        }
+
+        if (gzip > best && gzip > 0 && !artifact.GzipBytes.IsEmpty)
+        {
+            variant = new PublicAotHtmlArtifactVariant(artifact.GzipBytes, artifact.GzipETag, "gzip");
+            best = gzip;
+        }
+
+        if (br >= best && br > 0 && !artifact.BrotliBytes.IsEmpty)
+        {
+            variant = new PublicAotHtmlArtifactVariant(artifact.BrotliBytes, artifact.BrotliETag, "br");
+            best = br;
+        }
+
+        return best > 0 && !variant.Bytes.IsEmpty;
+    }
+
+    private readonly record struct HtmlEncodingQuality(double Identity, double Gzip, double Brotli);
+
+    private static HtmlEncodingQuality ParseAcceptEncoding(StringValues values)
+    {
+        if (values.Count == 0)
+        {
+            return new HtmlEncodingQuality(1, 0, 0);
+        }
+
+        bool saw = false;
+        double identity = -1;
+        double gzip = -1;
+        double br = -1;
+        double wildcard = -1;
+        for (int i = 0; i < values.Count; i++)
+        {
+            ReadOnlySpan<char> header = (values[i] ?? string.Empty).AsSpan();
+            while (true)
+            {
+                int comma = header.IndexOf(',');
+                ReadOnlySpan<char> segment = comma >= 0 ? header[..comma] : header;
+                ReadEncodingSegment(segment, ref saw, ref identity, ref gzip, ref br, ref wildcard);
+                if (comma < 0)
+                {
+                    break;
+                }
+
+                header = header[(comma + 1)..];
+            }
+        }
+
+        if (!saw)
+        {
+            return new HtmlEncodingQuality(1, 0, 0);
+        }
+
+        if (identity < 0)
+        {
+            identity = wildcard >= 0 ? wildcard : 1;
+        }
+
+        if (gzip < 0)
+        {
+            gzip = wildcard >= 0 ? wildcard : 0;
+        }
+
+        if (br < 0)
+        {
+            br = wildcard >= 0 ? wildcard : 0;
+        }
+
+        return new HtmlEncodingQuality(identity, gzip, br);
+    }
+
+    private static void ReadEncodingSegment(
+        ReadOnlySpan<char> segment,
+        ref bool saw,
+        ref double identity,
+        ref double gzip,
+        ref double br,
+        ref double wildcard)
+    {
+        segment = segment.Trim();
+        if (segment.IsEmpty)
+        {
+            return;
+        }
+
+        saw = true;
+        int semicolon = segment.IndexOf(';');
+        ReadOnlySpan<char> name = (semicolon >= 0 ? segment[..semicolon] : segment).Trim();
+        double quality = semicolon >= 0 ? ParseQuality(segment[(semicolon + 1)..]) : 1;
+        if (name.Equals("identity", StringComparison.OrdinalIgnoreCase))
+        {
+            identity = quality;
+        }
+        else if (name.Equals("gzip", StringComparison.OrdinalIgnoreCase))
+        {
+            gzip = quality;
+        }
+        else if (name.Equals("br", StringComparison.OrdinalIgnoreCase))
+        {
+            br = quality;
+        }
+        else if (name.Equals("*", StringComparison.OrdinalIgnoreCase))
+        {
+            wildcard = quality;
+        }
+    }
+
+    private static double ParseQuality(ReadOnlySpan<char> parameters)
+    {
+        while (!parameters.IsEmpty)
+        {
+            int semicolon = parameters.IndexOf(';');
+            ReadOnlySpan<char> parameter = (semicolon >= 0 ? parameters[..semicolon] : parameters).Trim();
+            if (parameter.StartsWith("q=", StringComparison.OrdinalIgnoreCase)
+                && double.TryParse(
+                    parameter[2..],
+                    System.Globalization.NumberStyles.AllowDecimalPoint,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out double quality))
+            {
+                return Math.Clamp(quality, 0, 1);
+            }
+
+            if (semicolon < 0)
+            {
+                break;
+            }
+
+            parameters = parameters[(semicolon + 1)..];
+        }
+
+        return 1;
+    }
+}

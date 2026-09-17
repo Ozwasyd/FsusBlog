@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/search-evidence.mjs",
+                "tools/data-scale/semantic-proof.mjs",
+                "tools/test/lanes/runtime-evidence-probe.mjs"
+            ],
+            "reason": "Preserve process environment and Search HTTP API evidence binding spelling while verifying data-scale search proofs."
+        }
+    ]
+}

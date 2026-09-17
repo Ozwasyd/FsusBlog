@@ -1,0 +1,39 @@
+{
+  "schema": "fsusblog.canonical-hash-test-ownership.v1",
+  "contracts": [
+    {
+      "id": "article-content-v1",
+      "goldenOwner": "ArticleCanonicalHashTests.GoldenVector_ArticleContentV1MatchesCompletePayloadAndHash",
+      "behaviorOwners": [
+        "ArticleCanonicalHashTests.ComputeHash_CanonicalEquivalentInputsRemainEqual",
+        "ArticleCanonicalHashTests.ComputeHash_EachBoundFieldMutationChangesHash",
+        "ArticleCanonicalHashTests.ComputeHash_NullAndEmptyOptionalStringsRemainDistinct",
+        "ArticleCanonicalHashTests.CanonicalContract_UsesVersionedDomainDistinctFromRights"
+      ],
+      "manifestOwners": [
+        "IntegrityVerificationManifestServiceTests.GetCurrentArticleProofAsync_PublicReadyProofReturnsImmutableVerificationPayload",
+        "IntegrityVerificationManifestServiceTests.GetCurrentArticleProofAsync_PublicFailedProofReturnsOnlyLowSensitivityStatus"
+      ]
+    },
+    {
+      "id": "article-rights-v1",
+      "goldenOwner": "ArticleRightsCanonicalHashTests.GoldenVector_ArticleRightsV1MatchesCompletePayloadAndHash",
+      "behaviorOwners": [
+        "ArticleRightsCanonicalHashTests.ComputeHash_CanonicalEquivalentInputsRemainEqual",
+        "ArticleRightsCanonicalHashTests.ComputeHash_EachBoundFieldMutationChangesHash",
+        "ArticleRightsCanonicalHashTests.ComputeHash_NullAndEmptyOptionalStringsRemainDistinct",
+        "ArticleRightsCanonicalHashTests.CanonicalContract_UsesVersionedDomainDistinctFromArticleContent"
+      ],
+      "manifestOwners": [
+        "IntegrityVerificationManifestServiceTests.GetCurrentArticleRightsProofAsync_PublicReadyProofReturnsSafeRightsManifest",
+        "IntegrityVerificationManifestServiceTests.GetArticleRevisionRightsProofAsync_SupersededRevisionRemainsVerifiable"
+      ]
+    }
+  ],
+  "governanceOwner": "tests/tools/canonical-hash-source-governance.test.mjs",
+  "retiredAssertionKinds": [
+    "partial-payload-string-fragment",
+    "business-test-runtime-type-shape",
+    "business-test-assembly-reference"
+  ]
+}

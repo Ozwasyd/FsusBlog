@@ -1,0 +1,12 @@
+using System.Text.Json;
+
+public sealed class BehaviorEvidenceTests
+{
+    public void ReadsRuntimeArtifactAndStableFixture(string temporaryDirectory)
+    {
+        string runtimeJson = File.ReadAllText(Path.Combine(temporaryDirectory, "result.json"));
+        string golden = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Fixtures/aeds-golden-catalog.json");
+        _ = JsonDocument.Parse(runtimeJson);
+        _ = JsonDocument.Parse(golden);
+    }
+}

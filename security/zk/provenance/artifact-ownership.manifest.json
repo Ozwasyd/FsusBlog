@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.zk.artifact-ownership.v2",
+    "circuit_id": "fsus.anonymous.comment.v5",
+    "public_input_layout_version": 6,
+    "artifact_class": "artifact-ownership-provenance",
+    "lifecycle": "active-provenance-policy",
+    "production_usable": false,
+    "controlled_root": "artifacts/zk/comment-v5",
+    "ordinary_git_files": [
+        "artifacts/zk/comment-v5/README.md"
+    ],
+    "storage_policy": {
+        "ceremony_and_delivery_artifacts": "immutable-release-or-oci-by-sha256",
+        "ordinary_git_for_cryptographic_artifacts": false,
+        "production_requires_matching_release_evidence": true
+    },
+    "authority_manifests": [
+        "security/zk/contracts/comment-v5-circuit.manifest.json",
+        "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+        "config/zk/anonymous-comment-v5-verifying-key.manifest.json"
+    ],
+    "external_artifacts": [
+        {
+            "manifest_field": "phase2.transcript_path",
+            "path": "artifacts/zk/comment-v5/phase2/comment_v5_ceremony_transcript.json",
+            "artifact_class": "ceremony-transcript"
+        },
+        {
+            "manifest_field": "artifacts.r1cs.path",
+            "path": "artifacts/zk/comment-v5/comment_v5.r1cs",
+            "artifact_class": "circuit-r1cs"
+        },
+        {
+            "manifest_field": "artifacts.proving_key.path",
+            "path": "artifacts/zk/comment-v5/comment_v5_final.fsg16pk",
+            "artifact_class": "ceremony-derived-proving-key"
+        },
+        {
+            "manifest_field": "artifacts.verifying_key.path",
+            "path": "artifacts/zk/comment-v5/comment_v5_verifying_key.bin",
+            "artifact_class": "ceremony-derived-verifying-key"
+        },
+        {
+            "manifest_field": "artifacts.wasm_prover_bundle.path",
+            "path": "artifacts/zk/comment-v5/comment_v5_prover_wasm.tar.gz",
+            "artifact_class": "browser-prover-bundle"
+        }
+    ]
+}

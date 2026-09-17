@@ -1,0 +1,31 @@
+template_id: cn-mainland-strict
+version: 2026-06
+scope: region
+region: CN-MAINLAND
+region_group:
+source: fsusblog-engineering-preset
+reviewed_by: operator-review-required
+reviewed_at_utc:
+is_builtin: true
+is_enabled: true
+not_legal_advice: true
+description: CN-MAINLAND engineering preset. Applies only to CN-MAINLAND submit/viewer regions.
+rules:
+    - category: political_sensitive
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: national_security_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: public_order_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: pornographic
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: sexual_explicit
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: sexual_suggestion_high
+      submit_action: reject_submit
+      display_action: geo_block

@@ -1,0 +1,15 @@
+version: fsusblog-endpoint-depth-policy-v1
+dimensions:
+    role: [anonymous, user, admin, banned, deleted, mfa-partial]
+    protocol:
+        [correct-aeds, malformed-header, wrong-frame, truncated, oversized]
+    http: [wrong-method, wrong-accept, wrong-content-type, missing-body]
+    security: [missing-pow, tampered-pow, replayed-pow, expired-pow]
+    result: [success, validation-error, denied, protocol-error, rate-limit]
+oracles:
+    deniedRequestsHaveNoSideEffects: true
+    errorsUseApiErrorFrame: true
+    noPiiInTrace: true
+runtimeGeneratedArtifacts:
+    - .tmp/contracts/endpoint-depth-matrix.json
+    - .tmp/release-evidence/endpoint-depth-summary.json

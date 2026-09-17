@@ -1,0 +1,16 @@
+dictionary_id: global.contact-lead
+version: 2026-06-01
+scope: global
+category: contact_lead
+match_mode: normalized
+normalization: zh_confusable
+severity_default: medium
+source: internal_review
+reviewed_by: engineering-preset
+updated_at: 2026-06-01T00:00:00Z
+terms:
+    - value: 加微信
+      aliases: [加v, 加微, vx, v信]
+      severity: medium
+      reason: contact_lead
+      evidence_policy: show_category_only

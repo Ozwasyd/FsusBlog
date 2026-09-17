@@ -1,0 +1,79 @@
+name: Accessibility / UI report
+description: Report accessibility, keyboard, reduced-motion, dark-mode, or responsive layout defects.
+title: "[A11y/UI] "
+labels:
+    [
+        "type:bug",
+        "area:frontend",
+        "area:public-site",
+        "status:triage",
+        "evidence:needs-screenshot",
+    ]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
+              Remove secrets, tokens, private domains, real IPs, real emails, production logs, and private user data before posting publicly.
+    - type: input
+      id: release-identity
+      attributes:
+          label: Release ID or full commit SHA
+          description: Identify the affected build with a canonical ReleaseId or full 40-character commit SHA.
+          placeholder: "20260720143025-32a785eabb20 / 32a785eabb2061f447d064bd55a61ddca0928582"
+      validations:
+          required: true
+    - type: input
+      id: route-component
+      attributes:
+          label: Route, page, or component
+          placeholder: "/article/123, /admin, PublicArticleList, ArticleTocPanel"
+      validations:
+          required: true
+    - type: textarea
+      id: viewport-device
+      attributes:
+          label: Viewport and device
+          description: Include viewport size, device, browser, zoom level, color scheme, and orientation.
+          placeholder: "390x844 iPhone viewport, Safari, dark mode, 100% zoom"
+      validations:
+          required: true
+    - type: textarea
+      id: keyboard
+      attributes:
+          label: Keyboard-only behavior
+          description: Describe focus order, tab stop, shortcut, escape, enter/space, or keyboard trap evidence.
+      validations:
+          required: true
+    - type: textarea
+      id: assistive-tech
+      attributes:
+          label: Screen reader or browser accessibility evidence
+          description: Include accessibility tree, screen reader behavior, axe output, Lighthouse notes, or browser evidence if available.
+    - type: textarea
+      id: reduced-motion
+      attributes:
+          label: Reduced-motion behavior
+          description: State whether `prefers-reduced-motion` changes the behavior and what still moves unexpectedly.
+      validations:
+          required: true
+    - type: textarea
+      id: visual-evidence
+      attributes:
+          label: Dark-mode, mobile, screenshot, or video evidence
+          description: Attach safe screenshots/video or describe layout overlap, contrast, clipping, or scroll issues.
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected behavior
+      validations:
+          required: true
+    - type: checkboxes
+      id: confirmation
+      attributes:
+          label: Public report confirmation
+          options:
+              - label: This is not a security vulnerability report.
+                required: true
+              - label: I removed secrets, tokens, private domains, real IP addresses, real emails, production logs, and private user data from screenshots or recordings.
+                required: true

@@ -1,0 +1,329 @@
+#!/usr/bin/env node
+
+import { readdir, readFile, stat, mkdir, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import { resolve, relative, extname } from 'node:path';
+import { promisify } from 'node:util';
+import { brotliCompress, gzip } from 'node:zlib';
+const {loadStaticClientPayloadBudget, parsePositiveFiniteSafeBudget, resolveStaticPayloadBudgetExecution} = await import(new URL('../../../../tools/operations/static-client-payload-budget.mjs', import.meta.url));
+const gzipAsync = promisify(gzip);
+const brotliCompressAsync = promisify(brotliCompress);
+
+const repoRoot = resolve(process.cwd(), '../..');
+const distDir = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(repoRoot, 'src/frontend/dist'));
+const evidenceDir = resolve(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT || resolve(repoRoot, '.tmp/frontend'));
+const staticClientPayloadBudget = loadStaticClientPayloadBudget();
+const budgetOverrideEnvironmentNames = [
+    'FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_JS_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_CSS_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_WASM_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_WASM_GZIP_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_GZIP_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BROTLI_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ECHARTS_VENDOR_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ECHARTS_VENDOR_GZIP_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ECHARTS_VENDOR_BROTLI_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES',
+    'FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES'
+];
+const budgetExecution = resolveStaticPayloadBudgetExecution(process.env, budgetOverrideEnvironmentNames);
+const budget = (name, defaultValue) => parsePositiveFiniteSafeBudget(
+    process.env[name],
+    name,
+    { defaultValue }
+);
+const budgets = {
+    totalBytes: budget('FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES', staticClientPayloadBudget.maxTotalBytes),
+    jsBytes: budget('FSUSBLOG_ASSET_JS_BUDGET_BYTES', 900 * 1024),
+    cssBytes: budget('FSUSBLOG_ASSET_CSS_BUDGET_BYTES', 600 * 1024),
+    appCssBytes: budget('FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES', 720 * 1024),
+    wasmBytes: budget('FSUSBLOG_ASSET_WASM_BUDGET_BYTES', 220 * 1024),
+    jsGzipBytes: budget('FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES', 300 * 1024),
+    jsBrotliBytes: budget('FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES', 260 * 1024),
+    wasmGzipBytes: budget('FSUSBLOG_ASSET_WASM_GZIP_BUDGET_BYTES', 110 * 1024),
+    wasmBrotliBytes: budget('FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES', 95 * 1024),
+    adminRouteChunkBytes: budget('FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BUDGET_BYTES', 430 * 1024),
+    adminRouteChunkGzipBytes: budget('FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_GZIP_BUDGET_BYTES', 120 * 1024),
+    adminRouteChunkBrotliBytes: budget('FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BROTLI_BUDGET_BYTES', 95 * 1024),
+    echartsVendorBytes: budget('FSUSBLOG_ASSET_ECHARTS_VENDOR_BUDGET_BYTES', 430 * 1024),
+    echartsVendorGzipBytes: budget('FSUSBLOG_ASSET_ECHARTS_VENDOR_GZIP_BUDGET_BYTES', 135 * 1024),
+    echartsVendorBrotliBytes: budget('FSUSBLOG_ASSET_ECHARTS_VENDOR_BROTLI_BUDGET_BYTES', 115 * 1024),
+    elementPlusVendorBytes: budget('FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES', 1220 * 1024),
+    elementPlusVendorGzipBytes: budget('FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES', 370 * 1024),
+    elementPlusVendorBrotliBytes: budget('FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES', 310 * 1024)
+};
+
+function positiveNumber(value)
+{
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function compressionConcurrency(env = process.env)
+{
+    const grantedCpu = positiveNumber(env.FSUSBLOG_STEP_CPU_BUDGET)
+    ?? positiveNumber(env.FSUSBLOG_BUNDLE_CPU_UNITS)
+    ?? positiveNumber(env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+    ?? positiveNumber(env.FSUSBLOG_COMMAND_MANIFEST_WORKERS);
+    if (grantedCpu !== null)
+    {
+        return Math.max(1, Math.floor(grantedCpu));
+    }
+
+    const cpus = Math.max(1, os.availableParallelism?.() ?? os.cpus().length);
+    const memoryPerCpu = Math.max(1, os.totalmem()) / cpus;
+    const memoryCap = Math.max(1, Math.floor(os.freemem() / memoryPerCpu));
+    const loadCap = Math.max(1, Math.floor(cpus - Math.max(0, os.loadavg()[0] ?? 0)));
+    return Math.max(1, Math.min(cpus, memoryCap, loadCap));
+}
+
+async function mapConcurrent(items, concurrency, execute)
+{
+    const results = new Array(items.length);
+    let cursor = 0;
+    const worker = async () =>
+    {
+        while (cursor < items.length)
+        {
+            const index = cursor;
+            cursor += 1;
+            results[index] = await execute(items[index]);
+        }
+    };
+    await Promise.all(Array.from(
+        { length: Math.min(items.length, Math.max(1, concurrency)) },
+        () => worker()
+    ));
+    return results;
+}
+
+async function walk(dir, files = [])
+{
+    for (const entry of await readdir(dir, { withFileTypes: true }))
+    {
+        const fullPath = resolve(dir, entry.name);
+        if (entry.isDirectory())
+        {
+            const relativeDir = relative(distDir, fullPath).replaceAll('\\', '/');
+            if (relativeDir === 'server')
+            {
+                continue;
+            }
+            await walk(fullPath, files);
+        }
+        else
+        {
+            const info = await stat(fullPath);
+            files.push({
+                path: relative(repoRoot, fullPath).replaceAll('\\', '/'),
+                bytes: info.size,
+                ext: extname(entry.name)
+            });
+        }
+    }
+    return files;
+}
+
+function budgetFor(file)
+{
+    if (isAdminRouteChunk(file))
+    {
+        return budgets.adminRouteChunkBytes;
+    }
+    if (isEchartsVendorChunk(file))
+    {
+        return budgets.echartsVendorBytes;
+    }
+    if (isElementPlusVendorChunk(file))
+    {
+        return budgets.elementPlusVendorBytes;
+    }
+    if (isFullAppCss(file))
+    {
+        return budgets.appCssBytes;
+    }
+    if (file.ext === '.js')
+    {
+        return budgets.jsBytes;
+    }
+    if (file.ext === '.css')
+    {
+        return budgets.cssBytes;
+    }
+    if (file.ext === '.wasm')
+    {
+        return budgets.wasmBytes;
+    }
+    return null;
+}
+
+function compressedBudgetFor(file, kind)
+{
+    if (isAdminRouteChunk(file) && kind === 'gzip')
+    {
+        return budgets.adminRouteChunkGzipBytes;
+    }
+    if (isAdminRouteChunk(file) && kind === 'brotli')
+    {
+        return budgets.adminRouteChunkBrotliBytes;
+    }
+    if (isEchartsVendorChunk(file) && kind === 'gzip')
+    {
+        return budgets.echartsVendorGzipBytes;
+    }
+    if (isEchartsVendorChunk(file) && kind === 'brotli')
+    {
+        return budgets.echartsVendorBrotliBytes;
+    }
+    if (isElementPlusVendorChunk(file) && kind === 'gzip')
+    {
+        return budgets.elementPlusVendorGzipBytes;
+    }
+    if (isElementPlusVendorChunk(file) && kind === 'brotli')
+    {
+        return budgets.elementPlusVendorBrotliBytes;
+    }
+    if (file.ext === '.js' && kind === 'gzip')
+    {
+        return budgets.jsGzipBytes;
+    }
+    if (file.ext === '.js' && kind === 'brotli')
+    {
+        return budgets.jsBrotliBytes;
+    }
+    if (file.ext === '.wasm' && kind === 'gzip')
+    {
+        return budgets.wasmGzipBytes;
+    }
+    if (file.ext === '.wasm' && kind === 'brotli')
+    {
+        return budgets.wasmBrotliBytes;
+    }
+    return null;
+}
+
+function isAdminRouteChunk(file)
+{
+    return file.ext === '.js' && /(?:^|\/)route-admin(?:-[a-z0-9]+)?-[A-Za-z0-9_-]+\.js$/u.test(file.path);
+}
+
+function isEchartsVendorChunk(file)
+{
+    return file.ext === '.js' && /(?:^|\/)(?:vendor-echarts|echartsRuntime\.bundle)-[A-Za-z0-9_-]+\.js$/u.test(file.path);
+}
+
+function isElementPlusVendorChunk(file)
+{
+    return file.ext === '.js' && /(?:^|\/)vendor-element-plus-[A-Za-z0-9_-]+\.js$/u.test(file.path);
+}
+
+function isFullAppCss(file)
+{
+    return file.ext === '.css' && /(?:^|\/)fullApp-[A-Za-z0-9_-]+\.css$/u.test(file.path);
+}
+
+const files = await walk(distDir);
+const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
+const violations = [];
+const compressed = [];
+
+if (totalBytes > budgets.totalBytes)
+{
+    violations.push({
+        path: relative(repoRoot, distDir).replaceAll('\\', '/'),
+        bytes: totalBytes,
+        budgetBytes: budgets.totalBytes
+    });
+}
+if (files.length > staticClientPayloadBudget.maxFileCount)
+{
+    violations.push({
+        path: relative(repoRoot, distDir).replaceAll('\\', '/'),
+        fileCount: files.length,
+        budgetFileCount: staticClientPayloadBudget.maxFileCount
+    });
+}
+
+for (const file of files)
+{
+    const budgetBytes = budgetFor(file);
+    if (budgetBytes !== null && file.bytes > budgetBytes)
+    {
+        violations.push({
+            path: file.path,
+            bytes: file.bytes,
+            budgetBytes
+        });
+    }
+
+}
+
+compressed.push(...await mapConcurrent(
+    files.filter((file) => ['.js', '.wasm'].includes(file.ext)),
+    compressionConcurrency(),
+    async (file) =>
+    {
+        const bytes = await readFile(resolve(repoRoot, file.path));
+        const [gzipBytes, brotliBytes] = await Promise.all([
+            gzipAsync(bytes).then((output) => output.byteLength),
+            brotliCompressAsync(bytes).then((output) => output.byteLength)
+        ]);
+        return { path: file.path, gzipBytes, brotliBytes };
+    }
+));
+
+for (const file of compressed)
+{
+    const source = files.find((entry) => entry.path === file.path);
+    for (const [kind, actualBytes] of [['gzip', file.gzipBytes], ['brotli', file.brotliBytes]])
+    {
+        const compressedBudget = compressedBudgetFor(source, kind);
+        if (compressedBudget !== null && actualBytes > compressedBudget)
+        {
+            violations.push({
+                path: `${file.path}.${kind}`,
+                bytes: actualBytes,
+                budgetBytes: compressedBudget
+            });
+        }
+    }
+}
+
+const summary = {
+    status: violations.length === 0 ? 'ok' : 'blocked',
+    generatedAt: new Date().toISOString(),
+    budgetAuthority: {
+        schema: staticClientPayloadBudget.schema,
+        budgetModel: staticClientPayloadBudget.budgetModel,
+        baseline: staticClientPayloadBudget.baseline,
+        ...budgetExecution
+    },
+    budgets,
+    totalBytes,
+    largest: files
+        .filter((file) => ['.js', '.css', '.wasm'].includes(file.ext))
+        .sort((a, b) => b.bytes - a.bytes)
+        .slice(0, 20),
+    compressedLargest: compressed
+        .sort((a, b) => Math.max(b.gzipBytes, b.brotliBytes) - Math.max(a.gzipBytes, a.brotliBytes))
+        .slice(0, 20),
+    violations
+};
+
+await mkdir(evidenceDir, { recursive: true });
+await writeFile(resolve(evidenceDir, 'asset-size-budget.json'), `${JSON.stringify(summary, null, 2)}\n`);
+
+if (violations.length > 0)
+{
+    console.error(`[check-asset-size-budget] blocked ${JSON.stringify(violations, null, 2)}`);
+    process.exit(1);
+}
+
+console.log(`[check-asset-size-budget] ok | total=${totalBytes} bytes | files=${files.length}`);

@@ -1,0 +1,42 @@
+{
+  "schema": "fsus.perception-character.spoken-atlas-source.v1",
+  "alphabet": "ACDEFGHJKMNPQRTUVWXY234679",
+  "generator": {
+    "name": "eSpeak NG",
+    "version": "1.51",
+    "voice": "en-us",
+    "speed": 135,
+    "pitch": 45,
+    "amplitude": 150,
+    "mode": "SSML characters",
+    "targetSampleRate": 12000
+  },
+  "units": [
+    { "symbol": "A", "spokenName": "letter A", "ssml": "<say-as interpret-as=\"characters\">A</say-as>", "sourceWavSha256": "a8f82cbad4759d3ec2bf212c5c402fb682d99989960644d19260798727ebdf90", "pcmSha256": "00652418cdd432293ef3c67aad0be010555f24bc5551efd2f3ca70ad7b4f7142", "sampleCount": 5192 },
+    { "symbol": "C", "spokenName": "letter C", "ssml": "<say-as interpret-as=\"characters\">C</say-as>", "sourceWavSha256": "17f2257a3dc7255ca63ee626c019308e6614fdf169b1be5c89eb42f238868f70", "pcmSha256": "07370cdbb8861cc3d9ca2d2d59402d029df1d94ba98d4e0d1c883ece2808cf9b", "sampleCount": 5546 },
+    { "symbol": "D", "spokenName": "letter D", "ssml": "<say-as interpret-as=\"characters\">D</say-as>", "sourceWavSha256": "9654583e9d2a16b636ad1cd411a9f11321ca21975eeae081ab50751f59a47e21", "pcmSha256": "6c3dec5a25d3af099944e5f46e6379deb755b212e0120ef780e3f1c4eaecab85", "sampleCount": 4914 },
+    { "symbol": "E", "spokenName": "letter E", "ssml": "<say-as interpret-as=\"characters\">E</say-as>", "sourceWavSha256": "6602db92a0b42b63ed5eccf9e77c3410d5e6fb8f1bcd9a3555534ec7cb0403f0", "pcmSha256": "0edb04fbcf97d4e8a96b36e123ba1c954b051dba0ab2f22b0be6583cdc4c01a8", "sampleCount": 4307 },
+    { "symbol": "F", "spokenName": "letter F", "ssml": "<say-as interpret-as=\"characters\">F</say-as>", "sourceWavSha256": "8378b15a4c901d3160232b99f03aef0d653b7af406e469ba08a19123f0fbb387", "pcmSha256": "8b5b74a9ff4a797c065e294a6175eb71fd3774e6c980c3698497189ab09df6e5", "sampleCount": 5259 },
+    { "symbol": "G", "spokenName": "letter G", "ssml": "<say-as interpret-as=\"characters\">G</say-as>", "sourceWavSha256": "a5b35e132391a80c08aaa56e5d806cf59acc75c876004ad554694c18c8220473", "pcmSha256": "a79a195480d907122ba1fce5343ac8ca9a835f8f5e6df914780af2b9a04cac79", "sampleCount": 5162 },
+    { "symbol": "H", "spokenName": "letter H", "ssml": "<say-as interpret-as=\"characters\">H</say-as>", "sourceWavSha256": "4f3e32e40957fe17dd4294fa07278ffbab853993fdc19ce7780463339cebc41f", "pcmSha256": "5b09e7454962f76a556552a2f9776c23d88da43899bbe3dd8071beb2e4c0a893", "sampleCount": 5924 },
+    { "symbol": "J", "spokenName": "letter J", "ssml": "<say-as interpret-as=\"characters\">J</say-as>", "sourceWavSha256": "292322583aca98483d867a00e459c7ae3e28b8972f2f2de3276689f82471ff55", "pcmSha256": "5ca9976f63f196a74fbfa4a01005d8dcbe704cca75882fc859b6838265459e27", "sampleCount": 5901 },
+    { "symbol": "K", "spokenName": "letter K", "ssml": "<say-as interpret-as=\"characters\">K</say-as>", "sourceWavSha256": "3830eecca30df55b3325e183e2e6c1af8dd878b1f71f12839d081060a896dbbf", "pcmSha256": "13d651aab52980eb8ed9e49e4ae09d7f861cf6ed043b64ef60c2c492540ba511", "sampleCount": 6075 },
+    { "symbol": "M", "spokenName": "letter M", "ssml": "<say-as interpret-as=\"characters\">M</say-as>", "sourceWavSha256": "75b836f5f7306b00a81b3061a9c779b342911022114f2c85dd05448536fe35c9", "pcmSha256": "6ca7091a743ef9a57a783c25acdc94af921ccc004f4b23ce64fa6d95d7198a53", "sampleCount": 5738 },
+    { "symbol": "N", "spokenName": "letter N", "ssml": "<say-as interpret-as=\"characters\">N</say-as>", "sourceWavSha256": "d3dfc42d1d40c13e9db6b90b21206c985fa5568f59c66c1573a28b4d643a112f", "pcmSha256": "3a00c430dbcbda0dca2c79230d0b10ae117eaa643c2c0d9dd0507d20274fa0ac", "sampleCount": 5619 },
+    { "symbol": "P", "spokenName": "letter P", "ssml": "<say-as interpret-as=\"characters\">P</say-as>", "sourceWavSha256": "d6d3a126a6584de3eed14abca9b02ebb2f8c37f0e9b911dc24835f8593b32f7c", "pcmSha256": "dbe332b756e57b7b31b81a73473dce7c7543f5b6f3ea264f46619673cc752ef2", "sampleCount": 4993 },
+    { "symbol": "Q", "spokenName": "letter Q", "ssml": "<say-as interpret-as=\"characters\">Q</say-as>", "sourceWavSha256": "2e244fc947d8d49e8d4ca64f88ac6c170ff943814f10732ea494d3a9a340c100", "pcmSha256": "497eb789f94387ca300086c6fac0d1b148f3d7e313163111a8955d059599094d", "sampleCount": 6428 },
+    { "symbol": "R", "spokenName": "letter R", "ssml": "<say-as interpret-as=\"characters\">R</say-as>", "sourceWavSha256": "29addf1f4b6ed38574cd599ad776775776ae1696da62f2682b227554ce2e363f", "pcmSha256": "5208a75e3e4c20707d6de331130250ab36f845cc84eeb100d6393b7e6a86d703", "sampleCount": 5762 },
+    { "symbol": "T", "spokenName": "letter T", "ssml": "<say-as interpret-as=\"characters\">T</say-as>", "sourceWavSha256": "f5bda962777ffc004648849c0da6d116650e41748d3caaa86bbc1d4dd007536f", "pcmSha256": "8e5fca5122af5dc10349a8c453959b8aad8c37906eaff1d62aeb382868323325", "sampleCount": 5100 },
+    { "symbol": "U", "spokenName": "letter U", "ssml": "<say-as interpret-as=\"characters\">U</say-as>", "sourceWavSha256": "387a21a337c862c36c0a80d4dba781a6514bffc93c924940b40ceb4d1388ff7d", "pcmSha256": "e4bc7596a4d4b34d1f4c442ca1d339295bdfd0dfa5238d1c3809d37753ef222b", "sampleCount": 5676 },
+    { "symbol": "V", "spokenName": "letter V", "ssml": "<say-as interpret-as=\"characters\">V</say-as>", "sourceWavSha256": "4d33d186513186e34c7a0ed20292139446d8bf42a92e421abc33430ed397798b", "pcmSha256": "1dc290ff071cdebb13768681f8294752ff4a9379f500146bac98e8667c00ece3", "sampleCount": 6305 },
+    { "symbol": "W", "spokenName": "letter W", "ssml": "<say-as interpret-as=\"characters\">W</say-as>", "sourceWavSha256": "b99e7bcc86468ffda8cc5fb3d527ad8b53749871dc0c0f587f98e189607d483a", "pcmSha256": "3a50b4752a038b47fc0d16503efd6b8048479f6958b7d6ee9a6af68e5af8bcf6", "sampleCount": 7656 },
+    { "symbol": "X", "spokenName": "letter X", "ssml": "<say-as interpret-as=\"characters\">X</say-as>", "sourceWavSha256": "02373121ca830f76b307f614f4f237dc803dc9bac62c93007f184657e2d78cec", "pcmSha256": "599f641d669aa233089571a4f7eddabd546acc446820473bde9ff1a11f3162f1", "sampleCount": 6348 },
+    { "symbol": "Y", "spokenName": "letter Y", "ssml": "<say-as interpret-as=\"characters\">Y</say-as>", "sourceWavSha256": "33699e5746fec220bdfd1df162d28ec2f120cca84999407f98e1beb148cb8227", "pcmSha256": "b129e790a96fe22c524f348739aecca0e521b4e3b45094304c281646235d15f5", "sampleCount": 6518 },
+    { "symbol": "2", "spokenName": "two", "ssml": "<say-as interpret-as=\"characters\">2</say-as>", "sourceWavSha256": "da793645b8c24a1b4032dcd9c50f5cae10dd2ee57ede73517016d50bd29b6920", "pcmSha256": "02532a821104996d8883f1d3b1ae2835cd9e0abf045df729225c79c05482e9b8", "sampleCount": 5383 },
+    { "symbol": "3", "spokenName": "three", "ssml": "<say-as interpret-as=\"characters\">3</say-as>", "sourceWavSha256": "508d79cdc1316c84e6b6e6bba1fb93d4ca9da61f706b92c130701c101501872d", "pcmSha256": "f8e20064e1ce46cb455290930ab98236f9ac8012796c7d1d58a6a4908fa70251", "sampleCount": 5993 },
+    { "symbol": "4", "spokenName": "four", "ssml": "<say-as interpret-as=\"characters\">4</say-as>", "sourceWavSha256": "0dfebfcbc98bf6c9018390e6bbdb9f48c2611dc7d57f2eeb952971862878482f", "pcmSha256": "5e416a303f5b2cc70d7ad452fb84ebf4a5c3922d12fa9f7aea639fe14590a447", "sampleCount": 6743 },
+    { "symbol": "6", "spokenName": "six", "ssml": "<say-as interpret-as=\"characters\">6</say-as>", "sourceWavSha256": "e851c2619f23fc53c090e7efc782d725848e6898ea9fce4082c73b32b13290bc", "pcmSha256": "92975c891e2335c584123f1005f43d0132a204ef30de6ee48068db1847177ae3", "sampleCount": 7154 },
+    { "symbol": "7", "spokenName": "seven", "ssml": "<say-as interpret-as=\"characters\">7</say-as>", "sourceWavSha256": "0ad83c7f95c374187a09ab814bfef9bf7728d99b09768f14f97966fc919badb4", "pcmSha256": "4794fcb51609b79b0f3cc58fa7f54abf37c52e33cf3c6250832389b8aef8ad7e", "sampleCount": 7587 },
+    { "symbol": "9", "spokenName": "nine", "ssml": "<say-as interpret-as=\"characters\">9</say-as>", "sourceWavSha256": "842fbce944a3eda2635e4a0e2fa0f6fe93ae991b03d802edc8072d7295fad4b2", "pcmSha256": "1ce5a86cc3c768af2782cc87c4e6d5b4bea166345cd041526af178f545c4406f", "sampleCount": 7523 }
+  ]
+}

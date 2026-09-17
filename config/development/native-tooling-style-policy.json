@@ -1,0 +1,126 @@
+{
+    "schema": "fsusblog.native-tooling-style-policy.v1",
+    "authority": "docs/development/coding-conventions.md",
+    "authorityRegistry": "config/development/authoritative-development-docs.json",
+    "documentation": "docs/development/native-tooling-style-enforcement.md",
+    "baseline": "config/development/native-tooling-style-baseline.json",
+    "exceptions": "config/development/native-tooling-style-exceptions.json",
+    "changedDefaultBase": "HEAD^",
+    "domains": {
+        "native": {
+            "extensions": [
+                ".c",
+                ".cc",
+                ".cpp",
+                ".cxx",
+                ".h",
+                ".hh",
+                ".hpp",
+                ".hxx",
+                ".cmake"
+            ],
+            "specialFiles": [
+                "CMakeLists.txt"
+            ]
+        },
+        "scripts": {
+            "extensions": [
+                ".sh",
+                ".yaml",
+                ".yml",
+                ".json",
+                ".jsonc",
+                ".toml"
+            ],
+            "specialFiles": []
+        },
+        "docs": {
+            "extensions": [
+                ".md"
+            ],
+            "specialFiles": []
+        }
+    },
+    "excludedPaths": [
+        ".agents/skills/**",
+        ".git/**",
+        ".tmp/**",
+        "artifacts/**",
+        "build/**",
+        "docs/reports/**",
+        "docs/testing.generated.md",
+        "**/bin/**",
+        "**/obj/**",
+        "**/dist/**",
+        "**/generated/**",
+        "**/Generated/**",
+        "**/vendor/**",
+        "**/node_modules/**",
+        "tools/vcpkg-overlays/**",
+        "tests/**/fixtures/**",
+        "tests/**/Fixtures/**",
+        "src/frontend/public/fixtures/**",
+        "src/frontend/tests/**/fixtures/**",
+        "**/package-lock.json",
+        "**/pnpm-lock.yaml",
+        "**/yarn.lock",
+        "**/*.min.*"
+    ],
+    "jsonWithCommentsPaths": [
+        "src/backend/appsettings.json",
+        "src/backend/appsettings.Production.json",
+        "src/frontend/tsconfig.app.json",
+        "src/frontend/tsconfig.node.json"
+    ],
+    "standardTools": {
+        "cppFormat": {
+            "command": "clang-format",
+            "configuration": ".clang-format"
+        },
+        "cppLint": {
+            "command": "clang-tidy",
+            "configuration": ".clang-tidy",
+            "compileDatabaseCandidates": [
+                ".tmp/cmake/native-basic",
+                ".tmp/cmake/native-speed",
+                ".tmp/cmake/native-asan-ubsan",
+                ".tmp/cmake/native-fuzz",
+                "src/frontend/wasm/build"
+            ]
+        },
+        "cmakeFormat": {
+            "command": "cmake-format",
+            "configuration": ".cmake-format.yaml"
+        },
+        "shellFormat": {
+            "command": "shfmt",
+            "configuration": ".editorconfig"
+        },
+        "shellLint": {
+            "command": "shellcheck",
+            "configuration": ".shellcheckrc"
+        },
+        "yamlLint": {
+            "command": "yamllint",
+            "configuration": ".yamllint.yml"
+        },
+        "githubActionsLint": {
+            "command": "actionlint",
+            "configuration": ".github/actionlint.yaml"
+        },
+        "markdownLint": {
+            "command": "markdownlint-cli2",
+            "configuration": ".markdownlint-cli2.jsonc"
+        }
+    },
+    "jsonSchemas": [
+        {
+            "pattern": ".github/workflows/*.yml",
+            "schema": "https://json.schemastore.org/github-workflow.json"
+        },
+        {
+            "pattern": "CMakePresets.json",
+            "schema": "https://json.schemastore.org/cmake-presets.json"
+        }
+    ]
+}

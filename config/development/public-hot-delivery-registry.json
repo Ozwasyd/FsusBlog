@@ -1,0 +1,65 @@
+{
+    "schemaVersion": 1,
+    "callSites": [
+        {
+            "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs",
+            "class": "RequiredTaxonomy",
+            "handler": "taxonomy-status-switch",
+            "count": 6
+        },
+        {
+            "path": "src/backend/Services/ArticlePublicMutationFence.cs",
+            "class": "RequiredContent",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Services/ArticleMutationProjectionInvalidator.cs",
+            "class": "RequiredContent",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Services/ArticleViewWriteBuffer.cs",
+            "class": "BestEffortView",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Services/VisitLog/ArticleViewProjectionService.cs",
+            "class": "BestEffortView",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs",
+            "class": "RequiredContent",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicMutationFenceLease.cs",
+            "class": "RequiredContent",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+            "class": "FullRebuildMarker",
+            "handler": "require-durable",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Infrastructure/Operations/AdminArtifactOperations.cs",
+            "class": "FullRebuildMarker",
+            "handler": "status-switch",
+            "count": 1
+        },
+        {
+            "path": "src/backend/Infrastructure/Distributed/DistributedInvalidationLocalApplier.cs",
+            "class": "FullRebuildMarker",
+            "handler": "status-switch",
+            "count": 1
+        }
+    ]
+}

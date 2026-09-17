@@ -1,0 +1,266 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+const failures = [];
+
+function read(relativePath)
+{
+    return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+function fail(relativePath, message)
+{
+    failures.push(`${relativePath}: ${message}`);
+}
+
+function expectIncludes(relativePath, source, token, message)
+{
+    if (!source.includes(token))
+    {
+        fail(relativePath, message);
+    }
+}
+
+const viteConfigPath = 'src/frontend/vite.config.ts';
+const indexHtmlPath = 'src/frontend/index.html';
+const publicShellPath = 'src/frontend/src/bootstrap/publicShell.ts';
+const publicShellFoundationCssPath = 'src/frontend/src/assets/public-shell-foundation.css';
+const publicPageCssPath = 'src/frontend/src/assets/public-page.css';
+const packageJsonPath = 'src/frontend/package.json';
+const developmentDocsPath = 'docs/development.md';
+const readmePath = 'README.md';
+const emergencyGeneratorPath = 'tools/frontend/generate-public-shell-emergency.mjs';
+const frontendBuildPath = 'tools/frontend/build.mjs';
+const emergencyCssPath = 'src/frontend/public/public-shell-emergency.css';
+const notificationStreamPath = 'src/frontend/src/services/notificationStreamRuntime.ts';
+
+const viteConfig = read(viteConfigPath);
+const indexHtml = read(indexHtmlPath);
+const publicShell = read(publicShellPath);
+const publicShellFoundationCss = read(publicShellFoundationCssPath);
+const publicPageCss = read(publicPageCssPath);
+const packageJson = JSON.parse(read(packageJsonPath));
+const developmentDocs = read(developmentDocsPath);
+const readme = read(readmePath);
+const frontendBuild = read(frontendBuildPath);
+const notificationStream = read(notificationStreamPath);
+const scripts = packageJson.scripts ?? {};
+
+expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    "publicDir: command === 'build' && process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? false : 'public'",
+    'Vite serve must expose repository public assets even when the production scheduler exports a dist root'
+);
+
+expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    "const publicShellProxyFlag = process.env.VITE_PUBLIC_SHELL_PROXY?.trim()",
+    'dev public shell SSR proxy must be opt-in via VITE_PUBLIC_SHELL_PROXY=1'
+);
+
+expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    "const apiBaseUrl = process.env.VITE_API_BASE_URL?.trim()",
+    'dev and preview API proxy targets must consume the runtime-assigned backend URL'
+);
+expectIncludes(
+    notificationStreamPath,
+    notificationStream,
+    'configuredBaseUrl: string | undefined = undefined',
+    'notification HTTP and WebSocket endpoints must default to the same-origin API proxy'
+);
+if (notificationStream.includes('import.meta.env.VITE_API_BASE_URL'))
+{
+    fail(notificationStreamPath, 'browser notification runtime must not embed the Vite upstream API target');
+}
+
+expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    "const enablePublicShellProxy = publicShellProxyFlag === '1'",
+    'dev public shell SSR proxy must accept only the explicit runtime flag 1'
+);
+
+expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    "'^/integrity(?:/|$)': publicSeoProxy",
+    'dev and preview servers must proxy public integrity sidecars to the backend'
+);
+
+if (viteConfig.includes('const hasProxyFlag'))
+{
+    fail(viteConfigPath, 'dev public shell proxy must not default to enabled when VITE_PUBLIC_SHELL_PROXY is missing');
+}
+
+if (viteConfig.includes("VITE_PUBLIC_SHELL_PROXY?.toLowerCase() === 'true'"))
+{
+    fail(viteConfigPath, 'VITE_PUBLIC_SHELL_PROXY must use the single documented value 1');
+}
+
+for (const token of [
+    'injectPublicSourceCssInDev',
+    "name: 'inject-public-source-css-in-dev'",
+    "apply: 'serve' as const",
+    'transformIndexHtml',
+    '/src/assets/public-shell-critical.css?direct',
+    '/src/assets/tailwind.css?direct',
+    '/src/assets/markdown.css?direct',
+    '/src/assets/public-page.css?direct'
+])
+{
+    expectIncludes(viteConfigPath, viteConfig, token, `missing dev source CSS injection token: ${token}`);
+}
+
+const indexSourceStylesheets = Array.from(indexHtml.matchAll(
+    /<link\s+rel="stylesheet"\s+href="(\/src\/assets\/[^"?]+\.css)"\s+data-fsusblog-style="([^"]+)"\s*\/>/g
+), (match) => ({ href: match[1], style: match[2] }));
+
+if (indexSourceStylesheets.length === 0)
+{
+    fail(indexHtmlPath, 'expected at least one source stylesheet contract');
+}
+
+for (const { href, style } of indexSourceStylesheets)
+{
+    expectIncludes(
+        viteConfigPath,
+        viteConfig,
+        `href: '${href}?direct'`,
+        `source stylesheet ${href} must have a Vite ?direct development link`
+    );
+    expectIncludes(
+        viteConfigPath,
+        viteConfig,
+        `style: '${style}'`,
+        `source stylesheet ${href} must preserve data-fsusblog-style="${style}"`
+    );
+}
+
+for (const token of [
+    "const sourceHref = link.href.replace(/\\?direct$/, '')",
+    'transformedHtml = transformedHtml.replaceAll(sourceLink, directLink)',
+    'if (!transformedHtml.includes(directLink))'
+])
+{
+    expectIncludes(
+        viteConfigPath,
+        viteConfig,
+        token,
+        `development source CSS injection must replace module-style links instead of duplicating them: ${token}`
+    );
+}
+
+if (!viteConfig.includes('injectPublicSourceCssInDev()'))
+{
+    fail(viteConfigPath, 'Vite plugins must install injectPublicSourceCssInDev()');
+}
+
+if (publicShell.includes('?direct'))
+{
+    fail(publicShellPath, 'runtime public shell fallback must not inject dev ?direct stylesheet links');
+}
+
+for (const token of [
+    'emergency:keep-start',
+    'emergency:keep-end'
+])
+{
+    expectIncludes(publicShellFoundationCssPath, publicShellFoundationCss, token, `missing source emergency CSS marker: ${token}`);
+    if (publicPageCss.includes(token))
+    {
+        fail(publicPageCssPath, `public page CSS must not own emergency shell marker: ${token}`);
+    }
+}
+
+for (const token of [
+    'generate-public-shell-emergency.mjs',
+    'Generated by tools/frontend/generate-public-shell-emergency.mjs',
+    'src/assets/public-shell-foundation.css',
+    'public/public-shell-emergency.css',
+    'dist/server/public-shell-emergency.css'
+])
+{
+    expectIncludes(emergencyGeneratorPath, fs.existsSync(path.join(repoRoot, emergencyGeneratorPath)) ? read(emergencyGeneratorPath) : '', token, `missing emergency generator token: ${token}`);
+}
+
+expectIncludes(frontendBuildPath, frontendBuild, 'generate-public-shell-emergency.mjs', 'build must regenerate public shell emergency CSS');
+expectIncludes(emergencyCssPath, read(emergencyCssPath), 'Generated by tools/frontend/generate-public-shell-emergency.mjs', 'emergency CSS output must be generated');
+
+if (scripts['dev:ssr'] !== 'VITE_PUBLIC_SHELL_PROXY=1 npm run dev')
+{
+    fail(packageJsonPath, 'dev:ssr must opt into backend public shell SSR proxy');
+}
+
+if (scripts['generate:public-shell-emergency'] !== 'node ../../tools/frontend/generate-public-shell-emergency.mjs')
+{
+    fail(packageJsonPath, 'generate:public-shell-emergency script is missing');
+}
+
+if (scripts['check:public-shell-emergency'] !== 'node ../../tools/frontend/generate-public-shell-emergency.mjs --check')
+{
+    fail(packageJsonPath, 'check:public-shell-emergency script is missing');
+}
+
+for (const [scriptName, scriptValue] of [
+    ['predev', scripts.predev],
+    ['prebuild', scripts.prebuild]
+])
+{
+    const value = String(scriptValue ?? '');
+    if (!value.includes('generate:public-page-manifest') || !value.includes('generate:public-shell-emergency'))
+    {
+        fail(packageJsonPath, `${scriptName} must regenerate public page manifest and public shell emergency CSS`);
+    }
+}
+
+const checkScript = 'node ../../tests/frontend/checks/static/check-public-dev-mode-governance.mjs';
+if (scripts['check:public-dev-mode-governance'] !== checkScript)
+{
+    fail(packageJsonPath, 'check:public-dev-mode-governance script is missing');
+}
+
+if (!String(scripts['check:views-constraints'] ?? '').includes('check:public-dev-mode-governance'))
+{
+    fail(packageJsonPath, 'check:views-constraints must run check:public-dev-mode-governance');
+}
+
+for (const token of [
+    'npm --prefix src/frontend run dev',
+    'npm --prefix src/frontend run dev:debug',
+    'npm --prefix src/frontend run dev:ssr',
+    'VITE_PUBLIC_SHELL_PROXY=1',
+    'public shell SSR proxy',
+    'transformIndexHtml',
+    'emergency fallback',
+    'emergency:keep',
+    'FsusUI HMR'
+])
+{
+    expectIncludes(developmentDocsPath, developmentDocs, token, `missing development docs token: ${token}`);
+}
+
+for (const token of [
+    'npm --prefix src/frontend run dev:debug',
+    'npm --prefix src/frontend run dev:ssr',
+    'VITE_PUBLIC_SHELL_PROXY=1',
+    'FsusUI HMR'
+])
+{
+    expectIncludes(readmePath, readme, token, `missing README token: ${token}`);
+}
+
+if (failures.length > 0)
+{
+    console.error(failures.map((failure) => `[public-dev-mode-governance] ${failure}`).join('\n'));
+    process.exit(1);
+}
+
+console.log('[public-dev-mode-governance] ok');

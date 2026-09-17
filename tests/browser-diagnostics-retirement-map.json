@@ -1,0 +1,98 @@
+{
+    "schema": "fsusblog.browser-diagnostics-migration.v1",
+    "records": [
+        {
+            "category": "visual",
+            "sourcePaths": [
+                "tests/frontend/e2e/visual/public-visual.spec.ts",
+                "tests/frontend/e2e/visual/console-visual.spec.ts",
+                "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/checks/static/check-visual-density-governance.mjs",
+                "tests/frontend/checks/static/check-shell-material-governance.mjs",
+                "tests/frontend/unit/view-contracts/homeSpotlight.test.ts",
+                "tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts"
+            ],
+            "browserOnlyRisk": "pixel, real layout, font rasterization and theme screenshot differences remain diagnostic"
+        },
+        {
+            "category": "ux",
+            "sourcePaths": [
+                "tests/frontend/checks/ux/run-ux-viewport-playwright.mjs",
+                "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+                "tools/ux/run-local-production-risk.mjs"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/checks/static/check-views-constraints.mjs",
+                "tests/frontend/unit/components/account/AccountNavigationPanel.test.ts",
+                "tests/frontend/unit/router/index.test.ts"
+            ],
+            "browserOnlyRisk": "computed overflow, hit targets and viewport geometry remain diagnostic"
+        },
+        {
+            "category": "cross-browser",
+            "sourcePaths": [
+                "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/checks/public/check-public-aot-contracts.mjs",
+                "tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
+                "tests/frontend/unit/services/passkeyCeremony.test.ts"
+            ],
+            "browserOnlyRisk": "Chromium, Firefox and WebKit engine differences remain diagnostic and do not repeat backend business writes"
+        },
+        {
+            "category": "geometry-motion-focus",
+            "sourcePaths": [
+                "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
+                "tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/unit/components/usePublicStickyGeometry.test.ts",
+                "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
+                "tests/frontend/unit/composables/useMotionPreference.test.ts"
+            ],
+            "browserOnlyRisk": "getBoundingClientRect, computed transitions, real focus restoration and Escape behavior remain diagnostic"
+        },
+        {
+            "category": "accessibility",
+            "sourcePaths": [
+                "tests/frontend/checks/runtime/check-a11y-smoke.mjs"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/checks/static/check-admin-a11y-governance.mjs",
+                "tests/frontend/checks/static/check-visual-density-governance.mjs",
+                "tests/frontend/unit/components/account/AccountHeaderMenu.test.ts"
+            ],
+            "browserOnlyRisk": "rendered visibility, accessible names and focus behavior remain diagnostic"
+        },
+        {
+            "category": "performance",
+            "sourcePaths": [
+                "tests/frontend/checks/perf/check-dom-budget.mjs",
+                "tests/frontend/checks/perf/check-route-render-pressure.mjs",
+                "tools/test/lanes/browser-performance-regression.sh",
+                "tests/frontend/checks/wasm/check-aeds-tier-browser.mjs"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/checks/static/check-dom-depth-static.mjs",
+                "tests/frontend/checks/perf/check-markdown-render-budget.mjs",
+                "tests/frontend/unit/public-renderers/publicPageModel.test.ts"
+            ],
+            "browserOnlyRisk": "real renderer timing, layout, heap and ready-state pressure remain diagnostic"
+        },
+        {
+            "category": "resilience",
+            "sourcePaths": [
+                "tests/frontend/checks/resilience/check-runtime-resilience.mjs"
+            ],
+            "lightweightReplacementPaths": [
+                "tests/frontend/checks/public/check-aot-cache-resilience.mjs",
+                "tests/frontend/unit/services/telemetryService.test.ts",
+                "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts"
+            ],
+            "browserOnlyRisk": "renderer and browser runtime recovery remains diagnostic while HTTP and state-machine recovery stays browserless"
+        }
+    ]
+}

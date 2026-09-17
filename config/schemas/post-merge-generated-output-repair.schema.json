@@ -1,0 +1,104 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/post-merge-generated-output-repair.v1.json",
+    "title": "Post-merge generated output repair declaration",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "producerId",
+        "sourceCommit",
+        "mergedPullRequest",
+        "mergeCommit",
+        "source",
+        "generator",
+        "command",
+        "outputs"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.post-merge-generated-output-repair.v1"
+        },
+        "producerId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "sourceCommit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "Unique current last source revision: either the existing single-parent source commit or an exact two-parent in-PR merge on the outer head's first-parent chain, whose first parent is replayed and whose second parent is the merged PR base. A historical same-blob pass-through is accepted only for an immutable trusted-registry tuple whose complete topology and source, generator, and output identities are re-proved."
+        },
+        "mergedPullRequest": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "mergeCommit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "source": {
+            "$ref": "#/$defs/blob"
+        },
+        "generator": {
+            "$ref": "#/$defs/blob"
+        },
+        "command": {
+            "type": "string",
+            "minLength": 1
+        },
+        "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "path",
+                    "baseSha256",
+                    "expectedSha256",
+                    "currentSha256"
+                ],
+                "properties": {
+                    "path": {
+                        "$ref": "#/$defs/path"
+                    },
+                    "baseSha256": {
+                        "$ref": "#/$defs/sha256"
+                    },
+                    "expectedSha256": {
+                        "$ref": "#/$defs/sha256"
+                    },
+                    "currentSha256": {
+                        "$ref": "#/$defs/sha256"
+                    }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\s]+$"
+        },
+        "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+        },
+        "blob": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "sha256"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "sha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        }
+    }
+}

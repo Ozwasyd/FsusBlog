@@ -1,0 +1,84 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'en-US', domain: 'auth' } as const);
+
+import type { LocaleSchema } from '../keys';
+import type { auth as zhCNAuth } from '../zh-CN/auth';
+
+export const auth = {
+    register: {
+        title: 'Create an anonymous account',
+        description: 'No email or phone number. Save the Recovery Key and add a passkey.',
+        publicHandleHeading: 'Public name',
+        publicHandleLabel: 'Public name (optional)',
+        publicHandleHint: 'Leave blank to generate an anonymous name. TOTP can be enabled later; TOTP recovery codes are separate from the Recovery Key.',
+        publicHandlePlaceholder: '3–20 letters, numbers, CJK characters, or #',
+        agreementPrefix: 'I have read and accept the',
+        guidelinesLink: 'site guidelines',
+        submitButtonIdle: 'Create account and Recovery Key',
+        submitButtonLoading: 'Creating account',
+        passkeyEnrollmentTitle: 'Add the first passkey',
+        passkeyEnrollmentHint: 'The account remains temporary until passkey verification activates it and creates the full session.',
+        recoveryKeyTitle: 'Save the Recovery Key',
+        recoveryKeyHint: 'The Recovery Key is shown once. Without it or a working passkey, the account may be unrecoverable.',
+        recoveryKeyVersionPrefix: 'Recovery Key v',
+        recoveryKeyCreatedAtPrefix: 'Created: ',
+        copyRecoveryKeyCta: 'Copy Recovery Key',
+        recoveryKeySavedCheckbox: 'I saved the Recovery Key',
+        registerPasskeyCta: 'Add a passkey',
+        passkeyBoundTitle: 'Passkey added',
+        passkeyBoundHint: 'Use the passkey to log in and the Recovery Key to recover the account.',
+        enterAccountCta: 'Open account',
+        hasAccountLabel: 'Already registered',
+        loginLink: 'Log in',
+        cancelLink: 'Home'
+    },
+    login: {
+        title: 'Log in',
+        description: 'Writing, comments, and site maintenance.',
+        rememberMe: 'Remember this device',
+        passkeyButton: 'Log in with a passkey',
+        passkeyLoading: 'Waiting for device',
+        passkeyHint: 'Anonymous accounts have no email or phone number. Use a registered device or security key, or recover access with the Recovery Key.',
+        passkeyFailureHint: 'Use the Recovery Key if device verification fails.',
+        recoverLink: 'Recover access with a Recovery Key',
+        mfaRequiredTitle: 'Second factor required',
+        mfaRequiredHint: 'Enter an authenticator code or recovery code.',
+        mfaAriaLabel: 'Select verification method',
+        mfaModeTOTP: 'Authenticator code',
+        mfaModeRecovery: 'Recovery code',
+        mfaCodeLabel: 'MFA code',
+        mfaCodePlaceholder: '6-digit code',
+        mfaRecoveryLabel: 'Recovery code',
+        mfaRecoveryPlaceholder: 'Recovery code',
+        mfaSubmit: 'Verify',
+        registerLink: 'Register',
+        cancelLink: 'Cancel'
+    },
+    recover: {
+        title: 'Recover access',
+        description: 'Verify the Recovery Key and add a new passkey.',
+        sectionTitle: 'Recovery Key',
+        sectionHint: 'The Recovery Key restores the account and is not a TOTP recovery code.',
+        keyLabel: 'Recovery Key',
+        keyPlaceholder: 'Paste the Recovery Key beginning with frk_',
+        keyHelp: 'Without the Recovery Key or a working passkey, the account may be unrecoverable.',
+        revokePasskeys: 'Revoke old passkeys after recovery',
+        verifyCta: 'Verify Recovery Key',
+        sessionReadyHint: 'Recovery Key verified. The recovery session expires at {expiresAt}. Add a new passkey.',
+        bindNewPasskeyCta: 'Add a new passkey',
+        verifyFailedFallback: 'Recovery Key verification failed.',
+        returnLoginLink: 'Back to login',
+        cancelLink: 'Cancel'
+    },
+    policyModal: {
+        fallbackTitle: 'Policy details',
+        privacyTitle: 'Privacy policy',
+        guidelinesTitle: 'Site guidelines',
+        loadingStatus: 'Loading content',
+        loadError: 'Policy content is unavailable',
+        retryCta: 'Retry',
+        emptyStatePrefix: 'No ',
+        emptyStateSuffix: ' content is configured.',
+        acknowledgementCta: 'I have read this',
+        bodyAriaLabel: 'Policy content'
+    }
+} as const satisfies LocaleSchema<typeof zhCNAuth>;

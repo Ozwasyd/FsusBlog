@@ -1,0 +1,74 @@
+services:
+    postgres:
+        image: ${FSUSBLOG_REHEARSAL_POSTGRES_IMAGE:?Set an immutable postgres repository@sha256 digest}
+        container_name: ${FSUSBLOG_REHEARSAL_POSTGRES_CONTAINER:-fsusblog-zdt-postgres}
+        restart: "no"
+        environment:
+            POSTGRES_USER: ${DB_USER:?Set DB_USER}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+            POSTGRES_DB: ${DB_NAME:?Set DB_NAME}
+        healthcheck:
+            test:
+                ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+            interval: 2s
+            timeout: 3s
+            retries: 30
+        networks:
+            fsus-infra-network:
+                aliases: [global-postgres]
+        volumes:
+            - rehearsal-postgres:/var/lib/postgresql/data
+
+    redis:
+        image: ${FSUSBLOG_REHEARSAL_REDIS_IMAGE:?Set an immutable redis repository@sha256 digest}
+        container_name: ${FSUSBLOG_REHEARSAL_REDIS_CONTAINER:-fsusblog-zdt-redis}
+        restart: "no"
+        command:
+            [
+                "redis-server",
+                "--appendonly",
+                "yes",
+                "--requirepass",
+                "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
+            ]
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "redis-cli -a $$REDIS_PASSWORD --no-auth-warning ping | grep -Fx PONG",
+                ]
+            interval: 2s
+            timeout: 3s
+            retries: 30
+        networks:
+            fsus-infra-network:
+                aliases: [global-redis]
+        volumes:
+            - rehearsal-redis:/data
+
+    openresty:
+        image: ${FSUSBLOG_REHEARSAL_OPENRESTY_IMAGE:?Set an immutable OpenResty repository@sha256 digest}
+        container_name: ${FSUSBLOG_REHEARSAL_OPENRESTY_CONTAINER:-fsusblog-zdt-openresty}
+        restart: "no"
+        network_mode: host
+        command:
+            [
+                "openresty",
+                "-g",
+                "daemon off;",
+                "-c",
+                "${FSUSBLOG_REHEARSAL_GATEWAY_CONFIG:?Set the generated gateway config path}",
+            ]
+        volumes:
+            - ${FSUSBLOG_REHEARSAL_GATEWAY_DIR:?Set an absolute rehearsal gateway directory}:${FSUSBLOG_REHEARSAL_GATEWAY_DIR}:rw
+
+networks:
+    fsus-infra-network:
+        name: fsus-infra-network
+        external: true
+
+volumes:
+    rehearsal-postgres:
+        name: ${FSUSBLOG_REHEARSAL_POSTGRES_VOLUME:-fsusblog-zdt-postgres}
+    rehearsal-redis:
+        name: ${FSUSBLOG_REHEARSAL_REDIS_VOLUME:-fsusblog-zdt-redis}

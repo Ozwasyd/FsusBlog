@@ -1,0 +1,100 @@
+{
+  "schema": "fsusblog.historical-readiness-snapshot.v1",
+  "evidenceClass": "historical-report",
+  "freshExecution": false,
+  "releaseBound": false,
+  "productionFreshRun": false,
+  "generatedFrom": {
+    "kind": "historical-public-preview-readiness-campaign",
+    "source": "issue-121"
+  },
+  "snapshotId": "v1.1.0-public-preview",
+  "releaseTarget": "v1.1.0-public-preview",
+  "generatedAtRange": {
+    "from": "2026-06-11T03:47:01Z",
+    "to": "2026-06-11T03:52:56.400Z"
+  },
+  "repositoryRevision": {
+    "value": "5b81efe6a14cae5f29f4db306a324b37d39c974b",
+    "scope": "secret-scan-recorded-revision",
+    "note": "Other reports did not independently record a revision; no broader revision claim is inferred."
+  },
+  "currentMasterStatus": "not-asserted",
+  "artifacts": [
+    {
+      "path": "README.md",
+      "bytes": 850,
+      "sha256": "sha256:a69d26d716672b83a3108317b0673819f78af524763af8ffd06133b646d9bc51"
+    },
+    {
+      "path": "dependency-license-audit.json",
+      "bytes": 196721,
+      "sha256": "sha256:990ef7ae002aa15fecd033637bd5a7a9060cefce79107c0db329eef1c5f21169"
+    },
+    {
+      "path": "dependency-license-audit.md",
+      "bytes": 1525,
+      "sha256": "sha256:5f3ad7376f053ceb2c243b9bd589dc9727069be75e5e9bd478ad99f5e5d4ef7c"
+    },
+    {
+      "path": "readiness-checklist.md",
+      "bytes": 3900,
+      "sha256": "sha256:22833e2b6f993dcd4b733a4da961de9123ba69cbf6a16f078fee24e116ec0deb"
+    },
+    {
+      "path": "secret-scan.json",
+      "bytes": 882,
+      "sha256": "sha256:96456b5ffc6c0c23d7c3236c1cf53d8551e98fc60c6f1f8ed9ca3fdda14b0580"
+    },
+    {
+      "path": "secret-scan.md",
+      "bytes": 796,
+      "sha256": "sha256:45e8c415de4ac451da95ae9ed5ccefe445887a8cc3df7ed42f8530170f736a54"
+    },
+    {
+      "path": "supply-chain-audit.md",
+      "bytes": 1272,
+      "sha256": "sha256:8b282bbb8a3d2e2bbadd146fde4a109223372be968555167699b7fd84afd6ac8"
+    },
+    {
+      "path": "supply-chain/npm-audit.json",
+      "bytes": 366,
+      "sha256": "sha256:23a7cb56210e6e818656c98bc1b216362047436f6ef5a8e88fb8809000d788d4"
+    },
+    {
+      "path": "supply-chain/npm-audit.stderr",
+      "bytes": 0,
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supply-chain/nuget/benchmarks__core__FsusBlog.Core.Benchmarks.csproj.json",
+      "bytes": 263,
+      "sha256": "sha256:b1be0069e54d9187be65b73b2364a178ffcd4fba40b80d661a0182a33fc15cbb"
+    },
+    {
+      "path": "supply-chain/nuget/src__backend__FsusBlog.Server.csproj.json",
+      "bytes": 250,
+      "sha256": "sha256:e7185ec593274b554167be0c4dee5c17fe483b038062e3a9025b9c13f386a0a8"
+    },
+    {
+      "path": "supply-chain/nuget/src__core__FsusBlog.Core.csproj.json",
+      "bytes": 245,
+      "sha256": "sha256:821d21731205690918e09d543ef9b4afa81df64f3b20aaf96306e40e774b7aaf"
+    },
+    {
+      "path": "supply-chain/nuget/src__shared__FsusBlog.Shared.csproj.json",
+      "bytes": 249,
+      "sha256": "sha256:8b49376f3e675f19cfe67a96647825ab6644448fcf503f33ae41edef8eab1a99"
+    },
+    {
+      "path": "supply-chain/nuget/tests__backend__FsusBlog.Server.Tests.csproj.json",
+      "bytes": 258,
+      "sha256": "sha256:53b60e7001996bdcd040940760a1c8a2c59c1656dc02f8198fc5a7cf9da0bda0"
+    },
+    {
+      "path": "supply-chain/summary.json",
+      "bytes": 405,
+      "sha256": "sha256:a7d682bd1e07ea2375ed2756bef589e99e5450af8dc7510842c2ba42499eb255"
+    }
+  ]
+}

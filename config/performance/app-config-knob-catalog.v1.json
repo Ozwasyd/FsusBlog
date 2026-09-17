@@ -1,0 +1,648 @@
+{
+    "schema": "fsusblog.app-config-knob-catalog.v1",
+    "version": 1,
+    "authority": "config/performance/app-config-knob-catalog.v1.json",
+    "productionMutation": false,
+    "requiredObservableFamilies": [
+        "latency.p50Ms",
+        "latency.p95Ms",
+        "latency.p99Ms",
+        "latency.p999Ms",
+        "throughput.safeRps",
+        "throughput.saturationKneeRps",
+        "errors.errorRate",
+        "errors.timeoutRate",
+        "errors.cancellationRate",
+        "process.cpuPercent",
+        "process.rssBytes",
+        "managed.heapBytes",
+        "managed.lohBytes",
+        "managed.gcPauseP99Ms",
+        "queues.depth",
+        "queues.queuedBytes",
+        "queues.oldestAgeMs",
+        "cache.hitRate",
+        "cache.staleRate",
+        "cache.fallbackRate",
+        "cache.rebuildAmplification",
+        "aot.backfillSuccessRate",
+        "aot.backfillDropRate",
+        "aot.quarantineRate",
+        "aot.publishLatencyMs",
+        "postgres.waitP99Ms",
+        "redis.roundtripP99Ms"
+    ],
+    "knobs": [
+        {
+            "id": "public-aot-ssr-workers",
+            "configKey": "PublicAot:SsrWorkerCount",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 1,
+                "maximum": 4,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 4,
+            "defaultExpression": "min(4, processorCount)",
+            "rollbackValue": 4,
+            "maxNormalizedStep": 0.34,
+            "interactionGroups": [
+                "public-aot-capacity"
+            ],
+            "observables": [
+                "latency.p99Ms",
+                "latency.p999Ms",
+                "throughput.safeRps",
+                "process.cpuPercent",
+                "process.rssBytes",
+                "managed.gcPauseP99Ms",
+                "aot.publishLatencyMs"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "rss",
+                "gc",
+                "timeout",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-backfill-concurrency",
+            "configKey": "PublicAot:BackfillConcurrency",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 1,
+                "maximum": 8,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 1,
+            "rollbackValue": 1,
+            "maxNormalizedStep": 0.3,
+            "interactionGroups": [
+                "public-aot-capacity"
+            ],
+            "observables": [
+                "latency.p99Ms",
+                "throughput.safeRps",
+                "process.rssBytes",
+                "queues.depth",
+                "queues.oldestAgeMs",
+                "aot.backfillSuccessRate",
+                "aot.backfillDropRate",
+                "postgres.waitP99Ms",
+                "redis.roundtripP99Ms"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "rss",
+                "timeout",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-backfill-queue",
+            "configKey": "PublicAot:BackfillQueueCapacity",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 32,
+                "maximum": 4096,
+                "step": 32
+            },
+            "lifecycle": "restart-required",
+            "baseline": 512,
+            "rollbackValue": 512,
+            "maxNormalizedStep": 0.13,
+            "interactionGroups": [
+                "public-aot-capacity"
+            ],
+            "observables": [
+                "latency.p99Ms",
+                "process.rssBytes",
+                "queues.depth",
+                "queues.queuedBytes",
+                "queues.oldestAgeMs",
+                "aot.backfillDropRate"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "rss",
+                "queue-oldest-age",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-ssr-timeout",
+            "configKey": "PublicAot:SsrRequestTimeoutSeconds",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 5,
+                "maximum": 180,
+                "step": 5
+            },
+            "lifecycle": "restart-required",
+            "baseline": 30,
+            "rollbackValue": 30,
+            "maxNormalizedStep": 0.15,
+            "interactionGroups": [
+                "public-aot-failure-window"
+            ],
+            "observables": [
+                "latency.p999Ms",
+                "errors.timeoutRate",
+                "errors.cancellationRate",
+                "aot.quarantineRate",
+                "aot.publishLatencyMs"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "timeout",
+                "cancellation"
+            ]
+        },
+        {
+            "id": "public-aot-circuit-threshold",
+            "configKey": "PublicAot:SsrCircuitFailureThreshold",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 1,
+                "maximum": 100,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 3,
+            "rollbackValue": 3,
+            "maxNormalizedStep": 0.08,
+            "interactionGroups": [
+                "public-aot-failure-window"
+            ],
+            "observables": [
+                "errors.timeoutRate",
+                "aot.backfillSuccessRate",
+                "aot.backfillDropRate",
+                "aot.quarantineRate"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "timeout",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-circuit-cooldown",
+            "configKey": "PublicAot:SsrCircuitCooldownSeconds",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 1,
+                "maximum": 3600,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 30,
+            "rollbackValue": 30,
+            "maxNormalizedStep": 0.05,
+            "interactionGroups": [
+                "public-aot-failure-window"
+            ],
+            "observables": [
+                "queues.oldestAgeMs",
+                "aot.backfillSuccessRate",
+                "aot.backfillDropRate",
+                "aot.quarantineRate"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "queue-oldest-age",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-quarantine-threshold",
+            "configKey": "PublicAot:SsrRouteQuarantineFailureThreshold",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 1,
+                "maximum": 100,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 2,
+            "rollbackValue": 2,
+            "maxNormalizedStep": 0.08,
+            "interactionGroups": [
+                "public-aot-failure-window"
+            ],
+            "observables": [
+                "errors.timeoutRate",
+                "aot.backfillDropRate",
+                "aot.quarantineRate"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "timeout",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-quarantine-ttl",
+            "configKey": "PublicAot:SsrRouteQuarantineTtlSeconds",
+            "subsystem": "PublicAot",
+            "type": "integer",
+            "range": {
+                "minimum": 1,
+                "maximum": 86400,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 120,
+            "rollbackValue": 120,
+            "maxNormalizedStep": 0.03,
+            "interactionGroups": [
+                "public-aot-failure-window"
+            ],
+            "observables": [
+                "queues.oldestAgeMs",
+                "aot.backfillDropRate",
+                "aot.quarantineRate"
+            ],
+            "owner": "PublicAot",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "queue-oldest-age",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-hotread-recent-admission",
+            "configKey": "PublicHotRead:ArticleAdmissionRecentPercent",
+            "subsystem": "PublicHotRead",
+            "type": "integer",
+            "range": {
+                "minimum": 0,
+                "maximum": 100,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 40,
+            "rollbackValue": 40,
+            "maxNormalizedStep": 0.15,
+            "interactionGroups": [
+                "public-hotread-residency"
+            ],
+            "observables": [
+                "latency.p99Ms",
+                "throughput.safeRps",
+                "process.rssBytes",
+                "managed.lohBytes",
+                "cache.hitRate",
+                "cache.staleRate",
+                "cache.fallbackRate",
+                "cache.rebuildAmplification"
+            ],
+            "owner": "PublicHotRead",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "resident-bytes",
+                "snapshot-overlap",
+                "stale",
+                "fallback"
+            ]
+        },
+        {
+            "id": "public-hotread-min-compression-savings",
+            "configKey": "PublicHotRead:MinCompressionSavingsPercent",
+            "subsystem": "PublicHotRead",
+            "type": "integer",
+            "range": {
+                "minimum": 0,
+                "maximum": 99,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 8,
+            "rollbackValue": 8,
+            "maxNormalizedStep": 0.15,
+            "interactionGroups": [
+                "public-hotread-residency"
+            ],
+            "observables": [
+                "latency.p99Ms",
+                "request.wireBytes",
+                "process.cpuPercent",
+                "process.rssBytes",
+                "managed.lohBytes",
+                "cache.hitRate",
+                "cache.fallbackRate",
+                "cache.rebuildAmplification"
+            ],
+            "owner": "PublicHotRead",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "resident-bytes",
+                "snapshot-overlap",
+                "fallback"
+            ]
+        },
+        {
+            "id": "public-hotread-brotli-share",
+            "configKey": "PublicHotRead:ExpectedBrotliClientSharePercent",
+            "subsystem": "PublicHotRead",
+            "type": "integer",
+            "range": {
+                "minimum": 0,
+                "maximum": 100,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 80,
+            "rollbackValue": 80,
+            "maxNormalizedStep": 0.1,
+            "interactionGroups": [
+                "public-hotread-residency"
+            ],
+            "observables": [
+                "request.wireBytes",
+                "process.rssBytes",
+                "managed.lohBytes",
+                "cache.fallbackRate",
+                "aot.publishLatencyMs"
+            ],
+            "owner": "PublicHotRead",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "resident-bytes",
+                "snapshot-overlap",
+                "fallback"
+            ]
+        },
+        {
+            "id": "public-hotread-gzip-share",
+            "configKey": "PublicHotRead:ExpectedGzipClientSharePercent",
+            "subsystem": "PublicHotRead",
+            "type": "integer",
+            "range": {
+                "minimum": 0,
+                "maximum": 100,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 15,
+            "rollbackValue": 15,
+            "maxNormalizedStep": 0.1,
+            "interactionGroups": [
+                "public-hotread-residency"
+            ],
+            "observables": [
+                "request.wireBytes",
+                "process.rssBytes",
+                "managed.lohBytes",
+                "cache.fallbackRate",
+                "aot.publishLatencyMs"
+            ],
+            "owner": "PublicHotRead",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "resident-bytes",
+                "snapshot-overlap",
+                "fallback"
+            ]
+        },
+        {
+            "id": "public-hotread-min-client-share",
+            "configKey": "PublicHotRead:MinResidentVariantClientSharePercent",
+            "subsystem": "PublicHotRead",
+            "type": "integer",
+            "range": {
+                "minimum": 0,
+                "maximum": 100,
+                "step": 1
+            },
+            "lifecycle": "restart-required",
+            "baseline": 5,
+            "rollbackValue": 5,
+            "maxNormalizedStep": 0.1,
+            "interactionGroups": [
+                "public-hotread-residency"
+            ],
+            "observables": [
+                "request.wireBytes",
+                "process.rssBytes",
+                "managed.lohBytes",
+                "cache.fallbackRate",
+                "cache.rebuildAmplification"
+            ],
+            "owner": "PublicHotRead",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "resident-bytes",
+                "snapshot-overlap",
+                "fallback"
+            ]
+        },
+        {
+            "id": "notification-synthetic-queue",
+            "configKey": "SyntheticNotification:ConnectionQueueCapacity",
+            "subsystem": "NotificationStream",
+            "source": "synthetic-fixture",
+            "type": "integer",
+            "range": {
+                "minimum": 8,
+                "maximum": 256,
+                "step": 8
+            },
+            "lifecycle": "synthetic-only",
+            "baseline": 32,
+            "rollbackValue": 32,
+            "maxNormalizedStep": 0.13,
+            "interactionGroups": [
+                "notification-synthetic-only"
+            ],
+            "observables": [
+                "queues.depth",
+                "queues.queuedBytes",
+                "queues.oldestAgeMs",
+                "notification.coalesceRate",
+                "notification.dropRate",
+                "notification.resyncRate"
+            ],
+            "owner": "NotificationStream",
+            "correctnessOwner": "ServerContractAgent",
+            "securityOwner": "ServerContractAgent",
+            "guardrails": [
+                "correctness",
+                "security",
+                "ordering",
+                "delivery-policy"
+            ]
+        }
+    ],
+    "interactionGroups": [
+        {
+            "id": "public-aot-capacity",
+            "candidateMode": "local-real-or-synthetic",
+            "knobIds": [
+                "public-aot-ssr-workers",
+                "public-aot-backfill-concurrency",
+                "public-aot-backfill-queue"
+            ],
+            "maxNormalizedStep": 0.2,
+            "requiredGuardrails": [
+                "correctness",
+                "security",
+                "rss",
+                "gc",
+                "timeout",
+                "queue-oldest-age",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-aot-failure-window",
+            "candidateMode": "local-real-or-synthetic",
+            "knobIds": [
+                "public-aot-ssr-timeout",
+                "public-aot-circuit-threshold",
+                "public-aot-circuit-cooldown",
+                "public-aot-quarantine-threshold",
+                "public-aot-quarantine-ttl"
+            ],
+            "maxNormalizedStep": 0.1,
+            "requiredGuardrails": [
+                "correctness",
+                "security",
+                "timeout",
+                "cancellation",
+                "queue-oldest-age",
+                "aot-drop"
+            ]
+        },
+        {
+            "id": "public-hotread-residency",
+            "candidateMode": "local-real-or-synthetic",
+            "knobIds": [
+                "public-hotread-recent-admission",
+                "public-hotread-min-compression-savings",
+                "public-hotread-brotli-share",
+                "public-hotread-gzip-share",
+                "public-hotread-min-client-share"
+            ],
+            "maxNormalizedStep": 0.12,
+            "requiredGuardrails": [
+                "correctness",
+                "security",
+                "resident-bytes",
+                "snapshot-overlap",
+                "rss",
+                "gc",
+                "stale",
+                "fallback"
+            ]
+        },
+        {
+            "id": "notification-synthetic-only",
+            "candidateMode": "synthetic-only-until-1451",
+            "dependency": "issue-1451-delivery-policy",
+            "knobIds": [
+                "notification-synthetic-queue"
+            ],
+            "maxNormalizedStep": 0.1,
+            "requiredGuardrails": [
+                "correctness",
+                "security",
+                "ordering",
+                "delivery-policy"
+            ]
+        }
+    ],
+    "hardConstraints": [
+        {
+            "id": "aot-concurrency-worker-bound",
+            "kind": "scaled-lte",
+            "left": "PublicAot:BackfillConcurrency",
+            "right": "PublicAot:SsrWorkerCount",
+            "scale": 2
+        },
+        {
+            "id": "aot-queue-per-consumer-floor",
+            "kind": "scaled-gte",
+            "left": "PublicAot:BackfillQueueCapacity",
+            "right": "PublicAot:BackfillConcurrency",
+            "scale": 32
+        },
+        {
+            "id": "aot-cooldown-within-quarantine",
+            "kind": "lte",
+            "left": "PublicAot:SsrCircuitCooldownSeconds",
+            "right": "PublicAot:SsrRouteQuarantineTtlSeconds"
+        },
+        {
+            "id": "aot-timeout-within-quarantine",
+            "kind": "lte",
+            "left": "PublicAot:SsrRequestTimeoutSeconds",
+            "right": "PublicAot:SsrRouteQuarantineTtlSeconds"
+        },
+        {
+            "id": "hotread-client-share-budget",
+            "kind": "sum-lte",
+            "keys": [
+                "PublicHotRead:ExpectedBrotliClientSharePercent",
+                "PublicHotRead:ExpectedGzipClientSharePercent"
+            ],
+            "value": 100
+        }
+    ]
+}

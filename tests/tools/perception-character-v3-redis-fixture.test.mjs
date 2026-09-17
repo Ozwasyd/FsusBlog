@@ -1,0 +1,599 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const {BUDGETED_LEASE_TEST, BUDGET_CASE_IDS, CANONICAL_LOCAL_REDIS_TESTS, CUTOVER_TEST, LOCAL_REDIS_FILTER, LOCAL_REDIS_PLANNED_TESTS, MANDATORY_BURN_TEST, REDIS_LUA_CASE_IDS, REDIS_LUA_TEST, reconcileLocalRedisOutcome} = await import(new URL('../../tools/test/perception-redis-producer.mjs', import.meta.url));
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function budgetEvidence(overrides = {})
+{
+    return {
+        schema: 'fsusblog.perception-character-v3-budget-cases.v1',
+        testId: BUDGETED_LEASE_TEST,
+        runId: 'test-run',
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:budgeted-lease:',
+        endpoint: '127.0.0.1:6379',
+        cases: BUDGET_CASE_IDS.map((id, index) => ({
+            id, outcome: 'passed', leases: index < 4 ? 1 : 2,
+            bytes: index < 4 ? 123 : 245, burnedBytes: index < 4 ? 123 : 245
+        })),
+        ...overrides
+    };
+}
+
+test('budgeted lease requires its own exact outcome and current run accounting evidence', () =>
+{
+    const results = LOCAL_REDIS_PLANNED_TESTS.map((id) =>
+        `<UnitTestResult testId="${id}" testName="${id}" outcome="Passed" duration="00:00:00.1" />`);
+    const common = {
+        trxContent: `<TestRun><Results>${results.join('')}</Results></TestRun>`,
+        container: 'budget-test', endpoint: '127.0.0.1:6379',
+        testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+        testAssemblyDigest: `sha256:${'a'.repeat(64)}`, filter: LOCAL_REDIS_FILTER,
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:',
+        cleanupVerified: true, redisLuaCallsBefore: 1, redisLuaCallsAfter: 2,
+        redisLuaCaseEvidence: redisLuaCaseEvidence(), redisBudgetEvidence: budgetEvidence(),
+        redisCutoverEvidence: cutoverEvidence(),
+        runId: 'test-run', sourceCommit: 'test-commit', sourceFingerprint: `sha256:${'b'.repeat(64)}`
+    };
+    assert.equal(reconcileLocalRedisOutcome(common).status, 'passed');
+    const variants = [
+        { trxContent: `<TestRun>${results.slice(0, -1).join('')}</TestRun>` },
+        { trxContent: `<TestRun>${results.join('')}${results.at(-1)}</TestRun>` },
+        { trxContent: `<TestRun>${results.slice(0, -1).join('')}${results.at(-1).replace('Passed', 'Failed')}</TestRun>` },
+        { redisBudgetEvidence: null },
+        { redisBudgetEvidence: budgetEvidence({ runId: 'old-run' }) },
+        { redisBudgetEvidence: budgetEvidence({ prefixNamespace: 'test:perception-v3-local-redis:other:budgeted-lease:' }) },
+        { redisBudgetEvidence: budgetEvidence({ endpoint: '127.0.0.1:1' }) },
+        { redisBudgetEvidence: budgetEvidence({ cases: [] }) },
+        { redisCutoverEvidence: null },
+        { redisCutoverEvidence: cutoverEvidence({ runId: 'stale-run' }) },
+        { redisCutoverEvidence: cutoverEvidence({ endpoint: '127.0.0.1:1' }) },
+        { redisCutoverEvidence: cutoverEvidence({ status: 'failed' }) },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                namespaceRetirement: { ...cutoverEvidence().namespaceRetirement, envelopeRevoked: false }
+            })
+        },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                databaseRevoke: { commandCount: 2, rowsRevoked: 2 }
+            })
+        },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                idempotency: { ...cutoverEvidence().idempotency, mutationStable: false }
+            })
+        },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                first: { ...cutoverEvidence().first, mutation: { ...cutoverEvidence().first.mutation, deviceKeysRetired: 1 } }
+            })
+        },
+        { cleanupVerified: false }
+    ];
+    for (const variant of variants)
+    {
+        assert.equal(reconcileLocalRedisOutcome({ ...common, ...variant }).status, 'failed');
+    }
+    for (let index = 0; index < BUDGET_CASE_IDS.length; index += 1)
+    {
+        for (const field of ['leases', 'bytes', 'burnedBytes'])
+        {
+            const evidence = budgetEvidence();
+            evidence.cases[index][field] += 1;
+            assert.equal(reconcileLocalRedisOutcome({ ...common, redisBudgetEvidence: evidence }).status, 'failed');
+        }
+    }
+    assert.throws(() => reconcileLocalRedisOutcome({
+        ...common, prefixNamespace: 'test:perception-v3-local-redis:old-run:'
+    }), /current run/u);
+    assert.throws(() => reconcileLocalRedisOutcome({
+        ...common, plannedTestIds: [MANDATORY_BURN_TEST, REDIS_LUA_TEST]
+    }), /exact producer filter/u);
+});
+
+function redisLuaCaseEvidence(overrides = {})
+{
+    return {
+        schema: 'fsusblog.perception-character-v3-redis-lua-cases.v1',
+        testId: REDIS_LUA_TEST,
+        runId: 'test-run',
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:redis-lua:',
+        cases: REDIS_LUA_CASE_IDS.map((id) => ({ id, outcome: 'passed' })),
+        ...overrides
+    };
+}
+
+function cutoverEvidence(overrides = {})
+{
+    const mutation = {
+        challengeRowsRevoked: 2,
+        stateKeysRetired: 1,
+        activeIdentityKeysRetired: 1,
+        deviceKeysRetired: 2,
+        oldPoolGenerationsRevoked: 1,
+        envelopesExamined: 1,
+        envelopesRevoked: 1,
+        retiredStateDigest: 'c'.repeat(64)
+    };
+    return {
+        schema: 'fsusblog.security.perception-character-v3-cutover-fixture.v1',
+        testId: CUTOVER_TEST,
+        status: 'passed',
+        runId: 'test-run',
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:cutover:',
+        endpoint: '127.0.0.1:6379',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`,
+        namespaceRetirement: {
+            stateKeysRetired: true,
+            activeIdentityKeysRetired: true,
+            deviceKeysRetired: true,
+            oldPoolGenerationsRevoked: true,
+            activeGenerationRetained: true,
+            envelopeRevoked: true
+        },
+        databaseRevoke: { commandCount: 1, rowsRevoked: 2 },
+        idempotency: {
+            repeatedAccepted: true,
+            repeatedIdempotent: true,
+            receiptFingerprintStable: true,
+            mutationStable: true,
+            poolLeaseCount: 0
+        },
+        first: {
+            accepted: true,
+            idempotent: false,
+            receiptFingerprint: 'a'.repeat(64),
+            targetFingerprint: 'b'.repeat(64),
+            mutation
+        },
+        second: {
+            accepted: true,
+            idempotent: true,
+            receiptFingerprint: 'a'.repeat(64),
+            targetFingerprint: 'b'.repeat(64),
+            mutation: { ...mutation }
+        },
+        ...overrides
+    };
+}
+
+function runFixtureWithDockerStub({ port = '127.0.0.1:6379', pingReady = false, cleanupScanFails = false } = {})
+{
+    const stubDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-docker-'));
+    const dockerStub = path.join(stubDirectory, 'docker');
+    const sleepStub = path.join(stubDirectory, 'sleep');
+    fs.writeFileSync(dockerStub, `#!/usr/bin/env bash
+if [[ "$1" == "info" || "$1" == "run" || "$1 $2" == "image inspect" || "$1" == "rm" ]]; then exit 0; fi
+if [[ "$1" == "port" ]]; then printf '%s\\n' "$FSUSBLOG_FAKE_DOCKER_PORT"; exit 0; fi
+if [[ "$1 $3" == "exec redis-cli" && "$4" == "ping" ]]; then [[ "$FSUSBLOG_FAKE_DOCKER_PING" == "ready" ]] && echo PONG && exit 0; exit 1; fi
+if [[ "$FSUSBLOG_FAKE_CLEANUP_SCAN" == true && "$1 $3 $4 $5" == "exec redis-cli --raw --scan" ]]; then
+    if [[ -f "$FSUSBLOG_FAKE_SCAN_MARKER" ]]; then exit 1; fi
+    touch "$FSUSBLOG_FAKE_SCAN_MARKER"; exit 0
+fi
+if [[ "$FSUSBLOG_FAKE_CLEANUP_SCAN" == true && "$1 $3 $4 $5" == "exec redis-cli --raw info" ]]; then echo 'cmdstat_eval:calls=1'; exit 0; fi
+exit 1
+`, { mode: 0o755 });
+    fs.writeFileSync(sleepStub, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+    const producerObserver = path.join(stubDirectory, 'producer-observer');
+    if (cleanupScanFails)
+    {
+        fs.writeFileSync(path.join(stubDirectory, 'dotnet'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+        fs.writeFileSync(producerObserver, `#!/usr/bin/env bash
+if [[ "$1" == *perception-redis-producer.mjs && "$2" != --print-filter ]]; then
+    printf 'observed producer arguments: %s\\n' "$*" >&2
+    exit 1
+fi
+exec "$FSUSBLOG_REAL_NODE" "$@"
+`, { mode: 0o755 });
+    }
+    try
+    {
+        return spawnSync('/bin/bash', [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')], {
+            cwd: root,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                PATH: `${stubDirectory}:${process.env.PATH}`,
+                FSUSBLOG_FAKE_DOCKER_PORT: port,
+                FSUSBLOG_FAKE_DOCKER_PING: pingReady ? 'ready' : 'not-ready',
+                FSUSBLOG_FAKE_CLEANUP_SCAN: String(cleanupScanFails),
+                FSUSBLOG_FAKE_SCAN_MARKER: path.join(stubDirectory, 'scan-observed'),
+                ...(cleanupScanFails ? {
+                    FSUSBLOG_NODE: producerObserver,
+                    FSUSBLOG_REAL_NODE: process.execPath
+                } : {})
+            }
+        });
+    }
+    finally
+    {
+        fs.rmSync(stubDirectory, { recursive: true, force: true });
+    }
+}
+
+test('canonical LocalRedis producer registers all four Perception V3 tests under single shared owner', () =>
+{
+    assert.equal(CANONICAL_LOCAL_REDIS_TESTS.length, 4);
+    assert.ok(CANONICAL_LOCAL_REDIS_TESTS.includes(MANDATORY_BURN_TEST));
+    assert.ok(
+        CANONICAL_LOCAL_REDIS_TESTS.includes(
+            'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity'
+        )
+    );
+    assert.ok(
+        CANONICAL_LOCAL_REDIS_TESTS.includes(
+            'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3ContractCutoverTests.RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently'
+        )
+    );
+    assert.ok(
+        CANONICAL_LOCAL_REDIS_TESTS.includes(
+            REDIS_LUA_TEST
+        )
+    );
+    assert.deepEqual(
+        LOCAL_REDIS_PLANNED_TESTS,
+        [MANDATORY_BURN_TEST, REDIS_LUA_TEST, BUDGETED_LEASE_TEST, CUTOVER_TEST]
+    );
+    assert.equal(
+        LOCAL_REDIS_FILTER,
+        `Fixture=LocalRedis&(FullyQualifiedName=${MANDATORY_BURN_TEST}|FullyQualifiedName=${REDIS_LUA_TEST}|FullyQualifiedName=${BUDGETED_LEASE_TEST}|FullyQualifiedName=${CUTOVER_TEST})`
+    );
+});
+
+test('simulated post-test Docker scan failure reaches producer as unverified cleanup without a forged receipt', () =>
+{
+    const failed = runFixtureWithDockerStub({ pingReady: true, cleanupScanFails: true });
+    assert.notEqual(failed.status, 0);
+    assert.match(failed.stderr, /observed producer arguments:.*--cleanup-verified false/u);
+    assert.match(failed.stderr, /test_status=0 producer_status=1/u);
+});
+
+test('ordinary backend test filter excludes Fixture=LocalRedis to prevent false-green unit runs', () =>
+{
+    const suiteSupport = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+    const productionRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
+    assert.match(
+        suiteSupport,
+        /BACKEND_ORDINARY_TEST_FILTER="[^"]*Fixture!=LocalRedis[^"]*"/u,
+        'suite support must exclude Fixture=LocalRedis from ordinary backend test filter'
+    );
+    assert.match(
+        productionRunner,
+        /productionBaseFilter = '[^']*Fixture!=LocalRedis[^']*'/u,
+        'production union must exclude Fixture=LocalRedis for the canonical Redis producer'
+    );
+});
+
+test('BudgetedLease test fails closed and contains no early return on missing FSUSBLOG_TEST_REDIS', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity');
+    assert.ok(methodIndex > 0, 'BudgetedLease test method must exist');
+
+    const methodBody = testFile.slice(
+        methodIndex,
+        testFile.indexOf('private static PerceptionCharacterV3LeaseBudget Budget', methodIndex)
+    );
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)\s*return\s*;/u,
+        'BudgetedLease test must not return early on empty connection string'
+    );
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS environment variable is not set/u);
+    assert.match(methodBody, /LocalRedis run identity is required/u);
+    assert.match(methodBody, /LocalRedis prefix is required/u);
+    assert.match(methodBody, /LocalRedis budget evidence path is required/u);
+    assert.match(methodBody, /redisPrefixRoot \+ "budgeted-lease:"/u);
+    assert.match(methodBody, /fsusblog\.perception-character-v3-budget-cases\.v1/u);
+});
+
+test('ArtifactPoolBurn test fails closed and contains no early return on missing FSUSBLOG_TEST_REDIS', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply');
+    assert.ok(methodIndex > 0, 'ArtifactPoolBurn test method must exist');
+
+    const methodBody = testFile.slice(methodIndex, testFile.indexOf('public async Task BudgetedLease', methodIndex));
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)\s*return\s*;/u,
+        'ArtifactPoolBurn test must not return early on empty connection string'
+    );
+    assert.match(
+        methodBody,
+        /throw new InvalidOperationException/u,
+        'ArtifactPoolBurn test must throw when FSUSBLOG_TEST_REDIS is not set'
+    );
+});
+
+test('RedisLua state and device authority test fails closed and binds canonical prefix and case evidence', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3Tests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed');
+    assert.ok(methodIndex > 0, 'RedisLua test method must exist');
+
+    const methodBody = testFile.slice(methodIndex, testFile.indexOf('private static SecurityChallengeKind Parse', methodIndex));
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)\s*return\s*;/u,
+        'RedisLua test must not return early on empty connection string'
+    );
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS environment variable is not set/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_PREFIX environment variable is not set/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_CASE_EVIDENCE environment variable is not set/u);
+    assert.match(methodBody, /redisPrefixRoot \+ "redis-lua:"/u);
+    assert.match(methodBody, /fsusblog\.perception-character-v3-redis-lua-cases\.v1/u);
+});
+
+test('cutover RedisStore test fails closed and binds the canonical current-run evidence identity', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently');
+    assert.ok(methodIndex > 0, 'cutover RedisStore test method must exist');
+    const methodBody = testFile.slice(
+        methodIndex,
+        testFile.indexOf('public async Task ProtectedEndpoint', methodIndex)
+    );
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)[\s\S]{0,80}?return\s*;/u
+    );
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS environment variable is not set/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_PREFIX/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID/u);
+    assert.match(methodBody, /FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_SOURCE_COMMIT/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_SOURCE_FINGERPRINT/u);
+    assert.match(methodBody, /fsusblog\.security\.perception-character-v3-cutover-fixture\.v1/u);
+    assert.match(methodBody, /activeGenerationRetained/u);
+    assert.match(methodBody, /envelopeRevoked/u);
+    assert.match(methodBody, /update\.Received\(1\)/u);
+    assert.match(methodBody, /DidNotReceive\(\)\.LeaseAsync/u);
+});
+
+test('perception-character-v3-redis-fixture.sh binds fail-closed container lifecycle and outcome reconciliation', () =>
+{
+    const script = fs.readFileSync(
+        path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh'),
+        'utf8'
+    );
+    assert.match(script, /command -v docker/u);
+    assert.match(script, /docker info/u);
+    assert.match(script, /trap Cleanup EXIT/u);
+    assert.match(script, /redis-cli ping/u);
+    assert.match(script, /FSUSBLOG_TEST_REDIS=/u);
+    assert.match(script, /FSUSBLOG_TEST_REDIS_PREFIX=/u);
+    assert.match(script, /FSUSBLOG_TEST_REDIS_CASE_EVIDENCE=/u);
+    assert.match(script, /FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT=/u);
+    assert.match(script, /redis_cutover_evidence="\$\{FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT:-/u);
+    assert.match(script, /--print-filter/u);
+    assert.match(script, /redis-cli --raw --scan --pattern/u);
+    assert.match(script, /RedisLuaCalls/u);
+    assert.match(script, /snapshotGitWorktree/u);
+    assert.match(script, /perception-redis-producer\.mjs/u);
+});
+
+test('LocalRedis runner fails closed when Docker is unavailable, port parsing fails, or PING is not ready', () =>
+{
+    const unavailableDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-no-docker-'));
+    fs.symlinkSync('/usr/bin/dirname', path.join(unavailableDirectory, 'dirname'));
+    try
+    {
+        const unavailable = spawnSync(
+            '/bin/bash',
+            [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')],
+            {
+                cwd: root,
+                encoding: 'utf8',
+                env: { ...process.env, PATH: unavailableDirectory }
+            }
+        );
+        assert.notEqual(unavailable.status, 0);
+        assert.match(unavailable.stderr, /docker is required/u);
+    }
+    finally
+    {
+        fs.rmSync(unavailableDirectory, { recursive: true, force: true });
+    }
+
+    const invalidPort = runFixtureWithDockerStub({ port: 'invalid' });
+    assert.notEqual(invalidPort.status, 0);
+    assert.match(invalidPort.stderr, /failed to resolve published port/u);
+
+    const pingNotReady = runFixtureWithDockerStub({ port: '127.0.0.1:6379' });
+    assert.notEqual(pingNotReady.status, 0);
+    assert.match(pingNotReady.stderr, /failed to respond to PING/u);
+
+    const scanFailed = runFixtureWithDockerStub({ pingReady: true });
+    assert.notEqual(scanFailed.status, 0);
+    assert.match(scanFailed.stderr, /failed to inspect the Redis prefix/u);
+
+    const nonlocalHost = spawnSync('/bin/bash', [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, FSUSBLOG_TEST_REDIS_HOST: 'not-local' }
+    });
+    assert.notEqual(nonlocalHost.status, 0);
+    assert.match(nonlocalHost.stderr, /local Docker host/u);
+});
+
+test('reconcileLocalRedisOutcome parses passing TRX and produces conforming receipt', () =>
+{
+    const sampleTrx = `<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="00000000-0000-0000-0000-000000000000" name="LocalRedis" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult executionId="11111111-1111-1111-1111-111111111111" testId="ad61e41f-0cd3-9308-0db2-3b9922d07109" testName="${MANDATORY_BURN_TEST}" outcome="Passed" duration="00:00:00.4200000" />
+    <UnitTestResult executionId="22222222-2222-2222-2222-222222222222" testId="bd61e41f-0cd3-9308-0db2-3b9922d07109" testName="${REDIS_LUA_TEST}" outcome="Passed" duration="00:00:00.8400000" />
+    <UnitTestResult testId="budget" testName="${BUDGETED_LEASE_TEST}" outcome="Passed" duration="00:00:00.8400000" />
+    <UnitTestResult testId="cutover" testName="${CUTOVER_TEST}" outcome="Passed" duration="00:00:00.8400000" />
+  </Results>
+</TestRun>`;
+
+    const receipt = reconcileLocalRedisOutcome({
+        trxContent: sampleTrx,
+        container: 'fsusblog-perception-v3-redis-test',
+        endpoint: '127.0.0.1:6379',
+        testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+        testAssemblyDigest: `sha256:${'a'.repeat(64)}`,
+        filter: LOCAL_REDIS_FILTER,
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:',
+        cleanupVerified: true,
+        redisLuaCallsBefore: 1,
+        redisLuaCallsAfter: 2,
+        redisLuaCaseEvidence: redisLuaCaseEvidence(),
+        redisBudgetEvidence: budgetEvidence(),
+        redisCutoverEvidence: cutoverEvidence(),
+        runId: 'test-run',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`
+    });
+
+    assert.equal(receipt.schema, 'fsusblog.perception-character-v3-redis-fixture.v1');
+    assert.equal(receipt.status, 'passed');
+    assert.equal(receipt.totalExecuted, 4);
+    assert.deepEqual(receipt.plannedTestIds, [MANDATORY_BURN_TEST, REDIS_LUA_TEST, BUDGETED_LEASE_TEST, CUTOVER_TEST]);
+    assert.equal(receipt.mandatoryTestOutcome, 'Passed');
+    assert.equal(receipt.tests[0].executionStatus, 'executed');
+    assert.equal(receipt.tests[0].fullyQualifiedName, MANDATORY_BURN_TEST);
+    assert.equal(receipt.tests[0].outcome, 'Passed');
+    assert.equal(receipt.tests[1].fullyQualifiedName, REDIS_LUA_TEST);
+    assert.equal(receipt.tests[1].outcome, 'Passed');
+    assert.equal(receipt.tests[2].fullyQualifiedName, BUDGETED_LEASE_TEST);
+    assert.equal(receipt.tests[2].outcome, 'Passed');
+    assert.equal(receipt.tests[3].fullyQualifiedName, CUTOVER_TEST);
+    assert.equal(receipt.tests[3].outcome, 'Passed');
+    assert.equal(receipt.redisLuaCaseEvidence.identityMatches, true);
+    assert.equal(receipt.redisLuaCaseEvidence.cases.length, REDIS_LUA_CASE_IDS.length);
+    assert.equal(receipt.redisCutoverEvidence.identityMatches, true);
+    assert.equal(receipt.container, 'fsusblog-perception-v3-redis-test');
+    assert.equal(receipt.endpoint, '127.0.0.1:6379');
+});
+
+test('reconcileLocalRedisOutcome records missing, failed, no-Redis-call and cleanup outcomes as failed', () =>
+{
+    const emptyTrx = `<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="00000000-0000-0000-0000-000000000000" name="LocalRedis" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+  </Results>
+</TestRun>`;
+
+    const common = {
+        container: 'test',
+        endpoint: '127.0.0.1:6379',
+        testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+        testAssemblyDigest: `sha256:${'a'.repeat(64)}`,
+        filter: LOCAL_REDIS_FILTER,
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:',
+        cleanupVerified: true,
+        redisLuaCallsBefore: 1,
+        redisLuaCallsAfter: 2,
+        redisLuaCaseEvidence: redisLuaCaseEvidence(),
+        redisBudgetEvidence: budgetEvidence(),
+        runId: 'test-run',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`
+    };
+
+    const emptyReceipt = reconcileLocalRedisOutcome({ trxContent: emptyTrx, ...common });
+    assert.equal(emptyReceipt.status, 'failed');
+    assert.ok(emptyReceipt.failureCodes.includes('zero-tests-executed'));
+    assert.ok(emptyReceipt.failureCodes.includes('planned-test-not-executed'));
+    assert.equal(emptyReceipt.tests[0].executionStatus, 'not-executed');
+
+    const failedTrx = `<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="00000000-0000-0000-0000-000000000000" name="LocalRedis" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult executionId="11111111-1111-1111-1111-111111111111" testId="ad61e41f-0cd3-9308-0db2-3b9922d07109" testName="${MANDATORY_BURN_TEST}" outcome="Failed" duration="00:00:00.4200000" />
+  </Results>
+</TestRun>`;
+
+    const failedReceipt = reconcileLocalRedisOutcome({ trxContent: failedTrx, ...common });
+    assert.equal(failedReceipt.status, 'failed');
+    assert.ok(failedReceipt.failureCodes.includes('test-outcome-not-passed'));
+
+    const noCallsReceipt = reconcileLocalRedisOutcome({
+        trxContent: failedTrx.replace('outcome="Failed"', 'outcome="Passed"'),
+        ...common,
+        redisLuaCallsAfter: 1
+    });
+    assert.equal(noCallsReceipt.status, 'failed');
+    assert.ok(noCallsReceipt.failureCodes.includes('no-test-redis-lua-calls'));
+
+    const cleanupFailureReceipt = reconcileLocalRedisOutcome({
+        trxContent: failedTrx.replace('outcome="Failed"', 'outcome="Passed"'),
+        ...common,
+        cleanupVerified: false
+    });
+    assert.equal(cleanupFailureReceipt.status, 'failed');
+    assert.ok(cleanupFailureReceipt.failureCodes.includes('prefix-cleanup-not-verified'));
+});
+
+test('reconcileLocalRedisOutcome rejects missing, partial, failed and cross-run RedisLua case evidence', () =>
+{
+    const passingTrx = `<?xml version="1.0" encoding="utf-8"?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>
+  <UnitTestResult testId="1" testName="${MANDATORY_BURN_TEST}" outcome="Passed" duration="00:00:00.1" />
+  <UnitTestResult testId="2" testName="${REDIS_LUA_TEST}" outcome="Passed" duration="00:00:00.2" />
+</Results></TestRun>`;
+    const common = {
+        trxContent: passingTrx,
+        container: 'test',
+        endpoint: '127.0.0.1:6379',
+        testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+        testAssemblyDigest: `sha256:${'a'.repeat(64)}`,
+        filter: LOCAL_REDIS_FILTER,
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:',
+        cleanupVerified: true,
+        redisLuaCallsBefore: 1,
+        redisLuaCallsAfter: 2,
+        runId: 'test-run',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`
+    };
+
+    const missing = reconcileLocalRedisOutcome({ ...common, redisLuaCaseEvidence: null });
+    assert.equal(missing.status, 'failed');
+    assert.ok(missing.failureCodes.includes('redis-lua-case-evidence-missing'));
+
+    const partial = reconcileLocalRedisOutcome({
+        ...common,
+        redisLuaCaseEvidence: redisLuaCaseEvidence({ cases: redisLuaCaseEvidence().cases.slice(0, -1) })
+    });
+    assert.equal(partial.status, 'failed');
+    assert.ok(partial.failureCodes.includes('redis-lua-case-inventory-mismatch'));
+
+    const failedCases = redisLuaCaseEvidence().cases.map((entry, index) =>
+        index === 0 ? { ...entry, outcome: 'failed' } : entry);
+    const failed = reconcileLocalRedisOutcome({
+        ...common,
+        redisLuaCaseEvidence: redisLuaCaseEvidence({ cases: failedCases })
+    });
+    assert.equal(failed.status, 'failed');
+    assert.ok(failed.failureCodes.includes('redis-lua-case-not-passed'));
+
+    const crossRun = reconcileLocalRedisOutcome({
+        ...common,
+        redisLuaCaseEvidence: redisLuaCaseEvidence({ runId: 'stale-run' })
+    });
+    assert.equal(crossRun.status, 'failed');
+    assert.ok(crossRun.failureCodes.includes('redis-lua-case-identity-mismatch'));
+});

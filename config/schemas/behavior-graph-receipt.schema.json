@@ -1,0 +1,630 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.behavior-graph-receipt.v1",
+    "title": "FsusBlog BehaviorGraph consistency join receipt",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "runIdentity",
+        "sourceIdentity",
+        "buildIdentities",
+        "catalogDigest",
+        "registryDigest",
+        "extractorDigests",
+        "rendererDigests",
+        "inputDigests",
+        "behaviorNodes",
+        "implementationEdges",
+        "factEdges",
+        "testEdges",
+        "documentClaimEdges",
+        "mutationEdges",
+        "missing",
+        "orphans",
+        "conflicts",
+        "status",
+        "failureReasons",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.behavior-graph-receipt.v1"
+        },
+        "runIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "attemptKind",
+                "evidenceClass"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "attemptKind": {
+                    "enum": [
+                        "primary",
+                        "retry",
+                        "diagnostic"
+                    ]
+                },
+                "evidenceClass": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "sourceIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commit",
+                "worktreeFingerprint"
+            ],
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "buildIdentities": {
+            "type": "object",
+            "propertyNames": {
+                "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "additionalProperties": {
+                "$ref": "#/$defs/buildIdentity"
+            }
+        },
+        "catalogDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "registryDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "extractorDigests": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "extractorId",
+                    "extractorDigest",
+                    "contentDigest"
+                ],
+                "properties": {
+                    "extractorId": {
+                        "type": "string"
+                    },
+                    "extractorDigest": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "contentDigest": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    }
+                }
+            }
+        },
+        "rendererDigests": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "kind",
+                    "digest"
+                ],
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "digest": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    }
+                }
+            }
+        },
+        "inputDigests": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "ownerReceipt",
+                "testEvidenceReceipt",
+                "factObservationReceipts",
+                "docClaimParseReceipt",
+                "docClaimVerificationReceipt",
+                "generatedSectionCheckReceipt",
+                "mutationEvidenceReceipt"
+            ],
+            "properties": {
+                "ownerReceipt": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "testEvidenceReceipt": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "factObservationReceipts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "extractorId",
+                            "contentDigest"
+                        ],
+                        "properties": {
+                            "extractorId": {
+                                "type": "string"
+                            },
+                            "contentDigest": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        }
+                    }
+                },
+                "docClaimParseReceipt": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "docClaimVerificationReceipt": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "generatedSectionCheckReceipt": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "mutationEvidenceReceipt": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "behaviorNodes": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/behaviorNode"
+            }
+        },
+        "implementationEdges": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/implementationEdge"
+            }
+        },
+        "factEdges": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/factEdge"
+            }
+        },
+        "testEdges": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/testEdge"
+            }
+        },
+        "documentClaimEdges": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/documentClaimEdge"
+            }
+        },
+        "mutationEdges": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/mutationEdge"
+            }
+        },
+        "missing": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/locator"
+            }
+        },
+        "orphans": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/locator"
+            }
+        },
+        "conflicts": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/locator"
+            }
+        },
+        "status": {
+            "enum": [
+                "ok",
+                "failed"
+            ]
+        },
+        "failureReasons": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        }
+    },
+    "$defs": {
+        "buildIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "artifactId",
+                "receiptDigest",
+                "artifactDigest"
+            ],
+            "properties": {
+                "artifactId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "receiptDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "artifactDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "behaviorNode": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "status",
+                "documentationPolicy",
+                "ownerStatus",
+                "factStatus",
+                "testStatus",
+                "docStatus",
+                "mutationStatus",
+                "qualification",
+                "failureReasons"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "status": {
+                    "enum": [
+                        "active",
+                        "migration-only",
+                        "retired"
+                    ]
+                },
+                "documentationPolicy": {
+                    "enum": [
+                        "required",
+                        "not-public",
+                        "rationale-only"
+                    ]
+                },
+                "ownerStatus": {
+                    "enum": [
+                        "ok",
+                        "failed",
+                        "not-applicable"
+                    ]
+                },
+                "factStatus": {
+                    "enum": [
+                        "ok",
+                        "failed",
+                        "not-applicable"
+                    ]
+                },
+                "testStatus": {
+                    "enum": [
+                        "ok",
+                        "failed",
+                        "not-applicable"
+                    ]
+                },
+                "docStatus": {
+                    "enum": [
+                        "ok",
+                        "failed",
+                        "not-applicable"
+                    ]
+                },
+                "mutationStatus": {
+                    "enum": [
+                        "ok",
+                        "failed",
+                        "not-applicable"
+                    ]
+                },
+                "qualification": {
+                    "enum": [
+                        "qualified",
+                        "failed",
+                        "excluded"
+                    ]
+                },
+                "failureReasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "implementationEdge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "sourcePath",
+                "symbol",
+                "role",
+                "status",
+                "reason"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "sourcePath": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "factEdge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "extractorId",
+                "contentDigest",
+                "status",
+                "reason"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "extractorId": {
+                    "type": "string"
+                },
+                "contentDigest": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "testEdge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "testKind",
+                "canonicalTestId",
+                "outcome",
+                "status",
+                "reason"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "testKind": {
+                    "type": "string"
+                },
+                "canonicalTestId": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "documentClaimEdge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "claimId",
+                "documentPath",
+                "claimType",
+                "factPath",
+                "status",
+                "reason"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "claimId": {
+                    "type": "string"
+                },
+                "documentPath": {
+                    "type": "string"
+                },
+                "claimType": {
+                    "type": "string"
+                },
+                "factPath": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "mutationEdge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "mutantId",
+                "sourcePath",
+                "symbol",
+                "mutator",
+                "status",
+                "reason"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "mutantId": {
+                    "type": "string"
+                },
+                "sourcePath": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "mutator": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "locator": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "behaviorId",
+                "anchor",
+                "reason"
+            ],
+            "properties": {
+                "kind": {
+                    "enum": [
+                        "missing-owner",
+                        "duplicate-owner",
+                        "missing-fact",
+                        "duplicate-fact",
+                        "failed-fact",
+                        "missing-test-kind",
+                        "non-qualifying-test",
+                        "missing-doc",
+                        "doc-conflict",
+                        "orphan-claim",
+                        "orphan-observation",
+                        "retired-claim",
+                        "identity-mismatch",
+                        "input-failed",
+                        "public-fact-undocumented",
+                        "not-public-has-claim",
+                        "missing-mutation",
+                        "mutation-failed"
+                    ]
+                },
+                "behaviorId": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "anchor": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "forbiddenFields": {
+            "enum": [
+                "lastVerifiedCommit",
+                "gitDiff",
+                "changedPaths",
+                "optionalJoin",
+                "defaultPass",
+                "warning",
+                "partial",
+                "sync",
+                "featureFlag"
+            ]
+        }
+    }
+}

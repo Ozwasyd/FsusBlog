@@ -1,0 +1,12 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tools/docs/behavior-doc-static-admission.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "docs/testing.md",
+      "sha256": "7a209df1912dfa9b7383b314b5b6d0004cb2fa3148fede767161668e0bea9f34"
+    }
+  ]
+}

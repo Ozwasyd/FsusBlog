@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.changed-critical-mutation-tool-policy.v2",
+    "version": 2,
+    "description": "Tool policy only. Mutate targets derive from ImplementationOwner receipt; test filters derive from BehaviorTestBinding receipt. No hand-written source-pattern-to-test-owner mappings.",
+    "defaults": {
+        "configuration": "Debug",
+        "mutationLevel": "Complete",
+        "thresholds": {
+            "high": 85,
+            "low": 70,
+            "break": 70
+        },
+        "ignoreMethods": [
+            "ToString",
+            "GetHashCode"
+        ]
+    },
+    "sourceProjects": [
+        "src/backend",
+        "src/core"
+    ],
+    "executionLimits": {
+        "maxConcurrentTestRunners": 4,
+        "timeoutMs": 600000
+    }
+}

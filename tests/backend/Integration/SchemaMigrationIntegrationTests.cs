@@ -1,0 +1,3255 @@
+using System.Buffers.Binary;
+using System.Data;
+using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text.Json;
+
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Integrity;
+using FsusBlog.Migration.Definitions;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Npgsql;
+
+using NSubstitute;
+
+using SqlSugar;
+namespace FsusBlog.Server.Tests;
+
+[Trait("Category", "Integration")]
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
+public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixture fixture)
+{
+    private const string Legacy20260517Fixture = "legacy-20260517-minimal.sql";
+    private const string Legacy20260517DumpEnv = "FSUS_LEGACY_20260517_DUMP";
+    private const string Legacy20260517DumpDigestEnv = "FSUS_LEGACY_20260517_DUMP_SHA256";
+    private const string Legacy20260517DumpProducer = "legacy-20260517-real-dump";
+    private const string Legacy20260517DumpTestId =
+        "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided";
+    private const string Legacy20260517DumpTestsEnv = "FSUS_ENABLE_LEGACY_DUMP_TESTS";
+
+    [Fact]
+    public async Task RunAsync_AddsOptionalTaxonomyDescriptionsAndPreservesTaxonomyContracts()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "category", "description"));
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "tag", "description"));
+
+        int categoryId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "INSERT INTO category(name) VALUES ('taxonomy-description-category') RETURNING id;");
+        int tagId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "INSERT INTO tag(name) VALUES ('taxonomy-description-tag') RETURNING id;");
+        string invariantSignature = await ReadTaxonomyInvariantSignatureAsync(connectionString);
+        Assert.Contains("CREATE UNIQUE INDEX uq_category_name", invariantSignature, StringComparison.Ordinal);
+        Assert.Contains("CREATE UNIQUE INDEX uq_tag_name", invariantSignature, StringComparison.Ordinal);
+        Assert.DoesNotContain("(description", invariantSignature, StringComparison.OrdinalIgnoreCase);
+
+        using (SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            Assert.Null((await db.Queryable<Category>().SingleAsync(item => item.Id == categoryId)).Description);
+            Assert.Null((await db.Queryable<Tag>().SingleAsync(item => item.Id == tagId)).Description);
+        }
+
+        await fixture.ExecuteAsync(connectionString, $"""
+            DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
+            WHERE migration_id = '{TaxonomyDescriptionMigrationDefinitions.MigrationId}';
+            ALTER TABLE category DROP COLUMN description;
+            ALTER TABLE tag DROP COLUMN description;
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "category", "description"));
+        Assert.Equal(
+            "YES|character varying|500",
+            await ReadColumnDefinitionAsync(connectionString, "tag", "description"));
+        Assert.Equal(invariantSignature, await ReadTaxonomyInvariantSignatureAsync(connectionString));
+
+        string description = "<b>plain</b> " + new string('界', 487);
+        Assert.Equal(500, description.Length);
+        using (SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            Category category = await db.Queryable<Category>().SingleAsync(item => item.Id == categoryId);
+            Tag tag = await db.Queryable<Tag>().SingleAsync(item => item.Id == tagId);
+            Assert.Null(category.Description);
+            Assert.Null(tag.Description);
+
+            category.Description = description;
+            tag.Description = description;
+            Assert.Equal(1, await db.Updateable(category)
+                .UpdateColumns(static item => new { item.Description })
+                .ExecuteCommandAsync());
+            Assert.Equal(1, await db.Updateable(tag)
+                .UpdateColumns(static item => new { item.Description })
+                .ExecuteCommandAsync());
+
+            Assert.Equal(
+                description,
+                (await db.Queryable<Category>().SingleAsync(item => item.Id == categoryId)).Description);
+            Assert.Equal(
+                description,
+                (await db.Queryable<Tag>().SingleAsync(item => item.Id == tagId)).Description);
+
+            category.Description = new string('界', 501);
+            await Assert.ThrowsAnyAsync<Exception>(() => db.Updateable(category)
+                .UpdateColumns(static item => new { item.Description })
+                .ExecuteCommandAsync());
+
+            Assert.Equal(1, await db.Deleteable<Category>().Where(item => item.Id == categoryId).ExecuteCommandAsync());
+            Assert.Equal(1, await db.Deleteable<Tag>().Where(item => item.Id == tagId).ExecuteCommandAsync());
+            Assert.Equal(0, await db.Queryable<Category>().CountAsync(item => item.Id == categoryId));
+            Assert.Equal(0, await db.Queryable<Tag>().CountAsync(item => item.Id == tagId));
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_UpgradesVarcharContentAssetPrototypeAndBackfillsEverySource()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        string storageRoot = Path.Combine(Path.GetTempPath(), $"fsusblog-content-asset-cutover-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(storageRoot);
+        try
+        {
+            await RunMigrationsAsync(connectionString, storageRoot: storageRoot);
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(storageRoot);
+            Directory.CreateDirectory(Path.Combine(paths.PublicAssetRoot, "illustration"));
+            byte[] png = CreateContentAssetTestPng();
+            string hash = Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant();
+            Guid prototypeId = Guid.NewGuid();
+            Guid orphanId = Guid.NewGuid();
+            await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", "shared.png"), png);
+            await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", $"{orphanId:N}.png"), png);
+            await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", "cleanup.png"), png);
+
+            await fixture.ExecuteAsync(connectionString, $"""
+                DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
+                WHERE migration_id IN (
+                    '{ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId}',
+                    '{ContentAssetCutoverMigrationDefinitions.MigrationId}');
+
+                DROP TABLE content_asset_cleanup_queue;
+                DROP TABLE content_asset_reference;
+                DROP TABLE content_asset;
+
+                CREATE TABLE content_asset (
+                    asset_id varchar(36) PRIMARY KEY,
+                    storage_class varchar(16) NOT NULL,
+                    storage_key varchar(512) NOT NULL UNIQUE,
+                    mime_type varchar(127) NOT NULL,
+                    extension varchar(16) NOT NULL,
+                    size_bytes bigint NOT NULL,
+                    sha256 varchar(64) NULL,
+                    width_pixels integer NULL,
+                    height_pixels integer NULL,
+                    owner_admin_principal_id bigint NULL,
+                    state varchar(16) NOT NULL,
+                    created_at_utc timestamp NOT NULL,
+                    updated_at_utc timestamp NOT NULL
+                );
+                CREATE TABLE content_asset_reference (
+                    asset_id varchar(36) NOT NULL REFERENCES content_asset(asset_id) ON DELETE CASCADE,
+                    source_kind varchar(16) NOT NULL,
+                    source_key varchar(160) NOT NULL,
+                    article_id integer NULL,
+                    reference_count integer NOT NULL,
+                    alt_text varchar(256) NULL,
+                    updated_at_utc timestamp NOT NULL,
+                    PRIMARY KEY (asset_id, source_kind, source_key)
+                );
+                CREATE TABLE content_asset_cleanup_queue (
+                    asset_id varchar(36) PRIMARY KEY REFERENCES content_asset(asset_id) ON DELETE CASCADE,
+                    not_before_utc timestamp NOT NULL,
+                    attempt_count integer NOT NULL,
+                    last_error varchar(512) NULL,
+                    updated_at_utc timestamp NOT NULL
+                );
+                INSERT INTO content_asset(
+                    asset_id, storage_class, storage_key, mime_type, extension, size_bytes, sha256,
+                    width_pixels, height_pixels, state, created_at_utc, updated_at_utc)
+                VALUES ('{prototypeId:D}', 'public', 'illustration/shared.png', 'image/png', '.png', {png.Length},
+                    '{hash}', 1, 1, 'active', TIMESTAMP '2026-08-01 00:00:00', TIMESTAMP '2026-08-01 00:00:00');
+
+                CREATE TABLE article_asset_cleanup_queue (
+                    normalized_url varchar(512) PRIMARY KEY,
+                    not_before_utc timestamp NOT NULL,
+                    attempt_count integer NOT NULL,
+                    last_error varchar(512) NULL,
+                    updated_at_utc timestamp NOT NULL
+                );
+                INSERT INTO article_asset_cleanup_queue
+                    (normalized_url, not_before_utc, attempt_count, last_error, updated_at_utc)
+                VALUES ('/uploads/illustration/cleanup.png', TIMESTAMP '2026-08-20 00:00:00', 4,
+                    'legacy retry', TIMESTAMP '2026-08-19 00:00:00');
+                CREATE TABLE article_asset_reference (normalized_url varchar(512) NOT NULL);
+                CREATE TABLE asset_library_article_ref (url varchar(512) NOT NULL);
+                CREATE TABLE asset_library_item (url varchar(512) PRIMARY KEY, sha256 varchar(64) NULL);
+                INSERT INTO article_asset_reference(normalized_url)
+                VALUES ('/uploads/illustration/shared.png');
+                INSERT INTO asset_library_article_ref(url)
+                VALUES ('/uploads/illustration/shared.png');
+                INSERT INTO asset_library_item(url, sha256)
+                VALUES ('/uploads/illustration/shared.png', '{hash}');
+
+                INSERT INTO article(id, title, categoryid, views, createtime, metadata_updated_at, status, isdeleted)
+                VALUES (1779001, 'Asset cutover', 0, 0, now(), now(), 2, false);
+                INSERT INTO article_body(article_id, markdown_content, updated_at)
+                VALUES (1779001,
+                    '![first](/uploads/illustration/shared.png) ![second](/uploads/illustration/shared.png)', now());
+                INSERT INTO article_draft(
+                    owner_admin_principal_id, article_id, draft_key, title, categoryid, tag_ids,
+                    markdown_content, status, server_revision, updated_at, created_at)
+                VALUES (44, 1779001, 'asset-cutover', 'Draft', 0, '',
+                    '![draft](/uploads/illustration/shared.png)', 2, 1, now(), now());
+                WITH block AS (
+                    INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
+                    VALUES ('{new string('a', 64)}', '![revision](/uploads/illustration/shared.png)', 47, now())
+                    RETURNING id
+                )
+                INSERT INTO article_revision(
+                    article_id, revision_no, title, categoryid, tag_ids, content_block_id,
+                    markdown_content, diff_summary, created_by_admin_principal_id, created_at)
+                SELECT 1779001, 1, 'Revision', 0, '', id, '', '', 44, now() FROM block;
+                """);
+
+            await RunMigrationsAsync(connectionString, storageRoot: storageRoot);
+
+            string idType = await fixture.QueryScalarAsync<string>(connectionString, """
+                SELECT udt_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'content_asset' AND column_name = 'id';
+                """);
+            Guid reusedId = await fixture.QueryScalarAsync<Guid>(
+                connectionString,
+                "SELECT id FROM content_asset WHERE storage_key = 'illustration/shared.png';");
+            Guid reusedOrphanId = await fixture.QueryScalarAsync<Guid>(
+                connectionString,
+                $"SELECT id FROM content_asset WHERE storage_key = 'illustration/{orphanId:N}.png';");
+            int sourceRows = await fixture.QueryScalarAsync<int>(connectionString, $"""
+                SELECT COUNT(1) FROM content_asset_reference WHERE asset_id = '{prototypeId:D}'::uuid;
+                """);
+            int articleReferenceCount = await fixture.QueryScalarAsync<int>(connectionString, $"""
+                SELECT reference_count FROM content_asset_reference
+                WHERE asset_id = '{prototypeId:D}'::uuid AND source_kind = 'article';
+                """);
+            int cleanupAttempts = await fixture.QueryScalarAsync<int>(connectionString, """
+                SELECT queue.attempt_count
+                FROM content_asset_cleanup_queue queue
+                JOIN content_asset asset ON asset.id = queue.asset_id
+                WHERE asset.storage_key = 'illustration/cleanup.png';
+                """);
+
+            Assert.Equal("uuid", idType);
+            Assert.Equal(prototypeId, reusedId);
+            Assert.Equal(orphanId, reusedOrphanId);
+            Assert.Equal(3, sourceRows);
+            Assert.Equal(2, articleReferenceCount);
+            Assert.Equal(4, cleanupAttempts);
+            Assert.False(await fixture.TableExistsAsync(connectionString, "article_asset_cleanup_queue"));
+            Assert.False(await fixture.TableExistsAsync(connectionString, "article_asset_reference"));
+            Assert.False(await fixture.TableExistsAsync(connectionString, "asset_library_article_ref"));
+            Assert.False(await fixture.TableExistsAsync(connectionString, "asset_library_item"));
+        }
+        finally
+        {
+            Directory.Delete(storageRoot, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsync_ContentAssetBackfillFailureRollsBackAndKeepsLegacyTables(bool hashConflict)
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        string storageRoot = Path.Combine(Path.GetTempPath(), $"fsusblog-content-asset-rollback-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(storageRoot);
+        try
+        {
+            await RunMigrationsAsync(connectionString, storageRoot: storageRoot);
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(storageRoot);
+            Directory.CreateDirectory(Path.Combine(paths.PublicAssetRoot, "illustration"));
+            if (hashConflict)
+            {
+                await File.WriteAllBytesAsync(
+                    Path.Combine(paths.PublicAssetRoot, "illustration", "failure.png"),
+                    CreateContentAssetTestPng());
+            }
+
+            await fixture.ExecuteAsync(connectionString, $"""
+                DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
+                WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
+                CREATE TABLE asset_library_item (
+                    url varchar(512) PRIMARY KEY,
+                    sha256 varchar(64) NULL
+                );
+                INSERT INTO asset_library_item(url, sha256)
+                VALUES ('/uploads/illustration/failure.png', {(hashConflict ? "'" + new string('0', 64) + "'" : "NULL")});
+                """);
+
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => RunMigrationsAsync(connectionString, storageRoot: storageRoot));
+
+            Assert.Contains(
+                hashConflict ? "hash_conflict:" : "missing_file:",
+                failure.ToString(),
+                StringComparison.Ordinal);
+            Assert.True(await fixture.TableExistsAsync(connectionString, "asset_library_item"));
+            int historyRows = await fixture.QueryScalarAsync<int>(connectionString, $"""
+                SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName}
+                WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
+                """);
+            Assert.Equal(0, historyRows);
+        }
+        finally
+        {
+            Directory.Delete(storageRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_UpgradesLegacyArticleAndPageContentSchema()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                title varchar(256) NOT NULL,
+                summary varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                views integer NOT NULL DEFAULT 0,
+                createtime timestamp NOT NULL DEFAULT now(),
+                isdeleted boolean NOT NULL DEFAULT false,
+                content text NULL
+            );
+
+            INSERT INTO article(id, title, summary, categoryid, views, createtime, isdeleted, content)
+            VALUES (1, 'legacy-article', NULL, 2, 5, TIMESTAMP '2024-01-01 08:00:00', false, '# legacy body');
+
+            CREATE TABLE sys_systemconfig (
+                key varchar(64) PRIMARY KEY,
+                value varchar(512) NOT NULL
+            );
+
+            INSERT INTO sys_systemconfig(key, value)
+            VALUES ('Page_About', '# about from config'),
+                   ('SiteTitle', 'fsus');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        string? markdown = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SELECT markdown_content FROM article_body WHERE article_id = 1;");
+        string? pageContent = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SELECT content FROM page_content WHERE slug = 'about';");
+        bool articleContentExists = await fixture.ColumnExistsAsync(connectionString, "article", "content");
+        int legacyPageRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';");
+        int historyCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
+        bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
+        bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
+        bool anonymousPolicyExists = await fixture.TableExistsAsync(connectionString, "anonymous_comment_policy");
+        bool anonymousCredentialExists = await fixture.TableExistsAsync(connectionString, "anonymous_credential");
+        bool anonymousNullifierExists = await fixture.TableExistsAsync(connectionString, "comment_anonymous_nullifier");
+        string? defaultAuthorMode = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SELECT default_author_mode FROM anonymous_comment_policy WHERE id = 1;");
+        int defaultCommentMaxChars = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT comment_max_chars FROM anonymous_comment_policy WHERE id = 1;");
+        int defaultCommentMaxUtf8Bytes = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT comment_max_utf8_bytes FROM anonymous_comment_policy WHERE id = 1;");
+        long currentRevisionId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT current_revision_id FROM article WHERE id = 1;");
+        int publicationConsistencyIssues = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM article_publication_consistency_v1;");
+
+        Assert.Equal("# legacy body", markdown);
+        Assert.Equal("# about from config", pageContent);
+        Assert.False(articleContentExists);
+        Assert.Equal(0, legacyPageRows);
+        Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
+        Assert.True(auditLogExists);
+        Assert.True(rumMetricExists);
+        Assert.True(anonymousPolicyExists);
+        Assert.True(anonymousCredentialExists);
+        Assert.True(anonymousNullifierExists);
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_comment_policy", "snapshot_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "account_binding_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment_anonymous_nullifier", "nullifier_hash"));
+        Assert.Equal("zk_anonymous", defaultAuthorMode);
+        Assert.Equal(1000, defaultCommentMaxChars);
+        Assert.Equal(4096, defaultCommentMaxUtf8Bytes);
+        Assert.True(currentRevisionId > 0);
+        Assert.Equal(0, publicationConsistencyIssues);
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesSecurityChallengePersistenceTablesOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_challenge"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_challenge_attempt"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "security_challenge", "payload_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", "payload_hash"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "security_challenge", "payload"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", "payload"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_challenge_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_challenge_attempt_challenge"));
+    }
+
+    [Fact]
+    public async Task RunAsync_CommentModerationEvents_RecordInitialAndTransitionStatesAndRejectMutation()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await RunMigrationsAsync(connectionString);
+
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO comment(id, article_id, content, create_time, current_version, author_mode, depth, is_deleted,
+                                moderation_status, moderation_reason)
+            VALUES (701, 1, 'pending comment', now() AT TIME ZONE 'utc', 1, 'public', 0, false,
+                    0, 'pending_model_review');
+
+            UPDATE comment
+            SET moderation_status = 1,
+                moderation_reason = 'model_policy:model_clean_auto_approved',
+                moderated_at = now() AT TIME ZONE 'utc'
+            WHERE id = 701;
+            """);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var query = new NpgsqlCommand(
+            "SELECT previous_status, next_status, transition_source FROM comment_moderation_event WHERE comment_id = 701 ORDER BY id;",
+            connection))
+        await using (NpgsqlDataReader reader = await query.ExecuteReaderAsync())
+        {
+            Assert.True(await reader.ReadAsync());
+            Assert.True(await reader.IsDBNullAsync(0));
+            Assert.Equal(0, reader.GetInt32(1));
+            Assert.Equal("initial", reader.GetString(2));
+            Assert.True(await reader.ReadAsync());
+            Assert.Equal(0, reader.GetInt32(0));
+            Assert.Equal(1, reader.GetInt32(1));
+            Assert.Equal("model", reader.GetString(2));
+            Assert.False(await reader.ReadAsync());
+        }
+
+        await using var mutate = new NpgsqlCommand(
+            "UPDATE comment_moderation_event SET reason_code = 'tampered' WHERE comment_id = 701;",
+            connection);
+        PostgresException error = await Assert.ThrowsAsync<PostgresException>(() => mutate.ExecuteNonQueryAsync());
+        Assert.Contains("append-only", error.MessageText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsync_CommentMutationOutbox_EnforcesMinimalPayloadAndConsumerIdentity()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260720-post-comment-mutation-outbox");
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "comment_mutation_outbox"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "comment_mutation_outbox_delivery"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_comment_mutation_outbox_event_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_comment_outbox_delivery_consumer"));
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO comment(id, article_id, content, create_time, current_version, author_mode, depth, is_deleted,
+                                moderation_status, moderation_reason)
+            VALUES (702, 1, 'authoritative only', now() AT TIME ZONE 'utc', 1, 'public', 0, false,
+                    1, 'approved_deterministic_low_risk');
+
+            INSERT INTO comment_mutation_outbox(
+                event_id, event_type, comment_id, article_id, root_id, payload_json, status,
+                attempt_count, next_attempt_at, lease_generation, occurred_at_utc)
+            VALUES (
+                '018ff010-1234-7abc-8def-0123456789ab', 'CommentCreated', 702, 1, 702, '{}', 'pending',
+                0, now() AT TIME ZONE 'utc', 0, now() AT TIME ZONE 'utc');
+            """);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var sensitivePayload = new NpgsqlCommand(
+            """
+            INSERT INTO comment_mutation_outbox(
+                event_id, event_type, comment_id, article_id, root_id, payload_json, status,
+                attempt_count, next_attempt_at, lease_generation, occurred_at_utc)
+            VALUES (
+                '018ff011-1234-7abc-8def-0123456789ab', 'CommentCreated', 702, 1, 702,
+                '{"content":"must-not-copy"}', 'pending', 0, now() AT TIME ZONE 'utc', 0, now() AT TIME ZONE 'utc');
+            """,
+            connection))
+        {
+            PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => sensitivePayload.ExecuteNonQueryAsync());
+            Assert.Equal(PostgresErrorCodes.CheckViolation, rejected.SqlState);
+        }
+
+        await using (var duplicateDelivery = new NpgsqlCommand(
+            """
+            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, lease_generation, updated_at_utc)
+            SELECT id, 'site-notification', 'completed', 1, 0, now() AT TIME ZONE 'utc'
+            FROM comment_mutation_outbox WHERE comment_id = 702;
+            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, lease_generation, updated_at_utc)
+            SELECT id, 'site-notification', 'completed', 1, 0, now() AT TIME ZONE 'utc'
+            FROM comment_mutation_outbox WHERE comment_id = 702;
+            """,
+            connection))
+        {
+            PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => duplicateDelivery.ExecuteNonQueryAsync());
+            Assert.Equal(PostgresErrorCodes.UniqueViolation, rejected.SqlState);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ArticleDraftBaseRevision_IsAdditiveAndIdempotent()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article_draft (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                owner_admin_principal_id bigint NOT NULL,
+                article_id integer NULL,
+                draft_key varchar(96) NOT NULL,
+                title varchar(256) NOT NULL DEFAULT '',
+                summary varchar(512) NULL,
+                cover_image_url varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                tag_ids text NOT NULL DEFAULT '',
+                markdown_content text NOT NULL DEFAULT '',
+                status integer NOT NULL DEFAULT 2,
+                scheduled_publish_at timestamp NULL,
+                client_revision varchar(64) NULL,
+                updated_at timestamp NOT NULL DEFAULT now(),
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+            CREATE UNIQUE INDEX idx_article_draft_admin_principal_key
+                ON article_draft(owner_admin_principal_id, draft_key);
+            """);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == ArticleDraftBaseRevisionMigrationDefinitions.MigrationId);
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_draft", "base_revision_id"));
+        await fixture.ExecuteAsync(
+            connectionString,
+            "INSERT INTO article_draft(id, owner_admin_principal_id, draft_key, base_revision_id, server_revision) VALUES (1, 44, 'draft-1', 8123, 1);");
+        Assert.Equal(
+            8123L,
+            await fixture.QueryScalarAsync<long>(connectionString, "SELECT base_revision_id FROM article_draft WHERE id = 1;"));
+    }
+
+    [Fact]
+    public async Task RunAsync_ArticleRevisionContentBlocks_BackfillsDeduplicatesAndClearsInlineBodies()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article_revision (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                article_id integer NOT NULL,
+                revision_no integer NOT NULL,
+                title varchar(256) NOT NULL DEFAULT '',
+                summary varchar(512) NULL,
+                cover_image_url varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                tag_ids text NOT NULL DEFAULT '',
+                markdown_content text NOT NULL DEFAULT '',
+                diff_summary varchar(512) NOT NULL DEFAULT '',
+                created_by_admin_principal_id bigint NOT NULL DEFAULT 0,
+                rollback_source_revision_id bigint NULL,
+                rollback_reason varchar(500) NULL,
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+            INSERT INTO article_revision(article_id, revision_no, markdown_content)
+            VALUES (1, 1, '# fixed A'), (1, 2, '# fixed A'), (1, 3, '# fixed B');
+            """);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == ArticleRevisionContentBlockMigrationDefinitions.MigrationId);
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.Equal(
+            2,
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(*) FROM article_revision_content_block;"));
+        Assert.Equal(
+            1,
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(DISTINCT content_block_id) FROM article_revision WHERE revision_no IN (1, 2);"));
+        Assert.Equal(
+            0,
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(*) FROM article_revision WHERE markdown_content <> '';"));
+        Assert.Equal(
+            3,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT COUNT(*) FROM article_revision revision JOIN article_revision_content_block block ON block.id = revision.content_block_id;"));
+    }
+
+    [Fact]
+    public async Task RunAsync_UserSessionModeAuthority_BackfillsNormalRestrictedAndRevoked()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_user (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                status integer NOT NULL
+            );
+            CREATE TABLE sys_user_session (
+                sessionid varchar(64) PRIMARY KEY,
+                userid integer NOT NULL,
+                refreshtokenhash varchar(128) NOT NULL,
+                refresh_family_id varchar(64) NOT NULL,
+                createdat timestamp NOT NULL,
+                authenticated_at_utc timestamp NOT NULL,
+                idleexpiresat timestamp NOT NULL,
+                absoluteexpiresat timestamp NOT NULL,
+                revokedat timestamp NULL
+            );
+            INSERT INTO sys_user(id, status) VALUES (1, 0), (2, 1), (3, 0);
+            INSERT INTO sys_user_session(
+                sessionid, userid, refreshtokenhash, refresh_family_id, createdat,
+                authenticated_at_utc, idleexpiresat, absoluteexpiresat, revokedat) VALUES
+                ('normal-session', 1, 'hash-normal', 'family-normal', now() AT TIME ZONE 'utc',
+                 now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc' + interval '1 day', now() AT TIME ZONE 'utc' + interval '7 days', NULL),
+                ('restricted-session', 2, 'hash-restricted', 'family-restricted', now() AT TIME ZONE 'utc',
+                 now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc' + interval '1 day', now() AT TIME ZONE 'utc' + interval '7 days', NULL),
+                ('revoked-session', 3, 'hash-revoked', 'family-revoked', now() AT TIME ZONE 'utc',
+                 now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc' + interval '1 day', now() AT TIME ZONE 'utc' + interval '7 days', now() AT TIME ZONE 'utc');
+            """);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == UserSessionModeMigrationDefinitions.MigrationId);
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.Equal(
+            0,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT session_mode FROM sys_user_session WHERE sessionid = 'normal-session';"));
+        Assert.Equal(
+            1,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT session_mode FROM sys_user_session WHERE sessionid = 'restricted-session';"));
+        Assert.Equal(
+            2,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT session_mode FROM sys_user_session WHERE sessionid = 'revoked-session';"));
+    }
+
+    [Fact]
+    public async Task RunAsync_RefreshTokenLineage_BackfillsFamiliesAndEnforcesHashOnlyTombstones()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_user_session (
+                sessionid varchar(64) PRIMARY KEY,
+                userid integer NOT NULL,
+                refreshtokenhash varchar(128) NOT NULL,
+                createdat timestamp NOT NULL,
+                lastseenat timestamp NULL,
+                idleexpiresat timestamp NOT NULL,
+                absoluteexpiresat timestamp NOT NULL,
+                rememberme boolean NOT NULL DEFAULT false,
+                authentication_method varchar(24) NOT NULL DEFAULT 'other',
+                authentication_strength varchar(24) NOT NULL DEFAULT 'legacy_unverified',
+                authenticated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                duration_policy varchar(24) NOT NULL DEFAULT 'browser_session'
+            );
+            INSERT INTO sys_user_session(
+                sessionid, userid, refreshtokenhash, createdat, lastseenat,
+                idleexpiresat, absoluteexpiresat, rememberme)
+            VALUES (
+                'legacy-session', 42, repeat('A', 64), now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc',
+                (now() AT TIME ZONE 'utc') + interval '7 days',
+                (now() AT TIME ZONE 'utc') + interval '30 days', false);
+            """);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == RefreshTokenLineageMigrationDefinitions.MigrationId);
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "user_refresh_token_tombstone"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_user_session_refresh_family"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_user_refresh_tombstone_hash"));
+        Assert.Equal(
+            "legacy-session",
+            await fixture.QueryScalarAsync<string>(
+                connectionString,
+                "SELECT refresh_family_id FROM sys_user_session WHERE sessionid = 'legacy-session';"));
+        Assert.Equal(
+            0L,
+            await fixture.QueryScalarAsync<long>(
+                connectionString,
+                "SELECT refresh_generation FROM sys_user_session WHERE sessionid = 'legacy-session';"));
+
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO user_refresh_token_tombstone(
+                token_hash, refresh_family_id, session_id, generation, used_at_utc, expires_at_utc)
+            VALUES (
+                repeat('B', 64), 'legacy-session', 'legacy-session', 0,
+                now() AT TIME ZONE 'utc', (now() AT TIME ZONE 'utc') + interval '30 days');
+            """);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var duplicate = new NpgsqlCommand(
+            """
+            INSERT INTO user_refresh_token_tombstone(
+                token_hash, refresh_family_id, session_id, generation, used_at_utc, expires_at_utc)
+            VALUES (
+                repeat('B', 64), 'legacy-session', 'legacy-session', 1,
+                now() AT TIME ZONE 'utc', (now() AT TIME ZONE 'utc') + interval '30 days');
+            """,
+            connection);
+        PostgresException rejected = await Assert.ThrowsAsync<PostgresException>(() => duplicate.ExecuteNonQueryAsync());
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, rejected.SqlState);
+    }
+
+    [Fact]
+    public async Task RunAsync_PublicArticleProjection_HasPreparedSequentialPrimaryKeyPlanAndVisibilityBoundary()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "public_article_projection"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "public_article_projection_backfill"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "public_article_projection_shadow_mismatch"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_public_article_projection_visible_id"));
+
+        byte[] largeFrame = new byte[1024 * 1024];
+        Random.Shared.NextBytes(largeFrame);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var insert = new NpgsqlCommand(
+            """
+            INSERT INTO public_article_projection(
+                article_id, version, visible, aeds_payload, etag, content_hash, updated_at_utc, projection_schema_version)
+            VALUES
+                (41, 1, true, $1, '"etag"', repeat('a', 64), now() AT TIME ZONE 'utc', 1),
+                (42, 2, false, NULL, NULL, NULL, now() AT TIME ZONE 'utc', 1);
+            """,
+            connection))
+        {
+            insert.Parameters.AddWithValue(largeFrame);
+            Assert.Equal(2, await insert.ExecuteNonQueryAsync());
+        }
+
+        const string Sql = """
+            SELECT version, aeds_payload, etag, updated_at_utc
+            FROM public_article_projection
+            WHERE article_id = $1
+              AND visible = true
+            LIMIT 1;
+            """;
+        await using (var command = new NpgsqlCommand(Sql, connection))
+        {
+            command.Parameters.AddWithValue(41);
+            await command.PrepareAsync();
+            await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleRow);
+            Assert.True(await reader.ReadAsync());
+            Assert.Equal(1, reader.GetInt64(0));
+            await using Stream payload = reader.GetStream(1);
+            long bytesRead = 0;
+            byte[] buffer = new byte[16 * 1024];
+            int count;
+            while ((count = await payload.ReadAsync(buffer)) > 0)
+            {
+                bytesRead += count;
+            }
+
+            Assert.Equal(largeFrame.Length, bytesRead);
+            Assert.Equal("\"etag\"", reader.GetString(2));
+        }
+
+        await using (var negative = new NpgsqlCommand(Sql, connection))
+        {
+            negative.Parameters.AddWithValue(42);
+            await negative.PrepareAsync();
+            await using NpgsqlDataReader reader = await negative.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleRow);
+            Assert.False(await reader.ReadAsync());
+        }
+
+        await using (var planCommand = new NpgsqlCommand(
+            """
+            SET enable_seqscan = off;
+            EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT JSON)
+            SELECT version, aeds_payload, etag, updated_at_utc
+            FROM public_article_projection
+            WHERE article_id = 41
+              AND visible = true
+            LIMIT 1;
+            """,
+            connection))
+        {
+            object? raw = await planCommand.ExecuteScalarAsync();
+            string plan = Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            using JsonDocument parsed = JsonDocument.Parse(plan);
+            Assert.Contains("Index Scan", plan, StringComparison.Ordinal);
+            Assert.Contains("public_article_projection", plan, StringComparison.Ordinal);
+            Assert.DoesNotContain("Join", plan, StringComparison.Ordinal);
+            Assert.DoesNotContain("Aggregate", plan, StringComparison.Ordinal);
+            Assert.Contains("Shared Hit Blocks", plan, StringComparison.Ordinal);
+            Assert.Contains("Execution Time", plan, StringComparison.Ordinal);
+            Assert.Equal(JsonValueKind.Array, parsed.RootElement.ValueKind);
+        }
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = connectionString,
+                ["Database:PublicArticleProjection:Enabled"] = "true",
+                ["Database:PublicArticleProjection:MaxPoolSize"] = "4"
+            })
+            .Build();
+        var runtime = new PublicArticleProjectionRuntimeState();
+        await using var dataSources = new PublicArticleProjectionDataSourceProvider(configuration, runtime);
+        var sqlSugar = new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        });
+        var gate = new DbConcurrencyGate(configuration, NullLogger<DbConcurrencyGate>.Instance);
+        byte[] validPayload = new byte[sizeof(uint) + sizeof(int)];
+        BinaryPrimitives.WriteUInt32LittleEndian(validPayload.AsSpan(0, sizeof(uint)), 0x41524433);
+        BinaryPrimitives.WriteInt32LittleEndian(validPayload.AsSpan(sizeof(uint), sizeof(int)), 3);
+        byte[] validFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, validPayload);
+        var store = new PublicArticleProjectionStore(
+            dataSources,
+            runtime,
+            new PublicArticleProjectionNegativeCache(TimeProvider.System),
+            sqlSugar,
+            Substitute.For<ITestSessionContext>(),
+            gate,
+            new AedsEncoder(),
+            configuration,
+            NullLogger<PublicArticleProjectionStore>.Instance);
+        string contentHash = PublicArticleProjectionStore.CreateContentHash(validFrame);
+        string etag = PublicArticleProjectionStore.CreateETag(validFrame);
+
+        await store.UpsertAsync(new PublicArticleProjectionWrite(43, validFrame, etag, contentHash, DateTimeOffset.UtcNow));
+        Assert.True(await store.VerifyShadowParityAsync(43, validFrame));
+        PublicArticleProjectionReadResult projected = await store.TryReadAsync(43);
+        Assert.True(projected.Found);
+        Assert.Equal(validFrame, projected.Frame.ToArray());
+        Assert.Equal(etag, projected.ETag);
+        long firstVersion = projected.Version;
+        await store.UpsertAsync(new PublicArticleProjectionWrite(43, validFrame, etag, contentHash, DateTimeOffset.UtcNow));
+        PublicArticleProjectionReadResult replayed = await store.TryReadAsync(43);
+        Assert.Equal(firstVersion, replayed.Version);
+        await store.MarkUnavailableAsync(43, "visibility-changed");
+        PublicArticleProjectionReadResult hidden = await store.TryReadAsync(43);
+        Assert.Equal(PublicArticleProjectionReadStatus.NotFound, hidden.Status);
+        Assert.Equal("negative-cache", hidden.Error);
+        await store.UpsertAsync(new PublicArticleProjectionWrite(43, validFrame, etag, contentHash, DateTimeOffset.UtcNow));
+        Assert.True((await store.TryReadAsync(43)).Found);
+        Assert.Equal(3, runtime.Snapshot().Reads);
+
+        int categoryId = await sqlSugar.Insertable(new Category { Name = "projection-category-before" }).ExecuteReturnIdentityAsync();
+        int tagId = await sqlSugar.Insertable(new Tag { Name = "projection-tag-before" }).ExecuteReturnIdentityAsync();
+        int articleId = await sqlSugar.Insertable(new Article
+        {
+            Title = "projection mutation article",
+            Summary = "projection mutation article",
+            CategoryId = categoryId,
+            CreateTime = DateTime.UtcNow,
+            Status = ArticleStatus.Published,
+            PublishedAt = DateTime.UtcNow,
+            IsDeleted = false
+        }).ExecuteReturnIdentityAsync();
+        long contentBlockId = await sqlSugar.Insertable(new ArticleRevisionContentBlock
+        {
+            ContentHash = new string('a', 64),
+            MarkdownContent = "projection mutation article",
+            ByteLength = "projection mutation article"u8.Length,
+            CreatedAt = DateTime.UtcNow
+        }).ExecuteReturnBigIdentityAsync();
+        var revision = new ArticleRevision
+        {
+            ArticleId = articleId,
+            RevisionNo = 1,
+            Title = "projection mutation article",
+            Summary = "projection mutation article",
+            CategoryId = categoryId,
+            TagIds = tagId.ToString(CultureInfo.InvariantCulture),
+            ContentBlockId = contentBlockId,
+            MarkdownContent = string.Empty,
+            CreatedAt = DateTime.UtcNow
+        };
+        revision.Id = await sqlSugar.Insertable(revision).ExecuteReturnBigIdentityAsync();
+        var rights = new ArticleRightsSnapshot
+        {
+            ArticleId = articleId,
+            ArticleRevisionId = revision.Id,
+            RevisionNo = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+        rights.Id = await sqlSugar.Insertable(rights).ExecuteReturnBigIdentityAsync();
+        var publication = new ArticlePublicationRecord
+        {
+            ArticleId = articleId,
+            PublicationNo = 1,
+            ArticleRevisionId = revision.Id,
+            RevisionNo = 1,
+            RightsSnapshotId = rights.Id,
+            TransitionKind = "created",
+            PublishedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+        publication.Id = await sqlSugar.Insertable(publication).ExecuteReturnBigIdentityAsync();
+        await sqlSugar.Updateable<Article>()
+            .SetColumns(article => new Article
+            {
+                CurrentRevisionId = revision.Id,
+                CurrentPublicationId = publication.Id,
+                PublicUpdatedAt = DateTime.UtcNow
+            })
+            .Where(article => article.Id == articleId)
+            .ExecuteCommandAsync();
+        await sqlSugar.Insertable(new ArticleTag { ArticleId = articleId, TagId = tagId }).ExecuteCommandAsync();
+
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                CancellationToken.None)).Outcome);
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                sqlSugar,
+                tagId,
+                "projection-tag-after",
+                CancellationToken.None)).Outcome);
+        TagUrlAlias persistedTagAlias = await sqlSugar.Queryable<TagUrlAlias>()
+            .Where(alias => alias.TagId == tagId)
+            .SingleAsync();
+        Assert.Equal("PROJECTION-TAG-BEFORE", persistedTagAlias.NormalizedName);
+        Assert.Equal("projection-tag-before", persistedTagAlias.OriginalName);
+        int taxonomyOutboxRows = await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync();
+        Assert.Equal(2, taxonomyOutboxRows);
+
+        Assert.True(BinaryEndpoints.TryNormalizeTaxonomyDescription("  description only  ", out string? descriptionOnly));
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryDescriptionOnly =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        BinaryEndpoints.TaxonomyUpdateApplyResult tagDescriptionOnly =
+            await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                sqlSugar,
+                tagId,
+                "projection-tag-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, categoryDescriptionOnly.Outcome);
+        Assert.False(categoryDescriptionOnly.NameChanged);
+        Assert.True(categoryDescriptionOnly.DescriptionChanged);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, tagDescriptionOnly.Outcome);
+        Assert.False(tagDescriptionOnly.NameChanged);
+        Assert.True(tagDescriptionOnly.DescriptionChanged);
+        Assert.Equal(2, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+        Assert.Equal(1, await sqlSugar.Queryable<TagUrlAlias>().Where(alias => alias.TagId == tagId).CountAsync());
+        Assert.Equal(
+            "description only",
+            await sqlSugar.Queryable<Category>().Where(item => item.Id == categoryId).Select(item => item.Description).SingleAsync());
+        Assert.Equal(
+            "description only",
+            await sqlSugar.Queryable<Tag>().Where(item => item.Id == tagId).Select(item => item.Description).SingleAsync());
+
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryNoOp =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.NoOp, categoryNoOp.Outcome);
+        Assert.Equal(2, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryRenameWithDescription =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-renamed-again",
+                "rename and description",
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, categoryRenameWithDescription.Outcome);
+        Assert.True(categoryRenameWithDescription.NameChanged);
+        Assert.True(categoryRenameWithDescription.DescriptionChanged);
+        Assert.Equal(3, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
+        environment.ContentRootPath.Returns(Path.GetTempPath());
+        var backfillProjector = new SuccessfulArticleDetailProjector();
+        await using ServiceProvider backfillServices = new ServiceCollection()
+            .AddSingleton<IArticleDetailAedsArtifactProjector>(backfillProjector)
+            .BuildServiceProvider();
+        var maintenance = new ArticleDetailAedsArtifactMaintenanceService(
+            sqlSugar,
+            environment,
+            backfillServices.GetRequiredService<IServiceScopeFactory>(),
+            backfillProjector,
+            gate,
+            TimeProvider.System,
+            NullLogger<ArticleDetailAedsArtifactMaintenanceService>.Instance);
+        await maintenance.PausePublicProjectionBackfillAsync();
+        Assert.Equal("paused", (await maintenance.GetPublicProjectionBackfillStateAsync()).State);
+        ArticleDetailAedsArtifactMaintenanceResult resumed = await maintenance.ResumePublicProjectionBackfillAsync();
+        Assert.True(resumed.Rebuilt == 1, resumed.ToDetail());
+        PublicArticleProjectionBackfillState completed = await maintenance.GetPublicProjectionBackfillStateAsync();
+        Assert.Equal("completed", completed.State);
+        Assert.Equal(articleId, completed.LastArticleId);
+        Assert.Equal([articleId], backfillProjector.ArticleIds);
+    }
+
+    [Fact]
+    public async Task PublicArticleProjectionOutbox_CriticalFailureRetriesWithoutRepeatingCompletedEdges()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        using (SqlSugarClient bootstrapDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            PostgresSqlSugarTestClient.InitTables(
+                bootstrapDb,
+                typeof(ArticleMutationOutboxEvent),
+                typeof(ArticleMutationOutboxEdge),
+                typeof(Article),
+                typeof(ArticleTag),
+                typeof(ArticleRevision),
+                typeof(ArticleRevisionContentBlock),
+                typeof(ArticlePublicationRecord),
+                typeof(ArticleRightsSnapshot));
+        }
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = connectionString,
+                ["Database:PublicArticleProjection:MaxPoolSize"] = "2"
+            })
+            .Build();
+        var cacheInvalidation = Substitute.For<ICacheInvalidationDispatcher>();
+        var publicAotInvalidation = Substitute.For<IPublicAotInvalidationService>();
+        var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        IReadOnlySet<string> projectionEdges = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ArticleMutationReplayEdges.SearchProjection,
+            ArticleMutationReplayEdges.ArticleDetailAeds,
+            ArticleMutationReplayEdges.TaxonomyProjection,
+            ArticleMutationReplayEdges.PublicArtifactRevocation,
+            ArticleMutationReplayEdges.PublicHotRead
+        };
+        coordinator.ReplayOutboxAsync(
+                77,
+                "updated",
+                Arg.Any<string>(),
+                Arg.Any<ArticleMutationVersionReference>(),
+                Arg.Any<IReadOnlySet<string>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                ArticleMutationReplayResult.Failed(
+                    "projection-write-failed",
+                    new HashSet<string>(StringComparer.Ordinal),
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [ArticleMutationReplayEdges.ArticleDetailAeds] = "projection-write-failed"
+                    }),
+                ArticleMutationReplayResult.Success(projectionEdges));
+
+        var services = new ServiceCollection();
+        services.AddScoped<ISqlSugarClient>(_ => new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        }));
+        services.AddScoped<IDbConcurrencyGate>(_ => new DbConcurrencyGate(configuration, NullLogger<DbConcurrencyGate>.Instance));
+        services.AddScoped(_ => cacheInvalidation);
+        services.AddScoped(_ => publicAotInvalidation);
+        services.AddScoped(_ => coordinator);
+        await using ServiceProvider provider = services.BuildServiceProvider();
+
+        var verificationDb = new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        });
+        var revision = new ArticleRevision
+        {
+            ArticleId = 77,
+            RevisionNo = 1,
+            Title = "restart-v2",
+            MarkdownContent = "restart-v2"
+        };
+        revision.Id = await verificationDb.Insertable(revision).ExecuteReturnBigIdentityAsync();
+        var rights = new ArticleRightsSnapshot
+        {
+            ArticleId = 77,
+            ArticleRevisionId = revision.Id,
+            RevisionNo = 1
+        };
+        rights.Id = await verificationDb.Insertable(rights).ExecuteReturnBigIdentityAsync();
+        var publication = new ArticlePublicationRecord
+        {
+            ArticleId = 77,
+            PublicationNo = 1,
+            ArticleRevisionId = revision.Id,
+            RevisionNo = 1,
+            RightsSnapshotId = rights.Id,
+            TransitionKind = "updated"
+        };
+        publication.Id = await verificationDb.Insertable(publication).ExecuteReturnBigIdentityAsync();
+        await verificationDb.Insertable(new Article
+        {
+            Id = 77,
+            Title = "restart-v2",
+            Content = "restart-v2",
+            Status = ArticleStatus.Published,
+            CurrentRevisionId = revision.Id,
+            CurrentPublicationId = publication.Id
+        }).ExecuteCommandAsync();
+        ArticleMutationOutboxEvent v2Event = ArticleMutationOutboxProducer.Create(
+            77,
+            "updated",
+            new ArticleVersionCoordinates(revision.Id, 1, rights.Id, null, publication.Id, 1),
+            null,
+            null,
+            DateTime.UtcNow.AddSeconds(-1));
+        long outboxId = await verificationDb.Insertable(v2Event).ExecuteReturnBigIdentityAsync();
+        var dispatcher = new ArticleMutationOutboxDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<ArticleMutationOutboxDispatcher>.Instance,
+            TimeProvider.System,
+            Substitute.For<IBackgroundWorkerLease>(),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>());
+
+        Assert.Equal(0, await dispatcher.ProcessPendingAsync(CancellationToken.None));
+        ArticleMutationOutboxEvent failed = await verificationDb.Queryable<ArticleMutationOutboxEvent>()
+            .SingleAsync(item => item.Id == outboxId);
+        Assert.Equal("pending", failed.Status);
+        Assert.Equal(1, failed.RetryCount);
+        Assert.Null(failed.ProcessedAt);
+        Assert.Null(failed.ClaimToken);
+        Assert.Null(failed.ClaimExpiresAt);
+        Assert.Contains("projection-write-failed", failed.LastError, StringComparison.Ordinal);
+
+        await verificationDb.Updateable<ArticleMutationOutboxEvent>()
+            .SetColumns(item => item.Status == "processing")
+            .SetColumns(item => item.ClaimToken == "crashed-worker-token")
+            .SetColumns(item => item.ClaimedBy == "crashed-worker")
+            .SetColumns(item => item.ClaimedAt == DateTime.UtcNow.AddMinutes(-10))
+            .SetColumns(item => item.HeartbeatAt == DateTime.UtcNow.AddMinutes(-10))
+            .SetColumns(item => item.ClaimExpiresAt == DateTime.UtcNow.AddMinutes(-5))
+            .SetColumns(item => item.NextRetryAt == DateTime.UtcNow.AddSeconds(-1))
+            .Where(item => item.Id == outboxId)
+            .ExecuteCommandAsync();
+        Assert.Equal(1, await dispatcher.ProcessPendingAsync(CancellationToken.None));
+        ArticleMutationOutboxEvent processed = await verificationDb.Queryable<ArticleMutationOutboxEvent>()
+            .SingleAsync(item => item.Id == outboxId);
+        Assert.Equal("processed", processed.Status);
+        Assert.Equal(1, processed.RetryCount);
+        Assert.NotNull(processed.ProcessedAt);
+        Assert.Null(processed.ClaimToken);
+        Assert.Null(processed.ClaimExpiresAt);
+        await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(77, Arg.Any<CancellationToken>());
+        await publicAotInvalidation.Received(1).InvalidateArticleMutationAsync(
+            77,
+            Arg.Any<IEnumerable<int>>(),
+            Arg.Any<IEnumerable<int>>(),
+            Arg.Any<CancellationToken>());
+        ArticleMutationOutboxEdge projectionEdge = await verificationDb.Queryable<ArticleMutationOutboxEdge>()
+            .SingleAsync(edge => edge.OutboxEventId == outboxId && edge.EdgeName == ArticleMutationReplayEdges.ArticleDetailAeds);
+        Assert.Equal(ArticleMutationOutboxEdgeStatus.Completed, projectionEdge.Status);
+        Assert.Equal(2, projectionEdge.AttemptCount);
+        Assert.Equal(64, projectionEdge.DeliveryKey?.Length);
+
+        // A fresh dispatcher poll after the reclaimed claim completed is a duplicate delivery.
+        // The processed row must not be claimed or replayed again.
+        Assert.Equal(0, await dispatcher.ProcessPendingAsync(CancellationToken.None));
+        await coordinator.Received(2).ReplayOutboxAsync(
+            77,
+            "updated",
+            Arg.Any<string>(),
+            Arg.Any<ArticleMutationVersionReference>(),
+            Arg.Any<IReadOnlySet<string>>(),
+            Arg.Any<CancellationToken>());
+        await coordinator.Received(2).ReplayOutboxAsync(
+            77,
+            "updated",
+            Arg.Any<string>(),
+            Arg.Is<ArticleMutationVersionReference>(version => version.RevisionId == revision.Id
+                && version.ReleaseId == publication.Id
+                && version.RightsSnapshotId == rights.Id),
+            Arg.Any<IReadOnlySet<string>>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesIntegrityTransparencyLogOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "integrity_transparency_log"));
+        foreach (string column in new[]
+        {
+            "seq",
+            "entry_type",
+            "proof_id",
+            "article_id",
+            "article_revision_id",
+            "revision_no",
+            "entry_payload_hash",
+            "prev_entry_hash",
+            "entry_hash",
+            "created_at",
+            "signing_key_id",
+            "signature"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "integrity_transparency_log", column),
+                $"integrity_transparency_log.{column} was not created");
+        }
+
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_publish_proof", "transparency_log_entry_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_publish_proof", "transparency_log_entry_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_transparency_log_seq"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_transparency_log_entry_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_transparency_log_proof_entry"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_transparency_log_article_revision"));
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesIntegrityMerkleCheckpointOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "integrity_merkle_checkpoint"));
+        foreach (string column in new[]
+        {
+            "checkpoint_kind",
+            "scope_key",
+            "from_seq",
+            "to_seq",
+            "entry_count",
+            "root_hash",
+            "log_head_seq",
+            "log_head_hash",
+            "manifest_hash",
+            "manifest_json",
+            "signing_key_id",
+            "signing_algorithm",
+            "signature",
+            "created_at"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "integrity_merkle_checkpoint", column),
+                $"integrity_merkle_checkpoint.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_merkle_checkpoint_kind_scope"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_merkle_checkpoint_log_head"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_merkle_checkpoint_root_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_merkle_checkpoint_created_at"));
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesArticleRightsV3SchemaAndBackfillsLegacyArticles()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                title varchar(256) NOT NULL,
+                summary varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                views integer NOT NULL DEFAULT 0,
+                createtime timestamp NOT NULL DEFAULT now(),
+                status integer NOT NULL DEFAULT 2,
+                scheduled_publish_at timestamp NULL,
+                published_at timestamp NULL,
+                archived_at timestamp NULL,
+                deleted_at timestamp NULL,
+                isdeleted boolean NOT NULL DEFAULT false
+            );
+
+            INSERT INTO article(id, title, summary, categoryid, views, createtime, status, isdeleted)
+            VALUES
+                (11, 'legacy first', 'first summary', 2, 5, TIMESTAMP '2024-01-01 08:00:00', 2, false),
+                (12, 'legacy second', NULL, 3, 0, TIMESTAMP '2024-01-02 08:00:00', 2, false);
+
+            CREATE TABLE article_revision (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                article_id integer NOT NULL,
+                revision_no integer NOT NULL,
+                title varchar(256) NOT NULL DEFAULT '',
+                summary varchar(512) NULL,
+                cover_image_url varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                tag_ids text NOT NULL DEFAULT '',
+                markdown_content text NOT NULL DEFAULT '',
+                diff_summary varchar(512) NOT NULL DEFAULT '',
+                created_by_admin_principal_id bigint NOT NULL DEFAULT 0,
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+
+            INSERT INTO article_revision(
+                id,
+                article_id,
+                revision_no,
+                title,
+                markdown_content,
+                created_by_admin_principal_id,
+                created_at
+            )
+            VALUES
+                (101, 11, 1, 'legacy first v1', '# body v1', 44, TIMESTAMP '2024-01-01 08:10:00'),
+                (102, 11, 2, 'legacy first v2', '# body v2', 44, TIMESTAMP '2024-01-01 08:20:00');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        int policyCountAfterFirstRun = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM article_rights_policy;");
+        int snapshotCountAfterFirstRun = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM article_rights_snapshot;");
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "article_rights_policy"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "article_rights_snapshot"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "article_rights_proof"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_rights_policy", "proof_binding_enabled"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_rights_snapshot", "content_canonical_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_rights_proof", "idempotency_key"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_article_rights_policy_article"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_article_rights_snapshot_article_revision"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_article_rights_proof_idempotency"));
+        Assert.Equal(2, policyCountAfterFirstRun);
+        Assert.Equal(2, snapshotCountAfterFirstRun);
+        Assert.Equal(policyCountAfterFirstRun, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM article_rights_policy;"));
+        Assert.Equal(snapshotCountAfterFirstRun, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM article_rights_snapshot;"));
+
+        string policyDefaults = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            """
+            SELECT concat_ws(
+                '|',
+                license_type,
+                copy_policy,
+                max_excerpt_chars,
+                CASE WHEN allow_code_copy THEN 'true' ELSE 'false' END,
+                CASE WHEN show_public_badge THEN 'true' ELSE 'false' END,
+                CASE WHEN proof_binding_enabled THEN 'true' ELSE 'false' END)
+            FROM article_rights_policy
+            WHERE article_id = 11;
+            """);
+        string latestSnapshot = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            """
+            SELECT concat_ws('|', article_revision_id, revision_no, policy_hash, content_canonical_hash)
+            FROM article_rights_snapshot
+            WHERE article_id = 11;
+            """);
+
+        Assert.Equal("all-rights-reserved|append-attribution|300|true|true|true", policyDefaults);
+        Assert.Equal("102|2|rights-v3:policy-hash:recompute|rights-v3:content-hash:recompute", latestSnapshot);
+    }
+
+    [Fact]
+    public async Task RunAsync_FinalizesLegacySiteSubscriptionHashes()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE site_subscription (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                email_hash varchar(64) NOT NULL,
+                hash_version varchar(16) NOT NULL DEFAULT 'sha256-legacy',
+                channel varchar(32) NOT NULL DEFAULT 'email',
+                is_enabled boolean NOT NULL DEFAULT true,
+                created_at timestamp NOT NULL DEFAULT now(),
+                unsubscribed_at timestamp NULL
+            );
+
+            INSERT INTO site_subscription(email_hash, hash_version, channel, is_enabled)
+            VALUES ('legacysha256hash', 'sha256-legacy', 'email', true);
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        int legacyCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM site_subscription WHERE hash_version = 'sha256-legacy';");
+        string finalized = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            """
+            SELECT concat_ws('|', hash_version, is_enabled::text, (unsubscribed_at IS NOT NULL)::text)
+            FROM site_subscription
+            WHERE email_hash = 'legacysha256hash';
+            """);
+
+        Assert.Equal(0, legacyCount);
+        Assert.Equal("hmac-v1|false|true", finalized);
+    }
+
+    [Fact]
+    public async Task RunAsync_AcceptsLegacyAuthoringWorkspaceChecksumWhileFinalizingSiteSubscriptionHashes()
+    {
+        const string LegacyAuthoringWorkspaceChecksum = "6D43EB5F292169C39F022C7EE5F81591DBD28B3F89F83BB42FE75764B3E1DD77";
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await fixture.ExecuteAsync(connectionString, $"""
+            CREATE TABLE {CurrentSchemaStartupVerifier.HistoryTableName} (
+                migration_id varchar(160) PRIMARY KEY,
+                checksum varchar(128) NOT NULL,
+                applied_at_utc timestamp NOT NULL,
+                app_version varchar(64) NOT NULL,
+                succeeded boolean NOT NULL
+            );
+
+            INSERT INTO {CurrentSchemaStartupVerifier.HistoryTableName}(migration_id, checksum, applied_at_utc, app_version, succeeded)
+            VALUES (
+                '20260518-post-authoring-workspace-tables',
+                '{LegacyAuthoringWorkspaceChecksum}',
+                now(),
+                'legacy-fixture',
+                true
+            );
+
+            CREATE TABLE site_subscription (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                email_hash varchar(64) NOT NULL,
+                hash_version varchar(16) NOT NULL DEFAULT 'sha256-legacy',
+                channel varchar(32) NOT NULL DEFAULT 'email',
+                is_enabled boolean NOT NULL DEFAULT true,
+                created_at timestamp NOT NULL DEFAULT now(),
+                unsubscribed_at timestamp NULL
+            );
+
+            INSERT INTO site_subscription(email_hash, hash_version, channel, is_enabled)
+            VALUES ('legacysha256hash', 'sha256-legacy', 'email', true);
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        int legacyCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM site_subscription WHERE hash_version = 'sha256-legacy';");
+        string? persistedChecksum = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            $"""
+            SELECT checksum
+            FROM {CurrentSchemaStartupVerifier.HistoryTableName}
+            WHERE migration_id = '20260518-post-authoring-workspace-tables';
+            """);
+
+        Assert.Equal(0, legacyCount);
+        Assert.Equal(LegacyAuthoringWorkspaceChecksum, persistedChecksum);
+    }
+
+    [Fact]
+    public async Task TransparencyLogAppend_IsIdempotentAndChainValidUnderConcurrentProofRetry()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        long proofId = await InsertPublishProofAsync(connectionString);
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var first = new PublishProofTransparencyLog(firstDb);
+        var second = new PublishProofTransparencyLog(secondDb);
+
+        await Task.WhenAll(
+            first.AppendPublishProofAsync(proofId),
+            second.AppendPublishProofAsync(proofId));
+
+        int logCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM integrity_transparency_log WHERE entry_type = 'publish-proof' AND proof_id = 1;");
+        long logEntryId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT id FROM integrity_transparency_log WHERE proof_id = 1;");
+        long seq = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT seq FROM integrity_transparency_log WHERE proof_id = 1;");
+        long linkedEntryId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT transparency_log_entry_id FROM article_publish_proof WHERE id = 1;");
+        string? linkedEntryHash = await fixture.QueryScalarAsync<string?>(
+            connectionString,
+            "SELECT transparency_log_entry_hash FROM article_publish_proof WHERE id = 1;");
+        TransparencyLogVerificationResult verification = await first.VerifyAsync();
+
+        Assert.Equal(logEntryId, linkedEntryId);
+        Assert.Equal(1, logCount);
+        Assert.Equal(1, seq);
+        Assert.True(verification.IsValid);
+        Assert.Equal(linkedEntryHash, verification.LatestHeadHash);
+    }
+
+    [Fact]
+    public async Task RunAsync_MigratesSysUserMfaMaterialToProfileAndDropsLegacyLoginColumns()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_user (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                username varchar(64) NULL,
+                password varchar(100) NULL,
+                role varchar(20) NOT NULL DEFAULT 'guest',
+                mfaenabled boolean NOT NULL DEFAULT false,
+                mfasecretencrypted text NULL,
+                mfapendingsecretencrypted text NULL,
+                mfapendingcreatedat timestamp NULL,
+                mfaverifiedat timestamp NULL,
+                mfarecoverycodeshash text NULL,
+                lastloginip varchar(50) NULL,
+                lastlogintime timestamp NULL,
+                status integer NOT NULL DEFAULT 0,
+                createtime timestamp NULL
+            );
+
+            INSERT INTO sys_user(
+                id, username, password, role, mfaenabled, mfasecretencrypted,
+                mfapendingsecretencrypted, mfapendingcreatedat, mfaverifiedat,
+                mfarecoverycodeshash, lastloginip, lastlogintime, status, createtime
+            )
+            VALUES (
+                101, 'legacy-user', 'legacy-password-hash', 'guest', true,
+                'legacy-secret', 'legacy-pending-secret',
+                TIMESTAMP '2026-06-01 08:00:00',
+                TIMESTAMP '2026-06-01 08:10:00',
+                'legacy-recovery-hashes', '192.0.2.10',
+                TIMESTAMP '2026-06-01 08:20:00', 0,
+                TIMESTAMP '2026-06-01 07:00:00'
+            );
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "user_mfa_profile"));
+        Assert.Equal(
+            "legacy-secret",
+            await fixture.QueryScalarAsync<string>(
+                connectionString,
+                "SELECT mfa_secret_encrypted FROM user_mfa_profile WHERE user_id = 101;"));
+        Assert.Equal(
+            "legacy-recovery-hashes",
+            await fixture.QueryScalarAsync<string>(
+                connectionString,
+                "SELECT mfa_recovery_codes_hash FROM user_mfa_profile WHERE user_id = 101;"));
+        Assert.Equal(
+            1,
+            await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT hash_version FROM user_mfa_profile WHERE user_id = 101;"));
+
+        foreach (string legacyColumn in new[]
+        {
+            "lastloginip",
+            "lastlogintime",
+            "mfasecretencrypted",
+            "mfapendingsecretencrypted",
+            "mfapendingcreatedat",
+            "mfaverifiedat",
+            "mfarecoverycodeshash"
+        })
+        {
+            Assert.False(
+                await fixture.ColumnExistsAsync(connectionString, "sys_user", legacyColumn),
+                $"sys_user.{legacyColumn} should be removed after profile split migration.");
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesSecurityRiskEventPersistenceTableOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_risk_event"));
+        foreach (string column in new[]
+        {
+            "source",
+            "reason",
+            "action",
+            "score_delta",
+            "ttl_seconds",
+            "expires_at_utc",
+            "subject_hash",
+            "route_key",
+            "client_ip_hash",
+            "device_fp_hash"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_risk_event", column),
+                $"security_risk_event.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_source_reason_action"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_subject"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_client_ip"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_risk_event_expires"));
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesSecurityPolicySnapshotTableOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_policy_snapshot"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "security_policy_version_counter"));
+        foreach (string column in new[]
+        {
+            "policy_id",
+            "version",
+            "mode",
+            "document",
+            "created_by_admin_id",
+            "created_at_utc",
+            "activated_at_utc",
+            "revoked_at_utc",
+            "is_last_known_good",
+            "rollback_of_version",
+            "reason"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_policy_snapshot", column),
+                $"security_policy_snapshot.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_policy_snapshot_policy_version"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_policy_snapshot_active"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_policy_snapshot_lkg"));
+        foreach (string column in new[] { "policy_id", "last_version", "updated_at_utc" })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_policy_version_counter", column),
+                $"security_policy_version_counter.{column} was not created");
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesAnonymousCredentialRootMetadataTableOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_root"));
+        foreach (string column in new[]
+        {
+            "epoch",
+            "root_hash",
+            "revocation_root_hash",
+            "circuit_id",
+            "circuit_numeric_id",
+            "verifying_key_hash",
+            "public_input_layout_version",
+            "activated_at_utc",
+            "expires_at_utc",
+            "root_grace_expires_at_utc",
+            "revoked_at_utc",
+            "updated_at_utc",
+            "status"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "anonymous_credential_root", column),
+                $"anonymous_credential_root.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_status_expires"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_circuit"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_root_status_epoch"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_root_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_root_single_active"));
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_epoch"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "anonymous_credential_revocation"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_epoch_epoch"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_revocation_epoch_handle"));
+    }
+
+    [Fact]
+    public async Task RunAsync_BlindCredentialPrivacyMigrationAcceptsCurrentSchemaWithoutTraceId()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE anonymous_credential_issuance_audit (
+                id bigserial PRIMARY KEY,
+                subject_hash varchar(64) NOT NULL,
+                epoch bigint NOT NULL,
+                status varchar(32) NOT NULL DEFAULT 'issued',
+                created_at_utc timestamp NOT NULL DEFAULT now()
+            );
+
+            INSERT INTO anonymous_credential_issuance_audit(subject_hash, epoch, created_at_utc)
+            VALUES (repeat('a', 64), 1, TIMESTAMP '2026-07-15 12:34:56');
+            """);
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260715-post-blind-credential-issuance-privacy");
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.False(await fixture.ColumnExistsAsync(
+            connectionString,
+            "anonymous_credential_issuance_audit",
+            "trace_id"));
+        Assert.Equal(
+            new DateTime(2026, 7, 15, 12, 0, 0, DateTimeKind.Unspecified),
+            await fixture.QueryScalarAsync<DateTime>(
+                connectionString,
+                "SELECT created_at_utc FROM anonymous_credential_issuance_audit WHERE epoch = 1;"));
+    }
+
+    [Fact]
+    public async Task RunAsync_ExtendsExistingSecurityChallengePersistenceTables()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE security_challenge (
+                id bigserial PRIMARY KEY
+            );
+
+            CREATE TABLE security_challenge_attempt (
+                id bigserial PRIMARY KEY
+            );
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        foreach (string column in new[]
+        {
+            "challenge_id",
+            "status",
+            "kind",
+            "algorithm",
+            "action",
+            "route_key",
+            "subject_hash",
+            "client_ip_hash",
+            "device_fp_hash",
+            "policy_version",
+            "payload_hash",
+            "trace_id",
+            "traceparent",
+            "issued_at_utc",
+            "expires_at_utc"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_challenge", column),
+                $"security_challenge.{column} was not created");
+        }
+
+        foreach (string column in new[]
+        {
+            "attempt_id",
+            "challenge_id",
+            "outcome",
+            "reason",
+            "payload_hash",
+            "client_ip_hash",
+            "device_fp_hash",
+            "trace_id",
+            "traceparent",
+            "attempted_at_utc"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", column),
+                $"security_challenge_attempt.{column} was not created");
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_UpgradesLegacy20260517EquivalentFixture_AndIsIdempotent()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        string freshDatabaseName = await fixture.CreateDatabaseAsync();
+        string freshConnectionString = fixture.BuildDatabaseConnectionString(freshDatabaseName);
+
+        await fixture.ExecuteAsync(connectionString, ReadFixtureSql(Legacy20260517Fixture));
+        Legacy20260517Counts legacyCounts = await ReadLegacy20260517CountsAsync(connectionString);
+
+        await RunMigrationsAsync(connectionString);
+        IReadOnlyList<string> upgradedSchemaAfterFirstRun =
+            await fixture.CaptureSchemaSnapshotAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+        IReadOnlyList<string> upgradedSchemaAfterSecondRun =
+            await fixture.CaptureSchemaSnapshotAsync(connectionString);
+
+        await RunMigrationsAsync(freshConnectionString);
+        IReadOnlyList<string> freshSchemaAfterFirstRun =
+            await fixture.CaptureSchemaSnapshotAsync(freshConnectionString);
+        await RunMigrationsAsync(freshConnectionString);
+        IReadOnlyList<string> freshSchemaAfterSecondRun =
+            await fixture.CaptureSchemaSnapshotAsync(freshConnectionString);
+        await fixture.ExecuteAsync(
+            freshConnectionString,
+            "INSERT INTO sys_user(account_subject_hash) VALUES (repeat('d', 64));");
+        string insertedDefaults = await fixture.QueryScalarAsync<string>(
+            freshConnectionString,
+            """
+            SELECT identity_kind || '|' || anonymous_credential_level || '|' || anonymous_credential_status
+            FROM sys_user
+            ORDER BY id DESC
+            LIMIT 1;
+            """);
+
+        await AssertLegacy20260517CommonUpgradeAsync(connectionString, legacyCounts);
+
+        AssertSchemaSnapshotEqual(
+            "representative legacy upgrade",
+            upgradedSchemaAfterFirstRun,
+            upgradedSchemaAfterSecondRun);
+        AssertSchemaSnapshotEqual(
+            "fresh bootstrap",
+            freshSchemaAfterFirstRun,
+            freshSchemaAfterSecondRun);
+        Assert.Equal("anonymous_account|basic|active", insertedDefaults);
+
+        string? markdown = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SELECT markdown_content FROM article_body WHERE article_id = 1;");
+        string? pageContent = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SELECT content FROM page_content WHERE slug = 'about';");
+        int legacyViews = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT legacy_views FROM article_view_seed WHERE article_id = 1;");
+        int commentDepth = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT depth FROM comment WHERE id = 9001;");
+        bool commentDeleted = await fixture.QueryScalarAsync<bool>(
+            connectionString,
+            "SELECT is_deleted FROM comment WHERE id = 9001;");
+        int commentModeration = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT moderation_status FROM comment WHERE id = 9001;");
+        long moderatedByAdminPrincipalId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT moderated_by_admin_principal_id FROM comment WHERE id = 9001;");
+
+        Assert.Equal("# Legacy body from 20260517", markdown);
+        Assert.Equal("# Legacy about page", pageContent);
+        Assert.Equal(37, legacyViews);
+        Assert.Equal(0, commentDepth);
+        Assert.False(commentDeleted);
+        Assert.Equal(1, commentModeration);
+        Assert.Equal(7, moderatedByAdminPrincipalId);
+    }
+
+    [Fact]
+    [Trait("Fixture", "Legacy20260517RealDump")]
+    public async Task RunAsync_UpgradesLegacy20260517RealDump_WhenProvided()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable(Legacy20260517DumpTestsEnv),
+                "1",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Set {Legacy20260517DumpTestsEnv}=1 through the dedicated {Legacy20260517DumpProducer} producer.");
+        }
+
+        string? dumpPath = Environment.GetEnvironmentVariable(Legacy20260517DumpEnv);
+        if (string.IsNullOrWhiteSpace(dumpPath))
+        {
+            throw new InvalidOperationException(
+                $"Set {Legacy20260517DumpEnv} to the decompressed 20260517 custom dump path.");
+        }
+
+        if (!File.Exists(dumpPath))
+        {
+            throw new FileNotFoundException(
+                $"Set {Legacy20260517DumpEnv} to the decompressed 20260517 custom dump path.",
+                dumpPath);
+        }
+
+        string expectedDumpDigest = Environment.GetEnvironmentVariable(Legacy20260517DumpDigestEnv)
+            ?? throw new InvalidOperationException($"Set {Legacy20260517DumpDigestEnv} through the dedicated producer.");
+        string actualDumpDigest;
+        await using (FileStream dumpStream = File.OpenRead(dumpPath))
+        {
+            actualDumpDigest = Convert.ToHexString(
+                await SHA256.HashDataAsync(dumpStream)).ToLowerInvariant();
+        }
+        Assert.Equal(expectedDumpDigest, actualDumpDigest);
+
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.RestoreCustomDumpAsync(connectionString, dumpPath);
+        Legacy20260517Counts legacyCounts = await ReadLegacy20260517CountsAsync(connectionString);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        await AssertLegacy20260517CommonUpgradeAsync(connectionString, legacyCounts);
+
+        string postgresServerVersion = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SHOW server_version;");
+        var executionEvidence = new
+        {
+            schema = "fsusblog.legacy-20260517-real-dump-runtime-evidence.v1",
+            producerId = Legacy20260517DumpProducer,
+            testId = Legacy20260517DumpTestId,
+            fullyQualifiedName =
+                "FsusBlog.Server.Tests.SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided",
+            sourceSha = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_COMMIT"),
+            dumpSha256 = actualDumpDigest,
+            postgres = new
+            {
+                imageReference = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE"),
+                imageId = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE_ID"),
+                serverVersion = postgresServerVersion
+            },
+            restoreCompleted = true,
+            migrationExecutionCount = 2,
+            postconditionsVerified = true,
+            legacyCounts
+        };
+        Console.WriteLine(
+            $"fsusblog-legacy-real-dump-evidence {JsonSerializer.Serialize(executionEvidence)}");
+    }
+
+    [Theory]
+    [InlineData(
+        "category",
+        "name",
+        128,
+        """
+        CREATE TABLE category (
+            id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            name varchar(255) NOT NULL
+        );
+
+        INSERT INTO category(name) VALUES (repeat('c', 129));
+        """)]
+    [InlineData(
+        "tag",
+        "name",
+        128,
+        """
+        CREATE TABLE tag (
+            id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            name varchar(255) NOT NULL
+        );
+
+        INSERT INTO tag(name) VALUES (repeat('t', 129));
+        """)]
+    [InlineData(
+        "sys_systemconfig",
+        "key",
+        64,
+        """
+        CREATE TABLE sys_systemconfig (
+            key varchar(255) NOT NULL PRIMARY KEY,
+            value text NOT NULL
+        );
+
+        INSERT INTO sys_systemconfig(key, value) VALUES (repeat('k', 65), 'ok');
+        """)]
+    [InlineData(
+        "sys_systemconfig",
+        "value",
+        512,
+        """
+        CREATE TABLE sys_systemconfig (
+            key varchar(255) NOT NULL PRIMARY KEY,
+            value text NOT NULL
+        );
+
+        INSERT INTO sys_systemconfig(key, value) VALUES ('SiteTitle', repeat('v', 513));
+        """)]
+    public async Task RunAsync_FailsFastWhenLegacy20260517ShrinkWouldLoseData(
+        string tableName,
+        string columnName,
+        int expectedMax,
+        string setupSql)
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, setupSql);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await RunMigrationsAsync(connectionString));
+        string exceptionText = exception.ToString();
+
+        Assert.Contains("Legacy 20260517 length check failed", exceptionText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"table={tableName}", exceptionText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"column={columnName}", exceptionText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"expected_max={expectedMax}", exceptionText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PostgresLockTimeoutSimulation_RollsBackAndAllowsFollowUpQuery()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                title varchar(256) NOT NULL
+            );
+
+            INSERT INTO article(title) VALUES ('baseline');
+            """);
+
+        await using var holder = new NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using NpgsqlTransaction holderTransaction = await holder.BeginTransactionAsync();
+        await using (NpgsqlCommand lockCommand = holder.CreateCommand())
+        {
+            lockCommand.Transaction = holderTransaction;
+            lockCommand.CommandText = "LOCK TABLE article IN ACCESS EXCLUSIVE MODE;";
+            await lockCommand.ExecuteNonQueryAsync();
+        }
+
+        await using var contender = new NpgsqlConnection(connectionString);
+        await contender.OpenAsync();
+        await using (NpgsqlCommand writeCommand = contender.CreateCommand())
+        {
+            writeCommand.CommandText = """
+                SET lock_timeout = '500ms';
+                INSERT INTO article(title) VALUES ('blocked-write');
+                """;
+            PostgresException exception = await Assert.ThrowsAsync<PostgresException>(
+                async () => await writeCommand.ExecuteNonQueryAsync());
+
+            Assert.Equal(PostgresErrorCodes.LockNotAvailable, exception.SqlState);
+        }
+
+        await holderTransaction.RollbackAsync();
+
+        int articleRows = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM article;");
+        int followUpQuery = await fixture.QueryScalarAsync<int>(connectionString, "SELECT 1;");
+
+        Assert.Equal(1, articleRows);
+        Assert.Equal(1, followUpQuery);
+    }
+
+    [Fact]
+    public async Task RunAsync_UpgradesLegacyMessagingTablesAndDropsSources()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_message (
+                id bigint PRIMARY KEY,
+                title varchar(160) NULL,
+                content text NULL,
+                createtime timestamp NULL
+            );
+
+            CREATE TABLE sys_user_message (
+                messageid bigint NOT NULL,
+                userid bigint NOT NULL,
+                isread boolean NOT NULL DEFAULT false,
+                readtime timestamp NULL
+            );
+
+            INSERT INTO sys_message(id, title, content, createtime)
+            VALUES (1001, 'Legacy Notice', 'body', TIMESTAMP '2024-02-03 12:00:00');
+
+            INSERT INTO sys_user_message(messageid, userid, isread, readtime)
+            VALUES (1001, 7, true, TIMESTAMP '2024-02-03 12:05:00');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        int conversationCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_conversation WHERE id = 1001;");
+        int messageCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_message WHERE id = 1001;");
+        int participantCount = await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM msg_participant_state WHERE conversationid = 1001 AND accountid = 7;");
+        bool legacyMessageExists = await fixture.TableExistsAsync(connectionString, "sys_message");
+        bool legacyUserMessageExists = await fixture.TableExistsAsync(connectionString, "sys_user_message");
+
+        Assert.Equal(1, conversationCount);
+        Assert.Equal(1, messageCount);
+        Assert.Equal(1, participantCount);
+        Assert.False(legacyMessageExists);
+        Assert.False(legacyUserMessageExists);
+    }
+
+    [Fact]
+    public async Task RunAsync_FinalizesMessageLegacyIdentityColumnsAndSyncObjects()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE msg_conversation (
+                id bigint PRIMARY KEY,
+                subject varchar(160) NOT NULL DEFAULT '',
+                initiatoruserid integer NULL,
+                initiatoraccountid integer NULL,
+                createdbyid integer NULL,
+                createdbytype integer NOT NULL DEFAULT 0,
+                createdbyaccountid integer NULL,
+                createdbyadminprincipalid bigint NULL,
+                createdbyadminsessionid varchar(64) NULL,
+                status integer NOT NULL DEFAULT 0,
+                issystemsource boolean NOT NULL DEFAULT false,
+                createdat timestamp NOT NULL DEFAULT now(),
+                updatedat timestamp NOT NULL DEFAULT now(),
+                lastmessageat timestamp NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE msg_message (
+                id bigint PRIMARY KEY,
+                conversationid bigint NOT NULL,
+                sendertype integer NOT NULL DEFAULT 0,
+                senderid integer NULL,
+                senderaccountid integer NULL,
+                senderadminprincipalid bigint NULL,
+                senderadminsessionid varchar(64) NULL,
+                body text NOT NULL DEFAULT '',
+                isinternalnote boolean NOT NULL DEFAULT false,
+                createdat timestamp NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE msg_participant_state (
+                conversationid bigint NOT NULL,
+                userid integer NULL,
+                accountid integer NOT NULL,
+                lastreadmessageid bigint NULL,
+                unreadcount integer NOT NULL DEFAULT 0,
+                muted boolean NOT NULL DEFAULT false,
+                lastreadat timestamp NULL,
+                updatedat timestamp NOT NULL DEFAULT now(),
+                PRIMARY KEY (conversationid, accountid)
+            );
+
+            INSERT INTO msg_conversation(
+                id, initiatoruserid, initiatoraccountid, createdbyid, createdbyaccountid,
+                createdbyadminprincipalid, createdbyadminsessionid)
+            VALUES (2001, 7, 7, 7, 7, 44, 'raw-admin-session-conversation');
+            INSERT INTO msg_message(
+                id, conversationid, senderid, senderaccountid, senderadminprincipalid,
+                senderadminsessionid, body)
+            VALUES (3001, 2001, 7, 7, 44, 'raw-admin-session-message', 'legacy body');
+            INSERT INTO msg_participant_state(conversationid, userid, accountid)
+            VALUES (2001, 7, 7);
+
+            CREATE TABLE msg_conversation_status_event (
+                id bigint PRIMARY KEY,
+                conversationid bigint NOT NULL,
+                previousstatus integer NOT NULL,
+                currentstatus integer NOT NULL,
+                adminprincipalid bigint NOT NULL,
+                adminsessionauditreference varchar(64) NOT NULL,
+                reason varchar(256) NOT NULL,
+                createdat timestamp NOT NULL
+            );
+            INSERT INTO msg_conversation_status_event(
+                id, conversationid, previousstatus, currentstatus, adminprincipalid,
+                adminsessionauditreference, reason, createdat)
+            VALUES (4001, 2001, 0, 1, 44, 'raw-admin-session-status', 'legacy', now());
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "initiatoruserid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderid"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "createdbyadminsessionid"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderadminsessionid"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "createdbyadminsessionauditreference"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderadminsessionauditreference"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_participant_state", "userid"));
+        Assert.False(await TriggerExistsAsync(connectionString, "msg_conversation", "trg_msg_conversation_identity_sync"));
+        Assert.False(await TriggerExistsAsync(connectionString, "msg_message", "trg_msg_message_identity_sync"));
+        Assert.False(await TriggerExistsAsync(connectionString, "msg_participant_state", "trg_msg_participant_identity_sync"));
+        Assert.False(await FunctionExistsAsync(connectionString, "fsusblog_msg_conversation_identity_sync"));
+        Assert.False(await FunctionExistsAsync(connectionString, "fsusblog_msg_message_identity_sync"));
+        Assert.False(await FunctionExistsAsync(connectionString, "fsusblog_msg_participant_identity_sync"));
+
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation WHERE id = 2001 AND initiatoraccountid = 7 AND createdbyaccountid = 7;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message WHERE id = 3001 AND senderaccountid = 7;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_participant_state WHERE conversationid = 2001 AND accountid = 7;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation WHERE id = 2001 AND createdbyadminprincipalid = 44 AND createdbyadminsessionauditreference LIKE 'legacy-conversation-%';"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation WHERE id = 2001 AND createdbyadminsessionid IS NULL;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message WHERE id = 3001 AND senderadminprincipalid = 44 AND senderadminsessionauditreference LIKE 'legacy-message-%';"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message WHERE id = 3001 AND senderadminsessionid IS NULL;"));
+        Assert.Equal(1, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation_status_event WHERE id = 4001 AND adminprincipalid = 44 AND adminsessionauditreference LIKE 'legacy-status-%';"));
+    }
+
+    [Fact]
+    public async Task RunAsync_UpgradesLegacyUserSessionColumnsAndDropsOldExpiresAt()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_user_session (
+                sessionid varchar(64) PRIMARY KEY,
+                userid integer NOT NULL,
+                refreshtokenhash varchar(128) NOT NULL,
+                createdat timestamp NOT NULL,
+                expires_at timestamp NULL
+            );
+
+            INSERT INTO sys_user_session(sessionid, userid, refreshtokenhash, createdat, expires_at)
+            VALUES ('sess-1', 42, 'hash', TIMESTAMP '2024-02-01 00:00:00', TIMESTAMP '2024-02-08 00:00:00');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        DateTime idleExpiresAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT idleexpiresat FROM sys_user_session WHERE sessionid = 'sess-1';");
+        DateTime absoluteExpiresAt = await fixture.QueryScalarAsync<DateTime>(
+            connectionString,
+            "SELECT absoluteexpiresat FROM sys_user_session WHERE sessionid = 'sess-1';");
+        bool rememberMe = await fixture.QueryScalarAsync<bool>(
+            connectionString,
+            "SELECT rememberme FROM sys_user_session WHERE sessionid = 'sess-1';");
+        bool legacyExpiresColumnExists = await fixture.ColumnExistsAsync(connectionString, "sys_user_session", "expires_at");
+
+        Assert.Equal(new DateTime(2024, 2, 8, 0, 0, 0), idleExpiresAt);
+        Assert.Equal(new DateTime(2024, 2, 8, 0, 0, 0), absoluteExpiresAt);
+        Assert.False(rememberMe);
+        Assert.False(legacyExpiresColumnExists);
+    }
+
+    [Fact]
+    public async Task RunAsync_UserSessionMultiDeviceMigrationAllowsTwoActiveSessions()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "ux_user_session_one_active_per_user"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_user_session_active_recency"));
+
+        await fixture.ExecuteAsync(connectionString, """
+            INSERT INTO sys_user_session(
+                sessionid,
+                userid,
+                refreshtokenhash,
+                refresh_family_id,
+                createdat,
+                authenticated_at_utc,
+                idleexpiresat,
+                absoluteexpiresat,
+                rememberme
+            )
+            VALUES (
+                'sess-active-1',
+                42,
+                'hash-active-1',
+                'family-active-1',
+                TIMESTAMP '2026-06-25 00:00:00',
+                TIMESTAMP '2026-06-25 00:00:00',
+                TIMESTAMP '2026-07-02 00:00:00',
+                TIMESTAMP '2026-07-25 00:00:00',
+                false
+            );
+            """);
+
+        await fixture.ExecuteAsync(connectionString, """
+                INSERT INTO sys_user_session(
+                    sessionid,
+                    userid,
+                    refreshtokenhash,
+                    refresh_family_id,
+                    createdat,
+                    authenticated_at_utc,
+                    idleexpiresat,
+                    absoluteexpiresat,
+                    rememberme
+                )
+                VALUES (
+                    'sess-active-2',
+                    42,
+                    'hash-active-2',
+                    'family-active-2',
+                    TIMESTAMP '2026-06-25 00:01:00',
+                    TIMESTAMP '2026-06-25 00:01:00',
+                    TIMESTAMP '2026-07-02 00:01:00',
+                    TIMESTAMP '2026-07-25 00:01:00',
+                    false
+                );
+                """);
+
+        int activeSessionCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM sys_user_session WHERE userid = 42 AND revokedat IS NULL;");
+        Assert.Equal(2, activeSessionCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_UpgradesLegacyCommentSchemaAndRealignsIndexes()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE comment (
+                id bigint PRIMARY KEY,
+                article_id integer NOT NULL,
+                content text NOT NULL,
+                create_time timestamp NOT NULL,
+                user_id integer NOT NULL
+            );
+
+            INSERT INTO comment(id, article_id, content, create_time, user_id)
+            VALUES (1, 9, 'hello', TIMESTAMP '2024-01-01 09:00:00', 12);
+
+            CREATE INDEX idx_comment_user_id ON comment(user_id, id DESC);
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        bool parentIdExists = await fixture.ColumnExistsAsync(connectionString, "comment", "parent_id");
+        bool isDeletedExists = await fixture.ColumnExistsAsync(connectionString, "comment", "is_deleted");
+        bool moderationStatusExists = await fixture.ColumnExistsAsync(connectionString, "comment", "moderation_status");
+        int depth = await fixture.QueryScalarAsync<int>(connectionString, "SELECT depth FROM comment WHERE id = 1;");
+        bool oldIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_user_id");
+        bool genericUserIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_user_id_desc");
+        bool attributableUserIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_attributable_public_user_id_desc");
+        bool moderationIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_moderation_status_time");
+
+        Assert.True(parentIdExists);
+        Assert.True(isDeletedExists);
+        Assert.True(moderationStatusExists);
+        Assert.Equal(0, depth);
+        Assert.False(oldIndexExists);
+        Assert.False(genericUserIndexExists);
+        Assert.True(attributableUserIndexExists);
+        Assert.True(moderationIndexExists);
+    }
+
+    [Fact]
+    public async Task RunAsync_FailsFastWhenLegacyRenameIsNotExplicitlyDescribed()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                title varchar(256) NOT NULL,
+                summary varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                views integer NOT NULL DEFAULT 0,
+                createtime timestamp NOT NULL DEFAULT now(),
+                isdeleted boolean NOT NULL DEFAULT false
+            );
+
+            INSERT INTO article(id, title, summary, categoryid, views, createtime, isdeleted)
+            VALUES (1, 'current title', NULL, 1, 0, TIMESTAMP '2024-03-01 00:00:00', false);
+
+            CREATE TABLE article_markdown_legacy (
+                article_id integer PRIMARY KEY,
+                markdown text NOT NULL
+            );
+
+            INSERT INTO article_markdown_legacy(article_id, markdown)
+            VALUES (1, '# missing explicit split descriptor');
+            """);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await RunMigrationsAsync(connectionString));
+
+        int historyCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
+
+        Assert.Contains("article_markdown_legacy", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, historyCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesAuditTableAndAllowsAuditStoreWrites()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+
+        await using ServiceProvider provider = BuildProvider(connectionString);
+        await using AsyncServiceScope scope = provider.CreateAsyncScope();
+        IAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAuditLogStore>();
+
+        await store.WriteBatchAsync(
+        [
+            new AuditRecord(
+                AuditSourceCatalog.Auth,
+                AuditTypeCatalog.Security,
+                new DateTime(2026, 4, 18, 12, 30, 0, DateTimeKind.Utc),
+                "登录失败",
+                PublicAotBinaryPayload.EncodeObjectFrame(new Dictionary<string, object?>
+                {
+                    ["traceId"] = "trace-audit",
+                    ["clientIp"] = "127.0.0.1"
+                }))
+        ], CancellationToken.None);
+
+        string source = await fixture.QueryScalarAsync<string>(connectionString, "SELECT source FROM sys_audit_log LIMIT 1;");
+        string type = await fixture.QueryScalarAsync<string>(connectionString, "SELECT type FROM sys_audit_log LIMIT 1;");
+        string action = await fixture.QueryScalarAsync<string>(connectionString, "SELECT action FROM sys_audit_log LIMIT 1;");
+        string eventInfo = await fixture.QueryScalarAsync<string>(connectionString, "SELECT event_info FROM sys_audit_log LIMIT 1;");
+        string recordHash = await fixture.QueryScalarAsync<string>(connectionString, "SELECT record_hash FROM sys_audit_log LIMIT 1;");
+        byte[] contextPayload = await fixture.QueryScalarAsync<byte[]>(connectionString, "SELECT context_payload FROM sys_audit_log LIMIT 1;");
+        Assert.True(PublicAotBinaryPayload.TryDecodeObject(contextPayload, out Dictionary<string, object?> context));
+
+        Assert.Equal(AuditSourceCatalog.Auth, source);
+        Assert.Equal(AuditTypeCatalog.Security, type);
+        Assert.Equal(AuditActionCatalog.LogRecorded, action);
+        Assert.Equal("登录失败", eventInfo);
+        Assert.False(string.IsNullOrWhiteSpace(recordHash));
+        Assert.Equal("trace-audit", context["traceId"]);
+        Assert.Equal("127.0.0.1", context["clientIp"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_AllowsConcurrentStartupMigrationAgainstSameDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        Task firstRun = RunMigrationsAsync(connectionString);
+        Task secondRun = RunMigrationsAsync(connectionString);
+
+        await Task.WhenAll(firstRun, secondRun);
+
+        int historyCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
+        bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
+        bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
+        bool articleTableExists = await fixture.TableExistsAsync(connectionString, "article");
+        bool articleLifecycleIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_article_public_state_time");
+        bool commentModerationIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_moderation_status_time");
+
+        Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
+        Assert.True(auditLogExists);
+        Assert.True(rumMetricExists);
+        Assert.True(articleTableExists);
+        Assert.True(articleLifecycleIndexExists);
+        Assert.True(commentModerationIndexExists);
+    }
+
+    [Fact]
+    public async Task RunAsync_AddsLifecycleColumnsToAuthoringDrafts()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+
+        bool statusExists = await fixture.ColumnExistsAsync(connectionString, "article_draft", "status");
+        bool scheduledPublishAtExists = await fixture.ColumnExistsAsync(connectionString, "article_draft", "scheduled_publish_at");
+
+        Assert.True(statusExists);
+        Assert.True(scheduledPublishAtExists);
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_admin_principal_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_article_draft_admin_principal_key"));
+    }
+
+    [Fact]
+    public async Task RunAsync_RenamesAuthoringAttributionColumnsToAdminPrincipal()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE article_draft (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                owner_user_id integer NOT NULL,
+                article_id integer NULL,
+                draft_key varchar(96) NOT NULL,
+                title varchar(256) NOT NULL DEFAULT '',
+                summary varchar(512) NULL,
+                cover_image_url varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                tag_ids text NOT NULL DEFAULT '',
+                markdown_content text NOT NULL DEFAULT '',
+                status integer NOT NULL DEFAULT 2,
+                scheduled_publish_at timestamp NULL,
+                client_revision varchar(64) NULL,
+                updated_at timestamp NOT NULL DEFAULT now(),
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+
+            CREATE UNIQUE INDEX idx_article_draft_owner_key ON article_draft(owner_user_id, draft_key);
+
+            INSERT INTO article_draft(owner_user_id, draft_key, title, markdown_content)
+            VALUES (44, 'draft-1', 'Draft', '# body');
+
+            CREATE TABLE article_revision (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                article_id integer NOT NULL,
+                revision_no integer NOT NULL,
+                title varchar(256) NOT NULL DEFAULT '',
+                summary varchar(512) NULL,
+                cover_image_url varchar(512) NULL,
+                categoryid integer NOT NULL DEFAULT 0,
+                tag_ids text NOT NULL DEFAULT '',
+                markdown_content text NOT NULL DEFAULT '',
+                diff_summary varchar(512) NOT NULL DEFAULT '',
+                created_by_user_id integer NOT NULL DEFAULT 0,
+                created_at timestamp NOT NULL DEFAULT now()
+            );
+
+            INSERT INTO article_revision(article_id, revision_no, title, markdown_content, created_by_user_id)
+            VALUES (7, 1, 'Title', '# body', 55);
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_admin_principal_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_admin_principal_id"));
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "idx_article_draft_owner_key"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_article_draft_admin_principal_key"));
+
+        long ownerAdminPrincipalId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT owner_admin_principal_id FROM article_draft WHERE draft_key = 'draft-1';");
+        long createdByAdminPrincipalId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT created_by_admin_principal_id FROM article_revision WHERE article_id = 7 AND revision_no = 1;");
+
+        Assert.Equal(44, ownerAdminPrincipalId);
+        Assert.Equal(55, createdByAdminPrincipalId);
+    }
+
+    [Fact]
+    public async Task RunAsync_DropsVisitLogAccountBindingColumns()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE sys_visit_log (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                ip varchar(64) NOT NULL DEFAULT '',
+                userid integer NULL,
+                user_id integer NULL,
+                region varchar(64) NOT NULL DEFAULT '',
+                createtime timestamp NOT NULL DEFAULT now()
+            );
+            """);
+
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.TableExistsAsync(connectionString, "sys_visit_log"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "article_view_projection_watermark"));
+    }
+
+    [Fact]
+    public async Task RunAsync_RenamesAnonymousCredentialAccountBindingColumns()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE anonymous_credential (
+                id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                user_id integer NULL,
+                commitment_hash varchar(128) NOT NULL,
+                credential_type varchar(32) NOT NULL DEFAULT 'zk_commitment',
+                credential_level varchar(32) NOT NULL DEFAULT 'basic',
+                status varchar(32) NOT NULL DEFAULT 'active',
+                issued_at_utc timestamp NOT NULL DEFAULT now(),
+                revoked_at_utc timestamp NULL,
+                metadata_json text NOT NULL DEFAULT '{}'
+            );
+
+            CREATE INDEX idx_anonymous_credential_user ON anonymous_credential(user_id);
+            CREATE UNIQUE INDEX unique_idx_anonymous_credential_commitment ON anonymous_credential(commitment_hash);
+
+            INSERT INTO anonymous_credential(user_id, commitment_hash, credential_type, credential_level)
+            VALUES (42, 'legacy-binding', 'zk_commitment', 'trusted'),
+                   (NULL, 'legacy-unbound', 'zk_commitment', 'basic');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "commitment_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "account_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "account_binding_hash"));
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_user"));
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_commitment"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_anonymous_credential_account"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_anonymous_credential_account_binding"));
+
+        int accountId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT account_id FROM anonymous_credential WHERE account_binding_hash = 'legacy-binding';");
+        int unboundRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM anonymous_credential WHERE account_binding_hash = 'legacy-unbound' AND account_id IS NULL;");
+        int nonAccountBoundRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM anonymous_credential WHERE credential_type <> 'account_bound';");
+
+        Assert.Equal(42, accountId);
+        Assert.Equal(1, unboundRows);
+        Assert.Equal(0, nonAccountBoundRows);
+    }
+
+    [Fact]
+    public async Task RunAsync_RenamesPasskeyAndRecoveryKeyCredentialOwnershipToAccountId()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE passkey_credential (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                user_id integer NOT NULL,
+                credentialid varchar(512) NOT NULL,
+                publickey text NOT NULL,
+                signcount bigint NOT NULL DEFAULT 0,
+                devicefriendlyname varchar(64) NULL,
+                aaguid varchar(36) NOT NULL DEFAULT '',
+                transports varchar(128) NULL,
+                backupeligible boolean NOT NULL DEFAULT false,
+                backupstate boolean NOT NULL DEFAULT false,
+                createdat timestamp NOT NULL DEFAULT now(),
+                lastusedat timestamp NULL
+            );
+
+            CREATE UNIQUE INDEX unique_idx_passkey_cred_id ON passkey_credential(credentialid);
+            CREATE INDEX idx_passkey_user_id ON passkey_credential(user_id);
+
+            INSERT INTO passkey_credential(user_id, credentialid, publickey, aaguid)
+            VALUES (42, 'legacy-passkey', 'legacy-public-key', '00000000-0000-0000-0000-000000000000');
+
+            CREATE TABLE account_recovery_key (
+                id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                user_id integer NOT NULL,
+                lookup_id_hash text NULL,
+                key_hash text NOT NULL,
+                key_version integer NOT NULL,
+                created_at timestamp NOT NULL DEFAULT now(),
+                used_at timestamp NULL,
+                revoked_at timestamp NULL
+            );
+
+            CREATE INDEX idx_account_recovery_key_user ON account_recovery_key(user_id);
+            CREATE INDEX idx_account_recovery_key_version ON account_recovery_key(user_id, key_version DESC);
+            CREATE UNIQUE INDEX idx_account_recovery_key_active_unique ON account_recovery_key(user_id) WHERE used_at IS NULL AND revoked_at IS NULL;
+            CREATE UNIQUE INDEX idx_account_recovery_key_lookup_active_unique ON account_recovery_key(lookup_id_hash) WHERE lookup_id_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL;
+
+            INSERT INTO account_recovery_key(user_id, lookup_id_hash, key_hash, key_version)
+            VALUES (42, 'legacy-lookup', 'legacy-key-hash', 3);
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "passkey_credential", "user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "account_recovery_key", "user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "passkey_credential", "account_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "account_recovery_key", "account_id"));
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "idx_passkey_user_id"));
+        Assert.False(await fixture.IndexExistsAsync(connectionString, "idx_account_recovery_key_user"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_passkey_account_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_account_recovery_key_account"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_account_recovery_key_version"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_account_recovery_key_active_unique"));
+
+        int passkeyAccountId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT account_id FROM passkey_credential WHERE credentialid = 'legacy-passkey';");
+        int recoveryAccountId = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT account_id FROM account_recovery_key WHERE lookup_id_hash = 'legacy-lookup';");
+
+        Assert.Equal(42, passkeyAccountId);
+        Assert.Equal(42, recoveryAccountId);
+    }
+
+    [Fact]
+    public async Task RunAsync_MigratesCommentModerationAttributionToAdminPrincipal()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE comment (
+                id bigint NOT NULL PRIMARY KEY,
+                article_id integer NOT NULL DEFAULT 1,
+                content text NOT NULL DEFAULT '',
+                create_time timestamp NOT NULL DEFAULT now(),
+                user_id integer NULL,
+                parent_id bigint NULL,
+                root_id bigint NULL,
+                reply_to_user_id integer NULL,
+                reply_to_comment_id bigint NULL,
+                depth integer NOT NULL DEFAULT 0,
+                is_deleted boolean NOT NULL DEFAULT false,
+                moderation_status integer NOT NULL DEFAULT 1,
+                moderation_reason varchar(256) NULL,
+                moderated_by_user_id integer NULL,
+                moderated_at timestamp NULL
+            );
+
+            INSERT INTO comment(id, content, moderated_by_user_id, moderated_at)
+            VALUES (77, 'legacy moderated', 44, TIMESTAMP '2026-01-01 00:00:00');
+            """);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_admin_principal_id"));
+
+        long adminPrincipalId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT moderated_by_admin_principal_id FROM comment WHERE id = 77;");
+
+        Assert.Equal(44, adminPrincipalId);
+    }
+
+    private static async Task RunMigrationsAsync(
+        string connectionString,
+        ISchemaMigrationRegistry? registry = null,
+        string? storageRoot = null)
+    {
+        await using ServiceProvider provider = BuildProvider(connectionString, registry, storageRoot);
+
+        await using AsyncServiceScope scope = provider.CreateAsyncScope();
+        ISchemaMigrationRunner runner = scope.ServiceProvider.GetRequiredService<ISchemaMigrationRunner>();
+        await runner.RunAsync(CancellationToken.None);
+    }
+
+    private async Task<long> InsertPublishProofAsync(string connectionString)
+        => await fixture.QueryScalarAsync<long>(
+            connectionString,
+            """
+            INSERT INTO article_publish_proof (
+                proof_version,
+                signature_payload_version,
+                article_id,
+                article_revision_id,
+                revision_no,
+                idempotency_key,
+                canonical_hash,
+                aot_hash,
+                article_detail_aeds_hash,
+                public_hot_read_hash,
+                asset_manifest_hash,
+                feed_hash,
+                published_at,
+                proof_status,
+                signing_key_id,
+                signing_key_version,
+                signing_algorithm,
+                signature,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                1,
+                1,
+                910002,
+                920002,
+                2,
+                'article:910002:revision:920002:proof:1',
+                '1111111111111111111111111111111111111111111111111111111111111111',
+                '2222222222222222222222222222222222222222222222222222222222222222',
+                '3333333333333333333333333333333333333333333333333333333333333333',
+                '4444444444444444444444444444444444444444444444444444444444444444',
+                '5555555555555555555555555555555555555555555555555555555555555555',
+                '6666666666666666666666666666666666666666666666666666666666666666',
+                TIMESTAMP '2026-07-04 00:00:00',
+                'ready',
+                'site-key-v1',
+                1,
+                'ECDSA_P256_SHA256',
+                'signature',
+                TIMESTAMP '2026-07-04 00:00:00',
+                TIMESTAMP '2026-07-04 00:00:00'
+            )
+            RETURNING id;
+            """);
+
+    private async Task<Legacy20260517Counts> ReadLegacy20260517CountsAsync(string connectionString)
+        => new(
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM article;"),
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM comment;"),
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM sys_message;"),
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM sys_user_message;"),
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM sys_visit_log;"),
+            await fixture.QueryScalarAsync<int>(connectionString, "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';"));
+
+    private async Task AssertLegacy20260517CommonUpgradeAsync(
+        string connectionString,
+        Legacy20260517Counts legacyCounts)
+    {
+        int articleBodyRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM article_body;");
+        int articleViewSeedRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM article_view_seed;");
+        int pageContentRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM page_content;");
+        int conversationRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_conversation;");
+        int messageRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_message;");
+        int participantRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM msg_participant_state;");
+        int siteReadRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COALESCE(SUM(read_count), 0)::integer FROM event_type_read_stats WHERE event_type = 'site_read';");
+        int defaultCommentRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM comment WHERE depth = 0 AND is_deleted = false AND moderation_status = 1;");
+        int legacyPageRows = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';");
+        int historyCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
+
+        Assert.Equal(legacyCounts.Articles, articleBodyRows);
+        Assert.Equal(legacyCounts.Articles, articleViewSeedRows);
+        Assert.True(pageContentRows >= legacyCounts.PageConfigEntries);
+        Assert.Equal(legacyCounts.Messages, conversationRows);
+        Assert.Equal(legacyCounts.Messages, messageRows);
+        Assert.Equal(legacyCounts.UserMessages, participantRows);
+        Assert.True(legacyCounts.VisitLogs > 0);
+        Assert.Equal(0, siteReadRows);
+        Assert.Equal(legacyCounts.Comments, defaultCommentRows);
+        Assert.Equal(0, legacyPageRows);
+        Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
+
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article", "content"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "sys_message"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "sys_user_message"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_conversation", "initiatoruserid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_message", "senderid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "msg_participant_state", "userid"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "refreshtoken"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "refreshtokenexpirytime"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "username"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "password"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "role"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "lastusernameupdatetime"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "last_username_update_time"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "sys_visit_log"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_user_id"));
+        Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_admin_principal_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_admin_principal_id"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_article_draft_admin_principal_key"));
+
+        Assert.Equal(256, await ReadColumnLengthAsync(connectionString, "article", "title"));
+        Assert.Equal(512, await ReadColumnLengthAsync(connectionString, "article", "summary"));
+        Assert.Equal(128, await ReadColumnLengthAsync(connectionString, "category", "name"));
+        Assert.Equal(128, await ReadColumnLengthAsync(connectionString, "tag", "name"));
+        Assert.Equal(64, await ReadColumnLengthAsync(connectionString, "sys_systemconfig", "key"));
+        Assert.Equal(512, await ReadColumnLengthAsync(connectionString, "sys_systemconfig", "value"));
+    }
+
+    private async Task<int> ReadColumnLengthAsync(string connectionString, string tableName, string columnName)
+        => await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"""
+            SELECT character_maximum_length
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = '{tableName}'
+              AND column_name = '{columnName}';
+            """);
+
+    private async Task<string> ReadColumnDefinitionAsync(
+        string connectionString,
+        string tableName,
+        string columnName)
+        => await fixture.QueryScalarAsync<string>(
+            connectionString,
+            $"""
+            SELECT is_nullable || '|' || data_type || '|' || character_maximum_length::text
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = '{tableName}'
+              AND column_name = '{columnName}';
+            """);
+
+    private async Task<string> ReadTaxonomyInvariantSignatureAsync(string connectionString)
+        => await fixture.QueryScalarAsync<string>(
+            connectionString,
+            """
+            WITH objects AS (
+                SELECT 'index|' || tablename || '|' || indexname || '|' || indexdef AS value
+                FROM pg_indexes
+                WHERE schemaname = 'public' AND tablename IN ('category', 'tag')
+
+                UNION ALL
+
+                SELECT 'column|' || table_name || '|' || ordinal_position::text || '|'
+                    || column_name || '|' || data_type || '|' || is_nullable AS value
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name IN (
+                      'category_public_article_count',
+                      'tag_public_article_count',
+                      'article_public_taxonomy_projection')
+            )
+            SELECT string_agg(value, E'\n' ORDER BY value) FROM objects;
+            """);
+
+    private async Task<bool> TriggerExistsAsync(string connectionString, string tableName, string triggerName)
+        => await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"""
+            SELECT COUNT(1)
+            FROM information_schema.triggers
+            WHERE event_object_schema = 'public'
+              AND event_object_table = '{tableName}'
+              AND trigger_name = '{triggerName}';
+            """) > 0;
+
+    private async Task<bool> FunctionExistsAsync(string connectionString, string functionName)
+        => await fixture.QueryScalarAsync<int>(
+            connectionString,
+            $"""
+            SELECT COUNT(1)
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public'
+              AND p.proname = '{functionName}';
+            """) > 0;
+
+    private static string ReadFixtureSql(string fileName, [CallerFilePath] string sourceFile = "")
+    {
+        string repoRoot = Directory.GetParent(sourceFile)?.Parent?.Parent?.Parent?.FullName
+            ?? throw new InvalidOperationException("Unable to resolve repository root.");
+        string candidate = Path.Combine(repoRoot, "tests", "backend", "Fixtures", fileName);
+        return File.Exists(candidate)
+            ? File.ReadAllText(candidate)
+            : throw new FileNotFoundException($"Fixture SQL file was not found: {fileName}", candidate);
+    }
+
+    private static void AssertSchemaSnapshotEqual(
+        string scenario,
+        IReadOnlyList<string> first,
+        IReadOnlyList<string> second)
+    {
+        string[] firstOnly = [.. first.Except(second, StringComparer.Ordinal)];
+        string[] secondOnly = [.. second.Except(first, StringComparer.Ordinal)];
+
+        Assert.True(
+            firstOnly.Length == 0 && secondOnly.Length == 0,
+            $"{scenario} first-run-only schema objects:{Environment.NewLine}"
+            + $"{string.Join(Environment.NewLine, firstOnly)}{Environment.NewLine}"
+            + $"{scenario} second-run-only schema objects:{Environment.NewLine}"
+            + string.Join(Environment.NewLine, secondOnly));
+    }
+
+    private static ServiceProvider BuildProvider(
+        string connectionString,
+        ISchemaMigrationRegistry? registry = null,
+        string? storageRoot = null)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.ClearProviders());
+        services.AddSingleton<TimeProvider>(CreatePostRollbackWindowTimeProvider());
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(
+            [
+                KeyValuePair.Create<string, string?>("ConnectionStrings:DefaultConnection", connectionString)
+            ])
+            .Build();
+        services.AddSingleton(configuration);
+        services.AddSqlSugar();
+        if (registry is null)
+        {
+            services.AddSingleton<ISchemaMigrationRegistry, SchemaMigrationRegistry>();
+        }
+        else
+        {
+            services.AddSingleton(registry);
+        }
+        services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
+        services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
+        services.AddSingleton<IReleaseIdentityProvider>(new ReleaseIdentityProvider(configuration));
+        services.AddSingleton(ReleaseStorageTestPaths.Create(storageRoot ?? Path.Combine(
+            Path.GetTempPath(),
+            "fsusblog-schema-migration-tests",
+            Guid.NewGuid().ToString("N"))));
+        services.AddSingleton<IArticleDetailAedsArtifactMaintenanceService, NoopArticleDetailAedsArtifactMaintenanceService>();
+        services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
+        services.AddScoped<IAuditLogStore, AuditLogStore>();
+
+        return services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+    }
+
+    private static TimeProvider CreatePostRollbackWindowTimeProvider()
+    {
+        DateTimeOffset latestRollbackWindowEnd = new SchemaMigrationRegistry()
+            .GetDescriptors()
+            .SelectMany(static descriptor => descriptor.Steps)
+            .OfType<IDestructiveSchemaMigrationStep>()
+            .Max(static step => step.Proof.RollbackWindowEndUtc);
+        return new FixedTimeProvider(latestRollbackWindowEnd);
+    }
+
+    private static byte[] CreateContentAssetTestPng()
+    {
+        var bytes = new byte[24];
+        new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }.CopyTo(bytes, 0);
+        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(16, 4), 1);
+        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(20, 4), 1);
+        return bytes;
+    }
+
+    private sealed record Legacy20260517Counts(
+        int Articles,
+        int Comments,
+        int Messages,
+        int UserMessages,
+        int VisitLogs,
+        int PageConfigEntries);
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private sealed class NoopArticleDetailAedsArtifactMaintenanceService : IArticleDetailAedsArtifactMaintenanceService
+    {
+        private static readonly ArticleDetailAedsArtifactMaintenanceResult s_empty = new(
+            Scanned: 0,
+            Rebuilt: 0,
+            Removed: 0,
+            Skipped: 0,
+            Failed: 0);
+
+        public Task<ArticleDetailAedsArtifactMaintenanceResult> RecomputeArticleRightsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(s_empty);
+
+        public Task<ArticleDetailAedsArtifactMaintenanceResult> ClearLegacyPublicArtifactsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(s_empty);
+
+        public Task<ArticleDetailAedsArtifactMaintenanceResult> RebuildArticleDetailAedsV3Async(
+            bool all,
+            int? articleId = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(s_empty);
+    }
+
+    private sealed class SuccessfulArticleDetailProjector : IArticleDetailAedsArtifactProjector
+    {
+        public List<int> ArticleIds { get; } = [];
+
+        public Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArticleIds.Add(articleId);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(int articleId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+}

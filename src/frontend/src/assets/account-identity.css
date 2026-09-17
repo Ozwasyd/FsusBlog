@@ -1,0 +1,36 @@
+/* Identity/settings composition around canonical FsusUI settings primitives. */
+
+.account-identity-frame .account-frame-outlet
+ {
+    max-width: var(--fsusblog-container-account);
+}
+
+.account-identity-frame .account-frame-outlet--takeover
+ {
+    display: flex;
+    min-height: calc(var(--fsus-viewport-block-size) - 9rem);
+    max-width: none;
+    flex-direction: column;
+}
+
+.account-identity-frame .identity-page-shell
+ {
+    width: 100%;
+    min-width: 0;
+}
+
+.account-identity-frame .identity-page-shell--inbox
+ {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+@media (width >= 1024px)
+ {
+    .account-identity-frame .account-frame-outlet--takeover
+ {
+        min-height: calc(var(--fsus-viewport-block-size) - 8rem);
+    }
+}

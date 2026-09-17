@@ -1,0 +1,722 @@
+using System.Globalization;
+
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Shared.Contracts.NotificationStream;
+
+using StackExchange.Redis;
+
+namespace FsusBlog.Server.Infrastructure.NotificationStream;
+
+public readonly record struct NotificationStreamAppendResult(bool Appended);
+
+public readonly record struct NotificationStreamPublishOrderLock(RedisKey Key, RedisValue Token);
+
+public sealed class NotificationStreamBacklogStore(IRedisOperationExecutor redis, IRuntimeKeyScope keyScope, ILogger<NotificationStreamBacklogStore> logger)
+{
+    private const string SequenceKey = "fsus:notification-stream:v2:sequence";
+    private const string IdempotencyKeyPrefix = "fsus:notification-stream:v2:idempotency:";
+    private const string RouteStreamPrefix = "fsus:notification-stream:v2:route:";
+    private const string PublishOrderLockPrefix = "fsus:notification-stream:v2:publish-order-lock:";
+    private const int StreamMaxLength = 4096;
+    private const int MaxReplayEntries = 512;
+    private static readonly TimeSpan s_idempotencyRetention = TimeSpan.FromDays(7);
+    private static readonly TimeSpan s_publishOrderLockExpiry = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_publishOrderRetryDelay = TimeSpan.FromMilliseconds(10);
+
+    public async Task<IReadOnlyList<NotificationStreamPublishOrderLock>> AcquirePublishOrderLocksAsync(
+        string route,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<string> storageRoutes = NotificationStreamTargetRouteCodec.GetStorageRoutes(route);
+        if (storageRoutes.Count == 0)
+        {
+            throw new InvalidOperationException("Notification stream publish-order route is invalid.");
+        }
+
+        string[] orderedRoutes = storageRoutes
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var acquired = new List<NotificationStreamPublishOrderLock>(orderedRoutes.Length);
+        try
+        {
+            foreach (string storageRoute in orderedRoutes)
+            {
+                RedisKey lockKey = keyScope.PrefixKey(PublishOrderLockPrefix + storageRoute);
+                RedisValue lockToken = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+                while (!await ExecuteDatabaseAsync(
+                    RedisOperationPort.NotificationPublishOrderLease,
+                    (database, _) => database.LockTakeAsync(lockKey, lockToken, s_publishOrderLockExpiry),
+                    cancellationToken).ConfigureAwait(false))
+                {
+                    await Task.Delay(s_publishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
+                }
+
+                acquired.Add(new NotificationStreamPublishOrderLock(lockKey, lockToken));
+            }
+
+            return acquired;
+        }
+        catch
+        {
+            try
+            {
+                await ReleasePublishOrderLocksAsync(acquired).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "notification-stream-publish-order-partial-lock-release-failed {LockCount}", acquired.Count);
+            }
+            throw;
+        }
+    }
+
+    public async Task<bool> ReleasePublishOrderLocksAsync(IReadOnlyList<NotificationStreamPublishOrderLock> locks)
+    {
+        bool releasedAll = true;
+        for (int i = locks.Count - 1; i >= 0; i--)
+        {
+            NotificationStreamPublishOrderLock ownedLock = locks[i];
+            releasedAll &= await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationPublishOrderLease,
+                (database, _) => database.LockReleaseAsync(ownedLock.Key, ownedLock.Token),
+                CancellationToken.None).ConfigureAwait(false);
+        }
+
+        return releasedAll;
+    }
+
+    public async Task<long> NextEventIdAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await ExecuteDatabaseAsync(
+            RedisOperationPort.NotificationBacklog,
+            (database, _) => database.StringIncrementAsync(keyScope.PrefixKey(SequenceKey)),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<long> GetOrCreateEventIdAsync(
+        string? idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return await NextEventIdAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        RedisKey dedupeKey = keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey));
+        RedisKey sequenceKey = keyScope.PrefixKey(SequenceKey);
+        RedisResult result = await ExecuteDatabaseAsync(
+            RedisOperationPort.NotificationBacklog,
+            (database, _) => database.ScriptEvaluateAsync(
+                """
+                local existing = redis.call('GET', KEYS[1])
+                if existing then
+                    return existing
+                end
+                local event_id = redis.call('INCR', KEYS[2])
+                redis.call('SET', KEYS[1], event_id, 'PX', ARGV[1], 'NX')
+                return event_id
+                """,
+                [dedupeKey, sequenceKey],
+                [(RedisValue)(long)s_idempotencyRetention.TotalMilliseconds]),
+            cancellationToken).ConfigureAwait(false);
+        return (long)result;
+    }
+
+    internal async Task<long?> TryReadIdempotentEventIdAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return null;
+        }
+
+        RedisValue value = await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklogRead,
+                (database, _) => database.StringGetAsync(
+                    keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey))),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return value.TryParse(out long eventId) && eventId > 0 ? eventId : null;
+    }
+
+    internal async Task<IReadOnlyList<long>> ObserveReplayEventIdsAsync(
+        string? userId,
+        IReadOnlySet<string> groups,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<string> routes = NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups);
+        var eventIds = new SortedSet<long>();
+        foreach (string route in routes)
+        {
+            StreamEntry[] entries = await ExecuteDatabaseAsync(
+                    RedisOperationPort.NotificationBacklogRead,
+                    (database, _) => database.StreamRangeAsync(
+                        RouteStreamKey(route),
+                        count: MaxReplayEntries,
+                        messageOrder: Order.Ascending),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            foreach (StreamEntry entry in entries)
+            {
+                if (TryParseEventId(entry.Id, out long eventId))
+                {
+                    eventIds.Add(eventId);
+                }
+            }
+        }
+        return eventIds.ToArray();
+    }
+
+    internal async Task RemoveOwnedEventsAsync(
+        IReadOnlyCollection<long> eventIds,
+        IReadOnlyCollection<string> idempotencyKeys,
+        IReadOnlyCollection<string> userIds,
+        IReadOnlySet<string> groups,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (eventIds.Count == 0 && idempotencyKeys.Count == 0)
+        {
+            return;
+        }
+
+        var routes = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (string userId in userIds)
+        {
+            routes.UnionWith(NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups));
+        }
+        routes.UnionWith(NotificationStreamTargetRouteCodec.GetReplayRoutes(null, groups));
+        RedisValue[] streamIds = eventIds
+            .Where(static id => id > 0)
+            .Distinct()
+            .Order()
+            .Select(static id => (RedisValue)string.Create(CultureInfo.InvariantCulture, $"{id}-0"))
+            .ToArray();
+        foreach (string route in routes)
+        {
+            if (streamIds.Length > 0)
+            {
+                await ExecuteDatabaseAsync(
+                    RedisOperationPort.NotificationBacklog,
+                    (database, _) => database.StreamDeleteAsync(RouteStreamKey(route), streamIds),
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+        RedisKey[] dedupeKeys = idempotencyKeys
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(key => (RedisKey)keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, key)))
+            .ToArray();
+        if (dedupeKeys.Length > 0)
+        {
+            await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklog,
+                (database, _) => database.KeyDeleteAsync(dedupeKeys),
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<Result<NotificationStreamAppendResult>> AppendAsync(
+        long eventId,
+        string route,
+        SharedNotificationStreamFrame frame,
+        CancellationToken cancellationToken = default,
+        bool idempotent = false)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            IReadOnlyList<string> storageRoutes = NotificationStreamTargetRouteCodec.GetStorageRoutes(route);
+            if (storageRoutes.Count == 0)
+            {
+                return Result<NotificationStreamAppendResult>.Failure(
+                    ErrorCode.Validation,
+                    "Notification stream backlog route invalid");
+            }
+
+            RedisValue streamId = string.Concat(eventId.ToString(CultureInfo.InvariantCulture), "-0");
+            if (idempotent)
+            {
+                bool appended = false;
+                foreach (string storageRoute in storageRoutes)
+                {
+                    appended |= await ExecuteDatabaseAsync(
+                            RedisOperationPort.NotificationBacklog,
+                            (database, _) => AppendToRouteIdempotentlyAsync(
+                                database,
+                                RouteStreamKey(storageRoute),
+                                streamId,
+                                frame),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(appended));
+            }
+
+            if (storageRoutes.Count == 1)
+            {
+                await ExecuteDatabaseAsync(
+                        RedisOperationPort.NotificationBacklog,
+                        (database, _) => database.StreamAddAsync(
+                            RouteStreamKey(storageRoutes[0]),
+                            "f",
+                            frame.BufferMemory,
+                            streamId,
+                            StreamMaxLength,
+                            useApproximateMaxLength: true),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(true));
+            }
+
+            await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklog,
+                async (database, _) =>
+                {
+                    IBatch batch = database.CreateBatch();
+                    var writes = new Task<RedisValue>[storageRoutes.Count];
+                    for (int i = 0; i < storageRoutes.Count; i++)
+                    {
+                        writes[i] = batch.StreamAddAsync(
+                            RouteStreamKey(storageRoutes[i]),
+                            "f",
+                            frame.BufferMemory,
+                            streamId,
+                            StreamMaxLength,
+                            useApproximateMaxLength: true);
+                    }
+
+                    batch.Execute();
+                    await Task.WhenAll(writes).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+            return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(true));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to append notification stream backlog entry. EventId: {EventId}", eventId);
+            return Result<NotificationStreamAppendResult>.Failure(
+                ErrorCode.InfraFailure,
+                "Notification stream backlog append failed");
+        }
+    }
+
+    private async Task<bool> AppendToRouteIdempotentlyAsync(
+        IDatabase database,
+        RedisKey streamKey,
+        RedisValue streamId,
+        SharedNotificationStreamFrame frame)
+    {
+        StreamEntry[] existing = await database.StreamRangeAsync(streamKey, streamId, streamId, 1)
+            .ConfigureAwait(false);
+        if (existing.Length > 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await database.StreamAddAsync(
+                    streamKey,
+                    "f",
+                    frame.BufferMemory,
+                    streamId,
+                    StreamMaxLength,
+                    useApproximateMaxLength: true)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch
+        {
+            existing = await database.StreamRangeAsync(streamKey, streamId, streamId, 1).ConfigureAwait(false);
+            if (existing.Length == 0)
+            {
+                throw;
+            }
+
+            return false;
+        }
+    }
+
+    public async Task<NotificationStreamReplayBatch> ReplayAsync(NotificationStreamCursor cursor, string? userId, IReadOnlySet<string> groups, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!cursor.HasValue)
+        {
+            return NotificationStreamReplayBatch.Empty;
+        }
+
+        int attempt = 0;
+        try
+        {
+            return await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklogRead,
+                (database, deadlineToken) => ReplayOnceAsync(
+                    database,
+                    cursor,
+                    userId,
+                    groups,
+                    deadlineToken,
+                    Interlocked.Increment(ref attempt)),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to replay notification stream backlog after classified retries. Cursor: {Cursor} | Attempts: {Attempts}",
+                cursor.Value,
+                Math.Max(1, attempt));
+            return NotificationStreamReplayBatch.Failed("replay-read-failed", Math.Max(1, attempt));
+        }
+    }
+
+    private async Task<NotificationStreamReplayBatch> ReplayOnceAsync(
+        IDatabase database,
+        NotificationStreamCursor cursor,
+        string? userId,
+        IReadOnlySet<string> groups,
+        CancellationToken cancellationToken,
+        int attempt)
+    {
+        IReadOnlyList<string> replayRoutes = NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups);
+        string start = string.Create(CultureInfo.InvariantCulture, $"{cursor.Value + 1}-0");
+        bool missedGap = false;
+        int scannedEntries = 0;
+        List<ReplayEntry> replayEntries = [];
+        RouteReplayReadBatch routeReplayBatch = await ReadRouteReplaysAsync(database, replayRoutes, start, cursor.Value).ConfigureAwait(false);
+        RouteReplayRead[] reads = routeReplayBatch.Reads;
+        int redisCommandCount = routeReplayBatch.RedisCommandCount;
+        for (int routeIndex = 0; routeIndex < reads.Length; routeIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RouteReplayRead read = reads[routeIndex];
+            missedGap |= read.MissedGap;
+            StreamEntry[] entries = read.Entries;
+            scannedEntries += entries.Length;
+            foreach (StreamEntry entry in entries)
+            {
+                if (!TryParseEventId(entry.Id, out long eventId))
+                {
+                    continue;
+                }
+
+                if (!TryGetField(entry, "f", out RedisValue frameValue) || frameValue.IsNullOrEmpty)
+                {
+                    continue;
+                }
+
+                replayEntries.Add(new ReplayEntry(eventId, frameValue));
+            }
+        }
+
+        replayEntries.Sort(static (left, right) => left.EventId.CompareTo(right.EventId));
+
+        var seenEventIds = new HashSet<long>();
+        List<SharedNotificationStreamFrame> frames = [];
+        int dedupedEntries = 0;
+        foreach (ReplayEntry replayEntry in replayEntries)
+        {
+            if (!seenEventIds.Add(replayEntry.EventId))
+            {
+                dedupedEntries++;
+                continue;
+            }
+
+            if (frames.Count >= MaxReplayEntries)
+            {
+                continue;
+            }
+
+            byte[]? buffer = replayEntry.Frame;
+            if (buffer is null || buffer.Length == 0)
+            {
+                continue;
+            }
+            frames.Add(SharedNotificationStreamFrame.FromArray(buffer));
+        }
+
+        NotificationStreamMetrics.RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries, redisCommandCount);
+        return new NotificationStreamReplayBatch(frames, missedGap, RetryableFailure: false, Attempts: attempt);
+    }
+
+    private string RouteStreamKey(string route)
+        => keyScope.PrefixKey(RouteStreamPrefix + route);
+
+    private async Task<RouteReplayReadBatch> ReadRouteReplaysAsync(
+        IDatabase database,
+        IReadOnlyList<string> routes,
+        string start,
+        long cursorValue)
+    {
+        if (routes.Count == 0)
+        {
+            return new RouteReplayReadBatch([], 0);
+        }
+
+        if (routes.Count == 1)
+        {
+            RouteReplayRead read = await ReadRouteReplayAsync(database, routes[0], start, cursorValue).ConfigureAwait(false);
+            return new RouteReplayReadBatch([read], 1);
+        }
+
+        IBatch batch = database.CreateBatch();
+        PendingRouteReplayRead[] pendingReads = new PendingRouteReplayRead[routes.Count];
+        string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
+        for (int i = 0; i < routes.Count; i++)
+        {
+            string streamKey = RouteStreamKey(routes[i]);
+            pendingReads[i] = new PendingRouteReplayRead(
+                batch.StreamRangeAsync(streamKey, count: 1),
+                batch.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries),
+                batch.StreamRangeAsync(
+                    streamKey,
+                    "-",
+                    cursorUpperBound,
+                    count: 1,
+                    messageOrder: Order.Descending));
+        }
+
+        batch.Execute();
+
+        RouteReplayRead[] reads = new RouteReplayRead[pendingReads.Length];
+        for (int i = 0; i < pendingReads.Length; i++)
+        {
+            PendingRouteReplayRead pending = pendingReads[i];
+            await Task.WhenAll(pending.First, pending.Entries, pending.CursorFloor).ConfigureAwait(false);
+            StreamEntry[] first = await pending.First.ConfigureAwait(false);
+            StreamEntry[] cursorFloor = await pending.CursorFloor.ConfigureAwait(false);
+            bool missedGap = first.Length > 0
+                && TryParseEventId(first[0].Id, out long firstEventId)
+                && firstEventId > cursorValue + 1
+                && !HasRetainedCursorFloor(cursorFloor, cursorValue);
+            reads[i] = new RouteReplayRead(await pending.Entries.ConfigureAwait(false), missedGap);
+        }
+
+        return new RouteReplayReadBatch(reads, routes.Count);
+    }
+
+    private async Task<RouteReplayRead> ReadRouteReplayAsync(
+        IDatabase database,
+        string route,
+        string start,
+        long cursorValue)
+    {
+        string streamKey = RouteStreamKey(route);
+        IBatch batch = database.CreateBatch();
+        Task<StreamEntry[]> firstTask = batch.StreamRangeAsync(streamKey, count: 1);
+        Task<StreamEntry[]> entriesTask = batch.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries);
+        string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
+        Task<StreamEntry[]> cursorFloorTask = batch.StreamRangeAsync(
+            streamKey,
+            "-",
+            cursorUpperBound,
+            count: 1,
+            messageOrder: Order.Descending);
+        batch.Execute();
+        await Task.WhenAll(firstTask, entriesTask, cursorFloorTask).ConfigureAwait(false);
+
+        StreamEntry[] first = await firstTask.ConfigureAwait(false);
+        StreamEntry[] cursorFloor = await cursorFloorTask.ConfigureAwait(false);
+        bool missedGap = first.Length > 0
+            && TryParseEventId(first[0].Id, out long firstEventId)
+            && firstEventId > cursorValue + 1
+            && !HasRetainedCursorFloor(cursorFloor, cursorValue);
+        return new RouteReplayRead(await entriesTask.ConfigureAwait(false), missedGap);
+    }
+
+    private static bool HasRetainedCursorFloor(StreamEntry[] cursorFloor, long cursorValue)
+        => cursorFloor.Length > 0
+            && TryParseEventId(cursorFloor[0].Id, out long floorEventId)
+            && floorEventId <= cursorValue;
+
+    private static bool TryGetField(StreamEntry entry, string fieldName, out RedisValue value)
+    {
+        foreach (NameValueEntry current in entry.Values)
+        {
+            if (string.Equals(current.Name, fieldName, StringComparison.Ordinal))
+            {
+                value = current.Value;
+                return true;
+            }
+        }
+
+        value = RedisValue.Null;
+        return false;
+    }
+
+    private static bool TryParseEventId(RedisValue streamId, out long eventId)
+    {
+        string? raw = streamId.ToString();
+        int separator = raw?.IndexOf('-') ?? -1;
+        if (separator <= 0)
+        {
+            eventId = 0;
+            return false;
+        }
+
+        return long.TryParse(raw.AsSpan(0, separator), NumberStyles.None, CultureInfo.InvariantCulture, out eventId);
+    }
+
+    private Task<T> ExecuteDatabaseAsync<T>(
+        RedisOperationPort port,
+        Func<IDatabase, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            port,
+            (multiplexer, deadlineToken) => operation(multiplexer.GetDatabase(), deadlineToken),
+            cancellationToken);
+
+    private Task ExecuteDatabaseAsync(
+        RedisOperationPort port,
+        Func<IDatabase, CancellationToken, Task> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            port,
+            (multiplexer, deadlineToken) => operation(multiplexer.GetDatabase(), deadlineToken),
+            cancellationToken);
+
+    private readonly record struct ReplayEntry(long EventId, RedisValue Frame);
+    private readonly record struct RouteReplayRead(StreamEntry[] Entries, bool MissedGap);
+    private readonly record struct PendingRouteReplayRead(
+        Task<StreamEntry[]> First,
+        Task<StreamEntry[]> Entries,
+        Task<StreamEntry[]> CursorFloor);
+    private readonly record struct RouteReplayReadBatch(RouteReplayRead[] Reads, int RedisCommandCount);
+}
+
+public sealed record NotificationStreamReplayBatch(
+    IReadOnlyList<SharedNotificationStreamFrame> Frames,
+    bool MissedGap,
+    bool RetryableFailure = false,
+    int Attempts = 0,
+    string? FailureReason = null)
+{
+    public bool IsSuccessful => !MissedGap && !RetryableFailure;
+
+    public static NotificationStreamReplayBatch Empty { get; } = new(Array.Empty<SharedNotificationStreamFrame>(), false, false, 0, null);
+
+    public static NotificationStreamReplayBatch Failed(string reason, int attempts)
+        => new(Array.Empty<SharedNotificationStreamFrame>(), false, true, Math.Max(1, attempts), reason);
+}
+
+internal static class NotificationStreamTargetRouteCodec
+{
+    private const string UserPrefix = "u:";
+    private const string GroupPrefix = "g:";
+    private const string MultiUserPrefix = "m:";
+
+    public static Result<string> TryEncode(NotificationStreamTarget target) => target switch
+    {
+        NotificationStreamUserTarget user => Result<string>.Success(UserPrefix + user.AccountId),
+        NotificationStreamGroupTarget group => Result<string>.Success(GroupPrefix + group.GroupName),
+        NotificationStreamMultiUserTarget multi => Result<string>.Success(MultiUserPrefix + string.Join(',', multi.UserIds)),
+        _ => Result<string>.Failure(ErrorCode.Validation, "Unsupported notification stream target.")
+    };
+
+    public static IReadOnlyList<string> GetReplayRoutes(string? userId, IReadOnlySet<string> groups)
+    {
+        var routes = new List<string>(groups.Count + (string.IsNullOrEmpty(userId) ? 0 : 1));
+        if (!string.IsNullOrEmpty(userId))
+        {
+            routes.Add(UserPrefix + userId);
+        }
+
+        foreach (string group in groups)
+        {
+            if (!string.IsNullOrWhiteSpace(group))
+            {
+                routes.Add(GroupPrefix + group);
+            }
+        }
+
+        return routes;
+    }
+
+    public static IReadOnlyList<string> GetStorageRoutes(string route)
+    {
+        if (route.StartsWith(MultiUserPrefix, StringComparison.Ordinal))
+        {
+            return ExpandMultiUserRoutes(route.AsSpan(MultiUserPrefix.Length));
+        }
+
+        return string.IsNullOrWhiteSpace(route) ? [] : [route];
+    }
+
+    public static bool Matches(string? route, string? userId, IReadOnlySet<string> groups)
+    {
+        if (string.IsNullOrWhiteSpace(route) || route.Length < 3)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> target = route.AsSpan(2);
+        return route[0] switch
+        {
+            'u' => !string.IsNullOrEmpty(userId) && target.Equals(userId.AsSpan(), StringComparison.Ordinal),
+            'g' => groups.Contains(target.ToString()),
+            'm' => !string.IsNullOrEmpty(userId) && ContainsUser(target, userId),
+            _ => false
+        };
+    }
+
+    private static IReadOnlyList<string> ExpandMultiUserRoutes(ReadOnlySpan<char> routeUsers)
+    {
+        var routes = new List<string>();
+        while (!routeUsers.IsEmpty)
+        {
+            int comma = routeUsers.IndexOf(',');
+            ReadOnlySpan<char> segment = comma >= 0 ? routeUsers[..comma] : routeUsers;
+            segment = segment.Trim();
+            if (!segment.IsEmpty)
+            {
+                routes.Add(UserPrefix + segment.ToString());
+            }
+
+            if (comma < 0)
+            {
+                break;
+            }
+
+            routeUsers = routeUsers[(comma + 1)..];
+        }
+
+        return routes;
+    }
+
+    private static bool ContainsUser(ReadOnlySpan<char> routeUsers, string userId)
+    {
+        while (!routeUsers.IsEmpty)
+        {
+            int comma = routeUsers.IndexOf(',');
+            ReadOnlySpan<char> segment = comma >= 0 ? routeUsers[..comma] : routeUsers;
+            if (segment.Trim().Equals(userId.AsSpan(), StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (comma < 0)
+            {
+                break;
+            }
+
+            routeUsers = routeUsers[(comma + 1)..];
+        }
+
+        return false;
+    }
+}

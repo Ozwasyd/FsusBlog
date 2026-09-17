@@ -1,0 +1,251 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.example/contracts/plugins/plugin-manifest.schema.json",
+    "title": "FsusBlog Plugin Manifest",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "id",
+        "name",
+        "version",
+        "fsusblog",
+        "author",
+        "description",
+        "runtime",
+        "hooks",
+        "capabilities",
+        "permissions",
+        "configSchema"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+){2,}$",
+            "maxLength": 128
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+        },
+        "version": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$",
+            "maxLength": 64
+        },
+        "fsusblog": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+        },
+        "author": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+        },
+        "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+        },
+        "runtime": {
+            "$ref": "#/$defs/runtime"
+        },
+        "ui": {
+            "$ref": "#/$defs/ui"
+        },
+        "hooks": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+                "$ref": "#/$defs/hook"
+            }
+        },
+        "capabilities": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "article.read",
+                    "article.render",
+                    "article.write.draft",
+                    "comment.read",
+                    "comment.create",
+                    "comment.moderate",
+                    "search.index.write",
+                    "search.query.rewrite",
+                    "media.process",
+                    "plugin.storage.kv",
+                    "plugin.storage.object",
+                    "plugin.log.write",
+                    "network.http.outbound",
+                    "scheduler.job.create",
+                    "admin.ui.extend",
+                    "theme.asset.read",
+                    "user.auth.hook"
+                ]
+            }
+        },
+        "permissions": {
+            "$ref": "#/$defs/permissions"
+        },
+        "configSchema": {
+            "$ref": "#/$defs/packagePath"
+        }
+    },
+    "$defs": {
+        "packagePath": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$",
+            "maxLength": 256
+        },
+        "runtime": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "entry"
+            ],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "lua",
+                        "javascript"
+                    ]
+                },
+                "entry": {
+                    "$ref": "#/$defs/packagePath"
+                }
+            }
+        },
+        "ui": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "adminEntry": {
+                    "$ref": "#/$defs/packagePath"
+                },
+                "style": {
+                    "$ref": "#/$defs/packagePath"
+                }
+            }
+        },
+        "hook": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "name",
+                "priority",
+                "timeoutMs",
+                "failPolicy",
+                "executionMode",
+                "scope",
+                "idempotent"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "enum": [
+                        "article.beforeSave",
+                        "article.afterSave",
+                        "article.beforeRenderMarkdown",
+                        "article.afterRenderHtml",
+                        "article.beforePublish",
+                        "article.afterPublish",
+                        "article.beforeDelete",
+                        "comment.beforeCreate",
+                        "comment.afterCreate",
+                        "comment.beforeAudit",
+                        "comment.afterAudit",
+                        "comment.beforeDisplay",
+                        "comment.beforeDelete",
+                        "search.beforeIndex",
+                        "search.afterIndex",
+                        "search.queryRewrite",
+                        "search.resultRank",
+                        "media.beforeUpload",
+                        "media.afterUpload",
+                        "media.beforeProcess",
+                        "media.afterProcess",
+                        "user.beforeLogin",
+                        "user.afterLogin",
+                        "user.beforeRegister",
+                        "system.startup",
+                        "system.shutdown",
+                        "scheduler.tick",
+                        "plugin.activate",
+                        "plugin.deactivate"
+                    ]
+                },
+                "priority": {
+                    "type": "integer",
+                    "minimum": -1000,
+                    "maximum": 1000
+                },
+                "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30000
+                },
+                "failPolicy": {
+                    "type": "string",
+                    "enum": [
+                        "fail-open",
+                        "fail-closed",
+                        "ignore",
+                        "quarantine"
+                    ]
+                },
+                "executionMode": {
+                    "type": "string",
+                    "enum": [
+                        "sync",
+                        "async",
+                        "background"
+                    ]
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": [
+                        "local",
+                        "cluster-once",
+                        "per-node",
+                        "scheduled",
+                        "leased"
+                    ]
+                },
+                "idempotent": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "permissions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "network",
+                "filesystem",
+                "database"
+            ],
+            "properties": {
+                "network": {
+                    "type": "boolean"
+                },
+                "filesystem": {
+                    "type": "boolean"
+                },
+                "database": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "read",
+                        "read-write"
+                    ]
+                }
+            }
+        }
+    }
+}

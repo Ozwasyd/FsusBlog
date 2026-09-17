@@ -1,0 +1,30 @@
+import { describe, it, expect } from 'vitest'
+import { createAboutPageViewContract } from '@/view-contracts/aboutPage'
+
+describe('createAboutPageViewContract', () => {
+  it('creates the correct view contract structure', () => {
+    const contract = createAboutPageViewContract({
+      currentYear: 2025,
+      content: 'About content'
+    })
+
+    expect(contract.header.title).toBe('关于')
+    expect(contract.header.currentYear).toBe(2025)
+    expect(contract.header.manifestoLabel).toBe('站点说明')
+    expect(contract.header.readmeLabel).toBe('持续更新')
+    expect(contract.body.content).toBe('About content')
+    expect(contract).not.toHaveProperty('footer')
+  })
+
+  it('allows static pages to override the title', () => {
+    const contract = createAboutPageViewContract({
+      currentYear: 2026,
+      content: '',
+      title: '隐私政策'
+    })
+    expect(contract.header.title).toBe('隐私政策')
+    expect(contract.header.manifestoLabel).toBe('隐私说明')
+    expect(contract.header.readmeLabel).toBe('访问边界')
+  })
+
+})

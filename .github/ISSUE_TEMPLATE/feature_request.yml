@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a focused product or engineering change.
+title: "[Feature] "
+labels: ["type:feature", "status:triage"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Keep the request focused. Do not use public issues for security vulnerability reports; use `SECURITY.md`.
+    - type: textarea
+      id: problem
+      attributes:
+          label: Problem statement
+          description: What user or maintainer problem should this solve?
+      validations:
+          required: true
+    - type: textarea
+      id: workflow
+      attributes:
+          label: User workflow affected
+          description: Describe the page, API, admin workflow, deployment flow, or contributor workflow involved.
+      validations:
+          required: true
+    - type: textarea
+      id: proposed
+      attributes:
+          label: Proposed behavior
+          description: Describe the desired behavior and the smallest useful scope.
+      validations:
+          required: true
+    - type: textarea
+      id: alternatives
+      attributes:
+          label: Alternatives considered
+          description: Mention workarounds or designs you considered and rejected.
+    - type: checkboxes
+      id: impact
+      attributes:
+          label: Impact area
+          description: Select every area this change may touch.
+          options:
+              - label: Public API or documented external behavior
+              - label: AEDS frame contract or binary transport
+              - label: Database schema or migration
+              - label: FsusUI visual system or reusable UI boundary
+              - label: Authentication, authorization, moderation, PoW, or security behavior
+              - label: Accessibility, reduced motion, or responsive layout
+              - label: Documentation or public-preview stability statement
+    - type: textarea
+      id: compatibility
+      attributes:
+          label: Compatibility notes
+          description: Explain compatibility, rollout, or migration concerns if any impact boxes are selected.
