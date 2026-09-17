@@ -1159,7 +1159,7 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
             'schema', 'id', 'producerId', 'synchronizedRevision', 'synchronizedParent',
             'synchronizedTree', 'synchronizedMerge', 'synchronizedPullRequest', 'mergeParents',
             'mergeTree', 'historySha256', 'staleOuterOutputs', 'bootstrapBase',
-            'bootstrapHistorySha256', 'bootstrapOutputs',
+            'bootstrapHistorySha256', 'bootstrapOutputs', 'bootstrapChangedOutputs',
             'bootstrapBindingManifest', 'bootstrapExternalNamingManifest', 'bootstrapSources',
             'bootstrapPaths', 'legacyClosure', 'sourceBranches'
         ]))
@@ -1193,6 +1193,10 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
         || new Set(registration.staleOuterOutputs).size !== registration.staleOuterOutputs.length
         || !Array.isArray(registration.bootstrapOutputs)
         || !sameStrings(registration.bootstrapOutputs, graphOutputs)
+        || !Array.isArray(registration.bootstrapChangedOutputs)
+        || registration.bootstrapChangedOutputs.length === 0
+        || !registration.bootstrapChangedOutputs.every((path) => graphOutputs.includes(path))
+        || new Set(registration.bootstrapChangedOutputs).size !== registration.bootstrapChangedOutputs.length
         || !repositoryPathPattern.test(registration.bootstrapBindingManifest ?? '')
         || !repositoryPathPattern.test(registration.bootstrapExternalNamingManifest ?? '')
         || !Array.isArray(registration.bootstrapSources)
@@ -1204,7 +1208,7 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
         || !sameStrings(registration.bootstrapPaths, [
             registration.bootstrapBindingManifest,
             registration.bootstrapExternalNamingManifest,
-            ...registration.bootstrapOutputs,
+            ...registration.bootstrapChangedOutputs,
             'docs/development/change-contract.md',
             'tests/tools/change-contract.test.mjs',
             ...registration.bootstrapSources
@@ -1310,9 +1314,9 @@ export function validateGeneratedRepairDagEpochBootstrap(
         || parsedBody.generatedDigest !== registration.bootstrapBindingManifest
         || parsedBody.externalExceptionManifest !== registration.bootstrapExternalNamingManifest
         || !sameStrings(repositoryPaths(parsedBody.generatorSource), registration.bootstrapSources)
-        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), registration.bootstrapOutputs)
+        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), registration.bootstrapChangedOutputs)
         || !sameStrings(evidence.sources, registration.bootstrapSources)
-        || !sameStrings(evidence.outputs?.map((entry) => entry?.path), registration.bootstrapOutputs)
+        || !sameStrings(evidence.outputs?.map((entry) => entry?.path), registration.bootstrapChangedOutputs)
         || !sameStrings(changedFiles, registration.bootstrapPaths))
     {
         fail('base, declarations, manifest, or exact changed-path set differs from the one-time registration');
@@ -1344,9 +1348,9 @@ export function validateGeneratedRepairDagEpochBootstrap(
         {
             fail('outer drift differs from the registered stale-output subset');
         }
-        if (!sameStrings(baseReplay.changedPaths, registration.bootstrapOutputs))
+        if (!sameStrings(baseReplay.changedPaths, registration.bootstrapChangedOutputs))
         {
-            fail('current base drift differs from the registered stale-output subset');
+            fail('current base drift differs from the registered changed-output subset');
         }
         if (headReplay.changedPaths.length !== 0)
         {
@@ -1357,6 +1361,19 @@ export function validateGeneratedRepairDagEpochBootstrap(
             if (output.sha256 !== headReplay.outputs.get(output.path))
             {
                 fail(`candidate output digest differs from double replay: ${output.path}`);
+            }
+        }
+        for (const output of registration.bootstrapOutputs.filter((path) => (
+            !registration.bootstrapChangedOutputs.includes(path)
+        )))
+        {
+            const baseIdentity = revisionPathIdentity(root, base, output);
+            const headIdentity = revisionPathIdentity(root, head, output);
+            if (baseIdentity !== headIdentity
+                || blobSha256(root, base, output) !== baseReplay.outputs.get(output)
+                || blobSha256(root, head, output) !== headReplay.outputs.get(output))
+            {
+                fail(`unchanged DAG output differs across base, candidate, or double replay: ${output}`);
             }
         }
     }

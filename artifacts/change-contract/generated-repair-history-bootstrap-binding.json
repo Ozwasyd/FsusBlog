@@ -6,10 +6,6 @@
     ],
     "outputs": [
         {
-            "path": "config/testing/evidence-locator-registry.json",
-            "sha256": "2ace8f346d7814e5e054d1ff3e7c87cbc0d55b74a19c340d32ac09c31361df5e"
-        },
-        {
             "path": "config/testing/evidence-location-migration-ledger.json",
             "sha256": "e816e74b80914b84af251fe89fda9ab98e39e11391eb41828b3f5b151bb55312"
         },
