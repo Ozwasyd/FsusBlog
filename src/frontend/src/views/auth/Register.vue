@@ -70,6 +70,7 @@
                             name="agreement"
                             :disabled="isProcessing"
                             aria-required="true"
+                            class="register-agreement-checkbox"
                         >
                             {{ copy.agreementPrefix }}
                             <ElButton
@@ -92,6 +93,7 @@
                             :loading="loading"
                             :aria-disabled="!canCreateAnonymousAccount"
                             aria-describedby="register-error"
+                            class="register-submit-button"
                             @click="createAnonymousAccount"
                         >
                             {{ loading ? copy.submitButtonLoading : copy.submitButtonIdle }}
@@ -297,5 +299,25 @@ const {
  {
     min-height: 40px;
     align-items: center;
+}
+
+.register-agreement-checkbox
+ {
+    align-items: flex-start;
+}
+
+.register-agreement-checkbox :deep(.el-checkbox__label)
+ {
+    white-space: normal;
+    line-height: 1.5;
+}
+
+.register-submit-button
+ {
+    height: auto;
+    min-height: 40px;
+    padding-block: 8px;
+    white-space: normal;
+    line-height: 1.4;
 }
 </style>
