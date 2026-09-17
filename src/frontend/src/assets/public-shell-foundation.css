@@ -257,6 +257,15 @@ html[data-theme-resolved='dark']
     }
 }
 
+@media (width >= 768px) and (height <= 520px)
+ {
+    #fsus-aot-shell > header,
+    #fsus-aot-shell [data-public-shell-header]
+ {
+        min-height: 3.25rem;
+    }
+}
+
 #fsus-aot-shell .ui-pagination
  {
     display: flex;

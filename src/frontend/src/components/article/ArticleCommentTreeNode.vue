@@ -326,6 +326,18 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
     font-weight: 700;
 }
 
+.fsus-comment-tree-node__identity
+ {
+    min-width: 0;
+}
+
+.fsus-comment-tree-node__author,
+.fsus-comment-tree-node__target
+ {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .fsus-comment-tree-node__author.is-anonymous,
 .fsus-comment-tree-node__target,
 .fsus-comment-tree-node__time
@@ -413,6 +425,18 @@ const toggleBranch = (): void => branchExpanded.value ? collapseBranch() : expan
  {
     color: var(--fsusblog-text-quiet);
     font-size: 12px;
+}
+
+@media (width <= 1023px)
+ {
+    .fsus-comment-tree-node__time,
+    .fsus-comment-tree-node__action
+ {
+        display: inline-flex;
+        min-width: 44px;
+        min-height: 44px;
+        align-items: center;
+    }
 }
 
 @media (width <= 640px)

@@ -26,6 +26,7 @@
 
         <ElTabs
             v-model="activeTab"
+            stretch
             class="blog-motion-task-region settings-tabs blog-scroll-x-safe"
             :class="{
                 'blog-motion-task-region--pending': savingSite || savingCompliance || savingPage || refreshingPage,
