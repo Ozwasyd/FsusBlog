@@ -527,10 +527,21 @@ function preserveProductionManifestOwners(validateOwners: boolean): Plugin {
         productionManifestStyleOwners.map((style) => [style.owner, style])
     )
     const owners = ['entry-runtime', ...styleByOwner.keys()]
+    let enforceOwners = validateOwners
 
     return {
         name: 'preserve-production-manifest-owners',
         apply: 'build' as const,
+        configResolved(config) {
+            const input = config.build.rolldownOptions?.input
+            const entries = typeof input === 'string'
+                ? [input]
+                : Array.isArray(input)
+                    ? input
+                    : Object.values(input ?? {})
+            enforceOwners = enforceOwners && entries.some((entry) =>
+                typeof entry === 'string' && /(?:^|[\\/])index\.html$/u.test(entry))
+        },
         resolveId(source: string) {
             if (!source.startsWith(productionManifestOwnerRequestPrefix)) {
                 return undefined
@@ -589,12 +600,12 @@ function preserveProductionManifestOwners(validateOwners: boolean): Plugin {
                         output.isEntry = false
                         continue
                     }
-                    if (validateOwners) {
+                    if (enforceOwners) {
                         output.isEntry = output.name === 'index'
                     }
                 }
 
-                if (!validateOwners) {
+                if (!enforceOwners) {
                     return
                 }
 
