@@ -846,6 +846,9 @@ const formatListTime = (input: string): string =>
 
 .admin-message-center__load-more
  {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
     margin: var(--fsus-space-3) var(--fsus-space-4) var(--fsus-space-4);
 }
 

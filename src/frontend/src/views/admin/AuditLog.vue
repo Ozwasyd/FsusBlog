@@ -118,14 +118,15 @@
                     placeholder="类型"
                     aria-label="类型"
                 />
-                <ElDatePicker
-                    v-model="dateRange"
-                    class="lg:col-span-2"
-                    type="datetimerange"
-                    start-placeholder="起始时间"
-                    end-placeholder="结束时间"
-                    aria-label="时间范围"
-                />
+                <div class="audit-filter-date-cell lg:col-span-2">
+                    <ElDatePicker
+                        v-model="dateRange"
+                        type="datetimerange"
+                        start-placeholder="起始时间"
+                        end-placeholder="结束时间"
+                        aria-label="时间范围"
+                    />
+                </div>
                 <div class="flex items-center gap-2 lg:col-span-2">
                     <ElButton
                         type="primary"
@@ -333,7 +334,7 @@
                                             class="text-xs"
                                         >
                                             <div>{{ (rowData as AuditLogItemResponse).actorType ?? '-' }}</div>
-                                            <div class="text-[var(--fsusblog-text-muted)]">
+                                            <div class="break-all text-[var(--fsusblog-text-muted)]">
                                                 {{ (rowData as AuditLogItemResponse).actorId ?? (rowData as AuditLogItemResponse).actorRole ?? '-' }}
                                             </div>
                                         </div>
@@ -343,7 +344,7 @@
                                             class="text-xs"
                                         >
                                             <div>{{ (rowData as AuditLogItemResponse).targetType ?? '-' }}</div>
-                                            <div class="text-[var(--fsusblog-text-muted)]">
+                                            <div class="break-all text-[var(--fsusblog-text-muted)]">
                                                 {{ (rowData as AuditLogItemResponse).targetId ?? '-' }}
                                             </div>
                                         </div>
@@ -377,6 +378,7 @@
                                             link
                                             type="primary"
                                             :icon="View"
+                                            class="audit-table-action"
                                             @click="openDetail(rowData as AuditLogItemResponse)"
                                         >
                                             查看
@@ -412,13 +414,16 @@
                 </template>
             </ElResponsiveCollection>
 
-            <div class="flex justify-end border-t border-[var(--fsusblog-panel-border)] px-4 py-4">
+            <div class="admin-audit-pagination-scroll flex justify-end border-t border-[var(--fsusblog-panel-border)] px-4 py-4">
                 <ElPagination
                     v-model:current-page="page"
                     v-model:page-size="pageSize"
                     :total="total"
                     :page-sizes="[25, 50]"
-                    layout="total, sizes, prev, pager, next"
+                    :pager-count="isCompactPagination ? 5 : 7"
+                    :small="isCompactPagination"
+                    :layout="isCompactPagination ? 'prev, pager, next' : 'total, sizes, prev, pager, next'"
+                    class="admin-audit-pagination"
                     @current-change="loadAudit"
                     @size-change="handleSizeChange"
                 />
@@ -438,11 +443,11 @@
                     :column="1"
                     border
                 >
-                    <ElDescriptionsItem label="ID">{{ detail.item.id }}</ElDescriptionsItem>
-                    <ElDescriptionsItem label="动作代码">{{ detail.item.action }}</ElDescriptionsItem>
-                    <ElDescriptionsItem label="操作者">{{ detail.item.actorType ?? '-' }} / {{ detail.item.actorId ?? '-' }}</ElDescriptionsItem>
-                    <ElDescriptionsItem label="目标">{{ detail.item.targetType ?? '-' }} / {{ detail.item.targetId ?? '-' }}</ElDescriptionsItem>
-                    <ElDescriptionsItem label="Trace ID">{{ detail.item.traceId ?? '-' }}</ElDescriptionsItem>
+                    <ElDescriptionsItem label="ID"><div class="break-all">{{ detail.item.id }}</div></ElDescriptionsItem>
+                    <ElDescriptionsItem label="动作代码"><div class="break-all">{{ detail.item.action }}</div></ElDescriptionsItem>
+                    <ElDescriptionsItem label="操作者"><div class="break-all">{{ detail.item.actorType ?? '-' }} / {{ detail.item.actorId ?? '-' }}</div></ElDescriptionsItem>
+                    <ElDescriptionsItem label="目标"><div class="break-all">{{ detail.item.targetType ?? '-' }} / {{ detail.item.targetId ?? '-' }}</div></ElDescriptionsItem>
+                    <ElDescriptionsItem label="Trace ID"><div class="break-all">{{ detail.item.traceId ?? '-' }}</div></ElDescriptionsItem>
                     <ElDescriptionsItem label="隐私哈希">
                         <div class="break-all text-xs leading-6">
                             ip={{ detail.item.ipHash ?? '-' }}<br>
@@ -485,6 +490,7 @@ import {
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue';
 import AuditActionLabel from '@/components/admin/AuditActionLabel.vue';
+import { useMediaQuery } from '@/composables/useMediaQuery';
 import { useRowStateMotion } from '@/composables/useRowStateMotion';
 import { FsusUiTaskPageHeader, FsusUiSettingsSection } from "@/fsusui";
 import { toast } from '@/fsusui/feedback';
@@ -540,6 +546,7 @@ const detail = shallowRef<AuditLogDetailResponse | null>(null);
 const page = ref(1);
 const pageSize = ref(50);
 const total = ref(0);
+const isCompactPagination = useMediaQuery('(max-width: 767px)');
 const cursorByPage = reactive<Record<number, string | null>>({ 1: null });
 const loading = ref(false);
 const hasLoadedAudit = ref(false);
@@ -929,6 +936,14 @@ onMounted(() =>
     white-space: nowrap;
 }
 
+.audit-compact-row__meta > span
+ {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .audit-compact-row__meta
  {
     display: flex;
@@ -960,6 +975,13 @@ onMounted(() =>
     border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
+.audit-table-action
+ {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+}
+
 .audit-filter-grid > *
  {
     width: 100%;
@@ -972,6 +994,17 @@ onMounted(() =>
  {
         min-width: 32px;
     }
+}
+
+.audit-filter-date-cell
+ {
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.audit-filter-date-cell :deep(.el-range-input)
+ {
+    min-width: 2.5rem;
 }
 
 @media (width >= 1024px)
@@ -1001,5 +1034,25 @@ onMounted(() =>
  {
         display: none;
     }
+}
+
+.admin-audit-pagination-scroll
+ {
+    overflow-x: auto;
+}
+
+@media (width <= 767px)
+ {
+    .admin-audit-pagination-scroll
+ {
+        justify-content: flex-start;
+    }
+}
+
+.admin-audit-pagination
+ {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: var(--fsus-space-2);
 }
 </style>
