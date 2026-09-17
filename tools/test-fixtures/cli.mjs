@@ -512,7 +512,12 @@ async function main(argv = process.argv.slice(2))
                 receipt,
                 ports,
                 controller.signal,
-                { handles: buildExecutionIdentity(options).handles });
+                {
+                    handles: {
+                        ...buildExecutionIdentity(options).handles,
+                        ...buildPrivateRuntimeHandles()
+                    }
+                });
             if (options.out)
             {
                 writePrivateJson(options.out, next, { label: 'fixture-cleanup-state' });

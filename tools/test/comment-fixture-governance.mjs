@@ -292,6 +292,21 @@ function exactRuntimeErrors(run)
     {
         errors.push('runtime moderation content digest is missing');
     }
+    const runtimeLease = run?.runtimeLease;
+    const runtimeRestore = run?.runtimeRestore;
+    if (runtimeLease?.schema !== 'fsusblog.comment-moderation-runtime-lease.v1'
+        || runtimeRestore?.schema !== 'fsusblog.comment-moderation-runtime-restore.v1'
+        || runtimeLease?.appliedRegionState !== 'manual_review_only'
+        || runtimeRestore?.exact !== true
+        || runtimeRestore?.restoredStateDigest !== runtimeLease?.priorStateDigest
+        || runtimeLease?.priorStateDigest === runtimeLease?.appliedStateDigest
+        || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeLease?.priorStateDigest ?? ''))
+        || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeLease?.appliedStateDigest ?? ''))
+        || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeRestore?.leaseDigest ?? ''))
+        || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeRestore?.restoredStateDigest ?? '')))
+    {
+        errors.push('runtime moderation lease/restore evidence is missing or inexact');
+    }
     const moderated = moderation?.entities ?? [];
     const moderationByRole = new Map(moderated.map((item) => [item?.semanticRole, item]));
     const observations = {
@@ -347,8 +362,8 @@ function exactRuntimeErrors(run)
                         signalEvidence: observed?.signalEvidence ?? [],
                         moderationEventIds: observed?.moderationEventIds ?? [],
                         auditEventIds: thread?.auditEventIds ?? [],
-                        cacheIdentity: thread?.cacheIdentity ?? null,
-                        cacheGeneration: thread?.cacheGeneration ?? null,
+                        cacheIdentity: observed?.cacheIdentity ?? thread?.cacheIdentity ?? null,
+                        cacheGeneration: observed?.cacheGeneration ?? thread?.cacheGeneration ?? null,
                         depthOverrunFailureCode: semanticRole === 'depth-root'
                             ? run?.negativeResults?.['depth-overrun-negative'] ?? null
                             : null,
@@ -545,6 +560,9 @@ function canonicalRuntimeRun(seed)
         signalEvidence: [],
         moderationEventIds: [String(item.commentId + 5000)],
         outboxEventIds: item.outboxEventIds,
+        articleId: item.articleId,
+        cacheIdentity: item.cacheIdentity,
+        cacheGeneration: item.cacheGeneration,
         ...fields
     });
     const moderationEntities = [
@@ -618,6 +636,40 @@ function canonicalRuntimeRun(seed)
         securityDigest: `sha256:${'d'.repeat(64)}`
     };
     cleanupReceipt.crossDomainBefore = crossDomain;
+    const runtimeLease = {
+        schema: 'fsusblog.comment-moderation-runtime-lease.v1',
+        binding: {
+            runId: `canonical-run-${seed}`,
+            namespace: `canonical-comment-${seed}`,
+            owner: `comment-fixture:canonical-comment-${seed}:canonical-run-${seed}`,
+            inventoryDigest: `sha256:${'d'.repeat(64)}`
+        },
+        region: 'US',
+        priorRegionState: 'enabled',
+        appliedRegionState: 'manual_review_only',
+        priorModelEnabled: false,
+        priorModelProvider: 'none',
+        priorModelProfile: 'none',
+        priorModelThresholdProfile: 'none',
+        priorModelContractVersion: '0',
+        owner: `comment-fixture:canonical-comment-${seed}:canonical-run-${seed}`,
+        priorStateDigest: `sha256:${'f'.repeat(64)}`,
+        appliedStateDigest: `sha256:${'9'.repeat(64)}`
+    };
+    const runtimeRestore = {
+        schema: 'fsusblog.comment-moderation-runtime-restore.v1',
+        binding: runtimeLease.binding,
+        leaseDigest: `sha256:${'8'.repeat(64)}`,
+        restoredRegionState: 'enabled',
+        restoredModelEnabled: false,
+        restoredModelProvider: 'none',
+        restoredModelProfile: 'none',
+        restoredModelThresholdProfile: 'none',
+        restoredModelContractVersion: '0',
+        owner: runtimeLease.owner,
+        restoredStateDigest: runtimeLease.priorStateDigest,
+        exact: true
+    };
     return {
         producerId: 'comment-moderation',
         strategy: 'transaction-fixture',
@@ -649,6 +701,8 @@ function canonicalRuntimeRun(seed)
         cacheGenerationAfter: '11',
         crossDomainBefore: crossDomain,
         crossDomainAfterPrepare: structuredClone(crossDomain),
+        runtimeLease,
+        runtimeRestore,
         cleanupReceipt
     };
 }
@@ -659,18 +713,38 @@ export function buildCanonicalCommentFixtureRuntimeEvidence()
     return {
         schema: 'fsusblog.comment-fixture-canonical-runtime-evidence.v1',
         runs,
-        cleanups: runs.map((run) => ({
-            schema: 'fsusblog.comment-thread-fixture-cleanup-result.v1',
-            runId: run.cleanupReceipt.runId,
-            namespace: run.cleanupReceipt.namespace,
-            owner: run.cleanupReceipt.owner,
-            inventoryDigest: run.cleanupReceipt.inventoryDigest,
-            deletedCommentIds: Object.keys(run.cleanupReceipt.ownedComments).map(Number),
-            stillPublicCommentIds: [],
-            exact: true,
-            crossDomainBefore: structuredClone(run.crossDomainBefore),
-            crossDomainAfter: structuredClone(run.crossDomainBefore)
-        }))
+        cleanups: runs.map((run) =>
+        {
+            const deletedCommentIds = Object.keys(run.cleanupReceipt.ownedComments).map(Number);
+            const binding = {
+                runId: run.cleanupReceipt.runId,
+                namespace: run.cleanupReceipt.namespace,
+                owner: run.cleanupReceipt.owner,
+                inventoryDigest: run.cleanupReceipt.inventoryDigest
+            };
+            return {
+                schema: 'fsusblog.comment-fixture-cleanup-result.v1',
+                binding,
+                runId: run.cleanupReceipt.runId,
+                namespace: run.cleanupReceipt.namespace,
+                owner: run.cleanupReceipt.owner,
+                inventoryDigest: run.cleanupReceipt.inventoryDigest,
+                deletedCommentIds,
+                stillPublicCommentIds: [],
+                exact: true,
+                crossDomainBefore: structuredClone(run.crossDomainBefore),
+                crossDomainAfter: structuredClone(run.crossDomainBefore),
+                moderationObservation: {
+                    schema: 'fsusblog.comment-moderation-cleanup-observation.v1',
+                    binding,
+                    commentIds: deletedCommentIds,
+                    queueAbsentCommentIds: deletedCommentIds,
+                    publicHiddenCommentIds: deletedCommentIds,
+                    softDeletedCommentIds: deletedCommentIds,
+                    observationDigest: `sha256:${'7'.repeat(64)}`
+                }
+            };
+        })
     };
 }
 
@@ -680,7 +754,17 @@ function cleanupResultErrors(run, cleanup)
     const cleanupBinding = cleanup?.binding ?? cleanup;
     const expected = Object.keys(run?.cleanupReceipt?.ownedComments ?? {}).sort();
     const actual = (cleanup?.deletedCommentIds ?? []).map(String).sort();
-    return cleanup?.schema !== 'fsusblog.comment-thread-fixture-cleanup-result.v1'
+    const observation = cleanup?.moderationObservation;
+    const observedIds = (value) => (value ?? []).map(String).sort();
+    const observationExact = observation?.schema === 'fsusblog.comment-moderation-cleanup-observation.v1'
+        && JSON.stringify(observation?.binding) === JSON.stringify(cleanupBinding)
+        && JSON.stringify(observedIds(observation?.commentIds)) === JSON.stringify(actual)
+        && JSON.stringify(observedIds(observation?.queueAbsentCommentIds)) === JSON.stringify(actual)
+        && JSON.stringify(observedIds(observation?.publicHiddenCommentIds)) === JSON.stringify(actual)
+        && JSON.stringify(observedIds(observation?.softDeletedCommentIds)) === JSON.stringify(actual)
+        && /^sha256:[a-f0-9]{64}$/u.test(String(observation?.observationDigest ?? ''));
+    return cleanup?.schema !== 'fsusblog.comment-fixture-cleanup-result.v1'
+        || !observationExact
         || cleanupBinding?.runId !== receiptBinding?.runId
         || cleanupBinding?.namespace !== receiptBinding?.namespace
         || cleanupBinding?.owner !== receiptBinding?.owner

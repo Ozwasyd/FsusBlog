@@ -161,6 +161,8 @@ function rawResult(plan, index)
         producerPlanDigest: plan.producerPlanDigest,
         zkAuthorityEvidence,
         moderation: { ...canonical.moderation, binding },
+        runtimeLease: { ...canonical.runtimeLease, binding, owner: binding.owner },
+        runtimeRestore: { ...canonical.runtimeRestore, binding, owner: binding.owner },
         crossDomainBefore: crossDomain,
         crossDomainAfterPrepare: structuredClone(crossDomain),
         cleanupReceipt
@@ -235,13 +237,22 @@ async function startBackend()
                 requests.push({ runId: receipt.binding.runId, method: 'POST', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
                 response.end(JSON.stringify({
-                    schema: 'fsusblog.comment-thread-fixture-cleanup-result.v1',
+                    schema: 'fsusblog.comment-fixture-cleanup-result.v1',
                     binding: receipt.binding,
                     deletedCommentIds: ids,
                     stillPublicCommentIds: [],
                     exact: true,
                     crossDomainBefore: receipt.crossDomainBefore,
-                    crossDomainAfter: receipt.crossDomainBefore
+                    crossDomainAfter: receipt.crossDomainBefore,
+                    moderationObservation: {
+                        schema: 'fsusblog.comment-moderation-cleanup-observation.v1',
+                        binding: receipt.binding,
+                        commentIds: ids,
+                        queueAbsentCommentIds: ids,
+                        publicHiddenCommentIds: ids,
+                        softDeletedCommentIds: ids,
+                        observationDigest: `sha256:${hex(`${receipt.binding.runId}:moderation-cleanup`)}`
+                    }
                 }));
                 return;
             }
