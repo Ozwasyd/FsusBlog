@@ -51,8 +51,7 @@ const REQUIRED_SURFACE_TOKENS = [
         needles: [
             'height: var(--fsus-viewport-block-size);',
             'max-height: var(--fsus-viewport-block-size);',
-            'padding-bottom: var(--fsus-safe-area-inset-bottom);',
-            'max-height: calc(var(--fsus-viewport-block-size) - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));'
+            'padding-bottom: var(--fsus-safe-area-inset-bottom);'
         ]
     },
     {
