@@ -2,7 +2,7 @@
     "schema": "fsusblog.backend-evidence-path-authority.v1",
     "generatedBy": "tools/test/generate-backend-evidence-path-authority.mjs",
     "sources": {
-        "tests/matrix.yml": "sha256:fb7a063b3685617a78690b7eea0c5cdd0eeb5ff2494dea89ffe055313b68b9df",
+        "tests/matrix.yml": "sha256:0e7090875af0a3e6e2d172e33dc8fbee90a63e53263ae4bf50cc46021cea2f97",
         "tests/backend/Fixtures/backend-test-requirements.json": "sha256:556a07bbaf65b347027a2ddd9ccdb9b4bf54ce8269edc56b974f0d403d60fde6"
     },
     "entries": [

@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 266,
+      "estimatedFacts": 297,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -36,10 +36,6 @@
         {
           "path": "Unit/AnonymousCommentSubmitTests.cs",
           "class": "AnonymousCommentSubmitTests"
-        },
-        {
-          "path": "Unit/AdminSessionValidationServiceTests.cs",
-          "class": "AdminSessionValidationServiceTests"
         },
         {
           "path": "Unit/SecurityRiskEventPersistenceTests.cs",
@@ -140,12 +136,36 @@
         {
           "path": "Integration/AuthorSavedViewPostgresIntegrationTests.cs",
           "class": "AuthorSavedViewPostgresIntegrationTests"
+        },
+        {
+          "path": "Integration/ArticleDetailViewProjectionIntegrationTests.cs",
+          "class": "ArticleDetailViewProjectionIntegrationTests"
+        },
+        {
+          "path": "Integration/ArticleHotWholeFrameColdMissIntegrationTests.cs",
+          "class": "ArticleHotWholeFrameColdMissIntegrationTests"
+        },
+        {
+          "path": "Integration/ArticleVaultExecutionPostgresIntegrationTests.cs",
+          "class": "ArticleVaultExecutionPostgresIntegrationTests"
+        },
+        {
+          "path": "Integration/CacheMissSingleFlightRuntimeScenarioIntegrationTests.cs",
+          "class": "CacheMissSingleFlightRuntimeScenarioIntegrationTests"
+        },
+        {
+          "path": "Integration/CanonicalArticlePublicationFixturePortIntegrationTests.cs",
+          "class": "CanonicalArticlePublicationFixturePortIntegrationTests"
+        },
+        {
+          "path": "Integration/RuntimeCacheEvidenceHotFeaturedFrameIntegrationTests.cs",
+          "class": "RuntimeCacheEvidenceHotFeaturedFrameIntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 409,
+      "estimatedFacts": 449,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -455,6 +475,34 @@
         {
           "path": "Unit/CurrentSchemaRuntimeRollupTablesTests.cs",
           "class": "CurrentSchemaRuntimeRollupTablesDatabaseTests"
+        },
+        {
+          "path": "Integration/AdminSessionProjectionTouchIntegrationTests.cs",
+          "class": "AdminSessionProjectionTouchIntegrationTests"
+        },
+        {
+          "path": "Integration/AuthoringCanvasOperationTransactionIntegrationTests.cs",
+          "class": "AuthoringCanvasOperationTransactionIntegrationTests"
+        },
+        {
+          "path": "Integration/AuthoringCanvasReferenceFactSourceIntegrationTests.cs",
+          "class": "AuthoringCanvasReferenceFactSourceIntegrationTests"
+        },
+        {
+          "path": "Integration/RelatedReadingProjectionIntegrationTests.cs",
+          "class": "RelatedReadingProjectionIntegrationTests"
+        },
+        {
+          "path": "Integration/RuntimeCacheEvidenceDatabaseAttributionIntegrationTests.cs",
+          "class": "RuntimeCacheEvidenceDatabaseAttributionIntegrationTests"
+        },
+        {
+          "path": "Unit/MfaLoginEndpointPostgresTests.cs",
+          "class": "MfaLoginEndpointPostgresTests"
+        },
+        {
+          "path": "Unit/PrivateAssetStoreTests.cs",
+          "class": "PrivateAssetStorePostgresIntegrationTests"
         }
       ]
     }
