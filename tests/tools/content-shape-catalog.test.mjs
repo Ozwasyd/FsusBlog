@@ -36,7 +36,8 @@ function temporaryProductionRoot(t)
     for (const relative of [
         'src/backend/Services/Articles/ArticlePublicationValidator.cs',
         'src/backend/Models/Dtos/CommentDto.cs',
-        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs'
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs',
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs'
     ])
     {
         const target = path.join(temporary, relative);
@@ -54,6 +55,42 @@ function mutateProductionSource(t, relative, before, after, { all = false } = {}
     assert.equal(original.includes(before), true, `mutation source is missing: ${before}`);
     fs.writeFileSync(target, all ? original.replaceAll(before, after) : original.replace(before, after));
     return temporary;
+}
+
+function mutateProductionSources(t, relative, replacements)
+{
+    const temporary = temporaryProductionRoot(t);
+    const target = path.join(temporary, relative);
+    let source = fs.readFileSync(target, 'utf8');
+    for (const [before, after, all = false] of replacements)
+    {
+        assert.equal(source.includes(before), true, `mutation source is missing: ${before}`);
+        source = all ? source.replaceAll(before, after) : source.replace(before, after);
+    }
+    fs.writeFileSync(target, source);
+    return temporary;
+}
+
+function assertProductionMutationPreserves(t, relative, replacements)
+{
+    const temporary = mutateProductionSources(t, relative, replacements);
+    assert.deepEqual(projectContentFieldContracts({ root: temporary }), projectContentFieldContracts());
+}
+
+function assertProductionMutationsInvalidate(t, relative, replacements)
+{
+    const temporary = mutateProductionSources(t, relative, replacements);
+    let changed = false;
+    try
+    {
+        changed = stableStringify(projectContentFieldContracts({ root: temporary }))
+            !== stableStringify(projectContentFieldContracts());
+    }
+    catch
+    {
+        changed = true;
+    }
+    assert.equal(changed, true, `${relative} semantic alias mutation must invalidate the projection`);
 }
 
 function assertProductionMutationInvalidates(t, relative, before, after, options)
@@ -152,7 +189,28 @@ test('field projection binds contract fragments instead of unrelated owner file 
     const temporary = temporaryProductionRoot(t);
     const endpoint = path.join(temporary, 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs');
     fs.appendFileSync(endpoint, '\n// Unrelated endpoint implementation change.\n');
-    assert.deepEqual(projectContentFieldContracts({ root: temporary }), projectContentFieldContracts());
+    const ambientOverrides = new Map([
+        ['PATH', '/definitely-not-a-toolchain'],
+        ['DOTNET_ROOT', '/definitely-not-a-dotnet-root'],
+        ['MSBuildSDKsPath', '/definitely-not-msbuild-sdks'],
+        ['CscToolPath', '/definitely-not-roslyn'],
+        ['LangVersion', 'latest'],
+        ['TRUSTED_PLATFORM_ASSEMBLIES', '/definitely-not-a-tpa-list']
+    ]);
+    const originalEnvironment = new Map([...ambientOverrides.keys()].map((name) => [name, process.env[name]]));
+    for (const [name, value] of ambientOverrides) process.env[name] = value;
+    try
+    {
+        assert.deepEqual(projectContentFieldContracts({ root: temporary }), projectContentFieldContracts());
+    }
+    finally
+    {
+        for (const [name, value] of originalEnvironment)
+        {
+            if (value === undefined) delete process.env[name];
+            else process.env[name] = value;
+        }
+    }
 
     const article = path.join(temporary, 'src/backend/Services/Articles/ArticlePublicationValidator.cs');
     fs.writeFileSync(article, fs.readFileSync(article, 'utf8').replace(
@@ -255,6 +313,141 @@ test('field projection excludes nested DTO properties and nested limit constants
     {
         public const int ContentMinChars = 100;
     }`
+    );
+});
+
+test('field projection binds exact constant, validation action, attribute, and Encoding symbols', (t) =>
+{
+    const article = 'src/backend/Services/Articles/ArticlePublicationValidator.cs';
+    const dto = 'src/backend/Models/Dtos/CommentDto.cs';
+    const endpoint = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
+    assertProductionMutationInvalidates(
+        t,
+        article,
+        'bool hardWriteFailure = false;',
+        'bool hardWriteFailure = false;\n        const int MaxTitleLength = 257;'
+    );
+    assertProductionMutationInvalidates(
+        t,
+        article,
+        'bool hardWriteFailure = false;',
+        `bool hardWriteFailure = false;
+        static void AddError(List<PrepublishIssue> target, string code, string message)
+            => target.Add(new PrepublishIssue("warning", code, message));`
+    );
+    assertProductionMutationPreserves(t, dto, [
+        ['using System.ComponentModel.DataAnnotations;', `using System.ComponentModel.DataAnnotations;
+using RequiredAlias = System.ComponentModel.DataAnnotations.RequiredAttribute;
+using MaxLengthAlias = System.ComponentModel.DataAnnotations.MaxLengthAttribute;`],
+        ['[Required]\n    [MaxLength(', '[RequiredAlias]\n    [MaxLengthAlias(']
+    ]);
+    assertProductionMutationPreserves(t, endpoint, [
+        ['using System.Text;', 'using TextEncoding = System.Text.Encoding;'],
+        ['Encoding.UTF8.GetByteCount(content)', 'TextEncoding.UTF8.GetByteCount(content)', true]
+    ]);
+    assertProductionMutationsInvalidate(t, dto, [
+        ['using System.ComponentModel.DataAnnotations;', `using System.ComponentModel.DataAnnotations;
+using RequiredAlias = System.ObsoleteAttribute;`],
+        ['[Required]\n    [MaxLength(', '[RequiredAlias]\n    [MaxLength(']
+    ]);
+    assertProductionMutationsInvalidate(t, dto, [
+        ['using System.ComponentModel.DataAnnotations;', `using System.ComponentModel.DataAnnotations;
+using RequiredAlias = System.ComponentModel.DataAnnotations.RequiredAttribute;`],
+        ['namespace FsusBlog.Server.Models.Dtos;', `namespace System.ComponentModel.DataAnnotations
+{
+    [AttributeUsage(AttributeTargets.Property)]
+    internal sealed class RequiredAttribute : Attribute
+    {
+    }
+}
+
+namespace FsusBlog.Server.Models.Dtos
+{`],
+        ['public string GetTextToCheck() => Content;\n}', 'public string GetTextToCheck() => Content;\n}\n}'],
+        ['[Required]\n    [MaxLength(', '[RequiredAlias]\n    [MaxLength(']
+    ]);
+    assertProductionMutationsInvalidate(t, endpoint, [
+        ['using System.Text;', `using System.Text;
+using TextEncoding = FsusBlog.Server.Modules.Endpoints.Binary.FakeEncoding;`],
+        ['namespace FsusBlog.Server.Modules.Endpoints.Binary;', `namespace FsusBlog.Server.Modules.Endpoints.Binary;
+
+internal static class FakeEncoding
+{
+    internal static FakeEncoder UTF8 { get; } = new();
+}
+
+internal sealed class FakeEncoder
+{
+    internal int GetByteCount(string value) => value.Length;
+}`],
+        ['Encoding.UTF8.GetByteCount(content)', 'TextEncoding.UTF8.GetByteCount(content)', true]
+    ]);
+});
+
+test('field projection closes ref alias, ref helper, local function, lambda, and transitive partial flows', (t) =>
+{
+    const article = 'src/backend/Services/Articles/ArticlePublicationValidator.cs';
+    const endpoint = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
+    for (const replacement of [
+        `string title = input.Title?.Trim() ?? string.Empty;
+        ref string titleAlias = ref title;
+        titleAlias = titleAlias.Normalize();`,
+        `string title = input.Title?.Trim() ?? string.Empty;
+        NormalizeTitle(ref title);
+        static void NormalizeTitle(ref string value) => value = value.Normalize();`,
+        `string title = input.Title?.Trim() ?? string.Empty;
+        title = NormalizeTitle(title);
+        static string NormalizeTitle(string value) => NormalizeTitleCore(value);
+        static string NormalizeTitleCore(string value) => value.Normalize();`,
+        `string title = input.Title?.Trim() ?? string.Empty;
+        Func<string, string> normalizeTitle = value => value.Normalize();
+        title = normalizeTitle(title);`
+    ])
+    {
+        assertProductionMutationInvalidates(
+            t,
+            article,
+            'string title = input.Title?.Trim() ?? string.Empty;',
+            replacement
+        );
+    }
+
+    const temporary = mutateProductionSources(t, endpoint, [[
+        'string content = request.Content?.Trim() ?? string.Empty;',
+        'string content = NormalizeContentContract(request.Content?.Trim() ?? string.Empty);',
+        true
+    ]]);
+    const partial = path.join(temporary, 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs');
+    fs.appendFileSync(partial, `
+
+public static partial class BinaryEndpoints
+{
+    private static string NormalizeContentContract(string value) => value.Normalize();
+}
+`);
+    assert.notDeepEqual(projectContentFieldContracts({ root: temporary }), projectContentFieldContracts());
+});
+
+test('field projection ignores semantically irrelevant GC.KeepAlive statements', (t) =>
+{
+    assertProductionMutationPreserves(t, 'src/backend/Services/Articles/ArticlePublicationValidator.cs', [[
+        'string title = input.Title?.Trim() ?? string.Empty;',
+        'string title = input.Title?.Trim() ?? string.Empty;\n        GC.KeepAlive(title);'
+    ]]);
+    assertProductionMutationPreserves(t, 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs', [[
+        'string content = request.Content?.Trim() ?? string.Empty;',
+        'string content = request.Content?.Trim() ?? string.Empty;\n            GC.KeepAlive(content);',
+        true
+    ]]);
+});
+
+test('field projection rejects production compilation diagnostics', (t) =>
+{
+    assertProductionMutationInvalidates(
+        t,
+        'src/backend/Services/Articles/ArticlePublicationValidator.cs',
+        'string title = input.Title?.Trim() ?? string.Empty;',
+        'string title = ;'
     );
 });
 

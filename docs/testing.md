@@ -205,11 +205,17 @@ render: scalar
 `config/testing/content-field-contracts.generated.json`；测试不得另抄 article/comment
 字符或 UTF-8 byte 上限。generated source identity 绑定从这些 owner 提取的 canonical
 字段合同 fragment，而不是整个 owner file bytes；同文件内无关实现变化不制造 projection
-drift。提取过程由 Roslyn 的 active syntax tree 与 declared symbols 选择具名 top-level type、
-direct property/constant 和 exact method signature；inactive preprocessor、nested type 与 overload
-不能充当替身。record/property nullable、`required`/validation attributes、常量引用及解析值、
-initializer、同一 local symbol 的后续 assignment/use、branch/operator/control-flow 都属于 fragment，
-实际 field inventory、normalization、计数或边界变化仍会 fail closed。production
+drift。提取器作为 analyzer 进入 canonical `FsusBlog.Server` Release build，在无 compiler
+diagnostic 的完整 production compilation（project options、nullable、defines、references、generated
+和 partial files）上运行。它按 resolved symbols 选择具名 top-level type、direct property/constant
+和 exact method signature；syntax alias、inactive preprocessor、nested type 与 overload 不能充当替身。
+record/property attributes、常量引用及解析值、initializer，以及从 validation sink 反向闭合的
+local/ref alias/ref-out/helper/local-function/lambda/partial-file dataflow 都属于 fragment；exact
+`System.GC.KeepAlive` 等不影响值或 validation 的 statement 不进入 slice。producer identity 还绑定
+repo-pinned SDK/runtime、absolute dotnet host 与 Roslyn/analyzer binary digests、backend project、
+`Directory.Build.props`、central packages 和 locked dependency inputs；restore/build 均使用 locked
+source 和显式 SDK，不消费 `PATH`、`DOTNET_ROOT`、TPA 或 `LanguageVersion.Latest`。实际 field
+inventory、normalization、计数或边界变化仍会 fail closed。production
 的“字符”计数语义固定为 .NET UTF-16
 `string.Length`，byte 计数固定为 `Encoding.UTF8.GetByteCount`，generator 另行记录
 Unicode scalar 与 grapheme statistics，但不得拿它们替换 production 判定。当前 comment

@@ -3,13 +3,14 @@
     "sources": [
         "tools/testing/content-shape-catalog.mjs",
         "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
         "tools/testing/FsusBlog.ContentFieldContractExtractor/Program.cs",
         "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json"
     ],
     "outputs": [
         {
             "path": "config/testing/content-field-contracts.generated.json",
-            "sha256": "1e3da817b66fe939ca2cd842703034eb064491f917d059c6a387cfdedb32ba70"
+            "sha256": "5daea501cd47df94e1853cc38a629c9fa64ad4687dfa1f569a3a251d50eef4a0"
         }
     ]
 }

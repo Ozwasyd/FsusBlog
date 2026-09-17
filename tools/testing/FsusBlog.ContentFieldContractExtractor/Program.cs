@@ -1,28 +1,67 @@
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
-if (args.Length != 1)
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public sealed class ContentFieldContractAnalyzer : DiagnosticAnalyzer
 {
-    Console.Error.WriteLine("usage: FsusBlog.ContentFieldContractExtractor <repository-root>");
-    return 2;
-}
+    private static readonly DiagnosticDescriptor s_failure = new(
+        "FSUSBLOGCFC001",
+        "Content field contract extraction failed",
+        "Content field contract extraction failed: {0}",
+        "FsusBlog.Build",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        customTags: [WellKnownDiagnosticTags.CompilationEnd]);
 
-try
-{
-    string root = Path.GetFullPath(args[0]);
-    ContentFieldContractExtractor.Extraction extraction = ContentFieldContractExtractor.Extract(root);
-    Console.WriteLine(JsonSerializer.Serialize(extraction, ContentFieldContractExtractor.JsonOptions));
-    return 0;
-}
-catch (Exception error)
-{
-    Console.Error.WriteLine($"[content-field-contract-extractor] {error.Message}");
-    return 1;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [s_failure];
+
+    public override void Initialize(AnalysisContext context)
+    {
+        context.EnableConcurrentExecution();
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
+        context.RegisterCompilationAction(ExtractAtCompilationEnd);
+    }
+
+    private static void ExtractAtCompilationEnd(CompilationAnalysisContext context)
+    {
+        try
+        {
+            if (!context.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue(
+                "build_property.FsusBlogContentFieldContractOutput",
+                out string? output)
+                || string.IsNullOrWhiteSpace(output))
+            {
+                throw new InvalidOperationException("FsusBlogContentFieldContractOutput is missing");
+            }
+            Diagnostic[] diagnostics = context.Compilation.GetDiagnostics(context.CancellationToken)
+                .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Warning or DiagnosticSeverity.Error)
+                .Take(20)
+                .ToArray();
+            if (diagnostics.Length > 0)
+            {
+                throw new InvalidOperationException("production compilation has diagnostics: "
+                    + string.Join(" | ", diagnostics.Select(diagnostic => diagnostic.ToString())));
+            }
+            ContentFieldContractExtractor.Extraction extraction = ContentFieldContractExtractor.Extract((CSharpCompilation)context.Compilation);
+            string fullOutput = Path.GetFullPath(output);
+            Directory.CreateDirectory(Path.GetDirectoryName(fullOutput)
+                ?? throw new InvalidOperationException("extractor output directory is missing"));
+            File.WriteAllText(fullOutput, JsonSerializer.Serialize(extraction, ContentFieldContractExtractor.JsonOptions));
+        }
+        catch (Exception error)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(s_failure, Location.None, error.Message));
+        }
+    }
 }
 
 internal static class ContentFieldContractExtractor
@@ -39,39 +78,104 @@ internal static class ContentFieldContractExtractor
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static Extraction Extract(string root)
+    public static Extraction Extract(CSharpCompilation compilation)
     {
-        var sources = new[] { ArticlePath, CommentPath, EndpointPath };
-        var trees = sources.Select(relative => CSharpSyntaxTree.ParseText(
-            File.ReadAllText(Path.Combine(root, relative)),
-            new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Regular),
-            path: relative)).ToArray();
-        ImmutableArray<MetadataReference> references = TrustedPlatformReferences();
-        CSharpCompilation compilation = CSharpCompilation.Create(
-            "ContentFieldContractProjection",
-            trees,
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        var contexts = trees.ToDictionary(
-            tree => tree.FilePath,
-            tree => new SourceContext(tree.GetCompilationUnitRoot(), compilation.GetSemanticModel(tree)));
+        SyntaxTree articleTree = AuthorityTree(compilation, ArticlePath);
+        SyntaxTree commentTree = AuthorityTree(compilation, CommentPath);
+        SyntaxTree endpointTree = AuthorityTree(compilation, EndpointPath);
+        var contexts = new Dictionary<string, SourceContext>
+        {
+            [ArticlePath] = new(articleTree.GetCompilationUnitRoot(), compilation.GetSemanticModel(articleTree)),
+            [CommentPath] = new(commentTree.GetCompilationUnitRoot(), compilation.GetSemanticModel(commentTree)),
+            [EndpointPath] = new(endpointTree.GetCompilationUnitRoot(), compilation.GetSemanticModel(endpointTree))
+        };
 
         ArticleExtraction article = ExtractArticle(contexts[ArticlePath]);
         CommentExtraction comment = ExtractComment(contexts[CommentPath]);
         EndpointExtraction endpoint = ExtractEndpoint(contexts[EndpointPath]);
-        return new Extraction("fsusblog.content-field-roslyn-extraction.v1", article, comment, endpoint);
+        return new Extraction(
+            "fsusblog.content-field-roslyn-extraction.v2",
+            CompilationContract(compilation),
+            article,
+            comment,
+            endpoint);
     }
 
-    private static ImmutableArray<MetadataReference> TrustedPlatformReferences()
+    private static SyntaxTree AuthorityTree(CSharpCompilation compilation, string relative)
     {
-        string? trusted = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
-        if (string.IsNullOrWhiteSpace(trusted))
+        string suffix = relative.Replace('/', Path.DirectorySeparatorChar);
+        SyntaxTree[] matches = compilation.SyntaxTrees
+            .Where(tree => Path.GetFullPath(tree.FilePath).EndsWith(suffix, StringComparison.Ordinal))
+            .ToArray();
+        Require(matches.Length == 1, $"expected exactly one active production tree for {relative}");
+        return matches[0];
+    }
+
+    private static CompilationIdentity CompilationContract(CSharpCompilation compilation)
+    {
+        ParseIdentity[] parseOptions = compilation.SyntaxTrees
+            .Select(tree => (CSharpParseOptions)tree.Options)
+            .Select(options => new ParseIdentity(
+                options.LanguageVersion.ToString(),
+                options.PreprocessorSymbolNames.Order(StringComparer.Ordinal).ToArray(),
+                options.Features.OrderBy(item => item.Key, StringComparer.Ordinal)
+                    .Select(item => $"{item.Key}={item.Value}").ToArray()))
+            .DistinctBy(options => JsonSerializer.Serialize(options))
+            .OrderBy(options => JsonSerializer.Serialize(options), StringComparer.Ordinal)
+            .ToArray();
+        var references = compilation.References.Select(reference =>
         {
-            throw new InvalidOperationException("trusted platform assemblies are unavailable");
-        }
-        return trusted.Split(Path.PathSeparator)
-            .Select(path => MetadataReference.CreateFromFile(path))
-            .ToImmutableArray<MetadataReference>();
+            ISymbol? symbol = compilation.GetAssemblyOrModuleSymbol(reference);
+            string display = reference.Display ?? throw new InvalidOperationException("production metadata reference has no display path");
+            Require(File.Exists(display), $"production metadata reference is not a file: {display}");
+            return new ReferenceIdentity(
+                symbol switch
+                {
+                    IAssemblySymbol assembly => assembly.Identity.ToString(),
+                    IModuleSymbol module => module.Name,
+                    _ => throw new InvalidOperationException($"cannot resolve production metadata reference {display}")
+                },
+                Path.GetFileName(display),
+                FileSha256(display));
+        }).OrderBy(reference => reference.Identity, StringComparer.Ordinal)
+            .ThenBy(reference => reference.FileName, StringComparer.Ordinal)
+            .ToArray();
+        return new CompilationIdentity(
+            compilation.AssemblyName ?? throw new InvalidOperationException("production compilation assembly name is missing"),
+            compilation.Options.OutputKind.ToString(),
+            compilation.Options.OptimizationLevel.ToString(),
+            compilation.Options.NullableContextOptions.ToString(),
+            compilation.Options.Platform.ToString(),
+            compilation.Options.AllowUnsafe,
+            compilation.Options.CheckOverflow,
+            compilation.Options.MainTypeName,
+            compilation.Options.ScriptClassName,
+            compilation.Options.Usings.Order(StringComparer.Ordinal).ToArray(),
+            compilation.Options.GeneralDiagnosticOption.ToString(),
+            compilation.Options.WarningLevel,
+            compilation.Options.SpecificDiagnosticOptions.OrderBy(item => item.Key, StringComparer.Ordinal)
+                .Select(item => $"{item.Key}={item.Value}").ToArray(),
+            compilation.Options.ConcurrentBuild,
+            compilation.Options.Deterministic,
+            compilation.Options.PublicSign,
+            compilation.Options.ReportSuppressedDiagnostics,
+            compilation.Options.MetadataImportOptions.ToString(),
+            compilation.Options.ReferencesSupersedeLowerVersions,
+            parseOptions,
+            references,
+            new RuntimeIdentity(
+                RuntimeInformation.FrameworkDescription,
+                Environment.Version.ToString(),
+                typeof(Compilation).Assembly.FullName ?? string.Empty,
+                typeof(Compilation).Assembly.ManifestModule.ModuleVersionId.ToString("D"),
+                typeof(CSharpCompilation).Assembly.FullName ?? string.Empty,
+                typeof(CSharpCompilation).Assembly.ManifestModule.ModuleVersionId.ToString("D")));
+    }
+
+    private static string FileSha256(string file)
+    {
+        using FileStream stream = File.OpenRead(file);
+        return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
     private static ArticleExtraction ExtractArticle(SourceContext context)
@@ -87,21 +191,34 @@ internal static class ContentFieldContractExtractor
         IMethodSymbol methodSymbol = RequireSymbol(context.Model.GetDeclaredSymbol(method), "AddContentIssues");
         Require(methodSymbol.ContainingType.Equals(ownerSymbol, SymbolEqualityComparer.Default), "AddContentIssues declaring type drifted");
 
+        INamedTypeSymbol inputSymbol = RequireSymbol(context.Model.GetDeclaredSymbol(input), "ArticlePublicationValidationInput");
         Dictionary<string, ParameterContract> parameters = input.ParameterList?.Parameters.ToDictionary(
             parameter => parameter.Identifier.ValueText,
-            parameter => new ParameterContract(
-                Canonical(parameter.Type ?? throw new InvalidOperationException("article input parameter type is missing")),
-                parameter.Type is NullableTypeSyntax))
+            parameter =>
+            {
+                IParameterSymbol parameterSymbol = RequireSymbol(context.Model.GetDeclaredSymbol(parameter), parameter.Identifier.ValueText);
+                IPropertySymbol propertySymbol = inputSymbol.GetMembers(parameter.Identifier.ValueText).OfType<IPropertySymbol>().Single();
+                return new ParameterContract(
+                    SymbolIdentity(parameterSymbol.Type),
+                    parameterSymbol.NullableAnnotation == NullableAnnotation.Annotated,
+                    SymbolIdentity(propertySymbol),
+                    AttributeFacts(propertySymbol, context.Model));
+            })
             ?? throw new InvalidOperationException("ArticlePublicationValidationInput primary parameters are missing");
-        Dictionary<string, ConstantContract> constants = DirectIntegerConstants(owner, context.Model, [
+        Dictionary<string, ConstantContract> constants = DirectIntegerConstants(owner, ownerSymbol, context.Model, [
             "MaxTitleLength", "MaxSummaryLength", "MaxContentLength"
         ]);
+        var actions = ownerSymbol.GetMembers().OfType<IMethodSymbol>()
+            .Where(symbol => symbol.MethodKind == MethodKind.Ordinary
+                && symbol.Name is "AddError" or "AddWarning"
+                && symbol.Parameters.Length == 3)
+            .ToDictionary(symbol => symbol.Name, StringComparer.Ordinal);
 
         var fields = new[]
         {
-            ArticleField(context.Model, method, parameters, constants, "article.body", "Content", "body"),
-            ArticleField(context.Model, method, parameters, constants, "article.summary", "Summary", "summary"),
-            ArticleField(context.Model, method, parameters, constants, "article.title", "Title", "title")
+            ArticleField(context.Model, method, parameters, constants, actions, "article.body", "Content", "body"),
+            ArticleField(context.Model, method, parameters, constants, actions, "article.summary", "Summary", "summary"),
+            ArticleField(context.Model, method, parameters, constants, actions, "article.title", "Title", "title")
         };
         return new ArticleExtraction(ownerSymbol.ToDisplayString(), MethodSignature(methodSymbol), fields);
     }
@@ -111,6 +228,7 @@ internal static class ContentFieldContractExtractor
         MethodDeclarationSyntax method,
         IReadOnlyDictionary<string, ParameterContract> parameters,
         IReadOnlyDictionary<string, ConstantContract> constants,
+        IReadOnlyDictionary<string, IMethodSymbol> actions,
         string id,
         string inputMember,
         string localName)
@@ -128,25 +246,33 @@ internal static class ContentFieldContractExtractor
         BinaryExpressionSyntax maximumCondition = maximumBranch.Condition as BinaryExpressionSyntax
             ?? throw new InvalidOperationException($"{localName} maximum validation condition is unsupported");
         Require(ReferencesLocalLength(maximumCondition.Left, local, model), $"{localName} maximum validation no longer reads local Length");
-        string constantName = (maximumCondition.Right as IdentifierNameSyntax)?.Identifier.ValueText
-            ?? throw new InvalidOperationException($"{localName} maximum validation constant is unsupported");
-        Require(constants.ContainsKey(constantName), $"{localName} maximum constant {constantName} is not owned by ArticlePublicationValidator");
-        string emptyAction = emptyBranch.Statement.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>()
-            .Select(InvocationName).FirstOrDefault(name => name is "AddError" or "AddWarning") ?? "none";
+        IFieldSymbol maximumSymbol = model.GetSymbolInfo(maximumCondition.Right).Symbol as IFieldSymbol
+            ?? throw new InvalidOperationException($"{localName} maximum validation does not reference a field symbol");
+        string constantName = maximumSymbol.Name;
+        Require(constants.TryGetValue(constantName, out ConstantContract? constant)
+            && constant.Symbol == SymbolIdentity(maximumSymbol),
+            $"{localName} maximum does not reference the exact ArticlePublicationValidator constant symbol");
+        IMethodSymbol? emptyActionSymbol = emptyBranch.Statement.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>()
+            .Select(invocation => model.GetSymbolInfo(invocation).Symbol as IMethodSymbol)
+            .FirstOrDefault(symbol => symbol is not null
+                && actions.TryGetValue(symbol.Name, out IMethodSymbol? expected)
+                && SymbolEqualityComparer.Default.Equals(symbol.OriginalDefinition, expected.OriginalDefinition));
+        string emptyAction = emptyActionSymbol?.Name ?? "none";
         return new ArticleFieldContract(
             id,
             inputMember,
             parameters[inputMember],
-            Canonical(initializer),
-            Normalization(initializer),
-            LocalDataflow(method, declarator, local, model),
+            SemanticCanonical(initializer, model),
+            Normalization(initializer, model),
+            LocalDataflow(method, declarator, local, model, [emptyBranch.Condition, maximumBranch.Condition]),
             new BranchContract(
-                Canonical(emptyBranch.Condition),
+                SemanticCanonical(emptyBranch.Condition, model),
                 emptyAction,
-                Canonical(maximumBranch.Condition),
+                emptyActionSymbol is null ? null : SymbolIdentity(emptyActionSymbol),
+                SemanticCanonical(maximumBranch.Condition, model),
                 maximumCondition.OperatorToken.ValueText,
                 "if-else-if"),
-            new NamedConstantContract(constantName, constants[constantName]));
+            new NamedConstantContract(constantName, constant!));
     }
 
     private static CommentExtraction ExtractComment(SourceContext context)
@@ -164,7 +290,7 @@ internal static class ContentFieldContractExtractor
             "ContentMinChars", "ContentMinUtf8Bytes", "DefaultContentMaxChars", "DefaultContentMaxUtf8Bytes",
             "HardContentMaxChars", "HardContentMaxUtf8Bytes", "ContentMaxChars", "ContentMaxUtf8Bytes"
         ];
-        Dictionary<string, ConstantContract> constants = DirectIntegerConstants(limits, context.Model, constantNames);
+        Dictionary<string, ConstantContract> constants = DirectIntegerConstants(limits, limitsSymbol, context.Model, constantNames);
         var methods = new[]
         {
             DirectMethodContract(limits, context.Model, limitsSymbol, "NormalizeMaxChars", ["int?"]),
@@ -172,19 +298,11 @@ internal static class ContentFieldContractExtractor
             DirectMethodContract(limits, context.Model, limitsSymbol, "ValidateMaxChars", ["int"]),
             DirectMethodContract(limits, context.Model, limitsSymbol, "ValidateMaxUtf8Bytes", ["int"])
         };
-        var attributes = content.AttributeLists.SelectMany(list => list.Attributes).Select(attribute =>
-        {
-            string name = attribute.Name.ToString().Split('.').Last();
-            SeparatedSyntaxList<AttributeArgumentSyntax> arguments = attribute.ArgumentList?.Arguments ?? default;
-            return new AttributeContract(
-                name,
-                arguments.Count == 0 ? null : string.Join(" , ", arguments.Select(Canonical)),
-                arguments.Count == 0 ? null : Canonical(arguments[0].Expression));
-        }).ToArray();
+        AttributeContract[] attributes = AttributeFacts(contentSymbol, context.Model);
         var property = new PropertyContract(
-            Canonical(content),
-            Canonical(content.Type),
-            content.Type is NullableTypeSyntax,
+            SymbolIdentity(contentSymbol),
+            SymbolIdentity(contentSymbol.Type),
+            contentSymbol.NullableAnnotation == NullableAnnotation.Annotated,
             content.Modifiers.Any(SyntaxKind.RequiredKeyword),
             attributes);
         return new CommentExtraction(
@@ -205,35 +323,40 @@ internal static class ContentFieldContractExtractor
             ["string", "AnonymousCommentPolicySnapshot"]);
         IMethodSymbol predicateSymbol = RequireSymbol(context.Model.GetDeclaredSymbol(predicateDeclaration), "IsCommentContentWithinLimit");
         Require(predicateSymbol.ContainingType.Equals(ownerSymbol, SymbolEqualityComparer.Default), "comment predicate declaring type drifted");
+        IParameterSymbol contentParameter = predicateSymbol.Parameters[0];
         ExpressionSyntax predicateExpression = predicateDeclaration.ExpressionBody?.Expression
             ?? throw new InvalidOperationException("comment predicate must remain expression-bodied");
         BinaryExpressionSyntax characterClause = predicateExpression.DescendantNodesAndSelf().OfType<BinaryExpressionSyntax>()
-            .Single(expression => ReferencesNamedLength(expression.Left, "content"));
+            .Single(expression => ReferencesStringLength(expression.Left, contentParameter, context.Model));
         BinaryExpressionSyntax utf8Clause = predicateExpression.DescendantNodesAndSelf().OfType<BinaryExpressionSyntax>()
             .Single(expression => expression.Left is InvocationExpressionSyntax invocation
-                && Canonical(invocation.Expression) == "Encoding . UTF8 . GetByteCount");
+                && IsUtf8ByteCount(invocation, contentParameter, context.Model));
         string[] connectors = predicateExpression.DescendantNodesAndSelf().OfType<BinaryExpressionSyntax>()
             .Where(expression => expression.IsKind(SyntaxKind.LogicalAndExpression) || expression.IsKind(SyntaxKind.LogicalOrExpression))
             .OrderBy(expression => expression.OperatorToken.SpanStart)
             .Select(expression => expression.OperatorToken.ValueText)
             .ToArray();
         bool nonWhitespace = predicateExpression.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>()
-            .Any(invocation => InvocationName(invocation) == "IsNullOrWhiteSpace"
-                && invocation.ArgumentList.Arguments.Any(argument => Canonical(argument.Expression) == "content"));
+            .Any(invocation => IsStringIsNullOrWhiteSpace(invocation, contentParameter, context.Model));
+        IPropertySymbol characterLimit = context.Model.GetSymbolInfo(characterClause.Right).Symbol as IPropertySymbol
+            ?? throw new InvalidOperationException("comment character limit is not a property symbol");
+        IPropertySymbol utf8Limit = context.Model.GetSymbolInfo(utf8Clause.Right).Symbol as IPropertySymbol
+            ?? throw new InvalidOperationException("comment UTF-8 limit is not a property symbol");
         var predicate = new PredicateContract(
-            Canonical(predicateExpression),
+            SemanticCanonical(predicateExpression, context.Model),
             connectors,
             nonWhitespace,
             characterClause.OperatorToken.ValueText,
-            Canonical(characterClause.Right),
+            SymbolIdentity(characterLimit),
             utf8Clause.OperatorToken.ValueText,
-            Canonical(utf8Clause.Right));
+            SymbolIdentity(utf8Limit));
 
         VariableDeclaratorSyntax[] contentDeclarations = owner.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Where(declaration => declaration.Identifier.ValueText == "content"
                 && declaration.Initializer?.Value.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>()
-                    .Any(access => Canonical(access) == "request . Content") == true)
+                    .Any(access => context.Model.GetSymbolInfo(access).Symbol is IPropertySymbol property
+                        && property.Name == "Content") == true)
             .ToArray();
         Require(contentDeclarations.Length > 0, "comment endpoint content initializer is missing");
         var flows = contentDeclarations.Select(declaration =>
@@ -243,10 +366,17 @@ internal static class ContentFieldContractExtractor
                 ?? throw new InvalidOperationException("comment endpoint content flow scope is missing");
             ExpressionSyntax initializer = declaration!.Initializer?.Value
                 ?? throw new InvalidOperationException("comment endpoint content initializer is missing");
+            InvocationExpressionSyntax[] sinks = flowScope.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                .Where(invocation => SymbolEqualityComparer.Default.Equals(
+                    context.Model.GetSymbolInfo(invocation).Symbol,
+                    predicateSymbol)
+                    && invocation.ArgumentList.Arguments.Any(argument => ReferencesSymbol(argument.Expression, local, context.Model)))
+                .ToArray();
+            Require(sinks.Length == 1, "each comment content flow must reach exactly one predicate invocation");
             return new EndpointFlowContract(
-                Canonical(initializer),
-                Normalization(initializer),
-                LocalDataflow(flowScope, declaration, local, context.Model));
+                SemanticCanonical(initializer, context.Model),
+                Normalization(initializer, context.Model),
+                LocalDataflow(flowScope, declaration, local, context.Model, sinks));
         }).ToArray();
         return new EndpointExtraction(ownerSymbol.ToDisplayString(), MethodSignature(predicateSymbol), flows, predicate);
     }
@@ -261,8 +391,10 @@ internal static class ContentFieldContractExtractor
         MethodDeclarationSyntax declaration = DirectMethod(owner, model, name, parameterTypes);
         IMethodSymbol symbol = RequireSymbol(model.GetDeclaredSymbol(declaration), name);
         Require(symbol.ContainingType.Equals(ownerSymbol, SymbolEqualityComparer.Default), $"{name} declaring type drifted");
-        return new MethodContract(MethodSignature(symbol), Canonical(declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression
-            ?? throw new InvalidOperationException($"{name} body is missing")));
+        return new MethodContract(MethodSignature(symbol), SemanticCanonical(
+            declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression
+                ?? throw new InvalidOperationException($"{name} body is missing"),
+            model));
     }
 
     private static MethodDeclarationSyntax DirectMethod(
@@ -273,8 +405,8 @@ internal static class ContentFieldContractExtractor
     {
         MethodDeclarationSyntax[] matches = owner.Members.OfType<MethodDeclarationSyntax>()
             .Where(method => method.Identifier.ValueText == name
-                && method.ParameterList.Parameters.Select(parameter => CanonicalType(parameter.Type
-                    ?? throw new InvalidOperationException($"{name} parameter type is missing"))).SequenceEqual(parameterTypes))
+                && model.GetDeclaredSymbol(method) is IMethodSymbol symbol
+                && symbol.Parameters.Select(parameter => MinimallyQualifiedType(parameter.Type)).SequenceEqual(parameterTypes))
             .ToArray();
         Require(matches.Length == 1, $"expected exactly one {owner.Identifier.ValueText}.{name}({string.Join(",", parameterTypes)}) declaration");
         Require(model.GetDeclaredSymbol(matches[0]) is not null, $"cannot resolve symbol for {name}");
@@ -292,6 +424,7 @@ internal static class ContentFieldContractExtractor
 
     private static Dictionary<string, ConstantContract> DirectIntegerConstants(
         TypeDeclarationSyntax owner,
+        INamedTypeSymbol ownerSymbol,
         SemanticModel model,
         IEnumerable<string> names)
     {
@@ -312,7 +445,9 @@ internal static class ContentFieldContractExtractor
                 ?? throw new InvalidOperationException($"constant {name} initializer is missing");
             Optional<object?> value = model.GetConstantValue(initializer);
             Require(value.HasValue && value.Value is int, $"constant {name} does not resolve to an integer");
-            result[name] = new ConstantContract(Canonical(initializer), (int)value.Value!);
+            IFieldSymbol symbol = RequireSymbol(model.GetDeclaredSymbol(declaration) as IFieldSymbol, $"{owner.Identifier.ValueText}.{name}");
+            Require(symbol.ContainingType.Equals(ownerSymbol, SymbolEqualityComparer.Default), $"constant {name} declaring type drifted");
+            result[name] = new ConstantContract(SemanticCanonical(initializer, model), (int)value.Value!, SymbolIdentity(symbol));
         }
         return result;
     }
@@ -321,29 +456,47 @@ internal static class ContentFieldContractExtractor
         SyntaxNode scope,
         VariableDeclaratorSyntax declaration,
         ILocalSymbol local,
-        SemanticModel model)
+        SemanticModel model,
+        IEnumerable<SyntaxNode> sinks)
     {
         var facts = new List<(int Position, string Fact)>
         {
-            (declaration.SpanStart, $"declare {Canonical(declaration.Initializer?.Value
-                ?? throw new InvalidOperationException($"{local.Name} initializer is missing"))}")
+            (declaration.SpanStart, $"declare {SemanticCanonical(declaration.Initializer?.Value
+                ?? throw new InvalidOperationException($"{local.Name} initializer is missing"), model)}")
         };
-        foreach (AssignmentExpressionSyntax assignment in scope.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        var tracked = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { local };
+        bool changed;
+        do
         {
-            if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(assignment.Left).Symbol, local))
+            changed = false;
+            foreach (VariableDeclaratorSyntax alias in scope.DescendantNodes().OfType<VariableDeclaratorSyntax>())
             {
-                facts.Add((assignment.SpanStart, $"assign {Canonical(assignment)}"));
+                if (alias.Initializer?.Value is not RefExpressionSyntax reference
+                    || !ReferencesAnySymbol(reference.Expression, tracked, model))
+                    continue;
+                ILocalSymbol aliasSymbol = RequireSymbol(model.GetDeclaredSymbol(alias) as ILocalSymbol, alias.Identifier.ValueText);
+                changed |= tracked.Add(aliasSymbol);
             }
         }
-        foreach (StatementSyntax statement in scope.DescendantNodes().OfType<StatementSyntax>())
+        while (changed);
+
+        var selected = new List<SyntaxNode>();
+        selected.AddRange(sinks);
+        selected.AddRange(scope.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+            .Where(assignment => ReferencesAnySymbol(assignment.Left, tracked, model)));
+        selected.AddRange(scope.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(invocation => invocation.ArgumentList.Arguments.Any(argument =>
+                argument.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword
+                && ReferencesAnySymbol(argument.Expression, tracked, model))));
+        selected.AddRange(scope.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Where(candidate => model.GetDeclaredSymbol(candidate) is ILocalSymbol symbol && tracked.Contains(symbol))
+            .Select(candidate => candidate.Initializer?.Value).OfType<ExpressionSyntax>());
+        var visitedMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        foreach (SyntaxNode selectedNode in selected.Distinct())
         {
-            if (statement is BlockSyntax) continue;
-            bool references = statement.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
-                .Any(identifier => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, local));
-            if (references)
-            {
-                facts.Add((statement.SpanStart, $"statement {Canonical(statement)}"));
-            }
+            facts.Add((selectedNode.SpanStart, $"slice {SemanticCanonical(selectedNode, model)}"));
+            foreach (string dependency in SourceDependencyFacts(selectedNode, model, visitedMethods))
+                facts.Add((selectedNode.SpanStart, dependency));
         }
         return facts.OrderBy(fact => fact.Position).ThenBy(fact => fact.Fact, StringComparer.Ordinal)
             .Select(fact => fact.Fact).Distinct(StringComparer.Ordinal).ToArray();
@@ -359,45 +512,208 @@ internal static class ContentFieldContractExtractor
             return true;
         }
         return condition is InvocationExpressionSyntax invocation
-            && InvocationName(invocation) == "IsNullOrWhiteSpace"
-            && invocation.ArgumentList.Arguments.Any(argument => argument.Expression.DescendantNodesAndSelf()
-                .OfType<IdentifierNameSyntax>()
-                .Any(identifier => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, local)));
+            && IsStringIsNullOrWhiteSpace(invocation, local, model);
     }
 
     private static bool ReferencesLocalLength(ExpressionSyntax expression, ILocalSymbol local, SemanticModel model)
-        => expression is MemberAccessExpressionSyntax access
-            && access.Name.Identifier.ValueText == "Length"
-            && access.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
-                .Any(identifier => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, local));
+        => ReferencesStringLength(expression, local, model);
 
-    private static bool ReferencesNamedLength(ExpressionSyntax expression, string name)
+    private static bool ReferencesStringLength(ExpressionSyntax expression, ISymbol receiver, SemanticModel model)
         => expression is MemberAccessExpressionSyntax access
-            && access.Name.Identifier.ValueText == "Length"
-            && Canonical(access.Expression) == name;
+            && model.GetSymbolInfo(access).Symbol is IPropertySymbol property
+            && property.Name == "Length"
+            && property.ContainingType.SpecialType == SpecialType.System_String
+            && ReferencesSymbol(access.Expression, receiver, model);
 
-    private static string Normalization(ExpressionSyntax initializer)
+    private static bool IsStringIsNullOrWhiteSpace(InvocationExpressionSyntax invocation, ISymbol argument, SemanticModel model)
+        => model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+            && method.Name == "IsNullOrWhiteSpace"
+            && method.ContainingType.SpecialType == SpecialType.System_String
+            && method.Parameters.Length == 1
+            && invocation.ArgumentList.Arguments.Any(item => ReferencesSymbol(item.Expression, argument, model));
+
+    private static bool IsUtf8ByteCount(InvocationExpressionSyntax invocation, ISymbol argument, SemanticModel model)
     {
-        string[] invocations = initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>()
-            .Select(InvocationName).ToArray();
-        if (invocations.Contains("Trim", StringComparer.Ordinal))
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.Name != "GetByteCount"
+            || !IsFrameworkType(method.ContainingType, "System.Text.Encoding")
+            || method.Parameters.Length != 1
+            || !invocation.ArgumentList.Arguments.Any(item => ReferencesSymbol(item.Expression, argument, model)))
+        {
+            return false;
+        }
+        return invocation.Expression is MemberAccessExpressionSyntax access
+            && model.GetSymbolInfo(access.Expression).Symbol is IPropertySymbol receiver
+            && receiver.Name == "UTF8"
+            && IsFrameworkType(receiver.ContainingType, "System.Text.Encoding");
+    }
+
+    private static bool ReferencesSymbol(SyntaxNode node, ISymbol symbol, SemanticModel model)
+        => node.DescendantNodesAndSelf().Any(candidate => SymbolEqualityComparer.Default.Equals(
+            model.GetSymbolInfo(candidate).Symbol,
+            symbol));
+
+    private static bool ReferencesAnySymbol(SyntaxNode node, IEnumerable<ISymbol> symbols, SemanticModel model)
+    {
+        var expected = new HashSet<ISymbol>(symbols, SymbolEqualityComparer.Default);
+        return node.DescendantNodesAndSelf().Any(candidate => model.GetSymbolInfo(candidate).Symbol is ISymbol symbol
+            && expected.Contains(symbol));
+    }
+
+    private static AttributeContract[] AttributeFacts(ISymbol symbol, SemanticModel model)
+        => symbol.GetAttributes().Select(attribute =>
+        {
+            INamedTypeSymbol attributeClass = attribute.AttributeClass
+                ?? throw new InvalidOperationException($"attribute on {symbol.Name} has no class symbol");
+            string arguments = string.Join(" , ", attribute.ConstructorArguments.Select(TypedConstantFact));
+            string? firstArgument = null;
+            if (attribute.ApplicationSyntaxReference?.GetSyntax() is AttributeSyntax syntax
+                && syntax.ArgumentList?.Arguments.FirstOrDefault()?.Expression is ExpressionSyntax expression)
+            {
+                ISymbol? referenced = model.GetSymbolInfo(expression).Symbol;
+                firstArgument = referenced is null
+                    ? attribute.ConstructorArguments.FirstOrDefault() is TypedConstant value ? TypedConstantFact(value) : null
+                    : SymbolIdentity(referenced);
+            }
+            return new AttributeContract(
+                SymbolIdentity(attributeClass),
+                attributeClass.ContainingAssembly.Identity.ToString(),
+                arguments.Length == 0 ? null : arguments,
+                firstArgument);
+        }).OrderBy(attribute => attribute.Name, StringComparer.Ordinal).ToArray();
+
+    private static string TypedConstantFact(TypedConstant value)
+        => value.Kind == TypedConstantKind.Array
+            ? $"array[{string.Join(",", value.Values.Select(TypedConstantFact))}]"
+            : $"{SymbolIdentity(value.Type)}={value.Value ?? "null"}";
+
+    private static string SemanticCanonical(SyntaxNode node, SemanticModel model)
+    {
+        IOperation operation = model.GetOperation(node)
+            ?? throw new InvalidOperationException($"cannot resolve operation for {node.Kind()}");
+        return string.Join(" | ", OperationTree(operation).Select(OperationFact));
+    }
+
+    private static IEnumerable<IOperation> OperationTree(IOperation operation)
+    {
+        if (operation is IInvocationOperation invocation && IsKeepAlive(invocation.TargetMethod))
+            yield break;
+        yield return operation;
+        foreach (IOperation child in operation.ChildOperations)
+        {
+            foreach (IOperation descendant in OperationTree(child))
+                yield return descendant;
+        }
+    }
+
+    private static string OperationFact(IOperation operation)
+        => operation switch
+        {
+            IInvocationOperation invocation => $"invoke:{SymbolIdentity(invocation.TargetMethod)}",
+            IFieldReferenceOperation field => $"field:{SymbolIdentity(field.Field)}",
+            IPropertyReferenceOperation property => $"property:{SymbolIdentity(property.Property)}",
+            IMethodReferenceOperation method => $"method:{SymbolIdentity(method.Method)}",
+            ILocalReferenceOperation local => $"local:{SymbolIdentity(local.Local)}",
+            IParameterReferenceOperation parameter => $"parameter:{SymbolIdentity(parameter.Parameter)}",
+            IAnonymousFunctionOperation function => $"lambda:{SymbolIdentity(function.Symbol)}",
+            IBinaryOperation binary => $"binary:{binary.OperatorKind}:{SymbolIdentity(binary.Type)}",
+            IUnaryOperation unary => $"unary:{unary.OperatorKind}:{SymbolIdentity(unary.Type)}",
+            IConversionOperation conversion => $"convert:{conversion.Conversion}:{SymbolIdentity(conversion.Type)}",
+            ILiteralOperation literal when literal.ConstantValue.HasValue && literal.ConstantValue.Value is string or char
+                => $"literal:{SymbolIdentity(literal.Type)}:<literal>",
+            ILiteralOperation literal => $"literal:{SymbolIdentity(literal.Type)}:{literal.ConstantValue.Value ?? "null"}",
+            _ => $"{operation.Kind}:{SymbolIdentity(operation.Type)}"
+        };
+
+    private static IEnumerable<string> SourceDependencyFacts(
+        SyntaxNode node,
+        SemanticModel model,
+        HashSet<IMethodSymbol> visited)
+    {
+        IOperation? root = model.GetOperation(node);
+        if (root is null)
+            yield break;
+        foreach (IInvocationOperation invocation in OperationTree(root).OfType<IInvocationOperation>())
+        {
+            IMethodSymbol target = invocation.TargetMethod.OriginalDefinition;
+            if (target.MethodKind == MethodKind.DelegateInvoke
+                && invocation.Instance is ILocalReferenceOperation delegateLocal)
+            {
+                VariableDeclaratorSyntax? delegateDeclaration = node.SyntaxTree.GetRoot().DescendantNodes()
+                    .OfType<VariableDeclaratorSyntax>()
+                    .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(
+                        model.GetDeclaredSymbol(candidate),
+                        delegateLocal.Local));
+                if (delegateDeclaration?.Initializer?.Value is ExpressionSyntax lambda)
+                {
+                    yield return $"delegate:{SemanticCanonical(lambda, model)}";
+                    foreach (string nested in SourceDependencyFacts(lambda, model, visited))
+                        yield return nested;
+                }
+            }
+            if (target.DeclaringSyntaxReferences.Length == 0 || !visited.Add(target))
+                continue;
+            yield return $"helper:{SymbolIdentity(target)}";
+            foreach (SyntaxReference reference in target.DeclaringSyntaxReferences)
+            {
+                SyntaxNode declaration = reference.GetSyntax();
+                SemanticModel dependencyModel = model.Compilation.GetSemanticModel(declaration.SyntaxTree);
+                SyntaxNode? body = declaration switch
+                {
+                    MethodDeclarationSyntax method => method.Body ?? (SyntaxNode?)method.ExpressionBody?.Expression,
+                    LocalFunctionStatementSyntax local => local.Body ?? (SyntaxNode?)local.ExpressionBody?.Expression,
+                    _ => null
+                };
+                if (body is null)
+                    continue;
+                yield return $"helper-slice:{SemanticCanonical(body, dependencyModel)}";
+                foreach (string nested in SourceDependencyFacts(body, dependencyModel, visited))
+                    yield return nested;
+            }
+        }
+    }
+
+    private static bool IsKeepAlive(IMethodSymbol method)
+        => method.Name == "KeepAlive"
+            && IsFrameworkType(method.ContainingType, "System.GC")
+            && method.Parameters.Length == 1
+            && method.Parameters[0].Type.SpecialType == SpecialType.System_Object;
+
+    private static bool IsFrameworkType(INamedTypeSymbol type, string metadataName)
+        => type.ToDisplayString() == metadataName
+            && type.ContainingAssembly.Identity.Name == "System.Private.CoreLib";
+
+    private static string Normalization(ExpressionSyntax initializer, SemanticModel model)
+    {
+        IMethodSymbol[] invocations = initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>()
+            .Select(invocation => model.GetSymbolInfo(invocation).Symbol as IMethodSymbol)
+            .OfType<IMethodSymbol>().ToArray();
+        if (invocations.Any(symbol => symbol.ContainingType.SpecialType == SpecialType.System_String && symbol.Name == "Trim"))
             return "trim";
-        if (invocations.Contains("Normalize", StringComparer.Ordinal))
+        if (invocations.Any(symbol => symbol.ContainingType.SpecialType == SpecialType.System_String && symbol.Name == "Normalize"))
             return "normalize";
         return "none";
     }
 
-    private static string InvocationName(InvocationExpressionSyntax invocation)
-        => invocation.Expression switch
-        {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
-            _ => Canonical(invocation.Expression)
-        };
-
     private static string MethodSignature(IMethodSymbol symbol)
-        => $"{symbol.ContainingType.ToDisplayString()}.{symbol.Name}({string.Join(",", symbol.Parameters.Select(parameter => parameter.Type.ToDisplayString()))})";
+        => SymbolIdentity(symbol);
+
+    private static string MinimallyQualifiedType(ITypeSymbol type)
+        => type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+
+    private static string SymbolIdentity(ISymbol? symbol)
+        => symbol switch
+        {
+            null => "none",
+            ILocalSymbol local => $"local:{SymbolIdentity(local.ContainingSymbol)}:{local.Name}:{SymbolIdentity(local.Type)}",
+            IParameterSymbol parameter => $"parameter:{SymbolIdentity(parameter.ContainingSymbol)}:{parameter.Ordinal}:{SymbolIdentity(parameter.Type)}:{parameter.RefKind}",
+            IMethodSymbol method => $"method:{method.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{method.MetadataName}({string.Join(",", method.Parameters.Select(item => $"{item.RefKind}:{SymbolIdentity(item.Type)}"))}):{SymbolIdentity(method.ReturnType)}",
+            IFieldSymbol field => $"field:{field.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{field.MetadataName}:{SymbolIdentity(field.Type)}",
+            IPropertySymbol property => $"property:{property.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{property.MetadataName}:{SymbolIdentity(property.Type)}",
+            INamedTypeSymbol type => $"type:{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}",
+            _ => $"{symbol.Kind}:{symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"
+        };
 
     private static T RequireSymbol<T>(T? symbol, string label) where T : class, ISymbol
         => symbol ?? throw new InvalidOperationException($"cannot resolve declared symbol for {label}");
@@ -411,9 +727,6 @@ internal static class ContentFieldContractExtractor
     private static string Canonical(SyntaxNode node)
         => string.Join(" ", node.DescendantTokens().Select(CanonicalToken));
 
-    private static string CanonicalType(TypeSyntax type)
-        => Canonical(type).Replace(" ", string.Empty, StringComparison.Ordinal);
-
     private static string CanonicalToken(SyntaxToken token)
         => token.Kind() switch
         {
@@ -423,7 +736,44 @@ internal static class ContentFieldContractExtractor
 
     private sealed record SourceContext(CompilationUnitSyntax Root, SemanticModel Model);
 
-    internal sealed record Extraction(string Schema, ArticleExtraction Article, CommentExtraction Comment, EndpointExtraction Endpoint);
+    internal sealed record Extraction(
+        string Schema,
+        CompilationIdentity Compilation,
+        ArticleExtraction Article,
+        CommentExtraction Comment,
+        EndpointExtraction Endpoint);
+    internal sealed record CompilationIdentity(
+        string AssemblyName,
+        string OutputKind,
+        string OptimizationLevel,
+        string NullableContextOptions,
+        string Platform,
+        bool AllowUnsafe,
+        bool CheckOverflow,
+        string? MainTypeName,
+        string ScriptClassName,
+        string[] Usings,
+        string GeneralDiagnosticOption,
+        int WarningLevel,
+        string[] SpecificDiagnosticOptions,
+        bool ConcurrentBuild,
+        bool Deterministic,
+        bool PublicSign,
+        bool ReportSuppressedDiagnostics,
+        string MetadataImportOptions,
+        bool ReferencesSupersedeLowerVersions,
+        ParseIdentity[] ParseOptions,
+        ReferenceIdentity[] References,
+        RuntimeIdentity Runtime);
+    internal sealed record ParseIdentity(string LanguageVersion, string[] PreprocessorSymbols, string[] Features);
+    internal sealed record ReferenceIdentity(string Identity, string FileName, string Sha256);
+    internal sealed record RuntimeIdentity(
+        string FrameworkDescription,
+        string EnvironmentVersion,
+        string CodeAnalysisAssembly,
+        string CodeAnalysisMvid,
+        string CSharpAssembly,
+        string CSharpMvid);
     internal sealed record ArticleExtraction(string Owner, string Method, ArticleFieldContract[] Fields);
     internal sealed record ArticleFieldContract(
         string Id,
@@ -434,15 +784,20 @@ internal static class ContentFieldContractExtractor
         string[] Dataflow,
         BranchContract Branch,
         NamedConstantContract Constant);
-    internal sealed record ParameterContract(string Type, bool Nullable);
+    internal sealed record ParameterContract(
+        string Type,
+        bool Nullable,
+        string PropertySymbol,
+        AttributeContract[] PropertyAttributes);
     internal sealed record BranchContract(
         string EmptyCondition,
         string EmptyAction,
+        string? EmptyActionSymbol,
         string MaximumCondition,
         string MaximumOperator,
         string ControlFlow);
     internal sealed record NamedConstantContract(string Name, ConstantContract Contract);
-    internal sealed record ConstantContract(string Expression, int Value);
+    internal sealed record ConstantContract(string Expression, int Value, string Symbol);
     internal sealed record CommentExtraction(
         string Owner,
         PropertyContract Property,
@@ -454,7 +809,7 @@ internal static class ContentFieldContractExtractor
         bool Nullable,
         bool RequiredKeyword,
         AttributeContract[] Attributes);
-    internal sealed record AttributeContract(string Name, string? Arguments, string? FirstArgument);
+    internal sealed record AttributeContract(string Name, string Assembly, string? Arguments, string? FirstArgument);
     internal sealed record MethodContract(string Signature, string Body);
     internal sealed record EndpointExtraction(
         string Owner,

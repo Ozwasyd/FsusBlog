@@ -72,38 +72,173 @@ function readJson(file)
 let extractorBuilt = false;
 const extractionCache = new Map();
 const extractorProject = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj');
+const extractorTargets = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets');
+const backendProject = path.join(repositoryRoot, 'src/backend/FsusBlog.Server.csproj');
+let canonicalDotnet = null;
+let producerIdentity = null;
+
+function dotnetEnvironment()
+{
+    const environment = {
+        ...process.env,
+        PATH: '/usr/bin:/bin',
+        DOTNET_NOLOGO: '1',
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    };
+    const ambientOverrides = new Set([
+        'baseintermediateoutputpath',
+        'baseoutputpath',
+        'continuousintegrationbuild',
+        'csctoolexe',
+        'csctoolpath',
+        'defineconstants',
+        'deterministic',
+        'dotnet_additional_deps',
+        'dotnet_host_path',
+        'dotnet_roll_forward',
+        'dotnet_roll_forward_to_prerelease',
+        'dotnet_root',
+        'dotnet_root(x86)',
+        'dotnet_shared_store',
+        'dotnet_startup_hooks',
+        'fsusblog_production_build_root',
+        'langversion',
+        'msbuild_exe_path',
+        'msbuildextensionspath',
+        'msbuildprojectextensionspath',
+        'msbuildsdkspath',
+        'msbuildtoolspath',
+        'nullable',
+        'roslyntargetspath',
+        'targetframework',
+        'trusted_platform_assemblies',
+        'usesharedcompilation'
+    ]);
+    for (const name of Object.keys(environment))
+    {
+        if (ambientOverrides.has(name.toLowerCase())) delete environment[name];
+    }
+    return environment;
+}
+
+function runDotnet(arguments_, label)
+{
+    const result = spawnSync(canonicalDotnet, arguments_, {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: dotnetEnvironment()
+    });
+    if (result.status !== 0)
+    {
+        throw new Error(`[content-shape] ${label} failed: ${(result.stderr || result.stdout).trim()}`);
+    }
+    return result.stdout.trim();
+}
+
+function fileIdentity(relative)
+{
+    const file = path.join(repositoryRoot, relative);
+    return Object.freeze({ path: relative, sha256: sha256(fs.readFileSync(file)) });
+}
+
+function resolveCanonicalDotnet()
+{
+    if (canonicalDotnet) return;
+    const dockerfile = fs.readFileSync(path.join(repositoryRoot, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
+    const expectedSdk = dockerfile.match(/^ARG DOTNET_SDK_VERSION=([^\r\n]+)$/mu)?.[1];
+    const expectedRuntime = dockerfile.match(/^ARG DOTNET_RUNTIME_VERSION=([^\r\n]+)$/mu)?.[1];
+    if (!expectedSdk || !expectedRuntime) throw new Error('[content-shape] pinned dotnet SDK/runtime version is missing');
+    const candidates = [...new Set(['/usr/share/dotnet10/dotnet', '/usr/share/dotnet/dotnet']
+        .filter((candidate) => fs.existsSync(candidate)).map((candidate) => fs.realpathSync(candidate)))];
+    const matches = candidates.filter((candidate) => spawnSync(candidate, ['--version'], {
+        encoding: 'utf8', env: dotnetEnvironment()
+    }).stdout?.trim() === expectedSdk);
+    if (matches.length !== 1)
+    {
+        throw new Error(`[content-shape] expected exactly one canonical dotnet SDK ${expectedSdk}, found ${matches.length}`);
+    }
+    canonicalDotnet = matches[0];
+    const sdkBase = path.dirname(canonicalDotnet);
+    const sdkDirectory = path.join(sdkBase, 'sdk', expectedSdk);
+    const compiler = path.join(sdkDirectory, 'Roslyn/bincore/csc.dll');
+    if (!fs.existsSync(compiler)) throw new Error('[content-shape] canonical Roslyn compiler is missing');
+    const dotnetInfo = runDotnet(['--info'], 'dotnet identity inspection');
+    const sdkCommit = dotnetInfo.match(/\.NET SDK:\s+[\s\S]*?Commit:\s+([^\r\n]+)/u)?.[1]?.trim();
+    if (!sdkCommit) throw new Error('[content-shape] canonical dotnet SDK commit is missing');
+    const installedRuntimes = runDotnet(['--list-runtimes'], 'dotnet runtime inspection').split(/\r?\n/u)
+        .map((line) => line.match(/^(\S+)\s+(\S+)\s+\[/u))
+        .filter(Boolean)
+        .map((match) => `${match[1]}@${match[2]}`).sort();
+    const requiredRuntimes = [`Microsoft.AspNetCore.App@${expectedRuntime}`, `Microsoft.NETCore.App@${expectedRuntime}`];
+    for (const runtime of requiredRuntimes)
+    {
+        if (!installedRuntimes.includes(runtime)) throw new Error(`[content-shape] pinned runtime is unavailable: ${runtime}`);
+    }
+    producerIdentity = {
+        schema: 'fsusblog.content-field-producer-identity.v1',
+        dotnetSdkVersion: expectedSdk,
+        dotnetRuntimeVersion: expectedRuntime,
+        dotnetHostSha256: sha256(fs.readFileSync(canonicalDotnet)),
+        dotnetSdkCommit: sdkCommit,
+        dotnetRuntimes: requiredRuntimes,
+        roslynCompilerSha256: sha256(fs.readFileSync(compiler)),
+        inputs: [
+            'ops/docker/FsusBlog.Server.Dockerfile',
+            'Directory.Build.props',
+            'Directory.Packages.props',
+            'src/backend/FsusBlog.Server.csproj',
+            'src/backend/packages.lock.json',
+            'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj',
+            'tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets',
+            'tools/testing/FsusBlog.ContentFieldContractExtractor/Program.cs',
+            'tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json'
+        ].map(fileIdentity)
+    };
+}
 
 function extractContentFieldContracts(root, sourcePaths)
 {
+    resolveCanonicalDotnet();
     const sourceDigest = sha256Json(sourcePaths.map((relative) => [relative, fs.readFileSync(path.join(root, relative), 'utf8')]));
     if (extractionCache.has(sourceDigest)) return extractionCache.get(sourceDigest);
     if (!extractorBuilt)
     {
-        const build = spawnSync('dotnet', ['build', extractorProject, '--configuration', 'Release', '--nologo', '--verbosity', 'quiet'], {
-            cwd: repositoryRoot,
-            encoding: 'utf8',
-            env: { ...process.env, DOTNET_NOLOGO: '1' }
-        });
-        if (build.status !== 0)
-        {
-            throw new Error(`[content-shape] Roslyn extractor build failed: ${(build.stderr || build.stdout).trim()}`);
-        }
+        runDotnet(['restore', extractorProject, '--locked-mode', '--nologo', '--verbosity', 'quiet'], 'locked Roslyn extractor restore');
+        runDotnet([
+            'build', extractorProject, '--configuration', 'Release', '--no-restore', '--no-incremental',
+            '--disable-build-servers', '--nologo', '--verbosity', 'quiet',
+            '-p:UseSharedCompilation=false', '-p:Deterministic=true', '-p:ContinuousIntegrationBuild=true'
+        ], 'Roslyn extractor build');
+        runDotnet(['restore', backendProject, '--locked-mode', '--nologo', '--verbosity', 'quiet'], 'locked production backend restore');
         extractorBuilt = true;
     }
-    const run = spawnSync('dotnet', ['run', '--project', extractorProject, '--configuration', 'Release', '--no-build', '--', root], {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        env: { ...process.env, DOTNET_NOLOGO: '1' }
-    });
-    if (run.status !== 0)
-    {
-        throw new Error(`[content-shape] Roslyn extraction failed: ${(run.stderr || run.stdout).trim()}`);
-    }
-    const extraction = JSON.parse(run.stdout);
-    if (extraction.schema !== 'fsusblog.content-field-roslyn-extraction.v1')
+    const analyzer = path.join(path.dirname(extractorProject), 'bin/Release/net10.0/FsusBlog.ContentFieldContractExtractor.dll');
+    if (!fs.existsSync(analyzer)) throw new Error('[content-shape] Roslyn extractor binary is missing after build');
+    const outputDirectory = path.join(repositoryRoot, '.tmp/content-field-contract-extractor');
+    const output = path.join(outputDirectory, `${sourceDigest.slice('sha256:'.length)}.json`);
+    fs.mkdirSync(outputDirectory, { recursive: true });
+    fs.rmSync(output, { force: true });
+    runDotnet([
+        'build', backendProject, '--configuration', 'Release', '--no-restore', '--no-incremental',
+        '--disable-build-servers', '--nologo', '--verbosity', 'quiet',
+        `-p:CustomAfterMicrosoftCSharpTargets=${extractorTargets}`,
+        `-p:FsusBlogContentFieldContractAnalyzer=${analyzer}`,
+        `-p:FsusBlogContentFieldContractOutput=${output}`,
+        `-p:FsusBlogContentFieldContractSourceRoot=${root}`,
+        '-p:UseSharedCompilation=false',
+        '-p:Deterministic=true',
+        '-p:ContinuousIntegrationBuild=true'
+    ], 'production backend semantic extraction');
+    if (!fs.existsSync(output)) throw new Error('[content-shape] production backend build did not produce semantic extraction');
+    const extraction = JSON.parse(fs.readFileSync(output, 'utf8'));
+    if (extraction.schema !== 'fsusblog.content-field-roslyn-extraction.v2')
     {
         throw new Error('[content-shape] Roslyn extractor returned an unsupported schema');
     }
+    extraction.producerIdentity = Object.freeze({
+        ...producerIdentity,
+        analyzerBinarySha256: sha256(fs.readFileSync(analyzer))
+    });
     extractionCache.set(sourceDigest, extraction);
     return extraction;
 }
@@ -143,7 +278,8 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     const articlePath = 'src/backend/Services/Articles/ArticlePublicationValidator.cs';
     const commentPath = 'src/backend/Models/Dtos/CommentDto.cs';
     const commentEndpointPath = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
-    const sourcePaths = [articlePath, commentPath, commentEndpointPath];
+    const commentPartialPath = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs';
+    const sourcePaths = [articlePath, commentPath, commentEndpointPath, commentPartialPath];
     const extraction = extractContentFieldContracts(root, sourcePaths);
     const articleContracts = extraction.article.fields;
     const articleFields = [
@@ -165,10 +301,15 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     {
         throw new Error('[content-shape] comment endpoint normalization flows disagree');
     }
-    const requiredAttribute = commentProperty.attributes.some((attribute) => attribute.name === 'Required');
-    const maxLengthAttribute = commentProperty.attributes.find((attribute) => attribute.name === 'MaxLength');
-    const maxLengthReference = maxLengthAttribute?.firstArgument?.split(' . ').at(-1);
-    const characterMaximum = commentConstants[maxLengthReference];
+    const dataAnnotationsAssembly = /^System\.ComponentModel\.Annotations, Version=/u;
+    const requiredAttribute = commentProperty.attributes.some((attribute) =>
+        attribute.name === 'type:global::System.ComponentModel.DataAnnotations.RequiredAttribute'
+        && dataAnnotationsAssembly.test(attribute.assembly));
+    const maxLengthAttribute = commentProperty.attributes.find((attribute) =>
+        attribute.name === 'type:global::System.ComponentModel.DataAnnotations.MaxLengthAttribute'
+        && dataAnnotationsAssembly.test(attribute.assembly));
+    const characterMaximum = Object.values(commentConstants)
+        .find((constant) => constant.symbol === maxLengthAttribute?.firstArgument);
     if (!characterMaximum) throw new Error('[content-shape] CommentDto.Content MaxLength constant is missing or unknown');
     const commentField = {
         id: 'comment.content', owner: 'CommentLimits', sourceRef: `${commentPath}#ContentMaxChars+ContentMaxUtf8Bytes`,
@@ -182,12 +323,25 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     const fields = [...articleFields, commentField];
     const sources = [
         sourceBinding(articlePath, {
-            owner: extraction.article.owner,
-            method: extraction.article.method,
-            fields: extraction.article.fields
+            compilation: extraction.compilation,
+            producerIdentity: extraction.producerIdentity,
+            contract: extraction.article
         }),
-        sourceBinding(commentPath, extraction.comment),
-        sourceBinding(commentEndpointPath, extraction.endpoint)
+        sourceBinding(commentPath, {
+            compilation: extraction.compilation,
+            producerIdentity: extraction.producerIdentity,
+            contract: extraction.comment
+        }),
+        sourceBinding(commentEndpointPath, {
+            compilation: extraction.compilation,
+            producerIdentity: extraction.producerIdentity,
+            contract: extraction.endpoint
+        }),
+        sourceBinding(commentPartialPath, {
+            compilation: extraction.compilation,
+            producerIdentity: extraction.producerIdentity,
+            transitiveContract: extraction.endpoint.flows.map((flow) => flow.dataflow.filter((fact) => fact.startsWith('helper')))
+        })
     ];
     const body = {
         schema: 'fsusblog.content-field-contract-projection.v1',
