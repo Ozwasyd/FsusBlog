@@ -34,11 +34,13 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ModerationConsoleContractTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AuthoringEndpoints_ExposeModerationMethodsPermissionsAndRateLimitMetadata()
     {
         IModerationDictionaryService dictionaries = Substitute.For<IModerationDictionaryService>();
@@ -59,6 +61,7 @@ public sealed class ModerationConsoleContractTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ReloadAndRollbackEndpoints_EnforcePermissionAndStepUpThenAuditAndInvalidate()
     {
         ModerationDictionaryRuntimeSnapshot snapshot = RuntimeSnapshot();
@@ -116,6 +119,7 @@ public sealed class ModerationConsoleContractTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GlobalRuntimeEndpoint_DeserializesMutationThenAuditsAndInvalidatesChangedState()
     {
         var request = new ModerationRuntimeGlobalStateRequest(
@@ -170,6 +174,7 @@ public sealed class ModerationConsoleContractTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void RuntimeDictionarySerialization_ExposesCountsAndEvidencePolicyWithoutRawTerms()
     {
         string json = JsonSerializer.Serialize(

@@ -4,8 +4,10 @@ using System.Buffers.Binary;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 /// <summary>
@@ -18,6 +20,7 @@ public sealed class AedsEncoderTests
 
     // ─── Encode / header magic ────────────────────────────────────────────
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_FrameStartsWithAedsMagic()
     {
@@ -26,6 +29,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(AedsEncoder.Magic, magic);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_FrameLengthEqualsHeaderPlusPayload()
     {
@@ -34,6 +38,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(AedsFrameHeader.Size + 32, frame.Length);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_WritesCorrectFrameType()
     {
@@ -42,6 +47,7 @@ public sealed class AedsEncoderTests
         Assert.Equal((ushort)AedsFrameType.AdminStats, frameTypeRaw);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_WritesCorrectVersion()
     {
@@ -50,6 +56,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(AedsFrameHeader.Size, frame[5]);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_WritesCorrectFlags()
     {
@@ -58,6 +65,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(0xDEAD, flags);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_WritesCorrectPayloadLength()
     {
@@ -67,6 +75,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(100u, payloadLen);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_WritesModbusCrc16KnownVector()
     {
@@ -75,12 +84,14 @@ public sealed class AedsEncoderTests
         Assert.Equal(0x4B37, payloadCrc);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void AedsCrc16_KnownVector_MatchesModbus()
     {
         Assert.Equal(0x4B37, AedsCrc16.Compute("123456789"u8));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void Encode_EmptyPayloadProducesMinimalFrame()
     {
@@ -90,6 +101,7 @@ public sealed class AedsEncoderTests
 
     // ─── TryDecode — happy path ───────────────────────────────────────────
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void TryDecode_SucceedsForValidFrame()
     {
@@ -102,6 +114,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(AedsFrameType.ArticleList, result.Value.FrameType);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void TryDecode_PreservesPayloadContentExactly()
     {
@@ -114,6 +127,7 @@ public sealed class AedsEncoderTests
         Assert.True(result.Value.Payload.Span.SequenceEqual(payload));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void TryDecode_SucceedsForEmptyPayload()
     {
@@ -127,6 +141,7 @@ public sealed class AedsEncoderTests
 
     // ─── TryDecode — error paths ──────────────────────────────────────────
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-short-frame-reject")]
     [Fact]
     public void TryDecode_FailsForTooShortFrame()
     {
@@ -136,6 +151,7 @@ public sealed class AedsEncoderTests
         Assert.Equal("AEDS frame too short", result.Error.Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-empty-input-reject")]
     [Fact]
     public void TryDecode_FailsForEmptyInput()
     {
@@ -144,6 +160,7 @@ public sealed class AedsEncoderTests
         Assert.False(result.IsSuccess);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-bad-magic-reject")]
     [Fact]
     public void TryDecode_FailsForBadMagic()
     {
@@ -157,6 +174,7 @@ public sealed class AedsEncoderTests
         Assert.Contains("magic", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-unsupported-version-reject")]
     [Fact]
     public void TryDecode_FailsForUnsupportedVersion()
     {
@@ -169,6 +187,7 @@ public sealed class AedsEncoderTests
         Assert.Contains("version", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-bad-header-length-reject")]
     [Fact]
     public void TryDecode_FailsForBadHeaderLength()
     {
@@ -181,6 +200,7 @@ public sealed class AedsEncoderTests
         Assert.Contains("header length", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-corrupted-payload-reject")]
     [Fact]
     public void TryDecode_FailsForCorruptedPayload()
     {
@@ -196,6 +216,7 @@ public sealed class AedsEncoderTests
         Assert.Equal("AEDS payload crc mismatch", result.Error.Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-unknown-frame-type-reject")]
     [Fact]
     public void TryDecode_FailsForUnknownFrameType()
     {
@@ -218,6 +239,7 @@ public sealed class AedsEncoderTests
         Assert.Equal("AEDS frame type unsupported", result.Error.Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-retired-frame-type-reject")]
     [Theory]
     [InlineData(40)]
     [InlineData(43)]
@@ -239,6 +261,7 @@ public sealed class AedsEncoderTests
         Assert.Equal("AEDS frame type retired", result.Error.Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-payload-length-reject")]
     [Fact]
     public void TryDecode_FailsWhenPayloadLengthIsWrong()
     {
@@ -252,6 +275,7 @@ public sealed class AedsEncoderTests
         Assert.Equal("AEDS payload length mismatch", result.Error.Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void WriteHeader_AcceptsAndPersistsMaximumV2Flags()
     {
@@ -269,6 +293,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(AedsCrc16.Compute(payload), BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-encode-unsupported-version-reject")]
     [Fact]
     public void Encode_RejectsUnsupportedVersionWithExactReason()
     {
@@ -279,6 +304,7 @@ public sealed class AedsEncoderTests
         Assert.StartsWith("AEDS v2 is the only supported wire version.", error.Message, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-encode-flags-overflow-reject")]
     [Fact]
     public void Encode_RejectsFlagsLargerThanUInt16WithExactReason()
     {
@@ -289,6 +315,7 @@ public sealed class AedsEncoderTests
         Assert.StartsWith("AEDS v2 flags are uint16.", error.Message, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-decode-malformed-frame-safety")]
     [Fact]
     public void TryDecode_FuzzMalformedFramesNeverThrowsOrSucceeds()
     {
@@ -329,6 +356,7 @@ public sealed class AedsEncoderTests
 
     // ─── WriteFrame (IBufferWriter) ───────────────────────────────────────
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void WriteFrame_ProducesSameResultAsEncode()
     {
@@ -341,6 +369,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(encoded, writer.WrittenMemory.ToArray());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void FrameBufferWriter_SealsSameFrameAsEncode()
     {
@@ -355,6 +384,7 @@ public sealed class AedsEncoderTests
         Assert.Equal(encoded, writer.WrittenFrame.ToArray());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void FrameBufferWriter_ReservesHeaderBeforePayload()
     {
@@ -370,6 +400,7 @@ public sealed class AedsEncoderTests
         Assert.Equal((uint)payload.Length, BinaryPrimitives.ReadUInt32LittleEndian(frame.AsSpan(10, 4)));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-framebuffer-sealed-write-reject")]
     [Fact]
     public void FrameBufferWriter_RejectsWritesAfterSeal()
     {
@@ -380,6 +411,7 @@ public sealed class AedsEncoderTests
         Assert.Throws<InvalidOperationException>(() => writer.Write([4]));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(AedsFrameType.Unknown)]
     [InlineData(AedsFrameType.AdminStats)]
@@ -403,6 +435,7 @@ public sealed class AedsEncoderTests
         Assert.True(AedsFrameSensitivity.RequiresClear(frameType));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(AedsFrameType.ArticleList)]
     [InlineData(AedsFrameType.ArticleDetail)]
@@ -424,6 +457,7 @@ public sealed class AedsEncoderTests
         Assert.True(AedsFrameSensitivity.IsPublicImmutable(frameType));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task PreencodedFrameResult_AppliesMetadataAndHonorsIfNoneMatch()
     {
@@ -454,6 +488,7 @@ public sealed class AedsEncoderTests
 
     // ─── Round-trip via AedsDecoderValidator ─────────────────────────────
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(AedsFrameType.ArticleList)]
     [InlineData(AedsFrameType.ArticleDetail)]
@@ -470,6 +505,7 @@ public sealed class AedsEncoderTests
         Assert.True(result.IsSuccess);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void ValidateRoundTrip_SucceedsForEmptyPayload()
     {
@@ -480,6 +516,7 @@ public sealed class AedsEncoderTests
         Assert.True(result.IsSuccess);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void ValidateRoundTrip_SucceedsForLargePayload()
     {
@@ -493,6 +530,7 @@ public sealed class AedsEncoderTests
         Assert.True(result.IsSuccess);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void ValidateRoundTrip_RespectsVersionField()
     {
@@ -503,6 +541,7 @@ public sealed class AedsEncoderTests
         Assert.True(result.IsSuccess);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void ValidateRoundTrip_RespectsFlags()
     {

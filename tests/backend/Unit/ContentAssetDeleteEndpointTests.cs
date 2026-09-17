@@ -20,6 +20,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -27,6 +28,7 @@ public sealed class ContentAssetDeleteEndpointTests
 {
     private const string CanonicalAssetId = "3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f";
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "asset-delete-path-reject")]
     [Theory]
     [InlineData("../images/hero.png")]
     [InlineData("/uploads/images/hero.png")]
@@ -50,6 +52,7 @@ public sealed class ContentAssetDeleteEndpointTests
         await store.DidNotReceiveWithAnyArgs().DeleteAsync(default, default);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(AssetDeleteResult.Deleted, AedsFrameType.EmptySuccess, ErrorCode.None)]
     [InlineData(AssetDeleteResult.Referenced, AedsFrameType.ApiError, ErrorCode.Conflict)]

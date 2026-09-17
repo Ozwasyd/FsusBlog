@@ -10,10 +10,12 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PasskeyStepUpChallengeProviderTests
@@ -24,6 +26,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void RuntimeServices_RegisterPasskeyStepUpProviders()
     {
@@ -43,6 +46,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
                 && item.Lifetime == ServiceLifetime.Scoped);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task UserProvider_IssueAsync_RequiresOrdinaryAuthenticatedUserAndReturnsPasskeyPayload()
     {
@@ -61,6 +65,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal(result.Assignment.ChallengeId, Assert.Single(fixture.Persistence.Issues).ChallengeId);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-user-rejects-admin")]
     [Fact]
     public async Task UserProvider_IssueAsync_RejectsAdminPrincipal()
     {
@@ -76,6 +81,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal(0, fixture.Passkeys.BeginStepUpAccountId);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-user-rejects-unauthenticated")]
     [Fact]
     public async Task UserProvider_IssueAsync_RejectsUnauthenticatedRequest()
     {
@@ -91,6 +97,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal(0, fixture.Passkeys.BeginStepUpAccountId);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task UserProvider_VerifyAsync_ConsumesUserStepUpAndRecordsVerifiedAttempt()
     {
@@ -112,6 +119,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal("ok", attempt.Reason);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-user-verify-rejects-admin-shape")]
     [Fact]
     public async Task UserProvider_VerifyAsync_RejectsAdminProofPayloadShape()
     {
@@ -131,6 +139,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, Assert.Single(fixture.Persistence.Attempts).Outcome);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AdminProvider_IssueAndVerifyUseVerifyOnlyAdminPasskeyPath()
     {
@@ -157,6 +166,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, Assert.Single(fixture.Persistence.Attempts).Outcome);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-admin-rejects-user")]
     [Fact]
     public async Task AdminProvider_IssueAsync_RejectsOrdinaryUser()
     {

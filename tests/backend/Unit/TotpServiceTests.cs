@@ -6,6 +6,7 @@ using System.Text;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.DataProtection;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -114,6 +115,7 @@ public class TotpServiceTests
     // ── GenerateSecret ────────────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateSecret_ReturnsNonEmpty()
     {
         var svc = MakeService();
@@ -123,6 +125,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateSecret_ReturnsBase32()
     {
         var svc = MakeService();
@@ -136,6 +139,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateSecret_TwoCalls_ReturnsDifferentValues()
     {
         var svc = MakeService();
@@ -145,6 +149,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateSecret_HasExpectedLength()
     {
         var svc = MakeService();
@@ -156,6 +161,7 @@ public class TotpServiceTests
     // ── BuildOtpAuthUri ───────────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_ContainsCorrectScheme()
     {
         var svc = MakeService();
@@ -164,6 +170,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_ContainsSecret()
     {
         var svc = MakeService();
@@ -173,6 +180,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_ContainsIssuer()
     {
         var svc = MakeService();
@@ -182,6 +190,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_EscapesSpecialChars()
     {
         var svc = MakeService();
@@ -191,6 +200,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_ContainsAlgorithm()
     {
         var svc = MakeService();
@@ -199,6 +209,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_ContainsPeriod30()
     {
         var svc = MakeService();
@@ -207,6 +218,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildOtpAuthUri_ContainsDigits6()
     {
         var svc = MakeService();
@@ -217,6 +229,7 @@ public class TotpServiceTests
     // ── VerifyCode ────────────────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_NullSecret_ReturnsFalse()
     {
         var svc = MakeService();
@@ -226,6 +239,7 @@ public class TotpServiceTests
 
     [Theory]
     [MemberData(nameof(BlankSecretCases))]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_BlankSecret_ReturnsFalse(string caseName, string secret)
     {
         var svc = MakeService();
@@ -234,6 +248,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_NullCode_ReturnsFalse()
     {
         var svc = MakeService();
@@ -243,6 +258,7 @@ public class TotpServiceTests
 
     [Theory]
     [MemberData(nameof(MalformedCodeCases))]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_MalformedCode_ReturnsFalse(string caseName, string code)
     {
         var svc = MakeService();
@@ -251,6 +267,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_WrongCode_ReturnsFalse()
     {
         var svc = MakeService();
@@ -261,6 +278,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_CodeWithNonDigits_StillProcesses()
     {
         var svc = MakeService();
@@ -270,6 +288,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ComputeTotp_FormatsAsciiDigitsAcrossCultures()
     {
         byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
@@ -291,6 +310,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void VerifyCode_FaIrCultureAcceptsAsciiTotpCode()
     {
         string secretBase32 = RfcBase32TestSecret;
@@ -310,6 +330,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void TryVerifyCode_ReturnsMatchedStepFromInjectedTimeProvider()
     {
         string secretBase32 = RfcBase32TestSecret;
@@ -326,6 +347,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void TotpService_SourceUsesInvariantCultureForOtpFormatting()
     {
         byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
@@ -344,6 +366,7 @@ public class TotpServiceTests
     // ── GenerateRecoveryCodes ─────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_DefaultCount_Returns8()
     {
         var svc = MakeService();
@@ -352,6 +375,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_CustomCount_ReturnsCorrectNumber()
     {
         var svc = MakeService();
@@ -360,6 +384,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_ZeroCount_ReturnsEmpty()
     {
         var svc = MakeService();
@@ -368,6 +393,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_NegativeCount_ReturnsEmpty()
     {
         var svc = MakeService();
@@ -376,6 +402,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_AllCodesHave128BitGroupedHex()
     {
         var svc = MakeService();
@@ -387,6 +414,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_AllCodesAreUpperHex()
     {
         var svc = MakeService();
@@ -402,6 +430,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void GenerateRecoveryCodes_CodesAreUnique()
     {
         var svc = MakeService();
@@ -413,6 +442,7 @@ public class TotpServiceTests
     // ── HashRecoveryCodes ─────────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void HashRecoveryCodes_EmptyList_ReturnsEmpty()
     {
         var svc = MakeService();
@@ -421,6 +451,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void HashRecoveryCodes_SingleCode_ReturnsSingleHash()
     {
         var svc = MakeService();
@@ -430,6 +461,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void HashRecoveryCodes_MultipleCodes_ReturnsNewlineSeparated()
     {
         var svc = MakeService();
@@ -439,6 +471,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void HashRecoveryCodes_UsesPerCodeSalt()
     {
         var svc = MakeService();
@@ -448,6 +481,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void HashRecoveryCodes_DifferentCodes_DifferentHashes()
     {
         var svc = MakeService();
@@ -457,6 +491,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void HashRecoveryCodes_HashesUseVersionedArgon2idFormat()
     {
         var svc = MakeService(productionHashPolicy: true);
@@ -467,6 +502,7 @@ public class TotpServiceTests
     // ── ConsumeRecoveryCode ──────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_NullStoredHashes_ReturnsFalse()
     {
         var svc = MakeService();
@@ -475,6 +511,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_EmptyStoredHashes_ReturnsFalse()
     {
         var svc = MakeService();
@@ -483,6 +520,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_NullInputCode_ReturnsFalse()
     {
         var svc = MakeService();
@@ -493,6 +531,7 @@ public class TotpServiceTests
 
     [Theory]
     [MemberData(nameof(InvalidRecoveryCodeCases))]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_InvalidInput_ReturnsExpectedFailure(
         string caseName,
         string storedCode,
@@ -509,6 +548,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_ValidCode_ReturnsTrue()
     {
         var svc = MakeService();
@@ -524,6 +564,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_UsedCode_CannotBeReused()
     {
         var svc = MakeService();
@@ -540,6 +581,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_CaseInsensitive()
     {
         var svc = MakeService();
@@ -550,6 +592,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_LegacySha256Hash_CanBeConsumedOnce()
     {
         var svc = MakeService();
@@ -562,6 +605,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_LegacySha256HashBeforeDeadline_RequiresRegeneration()
     {
         var svc = MakeService(DateTimeOffset.Parse("2026-08-31T23:59:59Z"));
@@ -577,6 +621,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_LegacySha256HashAfterDeadline_ReturnsFalse()
     {
         var svc = MakeService(DateTimeOffset.Parse("2026-09-01T00:00:00Z"));
@@ -591,6 +636,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void TotpService_SourceUsesMemoryHardArgon2idForRecoveryCodes()
     {
         TotpService.RecoveryCodeHashPolicy production = TotpService.RecoveryCodeHashPolicy.Production;
@@ -608,6 +654,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ConsumeRecoveryCode_InvalidHashOnly_ReturnsFalse()
     {
         var svc = MakeService();
@@ -619,6 +666,7 @@ public class TotpServiceTests
     // ── ProtectSecret / UnprotectSecret ──────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ProtectSecret_ReturnsNonEmpty()
     {
         var svc = MakeService();
@@ -627,6 +675,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ProtectSecret_DoesNotReturnPlaintext()
     {
         var svc = MakeService();
@@ -636,6 +685,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UnprotectSecret_RoundTrip()
     {
         var svc = MakeService();
@@ -646,6 +696,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UnprotectSecret_EmptyString_RoundTrip()
     {
         var svc = MakeService();
@@ -655,6 +706,7 @@ public class TotpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ProtectSecret_TwoCalls_DifferentOutput()
     {
         // Data protection uses random nonce per protect call

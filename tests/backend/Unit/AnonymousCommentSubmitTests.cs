@@ -41,6 +41,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -55,6 +56,7 @@ public sealed class AnonymousCommentSubmitTests(
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_RegionHideUntilReviewed_WritesHiddenWithoutPublicInvalidation()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -107,6 +109,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CreateStrongAnonymousCommentAsync_RuntimeUsesAtomicNullifierConsume()
     {
         string create = RuntimeMetadataInspection.DescribeMethods(
@@ -141,6 +144,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CommentAnonymousNullifierService_TryConsumeAsync_InsertsAndLinksFirstUse()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -166,6 +170,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ReplayedTicket_ReturnsOriginalResultWithoutSecondWrite()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -188,6 +193,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ExpiredTicket_IsRejectedWithoutCommentOrUsageIncrement()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -206,6 +212,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_TicketReplyContextMismatch_IsRejected()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -224,6 +231,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ValidReplyToPublicTarget_PreservesRecipientWithoutAttributingActor()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -263,6 +271,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ReplyToAnonymousTarget_DoesNotInventRecipientMapping()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -286,6 +295,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ReplyToDeletedAccountTarget_DropsRecipientButKeepsCommentTarget()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -309,6 +319,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ArticleDeletedAfterPrecheck_IsRejected()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -335,6 +346,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ParentHiddenAfterPrecheck_IsRejected()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -364,6 +376,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_ParentDeletedAfterPrecheck_IsRejected()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -393,6 +406,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetCommentThreadsByCursorAsync_LegacyUserNameFallback_IsNotPubliclyExposed()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -425,6 +439,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetThreadRepliesByCursorAsync_ReplyToSnapshotMissing_DoesNotExposeLegacyParentUsername()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -474,6 +489,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PublicCommentRead_DeletedRootAndMiddleWithVisibleDescendant_ReturnsOpaqueTombstoneChain()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -514,6 +530,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PublicCommentRead_DeletedLeafOrFullyDeletedThread_Disappears()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -542,6 +559,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PublicCommentRead_TombstoneChainUsesViewerRegionVisibility()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -572,6 +590,7 @@ public sealed class AnonymousCommentSubmitTests(
     [InlineData(1)]
     [InlineData(3)]
     [InlineData(100)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PublicCommentRead_ReplyCountIsExactAndIndependentFromPreviewSize(int replyTotal)
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -636,6 +655,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PublicCommentRead_ArticleWithoutCurrentPublicationHasNoReplyCountProjection()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -652,6 +672,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetAttributableCommentsAsync_ReturnsOnlyExplicitPublicComments()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -672,6 +693,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetAttributableCommentsAsync_ArticleOverlayIsAccountScopedAndPublicOnly()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -695,6 +717,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteCommentAsync_ForgedOwnershipCannotDeleteAnotherAccountsPublicComment()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -710,6 +733,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteCommentAsync_AccountCannotDeleteStrongAnonymousCommentEvenWhenLegacyUserIdMatches()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -728,6 +752,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteCommentAsync_AdminCanDeleteStrongAnonymousCommentWithoutUserCommentInvalidation()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -748,6 +773,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteCommentAsync_RepeatedDeleteDoesNotOverwriteReasonOrRepeatSideEffects()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -772,6 +798,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void DeleteCommentAsync_RuntimeUsesRowVersionGuardBeforeSideEffects()
     {
         Assert.Equal(typeof(string), typeof(Comment).GetProperty("RowVersion")!.PropertyType);
@@ -792,6 +819,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AnonymousCommentCreateEndpoint_DecodesFrameAndReturnsFinalModerationState()
     {
         var aeds = new AedsEncoder();
@@ -822,6 +850,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AnonymousCommentCreateEndpoint_UsesRuntimeCommentPolicyLimit()
     {
         var aeds = new AedsEncoder();
@@ -855,6 +884,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AnonymousCommentCreateEndpoint_ZkProdUnavailable_ReturnsApiErrorWithoutSubmit()
     {
         var aeds = new AedsEncoder();
@@ -883,6 +913,7 @@ public sealed class AnonymousCommentSubmitTests(
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AnonymousCommentCreateEndpoint_IsStrongAnonymousAndDoesNotReplaceSignedEndpoint()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -921,6 +952,7 @@ public sealed class AnonymousCommentSubmitTests(
     [InlineData("/api/binary/comment/{id:long}/management/status")]
     [InlineData("/api/binary/comment/{id:long}/management/appeal")]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AnonymousCommentManagementEndpoints_RejectIdentifiedPrincipalContamination(string path)
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -931,6 +963,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void AnonymousCommentCreateHandler_RuntimeDoesNotBindDefaultAnonymousPathToUserId()
     {
         string anonymousHandler = RuntimeMetadataInspection.DescribeMethods(
@@ -945,6 +978,7 @@ public sealed class AnonymousCommentSubmitTests(
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task OrdinaryCommentEndpoints_UseAccountPrincipalContextInsteadOfLegacyUserId()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -970,6 +1004,7 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentEndpointService_RuntimeContractDoesNotMixUserIdAndIsAdminIdentityPlanes()
     {
         MethodInfo[] methods = typeof(ICommentEndpointService).GetMethods();

@@ -71,12 +71,14 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void AccountDelete_IsCredentialMutationAction()
     {
         Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.AccountDelete));
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserSecurityStepUpRequest_UsesAccountIdAndFriendlyNameUpdateAction()
     {
         Assert.NotNull(typeof(UserSecurityStepUpRequest).GetProperty("AccountId"));
@@ -86,6 +88,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MfaEnabledAccount_DoesNotAcceptPasswordFallback()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -106,6 +109,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task NonMfaAccount_StillRequiresAnonymousStepUpProof()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -127,6 +131,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task PasswordProof_IsNotAcceptedAsAnonymousStepUp()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -148,6 +153,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MissingDeletedOrBannedAccount_FailsClosedWithoutCheckingProofs()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -190,6 +196,7 @@ public sealed class UserSecurityStepUpServiceTests
     [Theory]
     [InlineData(null)]
     [InlineData("not-a-sha256-subject")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MissingOrMalformedPhysicalSubject_FailsClosedBeforeProofValidation(string? accountSubjectHash)
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -237,6 +244,7 @@ public sealed class UserIdentityRetirementBinaryEndpointTests
     [Theory]
     [InlineData(null)]
     [InlineData("not-a-sha256-subject")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MfaChallengeStart_MissingOrMalformedPhysicalSubjectReturnsAccountSubjectRequired(
         string? accountSubjectHash)
     {

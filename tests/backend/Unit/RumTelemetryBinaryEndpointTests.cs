@@ -8,13 +8,16 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RumTelemetryBinaryEndpointTests
 {
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task IngestAsync_ValidAedsBatch_ReturnsIngestResponseFrame()
     {
@@ -50,6 +53,7 @@ public sealed class RumTelemetryBinaryEndpointTests
         Assert.Equal(RumTelemetryContractLimits.MaxFrameBytes, context.RequestServices.GetRequiredService<FakeBinaryEndpointRequestContext>().MaxFrameBytes);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "rum-malformed-payload-error")]
     [Fact]
     public async Task IngestAsync_MalformedPayload_ReturnsApiErrorFrame()
     {
@@ -70,6 +74,7 @@ public sealed class RumTelemetryBinaryEndpointTests
         Assert.Null(service.BatchRequest);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "rum-oversized-frame-reject")]
     [Fact]
     public async Task IngestAsync_OversizedFrame_ReturnsPayloadTooLargeApiError()
     {

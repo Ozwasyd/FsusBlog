@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -22,6 +23,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_TwoDeviceLoginsRemainActive()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -61,6 +63,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_ActiveSessionLimitEvictsLeastRecentlyUsedSession()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -92,6 +95,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_ConcurrentDevicesUnderLimitReturnActiveSessions()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -119,6 +123,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_ConcurrentSameDeviceCreatesIndependentSessions()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -143,6 +148,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_ConcurrentAdmissionsNeverExceedActiveSessionLimit()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -168,6 +174,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_ConcurrentRevokeOthersDoesNotRevokeNewSession()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -209,6 +216,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_ConcurrentAccountDeletionLeavesNoActiveSession()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);

@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Security;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -15,6 +16,7 @@ public sealed class SecurityChallengeKindCutoverTests
     ];
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_BindsMutationToExactActiveFence_AndReturnsAuditableReceipt()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -51,6 +53,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_RejectsIncompleteOrDifferentNumericTargetSet()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -69,6 +72,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_FreshOperationRejectsWrongWireMappingBeforeIntentOrMutation()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -87,6 +91,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_SameOperationIdWithRemappedWireCannotReuseReceipt()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -106,6 +111,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_RepeatedOperationIsIdempotent_WithoutSecondMutation()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -128,6 +134,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_FenceLossImmediatelyBeforeMutation_PersistsRejectWithoutMutation()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -147,6 +154,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_FenceLossAfterMutation_PersistsManualBlockedReceiptWithRecordedProgress()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -169,6 +177,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_ReceiptWriteCrash_ResumesFromDurableMutationProgressWithoutReapplying()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -192,6 +201,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_DurableIntentBlocksTargetRemapAfterReceiptWriteCrash()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -215,6 +225,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_IntentOnlyPrepareCrashRepairsDurableStateAndResumesSameOperation()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -236,6 +247,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Execute_RejectsBeforeMutation_WhenFenceIdentityDoesNotMatch()
     {
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
@@ -254,6 +266,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void EnvelopeCodec_RevokesWholeMixedEnvelope_AndLeavesUnrelatedEnvelopeUntouched()
     {
         SecurityChallengeEnvelopeState mixed = Envelope(
@@ -292,6 +305,7 @@ public sealed class SecurityChallengeKindCutoverTests
     [InlineData(SecurityChallengeEnvelopeStatuses.Failed)]
     [InlineData(SecurityChallengeEnvelopeStatuses.Expired)]
     [InlineData(SecurityChallengeEnvelopeStatuses.Revoked)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void EnvelopeCodec_PreservesTerminalEnvelopeEvidence(string terminalStatus)
     {
         SecurityChallengeEnvelopeState terminal = Envelope(
@@ -312,6 +326,7 @@ public sealed class SecurityChallengeKindCutoverTests
     [Theory]
     [InlineData(SecurityChallengeEnvelopeStatuses.Active)]
     [InlineData(SecurityChallengeEnvelopeStatuses.ProofMinting)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void EnvelopeCodec_RevokesOnlyExplicitNonTerminalStates(string nonTerminalStatus)
     {
         SecurityChallengeEnvelopeState state = Envelope(
@@ -328,6 +343,7 @@ public sealed class SecurityChallengeKindCutoverTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RedisStore_ClearsSharedV2NamespacesWithoutFilteringByKind()
     {
         string runtime = RuntimeMetadataInspection.DescribeMethods(

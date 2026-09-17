@@ -4,15 +4,18 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CrawlerRiskServiceRiskReductionTests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AddRiskAsync_PositiveSignal_UsesAtomicClampedIncrementWithoutReadModifyWrite()
     {
@@ -64,6 +67,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             item.TotalScore == 85));
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AddRiskAsync_ZeroDeltaSignal_RecordsEventWithoutRiskScoreRedisReadOrWrite()
     {
@@ -107,6 +111,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             item.TotalScore == 0));
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AddRiskAsync_ReadProofAcceptedSignal_ReducesExistingPublicReadRiskScore()
     {

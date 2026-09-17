@@ -110,6 +110,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsLocalDemoPrepareAndCleanupGatesOutsideDevelopment()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -127,6 +128,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsLocalSecurityFixtureGateOutsideDevelopment()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -156,6 +158,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsOutOfRangeUserSessionMetadataRetention()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -171,6 +174,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsOutOfRangeStepUpFreshness()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -184,6 +188,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_AcceptsBoundedIndependentPreviousJwtKey()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -227,6 +232,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsMissingWeakOrJwtReusedMessageAdminSessionAuditReferenceKey()
     {
         IReadOnlyList<string> missing = ProductionStartupValidator.ValidateCore(
@@ -254,6 +260,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsDuplicateWeakOrUnboundedPreviousJwtKey()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -271,6 +278,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsMissingOrDevelopmentJwtKeyVersion()
     {
         IReadOnlyList<string> missingErrors = ProductionStartupValidator.ValidateCore(
@@ -291,6 +299,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("FSUSBLOG_COMMIT_SHA", "0123456789ab")]
     [InlineData("FSUSBLOG_IMAGE_DIGEST", "sha256:abc")]
     [InlineData("FSUSBLOG_IMAGE_REF", "ghcr.io/fsusblog/app:final-current")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsMissingMutableOrInconsistentProductionReleaseIdentity(string key, string? value)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -308,6 +317,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("Security:CrawlerCidrs:GoogleUrl", "https://internal-admin/api/secrets")]
     [InlineData("Security:CrawlerCidrs:BingUrl", "http://www.bing.com/toolbox/bingbot.json")]
     [InlineData("Security:CrawlerCidrs:BingUrl", "https://169.254.169.254/latest/meta-data/")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsUnsafeCrawlerRangeUrls(string key, string value)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -323,6 +333,7 @@ public sealed class ProductionStartupValidatorTests
     [Theory]
     [InlineData("Security:CrawlerCidrs:GoogleUrl", "https://developers.google.com/static/search/apis/ipranges/googlebot.json")]
     [InlineData("Security:CrawlerCidrs:BingUrl", "https://www.bing.com/toolbox/bingbot.json")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_AcceptsOfficialCrawlerRangeUrls(string key, string value)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -336,6 +347,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsEnabledAntiSpamModelWithoutValidBuiltInRuntime()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -353,6 +365,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionPerceptionSealedTokenWithoutSigningKey()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -366,6 +379,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionPerceptionSealedTokenStaleCurrentKeyVersion()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -380,6 +394,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionDefaultsAndInsecureOrigins()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -426,6 +441,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
     [InlineData("VisitLog:IpPseudonymization:CurrentKey")]
     [InlineData("Moderation:RegionPolicy:IpHashKey")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionWhenIndependentSecuritySecretIsMissing(string key)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -446,6 +462,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
     [InlineData("VisitLog:IpPseudonymization:CurrentKey")]
     [InlineData("Moderation:RegionPolicy:IpHashKey")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionSecuritySecretSharedWithJwtSecret(string key)
     {
         const string SharedSecret = "shared-jwt-secret-that-must-not-seed-other-security-domains";
@@ -464,6 +481,7 @@ public sealed class ProductionStartupValidatorTests
     [Theory]
     [InlineData("short-key")]
     [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsWeakAuditTamperEvidenceKey(string keyValue)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -482,6 +500,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("Audit:DetachedCheckpoint:MaxRecords", "10001")]
     [InlineData("Audit:DetachedCheckpoint:CurrentKeyId", "missing-key")]
     [InlineData("Audit:DetachedCheckpoint:Keys:0:PrivateKeyPath", "relative-private.der")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsUnsafeDetachedAuditCheckpointConfiguration(string key, string value)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -495,6 +514,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityDomainSecrets_DoNotFallBackToJwtSecretOrHardCodedMaterial()
     {
         (Type Type, string Setting)[] securityDomains =
@@ -527,6 +547,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SharedAppsettings_DoesNotContainReusableJwtSecret()
     {
         IConfiguration appsettings = new ConfigurationBuilder()
@@ -539,6 +560,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task HostedService_DoesNotBypassDefaultJwtSecretEvenWhenInsecureStartupAllowed()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -566,6 +588,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task HostedService_DoesNotBypassMissingDataProtectionProtectorWhenInsecureStartupAllowed()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -601,6 +624,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("")]
     [InlineData("0")]
     [InlineData("false")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionWhenAnonymousIdentityModeIsMissingOrDisabled(string? modeValue)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -619,6 +643,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("1")]
     [InlineData("true")]
     [InlineData("enabled")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_AcceptsProductionWhenAnonymousIdentityModeIsEnabled(string modeValue)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -634,6 +659,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionInsecureAuthCookies()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -660,6 +686,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_IgnoresRemovedLegacyPlainCookieReadSwitch()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -684,6 +711,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsMissingRequiredProductionSettings()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());
@@ -705,6 +733,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_AllowsDevelopmentConfigurationToUseLocalDefaults()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());
@@ -715,6 +744,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsMissingProductionDataProtectionProtector()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -734,6 +764,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProtectorCertificateStoredInsideSharedKeyRing()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -751,6 +782,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CreateValidationReport_ExposesVersionedSchemaRequirements()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());
@@ -806,6 +838,7 @@ public sealed class ProductionStartupValidatorTests
     [Theory]
     [InlineData(VisitLogIpPseudonymizer.CurrentKeyKey)]
     [InlineData(SecurityRiskPseudonymizer.CurrentKeyKey)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsDedupKeyReuseAcrossPseudonymDomains(string reusedKeySetting)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -828,6 +861,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("HumanReadProof:SigningKey", "YGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8=")]
     [InlineData("HumanReadProof:Dedup:CurrentKey", "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8=")]
     [InlineData(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8=")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsCommittedDevelopmentReadAnalyticsKeysInProduction(
         string setting,
         string developmentValue)
@@ -847,6 +881,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsFido2OriginsThatDoNotMatchTrustedProductionOrigins()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -875,6 +910,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsAllowedHostsThatDoNotCoverTrustedProductionOrigins()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -899,6 +935,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsUnsafeReverseProxyTrustEntries()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -923,6 +960,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ReverseProxyForwardedHeaders_ConfiguresExplicitTrustedProxiesAndNetworks()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -942,6 +980,7 @@ public sealed class ProductionStartupValidatorTests
     [Theory]
     [InlineData("AnonymousIdentity:ZkProd:AllowDevVerifier")]
     [InlineData("AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdUnsafeBypassFlagsEvenWhenZkProdDisabled(string key)
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -960,6 +999,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdEnabledWithoutNativeVerifier()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration([]);
@@ -975,6 +1015,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdEnabledWithoutTrustedSetupVerification()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
@@ -993,6 +1034,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdWhenManifestIsNotProductionUsable()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
@@ -1014,6 +1056,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdEnabledWithoutCredentialRootReadiness()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration([]);
@@ -1029,6 +1072,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdEnabledWithoutCredentialReadiness()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
@@ -1047,6 +1091,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_RejectsProductionZkProdReadyWhenCredentialIssuerUnavailable()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
@@ -1064,6 +1109,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_AcceptsProductionZkProdWhenAllConfiguredReadinessGatesPass()
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration([]);

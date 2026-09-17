@@ -48,6 +48,7 @@ public sealed class RecoveryKeyServiceTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RecoveryKeyEndpoints_ExposeBinaryRecoveryFlowAtRuntime()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -75,6 +76,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void CredentialMutationEndpoints_DelegateStepUpToUnifiedService()
     {
         string[] actions =
@@ -103,6 +105,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void MfaChallengeStart_ChecksCredentialMutationBeforeProofMinting()
     {
         MethodInfo handler = FindBinaryAuthHandlerContaining("PASSWORD_OR_STEP_UP_PROOF_REQUIRED");
@@ -128,6 +131,7 @@ public sealed class RecoveryKeyServiceTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RecoveryKeyVerifyEndpoint_IsAnonymousPowRateLimitedAndNoStore()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -145,6 +149,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RecoveryKeyVerifyRequest_DoesNotCarryCallerSuppliedUserId()
     {
         Assert.Equal(
@@ -171,6 +176,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RecoveryKeyService_VerifyLocatesCredentialByPepperedLookupHashOnly()
     {
         MethodInfo parser = PrivateStaticMethod("TryParseRecoveryKeyLookup");
@@ -198,6 +204,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RecoveryKeyEntity_DoesNotPersistPlaintextMaterial()
     {
         string[] properties = typeof(RecoveryKeyCredential)
@@ -217,6 +224,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RecoveryKeyCredential_UsesAccountIdColumnAndIndexes()
     {
         PropertyInfo accountId = typeof(RecoveryKeyCredential).GetProperty("AccountId")
@@ -232,6 +240,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RecoveryKeyService_UsesAccountIdForCredentialOwnership()
     {
         PropertyInfo accountId = typeof(RecoveryKeyCredential).GetProperty(nameof(RecoveryKeyCredential.AccountId))!;
@@ -254,6 +263,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RecoveryKeyService_SessionEnvelopeRoundTripUsesAccountIdentity()
     {
         var session = new RecoveryKeySession(
@@ -277,6 +287,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void AnonymousMfaManagement_RequiresSessionStepUpInsteadOfLegacyPasswordProof()
     {
         MethodInfo[] anonymousMfaHandlers = FindBinaryAuthHandlersContaining("ANONYMOUS_MFA_STEP_UP_REQUIRED");

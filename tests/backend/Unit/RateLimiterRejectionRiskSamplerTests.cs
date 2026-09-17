@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RateLimiterRejectionRiskSamplerTests
@@ -14,6 +15,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     private static readonly DateTimeOffset s_fixedUtcNow = new(2026, 7, 11, 6, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void MatchedAndUnmatchedHighCardinalityRawPaths_CollapseToLogicalRoutes()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 16);
@@ -41,6 +43,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RouteIdentity_BoundsLongEndpointMetadataAndUnknownMethods()
     {
         var endpoint = new Endpoint(
@@ -57,6 +60,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CapacityBoundary_DropsNewBucketsButPreservesExistingBucketWriteLimit()
     {
         const int Capacity = 64;
@@ -92,6 +96,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CrossMinuteRotation_ReplacesTheWholeWindowOnceUnderConcurrency()
     {
         const int Capacity = 128;
@@ -127,6 +132,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ConcurrentSameBucket_PreservesExactlyFourRiskWrites()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 32);
@@ -150,6 +156,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AnonymousLoginAdminNotificationStreamAndBinaryRoutes_KeepIndependentCaps()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 32);
@@ -177,6 +184,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     [Fact]
     [Trait("Category", "Performance")]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SaturatedBucketLookup_P95RemainsStableFrom64To4096TrackedBuckets()
     {
         const long Minute = 4_000;

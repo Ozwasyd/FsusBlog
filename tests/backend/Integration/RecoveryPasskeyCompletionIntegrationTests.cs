@@ -24,6 +24,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
@@ -36,6 +37,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     private const string RecoveryRequestHash = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AuthenticatorFailure_DoesNotPersistCredentialOrConsumeRegistrationChallenge()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -97,6 +99,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task Persistence_CommitsNewCredentialOldCredentialRevocationAndPasskeyFlagTogether()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -153,6 +156,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task SnapshotFailureAfterDatabaseCommit_ReplayFinalizesWithoutSecondCredentialMutation()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -210,6 +214,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task PersistenceFailure_RollsBackCredentialRevocationAndPasskeyFlag()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -241,6 +246,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task DatabaseUniqueConstraintException_LeavesRecoveryCompletionRetryableAndUncommitted()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -281,6 +287,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task ConcurrentPersistence_UsesUniqueRecoveryHashForOneLogicalCompletion()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -317,6 +324,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RawRecoveryToken_FlowsThroughCompletionAsSha256AndCanonicalRequestHashOnly()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -440,6 +448,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task Migration_UpgradesLegacyPasskeyTableIdempotentlyAndEnforcesUniqueSessionHash()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

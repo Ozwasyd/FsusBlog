@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -20,6 +21,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Migration_CreatesChallengeAuditTablesWithoutRawPayload()
     {
         var registry = new SchemaMigrationRegistry();
@@ -48,6 +50,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Entities_MapChallengeTablesWithoutPayloadSourceColumns()
     {
         string[] challengeColumns = typeof(SecurityChallenge)
@@ -68,6 +71,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterSecurityChallengePersistence()
     {
         var services = new ServiceCollection();
@@ -82,6 +86,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_UsesReturningMetricsWithoutPostTransactionReloads()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -110,6 +115,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_PersistsChallengeHashMetadata()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -144,6 +150,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_WritesSuccessAttemptAndTransitionsChallenge()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -166,6 +173,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_WritesFailureAndReplayAttemptsIndependently()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -197,6 +205,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ExpireAndRevokeAsync_RecordTerminalStateAttempts()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -223,6 +232,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     [Fact]
     [Trait("Category", "Concurrency")]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_ConcurrentOutcomesCannotDowngradeVerifiedChallenge()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);

@@ -4,6 +4,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,11 +12,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]
 public sealed class RecoveryPasskeyCompletionStateTests
 {
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AuthenticatorValidationFailure_RestoresPendingSessionAndAllowsRetry()
     {
@@ -48,6 +51,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         Assert.Equal(2, attempt);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task DatabaseFailure_RestoresPendingSessionAndAllowsSameRequestRetry()
     {
@@ -78,6 +82,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         Assert.Equal(2, attempt);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     [Trait("Category", "Concurrency")]
     public async Task ConcurrentDoubleSubmit_AllowsOnlyOneLogicalCompletion()
@@ -118,6 +123,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         Assert.Equal(1, completionCalls);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task ResponseLostAfterCommit_ReplayReturnsIdempotentSuccessWithoutSecondMutation()
     {
@@ -159,6 +165,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         Assert.Equal(1, completionCalls);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-replay-different-request-reject")]
     [Fact]
     public async Task CompletedSession_ReplayWithDifferentRequestIsRejected()
     {
@@ -201,6 +208,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         Assert.Equal("RECOVERY_PASSKEY_ALREADY_COMPLETED_WITH_DIFFERENT_REQUEST", different.Error.Message);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-expired-pending-reject")]
     [Fact]
     public async Task ExpiredPendingSession_RejectsWithoutCallingPasskeyMutation()
     {
@@ -229,6 +237,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
             Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task ExpiredCompletingLease_RecoversPendingAndCompletesSameRequestRetry()
     {
@@ -264,6 +273,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         Assert.True(cache.ReplacementCount >= 3);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void LegacyPendingEnvelope_RemainsReadableAcrossDeployment()
     {

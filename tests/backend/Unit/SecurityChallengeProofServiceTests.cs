@@ -5,6 +5,7 @@ using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeProofServiceTests
@@ -15,12 +16,14 @@ public sealed class SecurityChallengeProofServiceTests
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void HeaderName_IsStable()
     {
         Assert.Equal("X-Fsus-Challenge-Proof", SecurityChallengeProofService.HeaderName);
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterSecurityChallengeProofService()
     {
         var services = new ServiceCollection();
@@ -35,6 +38,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CachePolicyRegistry_DefinesConsumeOnceChallengeProofPolicy()
     {
         var registry = new CachePolicyRegistry();
@@ -47,6 +51,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task MintProofAsync_StoresBoundClaimsWithoutRawPayload()
     {
         var cache = new MemoryProofCache();
@@ -77,6 +82,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay()
     {
         var cache = new MemoryProofCache();
@@ -105,6 +111,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_AggregateProofRequiresExactOrderedMemberSet()
     {
         var cache = new MemoryProofCache();
@@ -140,6 +147,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_AggregateProofRejectsRevokedEarlierMember()
     {
         var cache = new MemoryProofCache();
@@ -171,6 +179,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_CompletedEnvelopeRevocationInvalidatesUnconsumedProof()
     {
         var cache = new MemoryProofCache();
@@ -201,6 +210,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ExchangeProofAsync_ValidClaimsAtomicallyMoveProofToTypedTarget()
     {
         var cache = new MemoryProofCache();
@@ -238,6 +248,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ExchangeProofAsync_SourceMissOrInvalidBindingNeverCreatesTarget()
     {
         var cache = new MemoryProofCache();
@@ -281,6 +292,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ExchangeProofAsync_RevokedAggregateMemberNeverCreatesTarget()
     {
         var cache = new MemoryProofCache();
@@ -330,6 +342,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_SingleMemberProofCannotSatisfyAggregateDecision()
     {
         var cache = new MemoryProofCache();
@@ -358,6 +371,7 @@ public sealed class SecurityChallengeProofServiceTests
     [InlineData("clientIpHash", "client_ip_hash_mismatch")]
     [InlineData("deviceFpHash", "device_fp_hash_mismatch")]
     [InlineData("policyVersion", "policy_version_mismatch")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_RejectsBindingMismatch(string field, string expectedReason)
     {
         var cache = new MemoryProofCache();
@@ -378,6 +392,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_RejectsExpiredProofAfterRedisConsume()
     {
         var cache = new MemoryProofCache();
@@ -400,6 +415,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_RedisMissRejectsBeforeVerifiedAttempt()
     {
         var cache = new MemoryProofCache();
@@ -420,6 +436,7 @@ public sealed class SecurityChallengeProofServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ConsumeProofAsync_RejectsRevokedChallengeWithPublicOutcome()
     {
         var cache = new MemoryProofCache();

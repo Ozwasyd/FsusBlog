@@ -13,6 +13,7 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
@@ -25,12 +26,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture fixture)
 {
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminSessionManagementEndpoints_AreAdminManageOnlyAndClearOnlyAdminCookies()
@@ -67,6 +70,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.Contains(StatusCodes.Status409Conflict, RuntimeMetadataInspection.DescribeInt32Constants(revokeMoveNext));
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task LogoutAdminSessionAsync_RevokesCurrentSessionWithLogoutReason()
     {
@@ -82,6 +86,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.Equal("logout", session.RevokeReason);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void AdminSessionEntity_ExposesRowVersionForRevokeGuards()
     {
@@ -91,6 +96,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.True(mapping.IsIgnore);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void AdminSessionRevoke_RuntimePathUsesRowVersionConflictAndAudit()
     {
@@ -108,6 +114,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.Contains("xmin::text = @RowVersion", revoke, StringComparison.OrdinalIgnoreCase);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void AdminSessionManagement_RuntimePathBoundsListAndBatchRevokesOthers()
     {
@@ -146,6 +153,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.Equal(expectedName, instrument.Name);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task RevokeAdminSessionAsync_RepeatedRevokeWritesOnlyOneAuditAndPreservesFirstReason()
     {
@@ -165,6 +173,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             .CountAsync());
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task RevokeOtherAdminSessionsAsync_RevokesOtherSessionsAndKeepsCurrent()
     {
@@ -190,6 +199,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             .CountAsync());
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task GetAdminSessionsAsync_ReturnsCurrentAndRevokedFlags()
     {
@@ -211,6 +221,7 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.NotEqual(default, current.AbsoluteExpiresAtUtc);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task GetAdminSessionsAsync_ReturnsAtMostRecentFiftySessions()
     {

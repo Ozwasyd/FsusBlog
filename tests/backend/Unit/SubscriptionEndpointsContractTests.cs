@@ -25,6 +25,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Integration")]
@@ -36,6 +37,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
     private static readonly DateTimeOffset s_baselineNow = new(2026, 7, 11, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -76,6 +78,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
     [InlineData("expired", "proof_expired")]
     [InlineData("wrong-email", "email_hash_mismatch")]
     [InlineData("wrong-channel", "channel_mismatch")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task UnsubscribePipeline_InvalidOwnershipProofDoesNotMutatePostgres(
         string scenario,
         string expectedReason)
@@ -130,6 +133,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task UnsubscribePipeline_DatabaseFailureLeavesValidatedProofUncommitted()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -164,6 +168,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task UnsubscribePipeline_SuccessMutatesRowAndConsumesProofExactlyOnce()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -390,6 +395,7 @@ public sealed class SubscriptionEndpointTestServerTests
     private const string Pepper = "unit-test-subscription-email-hash-pepper-with-enough-entropy";
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task TestServer_UnsubscribeReturnsStablePreconditionAndValidationErrorFrames()
     {
         var request = new SiteSubscriptionBinaryRequest("reader@example.com", "email");

@@ -15,8 +15,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BinaryTransportHotPathContractTests
 {
-    [Fact]
     [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
+    [Fact]
     public async Task BinaryRequestBinder_SegmentedFrameRoundTripsPayloadAndFrameType()
     {
         var aeds = new AedsEncoder();
@@ -45,8 +45,8 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
-    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-crc-invariant")]
     public async Task BinaryRequestBinder_CorruptedSegmentedFrameReturnsStableCrcFailure()
     {
         var aeds = new AedsEncoder();
@@ -76,6 +76,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-truncated-frame-lease-return")]
     [Fact]
     public async Task BinaryRequestBinder_TruncatedPayloadReturnsRentedLeaseImmediately()
     {
@@ -100,6 +101,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task ApiBinaryResponseMiddleware_ReturnsSuccessfulLeaseWithoutResponseCompletion()
     {
@@ -134,6 +136,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "binary-middleware-throw-lease-return")]
     [Fact]
     public async Task ApiBinaryResponseMiddleware_ReturnsLeaseWhenHandlerThrows()
     {
@@ -162,6 +165,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "binary-middleware-disconnect-lease-return")]
     [Fact]
     public async Task ApiBinaryResponseMiddleware_ReturnsLeaseWhenClientDisconnectsAfterBinding()
     {
@@ -193,6 +197,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task BinaryRequestPayload_EarlyDisposeAndPipelineCleanupReturnLeaseOnce()
     {
@@ -222,6 +227,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BinaryRequestPoolMetrics_ArePublishedOnServerMeter()
     {
@@ -250,6 +256,7 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.Contains("fsus.binary_request.pool.outstanding", instruments);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "binary-binder-cancel-interrupt")]
     [Fact]
     public async Task BinaryRequestBinder_CancellationInterruptsBlockedPipeRead()
     {
@@ -273,6 +280,7 @@ public sealed class BinaryTransportHotPathContractTests
         await reader.CompleteAsync();
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "binary-binder-cancel-after-header")]
     [Fact]
     public async Task BinaryRequestBinder_CancellationAfterHeaderReturnsRentedLease()
     {
@@ -299,6 +307,31 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.Equal(1, pool.ReturnCount);
         Assert.Equal(0, pool.OutstandingCount);
         await reader.CompleteAsync();
+    }
+
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
+    [Fact]
+    public void AedsBinaryWriter_DelegatesFrameWriteWithVersionAndFlags()
+    {
+        var aeds = new AedsEncoder();
+        byte[] payload = [1, 2, 3, 4];
+        var direct = new ArrayBufferWriter<byte>();
+        var viaWriter = new ArrayBufferWriter<byte>();
+
+        aeds.WriteFrame(
+            AedsFrameType.SiteSubscriptionRequest,
+            payload,
+            direct,
+            version: AedsFrameHeader.CurrentVersion,
+            flags: 7u);
+        AedsBinaryWriter.WriteFrame(
+            aeds,
+            AedsFrameType.SiteSubscriptionRequest,
+            payload,
+            viaWriter,
+            flags: 7u);
+
+        Assert.Equal(direct.WrittenSpan.ToArray(), viaWriter.WrittenSpan.ToArray());
     }
 
     private static DefaultHttpContext CreateContext(PipeReader reader, long? contentLength)

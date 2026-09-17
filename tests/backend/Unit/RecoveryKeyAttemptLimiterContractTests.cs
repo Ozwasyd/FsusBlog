@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +18,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Security")]
@@ -27,6 +29,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     private const string Pepper = "unit-test-recovery-key-pepper-with-enough-entropy";
     private static readonly DateTimeOffset s_baselineNow = new(2026, 7, 11, 8, 0, 0, TimeSpan.Zero);
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_FailedAttemptsEscalateAtThresholdAndRecoverAfterWindowExpiry()
     {
@@ -57,6 +60,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
         Assert.Equal(1L, cache.CurrentCount);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     [Trait("Category", "Concurrency")]
     public async Task VerifyAsync_ConcurrentFailuresUseOneAtomicWindowWithoutLostIncrements()
@@ -80,6 +84,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
         Assert.Equal(ConcurrentFailures, cache.IncrementCalls);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-limiter-locked-early-return")]
     [Fact]
     public async Task VerifyAsync_LockedIdentityReturnsBeforeCredentialLookup()
     {
@@ -103,6 +108,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
         Assert.Equal(8, cache.IncrementCalls);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-limiter-indistinguishable-failure")]
     [Fact]
     public async Task VerifyAsync_ExistingAndMissingCredentialFailuresHaveTheSameObservableResponse()
     {

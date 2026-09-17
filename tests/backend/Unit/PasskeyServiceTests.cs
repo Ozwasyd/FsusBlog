@@ -34,12 +34,14 @@ public sealed class PasskeyServiceTests
             PasskeyService.ClassifyPasskeyCounter(storedSignCount, actualSignCount));
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void CachePolicyId_SecurityPasskeyRegChallenge_HasStableNumericValue()
     {
         Assert.Equal(24, (int)CachePolicyId.SecurityPasskeyRegChallenge);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void CachePolicyId_SecurityPasskeyAuthChallenge_HasStableNumericValue()
     {
@@ -52,6 +54,7 @@ public sealed class PasskeyServiceTests
         { CachePolicyId.SecurityPasskeyAuthChallenge, "sec", "pk-auth" }
     };
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Theory]
     [MemberData(nameof(PasskeyPolicyCases))]
     public void CachePolicyRegistry_PasskeyPolicies_PreserveSecurityContract(
@@ -72,6 +75,7 @@ public sealed class PasskeyServiceTests
         Assert.Null(policy.InvalidationTags);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(CachePolicyId.SecurityPasskeyRegChallenge, "AABBCCDD1122", "fsus:sec:pk-reg:AABBCCDD1122")]
     [InlineData(CachePolicyId.SecurityPasskeyAuthChallenge, "EEFF99887766", "fsus:sec:pk-auth:EEFF99887766")]
@@ -86,6 +90,7 @@ public sealed class PasskeyServiceTests
         Assert.Equal(expectedKey, policy.BuildKey(identity));
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData("")]
     [InlineData("  ")]
@@ -104,6 +109,7 @@ public sealed class PasskeyServiceTests
         { "Alice Public", false, "Alice Public", "Alice Public", 0x11 }
     };
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Theory]
     [MemberData(nameof(AnonymousMetadataCases))]
     public void BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle(
@@ -126,6 +132,7 @@ public sealed class PasskeyServiceTests
         Assert.NotSame(storedHandle, metadata.UserHandle);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "passkey-handle-ownership-boundary")]
     [Fact]
     public void CredentialOwnership_AcceptsStoredRandomHandleAndRejectsInternalAccountIdDerivation()
     {
@@ -137,6 +144,7 @@ public sealed class PasskeyServiceTests
         Assert.False(PasskeyService.IsUserHandleOwnerOfCredentialForTests(storedHandle, null));
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void PasskeyCredential_UsesAccountIdColumnAndIndexWithoutLegacyUserId()
     {

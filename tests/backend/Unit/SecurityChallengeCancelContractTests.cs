@@ -4,12 +4,14 @@ using FsusBlog.Shared.Contracts.Security;
 using FsusBlog.Shared.Contracts.Validation;
 
 using SharedFrameType = FsusBlog.Shared.AedsFrameType;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests;
 
 public sealed class SecurityChallengeCancelContractTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CancellationRequest_RoundTripsAllServerBindings()
     {
         var request = new SecurityChallengeCancelBinaryRequest(
@@ -32,6 +34,7 @@ public sealed class SecurityChallengeCancelContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CancellationRequest_RejectsTruncatedPayload()
     {
         var request = new SecurityChallengeCancelBinaryRequest(

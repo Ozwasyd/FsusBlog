@@ -20,6 +20,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PowValidationLogicTests
@@ -30,6 +31,7 @@ public sealed class PowValidationLogicTests
     [InlineData("127.0.0.1")]
     [InlineData("172.17.0.1")]
     [InlineData("172.18.0.1")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ValidateAsync_RejectsProofBoundToFallbackIpWithoutConsumingProof(string proofIp)
     {
         var fixture = CreateFixture();
@@ -64,6 +66,7 @@ public sealed class PowValidationLogicTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ValidateAsync_AcceptsProofBoundToNormalizedClientIp()
     {
         const string ClientIp = "203.0.113.10";
@@ -81,6 +84,7 @@ public sealed class PowValidationLogicTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ValidateAsync_NormalizesInternalPowExceptionsToUnauthorized()
     {
         const string ClientIp = "203.0.113.10";
@@ -98,6 +102,7 @@ public sealed class PowValidationLogicTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ValidateAsync_InternalPowExceptionLog_UsesIpHashAndOmitsRawClientIp()
     {
         const string ClientIp = "203.0.113.10";
@@ -124,6 +129,7 @@ public sealed class PowValidationLogicTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ValidateAsync_AccessDeniedLog_UsesIpHashAndOmitsRawClientIp()
     {
         const string ClientIp = "203.0.113.10";
@@ -150,6 +156,7 @@ public sealed class PowValidationLogicTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PowValidationLogic_LoggingContract_UsesHashedClientIdentityParameters()
     {
         MethodInfo accessDenied = typeof(PowValidationLogic).GetMethod(

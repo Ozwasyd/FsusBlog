@@ -7,6 +7,7 @@ using FsusBlog.Shared.Contracts.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ChallengeV2EventWriterTests
@@ -16,6 +17,7 @@ public sealed class ChallengeV2EventWriterTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task WriteAsync_DropsLowValueTelemetryWhenNormalQueueIsFullButKeepsReplayEvent()
     {
         var logger = new CapturingLogger<ChallengeV2AuditEventQueue>();
@@ -47,6 +49,7 @@ public sealed class ChallengeV2EventWriterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task FlushOnceAsync_WritesQueuedAttemptsInConfiguredBatches()
     {
         var persistence = new RecordingChallengePersistence();
@@ -86,6 +89,7 @@ public sealed class ChallengeV2EventWriterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task WriteAsync_LogsStructuredFallbackWhenHighValueLaneIsFull()
     {
         var logger = new CapturingLogger<ChallengeV2AuditEventQueue>();

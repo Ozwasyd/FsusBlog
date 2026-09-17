@@ -2,12 +2,14 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class GlobalExceptionMiddlewareTests
@@ -23,6 +25,7 @@ public sealed class GlobalExceptionMiddlewareTests
         return new GlobalExceptionMiddleware(next, NullLogger<GlobalExceptionMiddleware>.Instance, env);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_NoException_CallsNext()
     {
@@ -41,6 +44,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.True(nextCalled);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "mw-cancel-no-response")]
     [Fact]
     public async Task InvokeAsync_OperationCanceledException_DoesNotWriteResponse()
     {
@@ -56,6 +60,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(0, responseBody.Length);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_ArgumentException_Returns400()
     {
@@ -69,6 +74,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_BadHttpRequestException_Returns400WithoutBindingDetail()
     {
@@ -91,6 +97,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.DoesNotContain("' OR '1'='1", body);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_UnauthorizedAccessException_Returns401()
     {
@@ -104,6 +111,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_KeyNotFoundException_Returns404()
     {
@@ -117,6 +125,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_NotImplementedException_Returns501()
     {
@@ -130,6 +139,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(StatusCodes.Status501NotImplemented, context.Response.StatusCode);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_UnknownException_Returns500()
     {
@@ -143,6 +153,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "mw-production-no-exception-leak")]
     [Fact]
     public async Task InvokeAsync_Production500_DoesNotLeakExceptionMessage()
     {
@@ -164,6 +175,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal("application/octet-stream", context.Response.ContentType);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_Development500_ShowsExceptionMessage()
     {
@@ -183,6 +195,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Contains("internal detail", body);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task InvokeAsync_BinaryAccept_WritesApiErrorFrame()
     {
@@ -214,6 +227,7 @@ public sealed class GlobalExceptionMiddlewareTests
         Assert.Equal("请求参数非法", PodUtf8Codec.FromFixed256(pod.Message));
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "mw-started-response-rethrow")]
     [Fact]
     public async Task InvokeAsync_ResponseHasStarted_RethrowsException()
     {

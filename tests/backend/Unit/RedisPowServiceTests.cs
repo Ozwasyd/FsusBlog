@@ -42,6 +42,7 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task GenerateChallengeAsync_UsesUrlSafeSignatureEncoding()
     {
         var cache = new OneShotCache();
@@ -56,6 +57,7 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_AcceptsChallengeSignatureAfterUrlQueryRoundTrip()
     {
         var cache = new OneShotCache();
@@ -78,6 +80,7 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsStandardBase64SignatureCompatibilityFormat()
     {
         var cache = new OneShotCache();
@@ -100,6 +103,7 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsOverlongProofFieldsWithoutThrowing()
     {
         var cache = new OneShotCache();
@@ -120,6 +124,7 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsMalformedSignatureWithoutThrowing()
     {
         var cache = new OneShotCache();
@@ -142,6 +147,7 @@ public sealed class RedisPowServiceTests
     [Theory]
     [InlineData(long.MinValue)]
     [InlineData(long.MaxValue)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsExtremeTimestampsWithoutThrowing(long timestamp)
     {
         var cache = new OneShotCache();
@@ -164,6 +170,7 @@ public sealed class RedisPowServiceTests
     [Theory]
     [InlineData(long.MinValue)]
     [InlineData(long.MaxValue)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ResolveReplayTtl_HandlesExtremeTimestampsWithoutThrowing(long timestamp)
     {
         MethodInfo method = typeof(RedisPowService).GetMethod("ResolveReplayTtl", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -175,6 +182,7 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CheckWorkloadWithSpan_RejectsDifficultyBeyondSha256BitRange()
     {
         var request = new VirtualPowRequest
@@ -196,6 +204,7 @@ public sealed class RedisPowServiceTests
     [Theory]
     [InlineData(8)]
     [InlineData(9)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CheckWorkloadWithSpan_AcceptsByteAndBitAlignedDifficulties(int difficulty)
     {
         string browserFingerprint = "unit-browser";
@@ -215,6 +224,82 @@ public sealed class RedisPowServiceTests
         bool result = (bool)method.Invoke(null, [request])!;
 
         Assert.True(result);
+    }
+
+    [Theory]
+    [InlineData(31)]
+    [InlineData(32)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
+    public void Constructor_RequiresSigningKeyOfAtLeast32Characters(int length)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:Pow:SigningKey"] = new string('k', length)
+            })
+            .Build();
+        var cache = new OneShotCache();
+        var governor = new AdaptivePowGovernor(cache);
+
+        if (length < 32)
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                new RedisPowService(configuration, NullLogger<RedisPowService>.Instance, governor, cache));
+        }
+        else
+        {
+            _ = new RedisPowService(configuration, NullLogger<RedisPowService>.Instance, governor, cache);
+        }
+    }
+
+    [Theory]
+    [InlineData(-302)]
+    [InlineData(-298)]
+    [InlineData(298)]
+    [InlineData(302)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
+    public void ResolveReplayTtl_OnlyAcceptsTimestampsWithinPlusMinus300Seconds(long offsetSeconds)
+    {
+        long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + offsetSeconds;
+        MethodInfo method = typeof(RedisPowService).GetMethod("ResolveReplayTtl", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var ttl = (TimeSpan)method.Invoke(null, [timestamp])!;
+
+        if (Math.Abs(offsetSeconds) <= 298)
+        {
+            Assert.Equal(TimeSpan.FromMinutes(5), ttl);
+        }
+        else
+        {
+            Assert.Equal(TimeSpan.FromSeconds(1), ttl);
+        }
+    }
+
+    [Theory]
+    [InlineData("  padded-context  ", "padded-context")]
+    [InlineData("   ", "")]
+    [InlineData(null, "")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    public void NormalizeBindingContext_TrimsWhitespaceAndTreatsMissingAsEmpty(string? input, string expected)
+    {
+        MethodInfo method = typeof(RedisPowService).GetMethod("NormalizeBindingContext", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var result = (string)method.Invoke(null, [input])!;
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    public void HashForLog_TreatsNullAsEmptyInput()
+    {
+        MethodInfo method = typeof(RedisPowService).GetMethod("HashForLog", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var nullHash = (string)method.Invoke(null, [null])!;
+        var emptyHash = (string)method.Invoke(null, [string.Empty])!;
+
+        Assert.Equal(emptyHash, nullHash);
+        Assert.Equal(16, nullHash.Length);
     }
 
     private static RedisPowService CreateService(OneShotCache cache)

@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -24,6 +26,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     private static readonly SemaphoreSlim s_databaseResetLock = new(1, 1);
     private static string? s_sharedConnectionString;
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation()
     {
@@ -91,6 +94,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Equal(["old-credential"], credentialIdsBeforeCompletion);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence()
     {
@@ -131,6 +135,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
             CancellationToken.None);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-key-invalid-generic-failure")]
     [Fact]
     public async Task VerifyAsync_InvalidOrLegacyKey_ReturnsGenericFailureAndRateLimits()
     {
@@ -179,6 +184,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Equal("RECOVERY_KEY_RATE_LIMITED", locked.Error.Message);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-key-overlong-early-reject")]
     [Fact]
     public async Task VerifyAsync_OverlongRecoveryKeyRejectsBeforeAttemptCounterOrCredentialLookup()
     {
@@ -201,6 +207,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Equal(0, db.Queryable<RecoveryKeyCredential>().Count());
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     [Fact]
     public void RecoveryKeyService_BoundsInputAndDerivesAttemptIdentityOnlyFromLookup()
     {
@@ -233,6 +240,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Matches("^[0-9A-F]{32}$", first);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_LocksCandidateRowBeforeConsumingValidSecret()
     {

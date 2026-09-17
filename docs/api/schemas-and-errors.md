@@ -755,7 +755,7 @@ render: key-value-table
 | Key | Value |
 | --- | --- |
 | behaviorId | configuration-error-security-policy |
-| catalogDigest | 05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff |
+| catalogDigest | 982c77ee4d2a8bc0518f077f2719abe9809daa8f9485ddbaf1dcad11bf4669a1 |
 | documentPath | docs/api/schemas-and-errors.md |
 | factIds | ["facts.error-codes.domain.active","facts.error-codes.transport-mapping"] |
 <!-- FSUSBLOG-GENERATED:END api.error-authority-reference -->

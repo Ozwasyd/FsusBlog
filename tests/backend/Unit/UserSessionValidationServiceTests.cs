@@ -14,6 +14,7 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -23,6 +24,7 @@ public sealed class UserSessionValidationServiceTests
     private static readonly DateTime s_authenticatedAtUtc = new(2026, 7, 20, 1, 2, 3, DateTimeKind.Utc);
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void CachePayload_RoundTripsVersionedSessionSnapshot()
     {
         var state = new UserSessionValidationCacheState(
@@ -53,12 +55,14 @@ public sealed class UserSessionValidationServiceTests
     [InlineData("v2|7|42|-1|638900010000000000|638900020000000000|0|-1|anonymous_account")]
     [InlineData("v1|7|0|-1|638900010000000000|638900020000000000|0|-1|anonymous_account")]
     [InlineData("v1|7|42|-1|bad|638900020000000000|0|-1|anonymous_account")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void CachePayload_RejectsMalformedOrUnsupportedSnapshots(string payload)
     {
         Assert.Null(UserSessionValidationCache.Decode(payload, "session-42"));
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CachedActiveSession_AllowsRequestWithoutDatabaseRead()
     {
         const int AccountId = 42;
@@ -77,6 +81,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CachedSession_UsesInjectedBusinessClockForExpiry()
     {
         const int AccountId = 42;
@@ -103,6 +108,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CachedRevokedSession_RejectsRequestWithoutDatabaseRead()
     {
         const int AccountId = 42;
@@ -125,6 +131,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CachedUnknownSessionMode_FailsClosedWithoutDatabaseRead()
     {
         UserSessionValidationCacheState invalid = CreateState("invalid-mode", 42) with
@@ -144,6 +151,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CacheError_FallsBackToPostgresAndRepairsCache()
     {
         const int AccountId = 42;
@@ -171,6 +179,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CacheError_PostgresFailureFailsClosed()
     {
         var cache = Substitute.For<IUserSessionValidationCache>();
@@ -191,6 +200,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CacheRepairConflict_CannotOverrideAuthoritativeDatabaseRevocation()
     {
         const string SessionId = "repair-conflict-revoked";
@@ -225,6 +235,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CacheRepairConflict_FailsClosedInsteadOfAllowingStaleActiveDatabaseRead()
     {
         const string SessionId = "repair-conflict-active";
@@ -251,6 +262,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CacheMiss_FallbackBudgetRejectionFailsClosedWithoutDatabaseRead()
     {
         var cache = new StubSessionValidationCache(null);
@@ -272,6 +284,7 @@ public sealed class UserSessionValidationServiceTests
     [Theory]
     [InlineData(UserSessionMode.Restricted, "normal")]
     [InlineData(UserSessionMode.Normal, "restricted")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task SessionModeMismatch_UsesTheStricterServerEffectiveMode(UserSessionMode databaseMode, string tokenMode)
     {
         UserSessionValidationCacheState state = CreateState("mode-mismatch", 42) with
@@ -290,6 +303,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task DbFallbackGate_RejectsExcessConcurrencyAndOpensCircuit()
     {
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -315,6 +329,7 @@ public sealed class UserSessionValidationServiceTests
     [InlineData("auth_strength", null)]
     [InlineData("auth_time", null)]
     [InlineData("auth_time", "not-a-unix-time")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CachedSession_RejectsMissingMalformedOrMismatchedJwtAuthenticationContext(
         string claimType,
         string? replacement)
@@ -346,6 +361,7 @@ public sealed class UserSessionValidationServiceTests
     [InlineData("status", "account_deleted")]
     [InlineData("deleted-at", "account_deleted")]
     [InlineData("identity-kind", "user_session_identity_kind_mismatch")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CachedSession_RejectsOwnershipExpiryDeletionAndIdentityViolations(
         string mutation,
         string expectedReason)
@@ -377,6 +393,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task DistributedCacheToggle_CanEnterDbOnlyModeWithoutRestartOrRedisWrites()
     {
         var values = new Dictionary<string, string?>
@@ -411,6 +428,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task DistributedCacheRead_UsesDirectL2AndDecodesSnapshot()
     {
         UserSessionValidationCacheState state = CreateState("direct-l2-session", 42);
@@ -445,6 +463,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevocationPublish_UsesPostgresRowVersionAndOverwrite()
     {
         UserSessionValidationCacheState state = CreateState("revocation-publish", 42) with
@@ -484,6 +503,7 @@ public sealed class UserSessionValidationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevocationRollbackCleanup_RemovesDistinctDistributedSessionKeys()
     {
         UserSessionValidationCacheState first = CreateState("rollback-session-a", 42) with

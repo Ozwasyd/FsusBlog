@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,10 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCommentPolicyTests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-default-fail-closed")]
     [Fact]
     public void AnonymousCommentPolicy_DefaultsToZkFailClosedAndRejectsImplicitPublicMode()
     {
@@ -34,6 +37,7 @@ public sealed class AnonymousCommentPolicyTests
         Assert.True(explicitPublic.Allowed);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-disabled-rejects-modes")]
     [Fact]
     public void AnonymousCommentPolicy_DisabledAnonymousRejectsAnonymousAndZkModes()
     {
@@ -52,6 +56,7 @@ public sealed class AnonymousCommentPolicyTests
         Assert.Equal("anonymous_comments_disabled", zk.Status);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void AnonymousCommentPolicy_UpdateCanExposeZkAndCuratedLanguages()
     {
@@ -73,6 +78,7 @@ public sealed class AnonymousCommentPolicyTests
         Assert.Equal(10_000, updated.CommentMaxUtf8Bytes);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void AnonymousCommentPolicy_DefaultsAndValidatesConfigurableCommentLimits()
     {
@@ -92,6 +98,21 @@ public sealed class AnonymousCommentPolicyTests
         Assert.Equal(9000, configured.Current.CommentMaxUtf8Bytes);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    [Fact]
+    public void AnonymousCommentPolicy_EntityDefaultsAreFailClosedZkAnonymous()
+    {
+        var entity = new FsusBlog.Server.Entities.AnonymousCommentPolicy();
+
+        Assert.True(entity.AnonymousCommentsEnabled);
+        Assert.True(entity.PublicCommentsEnabled);
+        Assert.Equal("zk_anonymous", entity.DefaultAuthorMode);
+        Assert.Equal("zh-CN,en", entity.SupportedDisplayLanguages);
+        Assert.Equal(string.Empty, entity.SnapshotHash);
+        Assert.Equal("system", entity.ChangedBy);
+    }
+
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-limit-range-reject")]
     [Fact]
     public void AnonymousCommentPolicy_UpdateRejectsOutOfRangeCommentLimits()
     {
@@ -120,6 +141,7 @@ public sealed class AnonymousCommentPolicyTests
         Assert.Equal("CommentMaxUtf8Bytes", highBytes.ParamName);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-author-mode-reject")]
     [Fact]
     public void AnonymousCommentPolicy_UpdateRejectsInvalidAuthorMode()
     {
@@ -138,6 +160,7 @@ public sealed class AnonymousCommentPolicyTests
         Assert.Equal("DefaultAuthorMode", ex.ParamName);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AnonymousCommentPolicyService_GetCurrentAsyncYieldsWhilePolicyQueryIsSlow()
     {

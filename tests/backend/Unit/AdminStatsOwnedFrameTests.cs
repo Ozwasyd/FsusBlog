@@ -19,11 +19,13 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AdminStatsOwnedFrameTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task Rebuild_WhenGenerationChanges_DiscardsOldSourceAndOnlyInstallsFreshIdentity()
     {
         var cache = Substitute.For<IUnifiedCache>();
@@ -69,6 +71,7 @@ public sealed class AdminStatsOwnedFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task Invalidation_IncrementsGenerationBeforeRemovingPreviousIdentity()
     {
         var cache = Substitute.For<IUnifiedCache>();
@@ -110,6 +113,7 @@ public sealed class AdminStatsOwnedFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ResolveGeneration_AcrossCacheInstances_IgnoresOtherNodeStaleL1()
     {
         long sharedVersion = 0;
@@ -155,6 +159,7 @@ public sealed class AdminStatsOwnedFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task GenerationScopedSources_UseOnlyThePublishedGenerationIdentities()
     {
         var cache = Substitute.For<IUnifiedCache>();

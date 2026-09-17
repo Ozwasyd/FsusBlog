@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -18,6 +19,7 @@ public sealed class UserSessionMetadataProtectionTests
     private static readonly byte[] s_secondKey = Enumerable.Range(33, 32).Select(static value => (byte)value).ToArray();
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void Capture_StoresOnlyAccountScopedRotatingPseudonymsAndCoarseLabels()
     {
         var protector = new UserSessionMetadataProtector(new SecurityRiskPseudonymizer(7, s_firstKey));
@@ -49,6 +51,7 @@ public sealed class UserSessionMetadataProtectionTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ProtectForRead_AcceptsBoundedPreviousEpochThenExpiresIt()
     {
         DateTimeOffset now = new(2026, 7, 20, 0, 0, 0, TimeSpan.Zero);
@@ -78,6 +81,7 @@ public sealed class UserSessionMetadataProtectionTests
     [InlineData("::ffff:203.0.113.187", "203.0.113.0/24")]
     [InlineData("2001:db8:abcd:1234::1", "2001:db8:abcd::/48")]
     [InlineData("not-an-ip", null)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void MinimizeNetwork_AppliesConsistentIpv4AndIpv6Prefixes(string input, string? expected)
         => Assert.Equal(expected, UserSessionMetadataProtector.MinimizeNetwork(input));
 
@@ -87,6 +91,7 @@ public sealed class UserSessionMetadataProtectionTests
     [InlineData("Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0", "Firefox", "Linux", "Desktop")]
     [InlineData("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5) AppleWebKit Safari/604.1 Mobile", "Safari", "iOS", "Mobile")]
     [InlineData("Mozilla/5.0 (Linux; Android 14; Tablet) Chrome/124.0", "Chrome", "Android", "Tablet")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void ParseUserAgent_ReturnsOnlyLowCardinalityFamilies(
         string? userAgent,
         string browser,
@@ -97,6 +102,7 @@ public sealed class UserSessionMetadataProtectionTests
             UserSessionMetadataProtector.ParseUserAgent(userAgent));
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void MissingSignals_RemainOptionalForPasskeyCompatibleLogin()
     {
         var protector = new UserSessionMetadataProtector(new SecurityRiskPseudonymizer(1, s_firstKey));
@@ -110,6 +116,7 @@ public sealed class UserSessionMetadataProtectionTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void PersistenceAndResponseShapes_CannotReintroduceRawSessionMetadata()
     {
         string[] forbiddenProperties = ["DeviceFingerprint", "LastIp", "UserAgent"];

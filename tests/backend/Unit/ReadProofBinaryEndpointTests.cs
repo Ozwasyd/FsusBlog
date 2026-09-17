@@ -8,15 +8,18 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ReadProofBinaryEndpointTests
 {
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task ChallengeAsync_ValidAedsRequest_ReturnsChallengeFrame()
     {
@@ -42,6 +45,7 @@ public sealed class ReadProofBinaryEndpointTests
         await riskSink.DidNotReceiveWithAnyArgs().AddRiskAsync(default!, default);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-rejected-challenge-signal")]
     [Fact]
     public async Task ChallengeAsync_RejectedChallenge_WritesRiskSignalAndKeepsLegacyFallbackShape()
     {
@@ -71,6 +75,7 @@ public sealed class ReadProofBinaryEndpointTests
             Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task SubmitAsync_ValidAedsRequest_ReturnsSubmitFrame()
     {
@@ -101,6 +106,7 @@ public sealed class ReadProofBinaryEndpointTests
             Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-rejected-proof-signal")]
     [Fact]
     public async Task SubmitAsync_RejectedProof_WritesRiskSignal()
     {
@@ -124,6 +130,7 @@ public sealed class ReadProofBinaryEndpointTests
             Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-dedup-unavailable-no-work")]
     [Fact]
     public async Task SubmitAsync_DedupUnavailable_DoesNotCreateBackgroundRiskWork()
     {
@@ -152,6 +159,7 @@ public sealed class ReadProofBinaryEndpointTests
         await riskSink.DidNotReceiveWithAnyArgs().AddRiskAsync(default!, default);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-malformed-payload-error")]
     [Fact]
     public async Task ChallengeAsync_MalformedPayload_ReturnsApiErrorFrame()
     {

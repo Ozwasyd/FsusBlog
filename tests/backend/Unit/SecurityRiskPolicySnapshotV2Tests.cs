@@ -33,6 +33,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void DisabledMode_AllowsWithoutEnforcement()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Disabled);
@@ -45,6 +46,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RequiresRiskScoreLookup_UsesResolvedActionMode()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Enforce);
@@ -62,6 +64,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ObserveMode_RecordsOnlyWithoutChallengeOrBlock()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Observe);
@@ -76,6 +79,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void EnforceMode_UsesActionThresholdsForChallengeQueueAndBlock()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Enforce);
@@ -87,6 +91,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void StrictMode_AppliesRiskWeightBeforeThresholds()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Strict);
@@ -99,6 +104,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LockdownMode_BlocksAnonymousWritesBeforeScoreThresholds()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Lockdown);
@@ -111,6 +117,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ActionOverride_ReplacesDefaultThresholds()
     {
         var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -125,6 +132,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_MapsAuthAndCommentRiskToPerceptionSealedV2Bands()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -156,6 +164,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_UsesPerceptionSealedV2DefaultDecisionMatrix()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -192,6 +201,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     [InlineData(RiskActionNames.RecoveryKeyVerify, SecurityRiskPolicyOutcomes.Throttle)]
     [InlineData(RiskActionNames.NotificationSubscribe, SecurityRiskPolicyOutcomes.HardChallenge)]
     [InlineData(RiskActionNames.AdminSecurityWrite, SecurityRiskPolicyOutcomes.HardChallenge)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_AddsPerceptionSealedV2ActionOverrides(string actionName, string expectedOutcomeAt80)
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -202,6 +212,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_MapsNotificationSubscribeToMandatoryPowAndCriticalPoSpace()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -224,6 +235,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_ForcesRecoveryKeyVerifyCharacterChallengeChallengeAtZeroRisk()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -238,6 +250,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_DisabledCharacterProviderUsesCanonicalPowFallback()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
@@ -258,6 +271,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_DisabledPublicReadChallengeDisablesOnlyPublicReadOverride()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
@@ -272,6 +286,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void LegacyAdapter_InitializesRuntimeSubsystemModes()
     {
         SecurityRiskPolicySnapshotV2 snapshot = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -284,6 +299,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityAdminPolicyService_ReadsRiskControlEnvironmentFallbacks()
     {
         SecurityAdminPolicyService service = new(CreateConfiguration(new Dictionary<string, string?>
@@ -309,6 +325,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityAdminPolicyService_DerivesOnlyRuntimeEnabledCharacterChallenges()
     {
         SecurityAdminPolicyService disabled = new(CreateConfiguration());
@@ -330,6 +347,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityAdminPolicyService_UpdateRiskControlPolicy_ProjectsEmergencySwitchesAndLkg()
     {
         SecurityAdminPolicyService service = new(CreateConfiguration());
@@ -357,6 +375,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityAdminPolicyService_ReadsPerceptionV2EnvironmentFallbacks()
     {
         SecurityAdminPolicyService service = new(CreateConfiguration(new Dictionary<string, string?>
@@ -384,6 +403,7 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityAdminPolicyService_UpdatePerceptionV2Policy_ProjectsRuntimeSwitchesAndLkg()
     {
         SecurityAdminPolicyService service = new(CreateConfiguration());

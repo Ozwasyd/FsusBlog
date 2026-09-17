@@ -1,6 +1,7 @@
 using System.Buffers;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -9,6 +10,7 @@ public sealed class OwnedAedsFrameTests
     private static readonly AedsEncoder s_encoder = new();
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachOwnedFrame_PreservesWireBytesAndReportsLogicalAndBackingSizes()
     {
         byte[] payload = Enumerable.Range(0, 37).Select(static value => (byte)value).ToArray();
@@ -33,6 +35,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Retire_DefersExactlyOnePoolReturnUntilEveryReadLeaseEnds()
     {
         var pool = new TrackingArrayPool();
@@ -65,6 +68,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ReleasedLease_InvalidatesPreviouslyCapturedReadOnlyMemory()
     {
         var pool = new TrackingArrayPool();
@@ -84,6 +88,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void PinnedLease_DefersOwnerReleaseUntilMemoryHandleIsUnpinned()
     {
         var pool = new TrackingArrayPool();
@@ -105,6 +110,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ConcurrentRetireAndLeaseDisposal_ReturnPooledBufferOnce()
     {
         var pool = new TrackingArrayPool();
@@ -134,6 +140,7 @@ public sealed class OwnedAedsFrameTests
     [InlineData(AedsFrameType.CurrentUserSnapshot, true)]
     [InlineData(AedsFrameType.ArticleList, false)]
     [InlineData(AedsFrameType.PublicAotBootstrap, false)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachedOwner_UsesSensitivityAllowlistWhenReturningPoolBuffer(
         AedsFrameType frameType,
         bool expectedClear)
@@ -157,6 +164,7 @@ public sealed class OwnedAedsFrameTests
     [Theory]
     [InlineData(AedsFrameType.AdminStats, true)]
     [InlineData(AedsFrameType.ArticleDetail, false)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ExactOwner_ClearsSensitiveFramesButKeepsPublicImmutableFrames(
         AedsFrameType frameType,
         bool expectedClear)
@@ -173,6 +181,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachOwnedFrame_RequiresSealAndInvalidatesWriterAfterTransfer()
     {
         var pool = new TrackingArrayPool();
@@ -190,6 +199,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Builders_ProduceWireEquivalentPooledAndExactOwners()
     {
         byte[] payload = Enumerable.Range(0, 257).Select(static value => unchecked((byte)value)).ToArray();
@@ -214,6 +224,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BuildExact_RejectsPayloadLengthChangesBetweenPasses()
     {
         int pass = 0;
@@ -232,6 +243,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void PoolReturnFailure_StillCompletesBackingReleaseAccountingCallback()
     {
         var pool = new ThrowingReturnArrayPool();

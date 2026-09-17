@@ -14,11 +14,13 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeBinaryEndpointTests
@@ -29,6 +31,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task IssueAsync_ChallengeDecision_ReturnsChallengeResponseFrame()
     {
@@ -83,6 +86,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             orchestrator.LastIssueRequest.DeviceFpHash);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task IssueAsync_CharacterV3Decision_WritesGenericChallengeRiskSignal()
     {
@@ -120,6 +124,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(["perceptionCharacterV3"], orchestrator.LastIssueRequest.Decision.RequiredChallenges);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-v3-closed-until-activation")]
     [Fact]
     public async Task BinaryIssueAndVerify_V3StayClosedUntilProtocolActivation_WithoutCallingProvider()
     {
@@ -208,6 +213,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         await provider.Received(1).VerifyAsync(Arg.Any<SecurityChallengeProviderVerifyRequest>(), Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-raw-kind-generic-error")]
     [Theory]
     [InlineData(0)]
     [InlineData(3)]
@@ -244,6 +250,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("security_challenge_verify_request_invalid", PodBinaryCodec.ToErrorDetail(errorPod).Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-issue-v3-internal-failure-coarse")]
     [Theory]
     [InlineData("crypto_failure", "unavailable", StatusCodes.Status503ServiceUnavailable)]
     [InlineData("redis_failure", "unavailable", StatusCodes.Status503ServiceUnavailable)]
@@ -282,6 +289,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-manifest-missing-incompatible-fail")]
     [Theory]
     [InlineData("")]
     [InlineData("older-build")]
@@ -320,6 +328,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Null(orchestrator.LastIssueRequest);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task IssueAsync_MultiMemberWithCurrentExecutableManifest_ReachesProviderIssue()
     {
@@ -354,6 +363,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             orchestrator.LastIssueRequest.Decision.RequiredChallenges);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-ui-member-unavailable-fail")]
     [Fact]
     public async Task IssueAsync_MultiMemberWithUnavailableUiMember_FailsBeforeProviderIssue()
     {
@@ -387,6 +397,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Null(orchestrator.LastIssueRequest);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-pospace-unsupported-reissue")]
     [Fact]
     public async Task IssueAsync_PoSpaceUnsupportedAttributes_UsesServerReissueDecisionOverBinaryContract()
     {
@@ -433,6 +444,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("memory_tier_cap", reissue.LastRequest?.Reason);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_AcceptedProviderProof_ReturnsProofTokenFrame()
     {
@@ -474,6 +486,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("fpow", orchestrator.LastVerifyRequest.ProviderPayload["proof"]);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_AcceptedNonFinalMember_ReturnsProgressWithoutProof()
     {
@@ -523,6 +536,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(0, response.ExpiresAtUnixMs);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-oversized-provider-payload-reject")]
     [Fact]
     public async Task VerifyAsync_ProviderPayloadWithOversizedValue_ReturnsApiErrorWithoutCallingOrchestrator()
     {
@@ -561,6 +575,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal(0, orchestrator.VerifyCallCount);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     [Fact]
     public void SecurityChallengePayloadParser_EnforcesRuntimeEntryValueAndDepthBounds()
     {
@@ -598,6 +613,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.NotNull(cacheOptions.PropertyNamingPolicy);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-provider-failure-generic-error")]
     [Theory]
     [InlineData("perception_text_answer_invalid")]
     [InlineData("perception_coordinate_invalid")]
@@ -643,6 +659,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-verify-v3-internal-failure-coarse")]
     [Theory]
     [InlineData("provider_exception", "unavailable", StatusCodes.Status503ServiceUnavailable)]
     [InlineData("provider_missing", "unavailable", StatusCodes.Status503ServiceUnavailable)]
@@ -683,6 +700,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.DoesNotContain(internalReason, error.Details ?? string.Empty, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-composite-failure-max-attempts")]
     [Fact]
     public async Task VerifyAsync_RepeatedCompositeFailures_ReturnGenericFailureWithoutCallingOrchestratorAfterMaxAttempts()
     {
@@ -732,6 +750,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("challenge_verify_rate_limited", signal.Detail);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-rate-limited-malformed-payload")]
     [Fact]
     public async Task VerifyAsync_RateLimitedMalformedProviderPayload_ReturnsGenericFailureWithoutCallingOrchestrator()
     {
@@ -774,6 +793,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("challenge_verify_rate_limited", signal.Detail);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task CancelAsync_RevokesEnvelopeAndEveryPersistedMemberIdempotently()
     {
@@ -835,6 +855,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         await persistence.Received(1).RevokeAsync(secondId, "envelope_client_cancelled", Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task CancelAsync_BindingMissReturnsOpaqueSuccessWithoutTouchingMembers()
     {
@@ -867,6 +888,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public async Task CancelAsync_PlannedV3RevokesEnvelopeWithoutRequiringUnissuedProviderState()
     {
@@ -896,6 +918,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), "client_cancelled", Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-cancel-v3-disabled-fail-closed")]
     [Fact]
     public async Task CancelAsync_PerceptionCharacterV3DisabledServicesFailClosedWithoutBreakingRoute()
     {
@@ -920,6 +943,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(PerceptionCharacterV3TransitionKind.ReissueRequired, "revoked_now", "revoked", true)]
     [InlineData(PerceptionCharacterV3TransitionKind.ReissueRequired, "expired_or_revoked", "terminal", true)]
@@ -975,6 +999,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-cancel-redis-failure-unavailable")]
     [Fact]
     public async Task CancelAsync_PerceptionCharacterV3RedisFailureReturnsOnlyUnavailableAndAuditsReason()
     {
@@ -1008,6 +1033,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-unacceptable-accept-406")]
     [Theory]
     [InlineData("incompatible-media-type", "application/json")]
     [InlineData("binary-q-zero", "application/octet-stream;q=0")]
@@ -1067,6 +1093,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Empty(poSpaceUnsupportedReissueService.ReceivedCalls());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-incompatible-content-type-error")]
     [Fact]
     public async Task IssueAsync_IncompatibleContentType_ReturnsApiError()
     {
@@ -1090,6 +1117,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Contains("application/octet-stream", PodBinaryCodec.ToErrorDetail(errorPod).Message, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-missing-action-route-error")]
     [Fact]
     public async Task IssueAsync_MissingActionOrRoute_ReturnsApiError()
     {
@@ -1116,6 +1144,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Equal("security_challenge_action_route_required", PodBinaryCodec.ToErrorDetail(errorPod).Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-retired-raw-kind-generic-invalid")]
     [Theory]
     [InlineData((byte)3)]
     [InlineData((byte)10)]

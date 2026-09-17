@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]
@@ -24,6 +25,7 @@ public sealed class RecoveryPasskeyCompletionEndpointTests
     private const string CompleteRoute = "/api/binary/auth/recovery-key/passkey/register/complete";
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MappedCompleteEndpoint_SuccessEmitsAedsEmptySuccess()
     {
         var recoveryKeys = Substitute.For<IRecoveryKeyService>();
@@ -49,6 +51,7 @@ public sealed class RecoveryPasskeyCompletionEndpointTests
     [Theory]
     [InlineData(ErrorCode.Conflict, "RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS", StatusCodes.Status409Conflict)]
     [InlineData(ErrorCode.InfraFailure, "RECOVERY_PASSKEY_RETRYABLE", StatusCodes.Status500InternalServerError)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MappedCompleteEndpoint_StateMachineFailureEmitsAedsApiError(
         ErrorCode code,
         string message,

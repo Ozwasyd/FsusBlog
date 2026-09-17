@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -12,6 +13,7 @@ public sealed class RiskDecisionServiceTests
     private readonly RiskDecisionService _service = new();
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PublicReadBelowChallenge_Allows()
     {
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.PublicRead), CreatePolicy(SecuritySystemModes.Enforce), 49);
@@ -23,6 +25,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PublicReadAtChallenge_ReturnsChallenge()
     {
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.PublicRead), CreatePolicy(SecuritySystemModes.Enforce), 50);
@@ -34,6 +37,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PublicReadAtBlock_ReturnsBlock()
     {
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.PublicRead), CreatePolicy(SecuritySystemModes.Enforce), 100);
@@ -44,6 +48,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_DevelopmentLocalBypass_AllowsRiskControl()
     {
         RiskDecision decision = _service.Decide(
@@ -60,6 +65,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_ChallengeQueueAndBlock_RecordDecisionMetrics()
     {
         var measurements = new List<string>();
@@ -97,6 +103,7 @@ public sealed class RiskDecisionServiceTests
     [Theory]
     [InlineData(true, false, "verified_crawler")]
     [InlineData(false, true, "social_preview_bot")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_CrawlerMarks_AlwaysAllow(bool verifiedCrawler, bool socialPreviewBot, string expectedReason)
     {
         RiskControlContext context = CreateContext(
@@ -111,6 +118,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_ObserveMode_AllowsEvenWhenThresholdWouldBlock()
     {
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.PublicRead), CreatePolicy(SecuritySystemModes.Observe), 100);
@@ -121,6 +129,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_StrictMode_UsesEffectiveRiskScore()
     {
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.PublicRead), CreatePolicy(SecuritySystemModes.Strict), 40);
@@ -131,6 +140,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_LockdownMode_BlocksAnonymousCommentWrite()
     {
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.CommentCreate), CreatePolicy(SecuritySystemModes.Lockdown), 0);
@@ -142,6 +152,7 @@ public sealed class RiskDecisionServiceTests
     [Theory]
     [InlineData("passkeyStepUpV1")]
     [InlineData("adminPasskeyStepUpV1")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_StepUpChallengeKind_ReturnsStepUp(string challengeKind)
     {
         var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -157,6 +168,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PasskeySubstitutionPolicy_OmitsPerceptionCharacterV3()
     {
         var overrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -178,6 +190,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_AuthLoginCharacterChallengePolicy_ReturnsMediumCharacterChallengeAndHighComboChallenge()
     {
         SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
@@ -206,6 +219,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PerceptionSealedV2Matrix_CoversRiskBandsWithoutIssuingCriticalChallenges()
     {
         SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -232,6 +246,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_CriticalRiskRouting_UsesActionSpecificEarlyControl()
     {
         SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot()) with
@@ -258,6 +273,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_CriticalNotificationSubscribe_RejectsWhenPoSpaceCannotRoute()
     {
         SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
@@ -270,6 +286,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_ObserveModeWithCharacterChallengePolicy_RecordsOnlyWithoutRequiredChallenges()
     {
         SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
@@ -291,6 +308,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_CharacterChallengeSubsystemDisabled_DoesNotIssueCharacterChallengeChallenge()
     {
         SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin);
@@ -314,6 +332,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceSubsystemDisabled_DowngradesToCharacterChallenge()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled);
@@ -327,6 +346,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceAndCharacterChallengeSubsystemsDisabled_DoesNotIssueFallbackChallenge()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled) with
@@ -347,6 +367,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceSubsystemEnabledOnDesktop_ReturnsPoSpace()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
@@ -358,6 +379,7 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceSubsystemEnabledOnMobile_DowngradesToCharacterChallenge()
     {
         SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);

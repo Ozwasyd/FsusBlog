@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class Sha256PowChallengeProviderTests
@@ -29,6 +30,7 @@ public sealed class Sha256PowChallengeProviderTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterSha256PowProvider()
     {
         var services = new ServiceCollection();
@@ -43,6 +45,7 @@ public sealed class Sha256PowChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ReturnsAssignmentWithPowPayloadAndPersistsAuditMetadata()
     {
         var fixture = CreateFixture();
@@ -69,6 +72,7 @@ public sealed class Sha256PowChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_AcceptsLegacyFpowProofAndConsumesItOnce()
     {
         var fixture = CreateFixture();
@@ -92,6 +96,7 @@ public sealed class Sha256PowChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsDifficultyBelowGovernorRequirementBeforeConsumingProof()
     {
         var fixture = CreateFixture();
@@ -110,6 +115,7 @@ public sealed class Sha256PowChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsTamperedSignature()
     {
         var fixture = CreateFixture();
@@ -132,6 +138,7 @@ public sealed class Sha256PowChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_RejectsProofIssuedForDifferentChallengeContext()
     {
         var fixture = CreateFixture();

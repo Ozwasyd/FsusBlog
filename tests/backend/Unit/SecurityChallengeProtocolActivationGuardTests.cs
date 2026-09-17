@@ -9,12 +9,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeProtocolActivationGuardTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Guard_RemainsClosedUntilDurableExactReceiptThenFailsClosedOnFenceDrift()
     {
         ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
@@ -45,6 +47,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task Guard_FailsClosedWhenPoolPolicyOrFrontendFingerprintDrifts()
     {
         ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
@@ -77,6 +80,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     [InlineData("Production", false)]
     [InlineData("Development", true)]
     [InlineData("Testing", true)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvalidReleaseSlotOnlyBypassesActivationInExplicitLocalEnvironments(
         string environmentName,
         bool expectedOpen)
@@ -106,6 +110,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ProductionCacheFailureFailsClosed()
     {
         IDistributedCache cache = Substitute.For<IDistributedCache>();
@@ -122,6 +127,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PublishedFrontendTarget_ExactBuildPassesAndMixedFingerprintFailsReadinessValidation()
     {
         string root = Path.Combine(Path.GetTempPath(), "fsus-v3-target-" + Guid.CreateVersion7().ToString("N"));

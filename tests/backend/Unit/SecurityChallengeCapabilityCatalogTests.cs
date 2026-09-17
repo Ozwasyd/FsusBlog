@@ -4,11 +4,13 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
 
 using Microsoft.Extensions.Configuration;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Tests.Unit;
 
 public sealed class SecurityChallengeCapabilityCatalogTests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void Catalog_CoversEveryEnumAndKeepsFiveStatesIndependent()
     {
@@ -50,6 +52,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.True(headlessPoSpace.PolicyEligible);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-old-manifest-reject")]
     [Fact]
     public void Resolve_AllowsShaPowAcrossUiAndHeadlessButRejectsOldManifest()
     {
@@ -73,6 +76,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.True(notification.PolicyEligible);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void PolicyService_AllowsPoSpaceAfterExecutorAndHostsAreRegistered()
     {
@@ -90,6 +94,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.Equal(SecuritySystemModes.Enforce, updated.SubsystemModes[SecurityRiskSources.PoSpace]);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void PolicyService_AcceptsOrderedTwoMemberAndSingleMemberSnapshots()
     {
@@ -106,6 +111,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.Equal([characterChallenge], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-ordered-member-unavailable-reject")]
     [Fact]
     public void PolicyService_RejectsSnapshotWhenAnyOrderedMemberIsUnavailable()
     {
@@ -119,6 +125,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.Contains("challenge_capability_unavailable", error.Message, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-duplicate-overlimit-noncanonical-reject")]
     [Fact]
     public void PolicyService_RejectsDuplicateOverLimitAndNoncanonicalSets()
     {
@@ -138,6 +145,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
         Assert.Contains("challenge_kind_noncanonical", noncanonical.Message, StringComparison.Ordinal);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-character-provider-disabled-reject")]
     [Fact]
     public void PolicyService_RejectsCharacterSnapshotWhenRuntimeProviderIsDisabled()
     {

@@ -14,11 +14,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadSecurityGateTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityGate_EnforcesPublicReadDecisionsAndTelemetryAtRuntime()
     {
         foreach (RiskDecisionKind kind in new[]
@@ -72,6 +74,7 @@ public sealed class PublicHotReadSecurityGateTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityGate_AllowWritesNoRiskEventAndEndpointFallbackReusesTheDecision()
     {
         var sink = new CapturingRiskSink();
@@ -104,6 +107,7 @@ public sealed class PublicHotReadSecurityGateTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityGate_DisabledPublicReadSkipsRiskScoreLookupAndStillUsesDecisionService()
     {
         var sink = new CapturingRiskSink();
@@ -146,6 +150,7 @@ public sealed class PublicHotReadSecurityGateTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task DynamicRiskAwareFilter_KeepsStrongRiskScoreReaderAndNeverUsesL0Projection()
     {
         var sink = new CapturingRiskSink();
@@ -170,6 +175,7 @@ public sealed class PublicHotReadSecurityGateTests
     [Theory]
     [InlineData("VerifiedCrawler")]
     [InlineData("SocialPreviewBot")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityGate_VerifiedCrawlerAndSocialPreviewCanUseZeroRiskAllowPath(string identityFlag)
     {
         var sink = new CapturingRiskSink();
@@ -203,6 +209,7 @@ public sealed class PublicHotReadSecurityGateTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityGate_InvalidProofIsRejectedAsPowFailureNotChallengeRequired()
     {
         var sink = new CapturingRiskSink();
@@ -223,6 +230,7 @@ public sealed class PublicHotReadSecurityGateTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityGate_ReplayedProofIsRejectedWithPowRiskSemantics()
     {
         var sink = new CapturingRiskSink();

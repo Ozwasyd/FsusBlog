@@ -4,12 +4,15 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AntiCrawlerPolicyBehaviorTests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void AtomicSnapshotWrite_ReplacesCompleteJsonAndLeavesNoTemporaryFile()
     {
@@ -36,6 +39,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
         }
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anticrawler-unsafe-provider-url-reject")]
     [Theory]
     [InlineData("http://developers.google.com/static/search/apis/ipranges/googlebot.json")]
     [InlineData("https://internal-admin/api/secrets")]
@@ -48,6 +52,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
             service.UpdateAntiCrawlerOptions(CreateUpdate(googleUrl: configured), "test"));
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anticrawler-snapshot-path-outside-root-reject")]
     [Theory]
     [InlineData("../crawler-ranges.snapshot.json")]
     [InlineData("/tmp/fsus-crawler-ranges.snapshot.json")]
@@ -60,6 +65,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
             service.UpdateAntiCrawlerOptions(CreateUpdate(snapshotPath: configured), "test"));
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void UpdateAntiCrawlerOptions_AcceptsOfficialProvidersAndRelativeSnapshotPath()
     {
@@ -77,6 +83,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
         Assert.Equal("crawler/last-known-good.json", snapshot.Options.SnapshotPath);
     }
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void ListRiskEvents_ClampsUntrustedLimitsAtPublicServiceBoundary()
     {

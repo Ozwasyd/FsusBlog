@@ -23,6 +23,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCommentTicketEndpointFilterTests
@@ -45,6 +46,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     [InlineData(IdentityContamination.CookieAndAuthorization)]
     [InlineData(IdentityContamination.AuthenticatedPrincipal)]
     [InlineData(IdentityContamination.AuthoringBridgeHeader)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RealEndpoint_IdentityContaminationRejectsBeforeEveryTicketBoundary(
         IdentityContamination contamination)
     {
@@ -64,6 +66,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RealEndpoint_ConcurrentIdentityContaminationNeverEntersExpensiveBoundaries()
     {
         const int Attempts = 32;
@@ -96,6 +99,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     [InlineData(InvalidPayloadKind.MalformedAeds)]
     [InlineData(InvalidPayloadKind.OversizedProof)]
     [InlineData(InvalidPayloadKind.OrdinaryValidation)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RealEndpoint_IdentityContaminationPrecedesPayloadAndValidationFailures(
         InvalidPayloadKind payloadKind)
     {
@@ -118,6 +122,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RealEndpoint_CleanValidRequestEntersDecodeProofNullifierAndTicketStore()
     {
         await using var server = await AnonymousTicketPipelineServer.CreateAsync();

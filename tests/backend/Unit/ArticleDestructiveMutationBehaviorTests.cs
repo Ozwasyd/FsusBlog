@@ -65,6 +65,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -101,6 +102,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteAsync_EstablishesFenceBeforeDeleteAndFailsClosedWhenFenceIsUnavailable()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -137,6 +139,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -170,6 +173,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PermanentDeleteAndClearTrash_NeverRemoveActiveArticles()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -195,6 +199,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task PermanentlyDeleteArticleAsync_ConcurrentWritersAllowExactlyOneRemoval()
     {
         string connectionString = classDatabase.ConnectionString;

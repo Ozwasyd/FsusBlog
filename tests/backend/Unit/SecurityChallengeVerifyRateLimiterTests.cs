@@ -52,6 +52,7 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task TryAcquireAsync_TimeBoundaryDoesNotResetCounterIdentity()
     {
         Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
@@ -77,6 +78,7 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityChallengeVerifyRateLimiter_DoesNotKeepLocalGrowingCollections()
     {
         Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
@@ -88,6 +90,104 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
         Assert.DoesNotContain(fields, static field =>
             field.FieldType.Name.Contains("ConcurrentDictionary", StringComparison.Ordinal)
             || typeof(System.Collections.IDictionary).IsAssignableFrom(field.FieldType));
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    public async Task TryAcquireAsync_NormalizesActionIntoLowercaseSafeIdentitySegment()
+    {
+        Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
+            "FsusBlog.Server.Services.Security.SecurityChallengeVerifyRateLimiter")
+            ?? throw new Xunit.Sdk.XunitException("SecurityChallengeVerifyRateLimiter type must exist.");
+        MethodInfo method = limiterType.GetMethod(
+            "TryAcquireAsync",
+            [typeof(HttpContext), typeof(string), typeof(string), typeof(CancellationToken)])
+            ?? throw new Xunit.Sdk.XunitException("TryAcquireAsync signature must match the endpoint contract.");
+        var cache = new WindowCounterCache();
+        var clock = new MutableTimeProvider(s_baselineNow);
+        object limiter = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
+            ?? throw new Xunit.Sdk.XunitException("Unable to construct limiter instance.");
+
+        Assert.True(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", " AUTH.Login!@# "));
+
+        string identity = Assert.Single(cache.Identities);
+        Assert.Contains(":auth.login___:", identity, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    public async Task TryAcquireAsync_IdentityEndsWithSha256ChallengeDigest()
+    {
+        Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
+            "FsusBlog.Server.Services.Security.SecurityChallengeVerifyRateLimiter")
+            ?? throw new Xunit.Sdk.XunitException("SecurityChallengeVerifyRateLimiter type must exist.");
+        MethodInfo method = limiterType.GetMethod(
+            "TryAcquireAsync",
+            [typeof(HttpContext), typeof(string), typeof(string), typeof(CancellationToken)])
+            ?? throw new Xunit.Sdk.XunitException("TryAcquireAsync signature must match the endpoint contract.");
+        var cache = new WindowCounterCache();
+        var clock = new MutableTimeProvider(s_baselineNow);
+        object limiter = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
+            ?? throw new Xunit.Sdk.XunitException("Unable to construct limiter instance.");
+
+        Assert.True(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "auth.login"));
+
+        string expected = Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("challenge:challenge-1")));
+        string identity = Assert.Single(cache.Identities);
+        Assert.EndsWith(expected, identity, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
+    public async Task TryAcquireAsync_EmptyChallengeIdFallsBackToMissingSegment()
+    {
+        Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
+            "FsusBlog.Server.Services.Security.SecurityChallengeVerifyRateLimiter")
+            ?? throw new Xunit.Sdk.XunitException("SecurityChallengeVerifyRateLimiter type must exist.");
+        MethodInfo method = limiterType.GetMethod(
+            "TryAcquireAsync",
+            [typeof(HttpContext), typeof(string), typeof(string), typeof(CancellationToken)])
+            ?? throw new Xunit.Sdk.XunitException("TryAcquireAsync signature must match the endpoint contract.");
+        var cache = new WindowCounterCache();
+        var clock = new MutableTimeProvider(s_baselineNow);
+        object limiter = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
+            ?? throw new Xunit.Sdk.XunitException("Unable to construct limiter instance.");
+
+        Assert.True(await InvokeAsync(method, limiter, CreateContext(), "   ", "auth.login"));
+
+        string expected = Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("challenge:missing")));
+        string identity = Assert.Single(cache.Identities);
+        Assert.EndsWith(expected, identity, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
+    public async Task TryAcquireAsync_ChallengeIdLongerThanLimitIsTruncatedBeforeHashing()
+    {
+        Type limiterType = typeof(SecurityChallengeProofService).Assembly.GetType(
+            "FsusBlog.Server.Services.Security.SecurityChallengeVerifyRateLimiter")
+            ?? throw new Xunit.Sdk.XunitException("SecurityChallengeVerifyRateLimiter type must exist.");
+        MethodInfo method = limiterType.GetMethod(
+            "TryAcquireAsync",
+            [typeof(HttpContext), typeof(string), typeof(string), typeof(CancellationToken)])
+            ?? throw new Xunit.Sdk.XunitException("TryAcquireAsync signature must match the endpoint contract.");
+        var cache = new WindowCounterCache();
+        var clock = new MutableTimeProvider(s_baselineNow);
+        object limiter = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
+            ?? throw new Xunit.Sdk.XunitException("Unable to construct limiter instance.");
+        string challengeId = new string('c', 100);
+
+        Assert.True(await InvokeAsync(method, limiter, CreateContext(), challengeId, "auth.login"));
+
+        string expected = Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes($"challenge:{new string('c', 64)}")));
+        string identity = Assert.Single(cache.Identities);
+        Assert.EndsWith(expected, identity, StringComparison.Ordinal);
     }
 
     private static async Task<bool> InvokeAsync(

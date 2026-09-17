@@ -3,6 +3,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 
 using Microsoft.AspNetCore.Http;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RiskControlSimulatorContractTests
@@ -12,6 +13,7 @@ public sealed class RiskControlSimulatorContractTests
     [InlineData(50, RiskDecisionKind.Challenge, "challenge")]
     [InlineData(90, RiskDecisionKind.QueueForModeration, "queue_for_moderation")]
     [InlineData(125, RiskDecisionKind.Block, "block")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task BuildRiskControlSimulationAsync_UsesProductionRiskDecisionService(
         int riskScore,
         RiskDecisionKind expectedKind,
@@ -54,6 +56,7 @@ public sealed class RiskControlSimulatorContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task BuildRiskControlSimulationAsync_ReadsCurrentScoreWithoutResettingRiskState()
     {
         var riskScores = new RecordingRiskScoreReader(72);

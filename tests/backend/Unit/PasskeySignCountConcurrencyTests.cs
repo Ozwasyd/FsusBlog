@@ -21,6 +21,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -45,6 +46,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         .GetMethod("GetOrCreateStablePasskeyUserHandleAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("GetOrCreateStablePasskeyUserHandleAsync should exist.");
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task StablePasskeyUserHandle_ConcurrentFirstRegistrationReturnsOneFinalHandle()
     {
@@ -77,6 +79,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Equal(stored.PasskeyUserHandle, secondStaleUser.PasskeyUserHandle);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task RemoveCredentialAsync_ConcurrentDeletesKeepOnePasskeyWithoutRecovery()
     {
@@ -116,6 +119,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.False(stored.RecoveryEnabled);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {
@@ -149,6 +153,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Equal(8, stored.SignCount);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task UserPasskeyAssertion_ConcurrentCasConflictReloadsWithoutCloneResponse()
     {
@@ -206,6 +211,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         await sessions.DidNotReceiveWithAnyArgs().RevokeAllSessionsAsync(default, default!, default);
     }
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {

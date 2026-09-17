@@ -11,6 +11,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -19,6 +20,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     private static readonly DateTime s_occurredAt = new(2026, 7, 20, 6, 30, 0, DateTimeKind.Utc);
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void VersionedOutboxMigration_IsAdditiveAndRegistersExactCoordinateBackfill()
     {
         ISchemaMigrationDescriptor descriptor = Assert.Single(
@@ -37,6 +39,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void VersionTwoEnvelope_PreservesExactReleasePolicyResponsibilityAndScopeCoordinates()
     {
         var item = new ArticleMutationOutboxEvent
@@ -86,6 +89,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Producer_CreatesVersionTwoColumnsAndRoundTripsBeforeAfterScopes()
     {
         var version = new ArticleVersionCoordinates(1501, 15, 1651, 1701, 1601, 16, 7);
@@ -113,6 +117,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void LegacyEnvelope_UsesStableColumnsAndArticlePublicationCompatibilityAlias()
     {
         var item = new ArticleMutationOutboxEvent
@@ -147,6 +152,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ConflictingReleaseAliases_AreRejectedInsteadOfReadingLatestState()
     {
         var item = new ArticleMutationOutboxEvent
@@ -172,6 +178,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void UnsupportedFutureSchema_IsRejectedForSafeReplayMigration()
     {
         var item = new ArticleMutationOutboxEvent
@@ -190,6 +197,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void SupersededReplay_PersistsOneExplicitReasonForEverySkippedEdge()
     {
         const string Reason = "superseded-by-release:1602";
@@ -203,6 +211,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DispatcherVersionGate_SkipsSupersededConsumersWithReasonAndRunsCurrentConsumers()
     {
         const string Reason = "superseded-by-release:1602";
@@ -262,6 +271,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DelayedProjectionCoordinates_PreserveCurrentArtifactsAndNotificationUsesOccurredAt()
     {
         Assert.True(ArticleMutationProjectionVersionPolicy.PreserveCurrentWhenCoordinateDoesNotResolve(
@@ -305,6 +315,7 @@ public sealed class ArticleMutationOutboxEnvelopeTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void SupersededDisposition_ReturnsNewlyCompletedAndMarksEveryRemainingEdgeSkipped()
     {
         var terminal = new HashSet<string>(StringComparer.Ordinal)

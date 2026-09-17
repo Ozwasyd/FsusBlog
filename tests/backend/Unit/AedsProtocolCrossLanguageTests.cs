@@ -14,15 +14,18 @@ using FsusBlog.Shared;
 using FsusBlog.Shared.Contracts.Envelopes;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
+using FsusBlog.Shared.Contracts.Governance;
 
 using CoreAedsEncoder = FsusBlog.Core.Algorithms.AedsEncoder;
 using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class AedsProtocolCrossLanguageTests
 {
     private static readonly Lazy<string> s_frontendProtocolRuntimeJson = new(ExecuteFrontendProtocolModule);
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void GeneratedContracts_CoverEveryFrameTypeAndTheExactV2HeaderLayout()
     {
@@ -51,6 +54,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(14, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.PayloadCrc16)).ToInt32());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendRoundTrip_AcceptsEveryGeneratedFrameType()
     {
@@ -76,6 +80,7 @@ public sealed class AedsProtocolCrossLanguageTests
         }
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void FrontendFrameTypeEnum_MatchesSharedProtocolMetadata()
     {
@@ -96,6 +101,7 @@ public sealed class AedsProtocolCrossLanguageTests
         }
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-legacy-admin-reset-retired")]
     [Fact]
     public void LegacyAdminPasswordResetFrame_IsRetiredAcrossProtocolSurfaces()
     {
@@ -118,6 +124,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal("AEDS frame type retired", decoded.Error.Message);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-legacy-aot-upload-removed")]
     [Fact]
     public void LegacyAotUploadFrame42_IsRemovedAcrossProtocolAndCodecSurfaces()
     {
@@ -160,6 +167,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.All(retiredTokens, token => Assert.DoesNotContain(token, codecShape, StringComparison.Ordinal));
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void FrontendHeaderConstants_MatchSharedProtocolMetadata()
     {
@@ -173,6 +181,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(FsusBlog.Shared.AedsFrameHeader.Magic, magic);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedMutationIdFixture()
     {
@@ -181,6 +190,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("mutation-id-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedApiErrorFixture()
     {
@@ -190,6 +200,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("api-error-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedPowChallengeFixture()
     {
@@ -199,6 +210,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("pow-challenge-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedAuthLoginFlowFixture()
     {
@@ -208,6 +220,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("auth-login-flow-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedMfaChallengeResultFixture()
     {
@@ -224,6 +237,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("mfa-challenge-result-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedMfaSetupStartFixture()
     {
@@ -241,6 +255,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("mfa-setup-start-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedAuthSessionListFixture()
     {
@@ -273,6 +288,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("auth-session-list-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedCurrentUserSnapshotFixture()
     {
@@ -283,6 +299,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("current-user-snapshot-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedIdentityAccountSnapshotFixture()
     {
@@ -305,6 +322,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("identity-account-snapshot-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedMfaProfileFixture()
     {
@@ -317,6 +335,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("mfa-profile-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedCategoryListFixture()
     {
@@ -331,6 +350,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("category-list-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedConversationListFixture()
     {
@@ -367,6 +387,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("conversation-list-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedConversationMessageFixture()
     {
@@ -387,6 +408,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("conversation-message-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedConversationDetailFixture()
     {
@@ -421,6 +443,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("conversation-detail-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedCommentArticleCursorFixture()
     {
@@ -456,6 +479,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("comment-article-cursor-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_EmitsArticleListWithExactPublicationCoordinates()
     {
@@ -514,6 +538,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal([1201L, 1202L], decoded.Items.Select(static item => item.CurrentPublicationId!.Value).ToArray());
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedArticleFeaturedFixture()
     {
@@ -528,6 +553,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("article-featured-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_EmitsArticleDetailV5WithExactPublicationCoordinates()
     {
@@ -566,6 +592,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(4, decoded.PublicationNo);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendDecoder_ReadsCheckedInArticleDetailV3FixtureWithoutUpdatedAt()
     {
@@ -580,6 +607,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Null(detail.UpdatedAt);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedArticleHotFixture()
     {
@@ -591,6 +619,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("article-hot-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedArticleRelatedReadingFixture()
     {
@@ -608,6 +637,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("article-related-reading-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_EmitsArticleSearchWithExactPublicationCoordinates()
     {
@@ -635,6 +665,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(4, item.PublicationNo);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedRecentCommentStatsFixture()
     {
@@ -663,6 +694,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("recent-comment-stats-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedRegionStatsFixture()
     {
@@ -677,6 +709,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("region-stats-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedAdminStatsFixture()
     {
@@ -707,6 +740,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("admin-stats-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedSeoConfigFixture()
     {
@@ -743,6 +777,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("seo-config-frame.hex"), encoded);
     }
 
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     [Fact]
     public void BackendEncoder_MatchesSharedPageContentFixture()
     {

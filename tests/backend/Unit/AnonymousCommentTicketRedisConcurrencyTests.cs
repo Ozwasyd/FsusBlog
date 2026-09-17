@@ -22,6 +22,7 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -37,6 +38,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ConsumeTicketAsync_RealRedisL2RaceReturnsExactlyOnePayloadAndConverges()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -58,6 +60,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ConsumeTicketAsync_WarmedL1RaceStillUsesRedisAuthorityExactlyOnce()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: true);
@@ -84,6 +87,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ConsumeTicketAsync_ExpiredRedisTtlReturnsOnlyMisses()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -103,6 +107,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ConsumeTicketAsync_MalformedOrTamperedPayloadFailsClosedAndDoesNotReviveKey(bool tamperVersion)
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -128,6 +133,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ConsumeTicketAsync_CancellationAndRedisFailureAllowAtMostOneLaterSuccess()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -182,6 +188,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateStrongAnonymousCommentAsync_SameRealTicketRaceCommitsOneTransactionAndReplays()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);

@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests;
 
@@ -13,6 +14,7 @@ public sealed class AntiSpamModerationServiceTests
     [InlineData("ip")]
     [InlineData("authorId")]
     [InlineData("replyToUserId")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ValidateModelRequestJson_RejectsLegacyIdentityFields(string forbiddenField)
     {
         string json = $$"""
@@ -33,6 +35,7 @@ public sealed class AntiSpamModerationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void AntiSpamModerationContract_ForbidsFinalActionFields()
     {
         Assert.Contains("reject_submit", AntiSpamModerationContract.ForbiddenFinalActionFields);
@@ -43,6 +46,7 @@ public sealed class AntiSpamModerationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void AntiSpamModerationContract_DocumentsAnonymousSignalBoundary()
     {
         Assert.Contains("userId", AntiSpamModerationContract.ForbiddenIdentityFields);
@@ -52,6 +56,7 @@ public sealed class AntiSpamModerationServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void SchemaMigrationRegistry_CreatesCommentModerationSignalTableAndIndexes()
     {
         var registry = new SchemaMigrationRegistry();

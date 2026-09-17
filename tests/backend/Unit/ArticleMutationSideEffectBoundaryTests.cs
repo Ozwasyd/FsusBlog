@@ -13,12 +13,14 @@ using Microsoft.Extensions.Logging;
 using SqlSugar;
 
 using StackExchange.Redis;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleMutationSideEffectBoundaryTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void DependencyGraph_CoordinatorOnlyOwnsOrchestrationPorts()
     {
         Assert.Equal(
@@ -40,6 +42,7 @@ public sealed class ArticleMutationSideEffectBoundaryTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void DependencyGraph_NarrowOwnersHoldTheirOwnUseCasePorts()
     {
         Assert.Equal(
@@ -63,6 +66,7 @@ public sealed class ArticleMutationSideEffectBoundaryTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void FenceMethods_AreRemovedFromSideEffectCoordinatorContract()
     {
         Assert.Null(typeof(IArticleMutationSideEffectCoordinator).GetMethod("BeginPublicMutationFenceAsync"));
@@ -72,6 +76,7 @@ public sealed class ArticleMutationSideEffectBoundaryTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Composition_RegistersEveryMutationBoundaryAsScoped()
     {
         var services = new ServiceCollection();

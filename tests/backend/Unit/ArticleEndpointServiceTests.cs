@@ -15,6 +15,7 @@ using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed partial class ArticleEndpointServiceTests
@@ -22,6 +23,7 @@ public sealed partial class ArticleEndpointServiceTests
     private static readonly TimeSpan s_concurrentColdFrameWaitTimeout = TimeSpan.FromSeconds(30);
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_Hit_ReturnsFrameWithoutCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -41,6 +43,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_WhenCancelledBeforeCall_DoesNotTouchCacheOrCore()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -69,6 +72,7 @@ public sealed partial class ArticleEndpointServiceTests
     [Theory]
     [InlineData(0, 10)]
     [InlineData(1, 999999)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_InvalidPagination_ReturnsValidationFailureWithoutCacheOrCore(int page, int size)
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -94,6 +98,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_WhenCancelledAfterCoreLoad_SkipsFrameCacheSet()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -140,6 +145,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_ConcurrentColdFrameMiss_CoalescesCoreLoadAndCacheSet()
     {
         const int Callers = 16;
@@ -197,6 +203,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_PublicFrameMiss_UsesUncachedCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -251,6 +258,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_PublicCursor_ValidatesFilterAndUsesCursorCacheIdentity()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -293,6 +301,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_InvalidOrCrossFilterCursor_FailsBeforeCacheAndCore()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -325,6 +334,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_Miss_QueuesBackfillWithoutCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -344,6 +354,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_Miss_QueuesBackfillIndependentOfRequestToken()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -368,6 +379,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_FileMiss_UsesBinaryProjectionAndWarmsArtifactOnce()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -396,6 +408,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_CutoverDisabled_FallsBackWithoutRepairStorm()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -420,6 +433,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateAsync_PreservesLifecycleValidationDetails()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -439,6 +453,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateAsync_ReturnsBoundRightsSnapshotCoordinates()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -456,6 +471,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task UpdateAsync_PreservesLifecycleValidationDetails()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -475,6 +491,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task UpdateAsync_ReturnsBoundRightsSnapshotCoordinates()
     {
         var core = Substitute.For<IArticleCoreService>();

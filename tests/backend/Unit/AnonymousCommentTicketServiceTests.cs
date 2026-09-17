@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCommentTicketServiceTests
@@ -66,6 +67,7 @@ public sealed class AnonymousCommentTicketServiceTests
         IssuerPublicKeyHash: new('f', 64))).ToArray();
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ValidProof_ReturnsTicketAndStoresOnlyHashPayload()
     {
         var time = new MutableTimeProvider(DateTimeOffset.Parse("2026-06-19T00:00:00Z"));
@@ -101,6 +103,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ModerationSubjectHash_UsesPepperAndIgnoresScope()
     {
         string nullifierHash = Convert.ToHexStringLower(s_nullifier);
@@ -123,6 +126,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ExpiredRootFailsClosedBeforeProofVerification()
     {
         var proof = new RecordingProofService(ZkProofVerificationResult.Success());
@@ -138,6 +142,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_DisabledZkPolicyFailsClosedBeforeRootOrProofVerification()
     {
         var proof = new RecordingProofService(ZkProofVerificationResult.Success());
@@ -158,6 +163,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_InvalidProofDoesNotReserveNullifierOrStoreTicket()
     {
         var cache = new CapturingUnifiedCache(new MutableTimeProvider(DateTimeOffset.UtcNow));
@@ -177,6 +183,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_PublicInputsMismatchFailsClosedBeforeProofVerification()
     {
         var proof = new RecordingProofService(ZkProofVerificationResult.Success());
@@ -194,6 +201,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_LegacyArticleScopeFailsClosed()
     {
         var proof = new RecordingProofService(ZkProofVerificationResult.Success());
@@ -211,6 +219,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ThreadScopeBindsServerValidatedArticleAndRoot()
     {
         const string ThreadScope = "comment:v1:article:42:thread:9001";
@@ -236,6 +245,7 @@ public sealed class AnonymousCommentTicketServiceTests
     [Theory]
     [InlineData("comment:v1:article:43:top", null)]
     [InlineData("comment:v1:article:42:thread:9002", "9001")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ClientScopeCannotExpandArticleOrThread(string scope, string? rootId)
     {
         var proof = new RecordingProofService(ZkProofVerificationResult.Success());
@@ -255,6 +265,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_UsesPublishedCommentPolicyHashForTicketTranscript()
     {
         const string PublishedPolicyHash = "8888888888888888888888888888888888888888888888888888888888888888";
@@ -285,6 +296,7 @@ public sealed class AnonymousCommentTicketServiceTests
     [Theory]
     [InlineData("blocked", AnonymousCommentTicketStatuses.NullifierBlocked)]
     [InlineData("scope_limit_exceeded", AnonymousCommentTicketStatuses.ScopeLimitExceeded)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_NullifierPrecheckFailuresDoNotStoreTicket(string reservationStatus, string expectedStatus)
     {
         var cache = new CapturingUnifiedCache(new MutableTimeProvider(DateTimeOffset.UtcNow));
@@ -301,6 +313,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void AnonymousCommentTicketIssue_RuntimeUsesPrecheckInsteadOfReservation()
     {
         string issue = RuntimeMetadataInspection.DescribeMethods(
@@ -316,6 +329,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task ConsumeTicketAsync_ExpiredTtlReturnsMiss()
     {
         var time = new MutableTimeProvider(DateTimeOffset.Parse("2026-06-19T00:00:00Z"));
@@ -329,6 +343,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ConcurrentSameNullifierPrechecksWithoutSpendingNullifier()
     {
         var nullifiers = new ConcurrentPrecheckNullifierService();
@@ -344,6 +359,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task BinaryEndpoint_IssuesAnonymousTicketFrame()
     {
         var aeds = new AedsEncoder();
@@ -369,6 +385,7 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task BinaryEndpoint_ZkProdUnavailableFailsClosedBeforePayloadDecodeOrTicketIssue()
     {
         var aeds = new AedsEncoder();
@@ -392,6 +409,7 @@ public sealed class AnonymousCommentTicketServiceTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task BinaryEndpoint_RequiresStrongAnonymousAndBinaryFrames()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();

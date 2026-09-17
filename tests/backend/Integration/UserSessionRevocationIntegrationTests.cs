@@ -26,6 +26,7 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
@@ -37,6 +38,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     PublicHotDeliveryRedisFixture redisFixture) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -59,6 +61,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevokeOtherSessions_InvalidatesOthersAndKeepsCurrentSessionValid()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -92,6 +95,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevokeAllSessions_InvalidatesEveryWarmPrincipalWithSecurityReason()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -126,6 +130,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevokeSessionsByCredential_RevokesOnlyExactAccountCredentialBinding()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -164,6 +169,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -191,6 +197,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RefreshReplay_RevokesOnlyTargetSessionAndDoesNotTreatDeviceSignalAsAuthority()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -239,6 +246,7 @@ public sealed class UserSessionRevocationIntegrationTests(
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task ConcurrentCacheMissAndRevoke_DoesNotResurrectStaleActiveSnapshot()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -266,6 +274,7 @@ public sealed class UserSessionRevocationIntegrationTests(
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RevokeAllCommittedBeforeRefreshRejectsWarmPrincipalAndLeavesOtherAccountActive()
     {
         const string RefreshToken = "issue-2334-revoke-first-refresh";
@@ -341,6 +350,7 @@ public sealed class UserSessionRevocationIntegrationTests(
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RefreshReadOldRowThenRevokeCommitRejectsRotationAndEveryIssuedToken()
     {
         const string OriginalRefreshToken = "issue-2334-generation-zero";
@@ -469,6 +479,7 @@ public sealed class UserSessionRevocationIntegrationTests(
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RefreshCommitThenRevokeCommitInvalidatesOldAndNewTokenAuthority()
     {
         const string OriginalRefreshToken = "issue-2334-refresh-first";
@@ -557,6 +568,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task UnauthenticatedPrincipal_DoesNotReadSessionCacheOrDatabase()
     {
         var db = Substitute.For<ISqlSugarClient>();

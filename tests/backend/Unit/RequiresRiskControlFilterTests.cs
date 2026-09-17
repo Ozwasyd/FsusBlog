@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RequiresRiskControlFilterTests
@@ -23,6 +24,7 @@ public sealed class RequiresRiskControlFilterTests
     private const string ChallengeId = "018ff2fe-7a68-7cc0-9e6c-111111111111";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_AllowDecision_EntersBusinessLogicWithoutConsumingProof()
     {
         FilterFixture fixture = CreateFixture(riskScore: 0);
@@ -44,6 +46,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_ChallengeWithoutProof_Returns428BeforeBusinessLogic()
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
@@ -70,6 +73,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_ChallengeWithAcceptedProof_ConsumesProofBeforeBusinessLogic()
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
@@ -100,6 +104,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_MultiChallengeDecisionConsumesOneAggregateProofBeforeBusinessLogic()
     {
         SecurityRiskPolicySnapshotV2 policy = CreateMultiChallengePolicy();
@@ -128,6 +133,7 @@ public sealed class RequiresRiskControlFilterTests
     [InlineData(RiskActionNames.CommentCreate, "comment.create")]
     [InlineData(RiskActionNames.AuthLogin, "auth.login")]
     [InlineData(RiskActionNames.RecoveryKeyVerify, "recovery-key.verify")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_MatchingProofEntersBusinessLogicForBusinessRiskActions(string actionName, string routeKey)
     {
         RealProofFilterFixture fixture = CreateRealProofFixture(riskScore: 50);
@@ -156,6 +162,7 @@ public sealed class RequiresRiskControlFilterTests
     [InlineData(RiskActionNames.CommentCreate, "comment.create", RiskActionNames.AuthLogin, "auth.login", "device-123456", "action_mismatch")]
     [InlineData(RiskActionNames.CommentCreate, "comment.create", RiskActionNames.CommentCreate, "comment.reply", "device-123456", "route_key_mismatch")]
     [InlineData(RiskActionNames.AuthLogin, "auth.login", RiskActionNames.AuthLogin, "auth.login", "device-654321", "device_fp_hash_mismatch")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_RejectsProofBoundToDifferentBusinessRequest(
         string mintedAction,
         string mintedRouteKey,
@@ -191,6 +198,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_ReplayProofIsRejectedBeforeBusinessLogic()
     {
         RealProofFilterFixture fixture = CreateRealProofFixture(riskScore: 50);
@@ -236,6 +244,7 @@ public sealed class RequiresRiskControlFilterTests
     [InlineData("proof_expired", SecurityChallengeProofOutcomes.Expired)]
     [InlineData("action_mismatch", SecurityChallengeProofOutcomes.BindingMismatch)]
     [InlineData("proof_revoked", SecurityChallengeProofOutcomes.Revoked)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_RejectedProof_Returns428AndDoesNotEnterBusinessLogic(string reason, string outcome)
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
@@ -262,6 +271,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_AdminSensitiveActionRejectsOrdinaryChallengeProofWithoutBusinessLogic()
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
@@ -292,6 +302,7 @@ public sealed class RequiresRiskControlFilterTests
     [Theory]
     [InlineData(RiskActionNames.CommentCreate, "comment.create")]
     [InlineData(RiskActionNames.AuthLogin, "auth.login")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_WriteChallengeWithHumanReadProofKind_Returns428WithoutConsumingProof(string actionName, string routeKey)
     {
         FilterFixture fixture = CreateFixture(riskScore: 50);
@@ -317,6 +328,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_BlockDecision_Returns429WithoutConsumingProofOrBusinessLogic()
     {
         FilterFixture fixture = CreateFixture(riskScore: 100);
@@ -342,6 +354,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_CommentQueueDecision_StoresDecisionContextAndEntersBusinessLogic()
     {
         SecurityRiskPolicySnapshotV2 policy = CreateCommentQueuePolicy();
@@ -371,6 +384,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_CriticalAuthThrottle_RecordsRiskControlEventWithoutProofOrBusinessLogic()
     {
         SecurityRiskPolicySnapshotV2 policy = CreateCriticalAuthThrottlePolicy();
@@ -400,6 +414,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RequiresPowFilter_RemainsLegacyPowWrapper()
     {
         Type[] constructorParameters = typeof(RequiresPowFilter)
@@ -416,6 +431,7 @@ public sealed class RequiresRiskControlFilterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RequiresPowFilter_DoesNotKeepMvcAttributeOrRegistration()
     {
         const string LegacyTypeName = "FsusBlog.Server.Infrastructure.Filters.RequiresPowAttribute";

@@ -43,6 +43,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Collection(nameof(EnvironmentVariableCollection))]
@@ -63,6 +64,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
     [InlineData(AuthExpiryFlow.AdminLogin)]
     [InlineData(AuthExpiryFlow.LocalAuthFixture)]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MappedAuthFlows_EmitExactIssuedAccessTokenExpiry(AuthExpiryFlow flow)
     {
         using HttpResponseMessage response = await fixture.SendSuccessAsync(flow);
@@ -109,6 +111,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task LocalAuthFixtureRunnerFailure_EmitsNoCookies()
     {
         (HttpResponseMessage response, int runnerCallCount) = await fixture.SendFailureAsync();
@@ -122,6 +125,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task Refresh_DbCommitThenPostCookieVerificationFault_DeletesStagedCookiesAndEmitsMetric()
     {
         var measurements = new ConcurrentBag<(string Name, double Value)>();

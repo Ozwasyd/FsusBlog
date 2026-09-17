@@ -31,6 +31,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [CollectionDefinition(nameof(UserSessionMappedBoundaryCollection))]
@@ -43,6 +44,7 @@ public sealed class UserSessionMappedBoundaryTests(
     UserSessionMappedBoundaryTests.MappedBoundaryHostFixture fixture)
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MappedNotificationStreamPreflight_RevokedOrdinaryJwtRejectsBeforeAdmissionAndClearsUserCookies()
     {
         MappedBoundaryHost host = fixture.PrepareForTest();
@@ -80,6 +82,7 @@ public sealed class UserSessionMappedBoundaryTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MappedProtectedBinarySessions_RevokedOrdinaryJwtRejectsBeforeHandlerAndClearsUserCookies()
     {
         MappedBoundaryHost host = fixture.PrepareForTest();

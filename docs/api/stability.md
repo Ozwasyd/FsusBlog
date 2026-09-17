@@ -62,5 +62,5 @@ render: scalar
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN api.observation-digest -->
-e8869afd13054bc3f86c7cdde15cc3a4581447f967665f6268d74da2f13cc4bf
+60cf2156e2d9bd257f1d9afd9e25f6409c0df38513aa0e00cb3b836346fef9b7
 <!-- FSUSBLOG-GENERATED:END api.observation-digest -->

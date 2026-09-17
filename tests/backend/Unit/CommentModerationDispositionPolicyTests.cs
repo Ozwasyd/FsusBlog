@@ -35,6 +35,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_ScoreOnlyCleanResult_KeepsPendingForHumanReview()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy();
@@ -52,6 +53,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_RiskyHighConfidence_AutoHidesWithoutHumanReviewQueue()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
@@ -70,6 +72,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_RiskyBorderlineConfidence_AutoHidesAndQueuesHumanReview()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
@@ -88,6 +91,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_HighSeverityCategory_AutoHidesEvenWhenLabelIsNotBlockedCandidate()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
@@ -109,6 +113,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_ProviderUnavailable_DefaultsFailClosedAndKeepsPending()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy();
@@ -130,6 +135,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_ProviderUnavailable_ExplicitFailOpenApprovesOnlySafeComment()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
@@ -150,6 +156,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_AutoLowRiskApprove_CleanHighConfidenceApprovesPending()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
@@ -168,6 +175,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_AutoDisposition_CarriesAuditContext()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
@@ -192,6 +200,7 @@ public sealed class CommentModerationDispositionPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void Decide_RiskyAlreadyHidden_DoesNotRepeatTransitionOrAuditAction()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(

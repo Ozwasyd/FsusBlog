@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -23,6 +24,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     private static readonly DateTimeOffset s_now = DateTimeOffset.Parse("2026-07-19T00:00:00Z");
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ReissueAsync_ValidAssignmentWithoutPolicyReplacement_RevokesAndFailsClosed()
     {
         Fixture fixture = CreateFixture();
@@ -46,6 +48,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ReissueAsync_NoAllowedFallback_FailsClosedAfterRevokingOldProof()
     {
         Fixture fixture = CreateFixture(fallback: "reject");
@@ -62,6 +65,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ReissueAsync_MismatchedBinding_IsRejectedWithoutMutation()
     {
         Fixture fixture = CreateFixture();
@@ -85,6 +89,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ReissueAsync_ReissueCounterMismatch_StopsLoopAndRevokesOldProof()
     {
         Fixture fixture = CreateFixture(priorUnsupportedAttempts: 1);
@@ -106,6 +111,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ReissueAsync_CurrentPolicyNoLongerRequiresPoSpace_PreservesServerDecision()
     {
         Fixture fixture = CreateFixture();
@@ -122,6 +128,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ReissueAsync_ConcurrentReplacement_FailsClosedWithoutSecondAudit()
     {
         Fixture fixture = CreateFixture(revokeSucceeds: false);
@@ -144,6 +151,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     [InlineData("unknown_reason", 1)]
     [InlineData("memory_tier_cap", 0)]
     [InlineData("memory_tier_cap", 3)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Parser_RejectsUnboundedOrUnknownUnsupportedMetadata(string reason, int count)
     {
         string json = JsonSerializer.Serialize(new
@@ -173,6 +181,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Parser_RejectsHighEntropyCapabilityFields()
     {
         string json = JsonSerializer.Serialize(new

@@ -24,11 +24,13 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentSecurityHardeningTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentCreateEndpoint_CapsPayloadAndChecksLengthBeforeContentFilter()
     {
         Assert.Equal(16 * 1024, CommentLimits.CreatePayloadMaxBytes);
@@ -52,6 +54,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentCreateEndpoint_UsesMarkdownReviewTextForModerationWithoutChangingStoredSource()
     {
         IReadOnlyList<IReadOnlyList<string>> handlers = RuntimeMetadataInspection
@@ -71,6 +74,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentCreateService_PersistsInitialStatusBeforeModerationAndWarnsOnAutomaticHide()
     {
         IReadOnlyList<IReadOnlyList<string>> creationPaths = RuntimeMetadataInspection
@@ -99,6 +103,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentCreateService_AutomaticModelHideInvalidatesPublicCommentAndPushesRemoval()
     {
         string automaticBlock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
@@ -123,6 +128,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentModerationQueue_IncludesOnlyBorderlineModelHiddenCommentsInPendingReviewSource()
     {
         string queue = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
@@ -136,6 +142,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentCreateService_RequiresPublicArticleAndVisibleReplyAncestors()
     {
         string create = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
@@ -162,6 +169,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentRegionCompliance_AppliesSubmitAndViewerRegionPolicy()
     {
         string submitEndpoint = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
@@ -205,6 +213,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ClientRegionResolver_KeyRotationInvalidatesPreviousIpHash()
     {
         var context = new DefaultHttpContext();
@@ -226,6 +235,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ClientRegionResolver_IgnoresProxyRegionHeadersFromUntrustedRemote()
     {
         var context = new DefaultHttpContext();
@@ -245,6 +255,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RegionIpHashPepperRotationTool_InvalidatesStoredSubmitIpHashes()
     {
         string root = Directory.CreateTempSubdirectory("fsus-region-pepper-").FullName;
@@ -283,6 +294,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentRegionCompliance_PublicReadFiltersAvoidUnsupportedSqlSugarStringComparison()
     {
         string publicReads = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
@@ -299,6 +311,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void UserCommentHistory_ExposesModerationStatusWithoutInternalReasons()
     {
         string userCommentsBlock = RuntimeMetadataInspection.DescribeMethods(
@@ -326,6 +339,7 @@ public sealed class CommentSecurityHardeningTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveAdminStepUpProof()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -357,6 +371,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentModerationService_UsesCasStateMachineAndRealtimePush()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -385,6 +400,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CommentCacheInvalidation_BumpsScopedVersionsWithoutGlobalCommentOutputTag()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -419,6 +435,7 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void SchemaMigrationRegistry_ContainsPublicCommentHotPathIndexes()
     {
         IReadOnlyList<ISchemaMigrationDescriptor> descriptors = new SchemaMigrationRegistry().GetDescriptors();
