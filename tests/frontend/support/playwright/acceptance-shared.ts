@@ -1415,6 +1415,15 @@ export async function assertInteractiveControlsReachable(page: Page, label = 'in
         if (current.matches('.el-tabs__nav-wrap.is-scrollable')) {
           return true
         }
+        if (current.matches('.el-table')) {
+          // el-table clips the header and fixed-column panes and synchronises
+          // them with the scrollable body via JS — controlled overflow when the
+          // body wrap really scrolls.
+          const wrap = current.querySelector('.el-scrollbar__wrap')
+          if (wrap && wrap.scrollWidth > wrap.clientWidth + 4) {
+            return true
+          }
+        }
         current = current.parentElement
       }
       return false
@@ -1991,6 +2000,15 @@ export async function collectViewportBoundaryReport(page: Page): Promise<Viewpor
         }
         if (current.matches('.el-tabs__nav-wrap.is-scrollable')) {
           return true
+        }
+        if (current.matches('.el-table')) {
+          // el-table clips the header and fixed-column panes and synchronises
+          // them with the scrollable body via JS — controlled overflow when the
+          // body wrap really scrolls.
+          const wrap = current.querySelector('.el-scrollbar__wrap')
+          if (wrap && wrap.scrollWidth > wrap.clientWidth + 4) {
+            return true
+          }
         }
         current = current.parentElement
       }
