@@ -1128,6 +1128,103 @@ function autoPropertyInitializers(source, masked, identifierAuthority)
     return initializers
 }
 
+function structuralNodeIdentity(node, parser)
+{
+    const shape = (current) =>
+    {
+        const children = []
+        parser.forEachChild(current, (child) => { children.push(shape(child)) })
+        return [current.kind, parser.isSourceFile(current) ? null : typeof current.text === 'string' ? current.text : null, children]
+    }
+    return createHash('sha256').update(JSON.stringify(shape(node))).digest('hex')
+}
+
+function assertedFixtureProperties(sourceFile, parser, context)
+{
+    // v1 admits only the reviewed complete IO program and complete fourteen-field
+    // rejection callback. Unknown shapes remain findings, including new fixtures.
+    const helperShape = '284b6dee33386749749b8acca76119bd9663dd9ba058c5894e273ba8569c4b8b'
+    const callbackShape = '355a8d983d2d52070759c70b2d4e9a94e53f068f9556ffaac32ae6ab2507ad4d'
+    const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs'
+    const imports = new Map()
+    for (const statement of sourceFile.statements)
+    {
+        if (!parser.isImportDeclaration(statement) || !parser.isStringLiteral(statement.moduleSpecifier)) continue
+        const specifier = statement.moduleSpecifier.text
+        const modulePath = specifier.startsWith('.')
+            ? path.posix.normalize(path.posix.join(path.posix.dirname(context.file), specifier)) : specifier
+        const clause = statement.importClause
+        if (clause?.name) imports.set(clause.name.text, { modulePath, imported: 'default', node: clause.name })
+        if (clause?.namedBindings && parser.isNamedImports(clause.namedBindings))
+        {
+            for (const binding of clause.namedBindings.elements)
+            {
+                imports.set(binding.name.text, { modulePath, imported: (binding.propertyName ?? binding.name).text, node: binding.name })
+            }
+        }
+    }
+    const requiredImports = [
+        ['test', 'node:test', 'default'], ['assert', 'node:assert/strict', 'default'],
+        ['createZeroLegacyScannerFixture', helperPath, 'createZeroLegacyScannerFixture'],
+        ['scanZeroLegacyGovernance', scannerImplementationPath, 'scanZeroLegacyGovernance']
+    ]
+    if (requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
+        || imports.get(name)?.imported !== imported)) return new Set()
+    const protectedNames = new Set([...imports.keys(), 'Object', 'JSON', 'Buffer', 'Reflect', 'Function', 'global', 'globalThis', 'eval'])
+    let unsupported = false
+    const rootIdentifier = (node) =>
+    {
+        while (parser.isPropertyAccessExpression(node) || parser.isElementAccessExpression(node)) node = node.expression
+        return parser.isIdentifier(node) ? node.text : null
+    }
+    const inspect = (node) =>
+    {
+        if (parser.isIdentifier(node) && ['eval', 'Reflect', 'Function', 'global', 'globalThis'].includes(node.text)) unsupported = true
+        if ((parser.isVariableDeclaration(node) || parser.isParameter(node) || parser.isFunctionDeclaration(node)
+            || parser.isClassDeclaration(node)) && node.name && parser.isIdentifier(node.name)
+            && protectedNames.has(node.name.text)) unsupported = true
+        if (parser.isBinaryExpression(node) && node.operatorToken.kind >= parser.SyntaxKind.FirstAssignment
+            && node.operatorToken.kind <= parser.SyntaxKind.LastAssignment && protectedNames.has(rootIdentifier(node.left))) unsupported = true
+        if ((parser.isDeleteExpression(node) && protectedNames.has(rootIdentifier(node.expression)))
+            || ((parser.isPrefixUnaryExpression(node) || parser.isPostfixUnaryExpression(node))
+                && [parser.SyntaxKind.PlusPlusToken, parser.SyntaxKind.MinusMinusToken].includes(node.operator)
+                && protectedNames.has(rootIdentifier(node.operand)))) unsupported = true
+        if (parser.isCallExpression(node) && parser.isPropertyAccessExpression(node.expression)
+            && (node.expression.name.text === 'syncBuiltinESMExports'
+                || (['assign', 'defineProperty', 'defineProperties', 'setPrototypeOf'].includes(node.expression.name.text)
+                    && node.arguments[0] && protectedNames.has(rootIdentifier(node.arguments[0]))))) unsupported = true
+        if (parser.isIdentifier(node) && ['JSON', 'Object', 'Buffer'].includes(node.text)
+            && !(parser.isPropertyAccessExpression(node.parent) && node.parent.expression === node)) unsupported = true
+        parser.forEachChild(node, inspect)
+    }
+    inspect(sourceFile)
+    if (unsupported) return new Set()
+    try
+    {
+        const absolute = path.join(context.repositoryRoot, helperPath)
+        if (fs.realpathSync(absolute) !== absolute || !fs.lstatSync(absolute).isFile()) return new Set()
+        const helper = parser.createSourceFile(helperPath, fs.readFileSync(absolute, 'utf8'), parser.ScriptTarget.Latest, true, parser.ScriptKind.JS)
+        if (helper.parseDiagnostics.length || structuralNodeIdentity(helper, parser) !== helperShape) return new Set()
+        const canonicalScanner = path.join(context.repositoryRoot, scannerImplementationPath)
+        if (fs.realpathSync(canonicalScanner) !== canonicalScanner
+            || !fs.readFileSync(canonicalScanner).equals(fs.readFileSync(path.join(root, scannerImplementationPath)))) return new Set()
+    }
+    catch { return new Set() }
+    const properties = new Set()
+    for (const statement of sourceFile.statements)
+    {
+        if (!parser.isExpressionStatement(statement) || !parser.isCallExpression(statement.expression)) continue
+        const call = statement.expression
+        if (!parser.isIdentifier(call.expression) || call.expression.text !== 'test' || call.arguments.length !== 2
+            || !parser.isStringLiteral(call.arguments[0]) || !parser.isArrowFunction(call.arguments[1])) continue
+        const callback = call.arguments[1]
+        if (structuralNodeIdentity(callback, parser) !== callbackShape) continue
+        const literal = callback.body.statements[0].declarationList.declarations[0].initializer
+        for (const property of literal.properties) properties.add(property)
+    }
+    return properties
+}
+
 function rejectOnlyRegexDeclarations(sourceFile, parser)
 {
     const identifiers = new Map()
@@ -1227,6 +1324,8 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
     }
     const rejectOnlyDeclarations = sourceFile.parseDiagnostics.length === 0
         ? rejectOnlyRegexDeclarations(sourceFile, parser) : new Set()
+    const fixtureProperties = sourceFile.parseDiagnostics.length === 0
+        ? assertedFixtureProperties(sourceFile, parser, context) : new Set()
     const identifierText = (name) =>
     {
         if (!name) return null
@@ -1267,7 +1366,7 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
     {
         if (identifier === null) return
         const index = node.getStart(sourceFile)
-        if (isExactDeclaration(index) || rejectOnlyDeclarations.has(node)) return
+        if (isExactDeclaration(index) || rejectOnlyDeclarations.has(node) || fixtureProperties.has(node)) return
         scanIdentifier(identifier, valueText, {
             ...context,
             location: `${locationPrefix}:line:${lineAt(index)}`
@@ -1900,6 +1999,7 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
         pathClasses.forEach((pathClass) => { pathClassCounts[pathClass] += 1 })
         const context = {
             file,
+            repositoryRoot,
             findings,
             pathClasses,
             qualification: isQualificationPath(file),

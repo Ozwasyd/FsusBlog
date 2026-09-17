@@ -18,6 +18,7 @@ import {
     zeroLegacyScanSchema
 } from '../../tools/docs/behavior-document-consistency-final.mjs'
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs'
+import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs'
 
 const commit = 'a'.repeat(40)
 const fingerprint = 'b'.repeat(64)
@@ -334,6 +335,51 @@ test('zero-legacy classifies only immutable regex bindings with exclusively reje
     }
 })
 
+test('owned scanner fixture preserves representative input bytes and rejection rules', (t) =>
+{
+    const input = JSON.stringify({
+        last_verified_commit: 'a'.repeat(40),
+        'maximum-verification-distance': 1,
+        lastReviewedCommit: 'b'.repeat(40),
+        'last-reviewed-at': 'now',
+        verified_at: 'now',
+        contentBaselineSha: 'c'.repeat(64),
+        approved_content_digest: 'd'.repeat(64),
+        expectedValue: 1,
+        baseline_value: 1,
+        ignoreDifference: true,
+        allow_stale_until: 'tomorrow',
+        waiver: 'manual',
+        verified: true,
+        reviewed: true
+    })
+    const relative = 'config/testing/behavior-qualification.json'
+    const beforeRoot = repositoryFixture(t, { [relative]: input })
+    const after = createZeroLegacyScannerFixture({ [relative]: input })
+    t.after(after.dispose)
+    assert.notEqual(beforeRoot, after.root)
+    assert.deepEqual(fs.readFileSync(path.join(beforeRoot, relative)), fs.readFileSync(path.join(after.root, relative)))
+    const rejectionRules = (scan) => scan.findings.filter((finding) => finding.file === relative)
+        .map((finding) => `${finding.location}:${finding.rule}`)
+    assert.deepEqual(rejectionRules(scanZeroLegacyGovernance(beforeRoot)), rejectionRules(scanZeroLegacyGovernance(after.root)))
+    assert.equal(rejectionRules(scanZeroLegacyGovernance(after.root)).length, 14)
+    after.dispose()
+    assert.equal(fs.existsSync(after.root), false)
+    assert.equal(fs.existsSync(beforeRoot), true)
+})
+
+test('owned scanner fixture rejects getters aliases and parser input replacement before creating data', () =>
+{
+    let getterReads = 0
+    const getterInput = Object.defineProperty({}, 'input.json', { enumerable: true, get() { getterReads += 1; return '{}'; } })
+    const inputs = [getterInput, Object.create({ inherited: '{}' }), { '../outside.json': '{}' },
+        { '/absolute.json': '{}' }, { 'nested//input.json': '{}' }, { 'nested/./input.json': '{}' },
+        { 'nested\\input.json': '{}' }, { 'src/frontend/package.json': '{}' },
+        { 'src/frontend/node_modules/typescript/lib/typescript.js': 'invalid' }, { 'input.json': {} }]
+    for (const input of inputs) assert.throws(() => createZeroLegacyScannerFixture(input), /scanner fixture/u)
+    assert.equal(getterReads, 0)
+})
+
 test('zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification', (t) =>
 {
     const machineFields = {
@@ -352,10 +398,11 @@ test('zero-legacy machine-field mutation corpus rejects separator variants and b
         verified: true,
         reviewed: true
     }
-    const repositoryRoot = repositoryFixture(t, {
+    const scannerFixture = createZeroLegacyScannerFixture({
         'config/testing/behavior-qualification.json': JSON.stringify(machineFields)
     })
-    const rules = scanZeroLegacyGovernance(repositoryRoot).findings.map((finding) => finding.rule)
+    t.after(scannerFixture.dispose)
+    const rules = scanZeroLegacyGovernance(scannerFixture.root).findings.map((finding) => finding.rule)
     for (const field of [
         'lastVerifiedCommit', 'maximumVerificationDistance', 'lastReviewedCommit', 'lastReviewedAt',
         'verifiedAt', 'contentBaselineSha', 'approvedContentDigest', 'expectedValue', 'baselineValue',
@@ -366,6 +413,56 @@ test('zero-legacy machine-field mutation corpus rejects separator variants and b
     }
     assert.ok(rules.includes('forbidden-self-certification:verified'))
     assert.ok(rules.includes('forbidden-self-certification:reviewed'))
+})
+
+test('zero-legacy fixture classification requires the complete reviewed source to rejection sink', (t) =>
+{
+    const source = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const start = source.indexOf("test('zero-legacy machine-field mutation corpus")
+    const end = source.indexOf('\ntest(', start + 1)
+    const representative = source.slice(start, end)
+    const imports = [
+        "import test from 'node:test'",
+        "import assert from 'node:assert/strict'",
+        "import { scanZeroLegacyGovernance } from '../../tools/docs/behavior-document-consistency-final.mjs'",
+        "import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs'"
+    ].join('\n')
+    const scannerPath = 'tools/docs/behavior-document-consistency-final.mjs'
+    const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs'
+    const scanner = fs.readFileSync(path.join(repositorySourceRoot, scannerPath), 'utf8')
+    const helper = fs.readFileSync(path.join(repositorySourceRoot, helperPath), 'utf8')
+    const probe = 'tests/tools/behavior-rejection-probe.mjs'
+    const variants = [
+        ['complete', representative, helper, imports, false],
+        ['renamed-title', representative.replace('zero-legacy machine-field mutation corpus', 'another descriptive case title'), helper, imports, false],
+        ['helper-comment', representative, `// Formatting does not alter the IO program.\n${helper}`, imports, false],
+        ['active-second-use', representative.replace('    const scannerFixture', '    publish(machineFields)\n    const scannerFixture'), helper, imports, true],
+        ['helper-clears-input', representative, helper.replace('    const inputEntries', '    files = {}\n    const inputEntries'), imports, true],
+        ['helper-other-root', representative, helper.replace('return Object.freeze({ root, dispose })', 'return Object.freeze({ root: repositoryRoot, dispose })'), imports, true],
+        ['helper-parser-change', representative, helper.replace('typescript/lib/typescript.js', 'typescript/lib/other.js'), imports, true],
+        ['fake-import', representative, helper, imports.replace("'../../tools/docs/behavior-document-consistency-final.mjs'", "'./fake-scanner.mjs'"), true],
+        ['findings-replaced', representative.replace('scanZeroLegacyGovernance(scannerFixture.root).findings', 'inventedFindings'), helper, imports, true],
+        ['missing-assertion', representative.replace("    assert.ok(rules.includes('forbidden-self-certification:reviewed'))\n", ''), helper, imports, true],
+        ['wrong-rule', representative.replace('forbidden-machine-field:${field}', 'other-rule:${field}'), helper, imports, true],
+        ['caught-assertion', representative.replace('        assert.ok(rules.includes(`forbidden-machine-field:${field}`), `${field} mutation survived`)', '        try { assert.ok(rules.includes(`forbidden-machine-field:${field}`)) } catch {}'), helper, imports, true],
+        ['unreachable-assertions', representative.replace('    for (const field', '    return\n    for (const field'), helper, imports, true],
+        ['assert-shadow', representative.replace('    const machineFields', '    const assert = fakeAssert\n    const machineFields'), helper, imports, true],
+        ['global-write', `${representative}\nJSON.stringify = replacement\n`, helper, imports, true],
+        ['global-delete', `${representative}\ndelete JSON.stringify\n`, helper, imports, true],
+        ['global-increment', `${representative}\nJSON.stringify++\n`, helper, imports, true],
+        ['global-alias', `${representative}\nconst aliased = JSON\n`, helper, imports, true]
+    ]
+    for (const [name, callback, helperSource, importSource, rejected] of variants)
+    {
+        const repositoryRoot = repositoryFixture(t, {
+            [scannerPath]: scanner,
+            [helperPath]: helperSource,
+            [probe]: `${importSource}\n${callback}`
+        })
+        const findings = scanZeroLegacyGovernance(repositoryRoot).findings.filter((finding) => finding.file === probe
+            && finding.rule === 'forbidden-machine-field:lastVerifiedCommit')
+        assert.equal(findings.length > 0, rejected, name)
+    }
 })
 
 test('zero-legacy preserves matrix owner semantics for every scalar array entry', (t) =>
