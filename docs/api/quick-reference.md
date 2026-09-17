@@ -414,6 +414,7 @@ render: enum-set
 - `GET /api/binary/article/list/category/{categoryId:int}/{page:int}/{size:int}.aeds`
 - `GET /api/binary/article/list/home/{page:int}/{size:int}.aeds`
 - `GET /api/binary/article/list/tag/{tagId:int}/{page:int}/{size:int}.aeds`
+- `GET /api/binary/article/search/query.aeds`
 - `GET /api/binary/article/{articleId:int}/related.aeds`
 - `GET /api/binary/article/{id}.aeds`
 - `GET /api/binary/auth/admin/me`

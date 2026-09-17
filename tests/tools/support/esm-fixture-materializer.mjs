@@ -49,10 +49,20 @@ export function parseStaticRelativeEsmSpecifiers(source, importer = '<source>')
         const detail = parsed.stderr.trim() || `parser exited with ${parsed.status}`;
         throw new Error(`ESM fixture parser failed for ${importer}: ${detail}`);
     }
-    const specifiers = [...new Set(JSON.parse(parsed.stdout)
-        .filter((specifier) => specifier.startsWith('./') || specifier.startsWith('../')))];
-    moduleRequestCache.set(source, specifiers);
-    return specifiers;
+    const specifiers = new Set(JSON.parse(parsed.stdout)
+        .filter((specifier) => specifier.startsWith('./') || specifier.startsWith('../')));
+    const dynamicImportUrlPattern = /import\(\s*new\s+URL\(\s*['"`]([^'"`]+)['"`]\s*,\s*import\.meta\.url\s*\)\s*\)/gu;
+    for (const match of source.matchAll(dynamicImportUrlPattern))
+    {
+        const specifier = match[1];
+        if ((specifier.startsWith('./') || specifier.startsWith('../')) && !specifier.includes('${'))
+        {
+            specifiers.add(specifier);
+        }
+    }
+    const result = [...specifiers];
+    moduleRequestCache.set(source, result);
+    return result;
 }
 
 function normalizeConfiguration(root, allowedRoots)

@@ -575,21 +575,6 @@
             ]
         },
         {
-            "id": "aeds-full-frame-cache-hit",
-            "description": "AEDS Full Frame Cache Hit is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/cache-hit.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-cache-hit"
-            ]
-        },
-        {
             "id": "aeds-hot-read-precompression",
             "description": "AEDS Hot Read Precompression is covered by performance summaries that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -724,21 +709,6 @@
             "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
             "tierIds": [
                 "release"
-            ]
-        },
-        {
-            "id": "article-detail-artifact-miss",
-            "description": "Article Detail Artifact Miss is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/article-detail-miss.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-article-detail-miss"
             ]
         },
         {
@@ -936,28 +906,39 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                ".tmp/release-evidence/backend-qps-summary.json"
+                ".tmp/perf/runtime-cache/receipts/article-detail-l1.json",
+                ".tmp/perf/runtime-cache/receipts/cache-miss-singleflight.json",
+                ".tmp/perf/runtime-cache/receipts/distributed-invalidation.json",
+                ".tmp/perf/runtime-cache/receipts/hot-featured-frame.json",
+                ".tmp/perf/runtime-cache/receipts/l1-residency.json",
+                ".tmp/perf/runtime-cache/receipts/pagination.json",
+                ".tmp/perf/runtime-cache/receipts/public-hot-read.json",
+                ".tmp/perf/runtime-cache/receipts/redis-fault-classes.json",
+                ".tmp/perf/runtime-cache/receipts/related-reading.json",
+                ".tmp/perf/runtime-cache/receipts/revocation.json",
+                ".tmp/perf/runtime-cache/receipts/security-projections.json",
+                ".tmp/perf/runtime-cache/receipts/sitemap.json",
+                ".tmp/perf/runtime-cache/receipts/telemetry.json",
+                ".tmp/release-evidence/runtime-cache-summary.json"
             ],
             "assertionType": "perf",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
             "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
             "tierIds": [
-                "backend-qps"
-            ]
-        },
-        {
-            "id": "backend-qps-warmed-runtime-sequential",
-            "description": "Backend QPS Warmed Runtime Sequential is covered by runtime artifacts that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "medium",
-            "evidencePaths": [
-                ".tmp/release-evidence/backend-qps-runtime-sequential-summary.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-runtime-sequential"
+                "runtime-cache-article-detail-l1",
+                "runtime-cache-cache-miss-singleflight",
+                "runtime-cache-distributed-invalidation",
+                "runtime-cache-evidence",
+                "runtime-cache-hot-featured-frame",
+                "runtime-cache-l1-residency",
+                "runtime-cache-pagination",
+                "runtime-cache-public-hot-read",
+                "runtime-cache-redis-fault-classes",
+                "runtime-cache-related-reading",
+                "runtime-cache-revocation",
+                "runtime-cache-security-projections",
+                "runtime-cache-sitemap",
+                "runtime-cache-telemetry"
             ]
         },
         {
@@ -1171,51 +1152,6 @@
             ]
         },
         {
-            "id": "cache-invalidation-batch-roundtrip-reduction",
-            "description": "Cache Invalidation Batch Roundtrip Reduction is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/cache-invalidation-batch.json"
-            ],
-            "assertionType": "runtime",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
-            "tierIds": [
-                "backend-cache-invalidation-batch"
-            ]
-        },
-        {
-            "id": "cache-miss-singleflight",
-            "description": "Cache Miss Singleflight is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/cache-miss-singleflight.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-cache-miss-singleflight"
-            ]
-        },
-        {
-            "id": "cache-registry-command-reduction",
-            "description": "Cache Registry Command Reduction is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/cache-registry.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-cache-registry"
-            ]
-        },
-        {
             "id": "changed-code-coverage",
             "description": "Changed Code Coverage is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -1228,21 +1164,6 @@
             "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
             "tierIds": [
                 "changed-code-coverage"
-            ]
-        },
-        {
-            "id": "comment-cursor-cache",
-            "description": "Comment Cursor Cache is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/comment-cursor.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-comment-cursor"
             ]
         },
         {
@@ -1356,21 +1277,6 @@
             "minimumRequirement": "Evidence must bind the complete passing TRX result set to the built backend test assembly and fail closed when any credentialed unsafe Origin/Referer case is missing or failed.",
             "tierIds": [
                 "csrf-browser-matrix"
-            ]
-        },
-        {
-            "id": "db-index-plan",
-            "description": "Db Index Plan is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/index-plan.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-index-plan"
             ]
         },
         {
@@ -2142,21 +2048,6 @@
             ]
         },
         {
-            "id": "public-hot-read-taxonomy",
-            "description": "Public Hot Read Taxonomy is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/hotread.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-hotread"
-            ]
-        },
-        {
             "id": "public-hydration-browser-env-matrix",
             "description": "Public Hydration Browser Env Matrix is covered by browser and public-page artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -2343,36 +2234,6 @@
             ]
         },
         {
-            "id": "public-list-deep-page",
-            "description": "Public List Deep Page is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/list-pagination.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-list-pagination"
-            ]
-        },
-        {
-            "id": "public-read-risk-filter",
-            "description": "Public Read Risk Filter is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/risk-filter.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-risk-filter"
-            ]
-        },
-        {
             "id": "redis-postgres-notification-stream-disk-shutdown-faults",
             "description": "Redis Postgres Notification Stream Disk Shutdown Faults is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -2385,21 +2246,6 @@
             "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
             "tierIds": [
                 "fault-injection"
-            ]
-        },
-        {
-            "id": "related-reading-cache",
-            "description": "Related Reading Cache is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/related-reading.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-related-reading"
             ]
         },
         {
@@ -3148,36 +2994,6 @@
             "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
             "tierIds": [
                 "ux-viewport-visual"
-            ]
-        },
-        {
-            "id": "view-count-batch-flush",
-            "description": "View Count Batch Flush is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/view-count-flush.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-view-count-flush"
-            ]
-        },
-        {
-            "id": "visitlog-hot-stats-invalidation-coalescing",
-            "description": "Visitlog Hot Stats Invalidation Coalescing is covered by performance summaries that exercise the named behavior.",
-            "owner": "ServerContractAgent",
-            "risk": "high",
-            "evidencePaths": [
-                ".tmp/perf/backend-qps/visitlog-invalidation.json"
-            ],
-            "assertionType": "perf",
-            "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
-            "tierIds": [
-                "backend-qps-visitlog-invalidation"
             ]
         },
         {

@@ -5,15 +5,15 @@
     "entries": [
         {
             "producerId": "node-default-fixture-provider",
-            "findingId": "sha256:ff1c6fce1b027019d4568f613dbac13d40b60179a8502c3c35bdc2fb978c6068",
+            "findingId": "sha256:c90eb5df14d9d2f85a45bc1dc1a59d5423e3669ec37af058ef2c7ac7a88108f9",
             "location": {
                 "path": "tests/browser-contract/default-fixture-provider.mjs",
                 "start": {
-                    "line": 1208,
+                    "line": 1207,
                     "column": 5
                 },
                 "end": {
-                    "line": 1243,
+                    "line": 1242,
                     "column": 58
                 }
             },
@@ -22,20 +22,20 @@
             "policyId": null,
             "action": "restore-only",
             "owner": "browser-contract",
-            "sourceDigest": "sha256:bf13fb69063c79b74d213e72d19e073164d81a6d776108a3bf78d1c149d51eba",
+            "sourceDigest": "sha256:412946a68f399f545ca35ec0dc0d64f5f09c1fd1f680a22f182b0f5962bbec8a",
             "syntaxDigest": "sha256:5c3558aef7a50b3673894621ac243c18e539d91b3f852029823426aa090a6cf0"
         },
         {
             "producerId": "node-run-production-xss-matrix",
-            "findingId": "sha256:f52436add0e1a47ce03ab992c5b9fd6bdd26285bc5b167076a7284d38a8e05c7",
+            "findingId": "sha256:c433e5eae1198f5101e297059b63d61b32e1063cee588da489a353940714426d",
             "location": {
                 "path": "tests/frontend/checks/security/run-production-xss-matrix.mjs",
                 "start": {
-                    "line": 1167,
+                    "line": 1145,
                     "column": 5
                 },
                 "end": {
-                    "line": 1170,
+                    "line": 1148,
                     "column": 61
                 }
             },
@@ -44,7 +44,7 @@
             "policyId": null,
             "action": "restore-only",
             "owner": "browser-contract",
-            "sourceDigest": "sha256:69a85f83f4108c66c2a079a6a3daef47b25c8babf146660bb146515f29b1df3d",
+            "sourceDigest": "sha256:cc6849c1022444fad1fdc3ba860a9043f862db02cfa7a303e69a6970de33699f",
             "syntaxDigest": "sha256:0a6693237be6d637278a3af1f65e6a3497d3e71b312306ad9b5294f1b509c7e4"
         },
         {
@@ -136,5 +136,5 @@
             "syntaxDigest": "sha256:bdcce7a77881b6b9ab628eb719eb3893ea4fe57f40b9516969c02ec1e46f2901"
         }
     ],
-    "contentDigest": "sha256:66c361024d5e98c5c357000f749b843558bd198426edecf183f49868eebb1c29"
+    "contentDigest": "sha256:7341cff543c41952331b84f3eb55bce4ec4b6fea5d48791c389f8f23c32abdb1"
 }

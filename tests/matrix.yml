@@ -7044,8 +7044,6 @@ tiers:
 
     - id: runtime-cache-evidence
       executionClass: coordination
-      executionMode: summary
-      commandKind: aggregate
       fixtureProfile: none
       fixtureProfileReason: none-coordination
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
@@ -8605,7 +8603,7 @@ tiers:
               fault-injection,
               load,
               performance-evidence-summary,
-              backend-qps,
+              runtime-cache-evidence,
               aeds-frame-cost,
               aeds-compression-profile,
               backend-perf,
@@ -10098,7 +10096,7 @@ tiers:
               frontend-render-structure,
               resilience,
               load,
-              backend-qps,
+              runtime-cache-evidence,
               release-evidence,
               native-smoke,
           ]

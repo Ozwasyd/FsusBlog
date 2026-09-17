@@ -2749,8 +2749,6 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN api.security-cache-policies -->
 | Key | Value |
 | --- | --- |
-| AccountSnapshot | {"class":"security-critical","domain":"sec","id":"AccountSnapshot","l1Ttl":{"unit":"seconds","value":30},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"account-snapshot","securityCritical":true} |
-| AccountSnapshotVersion | {"class":"security-critical","domain":"sec","id":"AccountSnapshotVersion","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"account-snapshot-version","securityCritical":true} |
 | AdminStats | {"class":"admin","domain":"admin","id":"AdminStats","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats","securityCritical":false} |
 | AdminStatsFrame | {"class":"admin","domain":"admin","id":"AdminStatsFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats-frame","securityCritical":false} |
 | AdminStatsOverview | {"class":"admin","domain":"admin","id":"AdminStatsOverview","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"stats-overview","securityCritical":false} |
@@ -2782,7 +2780,6 @@ render: key-value-table
 | PublicAotDocument | {"class":"public","domain":"public","id":"PublicAotDocument","l1Ttl":{"unit":"minutes","value":30},"l2Ttl":{"unit":"days","value":30},"negativeTtl":{"state":"null"},"resource":"aot-doc","securityCritical":false} |
 | PublicAotRegistry | {"class":"public","domain":"public","id":"PublicAotRegistry","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"days","value":30},"negativeTtl":{"state":"null"},"resource":"aot-registry","securityCritical":false} |
 | RelatedReading | {"class":"blog","domain":"blog","id":"RelatedReading","l1Ttl":{"unit":"minutes","value":5},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"unit":"minutes","value":5},"resource":"related-reading","securityCritical":false} |
-| SecurityBlacklistUser | {"class":"security-critical","domain":"sec","id":"SecurityBlacklistUser","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"infinite","value":-1},"negativeTtl":{"state":"null"},"resource":"blacklist-user","securityCritical":true} |
 | SecurityBlockedUser | {"class":"security-critical","domain":"sec","id":"SecurityBlockedUser","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"minutes","value":20},"negativeTtl":{"state":"null"},"resource":"blocked-user","securityCritical":true} |
 | SecurityChallengeEnvelope | {"class":"security-critical","domain":"sec","id":"SecurityChallengeEnvelope","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"challenge-envelope","securityCritical":true} |
 | SecurityChallengeProof | {"class":"security-critical","domain":"sec","id":"SecurityChallengeProof","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":5},"negativeTtl":{"state":"null"},"resource":"challenge-proof","securityCritical":true} |

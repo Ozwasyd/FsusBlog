@@ -37,7 +37,6 @@ export const NON_FIXTURE_EXECUTION_CLASSES = Object.freeze([
 const COORDINATION_IDS = new Set([
     'behavior-document-consistency-final',
     'behavior-evidence-post-runtime',
-    'backend-qps',
     'changed-code-coverage',
     'ci',
     'coverage-backend',
@@ -58,6 +57,7 @@ const COORDINATION_IDS = new Set([
     'release-final-flaky-governance',
     'release-final-shard-completeness',
     'rights-v3-test-matrix',
+    'runtime-cache-evidence',
     'ux-viewport-plan-progress',
     'validate-matrix',
     'visual'
