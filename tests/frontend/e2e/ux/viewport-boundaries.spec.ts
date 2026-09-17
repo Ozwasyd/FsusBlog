@@ -473,7 +473,7 @@ async function runUxRouteThemeGroup(
   const auditedContext = await timing.measure(
     'context.open',
     group.id,
-    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix, testSession)
+    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix || storageState !== undefined, testSession)
   )
   try {
     const pageSession = await timing.measure(
@@ -835,7 +835,7 @@ async function runUxSafeAreaGroup(
   const auditedContext = await timing.measure(
     'context.open',
     group.id,
-    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix, testSession)
+    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix || storageState !== undefined, testSession)
   )
 
   try {
@@ -901,7 +901,6 @@ async function runUxSafeAreaGroup(
         () => assertDocumentViewportMetaContract(pageSession.page, group.id)
       )
 
-      const scrollBefore = await pageSession.page.evaluate(() => window.scrollY)
       const opened = await timing.measure(
         'safe-area.open-surface',
         group.id,
@@ -974,7 +973,7 @@ async function runUxSafeAreaGroup(
       await timing.measure('safe-area.assert-restore', label, () => (
         assertOverlayCloseRestoresFocusAndScroll(pageSession.page, {
           label,
-          expectedScrollY: scrollBefore,
+          expectedScrollY: opened.scrollYAtOpen,
           trigger: opened.trigger
         })
       ))
@@ -1005,7 +1004,7 @@ async function runUxSafeAreaGroup(
         await timing.measure('safe-area.assert-rerestore', label, () => (
           assertOverlayCloseRestoresFocusAndScroll(pageSession.page, {
             label: `${label} reopened`,
-            expectedScrollY: scrollBefore,
+            expectedScrollY: reopened.scrollYAtOpen,
             trigger: reopened.trigger
           })
         ))
@@ -1069,6 +1068,7 @@ type OpenedOverlay = Readonly<{
   controlRoot: Locator
   actions: Locator[]
   trigger: Locator | null
+  scrollYAtOpen: number
 }>
 
 function visible(locator: Locator): Locator {
@@ -1080,6 +1080,8 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
     case 'policy-modal': {
       const trigger = page.locator('.register-guidelines-button, button:has-text("社区规范"), a:has-text("社区规范")').first()
       await expect(trigger, 'policy modal trigger').toBeVisible()
+      await trigger.scrollIntoViewIfNeeded()
+      const scrollYAtOpen = await page.evaluate(() => window.scrollY)
       await trigger.click()
       const dialog = visible(page.locator('.el-dialog, [role="dialog"]')).last()
       await expect(dialog).toBeVisible()
@@ -1091,7 +1093,8 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
           visible(page.locator('.el-dialog__headerbtn, .el-dialog [aria-label="Close"], .el-dialog button').filter({ hasNot: page.locator('[disabled]') })).first(),
           visible(page.locator('.el-dialog__footer button, .el-dialog button').last())
         ],
-        trigger
+        trigger,
+        scrollYAtOpen
       }
     }
     case 'settings-refresh-cache': {
@@ -1102,6 +1105,8 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
       }
       const trigger = page.getByRole('button', { name: /强制刷新缓存|刷新缓存|强制刷新/ }).first()
       await expect(trigger, 'settings refresh-cache trigger').toBeVisible({ timeout: 20_000 })
+      await trigger.scrollIntoViewIfNeeded()
+      const scrollYAtOpen = await page.evaluate(() => window.scrollY)
       await trigger.click()
       const box = visible(page.locator('.el-message-box')).last()
       await expect(box).toBeVisible()
@@ -1114,13 +1119,16 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
           visible(page.locator('.el-message-box__btns button')).nth(0),
           visible(page.locator('.el-message-box__btns button')).nth(1)
         ],
-        trigger
+        trigger,
+        scrollYAtOpen
       }
     }
     case 'article-image-lightbox': {
       await ensureArticleBodyImage(page)
       const trigger = page.locator('img.fsus-article-preview-image, img[data-fsus-motion-surface="article-body-image"]').first()
       await expect(trigger, 'article body image trigger').toBeVisible({ timeout: 20_000 })
+      await trigger.scrollIntoViewIfNeeded()
+      const scrollYAtOpen = await page.evaluate(() => window.scrollY)
       await trigger.click()
       const root = visible(page.locator('[data-article-lightbox="true"]')).last()
       await expect(root).toBeVisible()
@@ -1136,12 +1144,15 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
         scrim,
         controlRoot: root,
         actions,
-        trigger
+        trigger,
+        scrollYAtOpen
       }
     }
     case 'account-mobile-drawer': {
       const trigger = page.locator('.account-mobile-drawer-trigger').first()
       await expect(trigger, 'account mobile drawer trigger').toBeVisible()
+      await trigger.scrollIntoViewIfNeeded()
+      const scrollYAtOpen = await page.evaluate(() => window.scrollY)
       await trigger.click()
       const drawer = visible(page.locator('#account-mobile-drawer, .account-mobile-drawer, .el-drawer')).last()
       await expect(drawer).toBeVisible()
@@ -1152,7 +1163,8 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
         actions: [
           visible(page.locator('.el-drawer__close-btn, .el-drawer [aria-label="Close"]')).last()
         ],
-        trigger
+        trigger,
+        scrollYAtOpen
       }
     }
     default:

@@ -1412,6 +1412,9 @@ export async function assertInteractiveControlsReachable(page: Page, label = 'in
         if (['auto', 'scroll'].includes(style.overflowX) && current.scrollWidth > current.clientWidth + 4) {
           return true
         }
+        if (current.matches('.el-tabs__nav-wrap.is-scrollable')) {
+          return true
+        }
         current = current.parentElement
       }
       return false
@@ -1984,6 +1987,9 @@ export async function collectViewportBoundaryReport(page: Page): Promise<Viewpor
           ['auto', 'scroll'].includes(style.overflowX)
           && current.scrollWidth > current.clientWidth + 4
         ) {
+          return true
+        }
+        if (current.matches('.el-tabs__nav-wrap.is-scrollable')) {
           return true
         }
         current = current.parentElement
