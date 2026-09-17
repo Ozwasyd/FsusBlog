@@ -6397,6 +6397,13 @@ function optionValue(args, name, fallback = null)
 
 function consumesProductionCorrectness(command, args)
 {
+    if (args.includes('--plan-only'))
+    {
+        // Plan-only invocations only print the resolved DAG: they execute no
+        // producer and consume no correctness evidence, so clean-attempt
+        // admission cannot attach to this invocation.
+        return false;
+    }
     return (['run', 'ci-tier'].includes(command) && args[0] === 'production-correctness')
         || command === 'ci-production'
         || command === 'ci-release-final';
