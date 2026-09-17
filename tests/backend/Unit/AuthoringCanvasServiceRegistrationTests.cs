@@ -38,6 +38,7 @@ public sealed class AuthoringCanvasServiceRegistrationTests
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasOperationTransaction>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationEngine>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationDatabaseVerifier>());
-        Assert.Empty(scope.ServiceProvider.GetServices<IAuthoringCanvasExternalCoordinateAuthority>());
+        Assert.IsType<PostgresAuthoringCanvasCoordinateAuthority>(
+            Assert.Single(scope.ServiceProvider.GetServices<IAuthoringCanvasExternalCoordinateAuthority>()));
     }
 }

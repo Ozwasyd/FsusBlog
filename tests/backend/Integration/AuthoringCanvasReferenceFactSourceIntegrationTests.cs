@@ -158,6 +158,154 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.DoesNotContain(BodyCanary, JsonSerializer.Serialize(denied), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ProductionCoordinateAuthority_ResolvesStableAnchorCoordinatesWithoutLeaks()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        await db.Ado.ExecuteCommandAsync(
+            """
+            CREATE TABLE admin_principal(
+                id bigint PRIMARY KEY,
+                status varchar(32) NOT NULL,
+                isroot boolean NOT NULL,
+                permissions text NOT NULL);
+            CREATE TABLE article(
+                id integer PRIMARY KEY,
+                title varchar(256) NOT NULL,
+                summary varchar(512) NULL,
+                status integer NOT NULL,
+                isdeleted boolean NOT NULL,
+                current_revision_id bigint NULL);
+            CREATE TABLE article_revision(
+                id bigint PRIMARY KEY,
+                article_id integer NOT NULL,
+                title varchar(256) NOT NULL,
+                summary varchar(512) NULL,
+                markdown_content text NOT NULL DEFAULT '',
+                content_block_id bigint NULL,
+                created_by_admin_principal_id bigint NOT NULL);
+            CREATE TABLE article_revision_content_block(
+                id bigint PRIMARY KEY,
+                content_hash varchar(64) NOT NULL,
+                markdown_content text NOT NULL,
+                byte_length integer NOT NULL);
+            INSERT INTO admin_principal(id, status, isroot, permissions)
+            VALUES
+                (73, 'active', false, E'article.write\n'),
+                (74, 'active', false, E'article.write\n');
+            INSERT INTO article(id, title, summary, status, isdeleted, current_revision_id)
+            VALUES
+                (204, 'Current title', 'Current summary', 2, false, 9002),
+                (205, 'Other account title', 'Other account summary', 2, false, 9010);
+            INSERT INTO article_revision_content_block(id, content_hash, markdown_content, byte_length)
+            VALUES
+                (1, 'a', @CurrentMarkdown, 1),
+                (2, 'b', @PinnedMarkdown, 1),
+                (3, 'c', 'no anchors', 1);
+            INSERT INTO article_revision(
+                id, article_id, title, summary, content_block_id, created_by_admin_principal_id)
+            VALUES
+                (9001, 204, 'Pinned title', 'Pinned summary', 2, 73),
+                (9002, 204, 'Current revision title', 'Current revision summary', 1, 73),
+                (9010, 205, 'Other account revision', 'Other account summary', 3, 74);
+            """,
+            new SugarParameter("@CurrentMarkdown", string.Join(
+                '\n',
+                "# Overview ^doc-head",
+                "",
+                "Intro paragraph ^intro-block",
+                "",
+                "First claim ^dup-block",
+                "Second claim ^dup-block",
+                "",
+                "```",
+                "var x = 1;",
+                "```",
+                "^code-block")),
+            new SugarParameter("@PinnedMarkdown", "# Old head ^doc-head\n\nOld para ^intro-block\n"));
+        var authority = new PostgresAuthoringCanvasCoordinateAuthority(db);
+        var source = new AuthoringCanvasReferenceFactSource(
+            new PostgresAuthoringCanvasArticleReferenceReader(db),
+            new AuthoringCanvasCoordinateFactProvider([authority]));
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
+            s_owner,
+            AuthoringCanvasReferencePermission.ArticleRead);
+
+        Guid headingNode = Guid.CreateVersion7();
+        Guid blockNode = Guid.CreateVersion7();
+        Guid pinnedHeadingNode = Guid.CreateVersion7();
+        Guid missingNode = Guid.CreateVersion7();
+        Guid duplicateNode = Guid.CreateVersion7();
+        Guid invalidNode = Guid.CreateVersion7();
+        Guid wrongKindNode = Guid.CreateVersion7();
+        AuthoringCanvasReferenceTarget[] targets =
+        [
+            Target(headingNode, heading: "doc-head"),
+            BlockTarget(blockNode, "intro-block"),
+            Target(pinnedHeadingNode, pinnedRevision: 9001, heading: "doc-head"),
+            BlockTarget(missingNode, "absent-anchor"),
+            BlockTarget(duplicateNode, "dup-block"),
+            BlockTarget(invalidNode, "NOT-CANONICAL"),
+            Target(wrongKindNode, heading: "intro-block")
+        ];
+
+        IReadOnlyList<AuthoringCanvasReferenceFact> facts = await source.ReadBatchAsync(
+            Query(coordinate, targets));
+
+        Assert.Equal(targets.Length, facts.Count);
+        AuthoringCanvasReferenceFact heading = facts.Single(fact => fact.NodeId == headingNode);
+        Assert.Equal(AuthoringCanvasReferenceCoordinateState.Current, heading.CoordinateState);
+        Assert.Equal(9002, heading.ResolvedRevision);
+        Assert.Equal("Overview", heading.ContextSnippet);
+        AuthoringCanvasReferenceFact block = facts.Single(fact => fact.NodeId == blockNode);
+        Assert.Equal(AuthoringCanvasReferenceCoordinateState.Current, block.CoordinateState);
+        Assert.Equal("Intro paragraph", block.ContextSnippet);
+        AuthoringCanvasReferenceFact pinned = facts.Single(fact => fact.NodeId == pinnedHeadingNode);
+        Assert.Equal(9001, pinned.ResolvedRevision);
+        Assert.Equal(AuthoringCanvasReferenceCoordinateState.Current, pinned.CoordinateState);
+        Assert.Equal("Old head", pinned.ContextSnippet);
+        Assert.Equal(
+            AuthoringCanvasReferenceCoordinateState.Missing,
+            facts.Single(fact => fact.NodeId == missingNode).CoordinateState);
+        Assert.Equal(
+            AuthoringCanvasReferenceCoordinateState.Duplicate,
+            facts.Single(fact => fact.NodeId == duplicateNode).CoordinateState);
+        Assert.Equal(
+            AuthoringCanvasReferenceCoordinateState.Invalid,
+            facts.Single(fact => fact.NodeId == invalidNode).CoordinateState);
+        // The anchor exists on a paragraph, so no heading coordinate carries that identity.
+        Assert.Equal(
+            AuthoringCanvasReferenceCoordinateState.Missing,
+            facts.Single(fact => fact.NodeId == wrongKindNode).CoordinateState);
+
+        string serialized = JsonSerializer.Serialize(facts);
+        Assert.DoesNotContain("var x = 1;", serialized, StringComparison.Ordinal);
+        Assert.DoesNotContain("```", serialized, StringComparison.Ordinal);
+        Assert.DoesNotContain("First claim", serialized, StringComparison.Ordinal);
+
+        // A principal without access to the article receives no coordinate facts at all.
+        var otherAccount = new AuthoringCanvasOwner(74, "primary-site");
+        IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact> denied =
+            await authority.ReadBatchAsync(new AuthoringCanvasCoordinateFactQuery(
+                Guid.CreateVersion7(),
+                7,
+                new string('c', 64),
+                otherAccount,
+                [Target(headingNode, heading: "doc-head")]));
+
+        Assert.Empty(denied);
+    }
+
+    private static AuthoringCanvasReferenceTarget BlockTarget(Guid nodeId, string block)
+        => new(
+            nodeId,
+            AuthoringCanvasNodeType.BlockReference,
+            204,
+            null,
+            block,
+            null,
+            null);
+
     private static AuthoringCanvasReferenceTarget Target(
         Guid nodeId,
         long? pinnedRevision = null,
