@@ -67,9 +67,24 @@ an active `ArticleWrite` admin principal; an active root may read all articles. 
 revoked principal receives only `permission-denied/unknown` for an existing
 inaccessible target, without its title, snippet, route, revision or projection
 facts; a confirmed absent target remains `missing`. Heading and block coordinates enter
-through exactly one typed provider. Until the external heading/block authority
-is present, that provider returns no guessed coordinate and the resolver emits
-`source-stale`.
+through exactly one typed provider, which delegates to the single registered
+`IAuthoringCanvasExternalCoordinateAuthority`.
+
+The production coordinate authority
+(`PostgresAuthoringCanvasCoordinateAuthority`) resolves the stable FsusUI #289
+`^anchor-id` source markers inside the exact immutable target revision Markdown
+of primary-site articles under the same principal/ownership scope as the article
+reader: pinned targets read the pinned revision and current targets read the
+article's current revision. A stored reference identity is the canonical anchor
+grammar `[a-z][a-z0-9-]{0,63}`; a non-canonical stored identity is `invalid`,
+zero matches are `missing`, repeated markers reaching anchor position are
+`duplicate` (never first-match), and a heading reference resolves `current`
+only when the unique anchor's owning block is a heading. Markers inside fenced,
+LaTeX or `:::` regions and orphan or misplaced markers are source diagnostics,
+never anchors. The authority emits only a bounded plain-text context snippet of
+the owning block; inaccessible articles, absent revisions and missing content
+return no coordinate, which the resolver projects as `source-stale` rather than
+a guessed fact.
 
 The cache is non-authoritative and binds document, node, stable target,
 principal, site, permission fingerprint and authority generation. The resolver

@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/PostgresAuthoringCanvasCoordinateAuthority.cs"
+            ],
+            "reason": "Preserve the established AuthoringCanvas contract and production authority spellings while registering the coordinate authority boundary."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-canvas-document-boundary.md"
+            ],
+            "reason": "Preserve the established architecture document tokens and external contract spellings while documenting the coordinate authority boundary."
+        }
+    ]
+}
