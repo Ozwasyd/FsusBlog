@@ -40,7 +40,7 @@
 
         <div class="article-compact-tags">
             <ElTag size="small">
-                {{ row.categoryName }}
+                <span class="article-compact-tag-text">{{ row.categoryName }}</span>
             </ElTag>
             <ElTag
                 size="small"
@@ -156,6 +156,21 @@ defineEmits<{
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.article-compact-tags :deep(.el-tag)
+ {
+    max-width: 100%;
+}
+
+.article-compact-tag-text
+ {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 .article-compact-actions
