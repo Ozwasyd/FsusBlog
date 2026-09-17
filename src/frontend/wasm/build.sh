@@ -249,6 +249,11 @@ CmakeIsSupported() {
     if ! VersionLessThan "${version}" "4.2.0" && VersionLessThan "${version}" "4.3.3"; then
         return 1
     fi
+    # The release toolchain contract pins one exact CMake identity; any other
+    # supported version falls through to the pinned ensure-cmake.sh bootstrap.
+    if [[ "${version}" != "${PINNED_CMAKE_VERSION}" ]]; then
+        return 1
+    fi
     CMAKE_VERSION="${version}"
     return 0
 }
@@ -283,6 +288,17 @@ SelectCmake() {
     fi
 
     echo "[build:wasm] dependency bootstrap returned an unsupported CMake: ${resolved}" >&2
+    exit 1
+}
+
+# The wasm toolchain contract (tools/frontend/ensure-wasm.mjs
+# wasmToolchainContract.cmakeVersion) only accepts the CMake version that
+# tools/frontend/ensure-cmake.sh bootstraps. Read that single pin so a
+# supported-but-different host CMake cannot produce artifacts whose manifest
+# toolchain the release contract always rejects.
+PINNED_CMAKE_VERSION="$(sed -nE 's/^CMAKE_VERSION="([^"]+)"$/\1/p' "${REPOSITORY_ROOT}/tools/frontend/ensure-cmake.sh" | head -n 1)"
+[[ "${PINNED_CMAKE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "[build:wasm] unable to resolve the pinned CMake version from tools/frontend/ensure-cmake.sh" >&2
     exit 1
 }
 

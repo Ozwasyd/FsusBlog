@@ -23,6 +23,12 @@ const {
     validateCanonicalReleaseFinalEvidenceInputs,
     validateReleaseFinalEvidenceBinding
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/release-final-evidence-contract.mjs')).href);
+const { runProducerAttempts } = await import(
+    pathToFileURL(path.join(root, 'tools/test/attempt-runner.mjs')).href
+);
+const { cleanAttemptEvidenceInputSchema } = await import(
+    pathToFileURL(path.join(root, 'tools/release/clean-attempt-evidence-source.mjs')).href
+);
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/execution-dependency-contract.json');
 const evidenceContractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
 const canonicalEvidenceInputDigest =
@@ -50,6 +56,132 @@ function replaceTierField(source, tierId, field, value)
     }
     lines.splice(absoluteFieldIndex, nextFieldIndex - absoluteFieldIndex, `      ${field}: ${value}`);
     return lines.join('\n');
+}
+
+function fileDigest(file)
+{
+    return `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex')}`;
+}
+
+function writeJson(file, value)
+{
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+// Produce the file-backed fsusblog.clean-attempt-evidence-input.v1 document a
+// real clean first-attempt correctness run would publish, bound to the
+// attempt-runner aggregate, attempt artifact and verified external authority
+// receipts it creates inside this repository.
+async function createCleanAttemptEvidenceInput()
+{
+    mkdirSync(path.join(root, '.tmp'), { recursive: true });
+    const evidenceRoot = mkdtempSync(path.join(root, '.tmp', 'release-final-execution-graph-'));
+    const producerId = 'release-final-execution-graph-producer';
+    const schedulerRunId = 'release-final-execution-graph-run';
+    const sourceCommit = '1'.repeat(40);
+    const worktreeFingerprint = `sha256:${'2'.repeat(64)}`;
+    const identity = { sourceCommit, worktreeFingerprint, schedulerRunId, producerId };
+    const authorityRoot = path.join(evidenceRoot, 'authorities');
+    mkdirSync(authorityRoot, { recursive: true });
+    const authorityReferences = [];
+    const authorityVerificationReceipts = {};
+    for (const [kind, marker] of [
+        ['execution-envelope', '3'],
+        ['replay-plan', '4'],
+        ['temporal-context', '5']
+    ])
+    {
+        const artifactPath = `${kind}.authority.json`;
+        const verificationReceiptPath = `${kind}.verification.json`;
+        const artifactFile = path.join(authorityRoot, artifactPath);
+        const verificationFile = path.join(authorityRoot, verificationReceiptPath);
+        writeFileSync(artifactFile, `${kind}: externally-owned authority\n`);
+        const artifactDigest = `sha256:${marker.repeat(64)}`;
+        const verificationReceiptDigest = `sha256:${String(Number(marker) + 3).repeat(64)}`;
+        writeJson(verificationFile, {
+            schema: 'fsusblog.external-authority-verification.v1',
+            kind,
+            authorityDigest: artifactDigest,
+            verificationReceiptDigest,
+            artifactFileDigest: fileDigest(artifactFile),
+            identity,
+            verified: true
+        });
+        authorityReferences.push({
+            kind,
+            artifactPath,
+            artifactDigest,
+            artifactFileDigest: fileDigest(artifactFile),
+            verificationReceiptPath,
+            verificationReceiptDigest
+        });
+        authorityVerificationReceipts[kind] = {
+            path: verificationReceiptPath,
+            fileDigest: fileDigest(verificationFile)
+        };
+    }
+    const verifyAuthority = (reference) => ({
+        verified: true,
+        authorityDigest: reference.artifactDigest,
+        verificationReceiptDigest: reference.verificationReceiptDigest,
+        identity
+    });
+    const result = await runProducerAttempts({
+        evidenceRoot,
+        producerId,
+        retryPolicyId: 'correctness-first-attempt',
+        sourceCommit,
+        worktreeFingerprint,
+        schedulerRunId,
+        command: [
+            process.execPath,
+            path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs'),
+            'success'
+        ],
+        cwd: root,
+        env: { PATH: process.env.PATH },
+        authorityReferences: authorityReferences.map((reference) => ({
+            kind: reference.kind,
+            artifactPath: reference.artifactPath,
+            artifactDigest: reference.artifactDigest,
+            verificationReceiptPath: reference.verificationReceiptPath,
+            verificationReceiptDigest: reference.verificationReceiptDigest
+        })),
+        verifyAuthority,
+        expectedTestIds: ['fixture:attempt-runner'],
+        timeoutMs: 5_000
+    });
+    const aggregateFile = path.join(result.producerRoot, 'aggregate.json');
+    const domainFile = path.join(result.producerRoot, 'attempt-1', 'payload.json');
+    const membership = {
+        selectedTierIds: ['release-final'],
+        testVectors: ['execution-graph']
+    };
+    const inputFile = path.join(evidenceRoot, 'clean-attempt-input.json');
+    writeJson(inputFile, {
+        schema: cleanAttemptEvidenceInputSchema,
+        consumerId: 'production-correctness',
+        membership,
+        expected: membership,
+        evidenceRoot: path.relative(root, evidenceRoot).replaceAll(path.sep, '/'),
+        authorityRoot: path.relative(root, authorityRoot).replaceAll(path.sep, '/'),
+        authorityReferences,
+        authorityVerificationReceipts,
+        aggregateReference: {
+            path: path.relative(evidenceRoot, aggregateFile).replaceAll(path.sep, '/'),
+            digest: result.aggregate.contentDigest,
+            fileDigest: fileDigest(aggregateFile)
+        },
+        domainReceiptReference: {
+            path: 'payload.json',
+            digest: result.attempts[0].artifactDigests['payload.json'],
+            fileDigest: fileDigest(domainFile)
+        },
+        expectedIdentity: identity,
+        transport: null
+    });
+    return { evidenceRoot, inputFile };
 }
 
 test('carried execution dependency contract seals every tier and command-group edge', () =>
@@ -268,7 +400,7 @@ test('default and CI plans contain one finalizer plus the exact evidence-only pr
     }
 });
 
-test('default and CI execution commands spawn only the finalizer', () =>
+test('default and CI execution commands spawn only the finalizer', async () =>
 {
     const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-graph-'));
     const bin = path.join(fixture, 'bin');
@@ -278,6 +410,7 @@ test('default and CI execution commands spawn only the finalizer', () =>
         'docker', 'postgres', 'postgresql', 'redis-server', 'backend', 'frontend',
         'load', 'soak', 'scale', 'benchmark', 'mutation', 'fuzz'
     ];
+    let attemptEvidence = null;
     try
     {
         mkdirSync(bin);
@@ -297,6 +430,10 @@ test('default and CI execution commands spawn only the finalizer', () =>
             runId: 'release-final-execution-graph',
             receiptFile: path.join(fixture, 'behavior-doc-admission.json')
         });
+        // ci-release-final is a production-correctness consumer and only
+        // proceeds behind fail-closed clean-attempt admission, so the
+        // isolated run must supply the current run's file-backed evidence.
+        attemptEvidence = await createCleanAttemptEvidenceInput();
         const environment = {
             ...process.env,
             PATH: `${bin}:${process.env.PATH}`,
@@ -304,7 +441,8 @@ test('default and CI execution commands spawn only the finalizer', () =>
             FSUSBLOG_NODE: process.execPath,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: admission.receiptFile,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: admission.contentDigest,
-            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: admission.runId
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: admission.runId,
+            FSUSBLOG_CLEAN_ATTEMPT_EVIDENCE: attemptEvidence.inputFile
         };
         const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
         const producerTierIds = matrix.tiers.find((tier) => tier.id === 'release-final').requiresEvidenceFrom;
@@ -381,5 +519,9 @@ test('default and CI execution commands spawn only the finalizer', () =>
     finally
     {
         rmSync(fixture, { recursive: true, force: true });
+        if (attemptEvidence)
+        {
+            rmSync(attemptEvidence.evidenceRoot, { recursive: true, force: true });
+        }
     }
 });

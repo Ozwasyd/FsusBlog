@@ -126,6 +126,13 @@ test('current schema bootstrap lane exercises positive and fail-closed PostgreSQ
     assert.match(lane, /DEFERRABLE INITIALLY DEFERRED/u);
     assert.match(lane, /constraint_meta\.contype IN \('p','u'\)/u);
     assert.match(lane, /RestoreOwnedConstraint "\$deferrableTable" "\$deferrableName" "\$deferrableOriginalDefinition"/u);
+    assert.match(lane, /--print-canonical-tables/u);
+    assert.match(lane, /CANONICAL_TABLE_SQL/u);
+    // Every drift injection must target a canonical-owned table: runtime
+    // rollup tables materialize alongside them but the startup verifier
+    // requires rather than compares them, so drift there can never fail.
+    assert.match(lane, /relname IN \$\{CANONICAL_TABLE_SQL\}/u);
+    assert.match(lane, /table_name IN \$\{CANONICAL_TABLE_SQL\}/u);
     assert.match(lane, /ownedCheckConstraint=.*constraint_meta\.contype='c'/u);
     assert.match(lane, /NOT VALID/u);
     assert.match(lane, /ON UPDATE CASCADE ON DELETE NO ACTION/u);
