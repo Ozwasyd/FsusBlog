@@ -1,6 +1,6 @@
 <template>
     <div class="blog-page-shell flex flex-col lg:flex-row gap-16 lg:gap-24 xl:gap-32">
-        <div class="grow lg:w-2/3">
+        <div class="grow max-w-[var(--fsusblog-container-reading)] lg:w-2/3">
             <FilterHeader :view="view.header" />
 
             <div

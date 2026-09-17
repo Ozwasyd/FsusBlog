@@ -14,7 +14,7 @@
 
     display: grid;
     width: 100%;
-    max-width: 1120px;
+    max-width: min(1120px, max(760px, 72vw));
     margin-inline: auto;
     grid-template-columns:
         [full-start] minmax(var(--fsusblog-reading-full-gutter), 1fr)
@@ -127,8 +127,8 @@
  {
     [data-fsus-reading-layout]
  {
-        --fsusblog-reading-full-gutter: 32px;
+        --fsusblog-reading-full-gutter: clamp(16px, calc((100% - var(--fsusblog-reading-content-max)) / 8), 32px);
         --fsusblog-reading-bleed-offset:
-            calc((var(--fsusblog-reading-wide-max) - var(--fsusblog-reading-content-max)) / 2);
+            clamp(8px, calc((100% - var(--fsusblog-reading-content-max)) / 2 - var(--fsusblog-reading-full-gutter)), calc((var(--fsusblog-reading-wide-max) - var(--fsusblog-reading-content-max)) / 2));
     }
 }
