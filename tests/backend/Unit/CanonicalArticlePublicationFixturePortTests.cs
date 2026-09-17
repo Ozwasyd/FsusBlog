@@ -12,6 +12,7 @@ using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
 
@@ -182,22 +183,22 @@ public sealed class CanonicalArticlePublicationFixturePortTests
     [Fact]
     public void ArticleService_SharedSeams_AreReferencedByProductionSources()
     {
-        string service = System.IO.File.ReadAllText(
-            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
-        string mutations = System.IO.File.ReadAllText(
-            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.Mutations.cs"));
-        string cache = System.IO.File.ReadAllText(
-            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.CacheAndInvalidation.cs"));
-        string responsibility = System.IO.File.ReadAllText(
-            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Integrity/ArticleResponsibilityManifest.cs"));
+        string service = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Services", "ArticleService.cs");
+        string mutations = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Services", "ArticleService.Mutations.cs");
+        string cache = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Services", "ArticleService.CacheAndInvalidation.cs");
+        string responsibility = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Infrastructure", "Integrity", "ArticleResponsibilityManifest.cs");
 
         Assert.Contains("ArticleProductionNormalizers.NormalizeArticleRights", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsSnapshotBuilder.Build", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsPolicyPersistence.UpsertAsync", service, StringComparison.Ordinal);
         Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRevisionPersistence.SaveAsync", service, StringComparison.Ordinal);
-        string port = System.IO.File.ReadAllText(
-            System.IO.Path.Combine(FindRepoRoot(), "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs"));
+        string port = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Services", "Fixtures", "CanonicalArticlePublicationFixturePort.cs");
         Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", port, StringComparison.Ordinal);
         Assert.Contains("BeginPublicMutationFenceAsync", port, StringComparison.Ordinal);
         Assert.DoesNotContain("new ArticleRevision", port, StringComparison.Ordinal);
@@ -206,20 +207,6 @@ public sealed class CanonicalArticlePublicationFixturePortTests
         Assert.Contains("ArticleResponsibilitySnapshotBuilder.Build", responsibility, StringComparison.Ordinal);
         Assert.DoesNotContain("private sealed record ArticleRightsWriteModel", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsNormalizedModel", mutations, StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        string? dir = AppContext.BaseDirectory;
-        while (!string.IsNullOrEmpty(dir))
-        {
-            if (System.IO.File.Exists(System.IO.Path.Combine(dir, "AGENTS.md")))
-            {
-                return dir;
-            }
-            dir = System.IO.Directory.GetParent(dir)?.FullName;
-        }
-        throw new InvalidOperationException("repository root not found");
     }
 
     [Fact]
