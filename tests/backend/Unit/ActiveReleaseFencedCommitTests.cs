@@ -34,6 +34,28 @@ public sealed class ActiveReleaseFencedCommitTests
             () => guard.EnlistAsync(db, "scheduled-publish", "batch-42"));
 
         Assert.Contains("inside the business PostgreSQL transaction", error.Message, StringComparison.Ordinal);
+
+        const string LocalRelease = "20260829080000-0123456789ab";
+        IConfiguration syntheticConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true",
+                ["FSUSBLOG_RELEASE_ID"] = LocalRelease
+            })
+            .Build();
+        executionContext.Current.Returns(new ActiveReleaseExecutionTicket(
+            LocalRelease,
+            "local",
+            1,
+            s_localImageDigest,
+            "test-process",
+            SyntheticLocal: true));
+        var syntheticGuard = CreateGuard(executionContext, syntheticConfiguration, Environments.Development);
+
+        InvalidOperationException syntheticError = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => syntheticGuard.EnlistAsync(db, "scheduled-publish", "batch-42"));
+
+        Assert.Contains("inside the business PostgreSQL transaction", syntheticError.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -151,6 +173,39 @@ public sealed class ActiveReleaseFencedCommitTests
             {
                 ReleaseId = "wrong-release"
             }));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact with
+            {
+                Slot = "blue"
+            }));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity,
+            runtime,
+            exact with
+            {
+                ImageDigest = $"sha256:{new string('a', 64)}"
+            }));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
+            releaseIdentity,
+            runtime,
+            exact));
+        Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
+            development,
+            configuration,
+            releaseIdentity with
+            {
+                Configured = true
+            },
+            runtime,
+            exact));
         Assert.False(ActiveReleaseFenceAvailabilityPolicy.IsSyntheticLocalTicket(
             development,
             configuration,
