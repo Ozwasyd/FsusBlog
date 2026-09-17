@@ -1403,7 +1403,7 @@ jobs:
         name: Runtime Cache Strict Aggregate
         runs-on: ubuntu-latest
         needs: [behavior-doc-static-admission, plan-pr-risk, integration-runtime, backend-qps-collectors]
-        if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true')
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true')
         timeout-minutes: 45
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6

@@ -472,8 +472,8 @@ expectMatrixValidateFailure(
 );
 
 expectWorkflowSyncFailure(
-    setTierBooleanField(matrixSourceText, 'backend-qps-view-count-flush', 'workflowBootstraps', 'false'),
-    'workflow job backend-qps-collectors manually runs bootstrap but tier backend-qps-view-count-flush does not declare workflowBootstraps=true',
+    setTierBooleanField(matrixSourceText, 'runtime-cache-public-hot-read', 'workflowBootstraps', 'false'),
+    'workflow job backend-qps-collectors manually runs bootstrap but tier runtime-cache-public-hot-read does not declare workflowBootstraps=true',
     'workflow manual bootstrap must be backed by matrix metadata'
 );
 

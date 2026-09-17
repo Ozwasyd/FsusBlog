@@ -121,7 +121,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-273
+263
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` is the only editable `ContentShapeCatalog` for Unicode, script, positive and negative eligibility, and content consumer applicability. `tools/testing/content-shape-catalog.mjs` generates and checks `config/testing/content-field-contracts.generated.json` from the current `ArticlePublicationValidator`, `CommentLimits` and comment binary endpoints; tests must not copy article/comment characters or UTF-8 byte limits. The "character" count semantics of production are fixed to .NET UTF-16 `string.Length`, and the byte count is fixed to `Encoding.UTF8.GetByteCount`. The generator separately records Unicode scalar and grapheme statistics, but they must not be used to replace the production judgment. The 1000 UTF-16 unit upper limit of the current comment will constrain all legal Unicode text before the 4096-byte upper limit, so the byte boundary case is still an independent dimension evidence, rather than pretending to be an overall positive input that can be achieved alone.
@@ -1234,7 +1234,6 @@ render: enum-set
 - `backend-auth-state-machine`
 - `backend-benchmark-regression`
 - `backend-build-governance`
-- `backend-cache-invalidation-batch`
 - `backend-concurrency`
 - `backend-fast`
 - `backend-golden`
@@ -1243,20 +1242,6 @@ render: enum-set
 - `backend-nightly`
 - `backend-perf`
 - `backend-property`
-- `backend-qps`
-- `backend-qps-article-detail-miss`
-- `backend-qps-cache-hit`
-- `backend-qps-cache-miss-singleflight`
-- `backend-qps-cache-registry`
-- `backend-qps-comment-cursor`
-- `backend-qps-hotread`
-- `backend-qps-index-plan`
-- `backend-qps-list-pagination`
-- `backend-qps-related-reading`
-- `backend-qps-risk-filter`
-- `backend-qps-runtime-sequential`
-- `backend-qps-view-count-flush`
-- `backend-qps-visitlog-invalidation`
 - `backend-test-governance`
 - `backend-unit`
 - `behavior-doc-static-admission`
@@ -1351,6 +1336,20 @@ render: enum-set
 - `resilience`
 - `rights-v3-test-matrix`
 - `risk-control-test-matrix`
+- `runtime-cache-article-detail-l1`
+- `runtime-cache-cache-miss-singleflight`
+- `runtime-cache-distributed-invalidation`
+- `runtime-cache-evidence`
+- `runtime-cache-hot-featured-frame`
+- `runtime-cache-l1-residency`
+- `runtime-cache-pagination`
+- `runtime-cache-public-hot-read`
+- `runtime-cache-redis-fault-classes`
+- `runtime-cache-related-reading`
+- `runtime-cache-revocation`
+- `runtime-cache-security-projections`
+- `runtime-cache-sitemap`
+- `runtime-cache-telemetry`
 - `security`
 - `security-authenticated-dast`
 - `soak-long-evidence-import`

@@ -174,7 +174,7 @@ const aliases = new Map([
     ['coverage', 'coverage-gate'],
     ['integrity-proof', 'integrity-proof-verification'],
     ['frontend-fast', 'frontend-fast-summary'],
-    ['backend-qps-runtime', 'backend-qps'],
+    ['backend-qps-runtime', 'runtime-cache-evidence'],
     ['endpoint-depth-matrix-generate', 'endpoint-depth'],
     ['endpoint-depth-runtime-smoke', 'endpoint-depth'],
     ['endpoint-depth-runtime-full', 'endpoint-depth']
