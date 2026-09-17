@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -17,10 +18,58 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Fixtures;
 
+/// <summary>
+/// Owner-bound lease over the moderation runtime states the port matrix needs.
+/// The port snapshots the exact prior region/model state and restores it on
+/// release; the producer never touches the runtime-state service itself.
+/// </summary>
+public sealed record CommentModerationRuntimeLease(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    string Region,
+    string PriorRegionState,
+    string AppliedRegionState,
+    bool PriorModelEnabled,
+    string PriorModelProvider,
+    string PriorModelProfile,
+    string PriorModelThresholdProfile,
+    string PriorModelContractVersion,
+    string Owner,
+    string PriorStateDigest,
+    string AppliedStateDigest);
+
+public sealed record CommentModerationRuntimeRestore(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    string LeaseDigest,
+    string RestoredRegionState,
+    bool RestoredModelEnabled,
+    string RestoredModelProvider,
+    string RestoredModelProfile,
+    string RestoredModelThresholdProfile,
+    string RestoredModelContractVersion,
+    string Owner,
+    string RestoredStateDigest,
+    bool Exact);
+
+/// <summary>
+/// Post-cleanup moderation observation: every owned comment is soft-deleted,
+/// absent from both production queue projections, and hidden from the public
+/// read model. Emitted only when all postconditions hold exactly.
+/// </summary>
+public sealed record CommentModerationCleanupObservation(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> CommentIds,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> QueueAbsentCommentIds,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> PublicHiddenCommentIds,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] IReadOnlyList<long> SoftDeletedCommentIds,
+    string ObservationDigest);
+
 public sealed record CommentModerationFixtureOperation(
     string CapabilityId,
     string SemanticRole,
-    long CommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long CommentId,
     string SemanticStatus,
     string Reason,
     bool RequireRegionEvidence,
@@ -41,7 +90,7 @@ public sealed record CommentModerationFixtureOperation(
 }
 
 public sealed record CommentRegionFixtureEvidence(
-    long CommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long CommentId,
     string Source,
     string RegionCode,
     string PolicyVersion,
@@ -66,8 +115,8 @@ public sealed record CommentRegionFixtureEvidence(
 }
 
 public sealed record CommentSignalFixtureEvidence(
-    long SignalId,
-    long CommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long SignalId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long CommentId,
     string Provider,
     string ContractVersion,
     string Classification,
@@ -98,11 +147,11 @@ public sealed record CommentModerationFixturePlan(
 public sealed record CommentModerationFixtureEntity(
     string CapabilityId,
     string SemanticRole,
-    long CommentId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long CommentId,
     string SemanticStatus,
     string RuntimeStatus,
     string? Reason,
-    long? ModeratedByAdminPrincipalId,
+    [property: System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.WriteAsString | System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)] long? ModeratedByAdminPrincipalId,
     DateTime? ModeratedAt,
     bool PubliclyVisible,
     string QueueBucket,
@@ -140,6 +189,12 @@ public sealed record CommentModerationFixtureEntity(
         get; init;
     }
     public IReadOnlyList<string> ApplicableRegions { get; init; } = [];
+    public int ArticleId
+    {
+        get; init;
+    }
+    public string CacheIdentity { get; init; } = string.Empty;
+    public string CacheGeneration { get; init; } = string.Empty;
 }
 
 public sealed record CommentFixtureRuntimeSemantics(
@@ -175,6 +230,22 @@ public interface ICommentModerationFixturePort
         string region,
         DateTime submittedAtUtc);
 
+    CommentModerationRuntimeLease AcquireRuntimeState(
+        CommentFixturePortBinding binding,
+        string manualReviewRegion);
+
+    CommentModerationRuntimeRestore RestoreRuntimeState(
+        CommentModerationRuntimeLease lease);
+
+    Task<string?> ReadCommentCacheGenerationAsync(
+        int articleId,
+        CancellationToken cancellationToken = default);
+
+    Task<CommentModerationCleanupObservation> VerifyCleanupAsync(
+        CommentFixturePortBinding binding,
+        IReadOnlyList<long> commentIds,
+        CancellationToken cancellationToken = default);
+
     Task TransitionAsync(
         CommentFixturePortBinding binding,
         long adminPrincipalId,
@@ -196,6 +267,8 @@ public sealed class CommentModerationFixturePort(
     ICommentQueryService publicQueries,
     IRegionLegalModerationService regionPolicies,
     CommentMutationOutboxWorker outboxWorker,
+    IModerationRuntimeStateService runtimeState,
+    CommentFixtureCacheProbe cacheProbe,
     ISqlSugarClient db) : ICommentModerationFixturePort
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
@@ -203,6 +276,9 @@ public sealed class CommentModerationFixturePort(
     private const int MaxOutboxDrainPasses = 16;
     private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
     private const string ResultSchema = "fsusblog.comment-moderation-fixture-result.v1";
+    private const string RuntimeLeaseSchema = "fsusblog.comment-moderation-runtime-lease.v1";
+    private const string RuntimeRestoreSchema = "fsusblog.comment-moderation-runtime-restore.v1";
+    private const string CleanupObservationSchema = "fsusblog.comment-moderation-cleanup-observation.v1";
 
     public RegionModerationDecision ResolveRegion(
         string content,
@@ -224,6 +300,211 @@ public sealed class CommentModerationFixturePort(
             null,
             null,
             submittedAtUtc));
+    }
+
+    public CommentModerationRuntimeLease AcquireRuntimeState(
+        CommentFixturePortBinding binding,
+        string manualReviewRegion)
+    {
+        if (!binding.IsValid() || string.IsNullOrWhiteSpace(manualReviewRegion))
+            throw new InvalidOperationException("Comment moderation runtime lease binding is invalid.");
+        string priorRegion = runtimeState.GetRegionState(manualReviewRegion);
+        ModerationModelRuntimeSnapshot priorModel = runtimeState.CurrentModel;
+        Result<ModerationRuntimeSnapshot> regionState = runtimeState.SetRegionState(
+            manualReviewRegion,
+            ModerationRegionStates.ManualReviewOnly,
+            $"comment fixture manual-review matrix {binding.RunId}",
+            DateTime.UtcNow.AddMinutes(15),
+            null,
+            binding.Owner);
+        if (!regionState.IsSuccess)
+            throw new InvalidOperationException("Comment moderation port could not enable the manual-review-only region runtime state.");
+        Result<ModerationRuntimeSnapshot> modelState = runtimeState.SetModelRuntime(
+            enabled: true,
+            provider: null,
+            modelProfile: null,
+            thresholdProfile: null,
+            reason: $"comment fixture anti-spam model runtime {binding.RunId}",
+            changedBy: binding.Owner);
+        if (!modelState.IsSuccess)
+            throw new InvalidOperationException($"Comment moderation port could not enable the anti-spam model runtime: {modelState.Error.Message}.");
+        ModerationModelRuntimeSnapshot appliedModel = runtimeState.CurrentModel;
+        if (runtimeState.GetRegionState(manualReviewRegion) != ModerationRegionStates.ManualReviewOnly
+            || !appliedModel.Enabled)
+            throw new InvalidOperationException("Comment moderation runtime lease did not reach the required owned state.");
+        return new CommentModerationRuntimeLease(
+            RuntimeLeaseSchema,
+            binding,
+            manualReviewRegion,
+            priorRegion,
+            ModerationRegionStates.ManualReviewOnly,
+            priorModel.Enabled,
+            priorModel.Provider,
+            priorModel.ModelProfile,
+            priorModel.ThresholdProfile,
+            priorModel.ContractVersion,
+            binding.Owner,
+            RuntimeStateDigest(manualReviewRegion, priorRegion, priorModel),
+            RuntimeStateDigest(manualReviewRegion, ModerationRegionStates.ManualReviewOnly, appliedModel));
+    }
+
+    public CommentModerationRuntimeRestore RestoreRuntimeState(
+        CommentModerationRuntimeLease lease)
+    {
+        if (lease.Schema != RuntimeLeaseSchema || !lease.Binding.IsValid()
+            || string.IsNullOrWhiteSpace(lease.Region) || string.IsNullOrWhiteSpace(lease.PriorRegionState)
+            || !StringComparer.Ordinal.Equals(lease.Owner, lease.Binding.Owner)
+            || !IsDigest(lease.PriorStateDigest) || !IsDigest(lease.AppliedStateDigest))
+            throw new InvalidOperationException("Comment moderation runtime lease is invalid.");
+        string leaseDigest = Digest(JsonSerializer.Serialize(lease));
+        if (runtimeState.GetRegionState(lease.Region) == lease.PriorRegionState
+            && SameModel(runtimeState.CurrentModel, lease))
+        {
+            // Idempotent release: a prior restore already reached the leased state.
+            return BuildRuntimeRestore(lease, leaseDigest, exact: true);
+        }
+        Result<ModerationRuntimeSnapshot> regionRestore = runtimeState.SetRegionState(
+            lease.Region,
+            lease.PriorRegionState,
+            $"comment fixture restore {lease.Binding.RunId}",
+            null,
+            null,
+            lease.Owner);
+        if (!regionRestore.IsSuccess
+            || runtimeState.GetRegionState(lease.Region) != lease.PriorRegionState)
+            throw new InvalidOperationException("Comment moderation runtime restore could not return the leased region state.");
+        Result<ModerationRuntimeSnapshot> rollback = runtimeState.RollbackModel(lease.Owner);
+        if (!rollback.IsSuccess || !SameModel(runtimeState.CurrentModel, lease))
+        {
+            // The shared rollback slot may hold an interleaved snapshot; fall back
+            // to an explicit prior-state write and still require an exact match.
+            Result<ModerationRuntimeSnapshot> direct = runtimeState.SetModelRuntime(
+                lease.PriorModelEnabled,
+                lease.PriorModelProvider,
+                lease.PriorModelProfile,
+                lease.PriorModelThresholdProfile,
+                $"comment fixture restore {lease.Binding.RunId}",
+                lease.Owner);
+            if (!direct.IsSuccess || !SameModel(runtimeState.CurrentModel, lease))
+                throw new InvalidOperationException("Comment moderation runtime restore could not return the leased model state.");
+        }
+        return BuildRuntimeRestore(lease, leaseDigest, exact: true);
+    }
+
+    private CommentModerationRuntimeRestore BuildRuntimeRestore(
+        CommentModerationRuntimeLease lease,
+        string leaseDigest,
+        bool exact)
+    {
+        ModerationModelRuntimeSnapshot current = runtimeState.CurrentModel;
+        return new CommentModerationRuntimeRestore(
+            RuntimeRestoreSchema,
+            lease.Binding,
+            leaseDigest,
+            runtimeState.GetRegionState(lease.Region),
+            current.Enabled,
+            current.Provider,
+            current.ModelProfile,
+            current.ThresholdProfile,
+            current.ContractVersion,
+            lease.Owner,
+            RuntimeStateDigest(lease.Region, runtimeState.GetRegionState(lease.Region), current),
+            exact);
+    }
+
+    private static bool SameModel(
+        ModerationModelRuntimeSnapshot current,
+        CommentModerationRuntimeLease lease)
+        => current.Enabled == lease.PriorModelEnabled
+            && StringComparer.Ordinal.Equals(current.Provider, lease.PriorModelProvider)
+            && StringComparer.Ordinal.Equals(current.ModelProfile, lease.PriorModelProfile)
+            && StringComparer.Ordinal.Equals(current.ThresholdProfile, lease.PriorModelThresholdProfile)
+            && StringComparer.Ordinal.Equals(current.ContractVersion, lease.PriorModelContractVersion);
+
+    private static string RuntimeStateDigest(
+        string region,
+        string regionState,
+        ModerationModelRuntimeSnapshot model)
+        => Digest(JsonSerializer.Serialize(new
+        {
+            region,
+            regionState,
+            model.Enabled,
+            model.Provider,
+            model.ModelProfile,
+            model.ThresholdProfile,
+            model.ContractVersion
+        }));
+
+    public Task<string?> ReadCommentCacheGenerationAsync(
+        int articleId,
+        CancellationToken cancellationToken = default)
+    {
+        if (articleId <= 0)
+            throw new InvalidOperationException("Comment moderation cache observation requires an exact article reference.");
+        return cacheProbe.ReadCursorGenerationAsync(
+            $"article:{articleId.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            cancellationToken);
+    }
+
+    public async Task<CommentModerationCleanupObservation> VerifyCleanupAsync(
+        CommentFixturePortBinding binding,
+        IReadOnlyList<long> commentIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (!binding.IsValid() || commentIds.Count == 0
+            || commentIds.Any(item => item <= 0)
+            || commentIds.Distinct().Count() != commentIds.Count)
+            throw new InvalidOperationException("Comment moderation cleanup observation request is invalid.");
+        QueueSnapshot pending = await ReadExactQueueAsync(
+            CommentModerationStatus.Pending,
+            cancellationToken).ConfigureAwait(false);
+        QueueSnapshot rejected = await ReadExactQueueAsync(
+            CommentModerationStatus.Rejected,
+            cancellationToken).ConfigureAwait(false);
+        var queued = new HashSet<string>(
+            pending.Items.Concat(rejected.Items).Select(item => item.Id),
+            StringComparer.Ordinal);
+        List<Comment> rows = await db.Queryable<Comment>()
+            .Where(item => commentIds.Contains(item.Id))
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (rows.Count != commentIds.Count)
+            throw new InvalidOperationException("Comment moderation cleanup observation lost owned identities.");
+        var queueAbsent = new List<long>(rows.Count);
+        var publicHidden = new List<long>(rows.Count);
+        var softDeleted = new List<long>(rows.Count);
+        foreach (Comment row in rows)
+        {
+            string commentId = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!row.IsDeleted)
+                throw new InvalidOperationException($"Comment {row.Id} remains active after cleanup.");
+            if (queued.Contains(commentId))
+                throw new InvalidOperationException($"Comment {row.Id} remains in the production moderation queue after cleanup.");
+            CommentPermalinkContextDto projection = await publicQueries
+                .GetPermalinkContextAsync(row.ArticleId, row.Id)
+                .ConfigureAwait(false);
+            if (projection.Status == "found")
+                throw new InvalidOperationException($"Comment {row.Id} remains visible in the public read model after cleanup.");
+            queueAbsent.Add(row.Id);
+            publicHidden.Add(row.Id);
+            softDeleted.Add(row.Id);
+        }
+        return new CommentModerationCleanupObservation(
+            CleanupObservationSchema,
+            binding,
+            [.. commentIds.Order()],
+            queueAbsent,
+            publicHidden,
+            softDeleted,
+            Digest(JsonSerializer.Serialize(new
+            {
+                schema = CleanupObservationSchema,
+                binding,
+                queueAbsent,
+                publicHidden,
+                softDeleted
+            })));
     }
 
     public async Task<CommentModerationFixtureResult> ExecuteAsync(
@@ -397,6 +678,12 @@ public sealed class CommentModerationFixturePort(
             throw new InvalidOperationException($"Public moderation projection drifted for {operation.SemanticRole}.");
 
         string commentId = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string cacheIdentity = $"article:{row.ArticleId.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        string cacheGeneration = await ReadCommentCacheGenerationAsync(row.ArticleId, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"Comment {row.Id} has no readable cache generation.");
+        if (!IsCacheGeneration(cacheGeneration))
+            throw new InvalidOperationException($"Comment {row.Id} cache generation is invalid.");
         QueueSnapshot queueSnapshot = queues[expectedRuntime];
         QueueSnapshot adminSnapshot = adminReadModels[expectedRuntime];
         CommentModerationItemResponse? queueItem = FindExactItem(queueSnapshot, commentId);
@@ -509,7 +796,10 @@ public sealed class CommentModerationFixturePort(
             ReasonId = operation.ReasonId,
             RegionStateId = operation.RegionStateId,
             SignalStateId = operation.SignalStateId,
-            ApplicableRegions = BuildApplicableRegions(region)
+            ApplicableRegions = BuildApplicableRegions(region),
+            ArticleId = row.ArticleId,
+            CacheIdentity = cacheIdentity,
+            CacheGeneration = cacheGeneration
         };
     }
 
@@ -819,6 +1109,13 @@ public sealed class CommentModerationFixturePort(
 
     private static bool IsDigest(string value) => value.StartsWith("sha256:", StringComparison.Ordinal)
         && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept(s_myChars) < 0;
+
+    private static bool IsCacheGeneration(string value)
+        => ulong.TryParse(
+            value,
+            System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out _);
 
     private static string Digest(string value)
         => $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))}";
