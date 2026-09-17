@@ -7,7 +7,9 @@
         @keyup.capture="rememberTextareaSelectionFromEvent"
         @select.capture="rememberTextareaSelectionFromEvent"
         @keydown.capture="handleKeydown"
+        @pointerdown.capture="cancelProgrammaticViewportSuppression"
         @paste.capture="handlePaste"
+        @wheel.capture="cancelProgrammaticViewportSuppression"
         @scroll.capture="trackAuthoringViewport"
     >
         <ElMarkdownEditor
@@ -208,7 +210,9 @@ const lastSelection = ref<SelectionSnapshot | null>(null);
 const cursorState = ref({ line: 1, column: 1 });
 let coordinateMapSource = '';
 let coordinateMap: ReturnType<typeof createMarkdownSourceCoordinateMap> | null = null;
-let suppressNextProgrammaticViewport = false;
+const programmaticViewportSuppressionMs = 1000;
+let suppressProgrammaticViewportUntil = 0;
+let programmaticViewportSuppressionTimer: ReturnType<typeof setTimeout> | undefined;
 
 const actionOverflowKeys = ['image'] as const;
 
@@ -421,7 +425,7 @@ function revealHeading(
     const result = editorRef.value?.revealHeading?.(nodeId, options) ?? 'not-found';
     if (result === 'success')
     {
-        suppressNextProgrammaticViewport = true;
+        armProgrammaticViewportSuppression();
     }
     return result;
 }
@@ -434,9 +438,33 @@ function revealSourceRange(
     const result = editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
     if (result === 'success')
     {
-        suppressNextProgrammaticViewport = true;
+        armProgrammaticViewportSuppression();
     }
     return result;
+}
+
+function armProgrammaticViewportSuppression(): void
+{
+    if (programmaticViewportSuppressionTimer !== undefined)
+    {
+        clearTimeout(programmaticViewportSuppressionTimer);
+    }
+    suppressProgrammaticViewportUntil = Date.now() + programmaticViewportSuppressionMs;
+    programmaticViewportSuppressionTimer = setTimeout(() =>
+    {
+        suppressProgrammaticViewportUntil = 0;
+        programmaticViewportSuppressionTimer = undefined;
+    }, programmaticViewportSuppressionMs);
+}
+
+function cancelProgrammaticViewportSuppression(): void
+{
+    if (programmaticViewportSuppressionTimer !== undefined)
+    {
+        clearTimeout(programmaticViewportSuppressionTimer);
+        programmaticViewportSuppressionTimer = undefined;
+    }
+    suppressProgrammaticViewportUntil = 0;
 }
 
 function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
@@ -484,9 +512,8 @@ function trackAuthoringViewport(event: Event): void
         return;
     }
 
-    if (suppressNextProgrammaticViewport)
+    if (suppressProgrammaticViewportUntil > Date.now())
     {
-        suppressNextProgrammaticViewport = false;
         return;
     }
 
@@ -608,6 +635,8 @@ function handleKeydown(event: KeyboardEvent): void
     {
         return;
     }
+
+    cancelProgrammaticViewportSuppression();
 
     if (event.key === 'Escape')
     {

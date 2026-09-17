@@ -242,9 +242,9 @@ function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
         return;
     }
     if (event.revision < sourceRevision.value) return;
+    activeCause.value = 'selection';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
-    activeCause.value = 'selection';
 }
 
 function handleTransaction(event: MarkdownEditorTransactionEvent): void
@@ -255,9 +255,9 @@ function handleTransaction(event: MarkdownEditorTransactionEvent): void
         return;
     }
     if (event.revision < sourceRevision.value) return;
+    activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
-    activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
 }
 
 function handleViewportChange(event: {
