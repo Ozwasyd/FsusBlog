@@ -1,0 +1,17 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tools/fact-extractors/test-matrix/extract.mjs",
+    "tools/governance/check-monolithic-distributed-architecture.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "sha256": "05dd6d0392bcf890e6eff0cc4166bf84c0129fb031c10b76d22e96a59d27228f"
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "sha256": "13194ae845142a8a849df6498c48cb514dac2e68550b3dd19eabefc36e278f58"
+    }
+  ]
+}

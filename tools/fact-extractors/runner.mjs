@@ -182,11 +182,20 @@ export async function runExtractor({
     }
 
     const module = await importExtractorModule(repositoryRoot, extractor.entrypoint);
+    const normalizedBuildReceiptPath = buildReceiptPath == null
+        ? null
+        : path.relative(
+            path.resolve(repositoryRoot),
+            path.isAbsolute(buildReceiptPath)
+                ? path.resolve(buildReceiptPath)
+                : path.resolve(repositoryRoot, buildReceiptPath)
+        ).replaceAll(path.sep, '/');
     const raw = await module.extract({
         repositoryRoot,
         extractor,
         consumedInputDigests,
         buildIdentity: normalizedBuildIdentity,
+        buildReceiptPath: normalizedBuildReceiptPath,
         sourceCommit: identity.sourceCommit,
         worktreeFingerprint: identity.worktreeFingerprint
     });

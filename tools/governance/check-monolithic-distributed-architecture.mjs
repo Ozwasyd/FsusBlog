@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import crypto, { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveContainedPath } from '../fact-extractors/identity.mjs';
 
 const toolFile = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(toolFile), '../..');
@@ -14,6 +15,148 @@ const productionBuildAuthority = 'tests/governance/backend-production-build-cons
 const evaluationHelper = path.join(defaultRoot, 'tools/governance/evaluate-msbuild-entrypoints.mjs');
 const evaluationSchema = 'fsusblog.msbuild-entrypoint-evaluation.v1';
 const safeConfiguration = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/u;
+
+function canonicalJson(value)
+{
+    if (Array.isArray(value))
+    {
+        return `[${value.map(canonicalJson).join(',')}]`;
+    }
+    if (value && typeof value === 'object')
+    {
+        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+function digestCanonical(value)
+{
+    return `sha256:${crypto.createHash('sha256').update(canonicalJson(value)).digest('hex')}`;
+}
+
+function digestText(value)
+{
+    return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalTrustedExecutable(candidate, label)
+{
+    const lexical = path.resolve(candidate);
+    const canonical = fs.realpathSync(lexical);
+    const metadata = fs.lstatSync(canonical);
+    const trustedRoots = ['/usr/bin', '/usr/local/bin', '/usr/lib/docker', '/usr/libexec/docker'];
+    if (!metadata.isFile() || metadata.isSymbolicLink()
+        || !trustedRoots.some((root) => canonical === root || canonical.startsWith(`${root}/`))
+        || (metadata.mode & 0o022) !== 0)
+    {
+        throw new Error(`${label} canonical executable is not a trusted non-symlink system binary: ${canonical}`);
+    }
+    return canonical;
+}
+
+function executableFromPath(name)
+{
+    for (const directory of String(process.env.PATH ?? '').split(path.delimiter).filter(Boolean))
+    {
+        const candidate = path.resolve(directory, name);
+        try
+        {
+            const candidateMetadata = fs.lstatSync(candidate);
+            if (!candidateMetadata.isFile() && !candidateMetadata.isSymbolicLink())
+            {
+                continue;
+            }
+            fs.accessSync(candidate, fs.constants.X_OK);
+            return canonicalTrustedExecutable(candidate, name);
+        }
+        catch (error)
+        {
+            if (fs.existsSync(candidate))
+            {
+                throw error;
+            }
+        }
+    }
+    throw new Error(`${name} executable is unavailable on PATH`);
+}
+
+function checkedProcess(executable, args, repositoryRoot, label)
+{
+    const result = spawnSync(executable, args, {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024
+    });
+    if (result.status !== 0 || !String(result.stdout ?? '').trim())
+    {
+        throw new Error(`${label} failed: ${(result.stderr || result.stdout || `exit ${result.status}`).trim()}`);
+    }
+    return String(result.stdout).trim();
+}
+
+export function resolveDockerComposeOracleIdentity({ root = defaultRoot } = {})
+{
+    const repositoryRoot = path.resolve(root);
+    const dockerPath = executableFromPath('docker');
+    const dockerVersion = checkedProcess(
+        dockerPath,
+        ['version', '--format', '{{.Client.Version}}'],
+        repositoryRoot,
+        'Docker client version probe'
+    );
+    const plugins = JSON.parse(checkedProcess(
+        dockerPath,
+        ['info', '--format', '{{json .ClientInfo.Plugins}}'],
+        repositoryRoot,
+        'Docker client plugin inventory probe'
+    ));
+    const compose = array(plugins).filter((entry) => entry?.Name === 'compose');
+    if (compose.length !== 1 || typeof compose[0]?.Path !== 'string')
+    {
+        throw new Error('Docker Compose implementation must resolve to exactly one client plugin');
+    }
+    const composePath = canonicalTrustedExecutable(compose[0].Path, 'Docker Compose');
+    const composeVersion = checkedProcess(
+        dockerPath,
+        ['compose', 'version', '--short'],
+        repositoryRoot,
+        'Docker Compose version probe'
+    );
+    const normalizeVersion = (value) => String(value).replace(/^v/u, '');
+    if (normalizeVersion(compose[0].Version) !== normalizeVersion(composeVersion))
+    {
+        throw new Error('Docker Compose plugin inventory/version mismatch');
+    }
+    return {
+        dockerExecutable: {
+            canonicalPath: dockerPath,
+            digest: digestText(fs.readFileSync(dockerPath)),
+            version: dockerVersion
+        },
+        composeImplementation: {
+            canonicalPath: composePath,
+            digest: digestText(fs.readFileSync(composePath)),
+            version: composeVersion
+        }
+    };
+}
+
+function validateExactKeys(value, keys, label, errors)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
+        errors.push(`${label} must be an object`);
+        return false;
+    }
+    const actual = Object.keys(value).sort();
+    const expected = [...keys].sort();
+    if (JSON.stringify(actual) !== JSON.stringify(expected))
+    {
+        errors.push(`${label} fields must be exactly ${expected.join(', ')}`);
+        return false;
+    }
+    return true;
+}
 
 function normalize(value)
 {
@@ -41,7 +184,7 @@ function read(root, relative, errors)
 {
     try
     {
-        return fs.readFileSync(path.join(root, normalize(relative)), 'utf8');
+        return fs.readFileSync(resolveContainedPath(root, normalize(relative), 'file'), 'utf8');
     }
     catch (error)
     {
@@ -410,9 +553,31 @@ function evaluateExecutableProjects(root, projects, configurations, errors, runt
 function validatePolicy(policy)
 {
     const errors = [];
-    if (policy?.schema !== 'fsusblog.monolithic-distributed-architecture.v1')
+    validateExactKeys(policy, [
+        'blueGreenMounts', 'composeServices', 'contentDigest', 'documentation', 'domainForbiddenPatterns',
+        'domainRoots', 'executableProjectClassifications', 'mainApplication', 'remoteInvocation', 'runtimeModes', 'runtimeRoleOwnership',
+        'schema', 'singleModeGuard'
+    ], 'architecture policy', errors);
+    if (policy?.schema !== 'fsusblog.monolithic-distributed-architecture.v2')
     {
-        errors.push('architecture policy schema must be fsusblog.monolithic-distributed-architecture.v1');
+        errors.push('architecture policy schema must be fsusblog.monolithic-distributed-architecture.v2');
+    }
+    const { contentDigest, ...unsignedPolicy } = object(policy);
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(contentDigest ?? ''))
+        || digestCanonical(unsignedPolicy) !== contentDigest)
+    {
+        errors.push('architecture policy contentDigest does not match canonical content');
+    }
+    validateExactKeys(policy?.mainApplication, [
+        'composeService', 'dockerfile', 'frontendIntegrationTokens', 'productionEntrypoint',
+        'productionImage', 'productionTarget', 'project'
+    ], 'mainApplication', errors);
+    if (policy?.mainApplication?.productionTarget !== 'final'
+        || JSON.stringify(policy?.mainApplication?.productionEntrypoint) !== JSON.stringify(['./FsusBlog.Server'])
+        || policy?.mainApplication?.productionImage
+            !== '${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}')
+    {
+        errors.push('mainApplication production process/image must be the final immutable FsusBlog.Server artifact');
     }
     for (const field of ['project', 'dockerfile', 'composeService'])
     {
@@ -440,6 +605,70 @@ function validatePolicy(policy)
     if (JSON.stringify(policy?.runtimeModes) !== JSON.stringify(['single', 'static-role', 'adaptive']))
     {
         errors.push('runtimeModes must be exactly single, static-role, adaptive');
+    }
+    const ownership = object(policy?.runtimeRoleOwnership);
+    validateExactKeys(ownership, [
+        'authorityState', 'coResidency', 'container', 'process', 'separation', 'service',
+        'supportedModes', 'unsupportedDeployments'
+    ], 'runtimeRoleOwnership', errors);
+    if (ownership.process !== 'one-fsusblog-server-process-per-application-container'
+        || ownership.container !== 'one-application-container-per-release-slot'
+        || ownership.coResidency !== 'selected-runtime-roles-share-process-container-and-service'
+        || ownership.separation !== 'blue-green-release-slots-not-runtime-role-services'
+        || ownership.authorityState !== 'closed-current'
+        || ownership.service !== policy?.mainApplication?.composeService
+        || JSON.stringify(ownership.supportedModes) !== JSON.stringify(policy?.runtimeModes)
+        || JSON.stringify(ownership.unsupportedDeployments) !== JSON.stringify([
+            'fixed-role-business-sidecar',
+            'multiple-application-services-per-slot',
+            'per-role-container-split',
+            'per-role-process-split'
+        ]))
+    {
+        errors.push('runtimeRoleOwnership must close the current application service and unsupported split deployments');
+    }
+    const mounts = object(policy?.blueGreenMounts);
+    if (Object.keys(mounts).length === 0)
+    {
+        errors.push('blueGreenMounts must classify the complete production application mount set');
+    }
+    const mountIdentities = new Map();
+    for (const [target, mount] of Object.entries(mounts))
+    {
+        validateExactKeys(mount, ['access', 'protection', 'scope', 'source', 'volumeName'], `blueGreenMounts.${target}`, errors);
+        if (!target.startsWith('/') || typeof mount.source !== 'string' || mount.source.length === 0
+            || !['read-only', 'read-write'].includes(mount.access)
+            || !['operator-shared', 'release-artifact-store', 'release-identity', 'shared-between-slots', 'slot-private'].includes(mount.scope)
+            || !['exact-active-release-gc-authority', 'identity-bound-read-only', 'outside-release-cleanup', 'retained-with-slot'].includes(mount.protection)
+            || !(mount.volumeName === null || typeof mount.volumeName === 'string'))
+        {
+            errors.push(`blueGreenMounts.${target} contains an invalid closed classification`);
+        }
+        if (mount.scope === 'slot-private'
+            && (typeof mount.volumeName !== 'string'
+                || !mount.volumeName.includes('${FSUSBLOG_SLOT_')))
+        {
+            errors.push(`blueGreenMounts.${target} slot-private identity must be slot-specific`);
+        }
+        if (mount.scope !== 'slot-private'
+            && (String(mount.source).includes('${FSUSBLOG_SLOT_')
+                || String(mount.volumeName ?? '').includes('${FSUSBLOG_SLOT_')))
+        {
+            errors.push(`blueGreenMounts.${target} non-slot-private identity must not be slot-specific`);
+        }
+        for (const [kind, identity] of [['source', mount.source], ['volumeName', mount.volumeName]])
+        {
+            if (typeof identity !== 'string' || identity.length === 0) continue;
+            const key = `${kind}\0${identity}`;
+            const prior = mountIdentities.get(key) ?? [];
+            if (prior.some((entry) => entry.scope !== mount.scope
+                && (entry.scope === 'slot-private' || mount.scope === 'slot-private')))
+            {
+                errors.push(`blueGreenMounts.${target} ${kind} identity crosses slot-private and shared scope`);
+            }
+            prior.push({ target, scope: mount.scope });
+            mountIdentities.set(key, prior);
+        }
     }
     const composeServices = object(policy?.composeServices);
     if (Object.keys(composeServices).length === 0)
@@ -473,6 +702,356 @@ function validatePolicy(policy)
         errors.push('documentation must have two link owners and required phrases');
     }
     return errors;
+}
+
+function parseDockerfileStages(source)
+{
+    const logicalLines = [];
+    let current = '';
+    for (const raw of String(source).split(/\r?\n/u))
+    {
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed.startsWith('#'))
+        {
+            continue;
+        }
+        current = current ? `${current} ${trimmed}` : trimmed;
+        if (current.endsWith('\\'))
+        {
+            current = current.slice(0, -1).trimEnd();
+            continue;
+        }
+        logicalLines.push(current);
+        current = '';
+    }
+    if (current)
+    {
+        logicalLines.push(current);
+    }
+    const stages = new Map();
+    let stage = null;
+    for (const line of logicalLines)
+    {
+        const from = /^FROM\s+\S+(?:\s+AS\s+(?<name>[A-Za-z0-9_.-]+))?$/iu.exec(line);
+        if (from)
+        {
+            stage = { commands: [], entrypoints: [] };
+            stages.set(from.groups?.name ?? `unnamed-${stages.size}`, stage);
+            continue;
+        }
+        const entrypoint = /^ENTRYPOINT\s+(?<value>.+)$/iu.exec(line);
+        if (entrypoint && stage)
+        {
+            try
+            {
+                const value = JSON.parse(entrypoint.groups.value);
+                if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.length === 0))
+                {
+                    throw new Error('must be a non-empty JSON string array');
+                }
+                stage.entrypoints.push(value);
+            }
+            catch (error)
+            {
+                stage.entrypoints.push({ error: error instanceof Error ? error.message : String(error) });
+            }
+        }
+        const command = /^CMD\s+(?<value>.+)$/iu.exec(line);
+        if (command && stage)
+        {
+            try
+            {
+                const value = JSON.parse(command.groups.value);
+                if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.length === 0))
+                {
+                    throw new Error('must be a non-empty JSON string array');
+                }
+                stage.commands.push(value);
+            }
+            catch (error)
+            {
+                stage.commands.push({ error: error instanceof Error ? error.message : String(error) });
+            }
+        }
+    }
+    return stages;
+}
+
+function parseComposeMount(value)
+{
+    let text = String(value);
+    let access = 'read-write';
+    if (text.endsWith(':ro'))
+    {
+        access = 'read-only';
+        text = text.slice(0, -3);
+    }
+    else if (text.endsWith(':rw'))
+    {
+        text = text.slice(0, -3);
+    }
+    const separator = text.lastIndexOf(':');
+    if (separator <= 0 || !text.slice(separator + 1).startsWith('/'))
+    {
+        throw new Error(`unsupported production Compose mount syntax: ${value}`);
+    }
+    return { source: text.slice(0, separator), target: text.slice(separator + 1), access };
+}
+
+function validateComposeServiceRoster(compose, classified, sourcePath, errors)
+{
+    const actualServices = Object.keys(object(compose.services)).sort();
+    const expectedServices = Object.keys(object(classified)).sort();
+    if (JSON.stringify(actualServices) !== JSON.stringify(expectedServices))
+    {
+        errors.push(`Compose services drifted in ${sourcePath}: expected ${expectedServices.join(', ')}, found ${actualServices.join(', ')}`);
+    }
+    return { actualServices, expectedServices };
+}
+
+function observeEffectiveComposeModel(repositoryRoot, sourcePath, errors)
+{
+    let oracleIdentity;
+    try
+    {
+        oracleIdentity = resolveDockerComposeOracleIdentity({ root: repositoryRoot });
+    }
+    catch (error)
+    {
+        errors.push(`canonical Docker Compose oracle identity failed: ${error instanceof Error ? error.message : String(error)}`);
+        return {};
+    }
+    const run = (allProfiles) =>
+    {
+        const args = ['compose', '-f', sourcePath];
+        if (allProfiles)
+        {
+            args.push('--profile', '*');
+        }
+        args.push('config', '--format', 'json', '--no-interpolate');
+        const result = spawnSync(oracleIdentity.dockerExecutable.canonicalPath, args, {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            maxBuffer: 16 * 1024 * 1024
+        });
+        if (result.status !== 0)
+        {
+            errors.push(`canonical Docker Compose effective-model observation failed (${allProfiles ? 'all-profiles' : 'default'}): ${(result.stderr || result.stdout || 'docker compose config failed').trim()}`);
+            return {};
+        }
+        try
+        {
+            return JSON.parse(result.stdout);
+        }
+        catch (error)
+        {
+            errors.push(`canonical Docker Compose effective-model output is invalid: ${error instanceof Error ? error.message : String(error)}`);
+            return {};
+        }
+    };
+    const defaultModel = run(false);
+    const allProfileModel = run(true);
+    const project = (model, defaultActiveOnly) => Object.fromEntries(Object.entries(object(model.services))
+        .filter(([, value]) => !defaultActiveOnly || array(value?.profiles).length === 0)
+        .sort(([left], [right]) => left.localeCompare(right)).map(([id, value]) => [id, {
+            image: value?.image ?? null,
+            build: value?.build ?? null,
+            pullPolicy: value?.pull_policy ?? null,
+            profiles: array(value?.profiles).sort(),
+            entrypoint: value?.entrypoint ?? null,
+            command: value?.command ?? null
+        }]));
+    const unsigned = {
+        oracle: 'docker-compose-config-json-no-interpolate',
+        oracleVersion: oracleIdentity.composeImplementation.version,
+        dockerExecutable: oracleIdentity.dockerExecutable,
+        composeImplementation: oracleIdentity.composeImplementation,
+        sourcePath,
+        defaultServices: project(defaultModel, true),
+        allProfileServices: project(allProfileModel, false)
+    };
+    return { ...unsigned, modelDigest: digestCanonical(unsigned) };
+}
+
+function inspectProductionApplication(repositoryRoot, policy, compose, dockerfileSource, errors)
+{
+    const sourcePath = 'ops/docker/docker-compose.production.yml';
+    const classified = object(policy?.composeServices?.[sourcePath]);
+    const effectiveCompose = observeEffectiveComposeModel(repositoryRoot, sourcePath, errors);
+    const defaultServices = Object.keys(object(effectiveCompose.defaultServices)).sort();
+    const actualServices = Object.keys(object(effectiveCompose.allProfileServices)).sort();
+    const expectedServices = Object.keys(classified).sort();
+    if (JSON.stringify(actualServices) !== JSON.stringify(expectedServices)
+        || JSON.stringify(defaultServices) !== JSON.stringify(expectedServices))
+    {
+        errors.push(`Compose effective services drifted in ${sourcePath}: expected default/all ${expectedServices.join(', ')}, found default ${defaultServices.join(', ')} and all ${actualServices.join(', ')}`);
+    }
+    const applicationServices = actualServices.filter((id) => classified[id] === 'application');
+    const expectedService = policy?.mainApplication?.composeService;
+    if (applicationServices.length !== 1 || applicationServices[0] !== expectedService)
+    {
+        errors.push('production topology must contain exactly one authority-owned application service');
+    }
+
+    const stages = parseDockerfileStages(dockerfileSource);
+    const productionStage = stages.get(policy?.mainApplication?.productionTarget);
+    if (!productionStage || productionStage.entrypoints.length !== 1
+        || productionStage.commands.length !== 0
+        || JSON.stringify(productionStage.entrypoints[0]) !== JSON.stringify(policy?.mainApplication?.productionEntrypoint))
+    {
+        errors.push('production Docker target must expose exactly the authority-owned PID1 with no CMD tail');
+    }
+
+    const service = object(compose.services?.[expectedService]);
+    const effectiveService = object(effectiveCompose.allProfileServices?.[expectedService]);
+    if (effectiveService.image !== policy?.mainApplication?.productionImage
+        || effectiveService.build !== null
+        || effectiveService.pullPolicy !== 'always'
+        || array(effectiveService.profiles).length !== 0
+        || effectiveService.entrypoint !== null
+        || effectiveService.command !== null)
+    {
+        errors.push('production effective application service must use only the immutable pulled image, remain default-active, and inherit Docker PID1 without Compose overrides');
+    }
+    if (service.container_name !== '${FSUSBLOG_CONTAINER_NAME:?Set slot-specific container name (fsus-app-blue or fsus-app-green)}'
+        || service.labels?.['io.fsusblog.deployment.project'] !== '${FSUSBLOG_COMPOSE_PROJECT_NAME:?Set slot-specific Compose project}'
+        || JSON.stringify(array(service.ports)) !== JSON.stringify([
+            '127.0.0.1:${FSUSBLOG_SLOT_PORT:?Set blue=8081 or green=8082}:8080'
+        ]))
+    {
+        errors.push('production application service is missing exact container/project/loopback slot separation');
+    }
+
+    const observedMounts = {};
+    for (const value of array(service.volumes))
+    {
+        try
+        {
+            const mount = parseComposeMount(value);
+            if (Object.hasOwn(observedMounts, mount.target))
+            {
+                errors.push(`duplicate production application mount target: ${mount.target}`);
+            }
+            observedMounts[mount.target] = mount;
+        }
+        catch (error)
+        {
+            errors.push(error instanceof Error ? error.message : String(error));
+        }
+    }
+    const declaredMounts = object(policy?.blueGreenMounts);
+    if (JSON.stringify(Object.keys(observedMounts).sort()) !== JSON.stringify(Object.keys(declaredMounts).sort()))
+    {
+        errors.push('production application mount inventory does not exactly match blueGreenMounts authority');
+    }
+    for (const [target, declaration] of Object.entries(declaredMounts))
+    {
+        const observed = observedMounts[target];
+        if (!observed || observed.source !== declaration.source || observed.access !== declaration.access)
+        {
+            errors.push(`production application mount ${target} conflicts with blueGreenMounts authority`);
+            continue;
+        }
+        const topLevelVolume = object(compose.volumes)[declaration.source];
+        const actualVolumeName = topLevelVolume && typeof topLevelVolume === 'object' ? topLevelVolume.name ?? null : null;
+        if (actualVolumeName !== declaration.volumeName)
+        {
+            errors.push(`production application mount ${target} volume identity conflicts with blueGreenMounts authority`);
+        }
+    }
+
+    return {
+        actualServices,
+        applicationServices,
+        declaredMounts,
+        effectiveCompose,
+        effectiveService,
+        expectedService,
+        service,
+        productionStage
+    };
+}
+
+export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, policyFile = defaultPolicy } = {})
+{
+    const errors = [];
+    const repositoryRoot = path.resolve(root);
+    let policy = {};
+    const policyPath = path.isAbsolute(policyFile) ? policyFile : path.join(repositoryRoot, policyFile);
+    try
+    {
+        policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+    }
+    catch (error)
+    {
+        errors.push(`architecture policy is missing or invalid: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    errors.push(...validatePolicy(policy));
+
+    const sourcePaths = {
+        policy: normalize(path.relative(repositoryRoot, policyPath)),
+        project: normalize(policy?.mainApplication?.project),
+        dockerfile: normalize(policy?.mainApplication?.dockerfile),
+        productionCompose: 'ops/docker/docker-compose.production.yml'
+    };
+    const sources = {};
+    for (const [id, relative] of Object.entries(sourcePaths))
+    {
+        sources[id] = { path: relative, text: read(repositoryRoot, relative, errors) };
+    }
+
+    let compose = {};
+    try
+    {
+        compose = parseYamlDocument(sources.productionCompose.text, { source: sourcePaths.productionCompose });
+    }
+    catch (error)
+    {
+        errors.push(`cannot parse production Compose topology: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const production = inspectProductionApplication(repositoryRoot, policy, compose, sources.dockerfile.text, errors);
+    const {
+        actualServices, applicationServices, declaredMounts, effectiveCompose,
+        effectiveService, expectedService, productionStage
+    } = production;
+
+    const ownership = object(policy?.runtimeRoleOwnership);
+    const unsigned = {
+        schema: 'fsusblog.runtime-role-deployment-observation.v1',
+        authoritySchema: policy?.schema ?? null,
+        authorityContentDigest: policy?.contentDigest ?? null,
+        sourceDigests: Object.fromEntries(Object.entries(sources).map(([id, source]) => [id, {
+            path: source.path,
+            digest: digestText(source.text)
+        }])),
+        effectiveCompose,
+        application: {
+            project: policy?.mainApplication?.project ?? null,
+            dockerTarget: policy?.mainApplication?.productionTarget ?? null,
+            processEntrypoint: productionStage?.entrypoints?.[0] ?? [],
+            composeService: expectedService ?? null,
+            image: effectiveService.image ?? null,
+            serviceRoster: actualServices,
+            applicationServiceCount: applicationServices.length,
+            composeEntrypointOverride: effectiveService.entrypoint === null ? 'absent' : effectiveService.entrypoint,
+            composeCommandOverride: effectiveService.command === null ? 'absent' : effectiveService.command,
+            effectivePid1: productionStage?.entrypoints?.[0] ?? [],
+            pid1Source: 'docker-final-entrypoint-no-compose-override'
+        },
+        ownership: {
+            process: ownership.process ?? null,
+            container: ownership.container ?? null,
+            service: ownership.service ?? null,
+            coResidency: ownership.coResidency ?? null,
+            separation: ownership.separation ?? null,
+            authorityState: errors.length === 0 ? ownership.authorityState : 'conflict-unknown',
+            claimEligible: errors.length === 0,
+            failureReasons: [...new Set(errors)].sort()
+        },
+        volumeTopology: Object.fromEntries(Object.entries(declaredMounts).sort(([left], [right]) => left.localeCompare(right)).map(
+            ([target, declaration]) => [target, { ...declaration }]))
+    };
+    return { ...unsigned, observationDigest: digestCanonical(unsigned) };
 }
 
 function validateProjectTopology(root, files, policy, errors, runtimeMaxSeconds)
@@ -553,11 +1132,15 @@ function validateComposeTopology(root, files, policy, errors)
         {
             errors.push(`cannot parse ${file}: ${error instanceof Error ? error.message : String(error)}`);
         }
-        const actualServices = Object.keys(object(document.services)).sort();
-        const expectedServices = Object.keys(object(declared[file])).sort();
-        if (JSON.stringify(actualServices) !== JSON.stringify(expectedServices))
+        validateComposeServiceRoster(document, declared[file], file, errors);
+        if (file === 'ops/docker/docker-compose.production.yml')
         {
-            errors.push(`Compose services drifted in ${file}: expected ${expectedServices.join(', ')}, found ${actualServices.join(', ')}`);
+            inspectProductionApplication(
+                root,
+                policy,
+                document,
+                read(root, policy.mainApplication.dockerfile, errors),
+                errors);
         }
         for (const [service, kind] of Object.entries(object(declared[file])))
         {
