@@ -73,6 +73,7 @@ NOTIFICATION_STOP_FILE=""
 ASSET_COMPATIBILITY_CHECKPOINT=""
 ASSET_COMPATIBILITY_READY_FILE=""
 ASSET_COMPATIBILITY_SWITCH_FILE=""
+ASSET_COMPATIBILITY_GC_REVIEWED=""
 ASSET_COMPATIBILITY_GC_FILE=""
 ASSET_COMPATIBILITY_GC_EVIDENCE=""
 TARGET_HEALTH_EVIDENCE="${FSUSBLOG_ROLLOUT_NORMAL_WORKER_TARGET_HEALTH:-}"
@@ -417,6 +418,7 @@ ConfigureRolloutPaths() {
     ASSET_COMPATIBILITY_CHECKPOINT="$EVIDENCE_DIR/asset-compatibility.checkpoint.json"
     ASSET_COMPATIBILITY_READY_FILE="$EVIDENCE_DIR/asset-compatibility.ready.json"
     ASSET_COMPATIBILITY_SWITCH_FILE="$EVIDENCE_DIR/asset-compatibility.switched.json"
+    ASSET_COMPATIBILITY_GC_REVIEWED="$EVIDENCE_DIR/asset-gc-dry-run.json"
     ASSET_COMPATIBILITY_GC_FILE="$EVIDENCE_DIR/asset-compatibility.gc-complete.json"
     ASSET_COMPATIBILITY_GC_EVIDENCE="$EVIDENCE_DIR/asset-gc.json"
     [[ -n "$TARGET_HEALTH_EVIDENCE" ]] || TARGET_HEALTH_EVIDENCE="$EVIDENCE_DIR/target-health.json"
@@ -1040,9 +1042,15 @@ CompleteAssetCompatibilityProbe() {
     [[ -n "$ASSET_COMPATIBILITY_PID" ]] || return 0
     WaitForAssetCheckpoint
     WriteAssetCompatibilitySignal "$ASSET_COMPATIBILITY_SWITCH_FILE" switched
+    node "$ROOT_DIR/tools/storage/gc-release-assets.mjs" --dry-run \
+        --store "$ASSET_STORE" --state "$RETENTION_STATE" \
+        --out "$ASSET_COMPATIBILITY_GC_REVIEWED" >/dev/null
+    jq -e '.schema == "fsusblog.release-assets.gc-evidence.v1" and .status == "dry-run" and .dryRun == true' \
+        "$ASSET_COMPATIBILITY_GC_REVIEWED" >/dev/null
     node "$ROOT_DIR/tools/storage/gc-release-assets.mjs" --apply \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" \
         --slot-state "$SLOT_STATE_FILE" --rollout-state "$ROLLOUT_STATE_FILE" \
+        --reviewed-dry-run "$ASSET_COMPATIBILITY_GC_REVIEWED" \
         --deployment-lock "$DEPLOYMENT_LOCK_FILE" \
         --out "$ASSET_COMPATIBILITY_GC_EVIDENCE" >/dev/null
     jq -e '.schema == "fsusblog.release-assets.gc-evidence.v1" and .status == "ok" and .dryRun == false' \

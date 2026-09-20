@@ -11,6 +11,7 @@ import { executeReleaseAssetGc, normalizeGcState, RELEASE_GC_EVIDENCE_SCHEMA } f
 const {readRolloutState} = await import(new URL('../deployment/release-rollout-lib.mjs', import.meta.url));
 const {readSlotState} = await import(new URL('../deployment/slot-lib.mjs', import.meta.url));
 const {readDestructiveOperationAuthority, verifyArtifactGcActiveIdentity} = await import(new URL('../deployment/destructive-operation-authority.mjs', import.meta.url));
+
 let options = {};
 try
 {
@@ -41,6 +42,7 @@ try
     const stateFile = path.resolve(options.state ?? process.env.FSUSBLOG_RELEASE_RETENTION_STATE ?? path.join(storeDirectory, 'retention-state.json'));
     const state = normalizeGcState(JSON.parse(fs.readFileSync(stateFile, 'utf8')));
     const activeProtection = options.apply === true ? readActiveProtection(options, state) : null;
+    const reviewedDryRun = options.apply === true ? readReviewedDryRun(options, storeDirectory) : null;
     const evidence = executeReleaseAssetGc({
         storeDirectory,
         state,
@@ -48,7 +50,8 @@ try
         evidenceFile: options.out ? path.resolve(options.out) : null,
         lockFile: options.lock ? path.resolve(options.lock) : null,
         activeProtection,
-        refreshProtection: options.apply === true ? () => readActiveProtection(options, state) : null
+        refreshProtection: options.apply === true ? () => readActiveProtection(options, state) : null,
+        reviewedDryRun
     });
     process.stdout.write(`${JSON.stringify({ ...evidence, retentionState: stateFile })}\n`);
 }
@@ -128,6 +131,17 @@ function readActiveProtection(parsed, expectedRetentionState)
         rolloutState: readRolloutState(rolloutStateFile),
         retentionState: currentRetentionState
     });
+}
+
+function readReviewedDryRun(parsed, storeDirectory)
+{
+    const reviewedFile = requiredPath(parsed, 'reviewed-dry-run');
+    const evidence = JSON.parse(fs.readFileSync(reviewedFile, 'utf8'));
+    if (path.resolve(evidence.storeDirectory ?? '') !== storeDirectory)
+    {
+        throw new Error('GC reviewed dry-run evidence store does not match the requested store');
+    }
+    return evidence;
 }
 
 function requiredPath(parsed, name)

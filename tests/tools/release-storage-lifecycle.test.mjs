@@ -267,6 +267,7 @@ test('GC dry-run is locked and protects active previous draining retention and r
 
     const dryRun = executeReleaseAssetGc({ storeDirectory: store, state });
     assert.equal(dryRun.status, 'dry-run');
+    assert.equal(dryRun.plan.protectedManifestBindings.length, 5);
     assert.equal(fs.existsSync(path.join(store, 'releases', releases[0][0])), true);
     assert.equal(fs.existsSync(path.join(store, '.gc.lock')), false);
 
@@ -279,11 +280,89 @@ test('GC dry-run is locked and protects active previous draining retention and r
         state,
         apply: true,
         activeProtection,
-        refreshProtection: () => activeProtection
+        refreshProtection: () => activeProtection,
+        reviewedDryRun: dryRun
     });
     assert.equal(applied.status, 'ok');
     assert.equal(fs.existsSync(path.join(store, 'releases', releases[0][0])), false);
     assert.equal(fs.existsSync(path.join(store, 'releases', releases[1][0])), true);
+});
+
+test('GC apply fails closed when reviewed protected manifests drift or evidence is invalid', (t) =>
+{
+    const { root, store } = fixture(t);
+    const releases = [
+        ['20260701010101-000001000001', 'orphan'],
+        ['20260711010101-111111111111', 'active'],
+        ['20260710010101-222222222222', 'previous']
+    ];
+    for (const [releaseId, marker] of releases)
+    {
+        const source = path.join(root, `source-${marker}`);
+        writeSource(source, marker);
+        materializeReleaseAssets({
+            releaseId,
+            slot: marker === 'active' ? 'green' : 'blue',
+            sourceDirectory: source,
+            storeDirectory: store,
+            compatibility: compatibility(releaseId),
+            dryRun: false
+        });
+    }
+
+    const state = {
+        schema: RELEASE_GC_STATE_SCHEMA,
+        activeReleaseId: releases[1][0],
+        previousReleaseId: releases[2][0],
+        drainingReleaseIds: [],
+        retentionReleaseIds: [],
+        referencedReleaseIds: [],
+        minimumRetainedReleaseCount: 2
+    };
+    const activeProtection = {
+        releaseId: releases[1][0], slot: 'green', imageDigest: `sha256:${'b'.repeat(64)}`,
+        deploymentGeneration: 3, rolloutId: 'release-storage-lifecycle-drift-test'
+    };
+    const dryRun = executeReleaseAssetGc({ storeDirectory: store, state });
+    const orphanManifest = JSON.parse(fs.readFileSync(
+        path.join(store, 'releases', releases[0][0], 'asset-manifest.json'),
+        'utf8'
+    ));
+    const orphanObjectDirectory = path.join(store, 'objects', orphanManifest.files[0].sha256.slice('sha256:'.length));
+
+    assert.throws(() => executeReleaseAssetGc({
+        storeDirectory: store,
+        state,
+        apply: true,
+        activeProtection,
+        refreshProtection: () => activeProtection,
+        reviewedDryRun: { ...dryRun, storeDirectory: path.join(root, 'other-store') }
+    }), /store does not match/u);
+
+    assert.throws(() => executeReleaseAssetGc({
+        storeDirectory: store,
+        state,
+        apply: true,
+        activeProtection,
+        refreshProtection: () => activeProtection,
+        reviewedDryRun: { ...dryRun, status: 'ok', dryRun: false, activeProtection }
+    }), /must come from a successful dry-run/u);
+
+    const previousManifestFile = path.join(store, 'releases', releases[2][0], 'asset-manifest.json');
+    const previousManifest = JSON.parse(fs.readFileSync(previousManifestFile, 'utf8'));
+    fs.chmodSync(previousManifestFile, 0o600);
+    fs.writeFileSync(previousManifestFile, JSON.stringify(previousManifest));
+
+    assert.throws(() => executeReleaseAssetGc({
+        storeDirectory: store,
+        state,
+        apply: true,
+        activeProtection,
+        refreshProtection: () => activeProtection,
+        reviewedDryRun: dryRun
+    }), /protected release asset manifests drifted after reviewed dry-run/u);
+    assert.equal(fs.existsSync(path.join(store, 'releases', releases[0][0])), true);
+    assert.equal(fs.existsSync(orphanObjectDirectory), true);
 });
 
 test('host CLIs emit stable machine JSON and retained asset gate fails closed', (t) =>

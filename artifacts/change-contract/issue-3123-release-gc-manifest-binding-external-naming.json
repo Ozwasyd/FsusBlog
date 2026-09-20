@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "active-release-protection-authority",
+            "paths": [
+                "tools/deployment/release-rollout.sh",
+                "tools/storage/gc-release-assets.mjs",
+                "tools/storage/release-gc.mjs"
+            ],
+            "reason": "The release GC rollout and storage consumers preserve their caller-visible evidence schemas, CLI keys and shell identifiers while internal JavaScript symbols remain repository-governed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/release-storage-lifecycle.md",
+                "docs/releases/release-storage-operations.md"
+            ],
+            "reason": "The current storage documents preserve caller-visible command-line spellings and Markdown contract identifiers while documenting the exact reviewed dry-run binding."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/releases/blue-green-deployment-runbook.md"
+            ],
+            "reason": "The generated blue-green authority section preserves its existing external Markdown and JSON identifiers while refreshing the exact release GC source digest."
+        }
+    ]
+}
