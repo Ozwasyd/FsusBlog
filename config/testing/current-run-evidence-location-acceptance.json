@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:c152947f7efa1bd3c37109dc92f9f2a63f7b77810f3b4bd0c6b95537e4eb1ab7",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:7fb29a0115d5c1e4080f6ffc120c07306728be9028b52bd76ba0cef8021e64f2",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:5d15baf2bb179be3411bc09575a83bd88e6a54e848319986291fd8337cf43f77",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:62fa2ff72f6f70e3bce2c9fa8440d3d91634e462ede3a384dfd2d1ff5460506e"
     },
     "registryDigest": "sha256:3a4abdd37b2100fc68f41a172fe3a8b36d4f7fa5332e71bcc6bb1957c80e7156",
-    "ledgerDigest": "sha256:b5638fdf5b611322ea92b4633bea1fa237d3544e6bd2e89ae24ca77662ff222f",
-    "scannerDigest": "sha256:01feeb8bc6e911c02b2b1bed5abbf96d0d5441d903ba9282e1fa19f042f0937a",
+    "ledgerDigest": "sha256:79b1dcba15b197d197489dfb90dddfb5641a49e405b74d1077bd5542e8fe3835",
+    "scannerDigest": "sha256:fa22656a021af23e4b798723817912fa450e650b9e4b726b1b754b49c5244797",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
     "consumerInventory": [
@@ -555,7 +555,7 @@
         }
     ],
     "consumerCount": 77,
-    "findingCount": 424,
+    "findingCount": 434,
     "warnings": [],
-    "contentDigest": "sha256:d9a5e15fd54ccd25613d2462aeb4fee30c90ec5ffb666405386b60f58cd151aa"
+    "contentDigest": "sha256:1168ac1071eca82c52b2cd4e8862a2a63a98eb29ff2b229d454458dbcb8be878"
 }

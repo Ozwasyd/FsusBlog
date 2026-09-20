@@ -3,6 +3,9 @@ import { computed, ref } from 'vue';
 import type { ImageCompressionOptions } from '@/api/upload';
 import { useAbortableTask } from '@/composables/useAbortableTask';
 import type { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
+import type {
+    ArticleDocumentTaskRegistry
+} from '@/services/authoring/articleDocumentContext';
 import { showErrorToast } from '@/utils/errorPresentation';
 import { getErrorMessage, isAbortError } from '@/utils/errors';
 
@@ -45,6 +48,8 @@ export interface UseImageUploadFlowOptions {
     getOptions: () => ImageCompressionOptions;
     getWasmOnly: () => boolean;
     notify?: UploadNotify;
+    taskRegistry?: ArticleDocumentTaskRegistry;
+    taskProducerRef?: string;
 }
 
 interface PendingUploadContext {
@@ -57,7 +62,11 @@ interface PendingUploadContext {
 
 export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 {
-    const uploadTask = useAbortableTask();
+    const uploadTask = useAbortableTask({
+        registry: options.taskRegistry,
+        kind: options.taskRegistry ? 'attachment' : undefined,
+        producerRef: options.taskProducerRef ?? 'image-upload'
+    });
     const pendingContext = ref<PendingUploadContext | null>(null);
 
     const canResume = computed(() => pendingContext.value !== null);
@@ -72,17 +81,25 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         options.notify?.success?.(message);
     };
 
-    const executeUpload = async (context: PendingUploadContext): Promise<void> =>
+    const executeUpload = async (context: PendingUploadContext, signal: AbortSignal): Promise<void> =>
     {
         const urls: string[] = [];
         for (const file of context.files)
         {
+            if (signal.aborted)
+            {
+                return;
+            }
             const url = await options.runtime.uploadFile(file, options.getOptions(), {
                 wasmOnly: options.getWasmOnly()
             });
             urls.push(url);
         }
 
+        if (signal.aborted)
+        {
+            return;
+        }
         await context.callbacks?.onSuccess?.(urls, { files: context.files });
         if (context.notifyOnSuccess)
         {
@@ -123,11 +140,11 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 
         try
         {
-            await uploadTask.run(async () =>
+            await uploadTask.run(async (signal) =>
             {
                 if (pendingContext.value)
                 {
-                    await executeUpload(pendingContext.value);
+                    await executeUpload(pendingContext.value, signal);
                 }
             });
         }
@@ -161,7 +178,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 
         try
         {
-            await uploadTask.run(async () =>
+            await uploadTask.run(async (signal) =>
             {
                 await executeUpload({
                     ...context,
@@ -170,7 +187,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                         ...context.messages,
                         ...overrides?.messages
                     }
-                });
+                }, signal);
             });
         }
         catch (error: unknown)
