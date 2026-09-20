@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/fsusui-release-train.yml"
+            ],
+            "reason": "Preserve repository_dispatch, workflow, permission, and action input keys defined by GitHub Actions."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dependencies/fsusui-manager-ownership.mjs",
+                "tools/dependencies/migrate-fsusui-public-npm.mjs",
+                "tools/dependencies/fsusui-release-package.mjs",
+                "tools/dependencies/update-fsusui-release.mjs",
+                "tools/dependencies/verify-fsusui-release-event.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment and registry contract spelling while internal JavaScript identifiers remain camelCase."
+        }
+    ]
+}

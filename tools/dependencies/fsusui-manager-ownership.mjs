@@ -5,6 +5,7 @@ export const FSUSUI_ITEM_ID = 'npm-ozwasyd-element-plus-frontend';
 export const FSUSUI_RELEASE_TRAIN_MANAGER = 'fsusui-release-train';
 export const FSUSUI_RENOVATE_MANAGER = 'npm';
 export const FSUSUI_DELEGATED_MANAGER = 'delegated';
+export const FSUSUI_RENOVATE_DELEGATION_DESCRIPTION = 'FsusUI release train owns @ozwasyd/element-plus after the first verified public npm migration (#1985).';
 export const FSUSUI_PACKAGE_FILES = Object.freeze([
     'src/frontend/package.json',
     'src/frontend/package-lock.json'
@@ -96,6 +97,51 @@ export function activateFsusuiReleaseTrainManager(catalog, migration)
     delete item.fieldPaths;
     assertFsusuiManagerState(next, 'post-migration');
     return next;
+}
+
+function requireStableVersion(version)
+{
+    requireCondition(/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(version ?? ''), 'Renovate delegation requires an exact stable version');
+}
+
+export function activateFsusuiReleaseTrainRenovateDelegation(renovate, version)
+{
+    requireStableVersion(version);
+    const next = cloneCatalog(renovate);
+    const rules = next.packageRules ?? [];
+    requireCondition(Array.isArray(rules), 'Renovate packageRules must be an array');
+    requireCondition(!rules.some((rule) => (rule.matchPackageNames ?? []).includes(FSUSUI_PACKAGE)), 'Renovate already has an FsusUI package rule');
+    next.packageRules = [...rules, {
+        description: FSUSUI_RENOVATE_DELEGATION_DESCRIPTION,
+        matchPackageNames: [FSUSUI_PACKAGE],
+        allowedVersions: version
+    }];
+    assertFsusuiReleaseTrainRenovateDelegation(next, version);
+    return next;
+}
+
+export function synchronizeFsusuiReleaseTrainRenovateDelegation(renovate, version)
+{
+    requireStableVersion(version);
+    const next = cloneCatalog(renovate);
+    const rule = assertFsusuiReleaseTrainRenovateDelegation(next);
+    rule.allowedVersions = version;
+    assertFsusuiReleaseTrainRenovateDelegation(next, version);
+    return next;
+}
+
+export function assertFsusuiReleaseTrainRenovateDelegation(renovate, expectedVersion)
+{
+    const rules = (renovate?.packageRules ?? []).filter((rule) => (rule.matchPackageNames ?? []).includes(FSUSUI_PACKAGE));
+    requireCondition(rules.length === 1, 'Renovate must have exactly one FsusUI release-train delegation rule');
+    const [rule] = rules;
+    requireCondition(rule.description === FSUSUI_RENOVATE_DELEGATION_DESCRIPTION, 'Renovate delegation description is not exact');
+    requireCondition(JSON.stringify(rule.matchPackageNames) === JSON.stringify([FSUSUI_PACKAGE]), 'Renovate delegation must match only the FsusUI package');
+    requireStableVersion(rule.allowedVersions);
+    requireCondition(expectedVersion === undefined || rule.allowedVersions === expectedVersion, `Renovate delegation must allow only ${expectedVersion}`);
+    requireCondition(rule.enabled !== false, 'Renovate delegation must not use permanent enabled:false');
+    requireCondition(!Object.hasOwn(rule, 'ignoreDeps') && !Object.hasOwn(rule, 'matchFileNames'), 'Renovate delegation must not use ignoreDeps or path ignores');
+    return rule;
 }
 
 export function evaluateFsusuiManagerOwnership({

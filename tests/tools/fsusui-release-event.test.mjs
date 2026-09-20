@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import test from 'node:test';
 import { gzipSync } from 'node:zlib';
 
-const {parseFsusuiReleaseEvent, requireVerifiedFsusuiEvent, reverifyFsusuiEventReceipt, verifyFsusuiReleaseEvent} = await import(new URL('../../tools/dependencies/verify-fsusui-release-event.mjs', import.meta.url));
+const {
+    FSUSUI_RELEASE_EVENT_TYPE,
+    parseFsusuiReleaseEvent,
+    requireVerifiedFsusuiEvent,
+    reverifyFsusuiEventReceipt,
+    verifyFsusuiReleaseEvent
+} = await import(new URL('../../tools/dependencies/verify-fsusui-release-event.mjs', import.meta.url));
+
 const packageName = '@ozwasyd/element-plus';
 const registry = 'https://registry.npmjs.org/';
 const now = () => new Date('2026-09-05T00:00:00.000Z');
@@ -89,6 +97,7 @@ test('simulation: same candidate bytes traverse HTTP metadata, latest, archive a
     const raw = JSON.stringify(data.payload, null, 2);
     const receipt = await verifyFsusuiReleaseEvent(raw, { transport, now });
     assert.deepEqual(requireVerifiedFsusuiEvent(receipt), data.payload);
+    assert.equal(receipt.eventType, FSUSUI_RELEASE_EVENT_TYPE);
     assert.equal(receipt.rawPayloadSha256, sha256(raw));
     assert.equal(receipt.npmTarballSha256, sha256(data.tarball));
     assert.equal(receipt.npmManifestSha256, data.payload.candidateManifestSha256);
@@ -108,6 +117,37 @@ test('simulation: same candidate bytes traverse HTTP metadata, latest, archive a
     assert.equal(reverified.receiptSha256, receipt.receiptSha256);
     assert.deepEqual(requireVerifiedFsusuiEvent(reverified), data.payload);
     assert.equal(data.requests.length, 6);
+});
+
+test('sealed receipt binds the exact event type and write-side modules expose no raw payload entry', async (t) =>
+{
+    const data = fixture();
+    const transport = await registryFixture(t, data);
+    const receipt = await verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now });
+    for (const eventType of [undefined, 'fsusui-npm-published-v2', 'repository_dispatch'])
+    {
+        const changed = { ...receipt, eventType };
+        if (eventType === undefined)
+        {
+            delete changed.eventType;
+        }
+        delete changed.receiptSha256;
+        changed.receiptSha256 = sha256(JSON.stringify(changed));
+        await assert.rejects(reverifyFsusuiEventReceipt(JSON.stringify(changed), { transport, now }), /receipt event type/);
+    }
+
+    for (const relative of [
+        '../../tools/dependencies/fsusui-release-package.mjs',
+        '../../tools/dependencies/update-fsusui-release.mjs',
+        '../../tools/dependencies/migrate-fsusui-public-npm.mjs'
+    ])
+    {
+        const source = readFileSync(new URL(relative, import.meta.url), 'utf8');
+        assert.match(source, /requireVerifiedFsusuiEvent/u);
+        assert.doesNotMatch(source, /\b(?:parse|verify)FsusuiReleaseEvent\b/u);
+        assert.doesNotMatch(source, /--payload/u);
+    }
+    assert.throws(() => requireVerifiedFsusuiEvent(data.payload), /sealed verified/);
 });
 
 test('every missing field, unknown field and field type fails before any network request', async () =>
@@ -249,8 +289,8 @@ test('simulation: tampered receipts, even rehashed, cannot authorize writes', as
     const receipt = await verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now });
     const changed = { ...receipt, npmTarballSha256: '0'.repeat(64) };
     await assert.rejects(reverifyFsusuiEventReceipt(JSON.stringify(changed), { transport, now }), /receipt digest/);
-    // eslint-disable-next-line no-unused-vars
-    const { receiptSha256, ...body } = changed;
+    const body = { ...changed };
+    delete body.receiptSha256;
     const rehashed = { ...body, receiptSha256: sha256(JSON.stringify(body)) };
     await assert.rejects(reverifyFsusuiEventReceipt(JSON.stringify(rehashed), { transport, now }), /receipt binding/);
     data.latest.version = '1.5.3';

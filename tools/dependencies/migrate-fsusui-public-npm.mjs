@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
+import {
+    activateFsusuiReleaseTrainManager,
+    activateFsusuiReleaseTrainRenovateDelegation,
+    assertFsusuiManagerState,
+    assertFsusuiReleaseTrainRenovateDelegation
+} from './fsusui-manager-ownership.mjs';
 import {
     assertPublicReleaseLock,
     compareStableVersions,
@@ -12,7 +22,7 @@ import {
     PACKAGE_NAME,
     readFrontendFiles,
     regeneratePublicLock
-} from './update-fsusui-release.mjs';
+} from './fsusui-release-package.mjs';
 import { requireVerifiedFsusuiEvent } from './verify-fsusui-release-event.mjs';
 
 const privateRegistryHost = ['npm', 'pkg', 'github', 'com'].join('.');
@@ -20,10 +30,15 @@ const privateTokenName = ['GITHUB', 'PACKAGES', 'TOKEN'].join('_');
 const privateDockerSecretId = ['github', 'packages', 'token'].join('_');
 const privateMsbuildProperty = ['GitHub', 'Packages', 'Token'].join('');
 const privateProviderPhrase = ['GitHub', 'Packages'].join(' ');
+const updateSurfacePath = 'config/dependencies/update-surface.json';
+const renovatePath = 'renovate.json5';
+export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
+export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256 = '7cc634569551a238c331469bd042ee1aab964b8a4c794503a3e56fb80c05956c';
 
 export const PRIVATE_REGISTRY_ORIGIN = `https://${privateRegistryHost}`;
 export const PRIVATE_REFERENCE_MARKERS = Object.freeze([
     PRIVATE_REGISTRY_ORIGIN,
+    privateRegistryHost,
     privateTokenName,
     privateDockerSecretId,
     privateMsbuildProperty,
@@ -139,39 +154,118 @@ export function scanPrivateFsusuiReferences(repository, { files, overrides = new
     return Object.freeze({ clean: matches.length === 0, matches });
 }
 
-function removePrivateLines(source)
+function sha256(value)
 {
-    return source.split(/(?<=\n)/u).filter((line) => !PRIVATE_REFERENCE_MARKERS.some((marker) => line.includes(marker))).join('');
+    return createHash('sha256').update(value).digest('hex');
 }
 
-function isNpmrc(file)
+function git(repository, args, { environment, encoding = 'utf8', allowFailure = false } = {})
 {
-    return path.basename(file) === '.npmrc';
-}
-
-function buildRetiredFileChanges(repository, files, beforeMatches, overrides)
-{
-    const changes = new Map();
-    const matchedFiles = [...new Set(beforeMatches.map((match) => match.file))].sort();
-    for (const file of matchedFiles)
+    try
     {
-        if ([PACKAGE_JSON_PATH, PACKAGE_LOCK_PATH].includes(file))
-        {
-            continue;
-        }
-        const before = readRepositoryText(repository, file, overrides);
-        requireCondition(before != null, `private reference is not a regular text file: ${file}`);
-        const after = removePrivateLines(before);
-        if (isNpmrc(file) && after.trim() === '')
-        {
-            changes.set(file, null);
-        }
-        else
-        {
-            changes.set(file, Buffer.from(after));
-        }
+        return execFileSync('git', args, {
+            cwd: repository,
+            encoding,
+            env: environment,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            maxBuffer: 64 * 1024 * 1024
+        });
     }
-    return changes;
+    catch
+    {
+        if (allowFailure)
+        {
+            return null;
+        }
+        throw migrationError(`git command failed: git ${args.join(' ')}`);
+    }
+}
+
+function patchChangedFiles(repository, environment)
+{
+    const output = git(repository, [
+        'diff',
+        '--cached',
+        '--name-only',
+        '--diff-filter=ACDMRTUXB',
+        '-z',
+        'HEAD'
+    ], { environment, encoding: 'buffer' });
+    return output.toString('utf8').split('\0').filter(Boolean).sort();
+}
+
+function readIndexFile(repository, environment, file)
+{
+    const exists = git(repository, ['cat-file', '-e', `:${file}`], { environment, allowFailure: true });
+    if (exists == null)
+    {
+        return null;
+    }
+    return git(repository, ['show', `:${file}`], { environment, encoding: 'buffer' });
+}
+
+function buildRetiredFileChanges(repository, beforeMatches, expectedPatchSha256)
+{
+    const relativePatch = FSUSUI_PUBLIC_NPM_MIGRATION_PATCH;
+    requireCondition(git(repository, ['status', '--porcelain']).trim() === '', 'migration repository must be a clean Git worktree');
+    const absolutePatch = path.join(repository, relativePatch);
+    let patchArchive;
+    try
+    {
+        const stat = fs.lstatSync(absolutePatch);
+        requireCondition(stat.isFile() && !stat.isSymbolicLink(), `migration patch is not a regular file: ${relativePatch}`);
+        patchArchive = fs.readFileSync(absolutePatch);
+    }
+    catch (error)
+    {
+        if (error instanceof Error && error.message.startsWith('FsusUI public npm migration:'))
+        {
+            throw error;
+        }
+        throw migrationError(`migration patch is missing: ${relativePatch}`);
+    }
+    requireCondition(sha256(patchArchive) === expectedPatchSha256, 'migration patch digest mismatch');
+
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusui-public-npm-index-'));
+    const temporaryIndex = path.join(temporary, 'index');
+    const temporaryPatch = path.join(temporary, 'migration.patch');
+    try
+    {
+        try
+        {
+            fs.writeFileSync(temporaryPatch, gunzipSync(patchArchive));
+        }
+        catch
+        {
+            throw migrationError('migration patch archive is invalid');
+        }
+        const repositoryIndex = git(repository, ['rev-parse', '--git-path', 'index']).trim();
+        const absoluteIndex = path.isAbsolute(repositoryIndex)
+            ? repositoryIndex
+            : path.join(repository, repositoryIndex);
+        fs.copyFileSync(absoluteIndex, temporaryIndex);
+        const environment = { ...process.env, GIT_INDEX_FILE: temporaryIndex };
+        git(repository, ['apply', '--cached', '--check', '--whitespace=error-all', temporaryPatch], { environment });
+        git(repository, ['apply', '--cached', '--whitespace=error-all', temporaryPatch], { environment });
+
+        const changes = new Map();
+        for (const file of patchChangedFiles(repository, environment))
+        {
+            changes.set(file, readIndexFile(repository, environment, file));
+        }
+        changes.set(relativePatch, null);
+
+        const matchedFiles = new Set(beforeMatches
+            .map((match) => match.file)
+            .filter((file) => ![PACKAGE_JSON_PATH, PACKAGE_LOCK_PATH, relativePatch].includes(file)));
+        const uncovered = [...matchedFiles].filter((file) => !changes.has(file)).sort();
+        requireCondition(uncovered.length === 0, `migration patch does not retire private references in: ${uncovered.join(',')}`);
+        return changes;
+    }
+    finally
+    {
+        fs.rmSync(temporary, { recursive: true, force: true });
+    }
 }
 
 function bufferForJson(value)
@@ -179,7 +273,26 @@ function bufferForJson(value)
     return Buffer.from(`${JSON.stringify(value, null, 4)}\n`);
 }
 
-export async function buildPublicNpmMigrationPlan({ repository, receipt, runNpm })
+function parseRepositoryJson(repository, relative, overrides = new Map())
+{
+    const source = readRepositoryText(repository, relative, overrides);
+    requireCondition(source != null, `required repository JSON is missing: ${relative}`);
+    try
+    {
+        return JSON.parse(source);
+    }
+    catch
+    {
+        throw migrationError(`required repository JSON is invalid: ${relative}`);
+    }
+}
+
+export async function buildPublicNpmMigrationPlan({
+    repository,
+    receipt,
+    runNpm,
+    migrationPatchSha256 = FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256
+})
 {
     const payload = requireVerifiedFsusuiEvent(receipt);
     requireCondition(payload.package === PACKAGE_NAME, 'verified event package is not managed by this migration');
@@ -195,6 +308,8 @@ export async function buildPublicNpmMigrationPlan({ repository, receipt, runNpm 
     const beforeScan = scanPrivateFsusuiReferences(repository, { files: repositoryFiles });
     if (beforeScan.clean)
     {
+        assertFsusuiManagerState(parseRepositoryJson(repository, updateSurfacePath), 'post-migration');
+        assertFsusuiReleaseTrainRenovateDelegation(parseRepositoryJson(repository, renovatePath), currentVersion);
         return Object.freeze({
             action: 'not-required',
             migration: 'first-public-npm',
@@ -216,11 +331,7 @@ export async function buildPublicNpmMigrationPlan({ repository, receipt, runNpm 
     assertPublicReleaseLock(generated.lockfile, payload);
     requireCondition(generated.manifest.dependencies?.[PACKAGE_NAME] === payload.version, 'generated package.json target is not exact');
 
-    const overrides = new Map([
-        [PACKAGE_JSON_PATH, bufferForJson(generated.manifest).toString('utf8')],
-        [PACKAGE_LOCK_PATH, bufferForJson(generated.lockfile).toString('utf8')]
-    ]);
-    const changes = buildRetiredFileChanges(repository, repositoryFiles, beforeScan.matches, overrides);
+    const changes = buildRetiredFileChanges(repository, beforeScan.matches, migrationPatchSha256);
     changes.set(PACKAGE_JSON_PATH, bufferForJson(generated.manifest));
     changes.set(PACKAGE_LOCK_PATH, bufferForJson(generated.lockfile));
     const afterOverrides = new Map();
@@ -231,13 +342,25 @@ export async function buildPublicNpmMigrationPlan({ repository, receipt, runNpm 
     const afterScan = scanPrivateFsusuiReferences(repository, { files: repositoryFiles, overrides: afterOverrides });
     requireCondition(afterScan.clean, `migration leaves private references: ${afterScan.matches.map((match) => `${match.file}:${match.line}`).join(',')}`);
 
+    const migration = {
+        migration: 'first-public-npm',
+        verified: true,
+        verifiedReceiptSha256: receipt.receiptSha256,
+        version: payload.version,
+        privateReferencesAfter: afterScan.matches
+    };
+    const postMigrationCatalog = activateFsusuiReleaseTrainManager(parseRepositoryJson(repository, updateSurfacePath), migration);
+    const postMigrationRenovate = activateFsusuiReleaseTrainRenovateDelegation(parseRepositoryJson(repository, renovatePath), payload.version);
+    changes.set(updateSurfacePath, bufferForJson(postMigrationCatalog));
+    changes.set(renovatePath, bufferForJson(postMigrationRenovate));
+
     const changedFiles = [...changes.entries()]
         .filter(([file, value]) =>
         {
             const beforeValue = readRepositoryText(repository, file);
             if (value == null)
             {
-                return beforeValue != null;
+                return fs.existsSync(path.join(repository, file));
             }
             return beforeValue !== value.toString('utf8');
         })
@@ -299,9 +422,19 @@ function restoreChanges(repository, snapshots)
     }
 }
 
-export async function migrateVerifiedFsusuiRelease({ repository, receipt, runNpm } = {})
+export async function migrateVerifiedFsusuiRelease({
+    repository,
+    receipt,
+    runNpm,
+    migrationPatchSha256 = FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256
+} = {})
 {
-    const plan = await buildPublicNpmMigrationPlan({ repository, receipt, runNpm });
+    const plan = await buildPublicNpmMigrationPlan({
+        repository,
+        receipt,
+        runNpm,
+        migrationPatchSha256
+    });
     if (plan.action !== 'migrated')
     {
         return plan;
@@ -325,6 +458,8 @@ export async function migrateVerifiedFsusuiRelease({ repository, receipt, runNpm
         const files = readFrontendFiles(repository);
         requireCondition(files.manifest.dependencies?.[PACKAGE_NAME] === plan.version, 'migration package.json postcondition failed');
         assertPublicReleaseLock(files.lockfile, receipt.payload);
+        assertFsusuiManagerState(parseRepositoryJson(repository, updateSurfacePath), 'post-migration');
+        assertFsusuiReleaseTrainRenovateDelegation(parseRepositoryJson(repository, renovatePath), plan.version);
         return plan;
     }
     catch (error)
