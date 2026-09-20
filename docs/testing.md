@@ -121,9 +121,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-
 263
-
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` is the only editable `ContentShapeCatalog` for Unicode, script, positive and negative eligibility, and content consumer applicability. `tools/testing/content-shape-catalog.mjs` generates and checks `config/testing/content-field-contracts.generated.json` from the current `ArticlePublicationValidator`, `CommentLimits` and comment binary endpoints; tests must not copy article/comment characters or UTF-8 byte limits. The "character" count semantics of production are fixed to .NET UTF-16 `string.Length`, and the byte count is fixed to `Encoding.UTF8.GetByteCount`. The generator separately records Unicode scalar and grapheme statistics, but they must not be used to replace the production judgment. The 1000 UTF-16 unit upper limit of the current comment will constrain all legal Unicode text before the 4096-byte upper limit, so the byte boundary case is still an independent dimension evidence, rather than pretending to be an overall positive input that can be achieved alone.
@@ -1210,14 +1208,12 @@ render: key-value-table
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN release.finalizer-authority -->
-
-| Key               | Value                                                            |
-| ----------------- | ---------------------------------------------------------------- |
-| commandDigest     | 6be786224f86a02f00489b84e3e8ba412b6dcf806495b4852e6b403562930b81 |
-| commandEntrypoint | tools/test/lanes/release-final.sh                                |
-| commandKind       | finalizer                                                        |
-| id                | release-final                                                    |
-
+| Key | Value |
+| --- | --- |
+| commandDigest | 6be786224f86a02f00489b84e3e8ba412b6dcf806495b4852e6b403562930b81 |
+| commandEntrypoint | tools/test/lanes/release-final.sh |
+| commandKind | finalizer |
+| id | release-final |
 <!-- FSUSBLOG-GENERATED:END release.finalizer-authority -->
 
 ## Current test tiers
@@ -1231,7 +1227,6 @@ render: enum-set
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN testing.tiers -->
-
 - `acceptance`
 - `aeds-compression-profile`
 - `aeds-frame-cost`
@@ -1375,7 +1370,7 @@ render: enum-set
 - `visual-public`
 - `wasm-build-artifacts`
 - `wasm-fuzz-regression`
-    <!-- FSUSBLOG-GENERATED:END testing.tiers -->
+<!-- FSUSBLOG-GENERATED:END testing.tiers -->
 
 <!-- #2527 current LocalRedis budget evidence -->
 

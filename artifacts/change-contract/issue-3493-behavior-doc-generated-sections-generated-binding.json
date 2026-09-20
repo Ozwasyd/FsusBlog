@@ -1,0 +1,15 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "config/contracts/generated-fact-sections.json",
+    "tools/docs/generate-fact-sections.mjs",
+    "tools/docs/generated-fact-sections/generator.mjs",
+    "tools/docs/generated-fact-sections/renderers.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "docs/testing.md",
+      "sha256": "32eade444efaf8c748c3beb00e1ae87382546804c0fc6a91fc31a54f3744e8ae"
+    }
+  ]
+}
