@@ -172,9 +172,12 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
             failureCache,
             TimeProvider.System);
 
-        await Assert.ThrowsAsync<RedisConnectionException>(() => failureService.ConsumeTicketAsync(
-            failedTicket.Response.Ticket,
-            CancellationToken.None));
+        RedisOperationUnavailableException failure =
+            await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => failureService.ConsumeTicketAsync(
+                failedTicket.Response.Ticket,
+                CancellationToken.None));
+        Assert.Equal(RedisOperationFailureKind.RedisFailure, failure.FailureKind);
+        _ = Assert.IsType<RedisConnectionException>(failure.InnerException);
         Assert.True((await failureService.ConsumeTicketAsync(failedTicket.Response.Ticket, CancellationToken.None)).Hit);
         Assert.False((await failureService.ConsumeTicketAsync(failedTicket.Response.Ticket, CancellationToken.None)).Hit);
         await AssertConsumedStateAsync(context, failedTicket.Response.Ticket);
