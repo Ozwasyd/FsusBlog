@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.Runtime.cs"
+            ],
+            "reason": "Preserve process environment spelling while splitting the same C# partial type; no external identifiers are renamed."
+        }
+    ]
+}
