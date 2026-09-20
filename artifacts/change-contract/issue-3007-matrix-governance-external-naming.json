@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
+            ],
+            "reason": "Preserve canonical generated JSON wire keys while refreshing matrix-bound inventory and backend evidence-path source digests."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the generated testing document spelling owned by the registered search-index UTF-8 scalar governance surface."
+        }
+    ]
+}
