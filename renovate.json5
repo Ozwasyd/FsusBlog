@@ -13,6 +13,7 @@
     "automerge": false,
     "automergeType": "pr",
     "platformAutomerge": true,
+    "rebaseWhen": "behind-base-branch",
     "ignoreTests": false,
     "dependencyDashboardApproval": false,
     "dependencyDashboard": true,
@@ -56,8 +57,7 @@
             "automerge": true,
             "automergeType": "pr",
             "platformAutomerge": true,
-            "minimumReleaseAge": "0 days",
-            "matchCurrentVersion": false
+            "minimumReleaseAge": "0 days"
         },
         {
             "groupName": "frontend-runtime",

@@ -16,6 +16,7 @@ test('platform automerge config covers all update types without bypass', () =>
     assert.deepEqual(result.errors, []);
     assert.equal(result.renovate.automergeType, 'pr');
     assert.equal(result.renovate.platformAutomerge, true);
+    assert.equal(result.renovate.rebaseWhen, 'behind-base-branch');
     assert.equal(result.renovate.dependencyDashboardApproval, false);
     assert.equal(validateRenovateAutomerge(result.renovate).length, 0);
 });

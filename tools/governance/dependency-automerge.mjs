@@ -24,6 +24,10 @@ export function validateRenovateAutomerge(config)
     {
         report(errors, 'platform-automerge-disabled', String(config?.platformAutomerge));
     }
+    if (config?.rebaseWhen !== 'behind-base-branch')
+    {
+        report(errors, 'stale-base-rebase-disabled', String(config?.rebaseWhen));
+    }
     if (config?.ignoreTests === true)
     {
         report(errors, 'ignore-tests', 'ignoreTests must remain false');
