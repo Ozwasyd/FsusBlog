@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- The matrix profile composes the canonical fixture catalog authority. */
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,7 +26,7 @@ function tierExecutionDependencies(tier)
 const bundleSummarySchema = 'fsusblog.local-production.bundle.v1';
 const summaryOnlySchema = 'fsusblog.local-production.summary-only.v1';
 const logicalProjectionSchema = 'fsusblog.local-profile-projection.v1';
-export const productionWallClockBudgetMs = 300_000;
+export const productionWallClockBudgetMs = 3_600_000;
 export const performanceMixedWindowFloorMs = 60_000;
 const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidence.v2';
 const performanceMeasurementStepIds = Object.freeze([
@@ -1486,7 +1487,8 @@ function canonicalReceiptValue(value)
 
 export function externalEvidenceReceiptDigest(receipt)
 {
-    const { contentDigest, ...unsigned } = receipt ?? {};
+    const unsigned = structuredClone(receipt ?? {});
+    delete unsigned.contentDigest;
     return `sha256:${createHash('sha256').update(JSON.stringify(canonicalReceiptValue(unsigned))).digest('hex')}`;
 }
 

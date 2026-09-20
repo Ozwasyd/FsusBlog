@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const {createProductionBuildReceipt} = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const {behaviorTest, concurrencyHarnessId, runRealConcurrencyHarness} = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const {createEmptySlotState, readSlotState, recordSlotStart, recordSlotStop, reserveRuntimeGeneration, resolveSlotConfig, setActiveSlot, writeSlotStateAtomic} = await import(new URL('../../tools/deployment/slot-lib.mjs', import.meta.url));
 const {createReleaseManifest, writeReleaseManifestAtomic} = await import(new URL('../../tools/release/release-manifest.mjs', import.meta.url));
 const {createSpaManifestDescriptor} = await import(new URL('../../tools/storage/create-spa-manifest-descriptor.mjs', import.meta.url));
@@ -69,76 +70,80 @@ function releaseInput(releaseId, imageDigest)
     };
 }
 
-test('slot state uses atomic durable files and preserves independent release identities', (t) =>
-{
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-slot-state-'));
-    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const stateFile = path.join(directory, 'deployment', 'slots.json');
-    const environment = { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18082' };
-    const state = createEmptySlotState('2026-07-11T00:00:00.000Z');
-    recordSlotStart(state, {
-        slot: 'blue',
-        releaseId: blueRelease,
-        imageRef: `ghcr.io/fsusblog/app@${blueDigest}`,
-        imageDigest: blueDigest,
-        startedAt: '2026-07-11T01:00:00.000Z',
-        environment
-    });
-    setActiveSlot(state, { slot: 'blue', kind: 'bootstrap', changedAt: '2026-07-11T01:01:00.000Z' });
-    recordSlotStart(state, {
-        slot: 'green',
-        releaseId: greenRelease,
-        imageRef: `ghcr.io/fsusblog/app@${greenDigest}`,
-        imageDigest: greenDigest,
-        startedAt: '2026-07-11T02:00:00.000Z',
-        environment
-    });
-    assert.equal(state.slots.blue.deploymentGeneration, 1);
-    assert.equal(state.slots.green.deploymentGeneration, 2);
-    const restartedGeneration = reserveRuntimeGeneration(state, {
-        slot: 'green',
-        reservedAt: '2026-07-11T02:01:00.000Z'
-    });
-    assert.equal(restartedGeneration, 3);
-    assert.throws(() => recordSlotStart(state, {
-        slot: 'green',
-        releaseId: greenRelease,
-        imageRef: `ghcr.io/fsusblog/app@${greenDigest}`,
-        imageDigest: greenDigest,
-        deploymentGeneration: 2,
-        startedAt: '2026-07-11T02:02:00.000Z',
-        environment
-    }), /latest reserved runtime generation/u);
-    recordSlotStart(state, {
-        slot: 'green',
-        releaseId: greenRelease,
-        imageRef: `ghcr.io/fsusblog/app@${greenDigest}`,
-        imageDigest: greenDigest,
-        deploymentGeneration: restartedGeneration,
-        startedAt: '2026-07-11T02:02:00.000Z',
-        environment
-    });
+behaviorTest(
+    'deployment-blue-green-runtime-role',
+    'positive',
+    'slot state uses atomic durable files and preserves independent release identities',
+    (t) =>
+    {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-slot-state-'));
+        t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+        const stateFile = path.join(directory, 'deployment', 'slots.json');
+        const environment = { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18082' };
+        const state = createEmptySlotState('2026-07-11T00:00:00.000Z');
+        recordSlotStart(state, {
+            slot: 'blue',
+            releaseId: blueRelease,
+            imageRef: `ghcr.io/fsusblog/app@${blueDigest}`,
+            imageDigest: blueDigest,
+            startedAt: '2026-07-11T01:00:00.000Z',
+            environment
+        });
+        setActiveSlot(state, { slot: 'blue', kind: 'bootstrap', changedAt: '2026-07-11T01:01:00.000Z' });
+        recordSlotStart(state, {
+            slot: 'green',
+            releaseId: greenRelease,
+            imageRef: `ghcr.io/fsusblog/app@${greenDigest}`,
+            imageDigest: greenDigest,
+            startedAt: '2026-07-11T02:00:00.000Z',
+            environment
+        });
+        assert.equal(state.slots.blue.deploymentGeneration, 1);
+        assert.equal(state.slots.green.deploymentGeneration, 2);
+        const restartedGeneration = reserveRuntimeGeneration(state, {
+            slot: 'green',
+            reservedAt: '2026-07-11T02:01:00.000Z'
+        });
+        assert.equal(restartedGeneration, 3);
+        assert.throws(() => recordSlotStart(state, {
+            slot: 'green',
+            releaseId: greenRelease,
+            imageRef: `ghcr.io/fsusblog/app@${greenDigest}`,
+            imageDigest: greenDigest,
+            deploymentGeneration: 2,
+            startedAt: '2026-07-11T02:02:00.000Z',
+            environment
+        }), /latest reserved runtime generation/u);
+        recordSlotStart(state, {
+            slot: 'green',
+            releaseId: greenRelease,
+            imageRef: `ghcr.io/fsusblog/app@${greenDigest}`,
+            imageDigest: greenDigest,
+            deploymentGeneration: restartedGeneration,
+            startedAt: '2026-07-11T02:02:00.000Z',
+            environment
+        });
 
-    writeSlotStateAtomic(stateFile, state);
-    fs.writeFileSync(path.join(path.dirname(stateFile), '.slots.json.tmp-interrupted'), '{partial');
-    const recovered = readSlotState(stateFile, { allowMissing: false });
+        writeSlotStateAtomic(stateFile, state);
+        fs.writeFileSync(path.join(path.dirname(stateFile), '.slots.json.tmp-interrupted'), '{partial');
+        const recovered = readSlotState(stateFile, { allowMissing: false });
 
-    assert.equal(recovered.activeSlot, 'blue');
-    assert.equal(recovered.slots.blue.releaseId, blueRelease);
-    assert.equal(recovered.slots.blue.port, 18081);
-    assert.equal(recovered.slots.green.releaseId, greenRelease);
-    assert.equal(recovered.slots.green.port, 18082);
-    assert.equal(recovered.slots.green.deploymentGeneration, 3);
-    assert.equal(recovered.runtimeGeneration, 3);
-    assert.equal(recovered.lastTrafficTransition.kind, 'bootstrap');
-    assert.notEqual(recovered.slots.blue.imageDigest, recovered.slots.green.imageDigest);
-    assert.throws(() => recordSlotStop(recovered, { slot: 'blue' }), /refusing to stop active slot/u);
-    recordSlotStop(recovered, { slot: 'green', stoppedAt: '2026-07-11T03:00:00.000Z' });
-    assert.equal(recovered.slots.green.status, 'stopped');
-    assert.equal(fs.statSync(stateFile).mode & 0o777, 0o600);
-    assert.throws(() => resolveSlotConfig('red', environment), /blue or green/u);
-    assert.throws(() => resolveSlotConfig('blue', { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18081' }), /must be different/u);
-});
+        assert.equal(recovered.activeSlot, 'blue');
+        assert.equal(recovered.slots.blue.releaseId, blueRelease);
+        assert.equal(recovered.slots.blue.port, 18081);
+        assert.equal(recovered.slots.green.releaseId, greenRelease);
+        assert.equal(recovered.slots.green.port, 18082);
+        assert.equal(recovered.slots.green.deploymentGeneration, 3);
+        assert.equal(recovered.runtimeGeneration, 3);
+        assert.equal(recovered.lastTrafficTransition.kind, 'bootstrap');
+        assert.notEqual(recovered.slots.blue.imageDigest, recovered.slots.green.imageDigest);
+        assert.throws(() => recordSlotStop(recovered, { slot: 'blue' }), /refusing to stop active slot/u);
+        recordSlotStop(recovered, { slot: 'green', stoppedAt: '2026-07-11T03:00:00.000Z' });
+        assert.equal(recovered.slots.green.status, 'stopped');
+        assert.equal(fs.statSync(stateFile).mode & 0o777, 0o600);
+        assert.throws(() => resolveSlotConfig('red', environment), /blue or green/u);
+        assert.throws(() => resolveSlotConfig('blue', { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18081' }), /must be different/u);
+    });
 
 test('manifest v2 is the sole identity source for slot and rollout state writers', (t) =>
 {
@@ -312,7 +317,10 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
     assert.equal(JSON.parse(restartRead.stdout).activeSlot, 'blue');
 });
 
-test('slot start rejects a valid receipt outside the retained current-release authority', (t) =>
+behaviorTest('deployment-blue-green-runtime-role', 'negative', {
+    title: 'slot start rejects a valid receipt outside the retained current-release authority',
+    invariantIds: ['active-release-identity-retention']
+}, (t) =>
 {
     const fixture = createScriptFixture(t);
     const manifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest);
@@ -329,6 +337,43 @@ test('slot start rejects a valid receipt outside the retained current-release au
     assert.notEqual(rejected.status, 0);
     assert.match(rejected.stderr, /must use the current retained release authority/u);
     assert.doesNotMatch(fs.readFileSync(fixture.dockerLog, 'utf8'), /^(?:pull|up):/mu);
+});
+
+behaviorTest('deployment-blue-green-runtime-role', 'concurrency', {
+    title: 'concurrent blue-green state plans preserve active and candidate identities',
+    concurrencyHarness: concurrencyHarnessId
+}, async () =>
+{
+    const initial = createEmptySlotState('2026-07-11T00:00:00.000Z');
+    recordSlotStart(initial, {
+        slot: 'blue',
+        releaseId: blueRelease,
+        imageRef: `ghcr.io/fsusblog/app@${blueDigest}`,
+        imageDigest: blueDigest,
+        startedAt: '2026-07-11T01:00:00.000Z',
+        environment: { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18082' }
+    });
+    setActiveSlot(initial, { slot: 'blue', kind: 'bootstrap', changedAt: '2026-07-11T01:01:00.000Z' });
+
+    const results = await runRealConcurrencyHarness([
+        async () =>
+        {
+            const snapshot = structuredClone(initial);
+            assert.throws(() => recordSlotStop(snapshot, { slot: 'blue' }), /refusing to stop active slot/u);
+            return snapshot.activeSlot;
+        },
+        async () =>
+        {
+            const snapshot = structuredClone(initial);
+            const generation = reserveRuntimeGeneration(snapshot, {
+                slot: 'green',
+                reservedAt: '2026-07-11T02:00:00.000Z'
+            });
+            return { activeSlot: snapshot.activeSlot, generation };
+        }
+    ]);
+
+    assert.deepEqual(results, ['blue', { activeSlot: 'blue', generation: 2 }]);
 });
 
 test('slot preflight blocks occupied ports, insufficient resources, invalid slots and bad digests without touching active', (t) =>

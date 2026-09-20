@@ -6,7 +6,7 @@ import { availableParallelism } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const {createDeterministicRandom, deriveRandomConsumerStream, generateDiagnosticRootSeed, loadRandomStreamInventory, resolveRandomConsumer} = await import(new URL('../test/random-streams.mjs', import.meta.url));
+const {createDeterministicRandom, createRandomExecutionRecorder, deriveRandomConsumerStream, generateDiagnosticRootSeed, loadRandomStreamInventory, resolveRandomConsumer} = await import(new URL('../test/random-streams.mjs', import.meta.url));
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const decoderDirectory = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT
     ? join(process.env.FSUSBLOG_FRONTEND_DIST_ROOT, 'wasm')
@@ -55,6 +55,7 @@ const randomStream = deriveRandomConsumerStream({
     rootSeed: rootSeedResolution.rootSeed,
     consumer: resolveRandomConsumer(randomInventory, randomConsumer)
 });
+const execution = createRandomExecutionRecorder(randomConsumer);
 
 function positiveInteger(value, fallback)
 {
@@ -300,10 +301,17 @@ try
                 throw new Error(`wasm_fuzz_tier_differential:${JSON.stringify(results)}`);
             }
             seedsRun += 1;
+            execution?.record({
+                corpus: entry.id,
+                seed,
+                inputDigest: createHash('sha256').update(input).digest('hex'),
+                results
+            });
         }
     }
 
     const generatedAt = new Date().toISOString();
+    execution?.complete();
     await writeEvidence({
         status: 'ok',
         executionSource: 'fresh-wasm-runtime',

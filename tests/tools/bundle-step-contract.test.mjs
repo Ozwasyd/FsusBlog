@@ -140,12 +140,13 @@ test('runtime bundle loads its generated environment only after bootstrap and be
     const stepEnvironment = source.indexOf('...(step.env ?? {})', runtimeEnvironment);
     assert.ok(processEnvironment >= 0 && runtimeEnvironment > processEnvironment && stepEnvironment > runtimeEnvironment);
 
-    const bootstrapExecution = /if \(step\.id === 'bootstrap'\)\s*\{\s*const runtimeLayout = prepareProductionRuntimeLayout\(productionBuildLayout\)/u
+    const bootstrapExecution = /if \(step\.id === 'bootstrap'\)\s*\{\s*const runtimeLayout = runtimeOrderBoundaryCollector\s*\?\s*prepareRuntimeOrderSessionLayout\(\)\s*:\s*prepareProductionRuntimeLayout\(productionBuildLayout\)/u
         .exec(source)?.index ?? -1;
     const environmentRead = source.indexOf('...readRuntimeEnvironment(root, namespace)', bootstrapExecution);
     assert.ok(bootstrapExecution >= 0 && environmentRead > bootstrapExecution);
     assert.doesNotMatch(source.slice(bootstrapExecution, environmentRead), /source\s+[^\n]*\.env/u);
     assert.match(source.slice(bootstrapExecution, environmentRead), /prepareProductionRuntimeLayout\(productionBuildLayout\)/u);
+    assert.match(source.slice(bootstrapExecution, environmentRead), /prepareRuntimeOrderSessionLayout\(\)/u);
     assert.match(source.slice(environmentRead, environmentRead + 300), /\.\.\.productionRuntimeChildEnvironment/u);
 });
 

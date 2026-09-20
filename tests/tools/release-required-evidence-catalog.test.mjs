@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- This contract test imports the repository evidence authority under test. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -37,14 +38,14 @@ function findEntry(ledger, authorityId)
     return ledger.entries.find((entry) => entry.authorityId === authorityId);
 }
 
-test('canonical required evidence catalog is valid with 21 exact-one authorities', () =>
+test('canonical required evidence catalog is valid with 22 exact-one authorities', () =>
 {
     const ledger = loadCanonicalRequiredEvidenceCatalog();
     const errors = errorsFor(ledger);
     assert.deepEqual(errors, []);
     assert.equal(ledger.schema, requiredEvidenceAuthorityLedgerSchema);
     assert.equal(ledger.catalogSchema, requiredEvidenceCatalogSchema);
-    assert.equal(ledger.entries.length, 21);
+    assert.equal(ledger.entries.length, 22);
     const authorityIds = ledger.entries.map((entry) => entry.authorityId);
     assert.deepEqual(authorityIds, [...authorityIds].sort());
     assert.equal(new Set(authorityIds).size, authorityIds.length);

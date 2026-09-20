@@ -32,8 +32,8 @@ const runtimeProcessIdentitySchema = 'fsusblog.local-runtime-process-identity.v1
 const cleanupReceiptSchema = 'fsusblog.production-fresh.runtime-cleanup-receipt.v1';
 const containerActions = new Set(['skipped-external-name', 'retained-external', 'blocked-active-owner', 'already-absent', 'blocked-ownership-mismatch', 'blocked-identity-incomplete', 'removed', 'remove-failed']);
 const containerPostObservations = new Set(['not-observed', 'retained', 'name-absent', 'not-removed', 'name-and-id-absent', 'id-still-present', 'name-still-present', 'removal-unconfirmed']);
-const processActions = new Set(['retained-external', 'blocked-active-owner', 'blocked', 'terminated', 'already-absent', 'termination-unconfirmed']);
-const processPostObservations = new Set(['retained', 'not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live']);
+const processActions = new Set(['retained-external', 'blocked-active-owner', 'blocked', 'blocked-identity-incomplete', 'removed', 'remove-failed', 'terminated', 'already-absent', 'termination-unconfirmed']);
+const processPostObservations = new Set(['retained', 'not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live', 'not-removed', 'name-and-id-absent', 'removal-unconfirmed']);
 
 function canonicalJson(value)
 {
@@ -50,7 +50,8 @@ function canonicalJson(value)
 
 export function freshRuntimeCleanupReceiptDigest(receipt)
 {
-    const { contentDigest: _contentDigest, ...unsigned } = receipt ?? {};
+    const unsigned = structuredClone(receipt ?? {});
+    delete unsigned.contentDigest;
     return `sha256:${createHash('sha256').update(canonicalJson(unsigned)).digest('hex')}`;
 }
 
@@ -637,14 +638,6 @@ function defaultListProcessGroupMembers(processGroupId, { procRoot = '/proc' } =
     return members;
 }
 
-function discoverOrphanProductionViteProcesses(root)
-{
-    return fs.readdirSync('/proc', { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name))
-        .map((entry) => readProcProcess(Number.parseInt(entry.name, 10)))
-        .filter((record) => record && isOrphanProductionViteProcess(record, { root }));
-}
-
 function sameProcessIdentity(expected)
 {
     const observed = readProcProcess(expected.pid);
@@ -706,20 +699,6 @@ function hasActiveBackendTesthost(root)
         && (record.cwd === resolvedRoot || record.cwd.startsWith(`${resolvedRoot}${path.sep}`))
         && record.args.some((argument) => /(?:^|\/)testhost(?:\.dll)?$/u.test(argument));
         });
-}
-
-function defaultListSchemaContainers()
-{
-    const result = spawnSync('docker', ['ps', '-a', '--format', '{{.Names}}'], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe']
-    });
-    if (result.status !== 0)
-    {
-        throw new Error(`unable to inventory schema test containers: ${String(result.stderr ?? '').trim()}`);
-    }
-    return String(result.stdout ?? '').split(/\r?\n/u).map((name) => name.trim()).filter((name) =>
-        legacySchemaContainerPattern.test(name) || labeledSchemaContainerPattern.test(name));
 }
 
 function defaultInspectContainer(name)

@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- This contract test imports repository build authorities under test. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -143,7 +144,7 @@ test('managed GC argument and source governance reject the detached/unref implem
     assert.match(runner, /prependManagedProductionBuildGc\(.*?runId/u);
     assert.match(
         ciJobRunner,
-        /const scheduledTiers = prependManagedProductionBuildGc\([\s\S]*?await runDag\(\{[\s\S]*?tiers: scheduledTiers/u
+        /await runDag\(\{[\s\S]*?registerProductionBuildCompiler\(buildLayout, identity, authority\)[\s\S]*?tiers,/u
     );
     assert.doesNotMatch(localProfileRunner, /throw finalizationError/u);
     assert.ok(

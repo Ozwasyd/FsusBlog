@@ -1,0 +1,121 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "config/schemas/runtime-execution-session.schema.json",
+                "config/schemas/runtime-order-equivalence-receipt.schema.json",
+                "config/schemas/runtime-schedule-plan.schema.json",
+                "config/schemas/runtime-state-domain-registry.schema.json",
+                "config/schemas/runtime-state-snapshot.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/fixture-consumer-inventory.generated.json",
+                "config/testing/fixture-profile-matrix.generated.json",
+                "config/testing/release-reliability-scenario-catalog.json",
+                "config/testing/required-evidence-authority-ledger.json",
+                "config/testing/runtime-state-domain-registry.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
+                "tests/fixtures/test-matrix/release-final-evidence-contract.json",
+                "tests/fixtures/test-matrix/release-final-evidence-inputs.json"
+            ],
+            "reason": "Preserve existing schema, receipt, test ID, and JSON field spelling at each external machine-readable boundary."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve existing document claim and generated fact identifiers while the current architecture and test authorities are updated."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/releases/release-identity.md",
+                "docs/testing/runtime-state-equivalence.md"
+            ],
+            "reason": "Preserve caller-visible document marker and token spelling in the current runtime and release documentation."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve existing generated test-document identifiers while the governed testing inventory is regenerated."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "Preserve the caller-visible acceptance bootstrap environment keys while the producer and runtime consumers change atomically."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/contracts/behavior-contract-catalog.mjs",
+                "tools/contracts/behavior-test-binding.mjs",
+                "tools/contracts/generate-behavior-contract-catalog.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs"
+            ],
+            "reason": "Preserve existing BehaviorDoc, receipt, CLI, and JSON identifiers while their runtime evidence authorities change atomically."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/fact-extractors/identity.mjs",
+                "tools/security/run-wasm-fuzz.mjs",
+                "tools/test-fixtures/observers/aot-generation.mjs",
+                "tools/test-fixtures/observers/auth-state.mjs",
+                "tools/test-fixtures/observers/common.mjs",
+                "tools/test-fixtures/observers/file-tree.mjs",
+                "tools/test-fixtures/observers/index.mjs",
+                "tools/test-fixtures/observers/object-storage.mjs",
+                "tools/test-fixtures/observers/postgres-redis.mjs",
+                "tools/test-fixtures/observers/runtime-config.mjs",
+                "tools/test-fixtures/observers/runtime-topology.mjs",
+                "tools/test-matrix/local-profile.mjs",
+                "tools/test-matrix/local-runtime-cleanup.mjs",
+                "tools/test-matrix/production-build-layout.mjs",
+                "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+                "tools/test-matrix/release-final-evidence-contract.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs",
+                "tools/test-matrix/reset-postcondition-verifier.mjs",
+                "tools/test-matrix/runtime-state-domain-catalog.mjs",
+                "tools/test-runtime/behavior-evidence-ready-authority.mjs",
+                "tools/test-runtime/catalog.mjs",
+                "tools/test-runtime/contract.mjs",
+                "tools/test-runtime/order-equivalence.mjs",
+                "tools/test-runtime/produce-current-run-authorities.mjs",
+                "tools/test-runtime/produce-runtime-order-identity.mjs",
+                "tools/test-runtime/production-boundary-collector.mjs",
+                "tools/test-runtime/production-build-ready-authority.mjs",
+                "tools/test-runtime/production-current-run-binding.mjs",
+                "tools/test-runtime/production-observer-authority.mjs",
+                "tools/test-runtime/production-observer-ports.mjs",
+                "tools/test-runtime/production-receipt-observer-ports.mjs",
+                "tools/test-runtime/production-runtime-order-provider.mjs",
+                "tools/test-runtime/reset-barrier.mjs",
+                "tools/test-runtime/runtime-execution-session.mjs",
+                "tools/test-runtime/runtime-order-identity.mjs",
+                "tools/test-runtime/schedule-plan.mjs",
+                "tools/test-runtime/state-conflict.mjs",
+                "tools/test-runtime/state-snapshot.mjs",
+                "tools/test/bundles/bundle-steps.mjs",
+                "tools/test/bundles/run-bundle.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/random-streams.mjs",
+                "tools/test/run-backend-production-shards.mjs",
+                "tools/test/run-replay-qualification.mjs",
+                "tools/test/run-runtime-order-equivalence.mjs",
+                "tools/test/verify-replay-qualification.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment keys while internal JavaScript identifiers retain repository naming."
+        }
+    ]
+}

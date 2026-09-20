@@ -1,0 +1,279 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.runtime-order-equivalence.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "status",
+        "source",
+        "immutableIdentity",
+        "requiredPlanCount",
+        "executedPlanCount",
+        "deduplicatedPlanCount",
+        "executions",
+        "deduplicatedPlans",
+        "parallelismProof",
+        "receiptDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.runtime-order-equivalence.v1"
+        },
+        "status": {
+            "const": "equivalent"
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commit",
+                "fingerprint"
+            ],
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "immutableIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "buildReceiptDigest",
+                "fixtureDigest",
+                "envelopeDigest",
+                "clockDigest",
+                "replayDigest",
+                "catalogDigest",
+                "runtimeStepCatalogDigest"
+            ],
+            "properties": {
+                "buildReceiptDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "fixtureDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "envelopeDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "clockDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "replayDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "catalogDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "runtimeStepCatalogDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "requiredPlanCount": {
+            "type": "integer",
+            "minimum": 8
+        },
+        "executedPlanCount": {
+            "type": "integer",
+            "minimum": 8
+        },
+        "deduplicatedPlanCount": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "executions": {
+            "type": "array",
+            "minItems": 8,
+            "items": {
+                "$ref": "#/$defs/execution"
+            }
+        },
+        "deduplicatedPlans": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/deduplicatedPlan"
+            }
+        },
+        "parallelismProof": {
+            "const": true
+        },
+        "receiptDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "stringArray": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "execution": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "planId",
+                "planDigest",
+                "sessionId",
+                "executedStepIds",
+                "executedAssertionIds",
+                "outcomes",
+                "postconditions",
+                "terminalClass",
+                "finalSnapshotDigest",
+                "finalSemanticDigest",
+                "boundarySnapshotRefs",
+                "resetReceiptDigests",
+                "processRefs",
+                "lifecycleRefs",
+                "overlaps",
+                "attemptFailures"
+            ],
+            "properties": {
+                "planId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "planDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "sessionId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "executedStepIds": {
+                    "$ref": "#/$defs/stringArray"
+                },
+                "executedAssertionIds": {
+                    "$ref": "#/$defs/stringArray"
+                },
+                "outcomes": {
+                    "type": "object"
+                },
+                "postconditions": {
+                    "type": "object"
+                },
+                "terminalClass": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "finalSnapshotDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "finalSemanticDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "boundarySnapshotRefs": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                        "$ref": "#/$defs/snapshotRef"
+                    }
+                },
+                "resetReceiptDigests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/digest"
+                    }
+                },
+                "processRefs": {
+                    "$ref": "#/$defs/stringArray"
+                },
+                "lifecycleRefs": {
+                    "$ref": "#/$defs/stringArray"
+                },
+                "overlaps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "attemptFailures": {
+                    "type": "array",
+                    "maxItems": 0
+                }
+            }
+        },
+        "snapshotRef": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "boundary",
+                "stepId",
+                "snapshotDigest"
+            ],
+            "properties": {
+                "boundary": {
+                    "enum": [
+                        "before-runtime",
+                        "before-mutating-step",
+                        "after-mutating-step",
+                        "after-runtime"
+                    ]
+                },
+                "stepId": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "snapshotDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "deduplicatedPlan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "planId",
+                "kind",
+                "seed",
+                "concurrencyCap",
+                "deduplicatedBy",
+                "deduplicationProof"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.runtime-schedule-plan.v1"
+                },
+                "planId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "kind": {
+                    "const": "fully-serial"
+                },
+                "seed": {
+                    "type": "null"
+                },
+                "concurrencyCap": {
+                    "type": "integer",
+                    "minimum": 2
+                },
+                "deduplicatedBy": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "deduplicationProof": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        }
+    }
+}

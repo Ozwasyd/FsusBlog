@@ -42,7 +42,8 @@ export const supportedReceiptSchemas = Object.freeze([
     'fsusblog.native-test-receipt.v1',
     'fsusblog.release-domain-assertion-report.v1',
     'fsusblog.release-final-test-evidence-binding.v1',
-    'fsusblog.release-reliability-qualified-receipt.v3'
+    'fsusblog.release-reliability-qualified-receipt.v3',
+    'fsusblog.runtime-order-equivalence.v1'
 ]);
 const supportedReceiptSchemaSet = new Set(supportedReceiptSchemas);
 
