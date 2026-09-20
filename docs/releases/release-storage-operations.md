@@ -58,17 +58,22 @@ node tools/storage/gc-release-assets.mjs \
   --out .tmp/release-assets-gc-dry-run.json
 ```
 
+The dry-run evidence is the only manifest-binding authority for apply: it seals the protected `asset-manifest.json` digests and the exact release/object delete set that review approved.
+
 Apply only after review:
 
 ```bash
 node tools/storage/gc-release-assets.mjs \
   --store /var/lib/fsusblog/release-assets \
   --state /var/lib/fsusblog/release-assets/retention-state.json \
+  --slot-state /var/lib/fsusblog/slots/slot-state.json \
+  --rollout-state build/releases/<release-id>/rollout-state.json \
+  --reviewed-dry-run .tmp/release-assets-gc-dry-run.json \
   --apply \
   --out /var/lib/fsusblog/release-assets/evidence/gc-<change-id>.json
 ```
 
-The `.gc.lock` create-new lock makes concurrent collectors fail closed. Operators do not delete a lock blindly: first establish that no collector owns it, preserve the lock record as incident evidence, and then use the approved stale-lock procedure. The GC evidence schema is `fsusblog.release-assets.gc-evidence.v1` and records every release/object action plus before/after inventory.
+`--apply` re-reads the current protected manifests and rejects any digest drift, protected-release drift, or delete-plan drift before it removes a release or object. The `.gc.lock` create-new lock makes concurrent collectors fail closed. Operators do not delete a lock blindly: first establish that no collector owns it, preserve the lock record as incident evidence, and then use the approved stale-lock procedure. The GC evidence schema is `fsusblog.release-assets.gc-evidence.v1` and records the sealed plan, every release/object action, and before/after inventory.
 
 ## Upload crash cleanup
 
