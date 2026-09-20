@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/change-contract.yml"
+            ],
+            "reason": "Preserve GitHub Actions workflow schema and runner environment spellings while installing only the selected checker locked parser without lifecycle scripts."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Document exact existing JavaScript extensions, CLI arguments and external parser identities without renaming their executable contracts."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/governance/javascript-format-equivalence.mjs"
+            ],
+            "reason": "Preserve existing Git, Node and parser invocation identities while internal JavaScript names follow the repository convention and NODE_PATH cannot select candidate parser code."
+        }
+    ]
+}

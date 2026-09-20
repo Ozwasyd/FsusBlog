@@ -1,0 +1,8 @@
+{
+    "name": "@fsusblog/javascript-format-parser",
+    "private": true,
+    "version": "0.0.0",
+    "dependencies": {
+        "espree": "10.4.0"
+    }
+}
