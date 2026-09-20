@@ -190,7 +190,7 @@ export const generatedOutputRepairDagReviewedHistories = Object.freeze([
         synchronizedRevision: 'e805a72c5171916f761701fc4dbd3116953d4d20',
         synchronizedMerge: '182ffa102d7c322be9e01e98e2d3ee38554f52b0',
         reviewedRevision: 'c7084b001a0c220538cbaca8f7305b1f3777493c',
-        historySha256: 'ed618bd63059ca03c9b116c2eddba0581981ee99b4697d7dfa6e3159b7eceb33',
+        historySha256: 'a8a4b5205160bc4afc2c71a9b9d2ae583828277b1130b5f6780cf9b1584bd52f',
         legacyClosure: Object.freeze([
             Object.freeze({ path: 'tools/test/evidence-location-contract.mjs', mode: '100644', object: '84def85f972e8e9bc5e137b51847f7f71108c85d' }),
             Object.freeze({ path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'c1a9bf9d5faa8c5271d0c14d5274907e0ac52b5a' }),
@@ -343,7 +343,10 @@ export const generatedOutputDigestRepairProducers = Object.freeze([
             'tools/governance/check-change-contract.mjs',
             'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
             'tools/governance/generated-output-digest-repair-repository.mjs',
-            'tools/governance/generated-output-digest-repair-v2.mjs'
+            'tools/governance/generated-output-digest-repair-v2.mjs',
+            'tools/governance/javascript-format-equivalence.mjs',
+            'tools/governance/javascript-format-parser/package.json',
+            'tools/governance/javascript-format-parser/package-lock.json'
         ]),
         qualification: Object.freeze({
             sourceParent: 'ba72ac65c7395b876c26aa040f500c677d55678c',
@@ -373,7 +376,10 @@ export const trustedPolicyFiles = Object.freeze([
     'tools/governance/check-change-contract.mjs',
     'tools/governance/generated-output-digest-repair-repository.mjs',
     'tools/governance/generated-output-digest-repair-v2.mjs',
-    'tools/governance/generate-generated-output-digest-repair-manifest.mjs'
+    'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
+    'tools/governance/javascript-format-equivalence.mjs',
+    'tools/governance/javascript-format-parser/package.json',
+    'tools/governance/javascript-format-parser/package-lock.json'
 ]);
 
 export const changeContract = Object.freeze({
