@@ -307,7 +307,7 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 48, 'library-caller': 19, workflow: 2 });
+    { cli: 52, 'library-caller': 19, workflow: 2 });
 });
 
 test('fixture postconditions remain an import-only helper and cannot masquerade as a receipt CLI', (context) =>
@@ -322,20 +322,27 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
         function: entry.function,
         excerpt: entry.excerpt
     })), [
-        { findingId: '5000d9938a3df5d2', line: 704, column: 32, function: 'verifyCommentMatrix',
+        { findingId: 'ca245baa2e0b8fbe', line: 107, column: 66, function: 'verifyArticlePaginationDeep',
+            excerpt: "if (fields.route !== 'article/list/home' || fields.sort !== 'latest' || fields.pageSize !== 10)" },
+        { findingId: 'ee66fd905eb77a13', line: 109, column: 91, function: 'verifyArticlePaginationDeep',
+            excerpt: "return fail(id, 'pagination route/sort/page-size binding is not article/list/home latest size=10');" },
+        { findingId: 'c19608dadceeccb6', line: 768, column: 32, function: 'verifyCommentMatrix',
             excerpt: 'const fields = matches[0].fields ?? {};' },
-        { findingId: 'f6d4d636de1b8f9c', line: 755, column: 38, function: 'verifyCommentMatrix',
+        { findingId: '212094fdc17ae867', line: 830, column: 38, function: 'verifyCommentMatrix',
             excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)" },
-        { findingId: '5f90f28470eb0f2f', line: 781, column: 19, function: 'verifyCommentMatrix',
+        { findingId: '60f921a49741cbd0', line: 883, column: 19, function: 'verifyCommentMatrix',
             excerpt: "const root = one('approved-root')[0];" },
-        { findingId: '58d506a6fd0f6bc0', line: 824, column: 30, function: 'verifyCommentMatrix',
+        { findingId: 'fa1174fe6503f0d3', line: 926, column: 30, function: 'verifyCommentMatrix',
             excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)" },
-        { findingId: 'da7d3ba39c964351', line: 828, column: 46, function: 'verifyCommentMatrix',
+        { findingId: 'e7e117c63487b915', line: 930, column: 46, function: 'verifyCommentMatrix',
             excerpt: "const deletedRoot = one('deleted-root')[0];" },
-        { findingId: 'ed22d6fe97ea8aca', line: 829, column: 47, function: 'verifyCommentMatrix',
+        { findingId: '2f504d4c0fa1a5c8', line: 931, column: 47, function: 'verifyCommentMatrix',
             excerpt: "const deletedChild = one('deleted-root-child')[0];" }
     ]);
-    assert(findings.every((entry) => entry.ruleId === 'evidence-selection.first-match'
+    assert(findings.every((entry) => [
+        'evidence-selection.first-match',
+        'evidence-selection.latest-newest'
+    ].includes(entry.ruleId)
         && entry.file === source && entry.indirectVia === null));
     const sourceText = fs.readFileSync(path.join(repositoryRoot, source), 'utf8');
     const mutationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'postconditions-selector-mutation-'));
@@ -351,7 +358,7 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
             'const fields = matches.at(0).fields ?? {}'));
     const replacedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
     assert.throws(() => validateEvidenceLocationClassificationOverrides(replacedSelector),
-        /non-evidence finding override 5000d9938a3df5d2 changed (?:column|excerpt)/u);
+        /non-evidence finding override c19608dadceeccb6 changed (?:column|excerpt)/u);
     const findingIds = new Set(findings.map((entry) => entry.findingId));
     const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
     assert.equal(ledgerEntries.length, findings.length);

@@ -43,60 +43,80 @@ const diagnosticPrograms = new Set([
 // source excerpt so a new or repurposed selector cannot inherit the exception.
 const nonEvidenceFindingOverrides = new Map([
     {
-        findingId: '5000d9938a3df5d2',
+        findingId: 'ca245baa2e0b8fbe',
+        ruleId: 'evidence-selection.latest-newest',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 107,
+        column: 66,
+        function: 'verifyArticlePaginationDeep',
+        excerpt: "if (fields.route !== 'article/list/home' || fields.sort !== 'latest' || fields.pageSize !== 10)",
+        indirectVia: null
+    },
+    {
+        findingId: 'ee66fd905eb77a13',
+        ruleId: 'evidence-selection.latest-newest',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 109,
+        column: 91,
+        function: 'verifyArticlePaginationDeep',
+        excerpt: "return fail(id, 'pagination route/sort/page-size binding is not article/list/home latest size=10');",
+        indirectVia: null
+    },
+    {
+        findingId: 'c19608dadceeccb6',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 704,
+        line: 768,
         column: 32,
         function: 'verifyCommentMatrix',
         excerpt: 'const fields = matches[0].fields ?? {};',
         indirectVia: null
     },
     {
-        findingId: 'f6d4d636de1b8f9c',
+        findingId: '212094fdc17ae867',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 755,
+        line: 830,
         column: 38,
         function: 'verifyCommentMatrix',
         excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)",
         indirectVia: null
     },
     {
-        findingId: '5f90f28470eb0f2f',
+        findingId: '60f921a49741cbd0',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 781,
+        line: 883,
         column: 19,
         function: 'verifyCommentMatrix',
         excerpt: "const root = one('approved-root')[0];",
         indirectVia: null
     },
     {
-        findingId: '58d506a6fd0f6bc0',
+        findingId: 'fa1174fe6503f0d3',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 824,
+        line: 926,
         column: 30,
         function: 'verifyCommentMatrix',
         excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)",
         indirectVia: null
     },
     {
-        findingId: 'da7d3ba39c964351',
+        findingId: 'e7e117c63487b915',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 828,
+        line: 930,
         column: 46,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedRoot = one('deleted-root')[0];",
         indirectVia: null
     },
     {
-        findingId: 'ed22d6fe97ea8aca',
+        findingId: '2f504d4c0fa1a5c8',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 829,
+        line: 931,
         column: 47,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedChild = one('deleted-root-child')[0];",
