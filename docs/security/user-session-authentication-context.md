@@ -28,7 +28,7 @@ The generated section alone specifies step-up freshness key, default, and range.
 
 ## Duration policy and Cookie
 
-Generated sections alone specify duration-mode/Cookie projections and exact idle/absolute enums and durations; no handwritten compatibility table is maintained here.
+Generated sections alone specify duration-mode/Cookie projections and exact idle/absolute enums and durations; this document maintains no handwritten parallel mapping.
 
 ## Session-list privacy
 

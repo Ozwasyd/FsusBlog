@@ -26,6 +26,20 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_ExactlyMatchesOnlineMetadataRoster()
+    {
+        string[] descriptorIds = new SchemaMigrationRegistry().GetDescriptors()
+            .Select(static descriptor => descriptor.MigrationId)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string[] metadataIds = new OnlineSchemaMigrationCatalog().GetMetadata().Keys
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(descriptorIds, metadataIds);
+    }
+
+    [Fact]
     public void GetDescriptors_ContainsExpectedLegacyMigrations()
     {
         var registry = new SchemaMigrationRegistry();

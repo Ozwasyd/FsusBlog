@@ -4,10 +4,13 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-const { digestValue } = await import(new URL('../../fact-extractors/lib/canonicalize.mjs', import.meta.url));
+import { digestValue } from '../../fact-extractors/lib/canonicalize.mjs';
+import { observeRuntimeRoleDeploymentAuthority } from '../../governance/check-monolithic-distributed-architecture.mjs';
+
 export const runtimeRoleArtifactId = 'runtime-role-observation';
 export const runtimeRoleProject = 'tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj';
 export const runtimeRoleObservationRelative = '.tmp/contracts/runtime-role/runtime-role-observation.json';
+export const runtimeRoleDeploymentObservationRelative = '.tmp/contracts/runtime-role/deployment-topology-observation.json';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -19,6 +22,13 @@ export function produceRuntimeRoleObservation({ repositoryRoot, rebuild = true }
     }
     const output = path.join(repositoryRoot, runtimeRoleObservationRelative);
     mkdirSync(path.dirname(output), { recursive: true });
+    const deploymentObservation = observeRuntimeRoleDeploymentAuthority({ root: repositoryRoot });
+    if (!deploymentObservation.ownership?.claimEligible)
+    {
+        throw new Error(`runtime-role deployment authority is not claim eligible:\n${deploymentObservation.ownership?.failureReasons?.join('\n')}`);
+    }
+    const deploymentOutput = path.join(repositoryRoot, runtimeRoleDeploymentObservationRelative);
+    writeFileSync(deploymentOutput, `${JSON.stringify(deploymentObservation, null, 2)}\n`);
     const project = path.join(repositoryRoot, runtimeRoleProject);
     if (!existsSync(project))
     {
@@ -26,7 +36,9 @@ export function produceRuntimeRoleObservation({ repositoryRoot, rebuild = true }
     }
     if (rebuild)
     {
-        const build = spawnSync('dotnet', ['build', project, '-c', 'Release', '-v', 'minimal'], {
+        const build = spawnSync('dotnet', [
+            'build', project, '-c', 'Release', '-v', 'minimal', '/m:1', '/p:NuGetAudit=false'
+        ], {
             cwd: repositoryRoot, encoding: 'utf8'
         });
         if (build.status !== 0)
@@ -34,7 +46,11 @@ export function produceRuntimeRoleObservation({ repositoryRoot, rebuild = true }
             throw new Error(`runtime-role build failed:\n${build.stdout}\n${build.stderr}`);
         }
     }
-    const run = spawnSync('dotnet', ['run', '--project', project, '-c', 'Release', '--no-build', '--', '--output', output], {
+    const run = spawnSync('dotnet', [
+        'run', '--project', project, '-c', 'Release', '--no-build', '--',
+        '--deployment-observation', deploymentOutput,
+        '--output', output
+    ], {
         cwd: repositoryRoot, encoding: 'utf8'
     });
     if (run.status !== 0)
@@ -44,11 +60,14 @@ export function produceRuntimeRoleObservation({ repositoryRoot, rebuild = true }
     const bytes = readFileSync(output);
     const artifactDigest = sha256(bytes);
     const receiptBody = {
-        schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+        schema: 'fsusblog.runtime-role-observation-build-receipt.v2',
         artifactId: runtimeRoleArtifactId,
         artifactPath: runtimeRoleObservationRelative,
         artifactDigest,
-        configuration: 'Release'
+        configuration: 'Release',
+        deploymentAuthoritySchema: deploymentObservation.authoritySchema,
+        deploymentAuthorityContentDigest: deploymentObservation.authorityContentDigest,
+        deploymentObservationDigest: deploymentObservation.observationDigest
     };
     const buildIdentity = {
         artifactId: runtimeRoleArtifactId,
@@ -57,5 +76,5 @@ export function produceRuntimeRoleObservation({ repositoryRoot, rebuild = true }
     };
     const receiptPath = path.join(path.dirname(output), 'build-receipt.json');
     writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`);
-    return { observation: JSON.parse(bytes), output, receiptPath, buildIdentity };
+    return { observation: JSON.parse(bytes), output, deploymentOutput, receiptPath, buildIdentity };
 }
