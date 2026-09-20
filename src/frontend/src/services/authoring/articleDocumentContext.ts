@@ -59,7 +59,7 @@ export interface ArticleDocumentContextInput {
     readonly contentDigest?: string;
 }
 
-export interface ArticleDocumentIdentity {
+export interface ArticleDocumentOpaqueIdentity {
     readonly id: string;
     readonly epoch: number;
 }
@@ -150,7 +150,30 @@ export interface ArticleDocumentSwitchInput {
     readonly content?: string;
     readonly sourceRevision?: number;
     readonly draftRevision?: string | null;
+    readonly siteScope?: string;
+    readonly userScope?: string;
     readonly reason?: Exclude<ArticleDocumentEpochReason, 'initial' | 'dispose'>;
+}
+
+export interface ArticleDocumentAuthorityInput {
+    readonly articleId: number | null;
+    readonly siteScope: string;
+    readonly userScope: string;
+    readonly content?: string;
+}
+
+export interface ArticleDocumentAuthoritySwitchInput {
+    readonly articleId: number | null;
+    readonly content?: string;
+    readonly sourceRevision?: number;
+    readonly draftRevision?: string | null;
+    readonly reason?: Exclude<ArticleDocumentEpochReason, 'initial' | 'dispose'>;
+}
+
+export interface ArticleDocumentContextBinding {
+    readonly adapter: ArticleDocumentContextAdapter;
+    switchDocument(input: ArticleDocumentAuthoritySwitchInput): ArticleDocumentEpochReceipt | null;
+    release(): void;
 }
 
 const stableRefPattern = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u;
@@ -210,6 +233,8 @@ const receiptKeys = [
 ] as const;
 
 let opaqueDocumentSequence = 0;
+let opaqueDraftSequence = 0;
+let opaqueEditorSessionSequence = 0;
 
 const hasExactKeys = (value: unknown, keys: readonly string[]): value is Record<string, unknown> =>
 {
@@ -298,6 +323,18 @@ const nextOpaqueDocumentId = (): string =>
     return `document:${opaqueDocumentSequence.toString(36)}`;
 };
 
+const nextOpaqueDraftId = (): string =>
+{
+    opaqueDraftSequence += 1;
+    return `draft:${opaqueDraftSequence.toString(36)}`;
+};
+
+const nextOpaqueEditorSessionId = (): string =>
+{
+    opaqueEditorSessionSequence += 1;
+    return `editor-session:${opaqueEditorSessionSequence.toString(36)}`;
+};
+
 const assertContextInput = (input: ArticleDocumentContextInput): void =>
 {
     if (!isArticleId(input.articleId)
@@ -334,24 +371,13 @@ export function createArticleDocumentContext(input: ArticleDocumentContextInput)
         editorSessionId: input.editorSessionId,
         siteScope: input.siteScope,
         userScope: input.userScope,
-        sourceIdentityDigest: sourceIdentityDigestFor(input as Pick<
-            ArticleDocumentContext,
-            'articleId'
-            | 'draftId'
-            | 'documentId'
-            | 'documentEpoch'
-            | 'sourceRevision'
-            | 'draftRevision'
-            | 'editorSessionId'
-            | 'siteScope'
-            | 'userScope'
-        >),
+        sourceIdentityDigest: sourceIdentityDigestFor(input),
         contentDigest: input.contentDigest ?? contentDigestFor(input.content ?? '')
     };
-    const context = {
+    const context: ArticleDocumentContext = {
         ...base,
         contextDigest: contextDigestFor(base)
-    } as ArticleDocumentContext;
+    };
     return Object.freeze(context);
 }
 
@@ -381,11 +407,10 @@ export function validateArticleDocumentContext(value: unknown): value is Article
         return false;
     }
 
+    const { contextDigest: _contextDigest, ...unsignedContext } = context;
+    void _contextDigest;
     return context.sourceIdentityDigest === sourceIdentityDigestFor(context)
-        && context.contextDigest === contextDigestFor({
-            ...context,
-            contextDigest: undefined
-        } as Omit<ArticleDocumentContext, 'contextDigest'>);
+        && context.contextDigest === contextDigestFor(unsignedContext);
 }
 
 export const verifyArticleDocumentContext = validateArticleDocumentContext;
@@ -455,10 +480,9 @@ export function validateArticleDocumentTaskEnvelope(value: unknown): value is Ar
         return false;
     }
 
-    return envelope.envelopeDigest === envelopeDigestFor({
-        ...envelope,
-        envelopeDigest: undefined
-    } as Omit<ArticleDocumentTaskEnvelope, 'envelopeDigest'>);
+    const { envelopeDigest: _envelopeDigest, ...unsignedEnvelope } = envelope;
+    void _envelopeDigest;
+    return envelope.envelopeDigest === envelopeDigestFor(unsignedEnvelope);
 }
 
 export const verifyArticleDocumentTaskEnvelope = validateArticleDocumentTaskEnvelope;
@@ -517,10 +541,9 @@ export function validateArticleDocumentEpochReceipt(value: unknown): value is Ar
         return false;
     }
 
-    return receipt.receiptDigest === receiptDigestFor({
-        ...receipt,
-        receiptDigest: undefined
-    } as Omit<ArticleDocumentEpochReceipt, 'receiptDigest'>);
+    const { receiptDigest: _receiptDigest, ...unsignedReceipt } = receipt;
+    void _receiptDigest;
+    return receipt.receiptDigest === receiptDigestFor(unsignedReceipt);
 }
 
 export const verifyArticleDocumentEpochReceipt = validateArticleDocumentEpochReceipt;
@@ -665,7 +688,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         return this.current;
     }
 
-    public get documentIdentity(): ArticleDocumentIdentity
+    public get documentIdentity(): ArticleDocumentOpaqueIdentity
     {
         return Object.freeze({
             id: this.current.documentId,
@@ -737,7 +760,16 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         {
             throw new Error('article-document-switch-reason-invalid');
         }
-        if (this.current.articleId === input.articleId && this.current.draftId === input.draftId)
+        const siteScope = input.siteScope ?? this.current.siteScope;
+        const userScope = input.userScope ?? this.current.userScope;
+        if (!isStableRef(siteScope) || !isStableRef(userScope))
+        {
+            throw new Error('article-document-switch-scope-invalid');
+        }
+        if (this.current.articleId === input.articleId
+            && this.current.draftId === input.draftId
+            && this.current.siteScope === siteScope
+            && this.current.userScope === userScope)
         {
             return null;
         }
@@ -756,8 +788,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             sourceRevision: input.sourceRevision ?? 0,
             draftRevision: input.draftRevision ?? null,
             editorSessionId: previous.editorSessionId,
-            siteScope: previous.siteScope,
-            userScope: previous.userScope,
+            siteScope,
+            userScope,
             content: input.content ?? ''
         });
         const receipt = this.createReceipt('switch', input.reason ?? 'entity-switch', previous, canceledTaskRefs);
@@ -959,3 +991,123 @@ export function createArticleDocumentContextAdapter(
 {
     return new ArticleDocumentContextAdapter(options);
 }
+
+/**
+ * Owns the production adapter across Vue component lifecycles. Component
+ * mounts acquire a binding; releasing the last binding cancels its work but
+ * deliberately retains the document identity and epoch for a later remount.
+ */
+export class ArticleDocumentContextAuthority
+{
+    private adapter: ArticleDocumentContextAdapter | null = null;
+    private readonly bindings = new Set<number>();
+    private bindingSequence = 0;
+
+    public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
+    {
+        this.assertAuthorityInput(input);
+        if (!this.adapter)
+        {
+            this.adapter = createArticleDocumentContextAdapter({
+                articleId: input.articleId,
+                draftId: this.draftIdFor(input.articleId),
+                editorSessionId: nextOpaqueEditorSessionId(),
+                siteScope: input.siteScope,
+                userScope: input.userScope,
+                content: input.content
+            });
+        }
+        else if (this.adapter.context.articleId !== input.articleId
+            || this.adapter.context.siteScope !== input.siteScope
+            || this.adapter.context.userScope !== input.userScope)
+        {
+            this.switchAdapterDocument(this.adapter, {
+                articleId: input.articleId,
+                content: input.content,
+                reason: 'entity-switch'
+            }, input.siteScope, input.userScope);
+        }
+
+        this.bindingSequence += 1;
+        const bindingId = this.bindingSequence;
+        const adapter = this.adapter;
+        this.bindings.add(bindingId);
+        let released = false;
+
+        return Object.freeze({
+            adapter,
+            switchDocument: (switchInput: ArticleDocumentAuthoritySwitchInput) =>
+            {
+                if (released || this.adapter !== adapter)
+                {
+                    throw new Error('article-document-context-binding-released');
+                }
+                return this.switchAdapterDocument(
+                    adapter,
+                    switchInput,
+                    adapter.context.siteScope,
+                    adapter.context.userScope
+                );
+            },
+            release: () =>
+            {
+                if (released)
+                {
+                    return;
+                }
+                released = true;
+                this.bindings.delete(bindingId);
+                if (this.bindings.size === 0 && this.adapter === adapter)
+                {
+                    adapter.cancelAll('component-unmounted');
+                }
+            }
+        });
+    }
+
+    public get context(): ArticleDocumentContext | null
+    {
+        return this.adapter?.context ?? null;
+    }
+
+    private switchAdapterDocument(
+        adapter: ArticleDocumentContextAdapter,
+        input: ArticleDocumentAuthoritySwitchInput,
+        siteScope: string,
+        userScope: string
+    ): ArticleDocumentEpochReceipt | null
+    {
+        const retainsCurrentDraft = input.articleId === null
+            && adapter.context.articleId === null
+            && input.reason !== 'draft-switch'
+            && adapter.context.siteScope === siteScope
+            && adapter.context.userScope === userScope;
+        const draftId = retainsCurrentDraft
+            ? adapter.context.draftId
+            : this.draftIdFor(input.articleId);
+        return adapter.switchDocument({
+            ...input,
+            draftId,
+            siteScope,
+            userScope
+        });
+    }
+
+    private draftIdFor(articleId: number | null): string
+    {
+        return articleId === null ? nextOpaqueDraftId() : `article:${articleId}`;
+    }
+
+    private assertAuthorityInput(input: ArticleDocumentAuthorityInput): void
+    {
+        if (!isArticleId(input.articleId)
+            || !isStableRef(input.siteScope)
+            || !isStableRef(input.userScope)
+            || (input.content !== undefined && typeof input.content !== 'string'))
+        {
+            throw new Error('article-document-authority-input-invalid');
+        }
+    }
+}
+
+export const articleDocumentContextAuthority = new ArticleDocumentContextAuthority();

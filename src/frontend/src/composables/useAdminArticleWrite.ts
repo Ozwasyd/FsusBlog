@@ -67,11 +67,11 @@ import {
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
-import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import {
-    createArticleDocumentContextAdapter,
+    articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
 } from '@/services/authoring/articleDocumentContext';
+import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
@@ -808,21 +808,19 @@ export function useAdminArticleWrite()
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
-    const documentDraftId = (id: number | null): string =>
-        id === null ? `draft:${recoveryCoordinator.tabId}` : `article:${id}`;
-    const documentSiteScope = typeof window === 'undefined'
-        ? 'site:unknown'
-        : `site:${window.location.host || 'unknown'}`.replace(/[^a-zA-Z0-9._:-]/gu, '-');
-    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() || 'unknown'}`
+    const documentSiteHost = typeof window === 'undefined' ? '' : window.location.host.trim();
+    const documentSiteScope = `site:${documentSiteHost.length > 0 ? documentSiteHost : 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
-    const articleDocumentContextAdapter: ArticleDocumentContextAdapter = createArticleDocumentContextAdapter({
+    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
+        .replace(/[^a-zA-Z0-9._:-]/gu, '-');
+    const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
         articleId: articleId.value,
-        draftId: documentDraftId(articleId.value),
-        editorSessionId: recoveryCoordinator.tabId,
         siteScope: documentSiteScope,
         userScope: documentUserScope,
         content: articleForm.content
     });
+    const articleDocumentContextAdapter: ArticleDocumentContextAdapter =
+        articleDocumentContextBinding.adapter;
     const authoringDocumentContext = shallowRef(articleDocumentContextAdapter.context);
     const syncAuthoringDocumentContext = (): void =>
     {
@@ -876,11 +874,6 @@ export function useAdminArticleWrite()
         registry: articleDocumentContextAdapter,
         kind: 'compare',
         producerRef: 'article-write:revision-compare'
-    });
-    const revisionRollbackTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
-        kind: 'feature',
-        producerRef: 'article-write:revision-rollback'
     });
     const imageUploadFlow = useImageUploadFlow({
         runtime: imageUploadRuntime,
@@ -2465,19 +2458,18 @@ export function useAdminArticleWrite()
         }
         finally
         {
-            if (!active || invocation !== initInvocation)
+            if (active && invocation === initInvocation)
             {
-                return;
+                suppressDraftSave = false;
+                articleDocumentContextAdapter.updateSource(articleForm.content);
+                articleDocumentContextAdapter.updateDraftRevision(
+                    serverDraftRevision.value === null
+                        ? null
+                        : `server:${serverDraftRevision.value}`
+                );
+                syncAuthoringDocumentContext();
+                pageLoading.value = false;
             }
-            suppressDraftSave = false;
-            articleDocumentContextAdapter.updateSource(articleForm.content);
-            articleDocumentContextAdapter.updateDraftRevision(
-                serverDraftRevision.value === null
-                    ? null
-                    : `server:${serverDraftRevision.value}`
-            );
-            syncAuthoringDocumentContext();
-            pageLoading.value = false;
         }
     };
 
@@ -2943,9 +2935,8 @@ export function useAdminArticleWrite()
     {
         if (next !== previous)
         {
-            articleDocumentContextAdapter.switchDocument({
+            articleDocumentContextBinding.switchDocument({
                 articleId: next,
-                draftId: documentDraftId(next),
                 content: '',
                 reason: next === null ? 'draft-switch' : 'article-switch'
             });
@@ -3050,7 +3041,7 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
-        articleDocumentContextAdapter.dispose();
+        articleDocumentContextBinding.release();
         initTask.cancel();
         submitTask.cancel();
         taxonomyTask.cancel();

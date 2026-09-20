@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ArticleDocumentContextAuthority,
     articleDocumentTaskKinds,
     createArticleDocumentContext,
     createArticleDocumentContextAdapter,
@@ -19,6 +20,37 @@ const createAdapter = () => createArticleDocumentContextAdapter({
 });
 
 describe('ArticleDocumentContextAdapter (#2243)', () => {
+    it('isolates A/B same-source and different-source article identities', () => {
+        const authority = new ArticleDocumentContextAuthority();
+        const binding = authority.acquire({
+            articleId: 1,
+            siteScope: 'site:test',
+            userScope: 'user:test',
+            content: '# shared'
+        });
+        const articleA = binding.adapter.context;
+        binding.switchDocument({
+            articleId: 2,
+            content: '# shared',
+            reason: 'article-switch'
+        });
+        const sameSourceArticleB = binding.adapter.context;
+        binding.switchDocument({
+            articleId: 3,
+            content: '# different',
+            reason: 'article-switch'
+        });
+        const differentSourceArticleB = binding.adapter.context;
+
+        expect(sameSourceArticleB.contentDigest).toBe(articleA.contentDigest);
+        expect(sameSourceArticleB.documentId).not.toBe(articleA.documentId);
+        expect(sameSourceArticleB.documentEpoch).toBe(articleA.documentEpoch + 1);
+        expect(differentSourceArticleB.contentDigest).not.toBe(sameSourceArticleB.contentDigest);
+        expect(differentSourceArticleB.documentId).not.toBe(sameSourceArticleB.documentId);
+        expect(differentSourceArticleB.documentEpoch).toBe(sameSourceArticleB.documentEpoch + 1);
+        binding.release();
+    });
+
     it('seals a closed context and keeps source content out of the identity', () => {
         const first = createArticleDocumentContext({
             articleId: 1,
@@ -192,6 +224,114 @@ describe('ArticleDocumentContextAdapter (#2243)', () => {
         expect(second.accept({ late: true }).accepted).toBe(false);
         expect(adapter.context.articleId).toBe(3);
         expect(adapter.context.documentEpoch).toBe(3);
+    });
+
+    it('retains one opaque identity and epoch across component release and remount', () => {
+        const authority = new ArticleDocumentContextAuthority();
+        const firstBinding = authority.acquire({
+            articleId: 41,
+            siteScope: 'site:test',
+            userScope: 'user:test',
+            content: '# retained'
+        });
+        const firstContext = firstBinding.adapter.context;
+        const pending = firstBinding.adapter.beginTask('render', 'producer:render');
+
+        firstBinding.release();
+        expect(pending.signal.aborted).toBe(true);
+
+        const remounted = authority.acquire({
+            articleId: 41,
+            siteScope: 'site:test',
+            userScope: 'user:test'
+        });
+        expect(remounted.adapter).toBe(firstBinding.adapter);
+        expect(remounted.adapter.context.documentId).toBe(firstContext.documentId);
+        expect(remounted.adapter.context.documentEpoch).toBe(firstContext.documentEpoch);
+        expect(remounted.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(0);
+        remounted.release();
+    });
+
+    it('creates exact-one switch receipt for entity changes and reuses the new draft on remount', () => {
+        const authority = new ArticleDocumentContextAuthority();
+        const binding = authority.acquire({
+            articleId: 9,
+            siteScope: 'site:test',
+            userScope: 'user:test',
+            content: '# article'
+        });
+        const before = binding.adapter.context;
+        const receipt = binding.switchDocument({
+            articleId: null,
+            content: '# same bytes',
+            reason: 'draft-switch'
+        });
+
+        expect(receipt?.action).toBe('switch');
+        expect(binding.adapter.context.articleId).toBeNull();
+        expect(binding.adapter.context.documentEpoch).toBe(before.documentEpoch + 1);
+        expect(binding.adapter.context.documentId).not.toBe(before.documentId);
+        expect(binding.adapter.receipts.filter(item => item.action === 'switch')).toHaveLength(1);
+        const draftContext = binding.adapter.context;
+        binding.release();
+
+        const remounted = authority.acquire({
+            articleId: null,
+            siteScope: 'site:test',
+            userScope: 'user:test'
+        });
+        expect(remounted.adapter.context.documentId).toBe(draftContext.documentId);
+        expect(remounted.adapter.context.documentEpoch).toBe(draftContext.documentEpoch);
+        expect(remounted.adapter.receipts.filter(item => item.action === 'switch')).toHaveLength(1);
+        remounted.release();
+    });
+
+    it('advances exact-one epoch when a user explicitly replaces one unsaved draft with another', () => {
+        const authority = new ArticleDocumentContextAuthority();
+        const binding = authority.acquire({
+            articleId: null,
+            siteScope: 'site:test',
+            userScope: 'user:test',
+            content: '# first draft'
+        });
+        const firstDraft = binding.adapter.context;
+
+        const receipt = binding.switchDocument({
+            articleId: null,
+            content: '# same bytes are still a different draft',
+            reason: 'draft-switch'
+        });
+
+        expect(receipt?.action).toBe('switch');
+        expect(binding.adapter.context.documentEpoch).toBe(firstDraft.documentEpoch + 1);
+        expect(binding.adapter.context.documentId).not.toBe(firstDraft.documentId);
+        expect(binding.adapter.context.draftId).not.toBe(firstDraft.draftId);
+        expect(binding.adapter.receipts.filter(item => item.action === 'switch')).toHaveLength(1);
+        binding.release();
+    });
+
+    it('treats site or user scope changes as an entity switch without route or content authority', () => {
+        const authority = new ArticleDocumentContextAuthority();
+        const first = authority.acquire({
+            articleId: 5,
+            siteScope: 'site:one',
+            userScope: 'user:one',
+            content: '# equal'
+        });
+        const before = first.adapter.context;
+        first.release();
+
+        const second = authority.acquire({
+            articleId: 5,
+            siteScope: 'site:one',
+            userScope: 'user:two',
+            content: '# equal'
+        });
+        expect(second.adapter.context.documentEpoch).toBe(before.documentEpoch + 1);
+        expect(second.adapter.context.contentDigest).toBe(before.contentDigest);
+        expect(second.adapter.context.userScope).toBe('user:two');
+        expect(second.adapter.receipts.filter(receipt => receipt.action === 'switch')).toHaveLength(1);
+        second.release();
     });
 
     it('invalidates tasks on source revision changes and emits one dispose receipt', () => {
