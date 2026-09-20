@@ -21,6 +21,11 @@ const AdapterStub = defineComponent({
   template: '<div data-markdown-adapter />'
 })
 
+const OutlineRailStub = defineComponent({
+  name: 'ArticleWriteOutlineRail',
+  template: '<div data-outline-rail />',
+})
+
 describe('ArticleWriteEditor document canvas', () => {
   it('consumes embedded/minimal chrome and keeps live/source off a four-mode header', async () => {
     const wrapper = mount(ArticleWriteEditor, {
@@ -29,7 +34,8 @@ describe('ArticleWriteEditor document canvas', () => {
       },
       global: {
         stubs: {
-          MarkdownEditorAdapter: AdapterStub
+          MarkdownEditorAdapter: AdapterStub,
+          ArticleWriteOutlineRail: OutlineRailStub,
         }
       }
     })

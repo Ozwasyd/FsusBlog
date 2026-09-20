@@ -90,8 +90,7 @@ import {
     type MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
     type MarkdownEditorTransactionEvent as FsusUiMarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
-import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import {
     articleBodyCommandOverflowLabel,
@@ -115,6 +114,7 @@ import {
     type FsusUiAuthoringDocumentIdentity,
     type FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -466,6 +466,8 @@ function cancelProgrammaticViewportSuppression(): void
     }
     suppressProgrammaticViewportUntil = 0;
 }
+
+onBeforeUnmount(cancelProgrammaticViewportSuppression);
 
 function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
 {

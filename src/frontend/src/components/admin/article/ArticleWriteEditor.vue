@@ -82,10 +82,18 @@
 </template>
 
 <script setup lang="ts">
+import type {
+    MarkdownEditorOutlineItem,
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 import { computed, ref, watch } from 'vue';
 
-import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue';
 import ArticleWriteOutlineRail from '@/components/admin/article/ArticleWriteOutlineRail.vue';
+import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue';
 import {
     useArticleOutline,
     type ArticleOutlineSelection
@@ -96,14 +104,6 @@ import type {
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
-import type {
-    MarkdownEditorOutlineItem,
-    MarkdownEditorOutlineRange,
-    MarkdownEditorRevealOptions,
-    MarkdownEditorRevealResult,
-    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
-    MarkdownEditorTransactionEvent
-} from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteEditor' });
 
@@ -237,8 +237,11 @@ function currentRevealOptions(): MarkdownEditorRevealOptions | undefined
 function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
 {
     const identity = props.documentIdentity;
-    if (identity && event.documentIdentity &&
-        (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch)) {
+    if (identity &&
+        (!event.documentIdentity ||
+            identity.id !== event.documentIdentity.id ||
+            identity.epoch !== event.documentIdentity.epoch))
+    {
         return;
     }
     if (event.revision < sourceRevision.value) return;
@@ -308,7 +311,6 @@ watch(() => {
     };
     viewport.value = undefined;
     activeCause.value = 'caret';
-    outline.reset();
 });
 
 function insertMarkdownAtCursor(markdown: string): boolean

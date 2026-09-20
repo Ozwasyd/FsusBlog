@@ -11,6 +11,20 @@ import {
 } from '@/composables/useArticleOutline'
 
 describe('article outline FsusUI projection adapter', () => {
+  it('consumes the required heading-count matrix without a consumer-side parser', () => {
+    for (const count of [0, 1, 10, 100, 1000, 10000]) {
+      const source = Array.from({ length: count }, (_, index) => `# Heading ${index}`).join('\n\n')
+      const snapshot = createArticleOutlineSnapshot({
+        articleIdentity: `article-${count}`,
+        documentIdentity: { id: `article-${count}:tab`, epoch: 1 },
+        source,
+        sourceRevision: 0,
+      })
+
+      expect(snapshot?.items).toHaveLength(count)
+    }
+  }, 30_000)
+
   it('keeps syntax, diagnostics and ranges in the canonical projection', () => {
     const documentIdentity = { id: 'article-a', epoch: 1 }
     const snapshot = createArticleOutlineSnapshot({
@@ -37,6 +51,45 @@ describe('article outline FsusUI projection adapter', () => {
     })
     expect(snapshot?.items.every((item) => item.sourceRange.end > item.sourceRange.start)).toBe(true)
     expect(snapshot?.tree[0]?.children[0]?.parentId).toBe(snapshot?.tree[0]?.nodeId)
+  })
+
+  it('preserves empty, CJK, RTL, emoji, long, duplicate, setext and jumped headings', () => {
+    const longHeading = `Long ${'heading '.repeat(40).trim()}`
+    const snapshot = createArticleOutlineSnapshot({
+      articleIdentity: 'article-content-matrix',
+      documentIdentity: { id: 'article-content-matrix:tab', epoch: 1 },
+      source: [
+        '#  ',
+        '# 中文标题',
+        '# عنوان عربي',
+        '# Emoji 🧭✨',
+        `# ${longHeading}`,
+        '# 中文标题',
+        'Setext title\n============',
+        '### Jumped',
+      ].join('\n\n'),
+      sourceRevision: 9,
+    })
+
+    expect(snapshot?.items.map((item) => item.text)).toEqual([
+      '',
+      '中文标题',
+      'عنوان عربي',
+      'Emoji 🧭✨',
+      longHeading,
+      '中文标题',
+      'Setext title',
+      'Jumped',
+    ])
+    expect(new Set(snapshot?.items.map((item) => item.nodeId)).size).toBe(8)
+    expect(snapshot?.items[5]?.diagnostics).toContainEqual({
+      code: 'duplicate-h1',
+      nodeId: snapshot?.items[5]?.nodeId,
+    })
+    expect(snapshot?.items[7]?.diagnostics).toContainEqual({
+      code: 'heading-layer-jump',
+      nodeId: snapshot?.items[7]?.nodeId,
+    })
   })
 
   it('binds snapshots to article identity, document epoch and source revision', () => {
