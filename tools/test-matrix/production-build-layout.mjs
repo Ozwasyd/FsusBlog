@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const {collectProcessGroupOrJobIdentity, currentProcessIdentity, processDescendantIdentities, processGroupMemberIdentities, processGroupOrJobIdentityMatches, processIdentitySchema, processIdentityStatus} = await import(new URL('../test/process-identity.mjs', import.meta.url));
 import {
@@ -960,7 +960,8 @@ export function productionBuildRunIsActive(root, runId)
                     sourceState: {
                         commit: owner.sourceCommit,
                         worktreeFingerprint: owner.worktreeFingerprint
-                    }
+                    },
+                    budgetPolicyDigest: stored.budgetPolicyDigest ?? null
                 })
                 : null
         });
@@ -1266,7 +1267,9 @@ function startBuildOwnerMonitor(layout)
                 persistBuildOwner(layout, manifest, owner);
             }
             catch
-            {}
+            {
+                // The original process-scan failure remains the monitor authority.
+            }
         }
     }, 25);
     timer.unref?.();

@@ -3,7 +3,7 @@
     "catalogSchema": "fsusblog.required-evidence-catalog.v1",
     "source": "tests/fixtures/test-matrix/release-final-evidence-inputs.json",
     "version": 1,
-    "contentDigest": "sha256:f4b8b4116ff1b6fa8d942c0fbac16a4cda6ccde3ac73c2119148bb6b04b30a57",
+    "contentDigest": "sha256:4c1a57654bb596b1bd2f0c0dfc3d4bbadb21b77ab0c489a4d0f71dc9898ec270",
     "entries": [
         {
             "authorityId": "behavior-document-consistency-final",
@@ -575,6 +575,31 @@
             "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
             "contentDigest": "sha256:16c2eb49dcee4f29231ba56398b5ac472880bd1b88067d8c714223a8e8f53314",
             "producerDigest": "sha256:1f6c39a678176cc2e88232cd84e003608d5a442d69d2f9cd94b01941863fdf36"
+        },
+        {
+            "authorityId": "runtime-order-equivalence",
+            "producerTierIds": [
+                "runtime-order-equivalence"
+            ],
+            "canonicalOwner": "runtime-order-equivalence",
+            "receiptSchema": "fsusblog.runtime-order-equivalence.v1",
+            "locatorBindingKey": "current-run.runtime-order-equivalence",
+            "requiredTestIds": [],
+            "requiredCoverageIds": [],
+            "requiredArtifactIds": [],
+            "requiredIdentityFields": [
+                "namespace",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "allowDiagnostic": false,
+            "localProducerCommand": "node tools/test/run-runtime-order-equivalence.mjs --all-required-schedules --output .tmp/release-evidence/runtime-order-equivalence.json",
+            "exactness": "artifact-set-exact",
+            "outputBindingKey": "release-final.runtime-order-equivalence",
+            "producerVerifier": "tools/test-runtime/order-equivalence.mjs",
+            "producerDigest": "sha256:910ef5a6a6e426b02214f7ba42351d6ab84c9ba5e46377950c66ee800c7b9806",
+            "contentDigest": "sha256:8f6acd669d5b6c61dd6899f5d311aaf0733753ddd62001d89b1b12150562eaad"
         },
         {
             "authorityId": "test-quality-lint",

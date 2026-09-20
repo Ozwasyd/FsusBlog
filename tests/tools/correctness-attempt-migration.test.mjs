@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- This contract test imports the repository tool under test. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -6,18 +7,18 @@ import {
     validateCorrectnessAttemptMigration
 } from '../../tools/test/correctness-attempt-migration.mjs';
 
-test('all 221 correctness producers bind canonical attempt and external authorities', () =>
+test('all 222 correctness producers bind canonical attempt and external authorities', () =>
 {
     const verification = validateCorrectnessAttemptMigration();
     assert.deepEqual(verification, {
         schema: 'fsusblog.correctness-attempt-migration-verification.v1',
         status: 'verified',
-        producerCount: 221,
-        migratedCount: 221,
-        qualificationEligibleCount: 221,
+        producerCount: 222,
+        migratedCount: 222,
+        qualificationEligibleCount: 222,
         inventoryDigest: verification.inventoryDigest,
         replayProducerInventoryDigest: verification.replayProducerInventoryDigest,
-        executionEnvelopeProducerCount: 129,
+        executionEnvelopeProducerCount: 130,
         authorityKinds: ['execution-envelope', 'replay-plan', 'temporal-context'],
         warnings: 0
     });

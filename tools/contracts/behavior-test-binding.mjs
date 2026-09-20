@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-relative-parent-imports -- The binding authority composes canonical observation modules owned by a sibling tool domain. */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -10,7 +11,6 @@ import { observationArtifactSchema, validateObservationArtifact } from '../test-
 import {
     allowedTestKinds,
     catalogRelative,
-    digestCatalog,
     loadCatalog,
     root as defaultRoot,
     validateCatalog
@@ -76,11 +76,6 @@ function kindFromCSharp(value)
     return map[value] ?? null;
 }
 
-function escapeRegExp(value)
-{
-    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-}
-
 function classBefore(source, offset)
 {
     const prefix = source.slice(0, offset);
@@ -117,7 +112,7 @@ function classBefore(source, offset)
 function methodAfterAttribute(source, attributeEnd)
 {
     const after = source.slice(attributeEnd);
-    const match = after.match(/^(?:\s*\/\/[^\n]*\n|\s*\/\*[\s\S]*?\*\/|\s*\[[^\]]+\]|\s)*(?:public|internal|protected|private|static|async|Task|ValueTask|void|[A-Za-z_][\w<>,\[\]\?]*)*?\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void|[A-Za-z_][\w<>,\[\]\?]*)\s+([A-Za-z_][\w]*)\s*\(/u);
+    const match = after.match(/^(?:\s*\/\/[^\n]*\n|\s*\/\*[\s\S]*?\*\/|\s*\[[^\]]+\]|\s)*(?:public|internal|protected|private|static|async|Task|ValueTask|void|[A-Za-z_][\w<>,[\]?]*)*?\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void|[A-Za-z_][\w<>,[\]?]*)\s+([A-Za-z_][\w]*)\s*\(/u);
     return match?.[1] ?? null;
 }
 
@@ -467,7 +462,7 @@ export function parseJavascriptBehaviorBindings({ source, relativePath, catalogD
             continue;
         }
         cursor = skipWs(source, cursor + 1);
-        let title = null;
+        let title;
         let invariantIds = [];
         let reasonId = null;
         let concurrencyHarness = null;
@@ -475,7 +470,6 @@ export function parseJavascriptBehaviorBindings({ source, relativePath, catalogD
         if (titleLiteral)
         {
             title = titleLiteral.value;
-            cursor = titleLiteral.end;
         }
         else
         {
@@ -497,7 +491,6 @@ export function parseJavascriptBehaviorBindings({ source, relativePath, catalogD
                     errors.push(`${location} behaviorTest options field ${key} is unsupported`);
                 }
             }
-            cursor = objectLiteral.end;
         }
         if (!title || !title.trim())
         {
@@ -1019,6 +1012,13 @@ export function joinBehaviorTestEvidence({
                 }
             }
         }
+        if (!matched && binding.framework === 'xunit-trx')
+        {
+            const theoryCases = [...observationByTestId.entries()]
+                .filter(([testId]) => xunitObservationMatchesBinding(testId, binding.canonicalTestId))
+                .map(([, candidate]) => candidate);
+            matched = theoryCases.find((candidate) => candidate.outcome !== 'passed') ?? theoryCases[0];
+        }
         const executed = Boolean(matched);
         const outcome = matched?.outcome ?? 'missing';
         if (executed && outcome === 'skipped')
@@ -1141,6 +1141,18 @@ export function joinBehaviorTestEvidence({
     };
     receipt.contentDigest = digestValue(receipt);
     return receipt;
+}
+
+export function xunitObservationMatchesBinding(observationTestId, bindingTestId)
+{
+    const observation = String(observationTestId ?? '');
+    const binding = String(bindingTestId ?? '');
+    if (!observation.startsWith('xunit-trx:') || !binding.startsWith('xunit-trx:'))
+    {
+        return false;
+    }
+    return observation === binding
+        || (observation.startsWith(`${binding}(`) && observation.endsWith(')'));
 }
 
 export function validateExactBehaviorCoverage(receipt)

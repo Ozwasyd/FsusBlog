@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createRandomExecutionRecorder } from '../../../tools/test/random-streams.mjs'
 import type { ArticleListItemResponse } from '@/api/article'
 import { normalizeModerationText, scoreContentRisk, validateCommentContent } from '@/utils/contentFilter'
 import { rankSearchPage } from '@/services/searchRanking'
@@ -79,10 +80,17 @@ function canonicalArticlePatch(patch: NotificationStreamArticleRenderPatch): str
 
 describe('frontend property tests', () => {
   it('keeps moderation normalization idempotent across generated Unicode samples', () => {
+    const execution = createRandomExecutionRecorder({
+      canonicalTestId: `vitest:${SOURCE}#keeps%20moderation%20normalization%20idempotent%20across%20generated%20Unicode%20samples`,
+      streamId: 'frontend-moderation-unicode-samples'
+    })
     for (let index = 0; index < 128; index += 1) {
-      const normalized = normalizeModerationText(generateString((MODERATION_SAMPLE_SEED + index) >>> 0))
+      const sample = generateString((MODERATION_SAMPLE_SEED + index) >>> 0)
+      const normalized = normalizeModerationText(sample)
       expect(normalizeModerationText(normalized)).toBe(normalized)
+      execution?.record({ sample, normalized })
     }
+    execution?.complete()
   })
 
   it('does not let zero-width insertion lower high-risk moderation decisions', () => {
@@ -120,6 +128,10 @@ describe('frontend property tests', () => {
   })
 
   it('keeps search ranking deterministic for generated fixtures', () => {
+    const execution = createRandomExecutionRecorder({
+      canonicalTestId: `vitest:${SOURCE}#keeps%20search%20ranking%20deterministic%20for%20generated%20fixtures`,
+      streamId: 'frontend-search-ranking-fixtures'
+    })
     const items = Array.from({ length: 20 }, (_, index) =>
       makeArticle(index + 1, `${generateString((SEARCH_FIXTURE_SEED + index) >>> 0, 12)} protocol`, index * 13)
     )
@@ -129,5 +141,7 @@ describe('frontend property tests', () => {
 
     expect(first.items.map((item) => item.id)).toEqual(second.items.map((item) => item.id))
     expect(new Set(first.items.map((item) => item.id)).size).toBe(first.items.length)
+    for (const item of items) execution?.record({ item, rankedIds: first.items.map((entry) => entry.id) })
+    execution?.complete()
   })
 })

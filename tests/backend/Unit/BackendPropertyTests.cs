@@ -12,6 +12,7 @@ public sealed class BackendPropertyTests
     [Fact]
     public void AedsRoundTripProperty_PreservesPayloadAndFrameType()
     {
+        var cases = new List<string>();
         var encoder = new AedsEncoder();
         AedsFrameType[] frameTypes = Enum.GetValues<AedsFrameType>()
             .Where(static frameType =>
@@ -33,13 +34,16 @@ public sealed class BackendPropertyTests
                 Assert.Equal(frameType, decoded.Value.FrameType);
                 Assert.Equal((uint)payload.Length, decoded.Value.Header.PayloadLength);
                 Assert.True(decoded.Value.Payload.Span.SequenceEqual(payload));
+                RecordCase(cases, $"{frameType}:{Convert.ToHexString(payload)}");
             }
         }
+        PublishExecution(nameof(AedsRoundTripProperty_PreservesPayloadAndFrameType), "backend-aeds-roundtrip-payloads", cases);
     }
 
     [Fact]
     public void AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing()
     {
+        var cases = new List<string>();
         var encoder = new AedsEncoder();
         int seed = ReplaySeed(
             $"xunit:{Source}#AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing",
@@ -53,12 +57,15 @@ public sealed class BackendPropertyTests
             var decoded = encoder.TryDecode(truncated);
 
             Assert.False(decoded.IsSuccess);
+            RecordCase(cases, Convert.ToHexString(truncated));
         }
+        PublishExecution(nameof(AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing), "backend-aeds-truncation-payloads", cases);
     }
 
     [Fact]
     public void AedsBitFlipProperty_DetectsPayloadCorruption()
     {
+        var cases = new List<string>();
         var encoder = new AedsEncoder();
         int seed = ReplaySeed(
             $"xunit:{Source}#AedsBitFlipProperty_DetectsPayloadCorruption",
@@ -73,7 +80,9 @@ public sealed class BackendPropertyTests
             var decoded = encoder.TryDecode(mutated);
 
             Assert.False(decoded.IsSuccess);
+            RecordCase(cases, Convert.ToHexString(mutated));
         }
+        PublishExecution(nameof(AedsBitFlipProperty_DetectsPayloadCorruption), "backend-aeds-bitflip-payloads", cases);
     }
 
     [Fact]
@@ -119,6 +128,39 @@ public sealed class BackendPropertyTests
             random.NextBytes(payload);
             yield return payload;
         }
+    }
+
+    private static void RecordCase(List<string> cases, string value)
+    {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes($"{cases.Count}:{value}");
+        cases.Add($"sha256:{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes))}");
+    }
+
+    private static void PublishExecution(string method, string streamId, List<string> cases)
+    {
+        string? directory = Environment.GetEnvironmentVariable("FSUSBLOG_RANDOM_EXECUTION_DIR");
+        if (directory is null)
+        {
+            return;
+        }
+        string RequireEnvironment(string name) => Environment.GetEnvironmentVariable(name)
+            ?? throw new InvalidOperationException($"missing child execution identity: {name}");
+        string canonicalTestId = $"xunit:{Source}#{method}";
+        using var streams = System.Text.Json.JsonDocument.Parse(RequireEnvironment("FSUSBLOG_RANDOM_STREAMS_JSON"));
+        var observation = new
+        {
+            canonicalTestId,
+            streamId,
+            derivedSeed = streams.RootElement.GetProperty($"{canonicalTestId}\0{streamId}").GetString(),
+            runId = RequireEnvironment("FSUSBLOG_RANDOM_EXECUTION_RUN"),
+            attemptId = RequireEnvironment("FSUSBLOG_RANDOM_EXECUTION_ATTEMPT"),
+            replayPlanDigest = RequireEnvironment("FSUSBLOG_REPLAY_PLAN_DIGEST"),
+            caseIdentities = cases,
+            transitionIdentities = Array.Empty<string>(),
+            outcome = "passed"
+        };
+        using var output = new FileStream(Path.Combine(directory, $"{streamId}.json"), FileMode.CreateNew, FileAccess.Write);
+        System.Text.Json.JsonSerializer.Serialize(output, observation);
     }
 
     private static int ReplaySeed(string canonicalTestId, string streamId)

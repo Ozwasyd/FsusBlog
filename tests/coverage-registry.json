@@ -4391,7 +4391,7 @@
         },
         {
             "id": "behavior-test-evidence-binding",
-            "description": "Managed frameworks bind live tests to BehaviorContractCatalog IDs and proof kinds; this-round test observations join into exact requiredTestKinds coverage without path, coverage-evidencePath, or existence inference.",
+            "description": "Managed frameworks bind live tests to BehaviorContractCatalog IDs and proof kinds; this-round observations join into the exact catalog-required proof-kind set without path, coverage-evidencePath, or existence inference.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -5298,6 +5298,26 @@
             "minimumRequirement": "Repository scanning must cover production, configuration, documentation, scripts, tests, and tooling, while isolated mutations prove registry-owner mismatch and unregistered command declarations are rejected.",
             "tierIds": [
                 "static-governance"
+            ]
+        },
+        {
+            "id": "runtime-state-order-equivalence",
+            "description": "Production runtime steps execute in isolated current-session state across canonical, serial, reverse-ready and five fixed shuffled schedules with caps one, two and machine maximum; exact outcomes and semantic state must agree.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/release-evidence/runtime-order-equivalence.json",
+                "tests/tools/runtime-order-equivalence.test.mjs",
+                "tests/tools/production-runtime-order-provider.test.mjs",
+                "tests/tools/production-observer-ports.integration.test.mjs",
+                "tests/tools/runtime-state-conflict-scheduler.test.mjs",
+                "tests/tools/reset-postcondition-state-barrier.test.mjs"
+            ],
+            "assertionType": "runtime",
+            "failClosedRule": "Any missing schedule/cap/session/observer/reset receipt, catalog or immutable identity drift, assertion/outcome/postcondition/final-state difference, retry, or lack of proven safe overlap fails qualification as runtime-state-order-dependent.",
+            "minimumRequirement": "All fixed dependency-valid schedules and caps execute real production runtimeSteps in independent sessions, compare exact structured results and final semantic digests, and prove at least one non-conflicting pair overlaps when cap is greater than one.",
+            "tierIds": [
+                "runtime-order-equivalence"
             ]
         },
         {

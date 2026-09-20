@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:39791393370474159c9857a1322601e81f4ea6b790de40f8981301d6c1a8da82",
+    "policyDigest": "sha256:47e83b8d54755a1eb030475b8461bcd960c7143fefa03ffc410b959dca8b34ee",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -4598,6 +4598,35 @@
             "supersededBy": null,
             "relatedIssues": [
                 1383
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/runtime-state-equivalence.md",
+            "title": "Runtime state isolation and order equivalence",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1599,
+                1988,
+                1989,
+                1990,
+                1991,
+                1992,
+                1993,
+                1994,
+                1995,
+                1996,
+                2631,
+                2632,
+                2633,
+                2634,
+                2635,
+                2636
             ],
             "producer": null
         },

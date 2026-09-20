@@ -14,7 +14,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { loadCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
-const { formatBehaviorTestBindingReport, joinBehaviorTestEvidence, parseBehaviorBindingsFromSource, scanBehaviorTestBindings, validateExactBehaviorCoverage } = await import(new URL('../../tools/contracts/behavior-test-binding.mjs', import.meta.url));
+const { formatBehaviorTestBindingReport, joinBehaviorTestEvidence, parseBehaviorBindingsFromSource, scanBehaviorTestBindings, validateExactBehaviorCoverage, xunitObservationMatchesBinding } = await import(new URL('../../tools/contracts/behavior-test-binding.mjs', import.meta.url));
 const { behaviorTest, concurrencyHarnessId, createBehaviorTest, runRealConcurrencyHarness } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const { createObservationArtifact } = await import(new URL('../../tools/test-observations/ledger.mjs', import.meta.url));
 const { observationArtifactSchema } = await import(new URL('../../tools/test-observations/validation.mjs', import.meta.url));
@@ -488,6 +488,18 @@ behaviorTest('code-intent-governance', 'negative', 'missing invariant', () => {}
     assert.ok(scanned.errors.some((error) => /requires invariantIds or reasonId/u.test(error)));
 });
 
+test('xUnit Theory display suffixes map only to their exact planned method binding', () =>
+{
+    const binding = 'xunit-trx:UserSessionSensitiveEndpointIntegrationTests#ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite';
+    assert.equal(xunitObservationMatchesBinding(`${binding}(scenarioName: "jwt")`, binding), true);
+    assert.equal(xunitObservationMatchesBinding(binding, binding), true);
+    assert.equal(xunitObservationMatchesBinding(`${binding}Extra(scenarioName: "jwt")`, binding), false);
+    assert.equal(xunitObservationMatchesBinding(
+        'xunit-trx:AnotherClass#ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite(scenarioName: "jwt")',
+        binding
+    ), false);
+});
+
 test('6) previous-round TRX/observations cannot satisfy this round', () =>
 {
     const directory = fixtureRoot();
@@ -548,8 +560,6 @@ behaviorTest('code-intent-governance', 'positive', 'renamed positive title', () 
             observation.sourceClosureDigest = artifacts[0].sourceClosureDigest;
             observation.producer = { reference: stale.producer.reference, digest: stale.producer.digest };
         }
-        // Re-seal contentDigest
-        const { contentDigest: _ignored, ...rest } = stale;
         const resealed = createObservationArtifact({
             framework: 'node-tap',
             reportFile: path.join(directory, stale.producer.reference),
@@ -563,13 +573,6 @@ behaviorTest('code-intent-governance', 'positive', 'renamed positive title', () 
                 run: artifacts[0].run
             },
             observedAt: '2026-07-28T00:00:00.000Z'
-        });
-        const receipt = joinBehaviorTestEvidence({
-            repositoryRoot: directory,
-            catalog,
-            bindingsScan: scan,
-            observations: [...artifacts, resealed],
-            evidenceRoot: directory
         });
         // Current renamed binding still has its own observation from artifacts; exact coverage should pass for that.
         // The point: old FQN is not a binding and cannot cover kinds alone — drop current observations for renamed test to prove failure.
@@ -707,13 +710,7 @@ test('tests/docs/generated artifacts cannot forge execution evidence without pro
         {
             observation.producer.digest = forged.producer.digest;
         }
-        // Fix contentDigest to match forged body so validation reaches producer file check.
-        const { contentDigest: _drop, ...body } = forged;
-        const digestBody = structuredClone(body);
-        const contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(digestBody), 'utf8').digest('hex')}`;
-        // Use ledger canonicalize-compatible seal: validation recomputes without contentDigest field.
-        // Our validation uses structuredClone delete contentDigest then sha256 of canonicalize JSON.
-        // Simpler: omit evidenceRoot so file digest is not checked, but then forge could pass — require evidenceRoot.
+        // Keep the original seal so validation rejects the tampered producer before any evidence can qualify.
         const receipt = joinBehaviorTestEvidence({
             repositoryRoot: directory,
             catalog,

@@ -1,0 +1,118 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.runtime-execution-session.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "status",
+        "identity",
+        "immutableInputsDigest",
+        "domains",
+        "ownedRoot",
+        "handleDigest",
+        "lifecycleEventCount",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.runtime-execution-session.v1"
+        },
+        "status": {
+            "enum": [
+                "ready",
+                "terminal"
+            ]
+        },
+        "identity": {
+            "$ref": "#/$defs/identity"
+        },
+        "immutableInputsDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "domains": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            }
+        },
+        "ownedRoot": {
+            "type": "string",
+            "minLength": 1
+        },
+        "handleDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "lifecycleEventCount": {
+            "type": "integer",
+            "minimum": 2
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "runId",
+                "attemptId",
+                "sourceCommit",
+                "sourceFingerprint",
+                "buildReceiptDigest",
+                "fixtureDigest",
+                "envelopeDigest",
+                "clockDigest",
+                "replayDigest",
+                "catalogDigest",
+                "sessionId"
+            ],
+            "properties": {
+                "runId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "attemptId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sessionId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "sourceFingerprint": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildReceiptDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "fixtureDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "envelopeDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "clockDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "replayDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "catalogDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        }
+    }
+}
