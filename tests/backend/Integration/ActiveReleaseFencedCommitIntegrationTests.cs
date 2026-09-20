@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
@@ -76,14 +77,8 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         string connectionString = await CreateDatabaseAsync(Release41, "blue", 41, Digest41);
         using SqlSugarClient oldWorkerDb = PostgresSqlSugarTestClient.Create(connectionString);
         var executionContext = new ActiveReleaseExecutionContextAccessor();
-        IConfigurationRoot guardConfiguration = new ConfigurationBuilder()
-            .AddInMemoryCollection()
-            .Build();
-        var guard = new ActiveReleaseTransactionalCommitGuard(
-            executionContext,
-            guardConfiguration,
-            HostEnvironment(Environments.Production),
-            new ReleaseIdentityProvider(guardConfiguration));
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var guard = CreateGuard(executionContext, configuration, Environments.Production);
         var mutationWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resumeAfterPause = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ActiveReleaseExecutionTicket oldTicket = Ticket(Release41, "blue", 41, Digest41, "paused-worker-41");
@@ -127,6 +122,62 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         Assert.Equal(42L, await fixture.QueryScalarAsync<long>(
             connectionString,
             "SELECT generation FROM sys_deployment_fence WHERE id = 1;"));
+    }
+
+    [Theory]
+    [InlineData("wrong-release")]
+    [InlineData("stale-generation")]
+    [InlineData("missing-marker")]
+    [InlineData("production-exact")]
+    [InlineData("missing-durable-fence")]
+    public async Task SyntheticBypass_WrongStaleMissingOrProductionIdentity_FailsClosed(string scenario)
+    {
+        const string LocalRelease = "20260829080000-0123456789ab";
+        string connectionString = await CreateDatabaseAsync(Release41, "blue", 41, Digest41);
+        if (string.Equals(scenario, "missing-durable-fence", StringComparison.Ordinal))
+        {
+            await fixture.ExecuteAsync(connectionString, "DELETE FROM sys_deployment_fence WHERE id = 1;");
+        }
+        using SqlSugarClient workerDb = PostgresSqlSugarTestClient.Create(connectionString);
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true",
+                ["FSUSBLOG_RELEASE_ID"] = LocalRelease
+            })
+            .Build();
+        string environmentName = scenario is "production-exact" or "missing-durable-fence"
+            ? Environments.Production
+            : Environments.Development;
+        var executionContext = new ActiveReleaseExecutionContextAccessor();
+        var guard = CreateGuard(executionContext, configuration, environmentName);
+        var ticket = new ActiveReleaseExecutionTicket(
+            string.Equals(scenario, "wrong-release", StringComparison.Ordinal) ? "wrong-release" : LocalRelease,
+            "local",
+            string.Equals(scenario, "stale-generation", StringComparison.Ordinal) ? 2 : 1,
+            $"sha256:{new string('0', 64)}",
+            "synthetic-negative-probe",
+            SyntheticLocal: !string.Equals(scenario, "missing-marker", StringComparison.Ordinal));
+
+        using (executionContext.Push(ticket))
+        {
+            await Assert.ThrowsAsync<ActiveReleaseFenceLostException>(() =>
+                ActiveReleaseFencedTransaction.ExecuteAsync(
+                    workerDb,
+                    guard,
+                    "synthetic-negative-probe",
+                    scenario,
+                    async _ => await workerDb.Ado.ExecuteCommandAsync(
+                        "INSERT INTO fenced_commit_probe(id, owner) VALUES (3026, @Scenario);",
+                        new SugarParameter("@Scenario", scenario))));
+        }
+
+        Assert.Equal(0, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM fenced_commit_probe WHERE id = 3026;"));
+        Assert.Equal(0, await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(*) FROM sys_fenced_commit;"));
     }
 
     [Fact]
@@ -281,20 +332,34 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
     }
 
     private static ActiveReleaseTransactionalCommitGuard CreateGuard()
-    {
-        IConfigurationRoot configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection()
-            .Build();
-        return new(
+        => CreateGuard(
             new ActiveReleaseExecutionContextAccessor(),
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
+            Environments.Production);
+
+    private static ActiveReleaseTransactionalCommitGuard CreateGuard(
+        IActiveReleaseExecutionContextAccessor executionContext,
+        IConfiguration configuration,
+        string environmentName)
+    {
+        IWebHostEnvironment environment = HostEnvironment(environmentName);
+        var releaseIdentity = new ReleaseIdentityProvider(configuration);
+        var deploymentRuntime = new DeploymentRuntimeState(
+            releaseIdentity,
             configuration,
-            HostEnvironment(Environments.Production),
-            new ReleaseIdentityProvider(configuration));
+            environment,
+            TimeProvider.System);
+        return new ActiveReleaseTransactionalCommitGuard(
+            executionContext,
+            configuration,
+            environment,
+            releaseIdentity,
+            deploymentRuntime);
     }
 
-    private static IHostEnvironment HostEnvironment(string name)
+    private static IWebHostEnvironment HostEnvironment(string name)
     {
-        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.EnvironmentName.Returns(name);
         return environment;
     }
