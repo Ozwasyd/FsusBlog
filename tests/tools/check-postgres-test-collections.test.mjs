@@ -105,10 +105,10 @@ test("accepts the checked-in PostgreSQL collection manifest", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(
         result.stdout,
-        /collections=2 classes=111 estimatedCases=746/u,
+        /collections=2 classes=111 estimatedCases=751/u,
     );
     assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:297/u);
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:449/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:454/u);
 });
 
 test("rejects omission of the current content-asset and runtime-rollup PostgreSQL classes", () => {
