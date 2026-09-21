@@ -675,44 +675,62 @@ function postRuntimeBindingShape(pre)
     const catalog = JSON.parse(fs.readFileSync(new URL('../../config/contracts/behavior-contracts.json', import.meta.url), 'utf8'));
     const classes = Object.fromEntries(registry.producers.map((producer) => [producer.producerId,
         [...new Set(Object.values(producer.requiredObservations).flat())].sort()]));
-    const results = registry.producers.flatMap((producer) => classes[producer.producerId].map((classId) => ({
-        behaviorId: producer.behaviorId, producerId: producer.producerId, classId, status: 'ok',
-        extractorId: catalog.contracts.find((behavior) => behavior.id === producer.behaviorId).factExtractorId,
-        artifactDigest: authorityDigest({ artifact: classId }),
-        contentDigest: authorityDigest({ classId, producerId: producer.producerId })
-    })));
+    const results = registry.producers.flatMap((producer) =>
+        classes[producer.producerId].map((classId, index) => ({
+            behaviorId: producer.behaviorId,
+            extractorId: catalog.contracts
+                .find((behavior) => behavior.id === producer.behaviorId).factExtractorId,
+            producerId: producer.producerId,
+            scope: index < classes[producer.producerId].length - 2
+                ? 'application'
+                : 'release-deployment',
+            classId,
+            classReceiptPath: `.tmp/current-run/classes/${classId}.json`,
+            classReceiptDigest: authorityDigest({ classId, receipt: true }),
+            rawReceiptPath: `.tmp/current-run/raw/${classId}.json`,
+            rawReceiptDigest: authorityDigest({ classId, raw: true }),
+            semanticFactsDigest: authorityDigest({ classId, semanticFacts: true }),
+            status: 'ok'
+        })));
     const reference = (name, contentDigest = authorityDigest({ name })) => ({
-        ref: `.tmp/current-run/${name}.json`, fileDigest: authorityDigest({ bytes: name }), contentDigest
+        path: `.tmp/current-run/${name}.json`,
+        fileDigest: authorityDigest({ bytes: name }),
+        contentDigest
     });
+    const claimIds = registry.producers
+        .flatMap((producer) => producer.acceptedClaimRefs)
+        .sort();
     return sealDocument({
         schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
         runIdentity: pre.runIdentity, sourceIdentity: pre.sourceIdentity,
         preRuntimeReceiptDigest: pre.contentDigest,
+        staticClaimVerificationDigest: `sha256:${pre.staticClaimVerificationDigest}`,
         candidateIdentity: {
             sourceCommit: pre.sourceIdentity.commit, worktreeFingerprint: pre.sourceIdentity.worktreeFingerprint,
             runId: pre.runIdentity, attemptId: 'attempt-0001', candidateId: 'candidate',
             buildIdentity: authorityDigest({ build: 1 }),
-            runtimeId: 'runtime', browserIdentity: 'browser', releaseId: '20260830123456-abcdef123456',
+            runtimeId: 'runtime', browserId: 'browser', releaseId: '20260830123456-abcdef123456',
             rolloutId: 'rollout', fixtureId: 'fixture', profileId: 'acceptance-representative'
         },
         executionIdentity: {
             ...pre.sourceIdentity, schedulerRunId: pre.runIdentity, attemptId: 'attempt-0001',
             candidateIdentityDigest: authorityDigest({ candidate: 1 }), buildIdentityDigest: authorityDigest({ build: 1 })
         },
-        executionContext: reference('context'), schedulerEvidence: reference('scheduler'),
+        schedulerEvidence: reference('scheduler'),
         registryDigest: authorityDigest(registry), catalogDigest: `sha256:${digestCatalog(catalog)}`,
         behaviorIds: registry.producers.map((producer) => producer.behaviorId),
         requiredRuntimeProducers: registry.producers.map((producer) => producer.producerId),
+        requiredObservationScopes: ['application', 'release-deployment'],
         requiredProducerClasses: classes, observedProducerClasses: structuredClone(classes),
         observedBehaviorResults: results,
-        observationArtifactDigests: Object.fromEntries(results.map((result) =>
-            [`${result.producerId}:${result.classId}`, result.artifactDigest])),
-        documentClaimDigests: Object.fromEntries(registry.producers.flatMap((producer) =>
-            producer.acceptedClaimRefs.map((claimId) => [claimId, authorityDigest({ claimId })]))),
-        documentClaimTerminals: Object.fromEntries(registry.producers.map((producer) =>
-            [producer.behaviorId, authorityDigest({ terminal: producer.producerId })])),
-        observationRefs: results.map((result) => reference(result.classId, result.contentDigest)),
-        acceptedClaimRefs: registry.producers.map((producer) => reference(producer.producerId)),
+        observationRefs: [
+            { scope: 'application', ...reference('application-observation') },
+            { scope: 'release-deployment', ...reference('release-deployment-observation') }
+        ],
+        acceptedClaimsRef: reference('accepted-claims'),
+        documentClaimDigests: Object.fromEntries(claimIds.map((claimId) =>
+            [claimId, authorityDigest({ claimId })])),
+        documentClaimTerminalDigest: authorityDigest({ terminal: claimIds }),
         missing: [], orphans: [], conflicts: [], stale: [], diagnostics: [],
         findingCounts: { missing: 0, orphans: 0, conflicts: 0, stale: 0, diagnostics: 0 },
         releaseFinalSpawnCountBeforeReceipt: 0, failureReasons: [], status: 'ok'
@@ -733,11 +751,38 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         scope: 'pre-runtime',
         runIdentity: 'run-1151',
         sourceIdentity: { ...build.sourceState, worktreeFingerprint: `sha256:${build.sourceState.worktreeFingerprint}` },
-        status: 'ok',
-        behaviorIds: [],
         buildIdentities: {},
+        catalogDigest: `sha256:${digestCatalog(JSON.parse(fs.readFileSync(new URL(
+            '../../config/contracts/behavior-contracts.json', import.meta.url
+        ), 'utf8')))}`,
         registryDigest: `sha256:${'a'.repeat(64)}`,
+        staticAdmissionDigest: `sha256:${'b'.repeat(64)}`,
+        behaviorGraphDigest: `sha256:${'c'.repeat(64)}`,
+        testEvidenceDigests: [`sha256:${'d'.repeat(64)}`],
+        rawResultDigests: { testEvidence: `sha256:${'e'.repeat(64)}` },
+        mutationEvidenceDigest: null,
+        behaviorIds: [loadPostRuntimeProducerRegistry().producers[0].behaviorId],
+        requiredTestKinds: {
+            [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: []
+        },
+        observedTestKinds: {
+            [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: []
+        },
+        mutationStatus: {
+            [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: {
+                behaviorId: loadPostRuntimeProducerRegistry().producers[0].behaviorId,
+                mutationRequired: false,
+                mutationStatus: 'not-applicable',
+                qualified: true,
+                failures: []
+            }
+        },
+        staticClaimVerificationDigest: 'f'.repeat(64),
+        missing: [],
+        orphans: [],
+        conflicts: [],
         runtimeCandidateSpawnCountBeforeReceipt: 0,
+        status: 'ok',
         failureReasons: []
     });
     const preRuntimeFile = path.join(build.directory, 'behavior-pre-runtime.json');
@@ -892,7 +937,10 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const preRuntimeMutations = [
         ...[
             ['other run', { runIdentity: 'other-run' }],
-            ['other source', { sourceIdentity: { ...build.sourceState, commit: 'f'.repeat(40) } }],
+            ['other source', { sourceIdentity: {
+                ...preRuntime.sourceIdentity,
+                commit: 'f'.repeat(40)
+            } }],
             ['other worktree', { sourceIdentity: { ...build.sourceState, worktreeFingerprint: `sha256:${'f'.repeat(64)}` } }]
         ].map(([name, mutation]) => [name, sealDocument({ ...preRuntime, ...mutation }), /identity mismatch/u]),
         ['missing', undefined, /receipt must be an object/u],
@@ -904,7 +952,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             ...preRuntime,
             schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.forged',
             contentDigest: null
-        }), /unexpected schema/u]
+        }), /schema.*constant/u]
     ];
     for (const [name, preRuntimeReceipt, errorPattern] of preRuntimeMutations)
     {
@@ -944,13 +992,13 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     }
 
     const postRuntimeMutations = [
-        ['missing', undefined, /schema\/scope mismatch/u],
+        ['missing', undefined, /receipt schema validation failed/u],
         ['stale digest', { ...postRuntime, contentDigest: `sha256:${'0'.repeat(64)}` }, /contentDigest mismatch/u],
-        ['schema', sealDocument({ ...postRuntime, schema: 'forged' }), /schema\/scope mismatch/u],
-        ['scope', sealDocument({ ...postRuntime, scope: 'pre-runtime' }), /schema\/scope mismatch/u],
-        ['failed', sealDocument({ ...postRuntime, status: 'failed', failureReasons: ['runtime failed'] }), /not qualified: runtime failed/u],
-        ['diagnostic', sealDocument({ ...postRuntime, status: 'diagnostic' }), /\/status must be equal to one of the allowed values/u],
-        ['failures', sealDocument({ ...postRuntime, failureReasons: ['runtime failed'] }), /status=ok cannot include failures/u],
+        ['schema', sealDocument({ ...postRuntime, schema: 'forged' }), /\/schema must be equal to constant/u],
+        ['scope', sealDocument({ ...postRuntime, scope: 'pre-runtime' }), /\/scope must be equal to constant/u],
+        ['failed', sealDocument({ ...postRuntime, status: 'failed', failureReasons: ['runtime failed'] }), /\/status must be equal to constant/u],
+        ['diagnostic', sealDocument({ ...postRuntime, status: 'diagnostic' }), /\/status must be equal to constant/u],
+        ['failures', sealDocument({ ...postRuntime, failureReasons: ['runtime failed'] }), /\/failureReasons must NOT have more than 0 items/u],
         ['early spawn', sealDocument({ ...postRuntime, releaseFinalSpawnCountBeforeReceipt: 1 }), /\/releaseFinalSpawnCountBeforeReceipt must be equal to constant/u]
     ];
     for (const [name, postRuntimeReceipt, errorPattern] of postRuntimeMutations)
@@ -991,10 +1039,10 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     })));
     for (const [name, prePath, postPath, errorPattern] of [
         ['good pre object failed file', badPreFile, postRuntimeFile, /pre-runtime|qualified/u],
-        ['good post object failed file', preRuntimeFile, badPostFile, /object\/file mismatch/u],
+        ['good post object failed file', preRuntimeFile, badPostFile, /status must be equal/u],
         ['good post object stale file', preRuntimeFile, stalePostFile, /object\/file mismatch/u],
         ['swapped pre path', postRuntimeFile, postRuntimeFile, /schema/u],
-        ['swapped post path', preRuntimeFile, preRuntimeFile, /schema\/scope mismatch/u]
+        ['swapped post path', preRuntimeFile, preRuntimeFile, /schema/u]
     ])
     {
         assert.throws(() => createReleaseFinalTestEvidenceBinding({

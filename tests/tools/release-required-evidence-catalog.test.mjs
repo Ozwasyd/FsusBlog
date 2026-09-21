@@ -265,9 +265,9 @@ test('production release-final catalog binding seals the exact canonical authori
         'fsusblog.release-final-required-evidence-catalog-binding.v1');
     assert.equal(binding.path,
         'config/testing/required-evidence-authority-ledger.json');
-    assert.equal(binding.authorityIds.length, 21);
-    assert.equal(binding.locatorBindingKeys.length, 21);
-    assert.equal(binding.outputBindingKeys.length, 21);
+    assert.equal(binding.authorityIds.length, 22);
+    assert.equal(binding.locatorBindingKeys.length, 22);
+    assert.equal(binding.outputBindingKeys.length, 22);
 });
 
 test('production release-final consumer uses the canonical catalog binding', () =>
