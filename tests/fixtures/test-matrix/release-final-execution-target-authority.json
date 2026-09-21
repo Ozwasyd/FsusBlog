@@ -1285,8 +1285,8 @@
         },
         {
             "path": "tests/tools/evidence-location-governance.test.mjs",
-            "contentDigest": "sha256:946ad60d14342f832411b1eee61f91802d3a428bd506d104a2ec31164a9bd57e",
-            "indexDigest": "sha256:946ad60d14342f832411b1eee61f91802d3a428bd506d104a2ec31164a9bd57e"
+            "contentDigest": "sha256:769f4ab5ee59153759b64f79d4eb62b942b9090def940df7d07f33d2c1877310",
+            "indexDigest": "sha256:769f4ab5ee59153759b64f79d4eb62b942b9090def940df7d07f33d2c1877310"
         },
         {
             "path": "tests/tools/fixture-mutation-recovery.test.mjs",
@@ -1625,8 +1625,8 @@
         },
         {
             "path": "tools/ci/check-flaky-evidence.mjs",
-            "contentDigest": "sha256:617118f5cab7badf8212c960b122f13857963f6d38463af8655e585c9c0af3c8",
-            "indexDigest": "sha256:617118f5cab7badf8212c960b122f13857963f6d38463af8655e585c9c0af3c8"
+            "contentDigest": "sha256:d98cd1680a90c549bc76027bef7970af8b1dd564161a502d204c7d7270632796",
+            "indexDigest": "sha256:d98cd1680a90c549bc76027bef7970af8b1dd564161a502d204c7d7270632796"
         },
         {
             "path": "tools/ci/check-flaky-registry.mjs",
@@ -1635,8 +1635,8 @@
         },
         {
             "path": "tools/ci/check-job-summaries.mjs",
-            "contentDigest": "sha256:4e10a8f79e138b4079f9ccca0abe8c89ec94957e25af7f94f585e3f8f825313a",
-            "indexDigest": "sha256:4e10a8f79e138b4079f9ccca0abe8c89ec94957e25af7f94f585e3f8f825313a"
+            "contentDigest": "sha256:6ee386884889bb3fb4a57591f7195a214960af7b65d780748d8fa81958d83aa3",
+            "indexDigest": "sha256:6ee386884889bb3fb4a57591f7195a214960af7b65d780748d8fa81958d83aa3"
         },
         {
             "path": "tools/ci/check-test-quality.mjs",
@@ -3945,8 +3945,8 @@
         },
         {
             "path": "tools/test/current-run-evidence-transport.mjs",
-            "contentDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
-            "indexDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d"
+            "contentDigest": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
+            "indexDigest": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc"
         },
         {
             "path": "tools/test/ensure-benchmark-release-build.sh",
@@ -4673,8 +4673,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:4e10a8f79e138b4079f9ccca0abe8c89ec94957e25af7f94f585e3f8f825313a",
-            "indexDigest": "sha256:4e10a8f79e138b4079f9ccca0abe8c89ec94957e25af7f94f585e3f8f825313a",
+            "contentDigest": "sha256:6ee386884889bb3fb4a57591f7195a214960af7b65d780748d8fa81958d83aa3",
+            "indexDigest": "sha256:6ee386884889bb3fb4a57591f7195a214960af7b65d780748d8fa81958d83aa3",
             "dependencyClosure": [
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-transport.mjs",

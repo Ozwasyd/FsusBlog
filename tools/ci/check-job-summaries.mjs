@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -18,6 +19,54 @@ const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test'
 const releaseBrowsers = ['chromium', 'firefox', 'webkit']
 const jobResultSchema = 'fsusblog.ci.job-result.v1'
 const productionBuildVerificationSchema = 'fsusblog.ci-production-build-verification.v1'
+export const JOB_SUMMARY_COLLECTION_SCHEMA = 'fsusblog.ci.job-summary-collection.v1'
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+}
+
+export function collectionDocumentDigest(value) {
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex')}`
+}
+
+function validateCollectionSources(documents, sources, label) {
+  const errors = []
+  if (!Array.isArray(sources) || sources.length !== documents.length) {
+    return [`${label} sources must have exact document cardinality`]
+  }
+  const identities = new Set()
+  for (const [index, source] of sources.entries()) {
+    const prefix = `${label}[${index}]`
+    if (!source || typeof source !== 'object' || Array.isArray(source)) {
+      errors.push(`${prefix} must be an object`)
+      continue
+    }
+    if (JSON.stringify(Object.keys(source).sort()) !== JSON.stringify([
+      'artifactName', 'documentDigest', 'inputDigest', 'path'
+    ])) errors.push(`${prefix} fields are not exact`)
+    if (!/^[a-z0-9][a-z0-9-]*$/u.test(String(source.artifactName ?? ''))) {
+      errors.push(`${prefix}.artifactName is invalid`)
+    }
+    if (typeof source.path !== 'string' || !source.path || path.posix.isAbsolute(source.path)
+      || source.path === '..' || source.path.startsWith('../') || source.path.includes('/../')) {
+      errors.push(`${prefix}.path is unsafe`)
+    }
+    for (const field of ['inputDigest', 'documentDigest']) {
+      if (!/^sha256:[0-9a-f]{64}$/u.test(String(source[field] ?? ''))) {
+        errors.push(`${prefix}.${field} must be a sha256 digest`)
+      }
+    }
+    if (source.documentDigest !== collectionDocumentDigest(documents[index])) {
+      errors.push(`${prefix}.documentDigest mismatch`)
+    }
+    const identity = `${source.artifactName}\u0000${source.path}`
+    if (identities.has(identity)) errors.push(`${prefix} duplicates an artifact member`)
+    identities.add(identity)
+  }
+  return errors
+}
 
 function tierExecutionDependencies(tier) {
   return tier?.executionDependsOn ?? tier?.dependsOn ?? []
@@ -84,7 +133,7 @@ const auxiliaryEvidenceContracts = new Map([
   }]
 ])
 
-function classifyEvidence(document, file) {
+export function classifyJobEvidence(document, file) {
   if (!isRecord(document)) {
     return { kind: 'invalid', errors: [`${file}: JSON root must be an object`] }
   }
@@ -107,7 +156,7 @@ function classifyEvidence(document, file) {
   }
 }
 
-function validateSummary(summary, file) {
+export function validateJobSummary(summary, file) {
   const errors = []
   if (summary.schema !== jobResultSchema) errors.push(`${file}: schema must be ${jobResultSchema}`)
   for (const field of ['jobId', 'status', 'tierIds', 'localReproduction', 'commit', 'runId', 'attempt']) {
@@ -130,6 +179,25 @@ function validateSummary(summary, file) {
     }
   }
   return errors
+}
+
+export function createJobSummaryCollection(documents, sources) {
+  if (!Array.isArray(documents)) throw new Error('job summary collection documents must be an array')
+  let jobCount = 0
+  const errors = []
+  for (const [index, document] of documents.entries()) {
+    const file = `summaries[${index}]`
+    const classification = classifyJobEvidence(document, file)
+    errors.push(...classification.errors)
+    if (classification.kind === 'job-summary') {
+      jobCount += 1
+      errors.push(...validateJobSummary(document, file))
+    }
+  }
+  if (jobCount === 0) errors.push('job summary collection must contain at least one job summary')
+  errors.push(...validateCollectionSources(documents, sources, 'sources'))
+  if (errors.length > 0) throw new Error(errors.join('; '))
+  return { schema: JOB_SUMMARY_COLLECTION_SCHEMA, summaries: documents, sources }
 }
 
 function tierClosure(tiers, targetId) {
@@ -246,7 +314,7 @@ function main() {
   for (const file of files) {
     const summary = readJson(file)
     const relativeFile = path.relative(root, file)
-    const classification = classifyEvidence(summary, relativeFile)
+    const classification = classifyJobEvidence(summary, relativeFile)
     errors.push(...classification.errors)
     if (classification.kind === 'job-summary') summaries.push({ file, summary })
     if (classification.kind === 'auxiliary-evidence') {
@@ -255,7 +323,7 @@ function main() {
   }
 
   for (const { file, summary } of summaries) {
-    errors.push(...validateSummary(summary, path.relative(root, file)))
+    errors.push(...validateJobSummary(summary, path.relative(root, file)))
   }
 
   if (requirePlan) {
@@ -284,8 +352,10 @@ function main() {
   console.log(`[job-summary-check] ok summaries=${summaries.length} auxiliary=${auxiliaryEvidence.length} auxiliarySchemas=${auxiliaryCounts} required=${requirePlan ? requiredJobsFromPlan(options).length : 0}`)
 }
 
-try {
-  main()
-} catch (error) {
-  fail([error.message])
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main()
+  } catch (error) {
+    fail([error.message])
+  }
 }

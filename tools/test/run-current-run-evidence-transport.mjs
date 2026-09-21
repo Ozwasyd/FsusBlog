@@ -28,6 +28,13 @@ function optional(name)
     return index < 0 ? '' : process.argv[index + 1];
 }
 
+function repeated(name)
+{
+    const values = process.argv.flatMap((value, index) => value === name && process.argv[index + 1]
+        ? [process.argv[index + 1]] : []);
+    return values.length > 0 ? values : undefined;
+}
+
 function main()
 {
     const action = process.argv[2];
@@ -54,7 +61,9 @@ function main()
             repositoryRoot: optional('--root') || repositoryRoot,
             archivePath: optional('--archive') || undefined,
             manifestPath: option('--manifest'),
-            extractRoot: optional('--extract-root') || '.'
+            extractRoot: optional('--extract-root') || '.',
+            expectedManifestDigest: optional('--expected-manifest-digest') || undefined,
+            expectedAuthorityIds: repeated('--expected-authority')
         });
         process.stdout.write(`${JSON.stringify({ objects: extracted.objects.length,
             manifestDigest: extracted.contentDigest })}\n`);
