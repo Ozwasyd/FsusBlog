@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/testing/content-shape-catalog.mjs",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/Program.cs",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/content-field-contracts.generated.json",
+            "sha256": "97a33cb8eb42bd4f5113ec0bce0eecea55cb5bab05415fa5092688ee780479e6"
+        }
+    ]
+}

@@ -124,7 +124,31 @@ render: scalar
 264
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
-`config/testing/content-shape-catalog.json` is the only editable `ContentShapeCatalog` for Unicode, script, positive and negative eligibility, and content consumer applicability. `tools/testing/content-shape-catalog.mjs` generates and checks `config/testing/content-field-contracts.generated.json` from the current `ArticlePublicationValidator`, `CommentLimits` and comment binary endpoints; tests must not copy article/comment characters or UTF-8 byte limits. The "character" count semantics of production are fixed to .NET UTF-16 `string.Length`, and the byte count is fixed to `Encoding.UTF8.GetByteCount`. The generator separately records Unicode scalar and grapheme statistics, but they must not be used to replace the production judgment. The 1000 UTF-16 unit upper limit of the current comment will constrain all legal Unicode text before the 4096-byte upper limit, so the byte boundary case is still an independent dimension evidence, rather than pretending to be an overall positive input that can be achieved alone.
+`config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
+与 content consumer applicability 的唯一可编辑 `ContentShapeCatalog`。
+`tools/testing/content-shape-catalog.mjs` 从当前
+`ArticlePublicationValidator`、`CommentLimits` 和 comment binary endpoint 生成并核对
+`config/testing/content-field-contracts.generated.json`；测试不得另抄 article/comment
+字符或 UTF-8 byte 上限。generated source identity 绑定从这些 owner 提取的 canonical
+字段合同 fragment，而不是整个 owner file bytes；同文件内无关实现变化不制造 projection
+drift。提取器作为 analyzer 进入 canonical `FsusBlog.Server` Release build，在无 compiler
+diagnostic 的完整 production compilation（project options、nullable、defines、references、generated
+和 partial files）上运行。它按 resolved symbols 选择具名 top-level type、direct property/constant
+和 exact method signature；syntax alias、inactive preprocessor、nested type 与 overload 不能充当替身。
+record/property attributes、常量引用及解析值、initializer，以及从 validation sink 反向闭合的
+local/ref alias/ref-out/helper/local-function/lambda/partial-file dataflow 都属于 fragment；exact
+`System.GC.KeepAlive` 等不影响值或 validation 的 statement 不进入 slice。producer identity 还绑定
+repo-pinned SDK/runtime、absolute dotnet host 与 Roslyn/analyzer binary digests、backend project、
+`Directory.Build.props`、central packages 和 locked dependency inputs；restore/build 均使用 locked
+source 和显式 SDK，不消费 `PATH`、`DOTNET_ROOT`、TPA 或 `LanguageVersion.Latest`。隔离 host
+可用 `FSUSBLOG_CONTENT_FIELD_DOTNET` 指向已有的 absolute dotnet host，但该 host 仍须完整匹配
+repo-pinned SDK/runtime 与上述 binary identity，变量也不会传入 production compilation。实际 field
+inventory、normalization、计数或边界变化仍会 fail closed。production
+的“字符”计数语义固定为 .NET UTF-16
+`string.Length`，byte 计数固定为 `Encoding.UTF8.GetByteCount`，generator 另行记录
+Unicode scalar 与 grapheme statistics，但不得拿它们替换 production 判定。当前 comment
+的 1000 UTF-16 unit 上限会先于 4096-byte 上限约束所有合法 Unicode 文本，因此 byte
+boundary case 仍是独立 dimension evidence，而不是伪称为可单独达到的整体正向输入。
 
 `tools/test-fixtures/content-shape-generator.mjs` only accepts shape ID, field ref, fixed seed, generation version and optional boundary case ID, and generates exact bytes, normalization before and after statistics and digest from the catalog code-point recipe pure function; the correctness path prohibits wall clock, runtime random, ASCII byte proxy, `all-unicode` catch-all or per-test generator. zero-width/bidi only belongs to negative shape; ordinary positive profile cannot be consumed. ContentShape authority digest has entered the fixture catalog digest used by FixtureVariant plan and FixtureReceipt, so locale, production field contract, schema or catalog changes will invalidate the old corpus identity. This layer does not generate Markdown/search expected facts, migrate consumers, or write the full text into the default receipt/log; the full text should only be stored in run-owned fixture artifacts.
 

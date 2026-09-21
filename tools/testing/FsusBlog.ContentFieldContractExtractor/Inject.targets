@@ -1,0 +1,17 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'FsusBlog.Server'">
+    <CompilerVisibleProperty Include="FsusBlogContentFieldContractOutput" />
+    <Analyzer Include="$(FsusBlogContentFieldContractAnalyzer)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'FsusBlog.Server' and '$(FsusBlogContentFieldContractSourceRoot)' != ''">
+    <Compile Remove="$(MSBuildProjectDirectory)/Services/Articles/ArticlePublicationValidator.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)/Models/Dtos/CommentDto.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs" />
+    <Compile Include="$(FsusBlogContentFieldContractSourceRoot)/src/backend/Services/Articles/ArticlePublicationValidator.cs" Link="Services/Articles/ArticlePublicationValidator.cs" />
+    <Compile Include="$(FsusBlogContentFieldContractSourceRoot)/src/backend/Models/Dtos/CommentDto.cs" Link="Models/Dtos/CommentDto.cs" />
+    <Compile Include="$(FsusBlogContentFieldContractSourceRoot)/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" Link="Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" />
+    <Compile Include="$(FsusBlogContentFieldContractSourceRoot)/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs" Link="Modules/Endpoints/Binary/BinaryEndpoints.Files.cs" />
+  </ItemGroup>
+</Project>

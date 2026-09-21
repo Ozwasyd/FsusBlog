@@ -69,6 +69,7 @@
                 ".cs",
                 ".csproj",
                 ".props",
+                ".targets",
                 ".slnx",
                 ".slnLaunch",
                 ".esproj",
