@@ -1012,6 +1012,8 @@ The #2209 join consumes exactly the sealed `application` and `release-deployment
 
 Before sealing `fsusblog.behavior-evidence-post-runtime-receipt.v1`, the join verifies the persisted scheduler tier admission against its live owner and journal. The admission must be for the current `behavior-evidence-post-runtime` tier in the fresh `release-final` graph, with `releaseFinalSpawnCountBeforeAdmission=0` and no active `release-final` tier. The receipt stores the two aggregate references, per-class raw/class/semantic digests, exact claim digests, categorized zero findings and the scheduler evidence reference. Its independent verifier reopens all current inputs and requires an exact replay digest.
 
+`release-final` is a finalizer after that verified seal, not another producer. Its matrix execution graph is empty and its evidence DAG is the exact current required-authority catalog. The lane consumes only explicit current-run locator bindings and content digests; it does not create correctness/domain evidence, run parsers, tests, mutation or runtime producers, repair missing inputs, or select latest/history/job/file/manual substitutes. Missing or failed post-runtime evidence blocks scheduler admission, so the finalizer spawn count remains zero. A successful finalizer writes `release-final-test-evidence-binding.json` and then `release-final-terminal-acceptance.json`; the terminal receipt seals the exact DAG, pre/post/finalizer inputs, source/worktree/build/candidate/runtime/release/run/attempt/catalog/claim identities, zero pre-seal spawn counts, existing scanner and mutation results, and `warnings=[]`. Input or receipt tampering fails closed and never overwrites the post-runtime status, failure reasons, or digest.
+
 Focused validation：
 
 ```bash

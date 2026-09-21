@@ -726,6 +726,55 @@ test('failed selected evidence producer blocks only its evidence consumers', asy
     assert.ok(!executed.includes('consumer'));
 });
 
+test('failed post-runtime seal keeps release-final spawn and admission counts at zero', async (t) =>
+{
+    const { runDag } = await loadScheduler();
+    const temp = createTempDir('scheduler-release-final-post-runtime-failure');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const executions = new Map();
+    const result = await runDag({
+        tiers: [
+            tier('release-final', {
+                requiresEvidenceFrom: ['behavior-evidence-post-runtime']
+            }),
+            tier('behavior-evidence-post-runtime')
+        ],
+        root: temp,
+        runsRoot: path.join(temp, 'runs'),
+        runId: 'release-final-post-runtime-failure',
+        mode: 'fresh',
+        maxParallel: 1,
+        collectFailures: true,
+        systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },
+        snapshotWorktree: stableSnapshot,
+        executeTier: async (current) =>
+        {
+            executions.set(current.id, (executions.get(current.id) ?? 0) + 1);
+            return {
+                code: current.id === 'behavior-evidence-post-runtime' ? 1 : 0,
+                signal: null
+            };
+        }
+    });
+
+    assert.equal(result.status, 'failure');
+    assert.equal(executions.get('behavior-evidence-post-runtime'), 1);
+    assert.equal(executions.get('release-final') ?? 0, 0);
+    assert.equal(result.checkpoint.tiers['release-final'].status, 'blocked');
+    assert.match(
+        result.checkpoint.tiers['release-final'].reason,
+        /behavior-evidence-post-runtime/u
+    );
+    assert.equal(
+        result.checkpoint.tiers['release-final'].producerSpawnCount ?? 0,
+        0
+    );
+    assert.equal(
+        result.checkpoint.schedulerAdmissions?.['release-final'],
+        undefined
+    );
+});
+
 test('fresh scheduler preserves prepared authority entries and removes only scheduler-owned stale state', async (t) =>
 {
     const { runDag } = await loadScheduler();

@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/lanes/release-final.sh"
+            ],
+            "reason": "Preserve caller-visible current-run authority IDs, receipt JSON fields, and process environment keys while binding canonical release-final replay."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "Preserve the generated correctness inventory schema and authority identifiers while refreshing the matrix-bound producer digest."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json"
+            ],
+            "reason": "Preserve the generated acceptance receipt schema and JSON field names while refreshing the exact current-run locator inventory."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the generated testing document markers and external tier identifiers while publishing the current release-final matrix."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/release-final-terminal-acceptance.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "reason": "Preserve process environment, caller-facing receipt fields, and tool identities while validating the canonical authority catalog and terminal binding."
+        }
+    ]
+}
