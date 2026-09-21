@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-evidence-post-runtime-receipt.schema.json"
+            ],
+            "reason": "Preserve the receipt schema wire keys while JavaScript adapters retain internal camelCase names."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test-matrix/scheduler-run-owner.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve the scheduler process environment keys while local JavaScript bindings remain camelCase."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/bundles/behavior-evidence-post-runtime.sh"
+            ],
+            "reason": "Preserve exported process environment keys while shell-local bindings keep repository naming."
+        }
+    ]
+}

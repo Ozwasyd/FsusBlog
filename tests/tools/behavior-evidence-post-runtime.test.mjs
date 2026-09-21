@@ -1,267 +1,527 @@
-import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import test from 'node:test';
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
 
-const {createProductionBuildReceipt} = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
-const {digestCatalog} = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
-const {createBrowserlessCorrectnessReceipt, sealBrowserContractReceipt} = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
-const {joinBehaviorEvidencePostRuntime, validatePostRuntimeReceipt} = await import(new URL('../../tools/test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
-const {createCleanAttemptEvidenceFixture} = await import(new URL('./support/clean-attempt-evidence-fixture.mjs', import.meta.url));
-const commit = 'a'.repeat(40);
-const worktreeFingerprint = 'b'.repeat(64);
-const runId = 'post-runtime-round-1';
-const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
-    consumerId: 'production-correctness',
-    membership: {
-        selectedTierIds: ['production-correctness'],
-        testVectors: ['tier:production-correctness']
+import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
+import { buildPostRuntimeAcceptedClaimsReceipt } from '../../tools/docs/post-runtime-accepted-claims.mjs'
+import { resolveSourceCommit, resolveWorktreeFingerprint } from '../../tools/fact-extractors/identity.mjs'
+import { digestValue, stable } from '../../tools/fact-extractors/lib/canonicalize.mjs'
+import {
+  joinBehaviorEvidencePostRuntime,
+  joinVerifiedPostRuntimeObservations,
+  root,
+  validatePostRuntimeReceipt,
+  validatePostRuntimeSchedulerEvidence
+} from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs'
+import { RunEvidenceObjectStore } from '../../tools/test-matrix/content-addressed-evidence-store.mjs'
+import {
+  acquireSchedulerRunLock,
+  createSchedulerTierAdmission,
+  schedulerCandidateIdentityDigest,
+  writeSchedulerTierAdmission
+} from '../../tools/test-matrix/scheduler-run-owner.mjs'
+import {
+  beginCurrentRunEvidencePublication,
+  finalizeCurrentRunEvidencePublication
+} from '../../tools/test/current-run-evidence-publication.mjs'
+
+const catalog = JSON.parse(fs.readFileSync(path.join(root,
+  'config/contracts/behavior-contracts.json'), 'utf8'))
+const registry = JSON.parse(fs.readFileSync(path.join(root,
+  'config/testing/post-runtime-producer-registry.json'), 'utf8'))
+const producer = registry.producers[0]
+const contract = catalog.contracts.find(({ id }) => id === producer.behaviorId)
+const commit = resolveSourceCommit(root)
+const worktreeFingerprint = resolveWorktreeFingerprint(root)
+const runId = 'issue2209-join-current-0001'
+const namespace = 'issue2209-join-current'
+const attemptId = 'attempt-0001'
+const buildDigest = `sha256:${'d'.repeat(64)}`
+const candidate = {
+  candidateId: `${runId}:candidate`,
+  runId,
+  attemptId,
+  fixtureId: `${runId}:fixture`,
+  profileId: 'acceptance-representative',
+  runtimeId: `${runId}:runtime`,
+  browserId: `${runId}:browser-contract`,
+  releaseId: `20260921000000-${commit.slice(0, 12)}`,
+  rolloutId: `${runId}-rollout`
+}
+const seal = (value) => {
+  const content = structuredClone(value)
+  delete content.contentDigest
+  return { ...content, contentDigest: `sha256:${digestValue(content)}` }
+}
+const reference = (name, contentDigest = `sha256:${digestValue({ name })}`) => ({
+  path: `.tmp/issue2209/${name}.json`,
+  fileDigest: `sha256:${digestValue({ bytes: name })}`,
+  contentDigest
+})
+
+function preRuntime()
+{
+  return seal({
+    schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
+    scope: 'pre-runtime',
+    runIdentity: runId,
+    sourceIdentity: { commit, worktreeFingerprint: `sha256:${worktreeFingerprint}` },
+    buildIdentities: {},
+    catalogDigest: `sha256:${digestCatalog(catalog)}`,
+    registryDigest: `sha256:${'3'.repeat(64)}`,
+    staticAdmissionDigest: `sha256:${'4'.repeat(64)}`,
+    behaviorGraphDigest: `sha256:${'5'.repeat(64)}`,
+    testEvidenceDigests: [`sha256:${'6'.repeat(64)}`],
+    rawResultDigests: { testEvidence: `sha256:${'7'.repeat(64)}` },
+    mutationEvidenceDigest: null,
+    behaviorIds: [producer.behaviorId],
+    requiredTestKinds: { [producer.behaviorId]: [] },
+    observedTestKinds: { [producer.behaviorId]: [] },
+    mutationStatus: {
+      [producer.behaviorId]: {
+        behaviorId: producer.behaviorId,
+        mutationRequired: false,
+        mutationStatus: 'not-applicable',
+        qualified: true,
+        failures: []
+      }
     },
-    schedulerRunId: 'post-runtime-clean-attempt'
-});
-test.after(() => correctnessAttemptFixture.cleanup());
-const stable = (value) => Array.isArray(value)
-    ? value.map(stable)
-    : value && typeof value === 'object'
-        ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
-        : value;
-const seal = (value) =>
-{
-    const receipt = { ...value, contentDigest: null };
-    const content = { ...receipt };
-    delete content.contentDigest;
-    receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')}`;
-    return receipt;
-};
-
-function catalog()
-{
-    return {
-        schema: 'fsusblog.behavior-contract-catalog.v1',
-        digestAlgorithm: 'sha256',
-        canonicalSerialization: 'json-utf8-v1',
-        domains: ['testing'],
-        extractors: [{ id: 'runtime-facts', path: 'tools/runtime-facts.mjs' }],
-        contracts: [{
-            id: 'browserless-production-correctness',
-            domain: 'testing',
-            risk: 'critical',
-            status: 'active',
-            implementationOwnerCardinality: 'one',
-            allowedImplementationOwnerRoles: [],
-            factExtractorId: 'runtime-facts',
-            requiredTestKinds: ['runtime'],
-            documentationPolicy: 'required',
-            documentationRationale: 'Candidate behavior must be observed.',
-            allowedClaimTypes: ['behavioral'],
-            releaseQualification: true,
-            evidenceStage: 'post-runtime',
-            runtimeEvidence: {
-                producerTierId: 'production-correctness',
-                observationSchema: 'fsusblog.browserless-correctness-receipt.v1'
-            },
-            coverageIds: ['production-correctness'],
-            documents: ['docs/testing.md']
-        }]
-    };
+    staticClaimVerificationDigest: '8'.repeat(64),
+    missing: [],
+    orphans: [],
+    conflicts: [],
+    runtimeCandidateSpawnCountBeforeReceipt: 0,
+    status: 'ok',
+    failureReasons: []
+  })
 }
 
-function preRuntime(behaviorCatalog)
+function candidateContext()
 {
-    return seal({
-        schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
-        scope: 'pre-runtime',
-        runIdentity: runId,
-        sourceIdentity: { commit, worktreeFingerprint: `sha256:${worktreeFingerprint}` },
-        buildIdentities: {},
-        registryDigest: `sha256:${'3'.repeat(64)}`,
-        catalogDigest: `sha256:${digestCatalog(behaviorCatalog)}`,
-        staticClaimVerificationDigest: `sha256:${'c'.repeat(64)}`,
-        behaviorIds: [],
-        runtimeCandidateSpawnCountBeforeReceipt: 0,
-        status: 'ok',
-        failureReasons: []
-    });
+  return seal({
+    schema: 'fsusblog.post-runtime-candidate-context.v1',
+    preRuntimeReceiptRef: {
+      path: '.tmp/issue2209/pre.json',
+      fileDigest: `sha256:${'1'.repeat(64)}`,
+      contentDigest: preRuntime().contentDigest,
+      schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1'
+    },
+    sourceState: { commit, worktreeFingerprint: `sha256:${worktreeFingerprint}` },
+    candidate,
+    status: 'planned-before-runtime'
+  })
 }
 
-function candidateFixture(context)
+function claimsFixture(context)
 {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-'));
-    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const repositoryRoot = path.join(directory, 'repo');
-    const artifactRoot = path.join(directory, 'build');
-    fs.mkdirSync(path.join(repositoryRoot, 'inputs'), { recursive: true });
-    fs.mkdirSync(path.join(artifactRoot, 'frontend-dist'), { recursive: true });
-    fs.writeFileSync(path.join(repositoryRoot, 'inputs', 'lock.json'), '{}\n');
-    fs.writeFileSync(path.join(artifactRoot, 'frontend-dist', 'index.html'), '<!doctype html>\n');
-    const sourceState = { commit, worktreeFingerprint };
-    const build = createProductionBuildReceipt({
-        root: repositoryRoot,
-        artifactRoot,
-        sourceState,
-        producer: { workflow: 'fixture', runId, runAttempt: 1, job: 'production-build-artifacts' },
-        toolchain: {
-            node: 'v24.0.0', npm: '11.0.0', dotnet: '10.0.100', vite: '7.0.0',
-            vitest: '3.0.0', playwright: '1.55.0', emsdk: '4.0.0'
-        },
-        inputPaths: ['inputs'],
-        domains: [{ name: 'frontend-dist', path: 'frontend-dist' }],
-        now: () => new Date('2026-08-27T00:00:00.000Z')
-    });
-    const correctness = createBrowserlessCorrectnessReceipt({
-        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
-        matrix: { tiers: [{ id: 'production-correctness', dependsOn: [], requiresPlaywright: 'none' }] },
-        buildReceipt: build,
-        buildReceiptPath: 'build/receipt.json',
-        jobSummaries: [{
-            schema: 'fsusblog.ci.job-result.v1',
-            jobId: 'production-correctness',
-            status: 'success',
-            evidenceClass: 'correctness',
-            affectsCorrectness: true,
-            commit,
-            tierIds: ['production-correctness'],
-            testIds: ['tier:production-correctness'],
-            schedulerRunId: runId
-        }],
-        authority: { kind: 'scheduler-checkpoint', status: 'success', runId, authoritative: true },
-        now: () => new Date('2026-08-27T00:01:00.000Z')
-    });
-    const browserPlan = seal({
-        schema: 'fsusblog.playwright-browser-identity.v1',
-        executionClass: 'correctness', evidenceClass: 'browser-contract',
-        qualificationEligible: true, managedExecutable: true,
-        browserName: 'chromium', browserVersion: '140.0.0', revision: '123456',
-        executablePath: '/managed/chromium-123456/chrome',
-        executableSha256: `sha256:${'f'.repeat(64)}`,
-        playwright: { package: '@playwright/test', version: '1.59.1' },
-        launchOptions: { headless: true, executablePath: '/managed/chromium-123456/chrome', args: [] },
-        rendering: {
-            fontSetDigest: `sha256:${'1'.repeat(64)}`,
-            localeDataDigest: `sha256:${'2'.repeat(64)}`,
-            locale: 'zh-CN', deviceScaleFactor: 1, renderingMode: 'headless',
-            colorScheme: 'light', gpuMode: 'software'
-        }
-    });
-    const browserActual = seal({
-        ...structuredClone(browserPlan),
-        schema: 'fsusblog.playwright-browser-actual.v1',
-        planDigest: browserPlan.contentDigest,
-        renderingObservation: {
-            locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light',
-            renderer: 'SwiftShader fixture renderer'
-        }
-    });
-    const browserContract = sealBrowserContractReceipt({
-        schema: 'fsusblog.browser-contract-receipt.v2',
-        status: 'success',
-        classification: 'clean',
-        runIdentity: { runId },
-        sourceState,
-        build: {
-            receipt: 'build/receipt.json',
-            receiptContentDigest: build.contentDigest,
-            sourceState,
-            profile: build.build.profile
-        },
-        fixture: { namespace: 'browser-contract-post-runtime' },
-        playwright: {
-            chromiumRevision: '123456', chromiumVersion: '140.0.0',
-            browserIdentity: { plan: browserPlan, actual: browserActual }
-        },
-        topology: {
-            runner: 'playwright-library', browserType: 'chromium', managedBrowser: true,
-            workerPool: false, shard: null, retries: 0, browserLaunchCount: 1,
-            maxConcurrentBrowserRoots: 1, contextCount: 1
-        },
-        scenarios: [{ id: 'runtime-contract', status: 'success', classification: 'clean', issues: [], artifacts: [] }],
-        publicPreview: {
-            schema: 'fsusblog.public-preview-screenshot-verification.v1',
-            status: 'ok',
-            sourceCommit: commit,
-            releaseId: `20260827000000-${commit.slice(0, 12)}`,
-            manifestSchema: 'fsusblog.public-preview-screenshot-manifest.v1',
-            visualInputDigest: 'c'.repeat(64),
-            runtimeAudit: true,
-            layoutAudit: true,
-            sanitizationCheck: true,
-            images: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`screenshot-${index + 1}`, `${index + 1}`.repeat(64)])),
-            differences: [],
-            commandVersion: 'd'.repeat(64),
-            captureContextCount: 9,
-            evidencePath: '.tmp/release-evidence/public-preview-screenshots.json',
-            evidenceFileDigest: `sha256:${'e'.repeat(64)}`
-        },
-        startedAt: '2026-08-27T00:00:00.000Z',
-        finishedAt: '2026-08-27T00:00:01.000Z',
-        wallClockMs: 1_000,
-        error: null
-    });
-    return { build, correctness, browserContract };
+  const claimsRoot = path.join(root, '.tmp/issue2209-claims')
+  const authority = registry.receiptSemantics.acceptedTerminalAuthority
+  const directory = path.join(root, authority.referenceRoot, runId, attemptId)
+  fs.rmSync(claimsRoot, { recursive: true, force: true })
+  fs.rmSync(directory, { recursive: true, force: true })
+  fs.mkdirSync(claimsRoot, { recursive: true })
+  fs.mkdirSync(directory, { recursive: true })
+  context.after(() => fs.rmSync(claimsRoot, { recursive: true, force: true }))
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+
+  const ledger = JSON.parse(fs.readFileSync(path.join(root,
+    'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
+  const claimAcceptance = ledger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
+    entry.claimIds.map((claimId, index) => ({
+      claimId,
+      behaviorId: entry.behaviorId,
+      scopeId: scope.scopeId,
+      documentPath: entry.documentPath,
+      claimType: entry.generatedSectionIds[index] ? 'generated-section' : 'prose',
+      generatedSectionId: entry.generatedSectionIds[index] ?? null,
+      claimDigest: `sha256:${digestValue({ claimId })}`
+    })))).sort((left, right) => left.claimId.localeCompare(right.claimId))
+  const generatedClaimCount = claimAcceptance
+    .filter(({ claimType }) => claimType === 'generated-section').length
+  const terminal = {
+    schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
+    scopeId: 'global-document-claim-exactness',
+    runId,
+    claimAcceptance,
+    source: {
+      sourceCommit: commit,
+      worktreeFingerprint,
+      catalogDigest: '1'.repeat(64),
+      migrationLedgerDigest: digestValue(ledger),
+      sectionCatalogDigest: '2'.repeat(64),
+      observationDigests: {}
+    },
+    authorityDigests: [],
+    counts: {
+      requiredBehaviors: 10,
+      scopes: 6,
+      ledgerEntries: 10,
+      generatedClaimCount,
+      proseClaimCount: claimAcceptance.length - generatedClaimCount,
+      proseTotal: 1,
+      proseVerified: 1,
+      generatedSectionsVerified: 1,
+      generatedSectionDrifts: 0,
+      missing: 0,
+      extra: 0,
+      residue: 0,
+      mutationKilled: 1,
+      mutationTotal: 1,
+      warnings: 0
+    },
+    mutationAggregate: { killed: 1, total: 1 },
+    residue: [],
+    proseVerification: {},
+    status: 'ok',
+    failureReasons: [],
+    contentDigest: null
+  }
+  terminal.contentDigest = digestValue(terminal)
+  const contextValue = candidateContext()
+  const publicationContext = {
+    schema: 'fsusblog.current-run-evidence-context.v1',
+    schedulerRunId: runId,
+    attemptId,
+    sourceCommit: commit,
+    worktreeFingerprint: `sha256:${worktreeFingerprint}`,
+    candidateIdentity: { id: candidate.candidateId, digest: contextValue.contentDigest },
+    buildIdentity: { id: `${runId}:build`, digest: buildDigest },
+    ownedRoots: [path.relative(root, directory).replaceAll(path.sep, '/')]
+  }
+  publicationContext.contentDigest = `sha256:${digestValue(publicationContext)}`
+  const outputPath = path.relative(root, path.join(directory,
+    authority.referenceName)).replaceAll(path.sep, '/')
+  const payloadPath = path.relative(root, path.join(directory,
+    authority.payloadName)).replaceAll(path.sep, '/')
+  const options = {
+    authorityId: authority.authorityId,
+    producerId: authority.producerId,
+    context: publicationContext,
+    outputPath,
+    payloadPath,
+    repositoryRoot: root
+  }
+  const session = beginCurrentRunEvidencePublication(options)
+  fs.writeFileSync(path.join(root, payloadPath), `${JSON.stringify(terminal, null, 2)}\n`)
+  finalizeCurrentRunEvidencePublication({
+    ...options,
+    sessionId: session.sessionId,
+    payloadSchema: terminal.schema,
+    terminalStatus: 'success'
+  })
+  const claims = buildPostRuntimeAcceptedClaimsReceipt({
+    terminalReceiptPath: outputPath,
+    expectedRunId: runId,
+    repositoryRoot: root
+  })
+  return {
+    claims,
+    claimsReference: reference('accepted-claims', claims.contentDigest),
+    candidateContext: contextValue
+  }
 }
 
-test('post-runtime join seals exact pre/runtime/browser candidate evidence', (context) =>
+function aggregateObservations(pre)
 {
-    const behaviorCatalog = catalog();
-    const candidate = candidateFixture(context);
-    const receipt = joinBehaviorEvidencePostRuntime({
-        preRuntimeReceipt: preRuntime(behaviorCatalog),
-        catalog: behaviorCatalog,
-        browserContractReceipt: candidate.browserContract,
-        runtimeEvidenceReceipts: [candidate.correctness]
-    });
-    assert.equal(validatePostRuntimeReceipt(receipt).status, 'ok', receipt.failureReasons.join('; '));
-    assert.equal(receipt.candidateIdentity.buildReceiptDigest, candidate.build.contentDigest);
-    assert.equal(receipt.candidateIdentity.browserContractDigest, candidate.browserContract.contentDigest);
-});
+  const requiredClasses = [...new Set(Object.values(producer.requiredObservations).flat())].sort()
+  const applicationClasses = requiredClasses.filter((classId) =>
+    !['blue-green-containment', 'release-identity-readiness'].includes(classId))
+  const releaseClasses = requiredClasses.filter((classId) =>
+    !applicationClasses.includes(classId))
+  const make = (scope, classes) => seal({
+    schema: 'fsusblog.post-runtime-observation-receipt.v1',
+    scope,
+    behaviorId: producer.behaviorId,
+    producerId: producer.producerId,
+    sourceState: { commit, worktreeFingerprint: `sha256:${worktreeFingerprint}` },
+    candidate,
+    build: {
+      receipt: '.tmp/issue2209/build.json',
+      receiptContentDigest: buildDigest,
+      sourceState: { commit, worktreeFingerprint: `sha256:${worktreeFingerprint}` },
+      profile: 'production'
+    },
+    buildReceiptDigest: buildDigest,
+    candidatePlanDigest: `sha256:${'9'.repeat(64)}`,
+    candidatePlanRef: {
+      path: '.tmp/issue2209/plan.json',
+      fileDigest: `sha256:${'a'.repeat(64)}`,
+      contentDigest: `sha256:${'9'.repeat(64)}`,
+      schema: 'fsusblog.post-runtime-candidate-plan.v1'
+    },
+    preRuntimeReceiptDigest: pre.contentDigest,
+    acceptedClaimsReceiptDigest: `sha256:${'b'.repeat(64)}`,
+    acceptedClaimsReceiptRef: {
+      path: '.tmp/issue2209/accepted-claims.json',
+      fileDigest: `sha256:${'c'.repeat(64)}`,
+      contentDigest: `sha256:${'b'.repeat(64)}`,
+      schema: 'fsusblog.post-runtime-accepted-claims.v1'
+    },
+    acceptedClaimRefs: [...producer.acceptedClaimRefs].sort(),
+    requiredClasses: classes,
+    observedClasses: classes,
+    observations: classes.map((classId) => ({
+      classId,
+      receiptDigest: `sha256:${digestValue({ classId, receipt: true })}`,
+      classReceiptRef: {
+        path: `.tmp/issue2209/classes/${classId}.json`,
+        fileDigest: `sha256:${digestValue({ classId, bytes: true })}`,
+        contentDigest: `sha256:${digestValue({ classId, receipt: true })}`,
+        schema: 'fsusblog.post-runtime-class-receipt.v1',
+        role: 'class'
+      },
+      modes: Object.entries(producer.requiredObservations)
+        .filter(([, values]) => values.includes(classId))
+        .map(([mode]) => mode)
+        .sort(),
+      rawResultRef: {
+        path: `.tmp/issue2209/raw/${classId}.json`,
+        fileDigest: `sha256:${digestValue({ classId, rawBytes: true })}`,
+        contentDigest: `sha256:${digestValue({ classId, raw: true })}`,
+        schema: registry.observationClasses[classId].schema,
+        role: 'raw-result'
+      },
+      semanticFacts: { classId, verified: true }
+    })),
+    status: 'qualified',
+    failureReasons: []
+  })
+  return [
+    make('application', applicationClasses),
+    make('release-deployment', releaseClasses)
+  ]
+}
 
-test('HTTP 200, diagnostic browser evidence, stale candidate and missing browser cannot qualify', (context) =>
+function schedulerFixture(context, pre)
 {
-    const behaviorCatalog = catalog();
-    const pre = preRuntime(behaviorCatalog);
-    const candidate = candidateFixture(context);
-    const cases = [
-        {
-            name: 'HTTP 200 only',
-            browserContractReceipt: candidate.browserContract,
-            runtimeEvidenceReceipts: [{ schema: 'fsusblog.browserless-correctness-receipt.v1', httpStatus: 200 }]
-        },
-        {
-            name: 'diagnostic browser receipt',
-            browserContractReceipt: { schema: 'fsusblog.browser-diagnostics-receipt.v1', status: 'success' },
-            runtimeEvidenceReceipts: [candidate.correctness]
-        },
-        {
-            name: 'stale candidate',
-            browserContractReceipt: candidate.browserContract,
-            runtimeEvidenceReceipts: [{ ...candidate.correctness, sourceState: { ...candidate.correctness.sourceState, commit: 'd'.repeat(40) } }]
-        },
-        {
-            name: 'missing browser contract',
-            runtimeEvidenceReceipts: [candidate.correctness]
+  const runsRoot = path.join(root, '.tmp/test-runs')
+  const runDirectory = path.join(runsRoot, runId)
+  const lockDirectory = path.join(runsRoot, '.locks', `${runId}.lock`)
+  fs.rmSync(runDirectory, { recursive: true, force: true })
+  fs.rmSync(lockDirectory, { recursive: true, force: true })
+  const candidateDigest = schedulerCandidateIdentityDigest({
+    runId,
+    targetTierId: 'release-final',
+    namespace,
+    sourceState: { commit, worktreeFingerprint },
+    budgetPolicyDigest: null
+  })
+  const lock = acquireSchedulerRunLock({
+    runsRoot,
+    runId,
+    candidateIdentityDigest: candidateDigest,
+    targetTierId: 'release-final'
+  })
+  assert.equal(lock.markRunning(), true)
+  context.after(() => {
+    lock.finalize('complete')
+    fs.rmSync(runDirectory, { recursive: true, force: true })
+    fs.rmSync(lockDirectory, { recursive: true, force: true })
+  })
+  const store = new RunEvidenceObjectStore({
+    root: path.join(runDirectory, 'evidence-store'),
+    runId,
+    sourceState: { commit, worktreeFingerprint }
+  })
+  const admission = createSchedulerTierAdmission({
+    runId,
+    targetTierId: 'release-final',
+    currentTierId: 'behavior-evidence-post-runtime',
+    namespace,
+    mode: 'fresh',
+    sourceState: { commit, worktreeFingerprint },
+    schedulerCandidateIdentityDigest: candidateDigest,
+    schedulerOwnerToken: lock.owner.ownerToken,
+    budgetPolicyDigest: null,
+    schedulerCheckpointRevision: 1,
+    admissionSequence: 1,
+    activeTierIds: [],
+    releaseFinalSpawnCountBeforeAdmission: 0
+  })
+  const published = writeSchedulerTierAdmission({ runsRoot, admission })
+  const schedulerReference = {
+    path: path.relative(root, published.file).replaceAll(path.sep, '/'),
+    fileDigest: published.fileDigest,
+    contentDigest: published.contentDigest
+  }
+  store.appendJournalEvent({
+    eventType: 'tier-admitted',
+    tier: admission.currentTierId,
+    step: 'scheduler',
+    status: 'running',
+    payload: {
+      operations: [{
+        kind: 'set',
+        path: ['schedulerAdmissions', admission.currentTierId],
+        value: {
+          schema: published.schema,
+          ref: schedulerReference.path,
+          fileDigest: schedulerReference.fileDigest,
+          contentDigest: schedulerReference.contentDigest,
+          currentTierId: published.currentTierId,
+          admissionSequence: published.admissionSequence
         }
-    ];
-    for (const scenario of cases)
-    {
-        const receipt = joinBehaviorEvidencePostRuntime({ preRuntimeReceipt: pre, catalog: behaviorCatalog, ...scenario });
-        assert.equal(receipt.status, 'failed', scenario.name);
-        assert.ok(receipt.failureReasons.length > 0, scenario.name);
+      }]
     }
-});
+  })
+  assert.equal(validatePostRuntimeSchedulerEvidence({
+    admission,
+    reference: schedulerReference,
+    preRuntimeReceipt: pre,
+    repositoryRoot: root
+  }).contentDigest, admission.contentDigest)
+  return { admission, schedulerReference }
+}
 
-test('post-runtime receipt refuses release-final spawn before sealing', (context) =>
+function inputs(context)
 {
-    const behaviorCatalog = catalog();
-    const candidate = candidateFixture(context);
-    const receipt = joinBehaviorEvidencePostRuntime({
-        preRuntimeReceipt: preRuntime(behaviorCatalog),
-        catalog: behaviorCatalog,
-        browserContractReceipt: candidate.browserContract,
-        runtimeEvidenceReceipts: [candidate.correctness],
-        releaseFinalSpawnCountBeforeReceipt: 1
-    });
-    assert.equal(receipt.status, 'failed');
-    assert.throws(() => validatePostRuntimeReceipt(receipt), /must be 0/u);
-});
+  const pre = preRuntime()
+  const claims = claimsFixture(context)
+  const scheduler = schedulerFixture(context, pre)
+  const observations = aggregateObservations(pre)
+  return {
+    preRuntimeReceipt: pre,
+    catalog: structuredClone(catalog),
+    registry: structuredClone(registry),
+    observations,
+    observationReferences: observations.map((receipt) => ({
+      scope: receipt.scope,
+      ...reference(`${receipt.scope}-observation`, receipt.contentDigest)
+    })),
+    acceptedClaims: claims.claims,
+    acceptedClaimsReference: claims.claimsReference,
+    candidateContext: claims.candidateContext,
+    schedulerAdmission: scheduler.admission,
+    schedulerReference: scheduler.schedulerReference,
+    repositoryRoot: root
+  }
+}
+
+test('joins current application and release/deployment aggregates into one exact receipt', (context) =>
+{
+  const value = inputs(context)
+  const receipt = joinVerifiedPostRuntimeObservations(value)
+  assert.equal(validatePostRuntimeReceipt(receipt).contentDigest, receipt.contentDigest)
+  assert.deepEqual(receipt.behaviorIds, [producer.behaviorId])
+  assert.deepEqual(receipt.requiredRuntimeProducers, [producer.producerId])
+  assert.equal(receipt.observedBehaviorResults.length, 7)
+  assert.equal(receipt.releaseFinalSpawnCountBeforeReceipt, 0)
+  assert.equal(receipt.candidateIdentity.releaseId, candidate.releaseId)
+  assert.equal(Object.keys(receipt.documentClaimDigests).length,
+    producer.acceptedClaimRefs.length)
+  assert.equal(receipt.executionIdentity.schedulerRunId, runId)
+  assert.equal(receipt.observedBehaviorResults.every(({ extractorId }) =>
+    extractorId === contract.factExtractorId), true)
+})
+
+test('missing, duplicate, extra and cross-scope observations fail closed', (context) =>
+{
+  const cases = [
+    ['missing class', (value) => value.observations[0].observations.pop()],
+    ['duplicate class', (value) => value.observations[1].observations.push(
+      structuredClone(value.observations[0].observations[0]))],
+    ['extra class', (value) => value.observations[0].observations.push({
+      ...structuredClone(value.observations[0].observations[0]),
+      classId: 'unknown-class'
+    })],
+    ['cross candidate', (value) => { value.observations[1].candidate.runtimeId = 'other-runtime' }],
+    ['duplicate scope', (value) => { value.observations[1].scope = 'application' }]
+  ]
+  for (const [name, mutate] of cases)
+  {
+    const value = inputs(context)
+    mutate(value)
+    assert.throws(() => joinVerifiedPostRuntimeObservations(value), undefined, name)
+  }
+})
+
+test('diagnostic, recovered, stale and claim-downgraded aggregates cannot qualify', (context) =>
+{
+  const cases = [
+    ['diagnostic', (value) => { value.observations[0].status = 'diagnostic' }],
+    ['recovered', (value) => { value.observations[1].status = 'recovered' }],
+    ['stale pre-runtime', (value) => {
+      value.observations[0].preRuntimeReceiptDigest = `sha256:${'f'.repeat(64)}`
+    }],
+    ['claim downgrade', (value) => { value.acceptedClaims.claims.pop() }],
+    ['catalog drift', (value) => { value.preRuntimeReceipt.catalogDigest = `sha256:${'f'.repeat(64)}` }]
+  ]
+  for (const [name, mutate] of cases)
+  {
+    const value = inputs(context)
+    mutate(value)
+    assert.throws(() => joinVerifiedPostRuntimeObservations(value), undefined, name)
+  }
+})
+
+test('scheduler proof rejects early release-final spawn and stale owner evidence', (context) =>
+{
+  const early = inputs(context)
+  early.schedulerAdmission = seal({
+    ...early.schedulerAdmission,
+    releaseFinalSpawnCountBeforeAdmission: 1
+  })
+  assert.throws(() => joinVerifiedPostRuntimeObservations(early),
+    /release-final was spawned/u)
+
+  const stale = inputs(context)
+  stale.schedulerAdmission.schedulerOwnerToken = 'stale-owner'
+  assert.throws(() => joinVerifiedPostRuntimeObservations(stale),
+    /not live and exact|path identity/u)
+})
+
+test('closed receipt validation rejects owner, class, count and digest tamper', (context) =>
+{
+  const receipt = joinVerifiedPostRuntimeObservations(inputs(context))
+  const cases = [
+    [(value) => { value.observedBehaviorResults[0].producerId = 'other-producer' },
+      /producer classes/u],
+    [(value) => { value.observedProducerClasses[producer.producerId].pop() },
+      /producer classes/u],
+    [(value) => { value.findingCounts.stale = 1 }, /finding counts/u],
+    [(value) => { value.releaseFinalSpawnCountBeforeReceipt = 1 }, /schema validation/u],
+    [(value) => { value.unknown = true }, /schema validation/u]
+  ]
+  for (const [mutate, expected] of cases)
+  {
+    const changed = structuredClone(receipt)
+    mutate(changed)
+    changed.contentDigest = `sha256:${digestValue(
+      Object.fromEntries(Object.entries(changed).filter(([key]) => key !== 'contentDigest'))
+    )}`
+    assert.throws(() => validatePostRuntimeReceipt(changed), expected)
+  }
+  const digestTamper = structuredClone(receipt)
+  digestTamper.documentClaimTerminalDigest = `sha256:${'f'.repeat(64)}`
+  assert.throws(() => validatePostRuntimeReceipt(digestTamper), /contentDigest mismatch/u)
+})
+
+test('path join requires two persisted aggregates and invokes both independent producer verifiers', () =>
+{
+  assert.throws(() => joinBehaviorEvidencePostRuntime({
+    preRuntimeReceipt: '.tmp/issue2209/pre.json',
+    observationReceipts: []
+  }), /exactly two aggregate observation/u)
+  assert.throws(() => joinBehaviorEvidencePostRuntime({
+    preRuntimeReceipt: '.tmp/history/pre.json',
+    observationReceipts: ['a.json', 'b.json']
+  }), /current-run/u)
+  const source = fs.readFileSync(path.join(root,
+    'tools/test-matrix/behavior-evidence-post-runtime.mjs'), 'utf8')
+  assert.match(source, /validateApplicationRuntimeObservation\(input\.value/u)
+  assert.match(source, /validateReleaseDeploymentObservation\(input\.value/u)
+  assert.match(source, /validatePostRuntimeAcceptedClaimsValue\(/u)
+  assert.match(source, /schedulerTierAdmissionActivity\(/u)
+  assert.doesNotMatch(source, /(?:spawn|execFile|execSync)\(/u)
+  assert.doesNotMatch(source, /produceApplicationRuntimeObservation|produceReleaseDeploymentObservation/u)
+  assert.doesNotMatch(source, /readFileSync\([^)]*(?:docs\/|\.md)/u)
+  const bundle = fs.readFileSync(path.join(root,
+    'tools/test/bundles/behavior-evidence-post-runtime.sh'), 'utf8')
+  assert.match(bundle, /application-runtime-observation-producer\.json/u)
+  assert.match(bundle, /release-deployment-observation-producer\.json/u)
+  assert.match(bundle, /--observation "\$APPLICATION"[\s\S]*--observation "\$RELEASE"/u)
+  assert.doesNotMatch(bundle,
+    /application-runtime\.mjs|release-deployment\.mjs|post-runtime-observation-producers/u)
+})

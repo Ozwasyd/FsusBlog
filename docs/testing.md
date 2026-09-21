@@ -1008,6 +1008,10 @@ Registry v2 fixes exact positive/negative/boundary/failure membership, producer 
 
 `fsusblog.post-runtime-accepted-claims.v1` only accepts #2205 accepted terminal authority. The validator rereads `fsusblog.global-claim-exactness-terminal-receipt.v1` through explicit current-run path, recalculates file SHA-256 and canonical content digest, and replays the terminal validator; source/worktree, migration-ledger digest, producer/tool ​​version must be exactly consistent with the complete claim set. The validator only reads existing terminal receipts and does not run or repair upstream evidence.
 
+The #2209 join consumes exactly the sealed `application` and `release-deployment` aggregate observation receipts. Each aggregate is independently replayed through its #2207/#2208 verifier before the join compares source, worktree, build, candidate, runtime, browser, release, rollout, run and attempt identities. Their class union must equal the current registry closure exactly once, and their accepted-claims reference must bind the same candidate-context digest and build receipt digest. Missing, duplicate, extra, diagnostic, recovered, stale, cross-candidate or claim-downgraded inputs fail closed; the join never executes a producer or reads Markdown.
+
+Before sealing `fsusblog.behavior-evidence-post-runtime-receipt.v1`, the join verifies the persisted scheduler tier admission against its live owner and journal. The admission must be for the current `behavior-evidence-post-runtime` tier in the fresh `release-final` graph, with `releaseFinalSpawnCountBeforeAdmission=0` and no active `release-final` tier. The receipt stores the two aggregate references, per-class raw/class/semantic digests, exact claim digests, categorized zero findings and the scheduler evidence reference. Its independent verifier reopens all current inputs and requires an exact replay digest.
+
 Focused validation：
 
 ```bash

@@ -61,18 +61,67 @@ function fixture(overrides = {})
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
         buildIdentities: {}, registryDigest: `sha256:${'3'.repeat(64)}`,
-        catalogDigest: `sha256:${catalogHash}`, staticClaimVerificationDigest: `sha256:${'c'.repeat(64)}`,
+        catalogDigest: `sha256:${catalogHash}`,
+        staticAdmissionDigest: `sha256:${'4'.repeat(64)}`,
+        behaviorGraphDigest: `sha256:${'5'.repeat(64)}`,
+        testEvidenceDigests: [`sha256:${'6'.repeat(64)}`],
+        rawResultDigests: { testEvidence: `sha256:${'7'.repeat(64)}` },
+        mutationEvidenceDigest: null,
+        staticClaimVerificationDigest: 'c'.repeat(64),
         behaviorIds: ['alpha-behavior'], requiredTestKinds: { 'alpha-behavior': ['positive'] },
         observedTestKinds: { 'alpha-behavior': ['positive'] }, mutationStatus: {},
+        missing: [], orphans: [], conflicts: [],
         runtimeCandidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: []
     });
     const post = seal({
         schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
-        candidateIdentity: { buildReceiptDigest: `sha256:${'d'.repeat(64)}`, runtimeEvidenceDigest: `sha256:${'e'.repeat(64)}`, browserContractDigest: `sha256:${'f'.repeat(64)}` },
-        preRuntimeReceiptDigest: pre.contentDigest, catalogDigest: `sha256:${catalogHash}`,
-        behaviorIds: [], requiredRuntimeProducers: [], observedBehaviorResults: [], documentClaimDigests: {},
-        missing: [], orphans: [], conflicts: [], releaseFinalSpawnCountBeforeReceipt: 0,
+        candidateIdentity: {
+            sourceCommit: commit, worktreeFingerprint: `sha256:${fingerprint}`,
+            buildIdentity: `sha256:${'d'.repeat(64)}`,
+            candidateId: 'candidate-1', fixtureId: 'fixture-1', profileId: 'release', runId,
+            attemptId: 'attempt-0001', runtimeId: 'runtime-1', browserId: 'chromium-1',
+            releaseId: 'release-1', rolloutId: 'rollout-1'
+        },
+        executionIdentity: {
+            commit, worktreeFingerprint: `sha256:${fingerprint}`, schedulerRunId: runId,
+            attemptId: 'attempt-0001', candidateIdentityDigest: `sha256:${'e'.repeat(64)}`,
+            buildIdentityDigest: `sha256:${'f'.repeat(64)}`
+        },
+        preRuntimeReceiptDigest: pre.contentDigest,
+        staticClaimVerificationDigest: `sha256:${pre.staticClaimVerificationDigest}`,
+        catalogDigest: `sha256:${catalogHash}`, registryDigest: `sha256:${'1'.repeat(64)}`,
+        behaviorIds: ['alpha-post'], requiredRuntimeProducers: ['alpha-post-producer'],
+        requiredObservationScopes: ['application', 'release-deployment'],
+        requiredProducerClasses: { 'alpha-post-producer': ['route-response-error'] },
+        observedProducerClasses: { 'alpha-post-producer': ['route-response-error'] },
+        observedBehaviorResults: [{
+            behaviorId: 'alpha-post', extractorId: 'alpha-post-producer', status: 'ok',
+            producerId: 'alpha-post-producer', scope: 'application',
+            classId: 'route-response-error',
+            classReceiptPath: '.tmp/final/class.json',
+            classReceiptDigest: `sha256:${'9'.repeat(64)}`,
+            rawReceiptPath: '.tmp/final/raw.json',
+            rawReceiptDigest: `sha256:${'a'.repeat(64)}`,
+            semanticFactsDigest: `sha256:${'b'.repeat(64)}`
+        }],
+        observationRefs: [
+            { scope: 'application', path: '.tmp/final/application.json', fileDigest: `sha256:${'2'.repeat(64)}`, contentDigest: `sha256:${'3'.repeat(64)}` },
+            { scope: 'release-deployment', path: '.tmp/final/release.json', fileDigest: `sha256:${'4'.repeat(64)}`, contentDigest: `sha256:${'5'.repeat(64)}` }
+        ],
+        acceptedClaimsRef: {
+            path: '.tmp/final/claims.json', fileDigest: `sha256:${'6'.repeat(64)}`,
+            contentDigest: `sha256:${'7'.repeat(64)}`
+        },
+        documentClaimDigests: { 'alpha.current': `sha256:${'8'.repeat(64)}` },
+        documentClaimTerminalDigest: `sha256:${'9'.repeat(64)}`,
+        schedulerEvidence: {
+            path: '.tmp/test-runs/final-round/scheduler-admission.json',
+            fileDigest: `sha256:${'a'.repeat(64)}`, contentDigest: `sha256:${'b'.repeat(64)}`
+        },
+        missing: [], orphans: [], conflicts: [], stale: [], diagnostics: [],
+        findingCounts: { missing: 0, orphans: 0, conflicts: 0, stale: 0, diagnostics: 0 },
+        releaseFinalSpawnCountBeforeReceipt: 0,
         status: 'ok', failureReasons: []
     });
     const owner = seal({ status: 'ok', bindings: [{ behaviorId: 'alpha-behavior', sourcePath: 'src/alpha.cs' }] });

@@ -3,11 +3,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import { RunEvidenceObjectStore } from './content-addressed-evidence-store.mjs';
+
 const { collectProcessGroupOrJobIdentity, collectProcessIdentity, currentProcessIdentity, processGroupOrJobIdentityMatches } = await import(new URL("../test/process-identity.mjs", import.meta.url));
 
 const schedulerCurrentProcessIdentity = currentProcessIdentity();
+const schedulerAdmissionIdentityPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/u;
+const schedulerAdmissionTargetPattern = /^[A-Za-z0-9][A-Za-z0-9_.:/-]*$/u;
+const schedulerAdmissionNamespacePattern = /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/u;
 
 export const schedulerRunOwnerSchema = 'fsusblog.scheduler-run-owner.v1';
+export const schedulerTierAdmissionSchema = 'fsusblog.scheduler-tier-admission.v1';
 export const schedulerRunOwnerObservationSchema = 'fsusblog.scheduler-run-owner-observation.v1';
 export const schedulerRunOwnerCasSchema = 'fsusblog.scheduler-run-owner-cas.v1';
 export const schedulerRunOwnerStates = Object.freeze([
@@ -121,6 +127,114 @@ export function schedulerCandidateIdentityDigest({
         sourceState: { commit, worktreeFingerprint },
         budgetPolicyDigest
     });
+}
+
+export function createSchedulerTierAdmission({
+    runId,
+    targetTierId,
+    currentTierId,
+    namespace,
+    mode,
+    sourceState,
+    schedulerCandidateIdentityDigest: candidateIdentityDigest,
+    schedulerOwnerToken,
+    budgetPolicyDigest = null,
+    schedulerCheckpointRevision,
+    admissionSequence,
+    activeTierIds = [],
+    releaseFinalSpawnCountBeforeAdmission
+})
+{
+    const expectedCandidate = schedulerCandidateIdentityDigest({
+        runId,
+        targetTierId,
+        namespace,
+        sourceState,
+        budgetPolicyDigest
+    });
+    if (candidateIdentityDigest !== expectedCandidate)
+    {
+        throw new Error('scheduler tier admission candidate identity is invalid');
+    }
+    if (!schedulerAdmissionIdentityPattern.test(String(runId ?? ''))
+        || !schedulerAdmissionTargetPattern.test(String(targetTierId ?? ''))
+        || !schedulerAdmissionIdentityPattern.test(String(currentTierId ?? ''))
+        || !schedulerAdmissionNamespacePattern.test(String(namespace ?? ''))
+        || !['fresh', 'resume'].includes(mode)
+        || !schedulerAdmissionIdentityPattern.test(String(schedulerOwnerToken ?? ''))
+        || !Number.isInteger(schedulerCheckpointRevision) || schedulerCheckpointRevision < 1
+        || !Number.isInteger(admissionSequence) || admissionSequence < 1
+        || !Number.isInteger(releaseFinalSpawnCountBeforeAdmission)
+        || releaseFinalSpawnCountBeforeAdmission < 0)
+    {
+        throw new Error('scheduler tier admission identity or count is invalid');
+    }
+    const normalizedActive = [...new Set(activeTierIds.map((value) => String(value).trim()))].sort();
+    if (normalizedActive.some((value) => !schedulerAdmissionIdentityPattern.test(value))
+        || JSON.stringify(normalizedActive) !== JSON.stringify(activeTierIds))
+    {
+        throw new Error('scheduler tier admission active tier ids must be sorted and unique');
+    }
+    if (normalizedActive.includes('release-final') && releaseFinalSpawnCountBeforeAdmission === 0)
+    {
+        throw new Error('scheduler tier admission release-final activity contradicts the spawn count');
+    }
+    return sealOwner({
+        schema: schedulerTierAdmissionSchema,
+        runId,
+        targetTierId,
+        currentTierId,
+        namespace: String(namespace).trim(),
+        mode,
+        sourceState: {
+            commit: String(sourceState.commit).trim(),
+            worktreeFingerprint: String(sourceState.worktreeFingerprint).trim()
+        },
+        schedulerCandidateIdentityDigest: candidateIdentityDigest,
+        schedulerOwnerToken,
+        budgetPolicyDigest,
+        schedulerCheckpointRevision,
+        admissionSequence,
+        activeTierIds: normalizedActive,
+        releaseFinalSpawnCountBeforeAdmission,
+        status: 'admitted'
+    });
+}
+
+export function writeSchedulerTierAdmission({ runsRoot, admission })
+{
+    const recreated = createSchedulerTierAdmission(admission);
+    if (recreated.contentDigest !== admission.contentDigest)
+    {
+        throw new Error('scheduler tier admission content digest mismatch');
+    }
+    const runDirectory = path.join(path.resolve(runsRoot), admission.runId);
+    const directory = path.join(runDirectory, 'scheduler-admissions');
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    if (fs.lstatSync(directory).isSymbolicLink() || fs.realpathSync(directory) !== directory)
+    {
+        throw new Error('scheduler tier admission directory must be canonical');
+    }
+    const file = path.join(directory, `${admission.schedulerOwnerToken}-${admission.admissionSequence}-${admission.currentTierId}.json`);
+    const bytes = `${JSON.stringify(admission, null, 2)}\n`;
+    const descriptor = fs.openSync(file, 'wx', 0o600);
+    try
+    {
+        fs.writeFileSync(descriptor, bytes);
+        fs.fsyncSync(descriptor);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+    return {
+        file,
+        fileDigest: digest(bytes),
+        contentDigest: admission.contentDigest,
+        schema: schedulerTierAdmissionSchema,
+        currentTierId: admission.currentTierId,
+        admissionSequence: admission.admissionSequence
+    };
 }
 
 export function readSchedulerProducerTerminalFailure({
@@ -731,6 +845,86 @@ export function schedulerRunLockActivity({
         ...verification,
         reason: `${observation.expired ? 'grace-expired' : 'within-grace'}:${verification.reason}`
     };
+}
+
+export function schedulerTierAdmissionActivity({ runsRoot, admission, reference })
+{
+    let recreated;
+    try
+    {
+        recreated = createSchedulerTierAdmission(admission);
+    }
+    catch (error)
+    {
+        return { status: 'invalid', reason: error instanceof Error ? error.message : String(error), owner: null };
+    }
+    if (recreated.contentDigest !== admission.contentDigest
+        || reference?.schema !== schedulerTierAdmissionSchema
+        || reference?.contentDigest !== admission.contentDigest
+        || reference?.currentTierId !== admission.currentTierId
+        || reference?.admissionSequence !== admission.admissionSequence)
+    {
+        return { status: 'invalid', reason: 'tier admission reference or content mismatch', owner: null };
+    }
+    const lock = schedulerRunLockActivity({
+        runsRoot,
+        runId: admission.runId,
+        candidateIdentityDigest: admission.schedulerCandidateIdentityDigest,
+        targetTierId: admission.targetTierId
+    });
+    if (lock.status !== 'active')
+    {
+        return lock;
+    }
+    if (lock.owner?.ownerToken !== admission.schedulerOwnerToken)
+    {
+        return { status: 'invalid', reason: 'scheduler tier admission owner token mismatch', owner: lock.owner };
+    }
+    const storeRoot = path.join(path.resolve(runsRoot), admission.runId, 'evidence-store');
+    if (!fs.existsSync(storeRoot))
+    {
+        return { status: 'invalid', reason: 'scheduler evidence store is missing', owner: lock.owner };
+    }
+    try
+    {
+        const store = new RunEvidenceObjectStore({
+            root: storeRoot,
+            runId: admission.runId,
+            sourceState: admission.sourceState
+        });
+        const event = store.readJournal().findLast((entry) => (
+            entry.eventType === 'tier-admitted'
+            && entry.tier === admission.currentTierId
+            && entry.step === 'scheduler'
+        ));
+        if (!event)
+        {
+            return { status: 'invalid', reason: 'scheduler tier admission journal event is missing', owner: lock.owner };
+        }
+        if (event.status !== 'running')
+        {
+            return { status: 'invalid', reason: 'scheduler tier admission journal status is not running', owner: lock.owner };
+        }
+        const patch = store.readObject(event.payloadDigest).value;
+        const operation = (patch?.operations ?? []).find((entry) => (
+            entry.kind === 'set'
+            && JSON.stringify(entry.path) === JSON.stringify(['schedulerAdmissions', admission.currentTierId])
+        ));
+        if (!operation
+            || JSON.stringify(canonicalize(operation.value)) !== JSON.stringify(canonicalize(reference)))
+        {
+            return { status: 'invalid', reason: 'scheduler tier admission journal binding mismatch', owner: lock.owner };
+        }
+    }
+    catch (error)
+    {
+        return {
+            status: 'invalid',
+            reason: `scheduler tier admission journal is invalid: ${error instanceof Error ? error.message : String(error)}`,
+            owner: lock.owner
+        };
+    }
+    return { status: 'active', reason: 'tier-admission-exact', owner: lock.owner };
 }
 
 export function schedulerRunLockIsActive(options)
