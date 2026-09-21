@@ -63,6 +63,14 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, options = {})
     return validateAdmission(receipt, options, validateMinimalContractBuildReceipt);
 }
 
+// Release/deployment post-runtime observers name the current runtime-role
+// admission contract explicitly so they cannot silently fall back to an older
+// minimal-contract shape.
+export function validateBehaviorDocStaticAdmissionReceiptV3(receipt, options = {})
+{
+    return validateAdmission(receipt, options, validateMinimalContractBuildReceipt);
+}
+
 function validateAdmission(receipt, {
     expectedRunId = null,
     expectedSourceIdentity = null,

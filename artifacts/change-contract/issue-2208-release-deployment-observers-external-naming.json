@@ -1,0 +1,44 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/deployment/release-rollout-asset-compatibility-contract.mjs",
+                "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
+                "tools/deployment/release-rollout-evidence-constants.mjs",
+                "tools/deployment/release-rollout-evidence-receipt-contract.mjs",
+                "tools/deployment/release-rollout-evidence-sections.mjs",
+                "tools/deployment/release-rollout-evidence-verifier.mjs",
+                "tools/deployment/release-rollout-semantic-artifact-contract.mjs",
+                "tools/deployment/release-rollout-traffic-evidence-contract.mjs",
+                "tools/docs/behavior-doc-static-admission-contract.mjs",
+                "tools/docs/post-runtime-accepted-claims.mjs",
+                "tools/fact-extractors/post-runtime/adapter.mjs",
+                "tools/fact-extractors/post-runtime/candidate.mjs",
+                "tools/fact-extractors/post-runtime/common.mjs",
+                "tools/fact-extractors/post-runtime/evidence-context.mjs",
+                "tools/fact-extractors/post-runtime/observation.mjs",
+                "tools/fact-extractors/post-runtime/receipt-seal-contract.mjs",
+                "tools/fact-extractors/post-runtime/release-deployment.mjs",
+                "tools/fact-extractors/post-runtime/semantic-contracts.mjs",
+                "tools/release/release-id-value-contract.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
+                "tools/release/schema-compatibility-coordinate-value-contract.mjs",
+                "tools/test-evidence/blue-green-containment-cross-validation.mjs",
+                "tools/test-evidence/blue-green-containment-observations.mjs",
+                "tools/test-evidence/blue-green-containment-raw.mjs",
+                "tools/test-evidence/blue-green-containment-support.mjs",
+                "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+                "tools/test-evidence/canonical-release-authorities.mjs",
+                "tools/test-evidence/release-authority-bundle-contract.mjs",
+                "tools/test-evidence/release-authority-facts-contract.mjs",
+                "tools/test-evidence/release-readiness-observations.mjs",
+                "tools/test-evidence/release-readiness-raw.mjs",
+                "tools/test-evidence/release-readiness-source-contract.mjs",
+                "tools/test-evidence/release-readiness-source-support.mjs"
+            ],
+            "reason": "preserve caller-visible environment, command, schema, and receipt spellings while internal JavaScript identifiers remain camelCase"
+        }
+    ]
+}
