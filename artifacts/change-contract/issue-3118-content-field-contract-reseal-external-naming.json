@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/testing/content-shape-catalog.mjs"
+            ],
+            "reason": "preserve caller-visible process environment spellings while narrowing the field-contract source binding to semantic fragments"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/content-field-contracts.generated.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "preserve the registered generated JSON keys while resealing the semantic-only source and execution-target digests"
+        }
+    ]
+}

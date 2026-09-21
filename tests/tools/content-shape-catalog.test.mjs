@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const {CONTENT_SHAPE_BOUNDARY_KINDS, CONTENT_SHAPE_SCRIPT_CLASSES, contentShapeBoundaryPlan, contentShapeCatalogDigest, projectContentFieldContracts, readContentShapeAuthority, shapeContentDigest, stableStringify, validateContentShapeAuthority, validateContentShapeGovernance} = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
+const {CONTENT_SHAPE_BOUNDARY_KINDS, CONTENT_SHAPE_SCRIPT_CLASSES, contentFieldSourceBinding, contentShapeBoundaryPlan, contentShapeCatalogDigest, projectContentFieldContracts, readContentShapeAuthority, shapeContentDigest, stableStringify, validateContentShapeAuthority, validateContentShapeGovernance} = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
 const {fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '..', '..');
@@ -125,6 +125,29 @@ test('field projection distinguishes UTF-16 character authority from UTF-8 byte 
     assert.equal(ids.filter((id) => id.startsWith('comment.content.utf8-bytes.')).length, 5);
     assert.equal(ids.some((id) => id.startsWith('article.title.utf8-bytes.')), false);
     assert.match(plan.planDigest, /^sha256:[a-f0-9]{64}$/u);
+});
+
+test('field source binding excludes compilation and producer implementation metadata', () =>
+{
+    const semanticContract = {
+        field: 'comment.content',
+        maximumCharacters: 1000,
+        maximumUtf8Bytes: 4096
+    };
+    const expected = contentFieldSourceBinding({
+        path: 'src/backend/Models/Dtos/CommentDto.cs',
+        semanticContract
+    });
+    assert.deepEqual(contentFieldSourceBinding({
+        path: 'src/backend/Models/Dtos/CommentDto.cs',
+        semanticContract,
+        compilation: { warningLevel: 999 },
+        producerIdentity: { analyzerBinarySha256: 'not-contract-authority' }
+    }), expected);
+    assert.notDeepEqual(contentFieldSourceBinding({
+        path: 'src/backend/Models/Dtos/CommentDto.cs',
+        semanticContract: { ...semanticContract, maximumCharacters: 1001 }
+    }), expected);
 });
 
 test('catalog rejects unknown, duplicate, ambiguous, and eligibility mutations', () =>

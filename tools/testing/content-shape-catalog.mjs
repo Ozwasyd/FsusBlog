@@ -284,14 +284,14 @@ function validUpperBound(operator, value)
     throw new Error(`[content-shape] unsupported valid upper-bound operator ${operator}`);
 }
 
-function sourceBinding(relativePath, contract)
+export function contentFieldSourceBinding({ path: relativePath, semanticContract })
 {
     return Object.freeze({
         path: relativePath,
         sha256: sha256Json({
             schema: 'fsusblog.content-field-source-binding.v2',
             path: relativePath,
-            contract
+            contract: semanticContract
         })
     });
 }
@@ -351,25 +351,24 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     };
     const fields = [...articleFields, commentField];
     const sources = [
-        sourceBinding(articlePath, {
-            compilation: extraction.compilation,
-            producerIdentity: extraction.producerIdentity,
-            contract: extraction.article
+        contentFieldSourceBinding({
+            path: articlePath,
+            semanticContract: extraction.article
         }),
-        sourceBinding(commentPath, {
-            compilation: extraction.compilation,
-            producerIdentity: extraction.producerIdentity,
-            contract: extraction.comment
+        contentFieldSourceBinding({
+            path: commentPath,
+            semanticContract: extraction.comment
         }),
-        sourceBinding(commentEndpointPath, {
-            compilation: extraction.compilation,
-            producerIdentity: extraction.producerIdentity,
-            contract: extraction.endpoint
+        contentFieldSourceBinding({
+            path: commentEndpointPath,
+            semanticContract: extraction.endpoint
         }),
-        sourceBinding(commentPartialPath, {
-            compilation: extraction.compilation,
-            producerIdentity: extraction.producerIdentity,
-            transitiveContract: extraction.endpoint.flows.map((flow) => flow.dataflow.filter((fact) => fact.startsWith('helper')))
+        contentFieldSourceBinding({
+            path: commentPartialPath,
+            semanticContract: {
+                transitiveContract: extraction.endpoint.flows
+                    .map((flow) => flow.dataflow.filter((fact) => fact.startsWith('helper')))
+            }
         })
     ];
     const body = {
