@@ -1,0 +1,40 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/fact-extractors/post-runtime/application-runtime.mjs",
+                "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
+                "tools/test-evidence/aot-spa-hydration-raw.mjs",
+                "tools/test-evidence/aot-spa-hydration-source-contract.mjs",
+                "tools/test-evidence/browser-contract-observation-raw.mjs",
+                "tools/test-evidence/runtime-observation-cache-mutation.mjs",
+                "tools/test-evidence/runtime-observation-cache-probe.mjs",
+                "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
+                "tools/test-evidence/runtime-observation-probe-fact-common.mjs",
+                "tools/test-evidence/runtime-observation-probe-facts.mjs",
+                "tools/test-evidence/runtime-observation-probe-io.mjs",
+                "tools/test-evidence/runtime-observation-probe-raw-facts.mjs",
+                "tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+                "tools/test-evidence/runtime-observation-probe-route-facts.mjs",
+                "tools/test-evidence/runtime-observation-probe-session-facts.mjs",
+                "tools/test-evidence/runtime-observation-probes.mjs",
+                "tools/test-evidence/runtime-observation-raw.mjs",
+                "tools/test-evidence/runtime-observation-route-probe.mjs",
+                "tools/test-evidence/runtime-observation-session-probe.mjs",
+                "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "tools/test-fixtures/receipt/projection.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs"
+            ],
+            "reason": "preserve caller-visible environment, command, schema, and receipt spellings while internal JavaScript identifiers remain camelCase"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/post-runtime-producer-registry.json"
+            ],
+            "reason": "preserve the versioned post-runtime registry wire keys consumed by independent producers and verifiers"
+        }
+    ]
+}

@@ -31,7 +31,18 @@ import {
     projectPublicPreviewQualityRegistry,
     validatePublicPreviewQualityManifestValue
 } from '../release/public-preview-quality-receipt-contract.mjs';
+import {
+    deriveAotSpaHydrationRawFacts,
+    normalizeAotSpaHydrationFacts
+} from '../test-evidence/aot-spa-hydration-observed-facts.mjs';
 import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs';
+import {
+    deriveProbeRawFacts,
+    verifyFacts as verifyProbeFacts
+} from '../test-evidence/runtime-observation-probe-facts.mjs';
+import {
+    projectPreparedPublicIds
+} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs';
 
 import { parseMatrix } from './parse-matrix.mjs';
 
@@ -71,7 +82,7 @@ const rawFactSourceSchemas = Object.freeze({
 });
 const embeddedIdentityCapabilities = Object.freeze({
     'fsusblog.ci-production-build-receipt.v1': ['sourceCommit', 'worktreeFingerprint'],
-    'fsusblog.fixture-receipt.v2': [
+    'fsusblog.fixture-prepare-state.v1': [
         'sourceCommit', 'worktreeFingerprint', 'runId', 'profileId'
     ],
     'fsusblog.post-runtime-candidate-plan.v1': [
@@ -99,7 +110,18 @@ const pureReceiptContracts = new Set([
     'tools/docs/behavior-doc-static-admission-contract.mjs',
     'tools/release/browser-contract-receipt-contract.mjs',
     'tools/release/public-preview-quality-receipt-contract.mjs',
+    'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
     'tools/test-evidence/browser-contract-observed-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-cache-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-fact-common.mjs',
+    'tools/test-evidence/runtime-observation-probe-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-raw-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-route-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-session-facts.mjs',
+    'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
+    'tools/test-fixtures/receipt/canonical.mjs',
+    'tools/test-fixtures/receipt/schemas.mjs',
+    'tools/test-fixtures/receipt/secrets.mjs',
     'tests/browser-contract/contract-core.mjs'
 ]);
 const acornDependencyParser = String.raw`
@@ -1729,12 +1751,15 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
 {
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label);
     const preview = contract.schema === 'fsusblog.public-preview-screenshot-verification.v1';
+    const preparedFixture = contract.schema === 'fsusblog.fixture-prepare-state.v1';
     const runtimeRoleAdmission =
         contract.schema === 'fsusblog.behavior-doc-static-admission-receipt.v1';
     if (ref.schema !== contract.schema || ref.role !== contract.role
         || !digestPattern.test(ref.fileDigest ?? '')
-        || (preview ? ref.contentDigest !== null : !digestPattern.test(ref.contentDigest ?? ''))
-        || (!preview && ref.fileDigest === ref.contentDigest))
+        || (preview || preparedFixture
+            ? ref.contentDigest !== null
+            : !digestPattern.test(ref.contentDigest ?? ''))
+        || ref.fileDigest === ref.contentDigest)
     {
         fail(`${label} schema/role/digest contract is invalid`);
     }
@@ -1795,6 +1820,16 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
         {
             fail(`${label} canonical preview quality mismatch: ${qualityErrors.join('; ')}`);
         }
+    }
+    else if (preparedFixture)
+    {
+        if (current.value.schema !== contract.schema
+            || current.value.terminalState !== 'prepared'
+            || Object.hasOwn(current.value, 'contentDigest'))
+        {
+            fail(`${label} canonical prepared fixture schema/status mismatch`);
+        }
+        projectPreparedPublicIds(current.value);
     }
     else if (runtimeRoleAdmission)
     {
@@ -1904,7 +1939,7 @@ function replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, 
     }
 }
 
-function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId, sourceState)
+export function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId, sourceState)
 {
     if (rawFactSourceSchemas[classId] !== upstream.schema
         || definition.sourceReceipt.schema !== upstream.schema)
@@ -1985,6 +2020,146 @@ function validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, 
             fail(`${label} candidate ${role} authority differs from the observation`);
         }
     }
+}
+
+function probeSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} probe upstream`;
+    const plan = replayEmbeddedReference(
+        repositoryRoot,
+        upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef,
+        sourceState,
+        `${label} candidatePlanRef`
+    );
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label);
+    const build = replayEmbeddedReference(
+        repositoryRoot,
+        upstream.buildReceipt,
+        contract.referenceContracts.buildReceipt,
+        sourceState,
+        `${label} buildReceipt`
+    );
+    const prepared = replayEmbeddedReference(
+        repositoryRoot,
+        upstream.fixtureReceipt,
+        contract.referenceContracts.fixtureReceipt,
+        sourceState,
+        `${label} fixtureReceipt`
+    );
+    if (upstream.terminalStatus !== 'verified'
+        || upstream.provenance?.mode !== 'local-real-runtime'
+        || upstream.provenance?.syntheticSemanticResult !== false
+        || upstream.provenance?.rerunCommand !== upstream.canonicalRerunCommand
+        || plan.build?.receipt !== upstream.buildReceipt.path
+        || prefixedDigest(plan.build?.receiptContentDigest)
+            !== prefixedDigest(build.contentDigest)
+        || prefixedDigest(build.contentDigest) !== sourceState.buildIdentity
+        || authorityDigest(upstream.facts) !== sourceState.artifactDigest)
+    {
+        fail(`${label} canonical probe authority/build/facts identity mismatch`);
+    }
+    const projection = projectPreparedPublicIds(prepared);
+    verifyProbeFacts(upstream.kind, upstream.facts, {
+        fixtureProjection: {
+            ...projection,
+            prepareStateDigest: upstream.fixtureReceipt.fileDigest
+        },
+        expectedReleaseId: plan.candidate?.releaseId
+    });
+    if (digestValue(upstream.rawFacts)
+        !== digestValue(deriveProbeRawFacts(upstream.kind, upstream.facts)))
+    {
+        fail(`${label} raw semantic facts mismatch: canonical probe observations do not replay`);
+    }
+    return identityProjection(upstream);
+}
+
+function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} AOT upstream`;
+    assertExactKeys(upstream.sourceState, ['commit', 'worktreeFingerprint'],
+        `${label} sourceState`);
+    const plan = replayEmbeddedReference(
+        repositoryRoot,
+        upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef,
+        sourceState,
+        `${label} candidatePlanRef`
+    );
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label);
+    if (digestValue(plan.sourceState) !== digestValue(upstream.sourceState))
+    {
+        fail(`${label} source differs from canonical candidate plan`);
+    }
+    const build = readCurrentJsonBytes(
+        repositoryRoot,
+        plan.build?.receipt,
+        `${label} immutable build`
+    ).value;
+    if (build.schema !== 'fsusblog.ci-production-build-receipt.v1'
+        || receiptDigest(build) !== prefixedDigest(build.contentDigest)
+        || prefixedDigest(build.contentDigest)
+            !== prefixedDigest(plan.build?.receiptContentDigest)
+        || prefixedDigest(build.contentDigest) !== sourceState.buildIdentity
+        || build.sourceState?.commit !== plan.sourceState?.commit
+        || prefixedDigest(build.sourceState?.worktreeFingerprint)
+            !== prefixedDigest(plan.sourceState?.worktreeFingerprint))
+    {
+        fail(`${label} immutable build source/content identity mismatch`);
+    }
+    const inputs = Object.fromEntries(
+        ['manifest', 'browserContract'].map((key) => [key, {
+            value: replayEmbeddedReference(
+                repositoryRoot,
+                upstream.evidenceRefs[key],
+                contract.referenceContracts[`evidenceRefs.${key}`],
+                sourceState,
+                `${label} ${key}`
+            )
+        }])
+    );
+    const retained = new Map();
+    const readBytes = (file) =>
+    {
+        if (typeof file !== 'string' || !path.isAbsolute(file)
+            || path.resolve(file) !== file)
+        {
+            fail(`${label} retained artifact path must be absolute and canonical`);
+        }
+        const relative = path.relative(repositoryRoot, file);
+        if (!relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative)
+            || relative.normalize('NFKC').toLowerCase().split('/').some(
+                (segment) => segment === 'docs'
+                    || segment.startsWith('doc-claim')
+                    || segment.startsWith('markdown-reader')
+            ))
+        {
+            fail(`${label} retained artifact bytes must belong to the current run`);
+        }
+        if (!retained.has(file))
+        {
+            retained.set(
+                file,
+                readPinnedRepositoryFile(
+                    repositoryRoot,
+                    relative,
+                    `${label} retained artifact`
+                ).bytes
+            );
+        }
+        return retained.get(file);
+    };
+    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, { readBytes });
+    if (digestValue(upstream.rawFacts)
+        !== digestValue(deriveAotSpaHydrationRawFacts(inputs, { readBytes })))
+    {
+        fail(`${label} raw semantic facts mismatch: canonical AOT observations do not replay`);
+    }
+    return {
+        ...identityProjection(plan),
+        artifactDigest: normalized.manifestDigest
+    };
 }
 
 function browserSourceProjection(
@@ -2170,7 +2345,7 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     }
     const expectedSourceFields = definition.requiredIdentityFields
         .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field));
-    if (contract.role !== 'browser')
+    if (!['browser', 'aot'].includes(contract.role))
     {
         assertExactKeys(upstream.sourceState, expectedSourceFields,
             `producer ${producerId} source receipt upstream sourceState`);
@@ -2185,6 +2360,24 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
             envelope,
             producerId
         )
+        : contract.role === 'probe'
+            ? probeSourceProjection(
+                repositoryRoot,
+                upstream,
+                sourceState,
+                contract,
+                envelope,
+                producerId
+            )
+            : contract.role === 'aot'
+                ? aotSourceProjection(
+                    repositoryRoot,
+                    upstream,
+                    sourceState,
+                    contract,
+                    envelope,
+                    producerId
+                )
         : identityProjection(upstream);
     for (const required of expectedSourceFields)
     {
