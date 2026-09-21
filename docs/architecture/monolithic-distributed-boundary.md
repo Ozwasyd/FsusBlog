@@ -1,20 +1,18 @@
 # Monolithic distributed architecture boundary
 
-FsusBlog is **monolithic distributed** (Homogeneous Binary, Heterogeneous Runtime): the repository, build, and deployment always produce one FsusBlog program, with `FsusBlog.Server` as the sole business entry point. Multiple nodes change only which runtime responsibilities each instance performs; content, comments, search, and other modules never become separate business services.
+<!-- fsus-doc-claim
+claimId: deployment-blue-green-runtime-role.monolithic-distributed-rationale
+behaviorId: deployment-blue-green-runtime-role
+claimType: rationale
+factPath: topologyDigest
+render: rationale-prose
+-->
 
-这是一套**单体分布式**边界：仓库、构建和部署始终产出同一套 FsusBlog 程序，`FsusBlog.Server` 是唯一业务入口。跨节点执行通过 remote invocation 的窄 `port / adapter` 边界进入，模块不会固化为独立业务服务。
+单体分布式（Homogeneous Binary, Heterogeneous Runtime）描述同一套 FsusBlog 程序和唯一业务入口；`single`、`static-role`、`adaptive` 运行形态的跨节点能力继续经过 remote invocation 的 port / adapter 边界。
 
 ## Invariants
 
-- One repository, primary application project, application Dockerfile, and integrated frontend/backend production artifact.
-- PostgreSQL, Redis, and an optional gateway are infrastructure/deployment layers, not split business sidecars.
-- Single-node is the default; every multi-node member still runs the same binary and module set.
-- Domain modules express business capabilities without knowing node location, HTTP/gRPC clients, or Redis transport.
-- Cross-node execution enters remote invocation only through a narrow port/adapter; callers try local capability first and the runtime decides whether to delegate remotely.
-
 ## Runtime modes
-
-The sole runtime-mode authority is the compiled `RuntimeModeOptions` observation. The modes are `single`, `static-role`, and `adaptive`; the generated section below owns responsibility combinations and unsupported combinations, so this document keeps no hand-maintained mode table or second role map.
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.runtime-roles
@@ -38,42 +36,7 @@ render: key-value-table
 | unsupportedCombinations | {"static-role-empty":"runtime_static_roles_required","static-role-unknown":"runtime_static_role_invalid:unknown","unknown-mode":"runtime_mode_invalid:unsupported"} |
 <!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
-## Runtime-role observation contract
-
-The compiled producer emits `fsusblog.runtime-role-observation.v2`, whose
-independent JSON Schema is
-`config/schemas/runtime-role-observation.schema.json`. Its deployment input is
-the separately sealed
-`fsusblog.runtime-role-deployment-observation.v1` contract at
-`config/schemas/runtime-role-deployment-observation.schema.json`; the input
-must remain claim-eligible and bind the current policy, Server project,
-production Dockerfile and Compose source digests.
-
-The minimal contract build source identity follows the actual reachable .NET
-`ProjectReference` graph. It includes every non-generated compile input,
-explicit linked build item, project file, imported `Directory.*` build file and
-project `packages.lock.json`. This closure is part of the content-addressed
-build key, so a source or lock-file change cannot reuse an older runtime-role
-assembly.
-
-The producer accepts `--output` and `--deployment-observation` only as regular
-paths physically contained by the current repository root. Absolute paths are
-allowed for the build host's repository-contained staging directory; traversal,
-`.git`, missing deployment inputs and symlinked path segments fail closed.
-
-All three modes use the same FsusBlog program and artifact. During a transient remote-dependency failure, nodes retain local invalidation and authoritative-data fallback while transport retries; no business artifact switch is required. To disable cluster components completely, set `Runtime:Mode` back to `single` and rolling-restart because hosted-service DI composition is fixed at startup. In `single`, the local publisher branch must register before Redis transport so no remote hot path exists.
-
 ## Project and deployment-topology guard
-
-The static guard treats `src/backend/FsusBlog.Server.csproj`, `ops/docker/FsusBlog.Server.Dockerfile`, and the Compose service manifest as authoritative:
-
-- `src/` may contain only one Web/Exe business-entry project; Core/Shared remain libraries.
-- `FsusBlog.Server.csproj` must copy frontend dist into its own `wwwroot`; an independent frontend production artifact is forbidden.
-- Compose may declare only classified application, gateway, or infrastructure services; a new required business sidecar fails immediately.
-- Domain roots may not import HTTP, gRPC, Redis, sockets, or node-location implementations.
-- Remote-invocation identifiers may appear only in Interfaces, Contracts, or Infrastructure port/adapter roots.
-
-Run locally:
 
 ```bash
 node tools/governance/check-monolithic-distributed-architecture.mjs
@@ -81,20 +44,15 @@ node --test tests/tools/monolithic-distributed-architecture.test.mjs
 node tools/run-test-matrix.mjs validate
 ```
 
-For a false-positive guard result, keep the existing single-application artifact and roll back the new Compose/project entry. If a remote adapter fails, existing local invalidation and authoritative-data fallback continue without restart; fully disabling cluster capability follows the `single` rolling restart above and changes neither API contracts nor artifact shape.
-
 ## Distributed Runtime issue boundary
 
-These issues extend the same application; they do not define fixed service splits:
-
-- #110 monolithic distributed support: homogeneous full-capability nodes and dynamic responsibility scheduling
-- #111 node capability registration and cluster-membership governance
-- #112 dynamic responsibility scheduling and adaptive load balancing
-- #113 distributed state control
-- #114 transparent local/remote invocation switching and module-boundary constraints
-- #115 multi-node deployment, observability, and failure governance
-
-对应的分布式运行议题标题为：
+<!-- fsus-doc-claim
+claimId: deployment-blue-green-runtime-role.distributed-issue-rationale
+behaviorId: deployment-blue-green-runtime-role
+claimType: rationale
+factPath: deploymentBlueGreen.claimEligible
+render: rationale-prose
+-->
 
 - #110 单体分布式支持：同构全能力节点与动态职责调度
 - #111 节点能力注册与集群成员治理
@@ -103,7 +61,6 @@ These issues extend the same application; they do not define fixed service split
 - #114 本地 / 远程调用透明切换与模块边界约束
 - #115 多节点部署、观测与故障治理
 
-Capability registration, responsibility scheduling, state coordination, transparent invocation, and failure governance may evolve independently, but all remain subject to one program, one artifact, and one business-entry boundary.
 ## Current execution classes
 
 <!-- fsus-doc-claim
