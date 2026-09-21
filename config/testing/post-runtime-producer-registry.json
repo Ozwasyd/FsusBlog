@@ -72,17 +72,32 @@
                     "toolVersion",
                     "sourceState",
                     "rawFacts",
+                    "candidatePlanRef",
                     "buildReceipt",
                     "fixtureReceipt",
                     "canonicalRerunCommand",
                     "independentVerifyCommand",
+                    "provenance",
+                    "facts",
+                    "terminalStatus",
                     "contentDigest"
                 ],
                 "requiredReferenceFields": [
+                    "candidatePlanRef",
                     "buildReceipt",
                     "fixtureReceipt"
                 ],
                 "referenceContracts": {
+                    "candidatePlanRef": {
+                        "schema": "fsusblog.post-runtime-candidate-plan.v1",
+                        "role": "candidate-plan",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "candidateId"
+                        ]
+                    },
                     "buildReceipt": {
                         "schema": "fsusblog.ci-production-build-receipt.v1",
                         "role": "production-build",
@@ -92,7 +107,7 @@
                         ]
                     },
                     "fixtureReceipt": {
-                        "schema": "fsusblog.fixture-receipt.v2",
+                        "schema": "fsusblog.fixture-prepare-state.v1",
                         "role": "fixture",
                         "identityFields": [
                             "sourceCommit",
@@ -245,17 +260,32 @@
                     "toolVersion",
                     "sourceState",
                     "rawFacts",
+                    "candidatePlanRef",
                     "buildReceipt",
                     "fixtureReceipt",
                     "canonicalRerunCommand",
                     "independentVerifyCommand",
+                    "provenance",
+                    "facts",
+                    "terminalStatus",
                     "contentDigest"
                 ],
                 "requiredReferenceFields": [
+                    "candidatePlanRef",
                     "buildReceipt",
                     "fixtureReceipt"
                 ],
                 "referenceContracts": {
+                    "candidatePlanRef": {
+                        "schema": "fsusblog.post-runtime-candidate-plan.v1",
+                        "role": "candidate-plan",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "candidateId"
+                        ]
+                    },
                     "buildReceipt": {
                         "schema": "fsusblog.ci-production-build-receipt.v1",
                         "role": "production-build",
@@ -265,7 +295,7 @@
                         ]
                     },
                     "fixtureReceipt": {
-                        "schema": "fsusblog.fixture-receipt.v2",
+                        "schema": "fsusblog.fixture-prepare-state.v1",
                         "role": "fixture",
                         "identityFields": [
                             "sourceCommit",
@@ -326,17 +356,32 @@
                     "toolVersion",
                     "sourceState",
                     "rawFacts",
+                    "candidatePlanRef",
                     "buildReceipt",
                     "fixtureReceipt",
                     "canonicalRerunCommand",
                     "independentVerifyCommand",
+                    "provenance",
+                    "facts",
+                    "terminalStatus",
                     "contentDigest"
                 ],
                 "requiredReferenceFields": [
+                    "candidatePlanRef",
                     "buildReceipt",
                     "fixtureReceipt"
                 ],
                 "referenceContracts": {
+                    "candidatePlanRef": {
+                        "schema": "fsusblog.post-runtime-candidate-plan.v1",
+                        "role": "candidate-plan",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "candidateId"
+                        ]
+                    },
                     "buildReceipt": {
                         "schema": "fsusblog.ci-production-build-receipt.v1",
                         "role": "production-build",
@@ -346,7 +391,7 @@
                         ]
                     },
                     "fixtureReceipt": {
-                        "schema": "fsusblog.fixture-receipt.v2",
+                        "schema": "fsusblog.fixture-prepare-state.v1",
                         "role": "fixture",
                         "identityFields": [
                             "sourceCommit",

@@ -35,6 +35,10 @@ export function createPostRuntimeCandidateFixture(context, {
   fs.mkdirSync(path.join(root, '.tmp'), { recursive: true })
   const directory = fs.mkdtempSync(path.join(root, '.tmp', prefix))
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  context.after(() => fs.rmSync(
+    path.join(root, '.tmp/post-runtime-source-receipts', runId),
+    { recursive: true, force: true }
+  ))
   const relative = (file) => path.relative(root, file).replaceAll(path.sep, '/')
   const write = (name, value) => {
     const file = path.join(directory, name)
