@@ -591,6 +591,8 @@
                     "behaviorId": "deployment-blue-green-runtime-role",
                     "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
                     "claimIds": [
+                        "deployment-blue-green-runtime-role.distributed-issue-rationale",
+                        "deployment-blue-green-runtime-role.monolithic-distributed-rationale",
                         "deployment-blue-green-runtime-role.runtime-roles"
                     ],
                     "generatedSectionIds": [
