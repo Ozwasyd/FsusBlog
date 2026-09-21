@@ -71,6 +71,9 @@ import {
 import { runLocalWorkflow } from './test-matrix/local-workflow-runner.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
+    validateReleaseFinalStaticBoundary
+} from './test-matrix/release-final-static-boundary.mjs';
+import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
     registerProductionBuildCompiler
@@ -437,10 +440,23 @@ function loadMatrix({ validateDependencyFields = true } = {})
     {
         throw new Error(`missing ${path.relative(root, matrixFile)}`);
     }
-    return parseMatrix(
+    const matrix = parseMatrix(
         fs.readFileSync(matrixFile, 'utf8'),
         { validateDependencyFields }
     );
+    const releaseFinalStaticBoundaryErrors = validateReleaseFinalStaticBoundary({
+        matrix,
+        scriptSource: fs.readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8'),
+        repositoryRoot: root
+    });
+    if (releaseFinalStaticBoundaryErrors.length > 0)
+    {
+        throw new Error(
+            'release-final static boundary rejected matrix parse:\n'
+            + releaseFinalStaticBoundaryErrors.join('\n')
+        );
+    }
+    return matrix;
 }
 
 function loadCoverageRegistry()
@@ -944,6 +960,12 @@ function validateDeploymentDomainAuthorities(matrix)
 function validateMatrix(matrix)
 {
     const errors = [];
+    errors.push(...validateReleaseFinalStaticBoundary({
+        matrix,
+        scriptSource: fs.readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8'),
+        repositoryRoot: root
+    })
+        .map((error) => `releaseFinalStaticBoundary: ${error}`));
     const ids = new Set();
     const byId = tierMap(matrix);
     errors.push(...validateExecutionEnvelopeContracts({
