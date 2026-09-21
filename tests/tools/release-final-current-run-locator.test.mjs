@@ -146,6 +146,7 @@ test('release-final correctness sources contain no discovery or raw direct-path 
     const sources = [
         'tools/release/check-release-final.mjs',
         'tools/release/release-final-domain-evidence.mjs',
+        'tools/release/release-final-terminal-acceptance.mjs',
         'tools/release/public-preview-release-evidence.mjs'
     ].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
     assert.doesNotMatch(sources, /latestManifest|latestReleaseManifest|findReceiptFile|readExactReceiptFile|\.tmp\/downloaded-artifacts|mtimeMs/u);

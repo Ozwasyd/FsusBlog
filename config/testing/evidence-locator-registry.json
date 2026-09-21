@@ -433,6 +433,39 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.db.verify-current-schema-test-materialization-receipt"
         },
         {
+            "consumerId": "evidence-consumer.deployment.release-rollout-evidence-sections",
+            "authorityId": "evidence-consumer.deployment.release-rollout-evidence-sections.current-run",
+            "producerId": "evidence-consumer.deployment.release-rollout-evidence-sections.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/deployment/release-rollout-evidence-sections.mjs",
+            "producerCallsite": "tools/deployment/release-rollout-evidence-sections.mjs",
+            "producerExecutable": "node tools/deployment/release-rollout-evidence-sections.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.deployment.release-rollout-evidence-sections node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/deployment/release-rollout-evidence-sections.mjs",
+            "outputBindingKey": "FSUSBLOG_DEPLOYMENT_RELEASE_ROLLOUT_EVIDENCE_SECTIONS_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_DEPLOYMENT_RELEASE_ROLLOUT_EVIDENCE_SECTIONS_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_DEPLOYMENT_RELEASE_ROLLOUT_EVIDENCE_SECTIONS_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.deployment.release-rollout-evidence-sections"
+        },
+        {
             "consumerId": "evidence-consumer.deployment.release-rollout-evidence",
             "authorityId": "evidence-consumer.deployment.release-rollout-evidence.current-run",
             "producerId": "evidence-consumer.deployment.release-rollout-evidence.producer",
@@ -728,39 +761,6 @@
             "handoffBindingKey": "FSUSBLOG_DOCS_PUBLIC_PREVIEW_SCREENSHOTS_EVIDENCE_HANDOFF_PATH",
             "payloadBindingKey": "FSUSBLOG_DOCS_PUBLIC_PREVIEW_SCREENSHOTS_EVIDENCE_PAYLOAD_PATH",
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.docs.public-preview-screenshots"
-        },
-        {
-            "consumerId": "evidence-consumer.docs.release-deployment-doc-exactness",
-            "authorityId": "evidence-consumer.docs.release-deployment-doc-exactness.current-run",
-            "producerId": "evidence-consumer.docs.release-deployment-doc-exactness.producer",
-            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
-            "locatorMode": "content-addressed-reference",
-            "requiredIdentityFields": [
-                "attemptId",
-                "buildIdentity",
-                "candidateIdentity",
-                "schedulerRunId",
-                "sourceCommit",
-                "worktreeFingerprint"
-            ],
-            "requiredDigestFields": [
-                "contentDigest",
-                "producerReceiptDigest"
-            ],
-            "expectedCardinality": "exact-one",
-            "allowedRoots": [
-                "artifacts/current-run"
-            ],
-            "publicationMode": "hooked",
-            "producerSource": "tools/docs/release-deployment-doc-exactness.mjs",
-            "producerCallsite": "tools/docs/release-deployment-doc-exactness.mjs",
-            "producerExecutable": "node tools/docs/release-deployment-doc-exactness.mjs",
-            "producerBindingClass": "cli",
-            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.docs.release-deployment-doc-exactness node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/docs/release-deployment-doc-exactness.mjs",
-            "outputBindingKey": "FSUSBLOG_DOCS_RELEASE_DEPLOYMENT_DOC_EXACTNESS_EVIDENCE_PATH",
-            "handoffBindingKey": "FSUSBLOG_DOCS_RELEASE_DEPLOYMENT_DOC_EXACTNESS_EVIDENCE_HANDOFF_PATH",
-            "payloadBindingKey": "FSUSBLOG_DOCS_RELEASE_DEPLOYMENT_DOC_EXACTNESS_EVIDENCE_PAYLOAD_PATH",
-            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.docs.release-deployment-doc-exactness"
         },
         {
             "consumerId": "evidence-consumer.docs.run-public-preview-capture",
@@ -1392,6 +1392,303 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.storage.create-spa-manifest-descriptor"
         },
         {
+            "consumerId": "evidence-consumer.test-evidence.aot-spa-hydration-raw",
+            "authorityId": "evidence-consumer.test-evidence.aot-spa-hydration-raw.current-run",
+            "producerId": "evidence-consumer.test-evidence.aot-spa-hydration-raw.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/aot-spa-hydration-raw.mjs",
+            "producerCallsite": "tools/test-evidence/aot-spa-hydration-raw.mjs",
+            "producerExecutable": "node tools/test-evidence/aot-spa-hydration-raw.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.aot-spa-hydration-raw node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/aot-spa-hydration-raw.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_AOT_SPA_HYDRATION_RAW_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_AOT_SPA_HYDRATION_RAW_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_AOT_SPA_HYDRATION_RAW_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.aot-spa-hydration-raw"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.blue-green-containment-support",
+            "authorityId": "evidence-consumer.test-evidence.blue-green-containment-support.current-run",
+            "producerId": "evidence-consumer.test-evidence.blue-green-containment-support.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/blue-green-containment-support.mjs",
+            "producerCallsite": "tools/test-evidence/blue-green-containment-support.mjs",
+            "producerExecutable": "node tools/test-evidence/blue-green-containment-support.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.blue-green-containment-support node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/blue-green-containment-support.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_BLUE_GREEN_CONTAINMENT_SUPPORT_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_BLUE_GREEN_CONTAINMENT_SUPPORT_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_BLUE_GREEN_CONTAINMENT_SUPPORT_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.blue-green-containment-support"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.canonical-release-authorities",
+            "authorityId": "evidence-consumer.test-evidence.canonical-release-authorities.current-run",
+            "producerId": "evidence-consumer.test-evidence.canonical-release-authorities.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/canonical-release-authorities.mjs",
+            "producerCallsite": "tools/test-evidence/canonical-release-authorities.mjs",
+            "producerExecutable": "node tools/test-evidence/canonical-release-authorities.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.canonical-release-authorities node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/canonical-release-authorities.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_CANONICAL_RELEASE_AUTHORITIES_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_CANONICAL_RELEASE_AUTHORITIES_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_CANONICAL_RELEASE_AUTHORITIES_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.canonical-release-authorities"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.release-readiness-source-support",
+            "authorityId": "evidence-consumer.test-evidence.release-readiness-source-support.current-run",
+            "producerId": "evidence-consumer.test-evidence.release-readiness-source-support.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/release-readiness-source-support.mjs",
+            "producerCallsite": "tools/test-evidence/release-readiness-source-support.mjs",
+            "producerExecutable": "node tools/test-evidence/release-readiness-source-support.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.release-readiness-source-support node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/release-readiness-source-support.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_RELEASE_READINESS_SOURCE_SUPPORT_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_RELEASE_READINESS_SOURCE_SUPPORT_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_RELEASE_READINESS_SOURCE_SUPPORT_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.release-readiness-source-support"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probe-cache-facts",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probe-cache-facts.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probe-cache-facts.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
+            "producerCallsite": "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
+            "producerExecutable": "node tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.runtime-observation-probe-cache-facts node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_CACHE_FACTS_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_CACHE_FACTS_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_CACHE_FACTS_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.runtime-observation-probe-cache-facts"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probe-raw-facts",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probe-raw-facts.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probe-raw-facts.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/runtime-observation-probe-raw-facts.mjs",
+            "producerCallsite": "tools/test-evidence/runtime-observation-probe-raw-facts.mjs",
+            "producerExecutable": "node tools/test-evidence/runtime-observation-probe-raw-facts.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.runtime-observation-probe-raw-facts node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/runtime-observation-probe-raw-facts.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_RAW_FACTS_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_RAW_FACTS_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_RAW_FACTS_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.runtime-observation-probe-raw-facts"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+            "producerCallsite": "tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+            "producerExecutable": "node tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_RECEIPT_CONTRACT_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_RECEIPT_CONTRACT_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBE_RECEIPT_CONTRACT_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probes",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probes.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probes.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/runtime-observation-probes.mjs",
+            "producerCallsite": "tools/test-evidence/runtime-observation-probes.mjs",
+            "producerExecutable": "node tools/test-evidence/runtime-observation-probes.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.runtime-observation-probes node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/runtime-observation-probes.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBES_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBES_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_PROBES_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.runtime-observation-probes"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-raw",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-raw.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-raw.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-evidence/runtime-observation-raw.mjs",
+            "producerCallsite": "tools/test-evidence/runtime-observation-raw.mjs",
+            "producerExecutable": "node tools/test-evidence/runtime-observation-raw.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-evidence.runtime-observation-raw node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-evidence/runtime-observation-raw.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_RAW_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_RAW_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_EVIDENCE_RUNTIME_OBSERVATION_RAW_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-evidence.runtime-observation-raw"
+        },
+        {
             "consumerId": "evidence-consumer.test-fixtures.receipt.observations",
             "authorityId": "evidence-consumer.test-fixtures.receipt.observations.current-run",
             "producerId": "evidence-consumer.test-fixtures.receipt.observations.producer",
@@ -1425,9 +1722,9 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-fixtures.receipt.observations"
         },
         {
-            "consumerId": "evidence-consumer.test-fixtures.receipt.projection",
-            "authorityId": "evidence-consumer.test-fixtures.receipt.projection.current-run",
-            "producerId": "evidence-consumer.test-fixtures.receipt.projection.producer",
+            "consumerId": "evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract",
+            "authorityId": "evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract.current-run",
+            "producerId": "evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract.producer",
             "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
             "locatorMode": "explicit-run-path",
             "requiredIdentityFields": [
@@ -1447,15 +1744,15 @@
                 "artifacts/current-run"
             ],
             "publicationMode": "hooked",
-            "producerSource": "tools/test-fixtures/receipt/projection.mjs",
-            "producerCallsite": "tools/test-fixtures/receipt/projection.mjs",
-            "producerExecutable": "node tools/test-fixtures/receipt/projection.mjs",
+            "producerSource": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+            "producerCallsite": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+            "producerExecutable": "node tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
             "producerBindingClass": "cli",
-            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-fixtures.receipt.projection node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-fixtures/receipt/projection.mjs",
-            "outputBindingKey": "FSUSBLOG_TEST_FIXTURES_RECEIPT_PROJECTION_EVIDENCE_PATH",
-            "handoffBindingKey": "FSUSBLOG_TEST_FIXTURES_RECEIPT_PROJECTION_EVIDENCE_HANDOFF_PATH",
-            "payloadBindingKey": "FSUSBLOG_TEST_FIXTURES_RECEIPT_PROJECTION_EVIDENCE_PAYLOAD_PATH",
-            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-fixtures.receipt.projection"
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_FIXTURES_RECEIPT_PREPARED_PUBLIC_PROJECTION_CONTRACT_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_FIXTURES_RECEIPT_PREPARED_PUBLIC_PROJECTION_CONTRACT_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_FIXTURES_RECEIPT_PREPARED_PUBLIC_PROJECTION_CONTRACT_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract"
         },
         {
             "consumerId": "evidence-consumer.test-matrix.artifact-digest-table",
@@ -2547,5 +2844,5 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.release.release-final-domain-evidence"
         }
     ],
-    "contentDigest": "sha256:3a4abdd37b2100fc68f41a172fe3a8b36d4f7fa5332e71bcc6bb1957c80e7156"
+    "contentDigest": "sha256:1a13143efbccacc9ffc3da1d2fa04f3e5a95176115b792f6f0b1d7f17254a17e"
 }

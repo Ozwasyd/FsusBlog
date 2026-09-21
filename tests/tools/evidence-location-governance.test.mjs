@@ -307,7 +307,7 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 52, 'library-caller': 19, workflow: 2 });
+    { cli: 61, 'library-caller': 19, workflow: 2 });
 });
 
 test('fixture postconditions remain an import-only helper and cannot masquerade as a receipt CLI', (context) =>

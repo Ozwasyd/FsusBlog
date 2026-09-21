@@ -20,6 +20,9 @@ import {
     createReleaseFinalTestEvidenceBinding,
     validateBrowserContractReceipt
 } from './test-evidence-receipts.mjs';
+import {
+    createReleaseFinalTerminalAcceptance
+} from './release-final-terminal-acceptance.mjs';
 
 export function assertReleaseFinalPostRuntimeCandidate({
     postRuntimeReceipt: post, currentRunContext, browserContractReceipt, buildReceipt
@@ -205,25 +208,34 @@ export function createReleaseFinalDomainEvidence({
             expectedImageDigest: manifest.imageDigest
         });
 
+    const binding = createReleaseFinalTestEvidenceBinding({
+        commitSha: manifest.commitSha,
+        buildReceipt: build.receipt,
+        buildReceiptPath: path.relative(repositoryRoot, build.file),
+        correctnessReceipt: correctness.receipt,
+        correctnessReceiptPath: correctness.file,
+        browserContractReceipt: browserContract.receipt,
+        browserContractReceiptPath: browserContract.file,
+        preRuntimeReceipt: behaviorEvidence.preRuntimeReceipt,
+        preRuntimeReceiptPath: preRuntimeFile,
+        postRuntimeReceipt: behaviorEvidence.postRuntimeReceipt,
+        postRuntimeReceiptPath: postRuntimeFile,
+        consistencyFinalReport,
+        consistencyFinalReportPath: consistencyFinalFile,
+        releaseDomainProjectionReceipts,
+        releaseReliabilityQualifiedReceipt,
+        requiredEvidenceCatalogBinding,
+        locatorEvidence
+    });
     return {
-        binding: createReleaseFinalTestEvidenceBinding({
-            commitSha: manifest.commitSha,
-            buildReceipt: build.receipt,
-            buildReceiptPath: path.relative(repositoryRoot, build.file),
-            correctnessReceipt: correctness.receipt,
-            correctnessReceiptPath: correctness.file,
-            browserContractReceipt: browserContract.receipt,
-            browserContractReceiptPath: browserContract.file,
+        binding,
+        terminalAcceptance: createReleaseFinalTerminalAcceptance({
+            binding,
             preRuntimeReceipt: behaviorEvidence.preRuntimeReceipt,
-            preRuntimeReceiptPath: preRuntimeFile,
             postRuntimeReceipt: behaviorEvidence.postRuntimeReceipt,
-            postRuntimeReceiptPath: postRuntimeFile,
             consistencyFinalReport,
-            consistencyFinalReportPath: consistencyFinalFile,
-            releaseDomainProjectionReceipts,
-            releaseReliabilityQualifiedReceipt,
-            requiredEvidenceCatalogBinding,
-            locatorEvidence
+            currentRunContext,
+            canonicalInputs
         }),
         publicPreview
     };

@@ -1,16 +1,16 @@
 {
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
-        "config/testing/evidence-locator-registry.json": "sha256:c152947f7efa1bd3c37109dc92f9f2a63f7b77810f3b4bd0c6b95537e4eb1ab7",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:5d15baf2bb179be3411bc09575a83bd88e6a54e848319986291fd8337cf43f77",
+        "config/testing/evidence-locator-registry.json": "sha256:42cd6498e63a12e3c7e90e2dbc57c91b2240f30a89a85ff3974261d632bc5744",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:33b7a919095774e10253c13612a2e18ab301e29ef984b40ace06829f286310a3",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:62fa2ff72f6f70e3bce2c9fa8440d3d91634e462ede3a384dfd2d1ff5460506e"
     },
-    "registryDigest": "sha256:3a4abdd37b2100fc68f41a172fe3a8b36d4f7fa5332e71bcc6bb1957c80e7156",
-    "ledgerDigest": "sha256:79b1dcba15b197d197489dfb90dddfb5641a49e405b74d1077bd5542e8fe3835",
-    "scannerDigest": "sha256:fa22656a021af23e4b798723817912fa450e650b9e4b726b1b754b49c5244797",
+    "registryDigest": "sha256:1a13143efbccacc9ffc3da1d2fa04f3e5a95176115b792f6f0b1d7f17254a17e",
+    "ledgerDigest": "sha256:3026beac07b4c5145de5b1dcc3ddfc2a5ef5eb1c1becaf0c09277e165331b8a6",
+    "scannerDigest": "sha256:02d47a21c42a247eea5b1060e6524571f768a885fdd87c67289d201cd77f2924",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
     "consumerInventory": [
@@ -106,6 +106,13 @@
             "publicationMode": "hooked"
         },
         {
+            "consumerId": "evidence-consumer.deployment.release-rollout-evidence-sections",
+            "authorityId": "evidence-consumer.deployment.release-rollout-evidence-sections.current-run",
+            "producerId": "evidence-consumer.deployment.release-rollout-evidence-sections.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
             "consumerId": "evidence-consumer.deployment.release-rollout-evidence",
             "authorityId": "evidence-consumer.deployment.release-rollout-evidence.current-run",
             "producerId": "evidence-consumer.deployment.release-rollout-evidence.producer",
@@ -165,13 +172,6 @@
             "consumerId": "evidence-consumer.docs.public-preview-screenshots",
             "authorityId": "evidence-consumer.docs.public-preview-screenshots.current-run",
             "producerId": "evidence-consumer.docs.public-preview-screenshots.producer",
-            "locatorMode": "content-addressed-reference",
-            "publicationMode": "hooked"
-        },
-        {
-            "consumerId": "evidence-consumer.docs.release-deployment-doc-exactness",
-            "authorityId": "evidence-consumer.docs.release-deployment-doc-exactness.current-run",
-            "producerId": "evidence-consumer.docs.release-deployment-doc-exactness.producer",
             "locatorMode": "content-addressed-reference",
             "publicationMode": "hooked"
         },
@@ -309,6 +309,69 @@
             "publicationMode": "hooked"
         },
         {
+            "consumerId": "evidence-consumer.test-evidence.aot-spa-hydration-raw",
+            "authorityId": "evidence-consumer.test-evidence.aot-spa-hydration-raw.current-run",
+            "producerId": "evidence-consumer.test-evidence.aot-spa-hydration-raw.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.blue-green-containment-support",
+            "authorityId": "evidence-consumer.test-evidence.blue-green-containment-support.current-run",
+            "producerId": "evidence-consumer.test-evidence.blue-green-containment-support.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.canonical-release-authorities",
+            "authorityId": "evidence-consumer.test-evidence.canonical-release-authorities.current-run",
+            "producerId": "evidence-consumer.test-evidence.canonical-release-authorities.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.release-readiness-source-support",
+            "authorityId": "evidence-consumer.test-evidence.release-readiness-source-support.current-run",
+            "producerId": "evidence-consumer.test-evidence.release-readiness-source-support.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probe-cache-facts",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probe-cache-facts.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probe-cache-facts.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probe-raw-facts",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probe-raw-facts.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probe-raw-facts.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probe-receipt-contract.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-probes",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-probes.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-probes.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-evidence.runtime-observation-raw",
+            "authorityId": "evidence-consumer.test-evidence.runtime-observation-raw.current-run",
+            "producerId": "evidence-consumer.test-evidence.runtime-observation-raw.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
             "consumerId": "evidence-consumer.test-fixtures.receipt.observations",
             "authorityId": "evidence-consumer.test-fixtures.receipt.observations.current-run",
             "producerId": "evidence-consumer.test-fixtures.receipt.observations.producer",
@@ -316,9 +379,9 @@
             "publicationMode": "hooked"
         },
         {
-            "consumerId": "evidence-consumer.test-fixtures.receipt.projection",
-            "authorityId": "evidence-consumer.test-fixtures.receipt.projection.current-run",
-            "producerId": "evidence-consumer.test-fixtures.receipt.projection.producer",
+            "consumerId": "evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract",
+            "authorityId": "evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract.current-run",
+            "producerId": "evidence-consumer.test-fixtures.receipt.prepared-public-projection-contract.producer",
             "locatorMode": "explicit-run-path",
             "publicationMode": "hooked"
         },
@@ -554,8 +617,8 @@
             "publicationMode": "parent"
         }
     ],
-    "consumerCount": 77,
-    "findingCount": 434,
+    "consumerCount": 86,
+    "findingCount": 472,
     "warnings": [],
-    "contentDigest": "sha256:1168ac1071eca82c52b2cd4e8862a2a63a98eb29ff2b229d454458dbcb8be878"
+    "contentDigest": "sha256:7d67ef01307892f182539572a363330e35cfb9b648bc912a2a73ee1d0cc179af"
 }

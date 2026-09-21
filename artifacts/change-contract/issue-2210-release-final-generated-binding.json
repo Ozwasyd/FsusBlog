@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tests/tools/support/behavior-doc-admission-fixture.mjs",
+        "tools/release/check-release-final.mjs",
+        "tools/release/release-final-domain-evidence.mjs",
+        "tools/release/release-final-terminal-acceptance.mjs",
+        "tools/test/lanes/release-final.sh"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "a09e42b992962e92fbae09337c8923af88ccbab89a9b948f5d495b199a37e921"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "aa91fa4c18843d0bfc398f52bdc2b77b42ac521c2f4660ccf8efd52ec52cf366"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "33b7a919095774e10253c13612a2e18ab301e29ef984b40ace06829f286310a3"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "42cd6498e63a12e3c7e90e2dbc57c91b2240f30a89a85ff3974261d632bc5744"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "b98a9f24df1e7545ce9a2238c98e33dbde330f6f606a70d7f98bb2f01ffe4443"
+        }
+    ]
+}

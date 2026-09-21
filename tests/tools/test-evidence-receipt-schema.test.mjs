@@ -24,6 +24,13 @@ import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evide
 import {
     createRequiredEvidenceCatalogBinding
 } from '../../tools/test-matrix/required-evidence-catalog.mjs';
+import {
+    loadCanonicalReleaseFinalEvidenceInputs
+} from '../../tools/test-matrix/release-final-evidence-contract.mjs';
+import {
+    createReleaseFinalTerminalAcceptance,
+    validateReleaseFinalTerminalAcceptance
+} from '../../tools/release/release-final-terminal-acceptance.mjs';
 import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 
@@ -786,11 +793,59 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         failureReasons: []
     });
     const preRuntimeFile = path.join(build.directory, 'behavior-pre-runtime.json');
-    const postRuntime = postRuntimeBindingShape(preRuntime);
+    const currentRunContext = sealDocument({
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId: preRuntime.runIdentity,
+        attemptId: 'attempt-0001',
+        sourceCommit: build.sourceState.commit,
+        worktreeFingerprint: `sha256:${build.sourceState.worktreeFingerprint}`,
+        candidateIdentity: {
+            id: 'candidate-current',
+            digest: `sha256:${'c'.repeat(64)}`
+        },
+        buildIdentity: {
+            id: 'build-current',
+            digest: `sha256:${'d'.repeat(64)}`
+        },
+        ownedRoots: ['.tmp/current-run']
+    });
+    const postRuntime = sealDocument({
+        ...postRuntimeBindingShape(preRuntime),
+        executionIdentity: {
+            ...postRuntimeBindingShape(preRuntime).executionIdentity,
+            candidateIdentityDigest: authorityDigest(
+                currentRunContext.candidateIdentity
+            ),
+            buildIdentityDigest: authorityDigest(currentRunContext.buildIdentity)
+        }
+    });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
     const consistencyFinal = sealDocument({
         schema: 'fsusblog.behavior-document-consistency-final-report.v1',
-        status: 'ok'
+        sourceIdentity: preRuntime.sourceIdentity,
+        receiptDigests: {
+            preRuntime: preRuntime.contentDigest,
+            postRuntime: postRuntime.contentDigest
+        },
+        zeroLegacyScan: { scannedFileCount: 10, findings: [] },
+        dagAudit: {
+            tierCount: 22,
+            edgeCount: 22,
+            stronglyConnectedComponents: [],
+            authorityDuplicates: []
+        },
+        spawnBeforeReceipt: {
+            staticCandidate: 0,
+            runtimeCandidate: 0,
+            releaseFinal: 0
+        },
+        singleMutationCoverage: Object.fromEntries(
+            Object.entries(preRuntime.mutationStatus)
+                .map(([behaviorId, mutation]) =>
+                    [behaviorId, mutation.mutationStatus])
+        ),
+        status: 'ok',
+        failureReasons: []
     });
     const consistencyFinalFile = path.join(build.directory, 'behavior-consistency-final.json');
     fs.writeFileSync(correctnessFile, `${JSON.stringify(correctness, null, 2)}\n`);
@@ -835,6 +890,55 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         now: () => new Date('2026-07-18T00:04:00.000Z')
     });
     assert.deepEqual(validateReleaseFinalTestEvidenceBinding(binding), []);
+    const canonicalInputs = loadCanonicalReleaseFinalEvidenceInputs().inputs;
+    const terminalAcceptance = createReleaseFinalTerminalAcceptance({
+        binding,
+        preRuntimeReceipt: preRuntime,
+        postRuntimeReceipt: postRuntime,
+        consistencyFinalReport: consistencyFinal,
+        currentRunContext,
+        canonicalInputs
+    });
+    assert.deepEqual(validateReleaseFinalTerminalAcceptance(
+        terminalAcceptance,
+        {
+            binding,
+            preRuntimeReceipt: preRuntime,
+            postRuntimeReceipt: postRuntime,
+            consistencyFinalReport: consistencyFinal,
+            currentRunContext,
+            canonicalInputs
+        }
+    ), []);
+    assert.deepEqual(terminalAcceptance.warnings, []);
+    assert.equal(terminalAcceptance.spawnCounts.releaseFinalBeforePostRuntime, 0);
+    assert.deepEqual(terminalAcceptance.dag.requiresEvidenceFrom, canonicalInputs);
+    for (const [name, mutate, pattern] of [
+        ['input digest', (receipt) =>
+        {
+            receipt.inputs.postRuntime.contentDigest = `sha256:${'0'.repeat(64)}`;
+        }, /contentDigest|input binding/u],
+        ['spawn count', (receipt) =>
+        {
+            receipt.spawnCounts.releaseFinalBeforePostRuntime = 1;
+        }, /contentDigest|spawn counts/u],
+        ['warning', (receipt) =>
+        {
+            receipt.warnings.push('manual waiver');
+        }, /contentDigest|warnings=0/u]
+    ])
+    {
+        const tampered = structuredClone(terminalAcceptance);
+        mutate(tampered);
+        assert.match(validateReleaseFinalTerminalAcceptance(tampered, {
+            binding,
+            preRuntimeReceipt: preRuntime,
+            postRuntimeReceipt: postRuntime,
+            consistencyFinalReport: consistencyFinal,
+            currentRunContext,
+            canonicalInputs
+        }).join('; '), pattern, name);
+    }
     assert.match(binding.receipts.correctness.fileDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(binding.receipts.browserContract.fileDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(binding.receipts.behaviorPreRuntime.fileDigest, /^sha256:[a-f0-9]{64}$/u);

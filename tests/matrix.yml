@@ -10038,6 +10038,7 @@ tiers:
           [
               .tmp/release-evidence,
               .tmp/release-evidence/release-final-test-evidence-binding.json,
+              .tmp/release-evidence/release-final-terminal-acceptance.json,
           ]
       evidence:
           [
@@ -10046,12 +10047,14 @@ tiers:
               .tmp/release-evidence/test-suite-convergence.json,
               .tmp/release-evidence/backend-physical-topology.json,
               .tmp/release-evidence/release-final-test-evidence-binding.json,
+              .tmp/release-evidence/release-final-terminal-acceptance.json,
               tools/release/test-evidence-receipts.mjs,
               tools/release/test-evidence-receipts-cli.mjs,
               tools/release/check-release-final.mjs,
               tools/release/release-domain-final-binding.mjs,
               tools/release/release-final-diagnostics.mjs,
               tools/release/release-final-domain-evidence.mjs,
+              tools/release/release-final-terminal-acceptance.mjs,
               tools/release/release-reliability-qualified-receipt.mjs,
               tools/release/public-preview-release-evidence.mjs,
               .tmp/release-evidence/public-preview-screenshots.json,

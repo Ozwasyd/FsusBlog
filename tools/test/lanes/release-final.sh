@@ -3,11 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 NODE_BIN="${FSUSBLOG_NODE:-node}"
-CORRECTNESS_RECEIPT="$ROOT_DIR/.tmp/release-evidence/browserless-correctness-receipt.json"
 
-"$ROOT_DIR/tools/test/run-matrix-governance-once.sh" release-final-evidence-plan
-rm -f "$CORRECTNESS_RECEIPT"
-"$NODE_BIN" "$ROOT_DIR/tools/release/test-evidence-receipts-cli.mjs" create-correctness
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-job-summaries.mjs" --require-plan --tier release-final --include-manual --include-nightly --strict-shards
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs" --release-final
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-flaky-evidence.mjs" --release-final
@@ -38,8 +34,7 @@ releaseFinalArgs+=(--current-run-context "$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT
 releaseFinalArgs+=(--manifest-binding "$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH")
 releaseFinalArgs+=(--domain-binding "$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH")
 if [[ ! -f "$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH" ]]; then
-    "$NODE_BIN" "$ROOT_DIR/tools/test/publish-release-final-evidence-parent.mjs" \
-        --context "$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT" \
-        --output "$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH"
+    echo "release-final domain binding is missing; produce it upstream with: node tools/test/publish-release-final-evidence-parent.mjs --context \"$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT\" --output \"$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH\"" >&2
+    exit 1
 fi
 "$NODE_BIN" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"

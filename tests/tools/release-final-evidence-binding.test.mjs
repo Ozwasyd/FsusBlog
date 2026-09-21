@@ -15,13 +15,16 @@ test('release-final script files do not contain recursive test or build producer
         path.join(root, 'tools/test/lanes/release-final.sh'),
         path.join(root, 'tools/release/check-release-final.mjs')
     ];
-    const forbiddenPattern = /dotnet test|vitest|playwright|bootstrap-acceptance|load-|soak|mutation|npm.*build/u;
+    const forbiddenPattern = /dotnet test|vitest|playwright|bootstrap-acceptance|load-|soak|mutation|npm.*build|run-matrix-governance-once|create-correctness|test-evidence-receipts-cli|publish-release-final-evidence-parent/u;
 
     for (const file of files)
     {
         const content = readFileSync(file, 'utf8');
+        const executableSource = content.split('\n')
+            .filter((line) => !line.trimStart().startsWith('echo '))
+            .join('\n');
         assert.equal(
-            forbiddenPattern.test(content),
+            forbiddenPattern.test(executableSource),
             false,
             `${file} must not contain recursive test or build producer execution`
         );
@@ -84,13 +87,6 @@ test('missing evidence reports producer commands without spawning a fallback', (
                 path.join(finalizerRoot, 'tools/test', file)
             );
         }
-        const governanceStub = path.join(finalizerRoot, 'tools/test/run-matrix-governance-once.sh');
-        writeFileSync(governanceStub, '#!/usr/bin/env bash\nexit 0\n');
-        chmodSync(governanceStub, 0o755);
-        writeFileSync(
-            path.join(finalizerRoot, 'tools/release/test-evidence-receipts-cli.mjs'),
-            'process.exit(0);\n'
-        );
         writeFileSync(
             path.join(finalizerRoot, '.tmp/release-evidence/test-plan.json'),
             `${JSON.stringify({

@@ -1,56 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const { hostDeclarations } = await import(new URL("../../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../../tools/fact-extractors/registry.mjs", import.meta.url));
+const { createRuntimeRoleMinimalV3Fixture } = await import(new URL("./runtime-role-minimal-v3-fixture.mjs", import.meta.url));
 
 function seal(value)
 {
     const receipt = { ...structuredClone(value), contentDigest: null };
     receipt.contentDigest = digestValue(receipt);
     return receipt;
-}
-
-function minimalContractBuildReceipt(runId, source)
-{
-    return seal({
-        schema: 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1',
-        runId,
-        sourceCommit: source.sourceCommit,
-        worktreeFingerprint: source.worktreeFingerprint,
-        toolchain: {
-            dotnet: '10.0.100',
-            configuration: 'Release',
-            targetFramework: 'net10.0'
-        },
-        buildKey: 'b'.repeat(64),
-        buildRoot: `.tmp/behavior-doc-contract-builds/${'b'.repeat(64)}`,
-        sourceClosureDigests: [{
-            path: 'Directory.Build.props',
-            digest: 'e'.repeat(64)
-        }, {
-            path: 'Directory.Packages.props',
-            digest: 'f'.repeat(64)
-        }],
-        artifacts: Object.fromEntries(
-            Object.entries(hostDeclarations).map(([artifactId, declaration]) => [
-                artifactId,
-                {
-                    project: declaration.project,
-                    projectDigest: 'c'.repeat(64),
-                    path: path.posix.join(
-                        `.tmp/behavior-doc-contract-builds/${'b'.repeat(64)}`,
-                        declaration.cacheFile
-                    ),
-                    artifactDigest: 'd'.repeat(64)
-                }
-            ])
-        ),
-        status: 'ok',
-        failureReasons: []
-    });
 }
 
 export function prepareBehaviorDocAdmissionFixtureAuthority({
@@ -124,7 +84,7 @@ export function createBehaviorDocAdmissionFixture({
             contentDigest: '9'.repeat(64)
         },
         factObservations,
-        minimalContractBuild: minimalContractBuildReceipt(runId, source),
+        minimalContractBuild: createRuntimeRoleMinimalV3Fixture(runId, source),
         generated: {
             status: 'ok',
             documentCount: 0,

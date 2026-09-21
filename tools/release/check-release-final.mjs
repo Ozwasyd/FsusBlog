@@ -648,7 +648,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
     }
 
     const bindingFile = path.join(root, '.tmp/release-evidence/release-final-test-evidence-binding.json');
+    const terminalAcceptanceFile = path.join(
+        root,
+        '.tmp/release-evidence/release-final-terminal-acceptance.json'
+    );
     fs.rmSync(bindingFile, { force: true });
+    fs.rmSync(terminalAcceptanceFile, { force: true });
     const manifest = resolvedManifest.payload;
     const errors = validateManifest(manifest, manifestFile);
     if (localProfileCheckpoint)
@@ -656,6 +661,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
         errors.push(...validateQualifiedLocalProfile(localProfileCheckpoint, manifest));
     }
     let testEvidenceBinding = null;
+    let terminalAcceptance = null;
     let publicPreviewEvidence = null;
     try
     {
@@ -674,6 +680,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
             sha256Hex
         });
         testEvidenceBinding = testEvidence.binding;
+        terminalAcceptance = testEvidence.terminalAcceptance;
         publicPreviewEvidence = testEvidence.publicPreview;
     }
     catch (error)
@@ -685,6 +692,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
         fail(errors);
     }
     writeJsonAtomic(bindingFile, testEvidenceBinding);
+    writeJsonAtomic(terminalAcceptanceFile, terminalAcceptance);
     const publicPreviewImages = Object.entries(publicPreviewEvidence.images)
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([id, hash]) => `${id}:${hash}`)
