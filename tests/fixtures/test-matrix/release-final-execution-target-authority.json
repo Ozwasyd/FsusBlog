@@ -4540,8 +4540,8 @@
         },
         {
             "path": "tools/testing/content-shape-catalog.mjs",
-            "contentDigest": "sha256:f351504215f50998511e5cb195d8f2c81fff58e40ef43594d5485cc52b141570",
-            "indexDigest": "sha256:f351504215f50998511e5cb195d8f2c81fff58e40ef43594d5485cc52b141570"
+            "contentDigest": "sha256:0eeb3bb1d1c1bbfee124d1fe55d06078d09a07337e43ed3284b4ff1b3d07f7fd",
+            "indexDigest": "sha256:0eeb3bb1d1c1bbfee124d1fe55d06078d09a07337e43ed3284b4ff1b3d07f7fd"
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
