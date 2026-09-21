@@ -1,18 +1,18 @@
 {
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
-        "config/testing/evidence-locator-registry.json": "sha256:42cd6498e63a12e3c7e90e2dbc57c91b2240f30a89a85ff3974261d632bc5744",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:33b7a919095774e10253c13612a2e18ab301e29ef984b40ace06829f286310a3",
+        "config/testing/evidence-locator-registry.json": "sha256:5199699ed95d57352c7f689e0aa10c4e594e19cbd1e96f4404c451cdb8d6c945",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:c2465709e0ba0bf3220b9293597b13531eb21dd937b9f084ef6d38c9b805029e",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
-        "tools/test/current-run-evidence-transport.mjs": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
+        "tools/test/current-run-evidence-transport.mjs": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:62fa2ff72f6f70e3bce2c9fa8440d3d91634e462ede3a384dfd2d1ff5460506e"
     },
-    "registryDigest": "sha256:1a13143efbccacc9ffc3da1d2fa04f3e5a95176115b792f6f0b1d7f17254a17e",
-    "ledgerDigest": "sha256:3026beac07b4c5145de5b1dcc3ddfc2a5ef5eb1c1becaf0c09277e165331b8a6",
-    "scannerDigest": "sha256:02d47a21c42a247eea5b1060e6524571f768a885fdd87c67289d201cd77f2924",
+    "registryDigest": "sha256:705bc94659097d0b98e1b35a8df9322f23d709d797501ab0d18eee7c25b20d78",
+    "ledgerDigest": "sha256:bdd8a0488ce157d1f435ded29e395e007a8a59fc65fa247de06b2adfb41bbb9e",
+    "scannerDigest": "sha256:ae6e6d72ac53a10defeee9aa19d17c842e6678f2325bb3dea047da306ec52bd2",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
-    "transportDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
+    "transportDigest": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
     "consumerInventory": [
         {
             "consumerId": "evidence-consumer.workflow.browser-diagnostics",
@@ -60,6 +60,13 @@
             "consumerId": "evidence-consumer.ci.check-job-summaries",
             "authorityId": "evidence-consumer.ci.check-job-summaries.current-run",
             "producerId": "evidence-consumer.ci.check-job-summaries.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "authorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "producerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.producer",
             "locatorMode": "explicit-run-path",
             "publicationMode": "hooked"
         },
@@ -449,6 +456,13 @@
             "publicationMode": "hooked"
         },
         {
+            "consumerId": "evidence-consumer.test-matrix.release-final-static-boundary",
+            "authorityId": "evidence-consumer.test-matrix.release-final-static-boundary.current-run",
+            "producerId": "evidence-consumer.test-matrix.release-final-static-boundary.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
             "consumerId": "evidence-consumer.test-matrix.required-evidence-catalog",
             "authorityId": "evidence-consumer.test-matrix.required-evidence-catalog.current-run",
             "producerId": "evidence-consumer.test-matrix.required-evidence-catalog.producer",
@@ -617,8 +631,8 @@
             "publicationMode": "parent"
         }
     ],
-    "consumerCount": 86,
-    "findingCount": 472,
+    "consumerCount": 88,
+    "findingCount": 494,
     "warnings": [],
-    "contentDigest": "sha256:7d67ef01307892f182539572a363330e35cfb9b648bc912a2a73ee1d0cc179af"
+    "contentDigest": "sha256:4c719decca482ab11b614d9753f8e0c5924b0c664d44f8face4c741a091e9458"
 }

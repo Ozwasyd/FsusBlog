@@ -235,6 +235,39 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.ci.check-job-summaries"
         },
         {
+            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
+            "authorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
+            "producerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/ci/prepare-quality-gate-evidence-transport.mjs",
+            "producerCallsite": "tools/ci/prepare-quality-gate-evidence-transport.mjs",
+            "producerExecutable": "node tools/ci/prepare-quality-gate-evidence-transport.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.ci.prepare-quality-gate-evidence-transport node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/ci/prepare-quality-gate-evidence-transport.mjs",
+            "outputBindingKey": "FSUSBLOG_CI_PREPARE_QUALITY_GATE_EVIDENCE_TRANSPORT_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_CI_PREPARE_QUALITY_GATE_EVIDENCE_TRANSPORT_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_CI_PREPARE_QUALITY_GATE_EVIDENCE_TRANSPORT_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.ci.prepare-quality-gate-evidence-transport"
+        },
+        {
             "consumerId": "evidence-consumer.ci.production-build-artifacts",
             "authorityId": "evidence-consumer.ci.production-build-artifacts.current-run",
             "producerId": "evidence-consumer.ci.production-build-artifacts.producer",
@@ -2053,6 +2086,39 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-matrix.release-domain-projection-receipt"
         },
         {
+            "consumerId": "evidence-consumer.test-matrix.release-final-static-boundary",
+            "authorityId": "evidence-consumer.test-matrix.release-final-static-boundary.current-run",
+            "producerId": "evidence-consumer.test-matrix.release-final-static-boundary.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "hooked",
+            "producerSource": "tools/test-matrix/release-final-static-boundary.mjs",
+            "producerCallsite": "tools/test-matrix/release-final-static-boundary.mjs",
+            "producerExecutable": "node tools/test-matrix/release-final-static-boundary.mjs",
+            "producerBindingClass": "cli",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.test-matrix.release-final-static-boundary node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/test-matrix/release-final-static-boundary.mjs",
+            "outputBindingKey": "FSUSBLOG_TEST_MATRIX_RELEASE_FINAL_STATIC_BOUNDARY_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_TEST_MATRIX_RELEASE_FINAL_STATIC_BOUNDARY_EVIDENCE_HANDOFF_PATH",
+            "payloadBindingKey": "FSUSBLOG_TEST_MATRIX_RELEASE_FINAL_STATIC_BOUNDARY_EVIDENCE_PAYLOAD_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.test-matrix.release-final-static-boundary"
+        },
+        {
             "consumerId": "evidence-consumer.test-matrix.required-evidence-catalog",
             "authorityId": "evidence-consumer.test-matrix.required-evidence-catalog.current-run",
             "producerId": "evidence-consumer.test-matrix.required-evidence-catalog.producer",
@@ -2844,5 +2910,5 @@
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.release.release-final-domain-evidence"
         }
     ],
-    "contentDigest": "sha256:1a13143efbccacc9ffc3da1d2fa04f3e5a95176115b792f6f0b1d7f17254a17e"
+    "contentDigest": "sha256:705bc94659097d0b98e1b35a8df9322f23d709d797501ab0d18eee7c25b20d78"
 }

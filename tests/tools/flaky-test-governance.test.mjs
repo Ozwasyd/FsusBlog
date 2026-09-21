@@ -10,13 +10,17 @@ const sourceRoot = path.resolve(import.meta.dirname, '../..');
 function makeFixtureRepository()
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-flaky-test-governance-'));
-    for (const directory of ['tools/ci', 'tools/yaml', 'tests/tools/fixtures'])
+    for (const directory of ['tools/ci', 'tools/test', 'tools/yaml', 'tests/tools/fixtures'])
     {
         fs.mkdirSync(path.join(root, directory), { recursive: true });
     }
     for (const relative of [
         'tools/ci/run-flaky-governed.mjs',
         'tools/ci/check-flaky-evidence.mjs',
+        'tools/ci/check-job-summaries.mjs',
+        'tools/test/current-run-evidence-transport.mjs',
+        'tools/test/current-run-evidence-locator.mjs',
+        'tools/test/evidence-location-contract.mjs',
         'tools/yaml/parse-document.mjs',
         'tests/flaky.yml',
         'tests/tools/fixtures/flaky-test-command.mjs'

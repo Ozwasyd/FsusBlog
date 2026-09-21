@@ -1,0 +1,40 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        ".github/workflows/quality-gate.yml",
+        "tests/matrix.yml",
+        "tools/ci/check-flaky-evidence.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/ci/prepare-quality-gate-evidence-transport.mjs",
+        "tools/ci/summarize-quality-gate.mjs",
+        "tools/ci/verify-quality-gate-evidence-transport.mjs",
+        "tools/test/current-run-evidence-transport.mjs",
+        "tools/test/run-current-run-evidence-transport.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "5199699ed95d57352c7f689e0aa10c4e594e19cbd1e96f4404c451cdb8d6c945"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "3fc1d4d316f2fb65d14cc2d653ece5d2a4a42be43a5b54f905fecc4151aaad81"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "6fcaf06d6751dde30e8dce1df06c8bc0682f54c20500b8b81efb9be2c78c1ca8"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "c2465709e0ba0bf3220b9293597b13531eb21dd937b9f084ef6d38c9b805029e"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "08e798d4aa24af88cbc815a8ebc69b90e0a3da53d7e4f497c877057227c61781"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "0c8035167de84e83865efaef38faf590a5322a854649974126912020aedd252c"
+        }
+    ]
+}
