@@ -8,6 +8,10 @@ import test from 'node:test';
 
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
+const { selectBrowserContractScenarios } = await import(new URL('../browser-contract/contract-core.mjs', import.meta.url));
+const { createRuntimeRoleStaticV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 const { acceptedClaimsSchema, authorityDigest, canonicalRepositoryFile, identityAuthoritySchema, loadPostRuntimeProducerRegistry, postRuntimeRegistrySchema, requiredPostRuntimeBehaviors, root, sourceReceiptSchema, validateAcceptedClaimsReceiptAgainstRegistry, validatePostRuntimeProducerRegistry, validatePostRuntimeReaderFirewall, validatePostRuntimeRepositoryAuthority, validatePostRuntimeReceiptSchemas, validateProducerReceiptAgainstRegistry: validateProducerReceiptAgainstRegistryRaw } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'));
 const migrationLedger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'));
@@ -22,6 +26,26 @@ fs.copyFileSync(path.join(root, 'config/schemas/post-runtime-observation-result.
     path.join(receiptRepositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'));
 fs.copyFileSync(path.join(root, 'config/testing/fixture-profile-catalog.json'),
     path.join(receiptRepositoryRoot, 'config/testing/fixture-profile-catalog.json'));
+fs.mkdirSync(path.join(receiptRepositoryRoot, 'config/contracts'), { recursive: true });
+fs.copyFileSync(path.join(root, 'config/contracts/behavior-fact-extractors.json'),
+    path.join(receiptRepositoryRoot, 'config/contracts/behavior-fact-extractors.json'));
+const previewRegistry = JSON.parse(fs.readFileSync(
+    path.join(root, 'config/docs/public-preview-screenshots.json'),
+    'utf8'
+));
+for (const file of [
+    'config/docs/public-preview-screenshots.json',
+    previewRegistry.qualityPolicyFile,
+    ...previewRegistry.qualityScenarioFiles
+])
+{
+    fs.mkdirSync(path.dirname(path.join(receiptRepositoryRoot, file)), { recursive: true });
+    fs.copyFileSync(path.join(root, file), path.join(receiptRepositoryRoot, file));
+}
+const previewQuality = JSON.parse(fs.readFileSync(
+    path.join(root, 'docs/assets/visual-evidence/public-preview-quality.json'),
+    'utf8'
+));
 
 function validateProducerReceiptAgainstRegistry(options)
 {
@@ -36,6 +60,87 @@ function seal(receipt)
     const value = structuredClone(receipt);
     delete value.contentDigest;
     return { ...value, contentDigest: `sha256:${digestValue(value)}` };
+}
+
+function sealUnprefixed(receipt)
+{
+    const value = { ...structuredClone(receipt), contentDigest: null };
+    value.contentDigest = digestValue(value);
+    return value;
+}
+
+function fileDigestHex(file)
+{
+    return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function writeJson(relative, value)
+{
+    const absolute = path.join(receiptRepositoryRoot, relative);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, `${JSON.stringify(value, null, 2)}\n`);
+    return absolute;
+}
+
+function createRuntimeRoleAdmission(sourceState)
+{
+    const source = {
+        sourceCommit: sourceState.sourceCommit,
+        worktreeFingerprint: sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
+    };
+    let admission = createRuntimeRoleStaticV3Fixture(sourceState.runId, source, {
+        repositoryRoot: receiptRepositoryRoot,
+        extractorIds: JSON.parse(fs.readFileSync(
+            path.join(receiptRepositoryRoot, 'config/contracts/behavior-fact-extractors.json'),
+            'utf8'
+        )).extractors.map((extractor) => extractor.id).sort()
+    });
+    const minimal = admission.minimalContractBuild;
+    const runtimeArtifact = minimal.artifacts['runtime-role-observation'];
+    const deploymentObservationDigest = `sha256:${'4'.repeat(64)}`;
+    for (const [artifactId, artifact] of Object.entries(minimal.artifacts))
+    {
+        const project = path.join(receiptRepositoryRoot, artifact.project);
+        fs.mkdirSync(path.dirname(project), { recursive: true });
+        fs.writeFileSync(project, `project:${artifactId}\n`);
+        artifact.projectDigest = fileDigestHex(project);
+        if (artifactId === 'runtime-role-observation')
+        {
+            artifact.buildReceipt.projectDigest = artifact.projectDigest;
+        }
+        const value = artifactId === 'runtime-role-observation'
+            ? {
+                schema: 'fsusblog.runtime-role-observation.v2',
+                ownership: { claimEligible: true },
+                deploymentAuthority: {
+                    observationDigest: deploymentObservationDigest
+                }
+            }
+            : { schema: `fsusblog.${artifactId}.fixture.v1` };
+        const output = writeJson(artifact.path, value);
+        artifact.artifactDigest = fileDigestHex(output);
+        artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+    }
+    const assembly = path.join(receiptRepositoryRoot, runtimeArtifact.assemblyPath);
+    fs.mkdirSync(path.dirname(assembly), { recursive: true });
+    fs.writeFileSync(assembly, 'runtime-role-assembly\n');
+    runtimeArtifact.assemblyDigest = fileDigestHex(assembly);
+    runtimeArtifact.buildReceipt.assemblyDigest = runtimeArtifact.assemblyDigest;
+    runtimeArtifact.buildReceipt.reproducibleBuild.assemblyDigest =
+        runtimeArtifact.assemblyDigest;
+    const deployment = writeJson(runtimeArtifact.deploymentArtifactPath, {
+        schema: 'fsusblog.runtime-role-deployment-observation.v1',
+        ownership: { claimEligible: true },
+        observationDigest: deploymentObservationDigest
+    });
+    runtimeArtifact.deploymentArtifactDigest = fileDigestHex(deployment);
+    runtimeArtifact.buildReceipt.deploymentArtifactDigest =
+        runtimeArtifact.deploymentArtifactDigest;
+    runtimeArtifact.buildReceipt.deploymentObservationDigest =
+        deploymentObservationDigest;
+    admission.minimalContractBuild = sealUnprefixed(minimal);
+    admission = sealUnprefixed(admission);
+    return admission;
 }
 
 function producerReceipt(classId = 'route-response-error')
@@ -83,7 +188,10 @@ function producerReceipt(classId = 'route-response-error')
         const reference = {
             path: relative,
             fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`,
-            contentDigest: document.contentDigest,
+            contentDigest: document.schema
+                === 'fsusblog.behavior-doc-static-admission-receipt.v1'
+                ? `sha256:${document.contentDigest}`
+                : document.contentDigest ?? null,
             schema: document.schema
         };
         if (role !== null)
@@ -117,14 +225,39 @@ function producerReceipt(classId = 'route-response-error')
                 sourceState: source,
                 runIdentity: { runId: sourceState.runId }
             },
-            'fsusblog.browser-contract-public-preview-evidence.v1': { sourceState },
+            'fsusblog.public-preview-screenshot-verification.v1': {
+                status: 'ok',
+                sourceCommit: sourceState.sourceCommit,
+                releaseId: `20260718000000-${sourceState.sourceCommit.slice(0, 12)}`,
+                manifestSchema: 'fsusblog.public-preview-screenshot-manifest.v1',
+                visualInputDigest: 'c'.repeat(64),
+                runtimeAudit: true,
+                layoutAudit: true,
+                sanitizationCheck: true,
+                images: Object.fromEntries(Array.from(
+                    { length: 9 },
+                    (_, index) => [`screenshot-${index + 1}`, `${index + 1}`.repeat(64)]
+                )),
+                differences: [],
+                commandVersion: 'd'.repeat(64),
+                qualityAudit: true,
+                qualityPolicyDigest: previewQuality.policyDigest,
+                quality: structuredClone(previewQuality)
+            },
             'fsusblog.release-rollout-evidence.v1': {
                 rolloutId: sourceState.rolloutId,
                 target: { releaseId: sourceState.releaseId }
             },
-            'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
+            'fsusblog.behavior-doc-static-admission-receipt.v1':
+                createRuntimeRoleAdmission(sourceState)
         };
-        return seal({ schema: contract.schema, ...bySchema[contract.schema] });
+        const document = bySchema[contract.schema];
+        if (contract.schema === 'fsusblog.public-preview-screenshot-verification.v1'
+            || contract.schema === 'fsusblog.behavior-doc-static-admission-receipt.v1')
+        {
+            return { schema: contract.schema, ...document };
+        }
+        return seal({ schema: contract.schema, ...document });
     };
     const embeddedReference = (field, contract) =>
     {
@@ -134,9 +267,10 @@ function producerReceipt(classId = 'route-response-error')
             'fsusblog.post-runtime-candidate-plan.v1': '.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
             'fsusblog.spa-manifest-descriptor.v1': '.tmp/aot-manifest/spa-manifest-descriptor.json',
             'fsusblog.browser-contract-receipt.v2': '.tmp/browser-contract/receipt.json',
-            'fsusblog.browser-contract-public-preview-evidence.v1': '.tmp/release-evidence/public-preview-screenshots.json',
+            'fsusblog.public-preview-screenshot-verification.v1': '.tmp/release-evidence/public-preview-screenshots.json',
             'fsusblog.release-rollout-evidence.v1': `.tmp/release-rollout/${classId}.json`,
-            'fsusblog.runtime-role-observation.v1': '.tmp/behavior-doc-static-admission/runtime-role-observation.json'
+            'fsusblog.behavior-doc-static-admission-receipt.v1':
+                '.tmp/behavior-doc-static-admission/receipt.json'
         };
         return writeDependency(
             receiptPaths[contract.schema]
@@ -186,13 +320,13 @@ function producerReceipt(classId = 'route-response-error')
             identity: `${classId}-${field}`
         };
     }
-    const upstream = seal(upstreamBody);
+    let upstream = seal(upstreamBody);
     const upstreamRelative = definition.sourceReceipt.role === 'probe'
         ? `.tmp/runtime-observation-probes/run-1/attempt-0001/${classId}.json`
         : definition.sourceReceipt.role === 'browser'
             ? '.tmp/browser-contract/receipt.json'
             : `.tmp/post-runtime-sources/run-1/attempt-0001/${classId}.json`;
-    const upstreamRef = writeDependency(upstreamRelative, upstream);
+    let upstreamRef = writeDependency(upstreamRelative, upstream);
     Object.assign(upstreamRef, {
         contentDigest: upstream.contentDigest,
         schema: definition.sourceReceipt.schema,
@@ -224,6 +358,169 @@ function producerReceipt(classId = 'route-response-error')
             schema: identityAuthoritySchema,
             role
         };
+    }
+    if (classId === 'browser-behavior-contract')
+    {
+        const canonicalSource = {
+            commit: sourceState.sourceCommit,
+            worktreeFingerprint: sourceState.worktreeFingerprint
+        };
+        const buildReceipt = seal({
+            schema: 'fsusblog.ci-production-build-receipt.v1',
+            sourceState: canonicalSource
+        });
+        const buildRef = writeDependency(
+            '.tmp/ci-production-build/receipt.json',
+            buildReceipt
+        );
+        sourceState.buildIdentity = buildReceipt.contentDigest;
+        const build = {
+            receipt: buildRef.path,
+            receiptContentDigest: buildReceipt.contentDigest,
+            sourceState: canonicalSource,
+            profile: 'production'
+        };
+        const candidatePlan = seal({
+            schema: 'fsusblog.post-runtime-candidate-plan.v1',
+            producerId: producer.producerId,
+            status: 'planned',
+            sourceState: canonicalSource,
+            build,
+            candidate: {
+                candidateId: sourceState.candidateId,
+                runtimeId: sourceState.runtimeId,
+                browserId: sourceState.browserIdentity,
+                runId: sourceState.runId,
+                attemptId: sourceState.attemptId,
+                fixtureId: sourceState.fixtureId,
+                profileId: sourceState.profileId,
+                releaseId: allSourceState.releaseId
+            },
+            observations: [{
+                classId,
+                receiptPath: `.tmp/current-run/${classId}.json`
+            }],
+            identityAuthorityRefs: {
+                plan: refs.candidatePlanRef,
+                attempt: refs.attemptAuthorityRef,
+                fixture: refs.fixtureAuthorityRef,
+                profile: refs.profileAuthorityRef
+            }
+        });
+        const candidatePlanRef = writeDependency(
+            '.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
+            candidatePlan,
+            'candidate-plan'
+        );
+        const browserPlan = seal({
+            schema: 'fsusblog.playwright-browser-identity.v1',
+            executionClass: 'correctness',
+            evidenceClass: 'browser-contract',
+            qualificationEligible: true,
+            managedExecutable: true,
+            browserName: 'chromium',
+            browserVersion: '140.0.0',
+            revision: '123456',
+            executablePath: '/managed/chromium/chrome',
+            executableSha256: digest('f'),
+            playwright: { package: '@playwright/test', version: '1.59.1' },
+            launchOptions: { headless: true },
+            rendering: {
+                fontSetDigest: digest('1'),
+                localeDataDigest: digest('2'),
+                locale: 'zh-CN',
+                deviceScaleFactor: 1,
+                renderingMode: 'headless',
+                colorScheme: 'light',
+                gpuMode: 'software'
+            }
+        });
+        const browserActual = seal({
+            ...browserPlan,
+            schema: 'fsusblog.playwright-browser-actual.v1',
+            planDigest: browserPlan.contentDigest,
+            renderingObservation: {
+                locale: 'zh-CN',
+                deviceScaleFactor: 1,
+                colorScheme: 'light',
+                renderer: 'SwiftShader fixture renderer'
+            }
+        });
+        const publicPreviewRef = upstreamBody.publicPreviewRef;
+        const preview = JSON.parse(fs.readFileSync(
+            path.join(receiptRepositoryRoot, publicPreviewRef.path),
+            'utf8'
+        ));
+        const scenarios = selectBrowserContractScenarios().map(({ id, capability }) => ({
+            id,
+            capability,
+            status: 'success',
+            classification: 'clean',
+            startedAt: '2026-09-07T00:00:00.000Z',
+            finishedAt: '2026-09-07T00:00:00.001Z',
+            durationMs: 1,
+            issues: [],
+            artifacts: [],
+            error: null
+        }));
+        let browser = sealBrowserContractReceipt({
+            ...upstreamBody,
+            schema: 'fsusblog.browser-contract-receipt.v2',
+            status: 'success',
+            classification: 'clean',
+            runIdentity: {
+                commit: sourceState.sourceCommit,
+                runId: sourceState.runId,
+                attemptId: sourceState.attemptId,
+                namespace: 'run-1'
+            },
+            sourceState: canonicalSource,
+            build,
+            fixture: { namespace: 'run-1', capabilities: {} },
+            playwright: {
+                chromiumRevision: '123456',
+                browserIdentity: { plan: browserPlan, actual: browserActual }
+            },
+            topology: {
+                browserLaunchCount: 1,
+                maxConcurrentBrowserRoots: 1,
+                retries: 0,
+                contextCount: scenarios.length
+            },
+            scenarios,
+            publicPreview: {
+                ...preview,
+                captureContextCount: 9,
+                evidencePath: publicPreviewRef.path,
+                evidenceFileDigest: publicPreviewRef.fileDigest
+            },
+            publicPreviewRef,
+            candidatePlanRef,
+            startedAt: '2026-09-07T00:00:00.000Z',
+            finishedAt: '2026-09-07T00:00:00.001Z',
+            wallClockMs: 1,
+            error: null,
+            finalization: {
+                state: 'complete',
+                primary: { status: 'success' },
+                cleanup: { status: 'success' },
+                persistence: { attemptCount: 1 }
+            },
+            temporalBinding: null
+        });
+        browser = sealBrowserContractReceipt({
+            ...browser,
+            rawFacts: deriveBrowserObservedRawFacts(browser, preview)
+        });
+        upstream = browser;
+        upstreamRef = writeDependency(upstreamRelative, upstream, 'browser');
+        sourceState.artifactDigest = upstreamRef.fileDigest;
+        for (const field of definition.requiredSemanticFactFields)
+        {
+            semanticFacts[field] = field.endsWith('Digest')
+                ? authorityDigest(browser.rawFacts[rawFieldFor(field)])
+                : browser.rawFacts[field];
+        }
     }
     const sourceReceipt = seal({
         schema: sourceReceiptSchema,
@@ -602,6 +899,231 @@ test('every observation class accepts only its declared source identities', () =
                 registry, producerId, receipt: seal(expanded), classId
             }), /sourceState has missing or unknown fields/u);
         }
+    }
+});
+
+test('canonical Browser source preserves its sealer fields and rejects re-sealed drift', () =>
+{
+    const classId = 'browser-behavior-contract';
+    const producerId = registry.producers[0].producerId;
+    const mutatePreview = (mutation) => (upstream) =>
+    {
+        const file = path.join(receiptRepositoryRoot, upstream.publicPreviewRef.path);
+        const preview = JSON.parse(fs.readFileSync(file, 'utf8'));
+        mutation(preview);
+        const bytes = `${JSON.stringify(preview, null, 2)}\n`;
+        fs.writeFileSync(file, bytes);
+        const fileDigest =
+            `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+        upstream.publicPreviewRef.fileDigest = fileDigest;
+        upstream.publicPreview.evidenceFileDigest = fileDigest;
+    };
+    for (const [mutate, expected] of [
+        [(value) => { value.unregistered = true; }, /missing or unknown fields/u],
+        [(value) => { delete value.diagnostics; }, /missing or unknown fields/u],
+        [(value) => {
+            value.sourceState.sourceCommit = value.sourceState.commit;
+        }, /sourceState has missing or unknown fields/u],
+        [(value) => { value.runIdentity.runId = 'other-run'; }, /runId mismatch/u],
+        [(value) => {
+            value.buildBinding.receiptContentDigest = digest('f');
+        }, /canonical Browser contract.*build.*digest mismatch/u],
+        [(value) => {
+            value.publicPreview.evidenceFileDigest = digest('f');
+        }, /canonical source\/build\/run\/preview binding mismatch/u],
+        [(value) => {
+            value.candidatePlanRef.fileDigest = digest('f');
+        }, /candidatePlanRef file digest mismatch/u],
+        [(value) => { value.status = 'failure'; }, /canonical Browser contract/u],
+        [(value) => {
+            value.rawFacts.network.requestFailureCount = 3;
+        }, /raw semantic facts do not replay/u],
+        [mutatePreview((value) => {
+            value.captureContextCount = 9;
+        }), /canonical preview has missing or unknown fields/u],
+        [mutatePreview((value) => {
+            delete value.qualityAudit;
+        }), /canonical preview has missing or unknown fields/u],
+        [mutatePreview((value) => {
+            value.qualityAudit = false;
+        }), /canonical preview quality mismatch/u],
+        [mutatePreview((value) => {
+            value.qualityPolicyDigest = 'f'.repeat(64);
+        }), /canonical preview quality mismatch/u],
+        [mutatePreview((value) => {
+            value.quality.matrix.reports = [];
+        }), /canonical preview quality mismatch/u]
+    ])
+    {
+        const receipt = producerReceipt(classId);
+        const sourcePath = path.join(
+            receiptRepositoryRoot,
+            receipt.sourceReceiptRef.path
+        );
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+        const upstreamPath = path.join(
+            receiptRepositoryRoot,
+            source.upstreamRef.path
+        );
+        const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'));
+        assert.equal(upstream.evidenceClass, 'browser-contract');
+        assert.deepEqual(
+            Object.keys(upstream.sourceState).sort(),
+            ['commit', 'worktreeFingerprint']
+        );
+        mutate(upstream);
+        const changed = seal(upstream);
+        fs.writeFileSync(upstreamPath, `${JSON.stringify(changed, null, 2)}\n`);
+        source.upstreamRef.fileDigest =
+            `sha256:${createHash('sha256')
+                .update(fs.readFileSync(upstreamPath)).digest('hex')}`;
+        source.upstreamRef.contentDigest = changed.contentDigest;
+        receipt.sourceState.artifactDigest = source.upstreamRef.fileDigest;
+        source.sourceState.artifactDigest = source.upstreamRef.fileDigest;
+        const changedSource = seal(source);
+        fs.writeFileSync(
+            sourcePath,
+            `${JSON.stringify(changedSource, null, 2)}\n`
+        );
+        receipt.sourceReceiptRef.fileDigest =
+            `sha256:${createHash('sha256')
+                .update(fs.readFileSync(sourcePath)).digest('hex')}`;
+        receipt.sourceReceiptRef.contentDigest = changedSource.contentDigest;
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry,
+            producerId,
+            receipt: seal(receipt),
+            classId
+        }), expected);
+    }
+});
+
+test('runtime-role admission rejects missing, unknown, stale and coordinated v2 tamper', () =>
+{
+    const classId = 'release-identity-readiness';
+    const producerId = registry.producers[0].producerId;
+    for (const [mutate, expected] of [
+        [({ admission }) => {
+            delete admission.minimalContractBuild;
+        }, /minimalContractBuild|fields are not sealed/u],
+        [({ admission }) => {
+            admission.unknown = true;
+        }, /fields are not sealed/u],
+        [({ upstream }) => {
+            upstream.runtimeRoleAdmissionRef.contentDigest = digest('f');
+        }, /runtime-role admission content seal mismatch/u],
+        [({ admission, observationFile }) => {
+            const observation = JSON.parse(fs.readFileSync(observationFile, 'utf8'));
+            observation.ownership.claimEligible = false;
+            fs.writeFileSync(
+                observationFile,
+                `${JSON.stringify(observation, null, 2)}\n`
+            );
+        }, /artifact runtime-role-observation digest mismatch/u],
+        [({ admission, observationFile, resealMinimal }) => {
+            const observation = JSON.parse(fs.readFileSync(observationFile, 'utf8'));
+            observation.schema = 'fsusblog.runtime-role-observation.v1';
+            fs.writeFileSync(
+                observationFile,
+                `${JSON.stringify(observation, null, 2)}\n`
+            );
+            resealMinimal(admission, observationFile, 'artifact');
+        }, /runtime-role v2 observation authority/u],
+        [({ admission, deploymentFile, resealMinimal }) => {
+            const deployment = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
+            deployment.ownership.claimEligible = false;
+            fs.writeFileSync(
+                deploymentFile,
+                `${JSON.stringify(deployment, null, 2)}\n`
+            );
+            resealMinimal(admission, deploymentFile, 'deployment');
+        }, /runtime-role v2 observation authority/u]
+    ])
+    {
+        const receipt = producerReceipt(classId);
+        const sourcePath = path.join(
+            receiptRepositoryRoot,
+            receipt.sourceReceiptRef.path
+        );
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+        const upstreamPath = path.join(
+            receiptRepositoryRoot,
+            source.upstreamRef.path
+        );
+        let upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'));
+        const admissionPath = path.join(
+            receiptRepositoryRoot,
+            upstream.runtimeRoleAdmissionRef.path
+        );
+        let admission = JSON.parse(fs.readFileSync(admissionPath, 'utf8'));
+        const runtimeArtifact =
+            admission.minimalContractBuild.artifacts['runtime-role-observation'];
+        const observationFile = path.join(
+            receiptRepositoryRoot,
+            runtimeArtifact.path
+        );
+        const deploymentFile = path.join(
+            receiptRepositoryRoot,
+            runtimeArtifact.deploymentArtifactPath
+        );
+        const resealMinimal = (value, file, kind) =>
+        {
+            const artifact =
+                value.minimalContractBuild.artifacts['runtime-role-observation'];
+            const currentDigest = fileDigestHex(file);
+            if (kind === 'artifact')
+            {
+                artifact.artifactDigest = currentDigest;
+                artifact.buildReceipt.artifactDigest = currentDigest;
+            }
+            else
+            {
+                artifact.deploymentArtifactDigest = currentDigest;
+                artifact.buildReceipt.deploymentArtifactDigest = currentDigest;
+            }
+            value.minimalContractBuild =
+                sealUnprefixed(value.minimalContractBuild);
+        };
+        mutate({
+            admission,
+            upstream,
+            observationFile,
+            deploymentFile,
+            resealMinimal
+        });
+        admission = sealUnprefixed(admission);
+        fs.writeFileSync(
+            admissionPath,
+            `${JSON.stringify(admission, null, 2)}\n`
+        );
+        upstream.runtimeRoleAdmissionRef.fileDigest =
+            `sha256:${fileDigestHex(admissionPath)}`;
+        if (upstream.runtimeRoleAdmissionRef.contentDigest !== digest('f'))
+        {
+            upstream.runtimeRoleAdmissionRef.contentDigest =
+                `sha256:${admission.contentDigest}`;
+        }
+        upstream = seal(upstream);
+        fs.writeFileSync(
+            upstreamPath,
+            `${JSON.stringify(upstream, null, 2)}\n`
+        );
+        source.upstreamRef.fileDigest = `sha256:${fileDigestHex(upstreamPath)}`;
+        source.upstreamRef.contentDigest = upstream.contentDigest;
+        const changedSource = seal(source);
+        fs.writeFileSync(
+            sourcePath,
+            `${JSON.stringify(changedSource, null, 2)}\n`
+        );
+        receipt.sourceReceiptRef.fileDigest =
+            `sha256:${fileDigestHex(sourcePath)}`;
+        receipt.sourceReceiptRef.contentDigest = changedSource.contentDigest;
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry,
+            producerId,
+            receipt: seal(receipt),
+            classId
+        }), expected);
     }
 });
 
@@ -1543,6 +2065,46 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
         () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs'),
         /single-link file/u);
     fs.rmSync(path.join(repositoryRoot, 'tools/test-matrix/hardlink-entry.mjs'));
+});
+
+test('pure receipt contracts reject transitive filesystem and execution capabilities', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'fsusblog-pure-receipt-')
+    );
+    context.after(() =>
+        fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const entry = 'tools/docs/behavior-doc-static-admission-contract.mjs';
+    const entryFile = path.join(repositoryRoot, entry);
+    fs.mkdirSync(path.dirname(entryFile), { recursive: true });
+    fs.writeFileSync(
+        entryFile,
+        "import path from 'node:path'; export const normalize = path.resolve;\n"
+    );
+    assert.doesNotThrow(() =>
+        validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    fs.writeFileSync(
+        entryFile,
+        "import fs from 'node:fs'; export const reader = fs;\n"
+    );
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, entry),
+        /forbidden I\/O or execution module node:fs/u
+    );
+    const helper = path.join(repositoryRoot, 'tools/contracts/pure-helper.mjs');
+    fs.mkdirSync(path.dirname(helper), { recursive: true });
+    fs.writeFileSync(
+        entryFile,
+        "export { run } from '../contracts/pure-helper.mjs';\n"
+    );
+    fs.writeFileSync(
+        helper,
+        "import { spawnSync } from 'node:child_process'; export const run = spawnSync;\n"
+    );
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, entry),
+        /forbidden I\/O or execution module node:child_process/u
+    );
 });
 
 test('re-sealed diagnostic, timeout, cancel and recovered mutations cannot qualify', () =>

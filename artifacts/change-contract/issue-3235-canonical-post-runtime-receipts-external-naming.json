@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/post-runtime-producer-registry.json"
+            ],
+            "reason": "preserve the canonical serialized Browser, public-preview, BehaviorDoc admission, and runtime-role receipt keys"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/docs/behavior-doc-static-admission-contract.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/docs/public-preview-quality-contract.mjs",
+                "tools/docs/public-preview-quality-publication.mjs",
+                "tools/docs/public-preview-registry.mjs",
+                "tools/release/browser-contract-receipt-contract.mjs",
+                "tools/release/public-preview-quality-receipt-contract.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test-evidence/browser-contract-observed-facts.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs"
+            ],
+            "reason": "preserve caller-visible process, command, schema, and receipt spellings while internal JavaScript symbols follow repository naming"
+        }
+    ]
+}
