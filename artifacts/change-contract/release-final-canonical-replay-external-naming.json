@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/current-run-evidence-publication.mjs"
+            ],
+            "reason": "Preserve caller-visible current-run authority IDs, receipt JSON fields, and process environment keys while binding canonical release-final replay."
+        }
+    ]
+}
