@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve serialized lifecycle and execution-target authority keys while assigning canonical finalizer owners and dependency closure digests"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/generate-release-final-execution-authority.mjs",
+                "tools/test-matrix/release-final-spawn-seal.mjs",
+                "tools/test-matrix/release-final-static-boundary.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "preserve caller-visible CLI, schema, test ID and scheduler-to-shell environment spellings while sealing the finalizer boundary"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/release-final.sh"
+            ],
+            "reason": "preserve caller-visible release-final environment keys while removing producer and repair capabilities"
+        }
+    ]
+}

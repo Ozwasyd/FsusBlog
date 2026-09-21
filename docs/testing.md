@@ -1014,11 +1014,17 @@ Before sealing `fsusblog.behavior-evidence-post-runtime-receipt.v1`, the join ve
 
 `release-final` is a finalizer after that verified seal, not another producer. Its matrix execution graph is empty and its evidence DAG is the exact current required-authority catalog. The lane consumes only explicit current-run locator bindings and content digests; it does not create correctness/domain evidence, run parsers, tests, mutation or runtime producers, repair missing inputs, or select latest/history/job/file/manual substitutes. Missing or failed post-runtime evidence blocks scheduler admission, so the finalizer spawn count remains zero. A successful finalizer writes `release-final-test-evidence-binding.json` and then `release-final-terminal-acceptance.json`; the terminal receipt seals the exact DAG, pre/post/finalizer inputs, source/worktree/build/candidate/runtime/release/run/attempt/catalog/claim identities, zero pre-seal spawn counts, existing scanner and mutation results, and `warnings=[]`. Input or receipt tampering fails closed and never overwrites the post-runtime status, failure reasons, or digest.
 
+Before any finalizer child is created, `release-final` also passes the schema-agnostic static boundary in `tools/test-matrix/release-final-static-boundary.mjs`. The checked-in execution index and generated authority bind the exact matrix command argv, command owner, regular non-symlink file and Git-index bytes, single-link identity, and recursive shell/Node dependency closure. Dynamic module or runtime-generated shell sources are admitted only by exact owner/source/expression digests; aliases, hidden wrappers, unsupported shell grammar, undeclared dependencies, or producer/repair/parser/mutation/governance capabilities fail closed. The scheduler then creates a nonce-bound current-run spawn seal for the explicit context, manifest and domain bindings, removes ambient `FSUSBLOG_NODE` authority, and exposes one finalizer spawn only for the accepted state. The shell rechecks the sealed Node realpath, bytes and version through the opened executable descriptor before replacing itself with the sole `check-release-final.mjs` consumer.
+
 Focused validation：
 
 ```bash
 node tools/test-matrix/post-runtime-producer-registry.mjs
 node --test tests/tools/post-runtime-producer-registry.test.mjs
+node tools/test-matrix/generate-release-final-execution-authority.mjs
+node tools/test-matrix/release-final-static-boundary.mjs --check
+node --test tests/tools/release-final-static-boundary.test.mjs
+node --test tests/tools/release-final-evidence-binding.test.mjs
 ```
 
 Independent verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` rereads raw results, bindings, catalog, test plan receipt and receipt, recalculates contentDigest, rawResultDigest, exact join and plan closure, rejects tamper, cross-run, historical TRX/latest catalog, retry/diagnostic recovered evidence, default success field and second producer; when evidence is missing, only the canonical producer command is output. static governance disables reading TRX, file-exists/job-status pass, manual behavior success, or the second set of producers from the repository metadata parsing default branch.

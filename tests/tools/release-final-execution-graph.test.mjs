@@ -32,6 +32,19 @@ const { runProducerAttempts } = await import(
 const { cleanAttemptEvidenceInputSchema } = await import(
     pathToFileURL(path.join(root, 'tools/release/clean-attempt-evidence-source.mjs')).href
 );
+const { governanceContentDigest } = await import(
+    pathToFileURL(path.join(root, 'tools/test/evidence-location-contract.mjs')).href
+);
+const {
+    evidenceContentDigest,
+    evidenceProducerReceiptDigest
+} = await import(pathToFileURL(path.join(root, 'tools/test/current-run-evidence-locator.mjs')).href);
+const { createEvidenceParentReceipt } = await import(
+    pathToFileURL(path.join(root, 'tools/test/current-run-evidence-publication.mjs')).href
+);
+const { snapshotSourceState } = await import(
+    pathToFileURL(path.join(root, 'tools/test-matrix/scheduler.mjs')).href
+);
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/execution-dependency-contract.json');
 const evidenceContractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
 const canonicalEvidenceInputDigest =
@@ -70,6 +83,93 @@ function writeJson(file, value)
 {
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function createReleaseFinalSpawnEvidence(runId, fixture)
+{
+    const source = await snapshotSourceState(root);
+    const contextBody = {
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId: runId,
+        attemptId: 'attempt-0001',
+        sourceCommit: source.commit,
+        worktreeFingerprint: `sha256:${source.worktreeFingerprint}`,
+        candidateIdentity: { id: `${runId}:candidate`, digest: `sha256:${'1'.repeat(64)}` },
+        buildIdentity: { id: `${runId}:build`, digest: `sha256:${'2'.repeat(64)}` },
+        ownedRoots: ['artifacts/current-run']
+    };
+    const context = { ...contextBody, contentDigest: governanceContentDigest(contextBody) };
+    const contextFile = path.join(fixture, 'current-run-context.json');
+    writeJson(contextFile, context);
+
+    const registry = JSON.parse(readFileSync(
+        path.join(root, 'config/testing/evidence-locator-registry.json'),
+        'utf8'
+    ));
+    const entry = (consumerId) =>
+    {
+        const found = registry.entries.find((candidate) => candidate.consumerId === consumerId);
+        assert.ok(found, `fixture registry is missing ${consumerId}`);
+        return found;
+    };
+    const manifestEntry = entry('evidence-consumer.release.check-release-final');
+    const domainEntry = entry('evidence-consumer.release.release-final-domain-evidence');
+    const outputRoot = path.join(
+        root,
+        'artifacts/current-run',
+        `release-final-execution-graph-${process.pid}`
+    );
+    mkdirSync(outputRoot, { recursive: true });
+    const manifestPayloadFile = path.join(outputRoot, 'manifest-payload.json');
+    writeJson(manifestPayloadFile, {
+        schema: 'fsusblog.release-final-execution-graph-fixture.v1'
+    });
+    const manifestPayloadRelative = path.relative(root, manifestPayloadFile).replaceAll(path.sep, '/');
+    const manifestBody = {
+        schema: manifestEntry.receiptSchema,
+        schedulerRunId: context.schedulerRunId,
+        attemptId: context.attemptId,
+        sourceCommit: context.sourceCommit,
+        worktreeFingerprint: context.worktreeFingerprint,
+        candidateIdentity: context.candidateIdentity,
+        buildIdentity: context.buildIdentity,
+        authorityId: manifestEntry.authorityId,
+        producerId: manifestEntry.producerId,
+        payload: {
+            path: manifestPayloadRelative,
+            schema: 'fsusblog.release-final-execution-graph-fixture.v1',
+            digest: fileDigest(manifestPayloadFile)
+        }
+    };
+    const withContent = {
+        ...manifestBody,
+        contentDigest: evidenceContentDigest(manifestBody)
+    };
+    const manifest = {
+        ...withContent,
+        producerReceiptDigest: evidenceProducerReceiptDigest(withContent)
+    };
+    const manifestFile = path.join(outputRoot, 'manifest-reference.json');
+    writeJson(manifestFile, manifest);
+    const manifestRelative = path.relative(root, manifestFile).replaceAll(path.sep, '/');
+    const domain = createEvidenceParentReceipt({
+        context,
+        parentAuthorityId: domainEntry.authorityId,
+        producerId: domainEntry.producerId,
+        childReferences: [{
+            ...manifest,
+            path: manifestRelative,
+            inputDigest: fileDigest(manifestFile)
+        }]
+    });
+    const domainFile = path.join(outputRoot, 'domain-parent.json');
+    writeJson(domainFile, domain);
+    return {
+        contextFile,
+        manifestFile,
+        domainFile,
+        outputRoot
+    };
 }
 
 // Produce the file-backed fsusblog.clean-attempt-evidence-input.v1 document a
@@ -417,6 +517,7 @@ test('default and CI execution commands spawn only the finalizer', async () =>
         'load', 'soak', 'scale', 'benchmark', 'mutation', 'fuzz'
     ];
     let attemptEvidence = null;
+    let spawnEvidence = null;
     try
     {
         mkdirSync(bin);
@@ -440,22 +541,23 @@ test('default and CI execution commands spawn only the finalizer', async () =>
         // proceeds behind fail-closed clean-attempt admission, so the
         // isolated run must supply the current run's file-backed evidence.
         attemptEvidence = await createCleanAttemptEvidenceInput();
+        spawnEvidence = await createReleaseFinalSpawnEvidence(admission.runId, fixture);
         const environment = {
             ...process.env,
             PATH: `${bin}:${process.env.PATH}`,
             FSUSBLOG_SPAWN_LOG: log,
-            FSUSBLOG_NODE: process.execPath,
+            FSUSBLOG_TEST_RUN_ID: admission.runId,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: admission.receiptFile,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: admission.contentDigest,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: admission.runId,
-            FSUSBLOG_CLEAN_ATTEMPT_EVIDENCE: attemptEvidence.inputFile
+            FSUSBLOG_CLEAN_ATTEMPT_EVIDENCE: attemptEvidence.inputFile,
+            FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: spawnEvidence.contextFile,
+            FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: spawnEvidence.manifestFile,
+            FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: spawnEvidence.domainFile
         };
         const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
         const producerTierIds = matrix.tiers.find((tier) => tier.id === 'release-final').requiresEvidenceFrom;
-        let isolatedMatrix = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
-        isolatedMatrix = replaceTierField(isolatedMatrix, 'release-final', 'command', '/bin/true');
-        isolatedMatrix = replaceTierField(isolatedMatrix, 'release-final', 'artifacts', '[]');
-        isolatedMatrix = replaceTierField(isolatedMatrix, 'release-final', 'evidence', '[]');
+        const isolatedMatrix = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
         const isolatedMatrixFile = path.join(fixture, 'matrix.yml');
         writeFileSync(isolatedMatrixFile, isolatedMatrix);
 
@@ -472,10 +574,16 @@ test('default and CI execution commands spawn only the finalizer', async () =>
                 env: { ...environment, FSUSBLOG_MATRIX_FILE: isolatedMatrixFile }
             });
             const output = `${result.stdout}\n${result.stderr}`;
+            assert.notEqual(result.status, 0, `${command} ${args.join(' ')} must run the finalizer fixture`);
+            assert.match(
+                output,
+                /direct evidence locator: release-final parent does not contain the exact direct authority set/u,
+                `${command} ${args.join(' ')} must reach the finalizer's isolated evidence fixture`
+            );
             assert.equal(
-                result.status,
-                0,
-                `${command} ${args.join(' ')} isolated execution graph must succeed\n${output}`
+                output.match(/^\[matrix:release-final\] tools\/test\/lanes\/release-final\.sh$/gmu)?.length,
+                1,
+                `${command} ${args.join(' ')} must expose exactly one finalizer command`
             );
             for (const producerTierId of producerTierIds)
             {
@@ -510,16 +618,20 @@ test('default and CI execution commands spawn only the finalizer', async () =>
             encoding: 'utf8',
             env: { ...environment, FSUSBLOG_MATRIX_FILE: injectedMatrixFile }
         });
-        assert.equal(mutationResult.status, 0, 'mutated fixture must reach and execute the injected producer');
-        assert.match(
-            `${mutationResult.stdout}\n${mutationResult.stderr}`,
-            /\[matrix:production-correctness\]/u,
-            'fixture must directly observe the injected producer tier entering the scheduler'
+        assert.notEqual(
+            mutationResult.status,
+            0,
+            'mutated execution graph must fail before the injected producer'
         );
         assert.match(
+            `${mutationResult.stdout}\n${mutationResult.stderr}`,
+            /release-final static boundary rejected matrix parse[\s\S]*executionDependsOn must be empty/u,
+            'static boundary must report the execution-graph mutation'
+        );
+        assert.equal(
             readFileSync(log, 'utf8'),
-            /^production-correctness$/mu,
-            'fixture must fail only after the injected producer process was actually spawned'
+            '',
+            'execution-graph mutation must keep producer spawn count at zero'
         );
     }
     finally
@@ -528,6 +640,10 @@ test('default and CI execution commands spawn only the finalizer', async () =>
         if (attemptEvidence)
         {
             rmSync(attemptEvidence.evidenceRoot, { recursive: true, force: true });
+        }
+        if (spawnEvidence)
+        {
+            rmSync(spawnEvidence.outputRoot, { recursive: true, force: true });
         }
     }
 });

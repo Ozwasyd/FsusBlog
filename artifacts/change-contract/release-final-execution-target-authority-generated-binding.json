@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/testing/release-final-execution-authority-index.json",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "fae2a5d85e2b3d0a288bf6d42c12f9c6833e0c1a55d9b49e580a3cab04c18a75"
+        }
+    ]
+}
