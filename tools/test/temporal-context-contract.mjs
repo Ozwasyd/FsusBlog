@@ -380,6 +380,15 @@ export function createTemporalContract(authority = {})
         }
         const normalizedPlanContext = validateTemporalContext(plan.temporalContext);
         const normalizedActualContext = validateTemporalContext(actual.temporalContext);
+        for (const [artifact, context] of [[plan, normalizedPlanContext], [actual, normalizedActualContext]])
+        {
+            sameBinding({ commit: context.sourceCommit, fingerprint: context.sourceFingerprint },
+                artifact.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
+            sameBinding({ schedulerRunId: context.schedulerRunId },
+                artifact.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
+            sameBinding({ producerId: context.producerId },
+                artifact.producer, ['producerId'], 'temporal.producer-binding-mismatch');
+        }
         sameBinding(plan.source, actual.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
         sameBinding(plan.run, actual.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
         sameBinding(plan.producer, actual.producer, ['producerId'], 'temporal.producer-binding-mismatch');

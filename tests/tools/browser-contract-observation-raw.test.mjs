@@ -111,7 +111,7 @@ test('browser raw projector rejects diagnostic, partial, stale, and screenshot-o
 {
   const cases = [
     ['diagnostic schema', (browser) => { browser.schema = 'fsusblog.browser-diagnostics-receipt.v2' }, /non-qualifying/u],
-    ['another candidate run', (browser) => { browser.runIdentity.runId = 'other-run' }, /identities do not exact-match/u],
+    ['another candidate run', (browser) => { browser.runIdentity.runId = 'other-run' }, /Browser Contract temporal runId mismatch/u],
     ['another candidate attempt', (browser) => { browser.runIdentity.attemptId = 'attempt-0002' }, /identities do not exact-match/u],
     ['missing required test', (browser) => {
       browser.scenarios.pop()
