@@ -118,13 +118,18 @@ export function produceConfigErrorSecurityObservation({
     sourceDigests,
     sourceDigest
   }
+  const suppliedBuildIdentity = {
+    artifactId: buildIdentity.artifactId,
+    receiptDigest: buildIdentity.receiptDigest,
+    artifactDigest: buildIdentity.artifactDigest
+  }
   const receiptPath = path.join(paths.directory, 'build-receipt.json')
   writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`)
 
   return {
     observation,
     observationPath: paths.observationPath,
-    buildIdentity,
+    buildIdentity: suppliedBuildIdentity,
     receiptPath,
     receiptBody
   }

@@ -72,7 +72,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
             await MiddlewareResults.WriteErrorAsync(
                 context,
                 "账户状态暂不可确认",
-                StatusCodes.Status503ServiceUnavailable,
+                ApiErrorTransportMappingId.Generic503InfraFailure,
                 details: "account_state_unknown");
             return;
         }
@@ -114,14 +114,17 @@ public class BannedUserMiddleware(RequestDelegate _next)
                 await MiddlewareResults.WriteErrorAsync(
                     context,
                     "账户状态暂不可确认",
-                    StatusCodes.Status503ServiceUnavailable,
+                    ApiErrorTransportMappingId.Generic503InfraFailure,
                     details: "ban_state_unknown");
                 return;
             }
 
             if (banState.IsDeleted)
             {
-                await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
+                await MiddlewareResults.WriteErrorAsync(
+                    context,
+                    "账户已注销",
+                    ApiErrorTransportMappingId.Generic401Unauthorized);
                 return;
             }
 

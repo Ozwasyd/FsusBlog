@@ -3,12 +3,20 @@
   "sources": [
     "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
     "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+    "tools/contracts/lib/config-error-security-observation.mjs",
+    "tools/contracts/lib/openapi-observation.mjs",
     "tools/fact-extractors/config-error-security-policy/extract.mjs"
   ],
   "outputs": [
     {
       "path": "docs/api/schemas-and-errors.md",
-      "sha256": "1b881d6d587179ee62b95da50ab46774309d501733755b62c40d2c1b60ec78bd"
+      "sha256": "ae2bbe75f6307b48fe966916910783a449f8559c1d18c30200aeb937875617a8"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "sha256": "d0b40979bd270b79fe9b63ce581e472995ecfb19702dcc9491ec7395ca03a1f4"
     }
   ]
 }

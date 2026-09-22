@@ -364,7 +364,7 @@ function sampleObservation(overrides = {})
 function runExtract(repositoryRoot, observation, buildIdentityOverrides = {})
 {
     const written = writeObservation(repositoryRoot, observation);
-    const sourceDigests = Object.fromEntries(observationAuthoritySourcePaths.map((relative) =>
+    const sourceDigests = observationAuthoritySourcePaths.map((relative) =>
     {
         const absolute = path.join(repositoryRoot, relative);
         mkdirSync(path.dirname(absolute), { recursive: true });
@@ -372,17 +372,56 @@ function runExtract(repositoryRoot, observation, buildIdentityOverrides = {})
         {
             writeFileSync(absolute, '// production authority fixture\n');
         }
-        return [relative, sha256(readFileSync(absolute))];
-    }));
+        return { path: relative, digest: sha256(readFileSync(absolute)) };
+    });
     return extractConfigErrorSecurity({
         repositoryRoot,
         buildIdentity: {
+            schema: 'fsusblog.build-identity.v1',
             artifactId: 'config-error-security-policy-observation',
             artifactDigest: written.artifactDigest,
             receiptDigest: 'b'.repeat(64),
             sourceDigests,
             sourceDigest: digestValue(sourceDigests),
             ...buildIdentityOverrides
+        }
+    });
+}
+
+function runStandaloneExtract(repositoryRoot, observation, sourceDigests)
+{
+    const written = writeObservation(repositoryRoot, observation);
+    const sourceDigest = digestValue(sourceDigests);
+    const receiptBody = {
+        schema: 'fsusblog.config-error-security-observation-build-receipt.v1',
+        artifactId: 'config-error-security-policy-observation',
+        observationPath: observationRelative,
+        observationDigest: observation.observationDigest,
+        artifactDigest: written.artifactDigest,
+        sourceDigests,
+        sourceDigest,
+        configuration: 'Release'
+    };
+    const buildIdentity = {
+        artifactId: receiptBody.artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest: written.artifactDigest,
+        sourceDigests,
+        sourceDigest
+    };
+    const receiptPath = path.join(
+        repositoryRoot,
+        '.tmp/contracts/config-error-security/build-receipt.json'
+    );
+    mkdirSync(path.dirname(receiptPath), { recursive: true });
+    writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`);
+
+    return extractConfigErrorSecurity({
+        repositoryRoot,
+        buildIdentity: {
+            artifactId: buildIdentity.artifactId,
+            receiptDigest: buildIdentity.receiptDigest,
+            artifactDigest: buildIdentity.artifactDigest
         }
     });
 }
@@ -583,25 +622,21 @@ test('status mapping keys fail closed on missing, extra, unsorted, duplicate and
   }
 })
 
-test('exact build identity fail-closes missing, extra and tampered mapper source digests', () =>
+test('canonical build identity fail-closes missing and tampered mapper source digests', () =>
 {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'))
   try
   {
     writeFrontendProjection(directory)
     const sourcePath = observationAuthoritySourcePaths[0]
-    const validSourceDigests = { [sourcePath]: sha256(Buffer.from('// production authority fixture\n', 'utf8')) }
+    const validSourceDigests = [
+      { path: sourcePath, digest: sha256(Buffer.from('// production authority fixture\n', 'utf8')) }
+    ]
 
     assert.ok(runExtract(directory, sampleObservation(), { sourceDigests: undefined })
       .failureReasons.some((reason) => /sourceDigests must exactly bind/iu.test(reason)))
 
-    const extraSourceDigests = { ...validSourceDigests, 'src/backend/ExtraAuthority.cs': '0'.repeat(64) }
-    assert.ok(runExtract(directory, sampleObservation(), {
-      sourceDigests: extraSourceDigests,
-      sourceDigest: digestValue(extraSourceDigests)
-    }).failureReasons.some((reason) => /sourceDigests must exactly bind/iu.test(reason)))
-
-    const tamperedSourceDigests = { [sourcePath]: '0'.repeat(64) }
+    const tamperedSourceDigests = [{ path: sourcePath, digest: '0'.repeat(64) }]
     assert.ok(runExtract(directory, sampleObservation(), {
       sourceDigests: tamperedSourceDigests,
       sourceDigest: digestValue(tamperedSourceDigests)
@@ -609,6 +644,40 @@ test('exact build identity fail-closes missing, extra and tampered mapper source
 
     assert.ok(runExtract(directory, sampleObservation(), { sourceDigest: '0'.repeat(64) })
       .failureReasons.some((reason) => /sourceDigest does not match/iu.test(reason)))
+  }
+  finally
+  {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('standalone build receipt rejects extra and tampered mapper source digests', () =>
+{
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'))
+  try
+  {
+    writeFrontendProjection(directory)
+    const sourcePath = observationAuthoritySourcePaths[0]
+    const sourceFile = path.join(directory, sourcePath)
+    mkdirSync(path.dirname(sourceFile), { recursive: true })
+    writeFileSync(sourceFile, '// production authority fixture\n')
+    const validSourceDigests = {
+      [sourcePath]: sha256(readFileSync(sourceFile))
+    }
+
+    const valid = runStandaloneExtract(directory, sampleObservation(), validSourceDigests)
+    assert.equal(valid.status, 'ok', valid.failureReasons?.join('\n'))
+
+    const extra = runStandaloneExtract(directory, sampleObservation(), {
+      ...validSourceDigests,
+      'src/backend/ExtraAuthority.cs': '0'.repeat(64)
+    })
+    assert.ok(extra.failureReasons.some((reason) => /shape\/path\/source set is invalid/iu.test(reason)))
+
+    const tampered = runStandaloneExtract(directory, sampleObservation(), {
+      [sourcePath]: '0'.repeat(64)
+    })
+    assert.ok(tampered.failureReasons.some((reason) => /source digest mismatch/iu.test(reason)))
   }
   finally
   {

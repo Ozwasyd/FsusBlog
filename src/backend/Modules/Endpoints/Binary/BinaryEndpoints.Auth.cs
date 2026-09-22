@@ -2093,12 +2093,14 @@ public static partial class BinaryEndpoints
     }
 
     private static BinaryFrameResult RecoveryKeyError(in ErrorDetail error, IAedsEncoder aeds)
-        => BinaryResults.FromError(
-            error,
-            aeds,
-            string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
-                ? ApiErrorTransportMappingId.Operation429Forbidden
-                : ApiErrorSemanticMapper.GetDefaultMappingId(error.Code));
+    {
+        if (string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal))
+        {
+            return BinaryResults.FromError(error, aeds, ApiErrorTransportMappingId.Operation429Forbidden);
+        }
+
+        return BinaryResults.FromError(error, aeds);
+    }
 
     private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync(
         HttpContext httpContext,

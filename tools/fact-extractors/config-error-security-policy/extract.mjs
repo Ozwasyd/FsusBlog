@@ -6,6 +6,7 @@ import { observationAuthoritySourcePaths } from '../../contracts/lib/config-erro
 import { digestValue } from '../lib/canonicalize.mjs';
 
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json';
+const buildReceiptRelative = '.tmp/contracts/config-error-security/build-receipt.json';
 const expectedArtifactId = 'config-error-security-policy-observation';
 const expectedSchema = 'fsusblog.config-error-security-policy-observation.v2';
 const expectedDomainErrorSchema = 'fsusblog.domain-error-catalog.v1';
@@ -36,6 +37,115 @@ function failResult(reasons)
         failureReasons: reasons.map(String),
         observations: {}
     };
+}
+
+function exactKeys(value, keys)
+{
+    return value != null
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0');
+}
+
+function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
+{
+    const receiptPath = path.join(repositoryRoot, buildReceiptRelative);
+    if (!existsSync(receiptPath))
+    {
+        return { failureReasons: [`missing canonical config/error build receipt ${buildReceiptRelative}`], receipt: null };
+    }
+
+    let receipt;
+    try
+    {
+        receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    }
+    catch (error)
+    {
+        return {
+            failureReasons: [`canonical config/error build receipt JSON parse failed: ${error instanceof Error ? error.message : String(error)}`],
+            receipt: null
+        };
+    }
+
+    const receiptKeys = [
+        'schema',
+        'artifactId',
+        'observationPath',
+        'observationDigest',
+        'artifactDigest',
+        'sourceDigests',
+        'sourceDigest',
+        'configuration',
+        'buildIdentity'
+    ];
+    const embeddedIdentityKeys = [
+        'artifactId',
+        'receiptDigest',
+        'artifactDigest',
+        'sourceDigests',
+        'sourceDigest'
+    ];
+    const failureReasons = [];
+    if (
+        !exactKeys(receipt, receiptKeys)
+        || receipt.schema !== 'fsusblog.config-error-security-observation-build-receipt.v1'
+        || receipt.artifactId !== expectedArtifactId
+        || receipt.observationPath !== observationRelative
+        || !['Debug', 'Release'].includes(receipt.configuration)
+        || !exactKeys(receipt.buildIdentity, embeddedIdentityKeys)
+        || !exactKeys(receipt.sourceDigests, observationAuthoritySourcePaths)
+    )
+    {
+        failureReasons.push('canonical config/error build receipt shape/path/source set is invalid');
+        return { failureReasons, receipt };
+    }
+
+    const { buildIdentity: embeddedIdentity, ...receiptBody } = receipt;
+    const actualReceiptDigest = digestValue(receiptBody);
+    if (embeddedIdentity.receiptDigest !== actualReceiptDigest)
+    {
+        failureReasons.push('canonical config/error build receipt self-digest mismatch');
+    }
+    for (const key of embeddedIdentityKeys.filter((key) => key !== 'receiptDigest'))
+    {
+        if (JSON.stringify(embeddedIdentity[key]) !== JSON.stringify(receipt[key]))
+        {
+            failureReasons.push(`config/error build receipt embedded ${key} mismatch`);
+        }
+    }
+    if (
+        !exactKeys(suppliedIdentity, ['artifactId', 'receiptDigest', 'artifactDigest'])
+        || suppliedIdentity.artifactId !== embeddedIdentity.artifactId
+        || suppliedIdentity.receiptDigest !== embeddedIdentity.receiptDigest
+        || suppliedIdentity.artifactDigest !== embeddedIdentity.artifactDigest
+    )
+    {
+        failureReasons.push('supplied buildIdentity does not identify the canonical config/error build receipt');
+    }
+
+    const actualSourceDigests = Object.fromEntries(observationAuthoritySourcePaths.map((relative) => [
+        relative,
+        existsSync(path.join(repositoryRoot, relative))
+            ? createHash('sha256').update(readFileSync(path.join(repositoryRoot, relative))).digest('hex')
+            : null
+    ]));
+    for (const relative of observationAuthoritySourcePaths)
+    {
+        if (actualSourceDigests[relative] == null)
+        {
+            failureReasons.push(`build receipt source missing: ${relative}`);
+        }
+        else if (receipt.sourceDigests[relative] !== actualSourceDigests[relative])
+        {
+            failureReasons.push(`build receipt source digest mismatch: ${relative}`);
+        }
+    }
+    if (receipt.sourceDigest !== digestValue(actualSourceDigests))
+    {
+        failureReasons.push('config/error build receipt aggregate source digest mismatch');
+    }
+    return { failureReasons, receipt };
 }
 
 function isSortedUniqueStrings(values)
@@ -525,7 +635,18 @@ export function extract(context)
         return failResult(['refuses ambient bin/Debug or bin/Release observation identity']);
     }
 
-    const sourceDigests = buildIdentity.sourceDigests;
+    const canonicalIdentity = buildIdentity.schema === 'fsusblog.build-identity.v1';
+    const standaloneReceiptValidation = canonicalIdentity
+        ? null
+        : validateExactBuildReceipt(context.repositoryRoot, buildIdentity);
+    if (standaloneReceiptValidation?.failureReasons.length > 0)
+    {
+        return failResult(standaloneReceiptValidation.failureReasons);
+    }
+
+    const sourceDigests = canonicalIdentity
+        ? buildIdentity.sourceDigests
+        : standaloneReceiptValidation.receipt.sourceDigests;
     const sourceDigestMap = Array.isArray(sourceDigests)
         ? Object.fromEntries(sourceDigests.map((entry) => [entry?.path, entry?.digest]))
         : sourceDigests;
@@ -535,7 +656,7 @@ export function extract(context)
         ? Object.keys(sourceDigestMap).sort()
         : [];
     const expectedAuthorityPaths = [...observationAuthoritySourcePaths].sort();
-    const isMinimalBuildIdentity = buildIdentity.schema === 'fsusblog.build-identity.v1';
+    const isMinimalBuildIdentity = canonicalIdentity;
     if (
         isMinimalBuildIdentity
             ? expectedAuthorityPaths.some((relative) => !sourceDigestKeys.includes(relative))
@@ -544,7 +665,10 @@ export function extract(context)
     {
         return failResult(['buildIdentity.sourceDigests must exactly bind the ApiErrorSemanticMapper authority source']);
     }
-    if (buildIdentity.sourceDigest !== digestValue(sourceDigests))
+    const declaredSourceDigest = canonicalIdentity
+        ? buildIdentity.sourceDigest
+        : standaloneReceiptValidation.receipt.sourceDigest;
+    if (declaredSourceDigest !== digestValue(sourceDigests))
     {
         return failResult(['buildIdentity.sourceDigest does not match sourceDigests']);
     }
