@@ -6,7 +6,9 @@
         "config/testing/fixture-profile-catalog.json",
         "config/testing/fixture-variant-catalog.json",
         "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
-        "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs"
+        "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+        "tools/test-fixtures/producers/public-content-producer.mjs",
+        "tools/test-fixtures/receipt/postconditions.mjs"
     ],
     "outputs": [
         {
@@ -16,6 +18,10 @@
         {
             "path": "docs/testing/fixture-capability-catalog.md",
             "sha256": "c04f5065a77bcdcf9e797964263240f5eea484c7b467f62300dfdc1383609f18"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "bcefd00c80629b6b903a946b0f10d3255d8232b232dde492b8026776479ac72e"
         }
     ]
 }

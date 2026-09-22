@@ -3165,8 +3165,8 @@
         },
         {
             "path": "tools/test-fixtures/producers/public-content-producer.mjs",
-            "contentDigest": "sha256:38682725d2a59f9356142146a88ece6b3e173db2924d0da4ab312e7e5532f1c8",
-            "indexDigest": "sha256:38682725d2a59f9356142146a88ece6b3e173db2924d0da4ab312e7e5532f1c8"
+            "contentDigest": "sha256:e3fd4f46c266cbf77c32c8f8d44845cc36d0781b6292a572d10dd0d924a88c84",
+            "indexDigest": "sha256:e3fd4f46c266cbf77c32c8f8d44845cc36d0781b6292a572d10dd0d924a88c84"
         },
         {
             "path": "tools/test-fixtures/producers/security-fixture-producer.mjs",
@@ -3210,8 +3210,8 @@
         },
         {
             "path": "tools/test-fixtures/receipt/postconditions.mjs",
-            "contentDigest": "sha256:84b6679ed93e785698b3c1933100f4d736be118cf0e6d8229766e083e9160a42",
-            "indexDigest": "sha256:84b6679ed93e785698b3c1933100f4d736be118cf0e6d8229766e083e9160a42"
+            "contentDigest": "sha256:1c77b2c5184d465b462ff92f341cf02b4143eb7b5927cf5fc6874c5a03a8ffbf",
+            "indexDigest": "sha256:1c77b2c5184d465b462ff92f341cf02b4143eb7b5927cf5fc6874c5a03a8ffbf"
         },
         {
             "path": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
