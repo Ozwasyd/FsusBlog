@@ -785,7 +785,7 @@ export async function prepareSecurityFixtures(context, signal)
         operationPlan: plan,
         familyObservationDigests: familyObservations.map((observation) => observation.contentDigest).sort(),
         temporalObservation: {
-            businessEpochUtc: plan.temporal.businessEpochUtc
+            businessEpochUtc: familyObservations[0].businessEpochUtc
         },
         recoveryReceipts,
         domainObservations: familyObservations.map((observation) => ({

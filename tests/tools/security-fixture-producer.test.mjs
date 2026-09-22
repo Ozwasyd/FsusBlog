@@ -229,6 +229,11 @@ test('single producer routes every capability through its sealed family and inde
     assert.ok(result.operationPlan.temporal.roles.every((role) => role.precision === 'millisecond'));
     assert.ok(result.operationPlan.operations.every((operation) =>
         operation.temporalRoles.length > 0 && operation.temporalRoles.every(Boolean)));
+    assert.ok(result.domainObservations.length > 0);
+    for (const observed of result.domainObservations)
+    {
+        assert.equal(result.temporalObservation.businessEpochUtc, observed.document.businessEpochUtc);
+    }
     assert.equal((await verifySecurityFixtures(context, result)).ok, true);
     await cleanupSecurityFixtures(context, result);
     assert.equal(calls.filter((item) => item.startsWith('observe:')).length, 6);
@@ -250,6 +255,16 @@ test('partial family failure recovers already applied state before rejecting', a
 });
 
 for (const [name, mutate, pattern] of [
+    ['missing observed business epoch', (value) =>
+    {
+        delete value.businessEpochUtc;
+        return value;
+    }, /identity\/status/u],
+    ['observed business epoch drift', (value) =>
+    {
+        value.businessEpochUtc = '2026-01-15T12:00:01.000Z';
+        return value;
+    }, /identity\/status/u],
     ['Redis TTL drift', (value) =>
     {
         value.facts[0].redis.ttlSeconds = 0;
