@@ -80,7 +80,7 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
             accountMutations,
             Substitute.For<IUserSessionValidationCache>());
         var sourceServices = new ServiceCollection();
-        sourceServices.AddSingleton(db);
+        sourceServices.AddSingleton<ISqlSugarClient>(db);
         await using ServiceProvider sourceProvider = sourceServices.BuildServiceProvider();
         var accountReader = new UserAccountReader(new AccountStateProjection(
             new SqlAccountStateProjectionSource(
