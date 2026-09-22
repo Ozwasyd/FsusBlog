@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
+const {
     assertReleaseFinalPostRuntimeCandidate,
     verifyReleaseFinalPostRuntimeAuthority
-} from '../../tools/release/release-final-domain-evidence.mjs';
-import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
-import { authorityDigest } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
+} = await import(new URL('../../tools/release/release-final-domain-evidence.mjs', import.meta.url));
+const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const { governanceContentDigest } = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
+const { authorityDigest } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
+
 import { createBrowserTemporalFixture } from './support/browser-temporal-fixture.mjs';
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
@@ -88,10 +89,22 @@ test('release candidate adapter rejects resealed execution identity and browser 
     {
         const input = fixture();
         const browser = input.browserContractReceipt;
-        if (field === 'run') browser.runIdentity.runId = 'other';
-        if (field === 'build') browser.build.receiptContentDigest = digest('9');
-        if (field === 'source') browser.sourceState.commit = '9'.repeat(40);
-        if (field === 'diagnostic') browser.classification = 'infra';
+        if (field === 'run')
+        {
+            browser.runIdentity.runId = 'other';
+        }
+        if (field === 'build')
+        {
+            browser.build.receiptContentDigest = digest('9');
+        }
+        if (field === 'source')
+        {
+            browser.sourceState.commit = '9'.repeat(40);
+        }
+        if (field === 'diagnostic')
+        {
+            browser.classification = 'infra';
+        }
         input.browserContractReceipt = sealBrowserContractReceipt(browser);
         assert.throws(() => assertReleaseFinalPostRuntimeCandidate(input), /mismatch|failureClass/u);
     }

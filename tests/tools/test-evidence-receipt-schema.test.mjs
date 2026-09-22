@@ -35,8 +35,8 @@ import {
     createRequiredEvidenceCatalogBinding
 } from '../../tools/test-matrix/required-evidence-catalog.mjs';
 
-import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
 import { createBrowserTemporalFixture } from './support/browser-temporal-fixture.mjs';
+import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
 import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs';
 
 const { digestCanonical } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
@@ -566,8 +566,14 @@ test('Browser Contract independently rejects missing and resealed temporal obser
         }
     }
     for (const mutate of [
-        (binding) => { binding.actual.observations.observationBoundary = 'node-runtime'; },
-        (binding) => { binding.bindingDigest = `sha256:${'0'.repeat(64)}`; },
+        (binding) =>
+        {
+            binding.actual.observations.observationBoundary = 'node-runtime';
+        },
+        (binding) =>
+        {
+            binding.bindingDigest = `sha256:${'0'.repeat(64)}`;
+        },
         (binding) =>
         {
             for (const artifact of [binding.plan, binding.actual, binding.receipt])

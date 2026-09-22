@@ -20,29 +20,28 @@ import { createRequire, isBuiltin } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// eslint-disable-next-line import-x/no-relative-parent-imports
-import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs';
-import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs';
+import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     validateBrowserContractReceipt,
     validatePublicPreviewEvidenceBinding
-} from '../release/browser-contract-receipt-contract.mjs';
+} from '../release/browser-contract-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     projectPublicPreviewQualityRegistry,
     validatePublicPreviewQualityManifestValue
-} from '../release/public-preview-quality-receipt-contract.mjs';
+} from '../release/public-preview-quality-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     deriveAotSpaHydrationRawFacts,
     normalizeAotSpaHydrationFacts
-} from '../test-evidence/aot-spa-hydration-observed-facts.mjs';
-import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs';
+} from '../test-evidence/aot-spa-hydration-observed-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     deriveProbeRawFacts,
     verifyFacts as verifyProbeFacts
-} from '../test-evidence/runtime-observation-probe-facts.mjs';
+} from '../test-evidence/runtime-observation-probe-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     projectPreparedPublicIds
-} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs';
+} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 
 import { parseMatrix } from './parse-matrix.mjs';
 

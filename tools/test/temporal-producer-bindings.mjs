@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const { readFixtureCatalogs, scanFixtureSourceDeclarations } = await import(new URL("../testing/fixture-catalog.mjs", import.meta.url));
 
+import { verifyProducerTemporalArtifacts } from './temporal-context-contract.mjs';
 import {
     bindProducerTemporalArtifacts,
     canonicalJson,
@@ -17,7 +18,6 @@ import {
     validateTemporalContext,
     validateTemporalObservations
 } from './temporal-context.mjs';
-import { verifyProducerTemporalArtifacts } from './temporal-context-contract.mjs';
 import {
     createTemporalDomainProducerReceipt,
     resolveTemporalRolesForProducerIfBound
