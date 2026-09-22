@@ -3210,8 +3210,8 @@
         },
         {
             "path": "tools/test-fixtures/receipt/postconditions.mjs",
-            "contentDigest": "sha256:1c77b2c5184d465b462ff92f341cf02b4143eb7b5927cf5fc6874c5a03a8ffbf",
-            "indexDigest": "sha256:1c77b2c5184d465b462ff92f341cf02b4143eb7b5927cf5fc6874c5a03a8ffbf"
+            "contentDigest": "sha256:82e8543d154ef3f038c98c0a78e69c96418e66724d5f68751495d176fd59f459",
+            "indexDigest": "sha256:82e8543d154ef3f038c98c0a78e69c96418e66724d5f68751495d176fd59f459"
         },
         {
             "path": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",

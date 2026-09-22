@@ -11,6 +11,13 @@
                 "tools/test-fixtures/receipt/postconditions.mjs"
             ],
             "reason": "Preserve the external fixture receipt, lifecycle operation, capability, audit and environment identifiers while changing scheduled completion to use the observed business clock."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the generated execution-target authority JSON keys while refreshing the scheduled postcondition source binding."
         }
     ]
 }

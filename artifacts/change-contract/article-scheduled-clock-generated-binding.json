@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-fixtures/receipt/postconditions.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "33646d13786b33f28fe9a8522e23f79bc7738d0a7f4fcd222385c8cb774da65b"
+        }
+    ]
+}
