@@ -41,19 +41,22 @@ export const zeroLegacyRequiredPathClasses = Object.freeze([
     'output-schema'
 ])
 
+const qualificationOnlyMachineFieldParts = Object.freeze([
+    ['verified', 'at'],
+    ['expected', 'value'],
+    ['baseline', 'value'],
+    ['waiver']
+])
 const forbiddenMachineFieldParts = Object.freeze([
     ['last', 'verified', 'commit'],
     ['maximum', 'verification', 'distance'],
     ['last', 'reviewed', 'commit'],
     ['last', 'reviewed', 'at'],
-    ['verified', 'at'],
     ['content', 'baseline', 'sha'],
     ['approved', 'content', 'digest'],
-    ['expected', 'value'],
-    ['baseline', 'value'],
     ['ignore', 'difference'],
     ['allow', 'stale', 'until'],
-    ['waiver']
+    ...qualificationOnlyMachineFieldParts
 ])
 const booleanSelfCertificationParts = Object.freeze([['verified'], ['reviewed']])
 function evidenceSelectionRuleParts()
@@ -106,6 +109,7 @@ const normalizeIdentifier = (value) => canonicalMachineText(value).toLowerCase()
 const canonicalField = (parts) => parts.map((part, index) => index === 0 ? part : `${part[0].toUpperCase()}${part.slice(1)}`).join('')
 const fieldMap = (parts) => new Map(parts.map((entry) => [normalizeIdentifier(entry.join('')), canonicalField(entry)]))
 const forbiddenMachineFields = fieldMap(forbiddenMachineFieldParts)
+const qualificationOnlyMachineFields = new Set(qualificationOnlyMachineFieldParts.map(canonicalField))
 const booleanSelfCertificationFields = fieldMap(booleanSelfCertificationParts)
 const evidenceSelectionFields = fieldMap(evidenceSelectionRuleParts())
 const authorityResidueFields = fieldMap(authorityResidueRuleParts())
@@ -381,7 +385,7 @@ function isForbiddenMachineField(normalized, qualification)
 {
     const canonical = forbiddenMachineFields.get(normalized)
     if (!canonical) return null
-    if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
+    if (!qualification && qualificationOnlyMachineFields.has(canonical)) return null
     return canonical
 }
 

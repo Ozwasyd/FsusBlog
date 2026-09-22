@@ -36,6 +36,7 @@ import {
 } from '../../tools/test-matrix/required-evidence-catalog.mjs';
 
 import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
+import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs';
 
 const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
     consumerId: 'production-correctness',
@@ -46,6 +47,23 @@ const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
     schedulerRunId: 'receipt-schema-clean-attempt'
 });
 test.after(() => correctnessAttemptFixture.cleanup());
+
+test('qualification-only field definitions retain rejection without treating ordinary data as evidence', (t) =>
+{
+    const fields = { expectedValue: 1, baselineValue: 2, verifiedAt: 'now', waiver: 'manual' };
+    const scannerFixture = createZeroLegacyScannerFixture({
+        'config/testing/behavior-qualification.json': JSON.stringify(fields),
+        'src/catalog/data.json': JSON.stringify(fields)
+    });
+    t.after(scannerFixture.dispose);
+    const findings = scanZeroLegacyGovernance(scannerFixture.root).findings;
+    for (const field of Object.keys(fields))
+    {
+        assert.ok(findings.some((finding) => finding.file === 'config/testing/behavior-qualification.json'
+            && finding.rule === `forbidden-machine-field:${field}`));
+    }
+    assert.equal(findings.some((finding) => finding.file === 'src/catalog/data.json'), false);
+});
 
 function canonicalize(value)
 {
