@@ -4,7 +4,6 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/api.md",
                 "docs/api/stability.md"
             ],
             "reason": "Preserve caller-visible AEDS route, frame, status and wire-field spellings in canonical generated API facts."
