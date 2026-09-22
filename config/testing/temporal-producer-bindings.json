@@ -4,6 +4,7 @@
     "contextAuthority": "config/testing/temporal-context.schema.json",
     "cutoverExcludedImplementations": [],
     "executionBoundarySources": [
+        "src/backend/Services/Moderation/ModerationRuntimeStateService.cs",
         "src/backend/Infrastructure/Helpers/Initializer/SqlSugarInitializer.cs",
         "src/backend/Infrastructure/Testing/TestTemporalRuntimeContext.cs",
         "src/backend/Program.cs",
@@ -90,10 +91,14 @@
         {
             "producerId": "comment-moderation",
             "implementations": [
-                "tests/browser-contract/default-fixture-provider.mjs"
+                "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs"
             ],
-            "contextIngress": "browser-contract-request-context",
-            "actualObservation": "browser-locale-timezone-postgres-session-business-epoch",
+            "contextIngress": "time-provider-and-producer-context",
+            "actualObservation": "backend-culture-postgres-session-business-epoch",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
             "clockDisposition": "canonical-business-epoch"

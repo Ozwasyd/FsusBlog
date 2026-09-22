@@ -13,8 +13,100 @@ import {
 } from '../../tools/data-scale/runtime-plan.mjs';
 
 import { DataScaleRuntimeProvisioner } from '../../tools/data-scale/runtime-provisioner.mjs';
+const { createDedicatedBackendContainer } = await import(new URL('../../tools/data-scale/runtime-provisioner-live.mjs', import.meta.url));
+const { waitForBackendLive } = await import(new URL('../../tools/data-scale/product-backend.mjs', import.meta.url));
+const { collectProcessIdentity } = await import(new URL('../../tools/test/process-identity.mjs', import.meta.url));
+const { defaultTimeoutPolicyDigest, qualificationTemporalContext } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+
+test('backend liveness timeout uses real monotonic time even when wall clock is unavailable', async (t) =>
+{
+    t.mock.method(Date, 'now', () =>
+    {
+        throw new Error('host wall clock must not drive readiness');
+    });
+    await assert.rejects(waitForBackendLive('http://fixture.invalid', {
+        timeoutMs: 20,
+        intervalMs: 1,
+        fetchImpl: async () => ({ ok: false, status: 503 })
+    }), /did not become live within 20ms/u);
+    assert.deepEqual(await waitForBackendLive('http://fixture.invalid', {
+        fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ status: 'live' }) })
+    }), { status: 'live', httpStatus: 200 });
+});
+
+test('container start identity is observed, wall-clock independent and fail closed', async (t) =>
+{
+    t.mock.method(Date, 'now', () =>
+    {
+        throw new Error('host wall clock is not process identity');
+    });
+    const containerId = 'a'.repeat(64);
+    const imageId = 'b'.repeat(64);
+    const makeProvisioner = (drift = false) =>
+    {
+        let inspections = 0;
+        return {
+            plan: { backend: { containerName: 'owned-clock-fixture' }, ownershipLabels: {} },
+            state: { seedCompleted: true, liveIdentity: {} },
+            dockerRunner(args)
+            {
+                if (args[0] !== 'inspect')
+                {
+                    return { status: 0, stdout: '' };
+                }
+                inspections += 1;
+                return { status: 0, stdout: `${containerId}|true|sha256:${imageId}|${drift && inspections > 1 ? 9877 : 9876}` };
+            }
+        };
+    };
+    const observed = { status: 'running', id: containerId, hostPid: 9876, executableOrImageDigest: `sha256:${imageId}`, startTicks: '123456789' };
+    const good = makeProvisioner();
+    const result = await createDedicatedBackendContainer(good, {
+        observeBackend: (backend) =>
+        {
+            assert.equal(backend.pidOrContainerId, containerId);
+            return observed;
+        }
+    });
+    assert.equal(result.startTicks, '123456789');
+    assert.equal(good.state.backendRunning, true);
+    for (const identity of [
+        { status: 'unverifiable' },
+        { ...observed, hostPid: 9877 },
+        { ...observed, id: 'c'.repeat(64) },
+        { ...observed, executableOrImageDigest: `sha256:${'c'.repeat(64)}` },
+        { ...observed, startTicks: '0' },
+        { ...observed, startTicks: 'invented-start-time' }
+    ])
+    {
+        const rejected = makeProvisioner();
+        await assert.rejects(createDedicatedBackendContainer(rejected, { observeBackend: () => identity }),
+            /process start identity is unavailable/u);
+        assert.equal(rejected.state.liveIdentity.backend, undefined);
+        assert.notEqual(rejected.state.backendRunning, true);
+    }
+    await assert.rejects(createDedicatedBackendContainer(makeProvisioner(true), { observeBackend: () => observed }),
+        /changed during process identity observation/u);
+});
+
+test('provisioner rejects missing process start identity before publishing runtime state', async () =>
+{
+    const provisioner = new DataScaleRuntimeProvisioner({ dataScaleRunId: 'clock-identity-required' });
+    provisioner.state.seedCompleted = true;
+    const input = {
+        configuredPostgresContainer: provisioner.plan.postgres.containerName,
+        configuredRedisContainer: provisioner.plan.redis.containerName,
+        configuredDatabase: provisioner.plan.postgres.database
+    };
+    for (const backendStartTicks of [undefined, null, '', 0, -1, 'not-observed'])
+    {
+        await assert.rejects(provisioner.startDedicatedBackend({ ...input, backendStartTicks }),
+            /require explicit observed process identity/u);
+        assert.equal(provisioner.state.backendRunning, false);
+    }
+});
 
 test('data-scale runtime isolation rejects dedicated roots pointing to shared wwwroot or global cache', () =>
 {
@@ -340,10 +432,19 @@ test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds 
         }
         if (args[0] === 'inspect')
         {
-            const container = state.containers.get(args[1]);
+            const container = state.containers.get(args[1])
+                ?? [...state.containers.values()].find((item) => item.id === args[1]);
             if (!container)
             {
                 return { status: 1, stdout: '', stderr: 'missing' };
+            }
+            if (args.length === 2)
+            {
+                return { status: 0, stdout: JSON.stringify([{
+                    Id: container.id,
+                    State: { Running: container.running, Pid: process.pid },
+                    Image: `sha256:${container.image}`
+                }]) };
             }
             if (joined.includes('HostPort'))
             {
@@ -363,7 +464,7 @@ test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds 
             {
                 return {
                     status: 0,
-                    stdout: `sha256:${container.id}|${container.running}|sha256:${container.image}\n`,
+                    stdout: `sha256:${container.id}|${container.running}|sha256:${container.image}|${process.pid}\n`,
                     stderr: ''
                 };
             }
@@ -387,6 +488,9 @@ test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds 
         }
         if (command === 'bash')
         {
+            assert.equal(options.env.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC, '2032-01-01T00:00:00.000Z');
+            assert.equal(options.env.FSUSBLOG_TEST_POSTGRES_TIMEZONE, 'UTC');
+            assert.equal(options.env.FSUSBLOG_TEMPORAL_CONTEXT_FILE, undefined);
             return spawnSync(command, args, {
                 encoding: 'utf8',
                 cwd: options.cwd,
@@ -403,7 +507,20 @@ test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds 
         parentSchedulerRunId: 'sched-full-01',
         mode: 'full',
         emitEnvPath: path.join(temp, 'dedicated.env'),
-        environment: {},
+        environment: {
+            FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(qualificationTemporalContext({
+                sourceCommit: 'a'.repeat(40),
+                sourceFingerprint: `sha256:${'b'.repeat(64)}`,
+                schedulerRunId: 'sched-full-01',
+                producerId: 'scale-data',
+                businessEpochUtc: '2032-01-01T00:00:00.000Z',
+                locale: 'en-US',
+                uiLocale: 'en-US',
+                timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+            })),
+            // Canonical context must override an inconsistent legacy ingress.
+            FSUSBLOG_TEST_BUSINESS_EPOCH_UTC: '2024-02-29T23:59:59.000Z'
+        },
         dockerRunner,
         processRunner
     });
@@ -423,6 +540,7 @@ test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds 
     assert.equal(receipt.postgres.containerId, result.liveIdentity.postgres.containerId);
     assert.equal(receipt.redis.volumeId, result.liveIdentity.redis.volumeId);
     assert.equal(receipt.backend.pidOrContainerId, result.liveIdentity.backend.containerId);
+    assert.equal(receipt.backend.startTicks, collectProcessIdentity(process.pid).processStartIdentity.split(':').at(-1));
 
     teardownDedicatedRuntime(result.provisioner);
     assert.equal(state.containers.size, 0);

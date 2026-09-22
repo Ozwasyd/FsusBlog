@@ -10,6 +10,8 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+const { monotonicNow } = await import(new URL('../test/temporal-context.mjs', import.meta.url));
+
 export const DATA_SCALE_PRODUCT_BACKEND_PORT = 18888;
 
 function shellQuote(value)
@@ -151,9 +153,9 @@ export async function waitForBackendLive(baseUrl, {
     fetchImpl = fetch
 } = {})
 {
-    const deadline = Date.now() + timeoutMs;
+    const deadline = monotonicNow() + timeoutMs;
     let lastError = null;
-    while (Date.now() < deadline)
+    while (monotonicNow() < deadline)
     {
         try
         {
@@ -237,8 +239,8 @@ export function stopProductBackendProcess({ pidFile, pid = null })
         }
         throw error;
     }
-    const deadline = Date.now() + 30_000;
-    while (Date.now() < deadline)
+    const deadline = monotonicNow() + 30_000;
+    while (monotonicNow() < deadline)
     {
         try
         {

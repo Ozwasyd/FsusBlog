@@ -269,7 +269,8 @@ public sealed class CommentModerationFixturePort(
     CommentMutationOutboxWorker outboxWorker,
     IModerationRuntimeStateService runtimeState,
     CommentFixtureCacheProbe cacheProbe,
-    ISqlSugarClient db) : ICommentModerationFixturePort
+    ISqlSugarClient db,
+    TimeProvider timeProvider) : ICommentModerationFixturePort
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
     private const string PlanSchema = "fsusblog.comment-moderation-fixture-plan.v1";
@@ -314,7 +315,7 @@ public sealed class CommentModerationFixturePort(
             manualReviewRegion,
             ModerationRegionStates.ManualReviewOnly,
             $"comment fixture manual-review matrix {binding.RunId}",
-            DateTime.UtcNow.AddMinutes(15),
+            timeProvider.GetUtcNow().UtcDateTime.AddMinutes(15),
             null,
             binding.Owner);
         if (!regionState.IsSuccess)

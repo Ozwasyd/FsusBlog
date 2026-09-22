@@ -34,7 +34,7 @@ test('every fixture inventory implementation has one canonical temporal binding'
 {
     assert.deepEqual(validateTemporalProducerBindings(), {
         producerCount: 9,
-        implementationCount: 25,
+        implementationCount: 29,
         cutoverExclusionCount: 0,
         digest: validateTemporalProducerBindings().digest
     });

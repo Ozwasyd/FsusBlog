@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readTemporalLedger } from './temporal-context.mjs';
 import { readTemporalDomainProducerInventory } from './temporal-role-resolver.mjs';
 import {
     readTemporalShapeCatalog,
@@ -53,7 +54,8 @@ export function verifyTemporalShapeGovernance({
     producerInventory = readTemporalDomainProducerInventory(),
     temporalProducerBindings = readJson(temporalProducerBindingsPath),
     configFiles = jsonFiles(testingConfigRoot),
-    sourceOverrides = new Map()
+    sourceOverrides = new Map(),
+    temporalLedger = readTemporalLedger().document
 } = {})
 {
     const catalogAuthorities = [];
@@ -119,10 +121,32 @@ export function verifyTemporalShapeGovernance({
         {
             const text = sourceOverrides.get(source)
                 ?? readFileSync(path.join(repositoryRoot, source), 'utf8');
-            const semanticSource = text.replace(
+            let semanticSource = text.replace(
                 /generatedAt:\s*new Date\(\)\.toISOString\(\)/gu,
                 'generatedAt: ARTIFACT_METADATA_CLOCK'
             );
+            // The ledger owns exact, reviewed readiness delays. Business expiry
+            // and unregistered waits remain forbidden; no file-wide exemption.
+            for (const entry of temporalLedger.entries)
+            {
+                if (entry.path !== source || entry.api !== 'Task.Delay'
+                    || entry.clockKind !== 'monotonic-measurement'
+                    || entry.disposition !== 'monotonic-measurement'
+                    || entry.authorityKind !== 'runtime-monotonic'
+                    || entry.ingress !== 'runtime-monotonic' || entry.semanticEffect !== 'excluded')
+                {
+                    continue;
+                }
+                const anchor = entry.sourceAnchor;
+                const first = text.indexOf(anchor);
+                if (first < 0 || text.indexOf(anchor, first + anchor.length) >= 0
+                    || [...anchor.matchAll(/\bTask\.Delay\s*\(/gu)].length !== 1)
+                {
+                    continue;
+                }
+                semanticSource = semanticSource.replace(anchor,
+                    anchor.replace(/\bTask\.Delay\s*\(/u, 'REGISTERED_MONOTONIC_READINESS('));
+            }
             const banned = [
                 ['host Date.now', /\bDate\.now\s*\(\s*\)/u],
                 ['host new Date', /\bnew\s+Date\s*\(\s*\)/u],

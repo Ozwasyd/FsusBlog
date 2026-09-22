@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/temporal-callsite-dispositions.json",
+                "config/testing/temporal-producer-bindings.json"
+            ],
+            "reason": "Preserve canonical temporal context, producer identity and clock disposition JSON keys while closing the exact producer execution boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "src/backend/Services/Moderation/ModerationRuntimeStateService.cs",
+                "tools/data-scale/aeds-decoders.mjs",
+                "tools/data-scale/product-backend.mjs",
+                "tools/data-scale/runtime-provisioner-live.mjs",
+                "tools/data-scale/runtime-provisioner.mjs",
+                "tools/test/check-temporal-shape-governance.mjs",
+                "tools/test/check-wall-clock-governance.mjs"
+            ],
+            "reason": "Preserve existing fixture receipt, environment, process identity and binary payload field names while separating injected business time from monotonic readiness and artifact observation."
+        }
+    ]
+}
