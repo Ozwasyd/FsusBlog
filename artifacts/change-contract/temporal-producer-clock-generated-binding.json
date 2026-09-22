@@ -3,7 +3,6 @@
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
         "tests/browser-contract/run.mjs",
-        "tests/tools/scheduler-owner-identity.test.mjs",
         "tests/tools/support/esm-fixture-materializer-contracts.mjs",
         "tests/tools/support/scheduler-cli-fixture.mjs",
         "tests/tools/test-matrix-scheduler.test.mjs",
@@ -37,7 +36,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "d0b4b97bf8f970fd96e463ebded341ce0408968c73611a7f0b1141c7599c1ca6"
+            "sha256": "27f659b42c17efb0a0f399a7c6f2e0692e7d9ad283d85c8b81018c16bde2e8bd"
         },
         {
             "path": "docs/releases/release-identity.md",

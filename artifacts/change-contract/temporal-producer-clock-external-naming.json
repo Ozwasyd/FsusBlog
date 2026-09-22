@@ -7,7 +7,7 @@
                 "docs/api/schemas-and-errors.md",
                 "docs/releases/release-identity.md"
             ],
-            "reason": "Preserve registered external release authority and artifact names while regenerating the owned fact section from canonical current-source observation receipts."
+            "reason": "Preserve registered public error, release authority and artifact names while aligning prose and generated facts with canonical compiled observation receipts."
         },
         {
             "id": "json-wire-key",

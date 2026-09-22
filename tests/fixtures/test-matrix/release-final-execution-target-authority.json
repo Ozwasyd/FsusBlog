@@ -2,7 +2,7 @@
     "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "sourceIndex": "config/testing/release-final-execution-authority-index.json",
-    "sourceIndexDigest": "sha256:94cd0b632ba27f6e827e83d4ad7b3ce4ba5c0183e1fde7c4667fb3f09917b6c9",
+    "sourceIndexDigest": "sha256:5685269e28bbb4b153dfecc03c7f36b8b0a30bc9760beb76393e0b69f5318092",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
     "nodeParserIdentity": {
         "nodeVersion": "v24.16.0",
@@ -1454,6 +1454,11 @@
             "indexDigest": "sha256:d6b8fafc56880791c4d5acbef5ac972a1dc65f6a32709816a8d5620fde2ab3f2"
         },
         {
+            "path": "tests/tools/support/scheduler-cli-fixture.mjs",
+            "contentDigest": "sha256:6f904e3e96efae443a02303f39053f31441959c5d5f43a6c9da188f36958d17d",
+            "indexDigest": "sha256:6f904e3e96efae443a02303f39053f31441959c5d5f43a6c9da188f36958d17d"
+        },
+        {
             "path": "tests/tools/support/timing-policy.mjs",
             "contentDigest": "sha256:d4607730e8e6a9a0b8603ec2de8dd17e343f47e96c2e200f1d69a7bb83947695",
             "indexDigest": "sha256:d4607730e8e6a9a0b8603ec2de8dd17e343f47e96c2e200f1d69a7bb83947695"
@@ -1470,8 +1475,8 @@
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
-            "contentDigest": "sha256:457a915c38859ff21d0eda3f7c442923c6a23576ad710526076c9a32686f6834",
-            "indexDigest": "sha256:457a915c38859ff21d0eda3f7c442923c6a23576ad710526076c9a32686f6834"
+            "contentDigest": "sha256:fd55abb288f792bc1ad3ede34c0f9f19098d2202e4b6db4f35d1bfe56f681296",
+            "indexDigest": "sha256:fd55abb288f792bc1ad3ede34c0f9f19098d2202e4b6db4f35d1bfe56f681296"
         },
         {
             "path": "tests/tools/test-matrix-topology.test.mjs",
@@ -30969,6 +30974,7 @@
                 "tests/tools/support/esm-fixture-materializer-contracts.mjs",
                 "tests/tools/support/esm-fixture-materializer.mjs",
                 "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
+                "tests/tools/support/scheduler-cli-fixture.mjs",
                 "tests/tools/test-matrix-priority-score.test.mjs",
                 "tests/tools/test-matrix-scheduler.test.mjs",
                 "tests/tools/verify-behavior-test-evidence.test.mjs",
