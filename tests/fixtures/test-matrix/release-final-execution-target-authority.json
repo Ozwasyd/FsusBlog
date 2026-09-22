@@ -2050,8 +2050,8 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:02f5551b4a48e022e7c624eeab0d427435f48012c0dc1a407369b8fadff67318",
-            "indexDigest": "sha256:02f5551b4a48e022e7c624eeab0d427435f48012c0dc1a407369b8fadff67318"
+            "contentDigest": "sha256:e272590b16f968bbd9a454dfa927c965bacd46859f509f2c767f30c4cd1024d7",
+            "indexDigest": "sha256:e272590b16f968bbd9a454dfa927c965bacd46859f509f2c767f30c4cd1024d7"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -2260,8 +2260,8 @@
         },
         {
             "path": "tools/fact-extractors/identity.mjs",
-            "contentDigest": "sha256:a53439b7b9da3e267582de5df63f628487d370cc2749aa49cfea7e6cc1970a43",
-            "indexDigest": "sha256:a53439b7b9da3e267582de5df63f628487d370cc2749aa49cfea7e6cc1970a43"
+            "contentDigest": "sha256:f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe",
+            "indexDigest": "sha256:f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe"
         },
         {
             "path": "tools/fact-extractors/lib/canonicalize.mjs",
