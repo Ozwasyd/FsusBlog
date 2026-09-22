@@ -3,12 +3,22 @@
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
         "tests/browser-contract/run.mjs",
+        "tests/tools/support/esm-fixture-materializer-contracts.mjs",
         "tools/data-scale/aeds-decoders.mjs",
         "tools/data-scale/product-backend.mjs",
         "tools/data-scale/runtime-provisioner-live.mjs",
         "tools/data-scale/runtime-provisioner.mjs",
         "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/fact-extractors/openapi-aeds/extract.mjs",
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/test-evidence-receipts.mjs",
+        "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
+        "tools/test-evidence/aot-spa-hydration-raw.mjs",
+        "tools/test-fixtures/producers/security-fixture-producer.mjs",
+        "tools/test-matrix/post-runtime-producer-registry.mjs",
         "tools/test/check-wall-clock-governance.mjs",
+        "tools/test/correctness-attempt-producers.mjs",
+        "tools/test/temporal-context-contract.mjs",
         "tools/test/temporal-context.mjs",
         "tools/test/temporal-producer-bindings.mjs",
         "tools/test/verify-temporal-producers.mjs"
@@ -16,11 +26,11 @@
     "outputs": [
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "212bc40b433d60c033f6daccc3e5825ac5092ef6a23f1ea5e9cabb003934d11c"
+            "sha256": "205badc4c66df0bb21adab8ae2be4dc310222903ea6397ec46bcfd8c0e16dd1c"
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "73f1bc0a893ee9c2137e79856fd58ebca670071bce2fb19227fe19cfbdfb3813"
+            "sha256": "b9789e314fb50388d1233fa2a64ffb9188f6ffdce7efad67df2fc1279cc5be95"
         }
     ]
 }
