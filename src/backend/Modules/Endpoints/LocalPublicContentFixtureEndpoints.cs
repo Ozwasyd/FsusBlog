@@ -120,7 +120,8 @@ public static class LocalPublicContentFixtureEndpoints
                         System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
                     result.TemporalObservation = temporal.Observe(
                         postgresTimezone,
-                        postgresBusinessEpoch);
+                        postgresBusinessEpoch,
+                        context.RequestServices.GetRequiredService<TimeProvider>());
                 }
                 return Results.Json(result);
             }
@@ -180,7 +181,8 @@ public static class LocalPublicContentFixtureEndpoints
                         System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
                     Convert.ToString(
                         observation.Rows[0]["business_epoch"],
-                        System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty));
+                        System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+                    context.RequestServices.GetRequiredService<TimeProvider>()));
             })
             .AllowAnonymous()
             .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(

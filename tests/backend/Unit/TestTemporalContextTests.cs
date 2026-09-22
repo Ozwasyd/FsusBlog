@@ -163,6 +163,58 @@ public sealed class TestTemporalContextTests
     }
 
     [Fact]
+    public void RuntimeObservation_UsesActualBackendClockAfterCheckingDatabaseEpoch()
+    {
+        WithRuntimeTemporalContext(runtime =>
+        {
+            TestTemporalContext actual = TestTemporalContext.CreateCanonical();
+            JsonElement observed = JsonSerializer.SerializeToElement(runtime.Observe(
+                "UTC",
+                "2024-02-29T23:59:59.000Z",
+                actual.BusinessClock));
+
+            Assert.Equal("2024-02-29T23:59:59.000Z", observed.GetProperty("businessEpochUtc").GetString());
+            Assert.Equal("Invariant", observed.GetProperty("backendCulture").GetString());
+            Assert.Equal("UTC", observed.GetProperty("postgresTimezone").GetString());
+
+            actual.Advance(TimeSpan.FromSeconds(1));
+            InvalidOperationException mismatch = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Observe("UTC", "2024-02-29T23:59:59.000Z", actual.BusinessClock));
+            Assert.Contains("backend business epoch observation", mismatch.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData("", "UTC", "Invariant", "Invariant", "not an RFC3339 UTC instant")]
+    [InlineData("2024-03-01T00:00:00.000Z", "UTC", "Invariant", "Invariant", "PostgreSQL business epoch observation")]
+    [InlineData("2024-02-29T23:59:59.000Z", "Asia/Shanghai", "Invariant", "Invariant", "PostgreSQL timezone observation")]
+    [InlineData("2024-02-29T23:59:59.000Z", "UTC", "zh-CN", "Invariant", "backend culture observation")]
+    [InlineData("2024-02-29T23:59:59.000Z", "UTC", "Invariant", "ja-JP", "backend culture observation")]
+    public void RuntimeObservation_RejectsMissingOrDriftingActualSettings(
+        string postgresEpoch,
+        string postgresTimezone,
+        string culture,
+        string uiCulture,
+        string expectedFailure)
+    {
+        WithRuntimeTemporalContext(runtime =>
+        {
+            CultureInfo.CurrentCulture = culture == "Invariant"
+                ? CultureInfo.InvariantCulture
+                : CultureInfo.GetCultureInfo(culture);
+            CultureInfo.CurrentUICulture = uiCulture == "Invariant"
+                ? CultureInfo.InvariantCulture
+                : CultureInfo.GetCultureInfo(uiCulture);
+            InvalidOperationException mismatch = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Observe(
+                    postgresTimezone,
+                    postgresEpoch,
+                    TestTemporalContext.CreateCanonical().BusinessClock));
+            Assert.Contains(expectedFailure, mismatch.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public void RuntimeContext_RequiresExactSharedFieldsAndExplicitProducerIdentity()
     {
         const string Context =
@@ -222,5 +274,46 @@ public sealed class TestTemporalContextTests
                         JsonNode.Parse(request.ToJsonString())!.AsObject()
                             .Deserialize<JsonElement>()));
             });
+    }
+
+    private static void WithRuntimeTemporalContext(Action<RuntimeTemporalContext> assertion)
+    {
+        const string Context =
+            """
+            {
+              "schema": "fsusblog.test-temporal-context.v1",
+              "producerId": "public-content",
+              "businessEpochUtc": "2024-02-29T23:59:59.000Z",
+              "businessClockMode": "fixed",
+              "businessClockStepPolicy": "explicit-only",
+              "timezone": "UTC",
+              "locale": "en-US",
+              "uiLocale": "en-US",
+              "backendCulture": "Invariant",
+              "postgresTimezone": "UTC",
+              "nodeTimezone": "UTC",
+              "calendar": "gregory",
+              "firstDayOfWeek": "monday"
+            }
+            """;
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            ScopedEnvironmentVariables.Run(
+                [RuntimeTemporalContext.EnvironmentVariable],
+                environment =>
+                {
+                    environment.Set(RuntimeTemporalContext.EnvironmentVariable, Context);
+                    assertion(Assert.IsType<RuntimeTemporalContext>(RuntimeTemporalContext.LoadOptional()));
+                });
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 }

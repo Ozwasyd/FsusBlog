@@ -16,6 +16,9 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/Testing/TestTemporalRuntimeContext.cs",
+                "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs",
                 "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
                 "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
                 "src/backend/Services/Moderation/ModerationRuntimeStateService.cs",

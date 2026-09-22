@@ -79,8 +79,12 @@ public sealed class TestTemporalRuntimeContext
         FormattableString.Invariant(
             $"-c timezone={PostgresTimezone} -c fsusblog.test_business_epoch_utc={BusinessEpochUtc:O}");
 
-    public object Observe(string postgresTimezone, string postgresBusinessEpochUtc)
+    public object Observe(
+        string postgresTimezone,
+        string postgresBusinessEpochUtc,
+        TimeProvider businessTimeProvider)
     {
+        ArgumentNullException.ThrowIfNull(businessTimeProvider);
         if (!DateTimeOffset.TryParse(
                 postgresBusinessEpochUtc,
                 CultureInfo.InvariantCulture,
@@ -91,9 +95,32 @@ public sealed class TestTemporalRuntimeContext
             throw new InvalidOperationException(
                 "PostgreSQL business epoch observation is not an RFC3339 UTC instant");
         }
+
+        DateTimeOffset backendEpoch = businessTimeProvider.GetUtcNow();
+        if (backendEpoch != BusinessEpochUtc)
+        {
+            throw new InvalidOperationException(
+                "backend business epoch observation does not match the temporal context");
+        }
+        if (observedEpoch != BusinessEpochUtc)
+        {
+            throw new InvalidOperationException(
+                "PostgreSQL business epoch observation does not match the temporal context");
+        }
+        if (!string.Equals(postgresTimezone, PostgresTimezone, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "PostgreSQL timezone observation does not match the temporal context");
+        }
+        if (!CultureInfo.CurrentCulture.Equals(CultureInfo.InvariantCulture)
+            || !CultureInfo.CurrentUICulture.Equals(CultureInfo.InvariantCulture))
+        {
+            throw new InvalidOperationException(
+                "backend culture observation does not match the temporal context");
+        }
         return new
         {
-            businessEpochUtc = observedEpoch.ToString(
+            businessEpochUtc = backendEpoch.ToString(
                 "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
                 CultureInfo.InvariantCulture),
             backendCulture = CultureInfo.CurrentCulture.Equals(CultureInfo.InvariantCulture)
