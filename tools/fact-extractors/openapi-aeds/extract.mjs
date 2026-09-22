@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { digestCatalog } from '../../contracts/behavior-contract-catalog.mjs'
+import { validateBuildIdentity } from '../identity.mjs'
 import { digestValue } from '../lib/canonicalize.mjs'
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json'
@@ -370,6 +371,35 @@ function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
   return { failureReasons, receipt }
 }
 
+function validateObservationBuildReceipt(context)
+{
+  const identity = context.buildIdentity
+  const canonical = ['schema', 'sourceDigests', 'sourceDigest'].some((field) => Object.hasOwn(identity, field))
+  if (!canonical) return validateExactBuildReceipt(context.repositoryRoot, identity)
+  try
+  {
+    const validated = validateBuildIdentity(identity, expectedArtifactId, {
+      repositoryRoot: context.repositoryRoot,
+      receiptPath: context.buildReceiptPath,
+      expectedSourceIdentity: {
+        sourceCommit: context.sourceCommit,
+        worktreeFingerprint: context.worktreeFingerprint
+      }
+    })
+    // The minimal build receipt seals the complete compiled observation bytes.
+    // Its one-way OpenAPI projection is not a second input authority for facts.
+    return {
+      failureReasons: [],
+      receipt: { artifactDigest: validated.artifactDigest },
+      observationDigestBoundByArtifact: true
+    }
+  }
+  catch (error)
+  {
+    return { failureReasons: [error.message], receipt: null }
+  }
+}
+
 const encodedKey = (prefix, identity) => `${prefix}_${Buffer.from(String(identity), 'utf8').toString('hex')}`
 const compactObject = (entries) => Object.fromEntries(entries.filter(([, value]) => value != null))
 
@@ -490,7 +520,7 @@ export function extract(context)
     }
   }
 
-  const receiptValidation = validateExactBuildReceipt(context.repositoryRoot, buildIdentity)
+  const receiptValidation = validateObservationBuildReceipt(context)
   if (receiptValidation.failureReasons.length > 0)
   {
     return {
@@ -582,7 +612,8 @@ export function extract(context)
     failureReasons.push('active/retired/migration/AEDS-only protocol states do not match canonical aeds-protocol.json')
   }
   if (observation.observationDigest !== observationContentDigest(observation)
-    || buildReceipt.observationDigest !== observation.observationDigest)
+    || (!receiptValidation.observationDigestBoundByArtifact
+      && buildReceipt.observationDigest !== observation.observationDigest))
   {
     failureReasons.push('observationDigest does not match current observation content and build receipt')
   }

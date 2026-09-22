@@ -125,6 +125,62 @@ function identityFor(_observation, artifactDigest, overrides = {})
     };
 }
 
+function writeMinimalBuildObservation(repositoryRoot, observation)
+{
+    const standalone = writeObservation(repositoryRoot, observation);
+    const sourceIdentity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    const sourceClosureDigests = [...observationBuildSourcePaths].sort().map((source) => ({
+        path: source,
+        digest: sha256(readFileSync(path.join(repositoryRoot, source)))
+    }));
+    const toolchain = { dotnet: '10.0.302', configuration: 'Release', targetFramework: 'net10.0' };
+    const buildKey = digestValue({ sourceIdentity, toolchain, sourceClosureDigests });
+    const buildRoot = `.tmp/behavior-doc-contract-builds/${buildKey}`;
+    const artifactPath = `${buildRoot}/observations/openapi-aeds-observation.json`;
+    const project = 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj';
+    mkdirSync(path.dirname(path.join(repositoryRoot, artifactPath)), { recursive: true });
+    writeFileSync(path.join(repositoryRoot, artifactPath), standalone.text);
+    const receipt = {
+        schema: 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1',
+        runId: 'openapi-minimal-contract-test',
+        ...sourceIdentity,
+        toolchain,
+        buildKey,
+        buildRoot,
+        sourceClosureDigests,
+        sourceDigest: digestValue(sourceClosureDigests),
+        artifacts: {
+            'openapi-aeds-observation': {
+                project,
+                projectDigest: sha256(readFileSync(path.join(repositoryRoot, project))),
+                path: artifactPath,
+                artifactPath: observationRelative,
+                artifactDigest: standalone.artifactDigest
+            }
+        },
+        status: 'ok',
+        failureReasons: [],
+        contentDigest: null
+    };
+    receipt.contentDigest = digestValue(receipt);
+    const buildReceiptPath = `${buildRoot}/receipt.json`;
+    writeFileSync(path.join(repositoryRoot, buildReceiptPath), JSON.stringify(receipt));
+    rmSync(path.join(repositoryRoot, buildReceiptRelative));
+    return {
+        repositoryRoot,
+        ...sourceIdentity,
+        buildReceiptPath,
+        buildIdentity: {
+            schema: 'fsusblog.build-identity.v1',
+            artifactId: 'openapi-aeds-observation',
+            receiptDigest: receipt.contentDigest,
+            artifactDigest: standalone.artifactDigest,
+            sourceDigests: sourceClosureDigests,
+            sourceDigest: receipt.sourceDigest
+        }
+    };
+}
+
 function rewriteReceipt(repositoryRoot, mutate)
 {
     const absolute = path.join(repositoryRoot, buildReceiptRelative);
@@ -620,6 +676,64 @@ test('extractor accepts sealed observation and emits operation map', () =>
     {
         rmSync(directory, { recursive: true, force: true });
     }
+});
+
+test('canonical minimal build observation uses its exact source and artifact receipt without a standalone receipt', (t) =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const context = writeMinimalBuildObservation(directory, sampleObservation());
+    const result = extractOpenApi(context);
+    assert.equal(result.status, 'ok', result.failureReasons?.join('; '));
+    assert.equal(result.observations.operationCount, 2);
+    assert.equal(result.observations.operations.binary_post_admin_article.pow, true);
+    for (const changed of [
+        { buildReceiptPath: undefined },
+        { buildReceiptPath: '.tmp/missing-build-receipt.json' },
+        { sourceCommit: 'c'.repeat(40) },
+        { worktreeFingerprint: 'd'.repeat(64) },
+        { buildIdentity: { ...context.buildIdentity, receiptDigest: '0'.repeat(64) } },
+        { buildIdentity: { ...context.buildIdentity, artifactDigest: '0'.repeat(64) } }
+    ])
+    {
+        assert.equal(extractOpenApi({ ...context, ...changed }).status, 'failed', JSON.stringify(changed));
+    }
+});
+
+test('canonical minimal build rejects independently changed source and published observation bytes', (t) =>
+{
+    for (const target of [observationBuildSourcePaths[0], observationRelative])
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-tamper-'));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const context = writeMinimalBuildObservation(directory, sampleObservation());
+        const absolute = path.join(directory, target);
+        writeFileSync(absolute, `${readFileSync(absolute, 'utf8')}\nchanged`);
+        assert.equal(extractOpenApi(context).status, 'failed', target);
+    }
+});
+
+test('canonical minimal build cannot bless an invalid inner observation digest by resealing outer identities', (t) =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-inner-digest-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const context = writeMinimalBuildObservation(directory, sampleObservation());
+    const receiptPath = path.join(directory, context.buildReceiptPath);
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    const observation = JSON.parse(readFileSync(path.join(directory, observationRelative), 'utf8'));
+    observation.observationDigest = '0'.repeat(64);
+    const bytes = JSON.stringify(observation);
+    const artifact = receipt.artifacts['openapi-aeds-observation'];
+    writeFileSync(path.join(directory, observationRelative), bytes);
+    writeFileSync(path.join(directory, artifact.path), bytes);
+    artifact.artifactDigest = sha256(bytes);
+    receipt.contentDigest = digestValue({ ...receipt, contentDigest: null });
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    context.buildIdentity.artifactDigest = artifact.artifactDigest;
+    context.buildIdentity.receiptDigest = receipt.contentDigest;
+    const result = extractOpenApi(context);
+    assert.equal(result.status, 'failed');
+    assert.ok(result.failureReasons.some((reason) => reason.includes('observationDigest')));
 });
 
 test('stale artifact digest (yesterday Debug swap) fails', () =>
