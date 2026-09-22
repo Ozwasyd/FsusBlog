@@ -6,6 +6,7 @@
             "paths": [
                 "config/development/authoritative-development-docs.json",
                 "config/testing/correctness-attempt-producers.json",
+                "config/testing/release-final-execution-authority-index.json",
                 "config/testing/temporal-callsite-dispositions.json",
                 "config/testing/temporal-producer-bindings.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"

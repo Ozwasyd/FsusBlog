@@ -2,7 +2,7 @@
     "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "sourceIndex": "config/testing/release-final-execution-authority-index.json",
-    "sourceIndexDigest": "sha256:690bd42ffef58cfa077fa9840fb34ceb9e17181e1378338473cbd376c3e0016f",
+    "sourceIndexDigest": "sha256:f501455558dc1c39e9119f07daba63bdefc1183393b1737e35436fd8930d0cdb",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
     "nodeParserIdentity": {
         "nodeVersion": "v24.16.0",
@@ -1470,8 +1470,8 @@
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
-            "contentDigest": "sha256:906afb02dda3294bae274a959de7d125f0d6899f66caaa0a9e169c37a3c537c5",
-            "indexDigest": "sha256:906afb02dda3294bae274a959de7d125f0d6899f66caaa0a9e169c37a3c537c5"
+            "contentDigest": "sha256:457a915c38859ff21d0eda3f7c442923c6a23576ad710526076c9a32686f6834",
+            "indexDigest": "sha256:457a915c38859ff21d0eda3f7c442923c6a23576ad710526076c9a32686f6834"
         },
         {
             "path": "tests/tools/test-matrix-topology.test.mjs",
@@ -4440,8 +4440,8 @@
         },
         {
             "path": "tools/test/temporal-context.mjs",
-            "contentDigest": "sha256:6d86fa3a0496a92794cd96b421057ab788f609ee2d4748aa752210829b4b0d04",
-            "indexDigest": "sha256:6d86fa3a0496a92794cd96b421057ab788f609ee2d4748aa752210829b4b0d04"
+            "contentDigest": "sha256:6fa74c3ecbf622576c8e2f25cf493ada34b43646acf02b14e9f2f90f6e4e872f",
+            "indexDigest": "sha256:6fa74c3ecbf622576c8e2f25cf493ada34b43646acf02b14e9f2f90f6e4e872f"
         },
         {
             "path": "tools/test/temporal-producer-bindings.mjs",

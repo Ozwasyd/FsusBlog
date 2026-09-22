@@ -1,6 +1,7 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "config/testing/release-final-execution-authority-index.json",
         "tests/browser-contract/run.mjs",
         "tools/data-scale/aeds-decoders.mjs",
         "tools/data-scale/product-backend.mjs",
@@ -15,11 +16,11 @@
     "outputs": [
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "54e1bedfab816f1070ccdcd3cf483dfc88cdf52c82cbc7a3ff60dbe6f1bf9144"
+            "sha256": "212bc40b433d60c033f6daccc3e5825ac5092ef6a23f1ea5e9cabb003934d11c"
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "23451c7bb14d7966e5d063c5934bcc7cd39281161b5fa17f1ecc525e42ff6f60"
+            "sha256": "73f1bc0a893ee9c2137e79856fd58ebca670071bce2fb19227fe19cfbdfb3813"
         }
     ]
 }
