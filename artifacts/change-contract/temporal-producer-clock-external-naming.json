@@ -4,11 +4,12 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/development/authoritative-development-docs.json",
                 "config/testing/temporal-callsite-dispositions.json",
                 "config/testing/temporal-producer-bindings.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve canonical temporal context, producer identity and clock disposition JSON keys while closing the exact producer execution boundary."
+            "reason": "Preserve canonical temporal context, producer identity, clock disposition and source-ownership JSON keys while closing the exact producer execution boundary and its packed migration input prerequisite."
         },
         {
             "id": "environment-variable",
