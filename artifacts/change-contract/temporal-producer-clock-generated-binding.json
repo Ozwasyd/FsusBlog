@@ -17,6 +17,7 @@
         "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
         "tools/test-evidence/aot-spa-hydration-raw.mjs",
         "tools/test-fixtures/producers/account-messaging-producer.mjs",
+        "tools/test-fixtures/producers/audit-producer.mjs",
         "tools/test-fixtures/producers/auth-session-producer.mjs",
         "tools/test-fixtures/producers/backend-temporal-observer.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
@@ -27,7 +28,8 @@
         "tools/test/temporal-context-contract.mjs",
         "tools/test/temporal-context.mjs",
         "tools/test/temporal-producer-bindings.mjs",
-        "tools/test/verify-temporal-producers.mjs"
+        "tools/test/verify-temporal-producers.mjs",
+        "tools/testing/fixture-catalog.mjs"
     ],
     "outputs": [
         {

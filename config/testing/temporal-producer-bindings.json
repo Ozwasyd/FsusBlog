@@ -69,7 +69,7 @@
                 "tools/test-fixtures/producers/audit-producer.mjs"
             ],
             "contextIngress": "time-provider-and-producer-context",
-            "actualObservation": "test-temporal-runtime-context-business-epoch-and-postgres-audit-record-time",
+            "actualObservation": "backend-culture-postgres-session-business-epoch-and-postgres-audit-record-time",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
             "clockDisposition": "canonical-business-epoch"
