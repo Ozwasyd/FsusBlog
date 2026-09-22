@@ -11,8 +11,16 @@
   ],
   "outputs": [
     {
+      "path": "docs/api.md",
+      "sha256": "2aea0500d484410cfc861adf619ba9db7f8b3cb17d2492f5e2babfebc5c11f6a"
+    },
+    {
       "path": "docs/api/schemas-and-errors.md",
-      "sha256": "ae2bbe75f6307b48fe966916910783a449f8559c1d18c30200aeb937875617a8"
+      "sha256": "9143358643a6c31f1c42003be84c569b97ecd45b2029d8cf74ff69f934d80936"
+    },
+    {
+      "path": "docs/api/stability.md",
+      "sha256": "9cb399ce011f1d63a7be8a1d6dbefc0a52b084e3ab9b71eaf51a8a56c989f063"
     },
     {
       "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
