@@ -7,6 +7,7 @@ import { bindBrowserPostRuntimeObservation } from '../../../tools/test-evidence/
 import { sealBrowserContractReceipt } from '../../../tools/release/test-evidence-receipts.mjs'
 import { root } from '../../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './post-runtime-candidate-fixture.mjs'
+import { createBrowserTemporalFixture } from './browser-temporal-fixture.mjs'
 import { loadPublicPreviewRegistry } from '../../../tools/docs/public-preview-registry.mjs'
 import { createPublicPreviewQualityManifest } from '../../../tools/docs/public-preview-quality-publication.mjs'
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
@@ -176,7 +177,7 @@ export function createBrowserContractObservationFixture(context, suppliedCandida
     finishedAt: scenarioFinishedAt,
     wallClockMs: 1_000,
     error: null,
-    temporalBinding: null,
+    temporalBinding: createBrowserTemporalFixture({ sourceState: { commit, worktreeFingerprint: fingerprint }, runId }),
     finalization: {
       state: 'complete',
       decisionIdentity: `sha256:${'3'.repeat(64)}`,

@@ -12,10 +12,12 @@ import {
     materializeTemporalEnvironment,
     observeRuntimeTemporalContext,
     qualificationTemporalContext,
+    readTemporalReplayAuthority,
     TemporalContractError,
     validateTemporalContext,
     validateTemporalObservations
 } from './temporal-context.mjs';
+import { verifyProducerTemporalArtifacts } from './temporal-context-contract.mjs';
 import {
     createTemporalDomainProducerReceipt,
     resolveTemporalRolesForProducerIfBound
@@ -204,6 +206,16 @@ export function bindCorrectnessProducerTemporalArtifacts({
             ? createTemporalDomainProducerReceipt(resolvedTemporalRoles)
             : null
     });
+}
+
+export function verifyCorrectnessProducerTemporalArtifacts({ producerId, binding })
+{
+    return verifyProducerTemporalArtifacts({ producerId, binding }, readCorrectnessProducerTemporalAuthority());
+}
+
+export function readCorrectnessProducerTemporalAuthority()
+{
+    return { ...readTemporalReplayAuthority(), producerBindings: readJson(bindingsPath) };
 }
 
 export function resolveCorrectnessProducerTemporalContext({

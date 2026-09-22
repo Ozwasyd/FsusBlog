@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const { defaultTimeoutPolicyDigest, digestCanonical, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest, validateTemporalObservations } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
-const { applyBrowserTemporalClock, bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
+const { applyBrowserTemporalClock, bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation, verifyCorrectnessProducerTemporalArtifacts } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
 const { buildProducerChildEnv } = await import(new URL("../../tools/test-fixtures/producers/spawn-helper.mjs", import.meta.url));
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan } = await import(new URL("../../tools/testing/fixture-catalog.mjs", import.meta.url));
 
@@ -127,6 +127,7 @@ test('every correctness producer can bind an exact plan actual and receipt', () 
             generatedAt: '2026-07-28T00:00:00.000Z'
         });
         assert.equal(bound.verification.qualificationEligible, true);
+        assert.equal(verifyCorrectnessProducerTemporalArtifacts({ producerId, binding: bound }).qualificationEligible, true);
         assert.equal(bound.plan.producer.producerId, producerId);
         assert.equal(bound.receipt.planDigest, bound.plan.digest);
         assert.equal(bound.receipt.actualDigest, bound.actual.digest);

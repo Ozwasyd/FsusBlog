@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 
+// The independent reader requires a statically closed, I/O-free import graph.
+// eslint-disable-next-line import-x/no-relative-parent-imports
+import { verifyProducerTemporalArtifacts } from '../test/temporal-context-contract.mjs';
+
 export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v2';
 export const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receipt.v1';
 
@@ -173,10 +177,59 @@ export function sortedUniqueErrors(values, label, { allowEmpty = false } = {})
     return errors;
 }
 
+function validateBrowserTemporalBinding(receipt, temporalAuthority)
+{
+    const binding = receipt?.temporalBinding;
+    if (binding == null)
+    {
+        return receipt?.status === 'success'
+            ? ['Browser Contract success requires an actual temporal binding']
+            : [];
+    }
+    try
+    {
+        const { context } = verifyProducerTemporalArtifacts({
+            producerId: 'comment-moderation',
+            binding
+        }, temporalAuthority);
+        const errors = [];
+        if (binding.actual.observations.observationBoundary !== 'browser-runtime'
+            || binding.actual.observations.monotonicClockSource !== 'performance-now')
+        {
+            errors.push('Browser Contract temporal binding requires actual browser-runtime observations and a live performance clock');
+        }
+        for (const source of [
+            { commit: context.sourceCommit, worktreeFingerprint: context.sourceFingerprint },
+            { commit: binding.plan.source.commit, worktreeFingerprint: binding.plan.source.fingerprint }
+        ])
+        {
+            if (!sameSourceState(source, receipt.sourceState))
+            {
+                errors.push('Browser Contract temporal source identity mismatch');
+            }
+        }
+        if (context.schedulerRunId !== receipt.runIdentity?.runId
+            || binding.plan.run.schedulerRunId !== receipt.runIdentity?.runId)
+        {
+            errors.push('Browser Contract temporal runId mismatch');
+        }
+        if (context.uiLocale !== receipt.playwright?.browserIdentity?.plan?.rendering?.locale)
+        {
+            errors.push('Browser Contract temporal locale does not match the browser rendering plan');
+        }
+        return errors;
+    }
+    catch (error)
+    {
+        return [`Browser Contract temporal binding is invalid: ${error.message}`];
+    }
+}
+
 export function validateBrowserContractReceipt(receipt, {
     expectedCommit = null,
     expectedFingerprint = null,
     expectedBuildReceiptDigest = null,
+    temporalAuthority = null,
     requireSuccess = true
 } = {})
 {
@@ -217,6 +270,7 @@ export function validateBrowserContractReceipt(receipt, {
     const startupFailure = receipt?.status === 'failure'
     && receipt?.topology?.browserLaunchCount === 0
     && receipt?.topology?.maxConcurrentBrowserRoots === 0;
+    errors.push(...validateBrowserTemporalBinding(receipt, temporalAuthority));
     if (!startupFailure && (typeof receipt?.playwright?.chromiumRevision !== 'string' || !receipt.playwright.chromiumRevision.trim()))
     {
         errors.push('Browser Contract Chromium revision is missing');

@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../test/temporal-producer-bindings.mjs', import.meta.url));
+
 import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
 import {
     createReleaseDomainProjectionBindings,
@@ -38,9 +40,17 @@ import {
     sortedUniqueErrors,
     validatePublicPreviewBinding,
     validatePublicPreviewEvidenceBinding,
-    validateBrowserContractReceipt
+    validateBrowserContractReceipt as validateBrowserContractReceiptContract
 } from './browser-contract-receipt-contract.mjs';
-export { validatePublicPreviewEvidenceBinding, validateBrowserContractReceipt } from './browser-contract-receipt-contract.mjs';
+export { validatePublicPreviewEvidenceBinding } from './browser-contract-receipt-contract.mjs';
+
+export function validateBrowserContractReceipt(receipt, options = {})
+{
+    return validateBrowserContractReceiptContract(receipt, {
+        ...options,
+        temporalAuthority: readCorrectnessProducerTemporalAuthority()
+    });
+}
 
 
 function tierExecutionDependencies(tier)

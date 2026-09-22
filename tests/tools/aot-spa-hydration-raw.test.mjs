@@ -11,6 +11,7 @@ import {
   verifyAotSpaHydrationRaw
 } from '../../tools/test-evidence/aot-spa-hydration-raw.mjs'
 import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs'
+import { createBrowserTemporalFixture } from './support/browser-temporal-fixture.mjs'
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
@@ -88,6 +89,7 @@ function browserReceipt(value)
     runIdentity: { commit: value.commit, runId: value.plan.candidate.runId, attemptId: value.plan.candidate.attemptId,
       laneId: 'browser-contract', namespace: value.plan.candidate.runId },
     sourceState: value.sourceState,
+    temporalBinding: createBrowserTemporalFixture({ sourceState: value.sourceState, runId: value.plan.candidate.runId }),
     build: { receipt: value.relative(value.buildFile), receiptContentDigest: value.build.contentDigest,
       sourceState: value.sourceState, profile: 'production-fresh' },
     fixture: { namespace: value.plan.candidate.runId, capabilities: {}, lifecycle: { identity: {

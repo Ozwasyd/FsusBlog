@@ -6,6 +6,7 @@ import { deriveProbeRawFacts, verifyFacts } from '../../../tools/test-evidence/r
 import { buildRuntimeObservationProbeReceipt } from '../../../tools/test-evidence/runtime-observation-probe-receipt-contract.mjs'
 import { buildAotSpaHydrationSourceBundle } from '../../../tools/test-evidence/aot-spa-hydration-source-contract.mjs'
 import { normalizeAotSpaHydrationFacts } from '../../../tools/test-evidence/aot-spa-hydration-observed-facts.mjs'
+const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../../../tools/test/temporal-producer-bindings.mjs', import.meta.url));
 
 export { createBrowserContractObservationFixture } from './browser-contract-observation-fixture.mjs'
 export {
@@ -30,7 +31,7 @@ export function createCanonicalProbeSourceFixture(classId, context, { producer, 
 
 export function createCanonicalAotSourceFixture(options, buildReceipt)
 {
-    const normalized = normalizeAotSpaHydrationFacts(options.inputs, options.plan, buildReceipt, { readBytes: options.readBytes })
+    const normalized = normalizeAotSpaHydrationFacts(options.inputs, options.plan, buildReceipt, { readBytes: options.readBytes, temporalAuthority: readCorrectnessProducerTemporalAuthority() })
     return { normalized, upstream: buildAotSpaHydrationSourceBundle(options) }
 }
 

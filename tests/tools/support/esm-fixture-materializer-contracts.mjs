@@ -116,7 +116,8 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
     for (const file of [
         'tools/test/attempt-runner.mjs',
         'tools/test/bundles/run-bundle.mjs',
-        'tools/test/temporal-context.mjs'
+        'tools/test/temporal-context.mjs',
+        'tools/test/temporal-context-contract.mjs'
     ])
     {
         const target = path.join(fixtureRoot, file);

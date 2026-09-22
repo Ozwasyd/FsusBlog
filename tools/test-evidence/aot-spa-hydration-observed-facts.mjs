@@ -46,7 +46,7 @@ function htmlProjection(bytes)
 }
 
 // The caller owns path safety and supplies retained artifact bytes through readBytes.
-export function normalizeAotSpaHydrationFacts(inputs, plan, buildReceipt, { readBytes })
+export function normalizeAotSpaHydrationFacts(inputs, plan, buildReceipt, { readBytes, temporalAuthority })
 {
   const manifest = inputs.manifest.value
   if (manifest.schema !== 'fsusblog.spa-manifest-descriptor.v1') fail('manifest evidence is not a SPA manifest descriptor')
@@ -105,6 +105,7 @@ export function normalizeAotSpaHydrationFacts(inputs, plan, buildReceipt, { read
 
   const browser = inputs.browserContract.value
   const browserErrors = validateBrowserContractReceipt(browser, {
+    temporalAuthority,
     expectedCommit: plan.sourceState.commit,
     expectedFingerprint: plan.sourceState.worktreeFingerprint,
     expectedBuildReceiptDigest: plan.build.receiptContentDigest,

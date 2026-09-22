@@ -2075,6 +2075,20 @@ function probeSourceProjection(repositoryRoot, upstream, sourceState, contract, 
     return identityProjection(upstream);
 }
 
+function readBrowserTemporalAuthority(repositoryRoot)
+{
+    const ledger = readPinnedRepositoryFile(repositoryRoot,
+        'config/testing/temporal-callsite-dispositions.json', 'temporal ledger');
+    return {
+        policy: readJson(repositoryRoot, 'config/testing/temporal-policy.json'),
+        ledger: {
+            document: parseStrictJson(ledger.bytes.toString('utf8'), 'temporal ledger'),
+            digest: `sha256:${createHash('sha256').update(ledger.bytes).digest('hex')}`
+        },
+        producerBindings: readJson(repositoryRoot, 'config/testing/temporal-producer-bindings.json')
+    };
+}
+
 function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
 {
     const label = `producer ${producerId} AOT upstream`;
@@ -2150,7 +2164,10 @@ function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, en
         }
         return retained.get(file);
     };
-    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, { readBytes });
+    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, {
+        readBytes,
+        temporalAuthority: readBrowserTemporalAuthority(repositoryRoot)
+    });
     if (digestValue(upstream.rawFacts)
         !== digestValue(deriveAotSpaHydrationRawFacts(inputs, { readBytes })))
     {
@@ -2174,6 +2191,7 @@ function browserSourceProjection(
 {
     const label = `producer ${producerId} browser upstream`;
     const browserErrors = validateBrowserContractReceipt(upstream, {
+        temporalAuthority: readBrowserTemporalAuthority(repositoryRoot),
         expectedCommit: sourceState.sourceCommit,
         expectedFingerprint: sourceState.worktreeFingerprint,
         expectedBuildReceiptDigest: sourceState.buildIdentity

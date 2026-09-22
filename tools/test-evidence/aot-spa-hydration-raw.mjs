@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { verifyProductionBuildReceipt } from '../ci/production-build-artifacts.mjs'
 import { normalizeAotSpaHydrationFacts, deriveAotSpaHydrationRawFacts } from './aot-spa-hydration-observed-facts.mjs'
+const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../test/temporal-producer-bindings.mjs', import.meta.url));
 import { buildAotSpaHydrationSourceBundle, evidenceKeys, sourceBundleSchema } from './aot-spa-hydration-source-contract.mjs'
 export { sourceBundleSchema } from './aot-spa-hydration-source-contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
@@ -86,7 +87,7 @@ function readAotArtifactBytes(file)
 
 function normalizedFacts(inputs, plan, buildReceipt)
 {
-  return normalizeAotSpaHydrationFacts(inputs, plan, buildReceipt, { readBytes: (file) => {
+  return normalizeAotSpaHydrationFacts(inputs, plan, buildReceipt, { temporalAuthority: readCorrectnessProducerTemporalAuthority(), readBytes: (file) => {
     const assetRoot = path.resolve(String(inputs.manifest.value.assetRoot ?? ''))
     const stat = fs.lstatSync(assetRoot, { throwIfNoEntry: false })
     if (!stat?.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(assetRoot) !== assetRoot)

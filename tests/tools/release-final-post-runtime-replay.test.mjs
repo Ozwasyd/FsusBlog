@@ -8,6 +8,7 @@ import {
 import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs';
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
 import { authorityDigest } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
+import { createBrowserTemporalFixture } from './support/browser-temporal-fixture.mjs';
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const seal = (value) => ({ ...value, contentDigest: governanceContentDigest(value) });
@@ -41,6 +42,7 @@ function fixture()
     const browserContractReceipt = sealBrowserContractReceipt({
         schema: 'fsusblog.browser-contract-receipt.v2', status: 'success', classification: 'clean',
         sourceState, runIdentity: { runId: currentRunContext.schedulerRunId },
+        temporalBinding: createBrowserTemporalFixture({ sourceState, runId: currentRunContext.schedulerRunId }),
         build: { receipt: '.tmp/current-run/build.json', receiptContentDigest: buildReceipt.contentDigest,
             sourceState, profile: 'production' }, fixture: { namespace: 'release-current' },
         playwright: { chromiumRevision: '123456', chromiumVersion: '140.0.0', browserIdentity: { plan, actual } },

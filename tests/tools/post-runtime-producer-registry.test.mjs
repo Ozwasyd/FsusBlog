@@ -9,6 +9,7 @@ import test from 'node:test';
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const { createBrowserTemporalFixture } = await import(new URL('./support/browser-temporal-fixture.mjs', import.meta.url));
 const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
 const { selectBrowserContractScenarios } = await import(new URL('../browser-contract/contract-core.mjs', import.meta.url));
 const { createRuntimeRoleStaticV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
@@ -40,6 +41,9 @@ const previewRegistry = JSON.parse(fs.readFileSync(
     'utf8'
 ));
 for (const file of [
+    'config/testing/temporal-policy.json',
+    'config/testing/temporal-callsite-dispositions.json',
+    'config/testing/temporal-producer-bindings.json',
     'config/docs/public-preview-screenshots.json',
     previewRegistry.qualityPolicyFile,
     ...previewRegistry.qualityScenarioFiles
@@ -447,6 +451,7 @@ function producerReceipt(classId = 'route-response-error')
             ...upstreamBody,
             sourceState: canonicalSource,
             status: 'success', classification: 'clean', error: null,
+            temporalBinding: createBrowserTemporalFixture({ sourceState: canonicalSource, runId: sourceState.runId }),
             wallClockMs: 2000,
             finalization: { state: 'complete', primary: { status: 'success' },
                 cleanup: { status: 'success' }, persistence: { attemptCount: 1 } },
