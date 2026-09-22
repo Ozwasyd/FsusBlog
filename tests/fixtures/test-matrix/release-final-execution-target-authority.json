@@ -1215,8 +1215,8 @@
         },
         {
             "path": "tests/tools/browser-contract.test.mjs",
-            "contentDigest": "sha256:5b84a6f2e926392d7d650b2a187314bb45bee9eba8804aab547f2f36ea3ef0ff",
-            "indexDigest": "sha256:5b84a6f2e926392d7d650b2a187314bb45bee9eba8804aab547f2f36ea3ef0ff"
+            "contentDigest": "sha256:59a79f3bc34a67d4215d088c88daa7a57aff63edb49ee3612758f8f36a2104f2",
+            "indexDigest": "sha256:59a79f3bc34a67d4215d088c88daa7a57aff63edb49ee3612758f8f36a2104f2"
         },
         {
             "path": "tests/tools/browser-diagnostics.test.mjs",
@@ -2050,8 +2050,8 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:e272590b16f968bbd9a454dfa927c965bacd46859f509f2c767f30c4cd1024d7",
-            "indexDigest": "sha256:e272590b16f968bbd9a454dfa927c965bacd46859f509f2c767f30c4cd1024d7"
+            "contentDigest": "sha256:656125b91af37a8d22b90d07b7a5e5fe9e65749b7c385d6978bcc1a72ba8c242",
+            "indexDigest": "sha256:656125b91af37a8d22b90d07b7a5e5fe9e65749b7c385d6978bcc1a72ba8c242"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -4440,13 +4440,13 @@
         },
         {
             "path": "tools/test/temporal-context.mjs",
-            "contentDigest": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66",
-            "indexDigest": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
+            "contentDigest": "sha256:6d86fa3a0496a92794cd96b421057ab788f609ee2d4748aa752210829b4b0d04",
+            "indexDigest": "sha256:6d86fa3a0496a92794cd96b421057ab788f609ee2d4748aa752210829b4b0d04"
         },
         {
             "path": "tools/test/temporal-producer-bindings.mjs",
-            "contentDigest": "sha256:9a1960f6c438b02d98e2de9d73d667f54d315894b71eccb250654a8639a69537",
-            "indexDigest": "sha256:9a1960f6c438b02d98e2de9d73d667f54d315894b71eccb250654a8639a69537"
+            "contentDigest": "sha256:92c29449728315658781993a927b98df30fcd620f5bd6006a55fda2d826971bb",
+            "indexDigest": "sha256:92c29449728315658781993a927b98df30fcd620f5bd6006a55fda2d826971bb"
         },
         {
             "path": "tools/test/temporal-role-resolver.mjs",
@@ -4510,8 +4510,8 @@
         },
         {
             "path": "tools/test/verify-temporal-producers.mjs",
-            "contentDigest": "sha256:40dcc8084ce67ce429a614ddf153775be03ee5ea16fb8ff610b05a0756fa95b3",
-            "indexDigest": "sha256:40dcc8084ce67ce429a614ddf153775be03ee5ea16fb8ff610b05a0756fa95b3"
+            "contentDigest": "sha256:447d57c0b133cbbc5e2aa87096428fe66b813129e73cd10fc1ba56d9aef03461",
+            "indexDigest": "sha256:447d57c0b133cbbc5e2aa87096428fe66b813129e73cd10fc1ba56d9aef03461"
         },
         {
             "path": "tools/test/vstest-discovery-diagnostic.mjs",

@@ -5,6 +5,7 @@
             "id": "json-wire-key",
             "paths": [
                 "config/development/authoritative-development-docs.json",
+                "config/testing/correctness-attempt-producers.json",
                 "config/testing/temporal-callsite-dispositions.json",
                 "config/testing/temporal-producer-bindings.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
@@ -21,8 +22,12 @@
                 "tools/data-scale/product-backend.mjs",
                 "tools/data-scale/runtime-provisioner-live.mjs",
                 "tools/data-scale/runtime-provisioner.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
                 "tools/test/check-temporal-shape-governance.mjs",
-                "tools/test/check-wall-clock-governance.mjs"
+                "tools/test/check-wall-clock-governance.mjs",
+                "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
+                "tools/test/verify-temporal-producers.mjs"
             ],
             "reason": "Preserve existing fixture receipt, environment, process identity and binary payload field names while separating injected business time from monotonic readiness and artifact observation."
         }

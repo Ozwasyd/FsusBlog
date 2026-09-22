@@ -1,16 +1,25 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "tests/browser-contract/run.mjs",
         "tools/data-scale/aeds-decoders.mjs",
         "tools/data-scale/product-backend.mjs",
         "tools/data-scale/runtime-provisioner-live.mjs",
         "tools/data-scale/runtime-provisioner.mjs",
-        "tools/test/check-wall-clock-governance.mjs"
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/test/check-wall-clock-governance.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-producer-bindings.mjs",
+        "tools/test/verify-temporal-producers.mjs"
     ],
     "outputs": [
         {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "54e1bedfab816f1070ccdcd3cf483dfc88cdf52c82cbc7a3ff60dbe6f1bf9144"
+        },
+        {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "b995d5fdeae67ea4cc379a1041acd851f452c5ce6014b6cadb3e879ef05b8e61"
+            "sha256": "23451c7bb14d7966e5d063c5934bcc7cd39281161b5fa17f1ecc525e42ff6f60"
         }
     ]
 }
