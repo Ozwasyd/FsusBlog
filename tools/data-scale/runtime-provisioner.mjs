@@ -6,8 +6,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-    assertDedicatedContainer,
-    assertDedicatedRoots,
     computeDbSemanticDigest,
     computeSha256,
     createDataScaleRuntimePlan,
@@ -441,7 +439,7 @@ export function writeLaneEnvironmentFile(filePath, environment)
 
 function shellSingleQuote(value)
 {
-    return `'${value.replace(/'/gu, `'\"'\"'`)}'`;
+    return `'${value.replace(/'/gu, `'"'"'`)}'`;
 }
 
 /**

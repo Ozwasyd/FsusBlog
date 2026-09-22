@@ -5,14 +5,13 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     assertDedicatedRoots,
     createDataScaleRuntimePlan,
-    validateDataScaleBackendConnection,
-    validateDataScaleRuntimePlan
-} from '../../tools/data-scale/runtime-plan.mjs';
+    validateDataScaleBackendConnection
+} = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
 
-import { DataScaleRuntimeProvisioner } from '../../tools/data-scale/runtime-provisioner.mjs';
+const { DataScaleRuntimeProvisioner } = await import(new URL('../../tools/data-scale/runtime-provisioner.mjs', import.meta.url));
 const { createDedicatedBackendContainer } = await import(new URL('../../tools/data-scale/runtime-provisioner-live.mjs', import.meta.url));
 const { waitForBackendLive } = await import(new URL('../../tools/data-scale/product-backend.mjs', import.meta.url));
 const { collectProcessIdentity } = await import(new URL('../../tools/test/process-identity.mjs', import.meta.url));
@@ -276,7 +275,7 @@ test('scheduler isolation fails if data-scale shares runtime with soak or load',
 
 test('provisionLaneRuntime emits dedicated env and sanitizes shared forced containers', async (t) =>
 {
-    const { provisionLaneRuntime } = await import('../../tools/data-scale/runtime-provisioner.mjs');
+    const { provisionLaneRuntime } = await import(new URL('../../tools/data-scale/runtime-provisioner.mjs', import.meta.url));
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-lane-api-'));
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
 
@@ -328,7 +327,7 @@ test('provisionLaneRuntime emits dedicated env and sanitizes shared forced conta
 test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds live digests', async (t) =>
 {
     const { spawnSync } = await import('node:child_process');
-    const { provisionLaneRuntime, teardownDedicatedRuntime } = await import('../../tools/data-scale/runtime-provisioner.mjs');
+    const { provisionLaneRuntime, teardownDedicatedRuntime } = await import(new URL('../../tools/data-scale/runtime-provisioner.mjs', import.meta.url));
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-full-'));
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
 
@@ -343,9 +342,9 @@ test('provisionLaneRuntime mode=full runs migrate+seed before backend and binds 
     fs.writeFileSync(path.join(temp, 'src/backend/bin/Release/net10.0/FsusBlog.Server.dll'), 'dll');
     fs.writeFileSync(
         path.join(temp, 'tools/data-scale/seed.sh'),
-        '#!/usr/bin/env bash\nset -euo pipefail\nmkdir -p \"$FSUSBLOG_DATA_SCALE_OUT_DIR\"\n'
+        '#!/usr/bin/env bash\nset -euo pipefail\nmkdir -p "$FSUSBLOG_DATA_SCALE_OUT_DIR"\n'
         + 'printf \'{"schema":"fsusblog.data-scale-seed-receipt.v1","ok":true}\\n\' '
-        + '>\"$FSUSBLOG_DATA_SCALE_OUT_DIR/seed-receipt.json\"\n'
+        + '>"$FSUSBLOG_DATA_SCALE_OUT_DIR/seed-receipt.json"\n'
     );
     fs.chmodSync(path.join(temp, 'tools/data-scale/seed.sh'), 0o755);
     fs.writeFileSync(path.join(temp, 'tools/test/execution-envelope-services.mjs'), 'console.log("ok");\n');

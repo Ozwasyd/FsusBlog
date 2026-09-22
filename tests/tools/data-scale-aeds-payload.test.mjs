@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
+const {
     decodeCommentArticleCursor,
     encodeCommentArticleCursor
-} from '../../tools/data-scale/aeds-decoders.mjs';
-import {
+} = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
+const {
     verifyHttpPayloadProof
-} from '../../tools/data-scale/semantic-proof.mjs';
+} = await import(new URL('../../tools/data-scale/semantic-proof.mjs', import.meta.url));
 
 const CANARIES = Object.freeze({
     article: {

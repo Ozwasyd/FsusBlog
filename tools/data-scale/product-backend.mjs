@@ -16,7 +16,7 @@ export const DATA_SCALE_PRODUCT_BACKEND_PORT = 18888;
 
 function shellQuote(value)
 {
-    return `'${String(value).replace(/'/gu, `'\"'\"'`)}'`;
+    return `'${String(value).replace(/'/gu, `'"'"'`)}'`;
 }
 
 export function resolveDedicatedHostPorts({
@@ -260,7 +260,10 @@ export function stopProductBackendProcess({ pidFile, pid = null })
     {
         process.kill(resolvedPid, 'SIGKILL');
     }
-    catch { /* ignore */ }
+    catch
+    {
+        // The owned process may already have exited.
+    }
     if (pidFile && fs.existsSync(pidFile))
     {
         fs.unlinkSync(pidFile);

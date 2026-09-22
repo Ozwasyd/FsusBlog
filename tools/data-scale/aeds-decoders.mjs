@@ -1,4 +1,4 @@
-import {
+const {
     decodeAedsFrame,
     decodeArticlePage,
     decodeArticleDetail,
@@ -6,7 +6,7 @@ import {
     decodeSearchManifest,
     decodePublicAotPayload,
     encodeAedsFrame
-} from '../../tests/frontend/support/aeds-envelope.mjs';
+} = await import(new URL('../../tests/frontend/support/aeds-envelope.mjs', import.meta.url));
 
 const UTF8_DECODER = new TextDecoder('utf-8');
 const UTF8_ENCODER = new TextEncoder();
@@ -715,10 +715,7 @@ export function buildPostingsBlobForTerms(termPostings)
         for (const hit of entry.hits)
         {
             totalSize += 10 + 3 + 10;
-            for (const pos of (hit.positions ?? []))
-            {
-                totalSize += 15;
-            }
+            totalSize += 15 * (hit.positions?.length ?? 0);
         }
     }
 
