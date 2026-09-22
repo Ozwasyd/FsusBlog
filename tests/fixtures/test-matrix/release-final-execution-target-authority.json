@@ -1810,8 +1810,8 @@
         },
         {
             "path": "tools/data-scale/aeds-decoders.mjs",
-            "contentDigest": "sha256:c8e1c724a1c1102a612d19860dc06ab906df567da81588cc76d8b0be45386176",
-            "indexDigest": "sha256:c8e1c724a1c1102a612d19860dc06ab906df567da81588cc76d8b0be45386176"
+            "contentDigest": "sha256:0eb105be8557f121eb41c4e2025fb73c0d277b1aff12ee2d233e0af749a32610",
+            "indexDigest": "sha256:0eb105be8557f121eb41c4e2025fb73c0d277b1aff12ee2d233e0af749a32610"
         },
         {
             "path": "tools/data-scale/aot-evidence.mjs",
@@ -1825,8 +1825,8 @@
         },
         {
             "path": "tools/data-scale/product-backend.mjs",
-            "contentDigest": "sha256:221d4cea55d415e39210ec38bea23a694bb6453d0a2d77cd3311e95e9f11a42e",
-            "indexDigest": "sha256:221d4cea55d415e39210ec38bea23a694bb6453d0a2d77cd3311e95e9f11a42e"
+            "contentDigest": "sha256:3e05eecd84d9b0a7e7280b4545f1e7bbd9da5044142410437e2a013f51736c27",
+            "indexDigest": "sha256:3e05eecd84d9b0a7e7280b4545f1e7bbd9da5044142410437e2a013f51736c27"
         },
         {
             "path": "tools/data-scale/runtime-plan.mjs",
@@ -1835,13 +1835,13 @@
         },
         {
             "path": "tools/data-scale/runtime-provisioner-live.mjs",
-            "contentDigest": "sha256:1ea0244dc637bb88cdb93e69ae67407108c105912c6d5d3957596ded3e7ab1bf",
-            "indexDigest": "sha256:1ea0244dc637bb88cdb93e69ae67407108c105912c6d5d3957596ded3e7ab1bf"
+            "contentDigest": "sha256:3eb2336d548e6d0036e0caa66c4d68dbf97d0295e4fbf9a7adc7b206cf8977c5",
+            "indexDigest": "sha256:3eb2336d548e6d0036e0caa66c4d68dbf97d0295e4fbf9a7adc7b206cf8977c5"
         },
         {
             "path": "tools/data-scale/runtime-provisioner.mjs",
-            "contentDigest": "sha256:a6e8427624ed3766b5dde1cc79e31cbecae392d316668a49eb5d77d7ed8bcd44",
-            "indexDigest": "sha256:a6e8427624ed3766b5dde1cc79e31cbecae392d316668a49eb5d77d7ed8bcd44"
+            "contentDigest": "sha256:6000a41e73f0736707d0296c16731b5fc39d8ca752e0aaa47f4493c9088fc11f",
+            "indexDigest": "sha256:6000a41e73f0736707d0296c16731b5fc39d8ca752e0aaa47f4493c9088fc11f"
         },
         {
             "path": "tools/data-scale/search-evidence.mjs",
@@ -3890,8 +3890,8 @@
         },
         {
             "path": "tools/test/check-wall-clock-governance.mjs",
-            "contentDigest": "sha256:443a7a814a5aedc6ffd19a796f15ac643e3695057c1ea00c30504804cfa34af4",
-            "indexDigest": "sha256:443a7a814a5aedc6ffd19a796f15ac643e3695057c1ea00c30504804cfa34af4"
+            "contentDigest": "sha256:8efed527ac8fa30b97c05021e2ea87ed2029330494a4062fb30ef60ac195c9da",
+            "indexDigest": "sha256:8efed527ac8fa30b97c05021e2ea87ed2029330494a4062fb30ef60ac195c9da"
         },
         {
             "path": "tools/test/collect-release-reliability-fixture.mjs",
@@ -4232,6 +4232,11 @@
             "path": "tools/test/release-reliability-lifecycle-actions.mjs",
             "contentDigest": "sha256:6beda13f209050a03abdd8486c94a32aa165e8628c769fa5bcb76d157e49462b",
             "indexDigest": "sha256:6beda13f209050a03abdd8486c94a32aa165e8628c769fa5bcb76d157e49462b"
+        },
+        {
+            "path": "tools/test/release-reliability-lifecycle.mjs",
+            "contentDigest": "sha256:fe9d3b09bb527c72d5d256f13718e9ac548c381ed0acd6367bf4fb0261db3d5c",
+            "indexDigest": "sha256:fe9d3b09bb527c72d5d256f13718e9ac548c381ed0acd6367bf4fb0261db3d5c"
         },
         {
             "path": "tools/test/release-reliability-receipt.mjs",
@@ -17562,6 +17567,8 @@
                 "tools/test/physical-execution-windows-job-adapter.mjs",
                 "tools/test/process-identity.mjs",
                 "tools/test/release-reliability-evidence-binding.mjs",
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
                 "tools/test/release-reliability-receipt.mjs",
                 "tools/test/run-once.mjs",
                 "tools/test/scheduler-replay-contract.mjs",
@@ -17569,6 +17576,7 @@
                 "tools/test/temporal-context.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs",
                 "tools/testing/content-shape-catalog.mjs",
                 "tools/testing/fixture-catalog.mjs",
                 "tools/yaml/parse-document.mjs"
