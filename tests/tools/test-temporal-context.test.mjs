@@ -26,6 +26,7 @@ function fixture()
     const context = qualificationTemporalContext(identity);
     const plan = createTemporalPlan(context);
     const actual = createTemporalActual(context, {
+        businessEpochUtc: identity.businessEpochUtc,
         backendCulture: 'Invariant',
         nodeTimezone: 'UTC',
         postgresTimezone: 'UTC'
@@ -89,6 +90,33 @@ test('qualification fails closed when plan, actual or receipt binding is absent'
         () => verifyTemporalReplay({ plan, actual, receipt: null }),
         (error) => error.reasonCode === 'temporal.receipt-binding-missing'
     );
+});
+
+test('actual ingress and independent replay reject absent observed business epochs even with fresh digests', () =>
+{
+    const { actual, context, plan } = fixture();
+    for (const observations of [undefined, null, {}, { nodeTimezone: 'UTC' },
+        { ...actual.observations, businessEpochUtc: '' }])
+    {
+        assert.throws(() => createTemporalActual(context, observations),
+            (error) => error.reasonCode === 'temporal.actual-context-missing');
+        const unsignedActual = { ...actual, observations };
+        delete unsignedActual.digest;
+        const missing = { ...unsignedActual, digest: digestCanonical(unsignedActual) };
+        const receipt = createTemporalReceipt({
+            plan,
+            actual: missing,
+            outcome: { rows: 3 },
+            generatedAt: '2026-07-28T00:00:00.000Z'
+        });
+        assert.throws(() => verifyTemporalReplay({ plan, actual: missing, receipt }),
+            (error) => error.reasonCode === 'temporal.actual-context-missing');
+    }
+    assert.throws(() => bindProducerTemporalArtifacts({
+        contextInput: identity,
+        outcome: { rows: 3 },
+        generatedAt: '2026-07-28T00:00:00.000Z'
+    }), (error) => error.reasonCode === 'temporal.actual-context-missing');
 });
 
 test('artifact metadata does not alter semantic outcome digest', () =>

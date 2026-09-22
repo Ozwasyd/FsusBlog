@@ -437,10 +437,23 @@ export function assertMonotonicMeasurementSource(source)
     return normalized;
 }
 
-export function createTemporalActual(context, observations = {})
+function requireBusinessEpochObservation(observations)
+{
+    if (!plainObject(observations))
+    {
+        fail('temporal.actual-context-missing', 'actual temporal observations are required');
+    }
+    requiredText(observations.businessEpochUtc, 'businessEpochUtc', 'temporal.actual-context-missing');
+    return observations;
+}
+
+export function createTemporalActual(context, observations)
 {
     const normalized = validateTemporalContext(context);
-    const checkedObservations = validateTemporalObservations(normalized, observations);
+    const checkedObservations = validateTemporalObservations(
+        normalized,
+        requireBusinessEpochObservation(observations)
+    );
     const actual = {
         schema: TEMPORAL_ACTUAL_SCHEMA,
         source: {
@@ -569,7 +582,7 @@ export function verifyTemporalReplay({ plan, actual, receipt })
     sameBinding(plan.source, receipt.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
     sameBinding(plan.run, receipt.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
     sameBinding(plan.producer, receipt.producer, ['producerId'], 'temporal.producer-binding-mismatch');
-    validateTemporalObservations(normalizedPlanContext, actual.observations ?? {});
+    validateTemporalObservations(normalizedPlanContext, requireBusinessEpochObservation(actual.observations));
     assertMonotonicMeasurementSource(normalizedPlanContext.monotonicClockSource);
     if (receipt.planDigest !== plan.digest
       || receipt.actualDigest !== actual.digest
@@ -877,7 +890,7 @@ export function bindProducerTemporalArtifacts({
 {
     const context = qualificationTemporalContext(contextInput);
     const plan = createTemporalPlan(context);
-    const actual = createTemporalActual(context, observations ?? observeRuntimeTemporalContext(context));
+    const actual = createTemporalActual(context, observations);
     const receipt = createTemporalReceipt({
         plan,
         actual,

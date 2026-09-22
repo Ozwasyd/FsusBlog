@@ -1100,6 +1100,14 @@ test('fresh scheduler preserves authenticated current-run prerequisite outputs f
             executionKey: 'matrix-governance',
             runBoundReceiptDigest: prerequisiteProjection.receipt.receiptDigest
         },
+        observations: {
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            timezone: 'UTC',
+            nodeTimezone: 'UTC',
+            locale: 'en-US',
+            monotonicClockSource: 'performance-now',
+            observationBoundary: 'test-producer'
+        },
         generatedAt: '2026-07-29T00:00:00.000Z'
     });
     const temporalDirectory = path.dirname(prerequisite.receiptFile);
