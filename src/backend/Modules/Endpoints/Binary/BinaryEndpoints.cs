@@ -37,6 +37,10 @@ internal sealed record FsusOpenApiQueryParameterMetadata(
     bool Required,
     bool Nullable);
 
+internal sealed record FsusOpenApiAedsContractMetadata(
+    AedsFrameType? RequestFrame,
+    AedsFrameType ResponseFrame);
+
 public static partial class BinaryEndpoints
 {
     private const string BinaryContentType = "application/octet-stream";

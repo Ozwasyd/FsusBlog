@@ -51,6 +51,7 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
             ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
+        .WithName("binary_get_article_list_home_page_size_aeds")
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
         .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
@@ -69,6 +70,7 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
             ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
+        .WithName("binary_get_article_list_archive_page_size_aeds")
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
         .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
@@ -88,6 +90,7 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
             ServePublicArticleListAsync(page, size, categoryId, tagId: null, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
+        .WithName("binary_get_article_list_category_categoryId_page_size_aeds")
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
         .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
@@ -107,6 +110,7 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
             ServePublicArticleListAsync(page, size, categoryId: null, tagId, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
+        .WithName("binary_get_article_list_tag_tagId_page_size_aeds")
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
         .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
@@ -162,6 +166,9 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.related")
+        .WithMetadata(new FsusOpenApiAedsContractMetadata(
+            RequestFrame: null,
+            ResponseFrame: AedsFrameType.ArticleRelatedReading))
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>()
         .CacheOutput(static builder => builder
             .Expire(TimeSpan.FromMinutes(1))

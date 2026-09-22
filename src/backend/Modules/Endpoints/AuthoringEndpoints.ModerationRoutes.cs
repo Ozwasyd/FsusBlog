@@ -323,6 +323,7 @@ public static partial class AuthoringEndpoints
                 ? Ok(context, aeds, new AnonymousGovernanceActionResponse(true))
                 : AedsJsonResults.NotFound(aeds, "anonymous_credential_not_found");
         })
+        .WithName("binary_post_author_comments_moderation_anonymous_credentials_credentialId_revoke")
         .RequireAdminPermission(AdminPermissions.AnonymousCredentialRevoke)
         .RequireRateLimiting("fixed_ip");
 

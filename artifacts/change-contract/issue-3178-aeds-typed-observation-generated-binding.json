@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/Models.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/fact-extractors/openapi-aeds/extract.mjs",
+        "tests/matrix.yml"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "3023832a574ecee31c7d6ad38079f544bc7746b8c465f35059b9ec1465f0a7a0"
+        },
+        {
+            "path": "docs/api.md",
+            "sha256": "da083c7379a3549c3026f95111dd44ed577aa4b88dfeabdc71fb42d80cbe765b"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "959c44c574ec9deb9c96259e9438179800d2d6496abfacb0206537ba51e999ab"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "d5743e4863d1ed24b81406b58286f94705a4dea977d37e8008933839f0606ff7"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "ffbfda02b5d747f9e87a55200976ede61359e8d57b484f0847fd2034c193938e"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "bb241e2610f08248f297d38b32ada169e3255b87baf5389822a7bd03a86dfec7"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "27447104e97eb4a81e80c4545e75c40294e7a4cb2fca67a1bc5488377ec40686"
+        }
+    ]
+}
