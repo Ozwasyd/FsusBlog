@@ -10,6 +10,7 @@ import path from 'node:path';
 const { readFixtureCatalogs } = await import(new URL("../../testing/fixture-catalog.mjs", import.meta.url));
 
 import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
+import { observeBackendTemporalContext } from './backend-temporal-observer.mjs';
 import {
     buildProducerChildEnv,
     repositoryRoot,
@@ -100,49 +101,6 @@ function variantOutputFromTypedPlan(context, producerId)
         variantIds: variantIdsFromTypedPlan(context, producerId),
         producerVariantPlanDigest: context.variantPlan.producerVariantPlanDigest
     };
-}
-
-async function observeBackendTemporalContext(context, signal)
-{
-    const baseUrl = context.handles?.debugBackendUrl
-    ?? context.handles?.baseUrl
-    ?? process.env.FSUSBLOG_DEBUG_BACKEND_URL
-    ?? process.env.FSUSBLOG_BASE_URL
-    ?? '';
-    const secret = context.handles?.localPublicContentFixtureSecret
-    ?? context.handles?.localAuthFixtureSecret
-    ?? context.handles?.localDemoFixtureSecret
-    ?? process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET
-    ?? process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
-    ?? process.env.FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET
-    ?? '';
-    if (!baseUrl || !secret)
-    {
-        throw new Error(
-            'backend temporal observation requires the actual backend URL and local fixture secret'
-        );
-    }
-    const response = await fetch(`${baseUrl}/__local/temporal-observation`, {
-        headers: {
-            'X-Fsus-Local-Temporal-Fixture-Secret': secret
-        },
-        signal
-    });
-    const text = await response.text();
-    if (!response.ok)
-    {
-        throw new Error(
-            `backend temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`
-        );
-    }
-    try
-    {
-        return JSON.parse(text);
-    }
-    catch
-    {
-        throw new Error('backend temporal observation returned invalid JSON');
-    }
 }
 
 export function createAuthSessionPort(catalogs = readFixtureCatalogs())

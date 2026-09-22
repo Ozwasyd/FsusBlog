@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 
 const {digestMessagingFixtureValue, readMessagingFixtureContract} = await import(new URL('../../test/messaging-fixture-contract.mjs', import.meta.url));
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
+import { observePreparedBackendTemporalContext, validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 
 const PRODUCER_ID = 'account-messaging';
 const STRATEGY = 'transaction-fixture';
@@ -423,7 +424,15 @@ async function invokeCompositionRoot(context, plan, signal)
     {
         throw new Error(`account-messaging composition root failed HTTP ${response.status}: ${payload?.detail ?? text.slice(0, 400)}`);
     }
-    return payload;
+    return {
+        ...payload,
+        temporalObservation: await observePreparedBackendTemporalContext(
+            context,
+            payload?.temporalObservation ?? payload?.TemporalObservation,
+            signal,
+            { baseUrl }
+        )
+    };
 }
 
 export async function prepareAccountMessaging(context, signal, { temporalResolver = null } = {})
@@ -478,7 +487,10 @@ export async function prepareAccountMessaging(context, signal, { temporalResolve
         databaseObservation: typed.observations.database,
         redisObservation: observations.redis,
         cacheObservation: observations.cache,
-        temporalObservation: raw.temporalObservation ?? raw.TemporalObservation ?? null,
+        temporalObservation: validateBackendTemporalObservation(
+            context.temporalContext,
+            raw.temporalObservation ?? raw.TemporalObservation
+        ),
         cleanupReceipt: raw.cleanupReceipt,
         cleanupContract: Object.freeze({
             kind: 'messaging-exact-receipt',

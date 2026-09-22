@@ -35,6 +35,7 @@
         "tools/test-fixtures/producer-port.mjs",
         "tools/test-fixtures/producers/auth-session-producer.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
+        "tools/test-fixtures/producers/backend-temporal-observer.mjs",
         "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
         "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
         "tools/test-fixtures/producers/account-profile-preference-producer.mjs",

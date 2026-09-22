@@ -12,6 +12,7 @@
         "tools/test-fixtures/orchestrator.mjs",
         "tools/test-fixtures/producer-port.mjs",
         "tools/test-fixtures/producers/catalog-ports.mjs",
+        "tools/test-fixtures/producers/backend-temporal-observer.mjs",
         "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
         "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
         "tools/test-fixtures/producers/account-profile-preference-producer.mjs",
@@ -38,7 +39,7 @@
                 "tools/test-fixtures/producers/account-messaging-producer.mjs"
             ],
             "contextIngress": "backend-test-temporal-context",
-            "actualObservation": "injected-adapter-owned-runtime-or-database-observation",
+            "actualObservation": "backend-culture-postgres-session-and-injected-backend-business-epoch",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
             "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
@@ -81,7 +82,7 @@
                 "tools/test-fixtures/producers/auth-session-producer.mjs"
             ],
             "contextIngress": "time-provider-and-fixture-business-epoch",
-            "actualObservation": "target-node-process-and-injected-backend-business-epoch",
+            "actualObservation": "backend-culture-postgres-session-and-injected-backend-business-epoch",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
             "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",

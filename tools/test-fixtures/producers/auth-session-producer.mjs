@@ -9,6 +9,8 @@
 
 import { createHash } from 'node:crypto';
 
+import { observePreparedBackendTemporalContext, validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
+
 const {resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const {validateProducerReceipt} = await import(new URL('../receipt/producer-receipt.mjs', import.meta.url));
 const PRODUCER_ID = 'auth-session';
@@ -506,7 +508,10 @@ export function validateAuthSessionResult(plan, raw)
         cacheObservation: observations.cache,
         permissionCatalogDigest: raw.permissionCatalogDigest ?? raw.PermissionCatalogDigest ?? null,
         ceremonyEvidenceDigest: raw.ceremonyEvidenceDigest ?? raw.CeremonyEvidenceDigest ?? null,
-        temporalObservation: raw.temporalObservation ?? raw.TemporalObservation ?? null,
+        temporalObservation: validateBackendTemporalObservation(
+            plan.temporalContext,
+            raw.temporalObservation ?? raw.TemporalObservation
+        ),
         cleanupContract: { kind: 'owned-identities', ownerIdentity: plan.roles[0].ownerIdentity }
     };
     const producerResultDigest = stableDigest(resultCore);
@@ -586,7 +591,15 @@ async function invokeLocalCompositionRoot(context, plan, signal)
     {
         throw new Error(`auth-session composition root failed HTTP ${response.status}: ${String(payload?.detail ?? text).slice(0, 400)}`);
     }
-    return payload;
+    return {
+        ...payload,
+        temporalObservation: await observePreparedBackendTemporalContext(
+            context,
+            payload?.temporalObservation ?? payload?.TemporalObservation,
+            signal,
+            { baseUrl }
+        )
+    };
 }
 
 function resolveLocalCompositionRoot(context)

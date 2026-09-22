@@ -59,7 +59,9 @@ function authAdapter()
                 providedCapabilities: authFixturePlan.capabilities,
                 observations: observed,
                 temporalObservation: {
-                    businessEpochUtc: authFixturePlan.temporalContext.businessEpochUtc
+                    businessEpochUtc: authFixturePlan.temporalContext.businessEpochUtc,
+                    backendCulture: 'Invariant',
+                    postgresTimezone: 'UTC'
                 }
             };
         },
