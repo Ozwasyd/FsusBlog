@@ -26,13 +26,34 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
     private static readonly DateTime s_now = new(2026, 9, 15, 12, 0, 0, DateTimeKind.Utc);
 
     [Fact]
+    public async Task ExecuteAsync_ScheduledUpdatePreservesPublicBoundaryAtCurrentBusinessClock()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        long adminId = await EnsureAdminAsync(db);
+        (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
+        const string Variant = CanonicalArticleLifecycleVariants.PublishedScheduledUpdate;
+        CanonicalArticleLifecycleResult result = await CreatePort(db).ExecuteAsync(
+            new CanonicalArticleLifecycleRequest(
+                Binding(adminId, Variant), Plan(Variant, categoryId, tagId, s_now.AddMinutes(1))));
+        Article row = await db.Queryable<Article>()
+            .Where(item => item.Id == result.Receipt.ArticleId).FirstAsync();
+        CanonicalArticleLifecycleOperationReceipt scheduled = Assert.Single(
+            result.Receipt.Operations, operation => operation.Operation == "scheduled-update");
+        bool publiclyVisible = ArticlePublication.IsPubliclyVisible(row, s_now);
+        Assert.True(
+            row.CurrentPublicationId == scheduled.BeforePublicationId && publiclyVisible,
+            $"businessClock={s_now:O}; due={scheduled.ScheduledPublishAt:O}; "
+            + $"oldPublication={scheduled.BeforePublicationId}; currentPublication={row.CurrentPublicationId}; "
+            + $"publishedAt={row.PublishedAt:O}; publiclyVisible={publiclyVisible}; "
+            + $"authorityVerified={result.Verification.IsValid}");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AllLifecycleVariants_PersistImmutableTimelineAndVerify()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
         long adminId = await EnsureAdminAsync(db);
         (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
-        CanonicalArticleLifecycleFixturePort port = CreatePort(db);
-
         string[] variants =
         [
             CanonicalArticleLifecycleVariants.Draft,
@@ -48,6 +69,8 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
         ];
         foreach (string variant in variants)
         {
+            var clock = new MutableTimeProvider(s_now);
+            CanonicalArticleLifecycleFixturePort port = CreatePort(db, clock);
             DateTime? scheduledAt = variant is CanonicalArticleLifecycleVariants.Scheduled
                 or CanonicalArticleLifecycleVariants.PublishedScheduledUpdate
                 ? s_now.AddMinutes(1)
@@ -85,15 +108,221 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
                 CanonicalArticleLifecycleOperationReceipt scheduled = Assert.Single(
                     result.Receipt.Operations,
                     operation => operation.Operation == "scheduled-update");
+                Assert.Equal(scheduled.BeforePublicationId, scheduled.AfterPublicationId);
+                Assert.True(scheduled.TransitionedAtUtc < scheduled.ScheduledPublishAt);
+                Assert.DoesNotContain(result.Receipt.Operations, operation => operation.Operation == "scheduled-publish");
+            }
+            if (scheduledAt.HasValue)
+            {
+                clock.Now = scheduledAt.Value;
+                result = await port.PublishScheduledAsync(Binding(adminId, variant), result.Receipt);
                 CanonicalArticleLifecycleOperationReceipt published = Assert.Single(
                     result.Receipt.Operations,
                     operation => operation.Operation == "scheduled-publish");
-                Assert.Equal(scheduled.BeforePublicationId, scheduled.AfterPublicationId);
                 Assert.NotEqual(published.BeforePublicationId, published.AfterPublicationId);
-                Assert.True(scheduled.TransitionedAtUtc < scheduled.ScheduledPublishAt);
                 Assert.True(published.TransitionedAtUtc >= published.ScheduledPublishAt);
+                Assert.True(result.Verification.IsValid, string.Join(';', result.Verification.Violations));
             }
         }
+    }
+
+    [Theory]
+    [InlineData(CanonicalArticleLifecycleVariants.Scheduled, 0)]
+    [InlineData(CanonicalArticleLifecycleVariants.Scheduled, 1)]
+    [InlineData(CanonicalArticleLifecycleVariants.PublishedScheduledUpdate, 0)]
+    [InlineData(CanonicalArticleLifecycleVariants.PublishedScheduledUpdate, 1)]
+    public async Task PublishScheduledAsync_UsesBusinessClockAndPreservesImmutableOldPublication(string variant, int delayMilliseconds)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        long adminId = await EnsureAdminAsync(db);
+        (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
+        var clock = new MutableTimeProvider(s_now);
+        DateTime dueAt = s_now.AddMinutes(1);
+        CanonicalArticleLifecycleFixturePort port = CreatePort(db, clock);
+        CanonicalArticleLifecycleFixtureBinding binding = Binding(adminId, variant);
+        CanonicalArticleLifecycleResult pending = await port.ExecuteAsync(
+            new CanonicalArticleLifecycleRequest(binding, Plan(variant, categoryId, tagId, dueAt)));
+        ArticlePublicationRecord? oldPublication = await db.Queryable<ArticlePublicationRecord>()
+            .Where(item => item.Id == pending.Receipt.CurrentPublicationId).FirstAsync();
+        string oldPublicationBytes = System.Text.Json.JsonSerializer.Serialize(oldPublication);
+        long oldAuditCount = await CountAsync(db, "sys_audit_log");
+        long oldOutboxCount = await CountAsync(db, "article_mutation_outbox");
+        clock.Now = dueAt.AddMilliseconds(-1);
+        CanonicalArticleLifecycleValidationException early = await Assert.ThrowsAsync<CanonicalArticleLifecycleValidationException>(
+            () => port.PublishScheduledAsync(binding, pending.Receipt));
+        Assert.Equal("scheduled_publication_not_due", early.Code);
+        Article before = await db.Queryable<Article>().Where(item => item.Id == pending.Receipt.ArticleId).FirstAsync();
+        Assert.Equal(pending.Receipt.CurrentPublicationId, before.CurrentPublicationId);
+        Assert.Equal(variant == CanonicalArticleLifecycleVariants.PublishedScheduledUpdate,
+            ArticlePublication.IsPubliclyVisible(before, clock.Now));
+        Assert.Equal(oldAuditCount, await CountAsync(db, "sys_audit_log"));
+        Assert.Equal(oldOutboxCount, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(pending.Receipt.PublicationIds.Count, await CountAsync(db, "article_publication"));
+
+        clock.Now = dueAt.AddMilliseconds(delayMilliseconds);
+        CanonicalArticleLifecycleResult published = await port.PublishScheduledAsync(binding, pending.Receipt);
+        Assert.True(published.Verification.IsValid, string.Join(';', published.Verification.Violations));
+        Assert.Equal(pending.Receipt.RevisionIds, published.Receipt.RevisionIds);
+        Assert.Equal(pending.Receipt.PublicationIds.Count + 1, published.Receipt.PublicationIds.Count);
+        Assert.NotEqual(pending.Receipt.CurrentPublicationId, published.Receipt.CurrentPublicationId);
+        Assert.Equal(pending.Receipt.Operations, published.Receipt.Operations.Take(pending.Receipt.Operations.Count));
+        Assert.Equal(clock.Now, published.Receipt.Operations[^1].TransitionedAtUtc);
+        Assert.Equal(oldAuditCount + 1, await CountAsync(db, "sys_audit_log"));
+        Assert.Equal(oldOutboxCount + 1, await CountAsync(db, "article_mutation_outbox"));
+        Article after = await db.Queryable<Article>().Where(item => item.Id == published.Receipt.ArticleId).FirstAsync();
+        Assert.True(ArticlePublication.IsPubliclyVisible(after, clock.Now));
+        Assert.Null(after.PendingPublicationAt);
+        Assert.Null(after.ScheduledPublishAt);
+        if (oldPublication is not null)
+        {
+            ArticlePublicationRecord reloadedOld = await db.Queryable<ArticlePublicationRecord>()
+                .Where(item => item.Id == oldPublication.Id).FirstAsync();
+            Assert.Equal(oldPublicationBytes, System.Text.Json.JsonSerializer.Serialize(reloadedOld));
+        }
+        // The verifier must use the observer's clock, not trust a future time supplied in the receipt.
+        CanonicalArticleLifecycleVerificationResult premature = await CanonicalArticleLifecycleVerifier.VerifyAsync(
+            db, Configuration(), published.Receipt, timeProvider: new FixedTimeProvider(dueAt.AddMilliseconds(-1)));
+        Assert.False(premature.IsValid);
+        Assert.Contains(premature.Violations, item => item.StartsWith("operation_ahead_of_business_clock:", StringComparison.Ordinal));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => port.PublishScheduledAsync(binding, pending.Receipt));
+        Assert.Equal(oldAuditCount + 1, await CountAsync(db, "sys_audit_log"));
+        Assert.Equal(oldOutboxCount + 1, await CountAsync(db, "article_mutation_outbox"));
+    }
+
+    [Theory]
+    [InlineData("binding")]
+    [InlineData("resealed-binding")]
+    [InlineData("capability")]
+    [InlineData("revision")]
+    [InlineData("schedule")]
+    [InlineData("permission")]
+    public async Task PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(string drift)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        long adminId = await EnsureAdminAsync(db);
+        (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
+        var clock = new MutableTimeProvider(s_now);
+        DateTime dueAt = s_now.AddMinutes(1);
+        const string Variant = CanonicalArticleLifecycleVariants.PublishedScheduledUpdate;
+        CanonicalArticleLifecycleFixturePort port = CreatePort(db, clock);
+        CanonicalArticleLifecycleFixtureBinding binding = Binding(adminId, Variant);
+        CanonicalArticleLifecycleReceipt receipt = (await port.ExecuteAsync(
+            new CanonicalArticleLifecycleRequest(binding, Plan(Variant, categoryId, tagId, dueAt)))).Receipt;
+        clock.Now = dueAt;
+        if (drift == "binding")
+        {
+            binding = binding with
+            {
+                TemporalContextDigest = "sha256:" + new string('c', 64)
+            };
+        }
+        else if (drift == "resealed-binding")
+        {
+            binding = binding with
+            {
+                RunId = "another-run"
+            };
+            receipt = Seal(receipt with
+            {
+                RunId = binding.RunId
+            });
+        }
+        else if (drift == "capability")
+        {
+            binding = binding with
+            {
+                Capabilities = ["article.write", "unrelated-capability"]
+            };
+        }
+        else if (drift == "revision")
+        {
+            receipt = Seal(receipt with
+            {
+                CurrentRevisionId = receipt.CurrentRevisionId + 1
+            });
+        }
+        else if (drift == "schedule")
+        {
+            receipt = Seal(receipt with
+            {
+                Operations = receipt.Operations.Select(operation => operation.Operation == "scheduled-update"
+                    ? operation with
+                    {
+                        ScheduledPublishAt = dueAt.AddMilliseconds(-1)
+                    } : operation).ToArray()
+            });
+        }
+        else
+        {
+            await db.Updateable<AdminPrincipal>().SetColumns(item => item.Permissions == string.Empty)
+                .Where(item => item.Id == adminId).ExecuteCommandAsync();
+        }
+        long audits = await CountAsync(db, "sys_audit_log");
+        long outbox = await CountAsync(db, "article_mutation_outbox");
+        long revisions = await CountAsync(db, "article_revision");
+        long publications = await CountAsync(db, "article_publication");
+        if (drift == "permission")
+        {
+            ArticleWriteValidationException error = await Assert.ThrowsAsync<ArticleWriteValidationException>(
+                () => port.PublishScheduledAsync(binding, receipt));
+            Assert.Equal("article_write_permission_required", error.Code);
+        }
+        else
+        {
+            CanonicalArticleLifecycleValidationException error = await Assert.ThrowsAsync<CanonicalArticleLifecycleValidationException>(
+                () => port.PublishScheduledAsync(binding, receipt));
+            Assert.Equal(drift == "binding" ? "scheduled_receipt_binding_mismatch" : "scheduled_origin_receipt_mismatch", error.Code);
+        }
+        Assert.Equal(audits, await CountAsync(db, "sys_audit_log"));
+        Assert.Equal(outbox, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(revisions, await CountAsync(db, "article_revision"));
+        Assert.Equal(publications, await CountAsync(db, "article_publication"));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_BusinessClockRegressesDuringWrite_RollsBackAllAuthorityFacts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        long adminId = await EnsureAdminAsync(db);
+        (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
+        CanonicalArticleLifecycleFixturePort port = CreatePort(db, new RegressingTimeProvider());
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => port.ExecuteAsync(new CanonicalArticleLifecycleRequest(
+                Binding(adminId, CanonicalArticleLifecycleVariants.PublishedScheduledUpdate),
+                Plan(CanonicalArticleLifecycleVariants.PublishedScheduledUpdate, categoryId, tagId, s_now.AddMinutes(1)))));
+        Assert.Contains("operation_ahead_of_business_clock", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, await CountAsync(db, "article"));
+        Assert.Equal(0, await CountAsync(db, "article_revision"));
+        Assert.Equal(0, await CountAsync(db, "article_publication"));
+        Assert.Equal(0, await CountAsync(db, "article_mutation_command"));
+        Assert.Equal(0, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(0, await CountAsync(db, "sys_audit_log"));
+    }
+
+    [Fact]
+    public async Task PublishScheduledAsync_BusinessClockRegressesDuringWrite_RollsBackDueFacts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        long adminId = await EnsureAdminAsync(db);
+        (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
+        const string Variant = CanonicalArticleLifecycleVariants.PublishedScheduledUpdate;
+        CanonicalArticleLifecycleFixtureBinding binding = Binding(adminId, Variant);
+        DateTime dueAt = s_now.AddMinutes(1);
+        CanonicalArticleLifecycleReceipt pending = (await CreatePort(db).ExecuteAsync(
+            new CanonicalArticleLifecycleRequest(binding, Plan(Variant, categoryId, tagId, dueAt)))).Receipt;
+        long audits = await CountAsync(db, "sys_audit_log");
+        long outbox = await CountAsync(db, "article_mutation_outbox");
+        CanonicalArticleLifecycleFixturePort port = CreatePort(db, new RegressingTimeProvider(dueAt, 3));
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => port.PublishScheduledAsync(binding, pending));
+        Assert.Contains("operation_ahead_of_business_clock", error.Message, StringComparison.Ordinal);
+        Assert.Equal(pending.RevisionIds.Count, await CountAsync(db, "article_revision"));
+        Assert.Equal(pending.PublicationIds.Count, await CountAsync(db, "article_publication"));
+        Assert.Equal(outbox, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(audits, await CountAsync(db, "sys_audit_log"));
+        Article row = await db.Queryable<Article>().Where(item => item.Id == pending.ArticleId).FirstAsync();
+        Assert.Equal(pending.CurrentPublicationId, row.CurrentPublicationId);
+        Assert.Equal(dueAt, row.PendingPublicationAt);
     }
 
     [Fact]
@@ -225,7 +454,8 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
         using SqlSugarClient db = await CreateDatabaseAsync();
         long adminId = await EnsureAdminAsync(db);
         (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
-        CanonicalArticleLifecycleFixturePort port = CreatePort(db);
+        var clock = new MutableTimeProvider(s_now);
+        CanonicalArticleLifecycleFixturePort port = CreatePort(db, clock);
         CanonicalArticleLifecycleResult result = await port.ExecuteAsync(
             new CanonicalArticleLifecycleRequest(
                 Binding(adminId, "temporal-tamper"),
@@ -234,6 +464,8 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
                     categoryId,
                     tagId,
                     s_now.AddMinutes(1))));
+        clock.Now = s_now.AddMinutes(1);
+        result = await port.PublishScheduledAsync(Binding(adminId, "temporal-tamper"), result.Receipt);
 
         CanonicalArticleLifecycleReceipt writerTampered = Seal(result.Receipt with
         {
@@ -548,7 +780,7 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
         return db;
     }
 
-    private static CanonicalArticleLifecycleFixturePort CreatePort(SqlSugarClient db)
+    private static CanonicalArticleLifecycleFixturePort CreatePort(SqlSugarClient db, TimeProvider? timeProvider = null)
     {
         var contentFilter = Substitute.For<IContentFilterService>();
         contentFilter.ValidateContent(Arg.Any<string>())
@@ -559,7 +791,7 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
             Configuration(),
             validator,
             Substitute.For<IArticlePublicMutationFence>(),
-            new FixedTimeProvider(s_now));
+            timeProvider ?? new FixedTimeProvider(s_now));
     }
 
     private static IConfiguration Configuration()
@@ -685,6 +917,23 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
             FOR EACH ROW
             EXECUTE FUNCTION fail_lifecycle_audit_insert();
             """);
+
+    private sealed class RegressingTimeProvider(DateTime? initial = null, int readsBeforeRegression = 1) : TimeProvider
+    {
+        private int _reads;
+
+        public override DateTimeOffset GetUtcNow()
+            => new(Interlocked.Increment(ref _reads) <= readsBeforeRegression
+                ? initial ?? s_now
+                : (initial ?? s_now).AddMilliseconds(-1));
+    }
+
+    private sealed class MutableTimeProvider(DateTime now) : TimeProvider
+    {
+        public DateTime Now { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => new(Now);
+    }
 
     private sealed class FixedTimeProvider(DateTime now) : TimeProvider
     {

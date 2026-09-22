@@ -86,6 +86,14 @@ export function checkCanonicalArticleLifecycleAuthority(repositoryRoot = default
     {
         violations.push("lifecycle fixture port must use the production transaction and mutation fence");
     }
+    if (!/new ArticleLifecycleTransitionWriter\.ScheduledPublishRequest\(\s*scheduledReceipt\.ArticleId,\s*scheduledReceipt\.CurrentRevisionId,\s*now,/u.test(port)
+        || !port.includes("if (now < dueAt)")
+        || !port.includes("scheduled_publication_not_due")
+        || !verifier.includes("operation.TransitionedAtUtc > now")
+        || !verifier.includes("operation_ahead_of_business_clock"))
+    {
+        violations.push("scheduled completion must use the observed business clock and reject future authority facts");
+    }
     if (/(?:INSERT\s+INTO\s+article|UPDATE\s+article|DELETE\s+FROM\s+article)/iu.test(port)
         || /\bAdo\.ExecuteCommand\s*\(/u.test(port))
     {

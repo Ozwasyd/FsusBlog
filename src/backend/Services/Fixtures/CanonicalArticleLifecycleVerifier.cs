@@ -39,7 +39,8 @@ public static class CanonicalArticleLifecycleVerifier
         ISqlSugarClient db,
         IConfiguration configuration,
         CanonicalArticleLifecycleReceipt receipt,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -47,6 +48,14 @@ public static class CanonicalArticleLifecycleVerifier
 
         var violations = new List<string>();
         VerifyReceiptEnvelope(receipt, violations);
+        DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+        foreach (CanonicalArticleLifecycleOperationReceipt operation in receipt.Operations ?? [])
+        {
+            if (operation.TransitionedAtUtc > now)
+            {
+                violations.Add($"operation_ahead_of_business_clock:{operation.TransitionId}");
+            }
+        }
 
         Article? article = await db.Queryable<Article>()
             .ClearFilter()
@@ -220,6 +229,26 @@ public static class CanonicalArticleLifecycleVerifier
         if (receipt.CurrentRevisionId <= 0)
         {
             violations.Add("current_revision_missing");
+        }
+        CanonicalArticleLifecycleOperationReceipt? last = receipt.Operations?.LastOrDefault();
+        if (last?.Operation == "scheduled-update"
+            || last?.Operation == "create" && last.AfterStatus == ArticleStatus.Scheduled)
+        {
+            DateTime? storedDueAt = article.PendingPublicationAt ?? article.ScheduledPublishAt;
+            if (last.ScheduledPublishAt is null || storedDueAt != last.ScheduledPublishAt)
+            {
+                violations.Add("pending_schedule_time_mismatch");
+            }
+            if (last.AfterPublicationId != article.CurrentPublicationId
+                || last.BeforePublicationId != last.AfterPublicationId)
+            {
+                violations.Add("pending_schedule_publication_changed");
+            }
+        }
+        if (last?.Operation == "scheduled-publish"
+            && (article.PendingPublicationAt.HasValue || article.ScheduledPublishAt.HasValue))
+        {
+            violations.Add("published_schedule_still_pending");
         }
     }
 

@@ -305,6 +305,46 @@ test('public-content-lifecycle plan exposes all formal lifecycle transition vari
   assert.equal(planDocument.lifecycle.rollback, true)
 })
 
+test('published scheduled fixture preserves the old publication until the observed clock reaches due', () => {
+  const id = 'article-published-scheduled-update'
+  const article = {
+    kind: 'article', id: '1', capabilityHint: id,
+    fields: {
+      status: 'published', deleted: false, isDeleted: false,
+      operations: ['create', 'scheduled-update'], revisionIds: ['10', '11'],
+      publicationIds: [20], currentPublicationId: 20, currentRevisionId: 11,
+      rightsResponsibilityBound: true, immutableHistoryVerified: true,
+      pendingPublicationAt: '2026-09-15T12:01:00.000Z',
+      scheduledUpdate: {
+        beforePublicationId: 20, afterPublicationId: 20,
+        transitionedAtUtc: '2026-09-15T12:00:00.000Z',
+        scheduledPublishAt: '2026-09-15T12:01:00.000Z',
+        observedBusinessTimeUtc: '2026-09-15T12:00:00.000Z'
+      }
+    }
+  }
+  const check = (entity) => runPostcondition(id, { observations: { database: { entities: [entity] } } })
+  assert.equal(check(article).ok, true)
+  for (const mutate of [
+    (fields) => { fields.currentPublicationId = 21 },
+    (fields) => { fields.publicationIds.push(21) },
+    (fields) => { fields.operations.push('scheduled-publish') },
+    (fields) => { fields.scheduledUpdate.afterPublicationId = 21 },
+    (fields) => { fields.scheduledUpdate.observedBusinessTimeUtc = fields.pendingPublicationAt },
+    (fields) => { fields.scheduledUpdate.observedBusinessTimeUtc = '2026-09-15T12:01:00.001Z' },
+    (fields) => { fields.scheduledUpdate.transitionedAtUtc = '2026-09-15T12:00:00.001Z' },
+    (fields) => { fields.pendingPublicationAt = null },
+    (fields) => { fields.scheduledUpdate.scheduledPublishAt = '2026-09-15T12:01:00.000' },
+    (fields) => { fields.pendingPublicationAt = '2026-09-15T12:01:00.000' },
+    (fields) => { fields.currentRevisionId = 10 },
+    (fields) => { delete fields.scheduledUpdate }
+  ]) {
+    const invalid = structuredClone(article)
+    mutate(invalid.fields)
+    assert.equal(check(invalid).ok, false)
+  }
+})
+
 test('public-empty plan is exclusive and zero published', () => {
   const planDocument = buildPublicContentPlan(['public.empty'])
   assert.equal(planDocument.mode, 'public-empty')

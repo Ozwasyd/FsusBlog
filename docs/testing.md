@@ -82,6 +82,14 @@ See [`testing/static-governance-resident-hosts.md`](testing/static-governance-re
 
 For the source/run-bound scenario catalog, resident Node host, identity/reset barrier, independent result, cancellation of partial evidence, three-round before/after indicators and instant per-CLI fallback of the Browserless integration/security/resilience runtime probe, see [`testing/runtime-scenario-host.md`](testing/runtime-scenario-host.md). Wall time, CPU, Node process and connection setup are only used for performance observation and will never be involved in correctness.
 
+## Canonical article scheduled lifecycle
+
+`CanonicalArticleLifecycleFixturePort.ExecuteAsync` creates scheduled fixtures at a strictly future injected business-clock time. A published scheduled update returns a pending receipt: its new authoring revision exists, but the old immutable publication remains the public pointer. Preparation never substitutes the planned due time for the current business clock and never advances the shared clock implicitly.
+
+After the caller explicitly advances the injected clock, `PublishScheduledAsync` consumes that original receipt and the same run/namespace/profile/admin/writer/temporal binding. Under the article transaction lock it independently rechecks persisted authority, then calls the formal scheduled transition with the observed current time. Early, stale, altered or unauthorized requests fail without partial lifecycle facts. The returned receipt appends the due operation and its new publication/outbox/audit coordinates; it does not repair or reseal the original preparation receipt. The independent verifier rejects operations ahead of its observer clock and mismatched stored pending times.
+
+The `article-published-scheduled-update` preparation postcondition requires exactly the create/scheduled-update chain, two revisions, one unchanged publication, and a stored due time still later than the observed business clock. Completion is a separate scenario-owned transition, not an already-completed fixture at a future timestamp. Real PostgreSQL tests cover one millisecond before due, exactly due and after due, immutable old publication, clock/source/permission drift and zero partial facts. Derived projections, rerun repair and legacy seed removal remain separate owners.
+
 ## Executable data test governance
 
 Executable data constraints must be expressed by a real owner test and a central source of truth, without using an issue document to act as a test manifest:
