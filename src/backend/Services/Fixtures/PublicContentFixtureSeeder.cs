@@ -7,13 +7,17 @@ using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using SqlSugar;
 
@@ -299,7 +303,8 @@ public sealed class PublicContentFixtureSeeder(
     ArticleMutationOutboxDispatcher articleOutboxDispatcher,
     IActiveReleaseFence? activeReleaseFence,
     IActiveReleaseExecutionContextAccessor? releaseExecutionContext,
-    IConfiguration configuration) : IPublicContentFixtureSeeder
+    IConfiguration configuration,
+    IServiceProvider serviceProvider) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
     internal const int PaginationArticleCount = 10_020;
@@ -412,6 +417,19 @@ public sealed class PublicContentFixtureSeeder(
                 Fields = new Dictionary<string, object?> { ["name"] = tag.Name }
             }
         };
+
+        CanonicalArticleLifecycleFixtureBinding? lifecycleBinding = null;
+        ICanonicalArticleLifecycleFixturePort? lifecyclePort = null;
+        if (capabilities.Any(IsLifecycleCapability))
+        {
+            lifecyclePort = serviceProvider.GetService<ICanonicalArticleLifecycleFixturePort>()
+                ?? throw new InvalidOperationException(
+                    "canonical article lifecycle fixture port is only available when local fixture services are enabled");
+            lifecycleBinding = await BuildLifecycleBindingAsync(
+                request,
+                capabilities,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         // public-minimal: exactly 3 published articles, stable relative order, mixed cover, distinct views.
         var publishedPlan = new[]
@@ -529,6 +547,9 @@ public sealed class PublicContentFixtureSeeder(
                 entityIdentities,
                 observed,
                 "article-draft",
+                CanonicalArticleLifecycleVariants.Draft,
+                lifecyclePort!,
+                lifecycleBinding!,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -549,12 +570,15 @@ public sealed class PublicContentFixtureSeeder(
                 entityIdentities,
                 observed,
                 "article-scheduled",
+                CanonicalArticleLifecycleVariants.Scheduled,
+                lifecyclePort!,
+                lifecycleBinding!,
                 cancellationToken).ConfigureAwait(false);
         }
 
         if (capabilities.Contains("public.article.archived", StringComparer.Ordinal))
         {
-            int archivedId = await CreateArticleAsync(
+            await SeedLifecycleArticleAsync(
                 new SeedArticlePlan(
                     "archived",
                     $"{ownerPrefix}:archived",
@@ -565,38 +589,18 @@ public sealed class PublicContentFixtureSeeder(
                     ArticleStatus.Published),
                 category.Id,
                 tag.Id,
+                entityIdentities,
+                observed,
+                "article-archived",
+                CanonicalArticleLifecycleVariants.Archived,
+                lifecyclePort!,
+                lifecycleBinding!,
                 cancellationToken).ConfigureAwait(false);
-            long archivedBaseRevisionId = await RequireCurrentRevisionIdAsync(
-                archivedId,
-                cancellationToken).ConfigureAwait(false);
-            bool archived = await articles.UpdateAsync(
-                new UpdateArticleCommand(
-                    archivedId,
-                    BuildWriteRequest(
-                        $"{ownerPrefix}:archived",
-                        "# Archived body",
-                        "Archived lifecycle fixture",
-                        null,
-                        category.Id,
-                        tag.Id,
-                        ArticleStatus.Archived,
-                        baseRevisionId: archivedBaseRevisionId)),
-                cancellationToken).ConfigureAwait(false);
-            if (!archived)
-            {
-                throw new InvalidOperationException("failed to archive lifecycle article via domain port");
-            }
-
-            Article row = await LoadArticleAsync(archivedId, cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("archived article missing");
-            List<long> archivedRevisionIds = await LoadRevisionIdsAsync(archivedId, cancellationToken).ConfigureAwait(false);
-            entityIdentities.Add(new("article", archivedId.ToString(System.Globalization.CultureInfo.InvariantCulture), row.Title, "article-archived"));
-            observed.Add(StatusEntity(archivedId, "archived", "article-archived", row, archivedRevisionIds));
         }
 
         if (capabilities.Contains("public.article.deleted", StringComparer.Ordinal))
         {
-            int deletedId = await CreateArticleAsync(
+            await SeedLifecycleArticleAsync(
                 new SeedArticlePlan(
                     "deleted",
                     $"{ownerPrefix}:deleted",
@@ -607,158 +611,125 @@ public sealed class PublicContentFixtureSeeder(
                     ArticleStatus.Published),
                 category.Id,
                 tag.Id,
+                entityIdentities,
+                observed,
+                "article-deleted",
+                CanonicalArticleLifecycleVariants.Deleted,
+                lifecyclePort!,
+                lifecycleBinding!,
                 cancellationToken).ConfigureAwait(false);
-            bool deleted = await articles.DeleteAsync(new ArticleIdCommand(deletedId), cancellationToken).ConfigureAwait(false);
-            if (!deleted)
-            {
-                throw new InvalidOperationException("failed to delete lifecycle article via domain port");
-            }
-
-            Article row = await LoadArticleAsync(deletedId, includeDeleted: true, cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("deleted article missing");
-            entityIdentities.Add(new("article", deletedId.ToString(System.Globalization.CultureInfo.InvariantCulture), row.Title, "article-deleted"));
-            observed.Add(new PublicContentObservedEntity
-            {
-                Kind = "article",
-                Id = deletedId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                CapabilityHint = "article-deleted",
-                Fields = new Dictionary<string, object?>
-                {
-                    ["status"] = "deleted",
-                    ["deleted"] = true,
-                    ["isDeleted"] = true,
-                    ["currentPublicationId"] = row.CurrentPublicationId,
-                    ["currentRevisionId"] = row.CurrentRevisionId
-                }
-            });
         }
 
-        int multiRevisionId = 0;
+        if (capabilities.Contains("public.article.published-scheduled-update", StringComparer.Ordinal))
+        {
+            await SeedLifecycleArticleAsync(
+                new SeedArticlePlan(
+                    "published-scheduled-update",
+                    $"{ownerPrefix}:published-scheduled-update",
+                    "Published scheduled update lifecycle fixture",
+                    "# Published scheduled update body",
+                    null,
+                    1,
+                    ArticleStatus.Published,
+                    ScheduledPublishAt: timeProvider.GetUtcNow().UtcDateTime.AddDays(7)),
+                category.Id,
+                tag.Id,
+                entityIdentities,
+                observed,
+                "article-published-scheduled-update",
+                CanonicalArticleLifecycleVariants.PublishedScheduledUpdate,
+                lifecyclePort!,
+                lifecycleBinding!,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (capabilities.Contains("public.article.restore", StringComparer.Ordinal))
+        {
+            await SeedLifecycleArticleAsync(
+                new SeedArticlePlan(
+                    "restore",
+                    $"{ownerPrefix}:restore",
+                    "Restore lifecycle fixture",
+                    "# Restored body",
+                    null,
+                    1,
+                    ArticleStatus.Published),
+                category.Id,
+                tag.Id,
+                entityIdentities,
+                observed,
+                "article-restore",
+                CanonicalArticleLifecycleVariants.Restore,
+                lifecyclePort!,
+                lifecycleBinding!,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (capabilities.Contains("public.article.rollback", StringComparer.Ordinal))
+        {
+            await SeedLifecycleArticleAsync(
+                new SeedArticlePlan(
+                    "rollback",
+                    $"{ownerPrefix}:rollback",
+                    "Rollback lifecycle fixture",
+                    "# Rollback body",
+                    null,
+                    1,
+                    ArticleStatus.Published),
+                category.Id,
+                tag.Id,
+                entityIdentities,
+                observed,
+                "article-rollback",
+                CanonicalArticleLifecycleVariants.Rollback,
+                lifecyclePort!,
+                lifecycleBinding!,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         if (capabilities.Contains("public.article.multiple-revisions", StringComparer.Ordinal)
             || capabilities.Contains("public.article.revision-history", StringComparer.Ordinal))
         {
-            multiRevisionId = publishedIds[0];
-            long multiRevisionBaseRevisionId = await RequireCurrentRevisionIdAsync(
-                multiRevisionId,
+            await SeedLifecycleArticleAsync(
+                new SeedArticlePlan(
+                    "multiple-revisions",
+                    $"{ownerPrefix}:multiple-revisions",
+                    "Multiple revision lifecycle fixture",
+                    "# Revision one body",
+                    null,
+                    1,
+                    ArticleStatus.Published),
+                category.Id,
+                tag.Id,
+                entityIdentities,
+                observed,
+                "article-multiple-revisions",
+                CanonicalArticleLifecycleVariants.MultipleRevisions,
+                lifecyclePort!,
+                lifecycleBinding!,
                 cancellationToken).ConfigureAwait(false);
-            bool updated = await articles.UpdateAsync(
-                new UpdateArticleCommand(
-                    multiRevisionId,
-                    BuildWriteRequest(
-                        publishedPlan[0].Title,
-                        publishedPlan[0].Markdown + RevisionHistoryFixtureAppendix,
-                        publishedPlan[0].Summary,
-                        publishedPlan[0].CoverImageUrl,
-                        category.Id,
-                        tag.Id,
-                        ArticleStatus.Published,
-                        baseRevisionId: multiRevisionBaseRevisionId)),
-                cancellationToken).ConfigureAwait(false);
-            if (!updated)
-            {
-                throw new InvalidOperationException("failed to create second revision via domain port");
-            }
-
-            List<long> revisionIds = await LoadRevisionIdsAsync(multiRevisionId, cancellationToken).ConfigureAwait(false);
-            if (revisionIds.Count < 2 && capabilities.Contains("public.article.multiple-revisions", StringComparer.Ordinal))
-            {
-                throw new InvalidOperationException("multiple-revisions postcondition requires >=2 revisions");
-            }
-
-            PublicContentObservedEntity? existing = observed.FirstOrDefault(item => item.Kind == "article" && item.Id == multiRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            if (existing is not null)
-            {
-                existing.Fields["revisionIds"] = revisionIds.Select(static id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-                existing.Fields["currentRevisionId"] = revisionIds.DefaultIfEmpty().Max();
-            }
-
-            if (capabilities.Contains("public.article.multiple-revisions", StringComparer.Ordinal))
-            {
-                observed.Add(new PublicContentObservedEntity
-                {
-                    Kind = "article",
-                    Id = multiRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    CapabilityHint = "article-multiple-revisions",
-                    PostconditionId = "article-multiple-revisions",
-                    Fields = new Dictionary<string, object?>
-                    {
-                        ["status"] = "published",
-                        ["revisionCount"] = revisionIds.Count,
-                        ["revisionIds"] = revisionIds.Select(static id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray(),
-                        ["multipleRevisions"] = revisionIds.Count >= 2
-                    }
-                });
-            }
         }
 
         if (capabilities.Contains("public.article.multiple-publications", StringComparer.Ordinal))
         {
-            int multiPubId = publishedIds[1];
-            long archiveBaseRevisionId = await RequireCurrentRevisionIdAsync(
-                multiPubId,
+            await SeedLifecycleArticleAsync(
+                new SeedArticlePlan(
+                    "multiple-publications",
+                    $"{ownerPrefix}:multiple-publications",
+                    "Multiple publication lifecycle fixture",
+                    "# Publication one body",
+                    null,
+                    1,
+                    ArticleStatus.Published),
+                category.Id,
+                tag.Id,
+                entityIdentities,
+                observed,
+                "article-multiple-publications",
+                CanonicalArticleLifecycleVariants.MultiplePublications,
+                lifecyclePort!,
+                lifecycleBinding!,
                 cancellationToken).ConfigureAwait(false);
-            bool archived = await articles.UpdateAsync(
-                new UpdateArticleCommand(
-                    multiPubId,
-                    BuildWriteRequest(
-                        publishedPlan[1].Title,
-                        publishedPlan[1].Markdown,
-                        publishedPlan[1].Summary,
-                        publishedPlan[1].CoverImageUrl,
-                        category.Id,
-                        tag.Id,
-                        ArticleStatus.Archived,
-                        baseRevisionId: archiveBaseRevisionId)),
-                cancellationToken).ConfigureAwait(false);
-            if (!archived)
-            {
-                throw new InvalidOperationException("failed to archive for multi-publication");
-            }
-
-            // Re-publish through domain update (creates another publication transition).
-            long republishBaseRevisionId = await RequireCurrentRevisionIdAsync(
-                multiPubId,
-                cancellationToken).ConfigureAwait(false);
-            bool republished = await articles.UpdateAsync(
-                new UpdateArticleCommand(
-                    multiPubId,
-                    BuildWriteRequest(
-                        publishedPlan[1].Title,
-                        publishedPlan[1].Markdown,
-                        publishedPlan[1].Summary,
-                        publishedPlan[1].CoverImageUrl,
-                        category.Id,
-                        tag.Id,
-                        ArticleStatus.Published,
-                        baseRevisionId: republishBaseRevisionId)),
-                cancellationToken).ConfigureAwait(false);
-            if (!republished)
-            {
-                throw new InvalidOperationException("failed to republish for multi-publication");
-            }
-
-            long publicationCount = await db.Queryable<ArticlePublicationRecord>()
-                .Where(item => item.ArticleId == multiPubId)
-                .CountAsync()
-                .ConfigureAwait(false);
-            if (publicationCount < 2)
-            {
-                throw new InvalidOperationException("multiple-publications postcondition requires >=2 publications");
-            }
-
-            observed.Add(new PublicContentObservedEntity
-            {
-                Kind = "article",
-                Id = multiPubId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                CapabilityHint = "article-multiple-publications",
-                PostconditionId = "article-multiple-publications",
-                Fields = new Dictionary<string, object?>
-                {
-                    ["status"] = "published",
-                    ["publicationCount"] = publicationCount,
-                    ["multiplePublications"] = publicationCount >= 2
-                }
-            });
         }
 
         // Cache / search / hot rebuild via domain ports — fail closed if degraded.
@@ -1442,22 +1413,182 @@ public sealed class PublicContentFixtureSeeder(
         List<PublicContentEntityIdentity> identities,
         List<PublicContentObservedEntity> observed,
         string capabilityHint,
+        string variant,
+        ICanonicalArticleLifecycleFixturePort lifecyclePort,
+        CanonicalArticleLifecycleFixtureBinding lifecycleBinding,
         CancellationToken cancellationToken)
     {
-        int id = await CreateArticleAsync(plan, categoryId, tagId, cancellationToken).ConfigureAwait(false);
-        Article row = await LoadArticleAsync(id, cancellationToken).ConfigureAwait(false)
+        ArgumentNullException.ThrowIfNull(lifecyclePort);
+        ArgumentNullException.ThrowIfNull(lifecycleBinding);
+        CanonicalArticleLifecycleResult result = await lifecyclePort.ExecuteAsync(
+            new CanonicalArticleLifecycleRequest(
+                lifecycleBinding,
+                new CanonicalArticleLifecyclePlan(
+                    SemanticRole: plan.Role,
+                    Variant: variant,
+                    Title: plan.Title,
+                    Content: plan.Markdown,
+                    Summary: plan.Summary,
+                    CoverImageUrl: plan.CoverImageUrl,
+                    CategoryId: categoryId,
+                    TagIds: [tagId],
+                    Rights: null,
+                    Responsibility: BuildLifecycleResponsibility(plan.Role, plan.ScheduledPublishAt),
+                    ScheduledPublishAt: plan.ScheduledPublishAt,
+                    RollbackReason: variant == CanonicalArticleLifecycleVariants.Rollback
+                        ? "canonical public-content rollback"
+                        : null)),
+            cancellationToken).ConfigureAwait(false);
+        int id = result.Receipt.ArticleId;
+        Article row = await LoadArticleAsync(
+                id,
+                includeDeleted: result.Receipt.IsDeleted,
+                cancellationToken)
             ?? throw new InvalidOperationException($"{plan.Role} article missing");
         List<long> revisionIds = await LoadRevisionIdsAsync(id, cancellationToken).ConfigureAwait(false);
         identities.Add(new("article", id.ToString(System.Globalization.CultureInfo.InvariantCulture), plan.Title, capabilityHint));
-        observed.Add(StatusEntity(id, plan.Status.ToString().ToLowerInvariant(), capabilityHint, row, revisionIds));
+        PublicContentObservedEntity entity = StatusEntity(
+            id,
+            result.Receipt.CurrentStatus.ToString().ToLowerInvariant(),
+            capabilityHint,
+            row,
+            revisionIds,
+            LifecyclePostconditionId(variant));
+        entity.Fields["variant"] = variant;
+        entity.Fields["transitionIds"] = result.Receipt.Operations
+            .Select(static operation => operation.TransitionId)
+            .ToArray();
+        entity.Fields["operations"] = result.Receipt.Operations
+            .Select(static operation => operation.Operation)
+            .ToArray();
+        entity.Fields["publicationIds"] = result.Receipt.PublicationIds.ToArray();
+        entity.Fields["writerContractDigest"] = result.Receipt.WriterContractDigest;
+        entity.Fields["temporalContextDigest"] = result.Receipt.TemporalContextDigest;
+        entity.Fields["revisionTimelineDigest"] = result.Receipt.RevisionTimelineDigest;
+        entity.Fields["rightsResponsibilityBound"] = result.Receipt.Operations
+            .All(static operation => operation.RightsSnapshotId is > 0 && operation.ResponsibilitySnapshotId is > 0);
+        entity.Fields["immutableHistoryVerified"] = result.Verification.IsValid;
+        if (variant == CanonicalArticleLifecycleVariants.MultipleRevisions)
+        {
+            entity.Fields["revisionCount"] = result.Receipt.RevisionIds.Count;
+            entity.Fields["multipleRevisions"] = result.Receipt.RevisionIds.Count >= 2;
+        }
+        if (variant == CanonicalArticleLifecycleVariants.MultiplePublications)
+        {
+            entity.Fields["publicationCount"] = result.Receipt.PublicationIds.Count;
+            entity.Fields["multiplePublications"] = result.Receipt.PublicationIds.Count >= 2;
+        }
+        observed.Add(entity);
     }
 
-    private static PublicContentObservedEntity StatusEntity(int id, string status, string capabilityHint, Article row, List<long> revisionIds)
+    private static ArticleResponsibilityDraft BuildLifecycleResponsibility(
+        string role,
+        DateTime? effectiveAt)
+        => new(
+            InheritSiteAuthor: true,
+            Authors: [new ArticleResponsiblePerson($"FsusBlog fixture {role}", null)],
+            Reviewer: null,
+            Sources: [],
+            UpdateSummary: $"Canonical lifecycle fixture {role}",
+            UpdateReason: "fixture",
+            EffectiveAt: effectiveAt,
+            ConclusionImpact: null,
+            Methodology: null,
+            Applicability: null,
+            Limitations: null,
+            ResponsiblePersonConfirmed: true,
+            ContainsStrongClaims: false,
+            IsSubstantiveUpdate: false,
+            RequiresMethodsDisclosure: false,
+            ExpectedVersion: 0);
+
+    private async Task<CanonicalArticleLifecycleFixtureBinding> BuildLifecycleBindingAsync(
+        PublicContentFixtureRequest request,
+        IReadOnlyList<string> capabilities,
+        CancellationToken cancellationToken)
+    {
+        long? configuredAdminId = configuration.GetValue<long?>("fsus:publicContentFixtureAdminPrincipalId");
+        AdminPrincipal? admin = configuredAdminId is > 0
+            ? await db.Queryable<AdminPrincipal>()
+                .ClearFilter()
+                .Where(item => item.Id == configuredAdminId.Value)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false)
+            : await db.Queryable<AdminPrincipal>()
+                .ClearFilter()
+                .Where(item => item.Status == AdminPrincipalStatus.Active)
+                .OrderBy(item => item.Id, OrderByType.Asc)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
+        if (admin is null || !string.Equals(admin.Status, AdminPrincipalStatus.Active, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "canonical article lifecycle fixtures require an active admin principal");
+        }
+
+        string runId = string.IsNullOrWhiteSpace(request.RunId) ? "run" : request.RunId.Trim();
+        string ns = string.IsNullOrWhiteSpace(request.Namespace) ? "local" : request.Namespace.Trim();
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        string temporalSource = request.TemporalContext is JsonElement temporal
+            ? temporal.GetRawText()
+            : FormattableString.Invariant($"{ns}|{runId}|{now:O}");
+        var binding = new CanonicalArticleLifecycleFixtureBinding(
+            runId,
+            ns,
+            "public-content-lifecycle",
+            capabilities,
+            admin.Id,
+            ComputeDigest(ArticleLifecycleTransitionWriter.WriterContract),
+            ComputeDigest(temporalSource));
+        binding.Validate();
+        return binding;
+    }
+
+    private static bool IsLifecycleCapability(string capability)
+        => capability is "public.article.draft"
+            or "public.article.scheduled"
+            or "public.article.archived"
+            or "public.article.deleted"
+            or "public.article.restore"
+            or "public.article.rollback"
+            or "public.article.published-scheduled-update"
+            or "public.article.multiple-revisions"
+            or "public.article.revision-history"
+            or "public.article.multiple-publications";
+
+    private static string? LifecyclePostconditionId(string variant)
+        => variant switch
+        {
+            CanonicalArticleLifecycleVariants.Draft => "article-draft",
+            CanonicalArticleLifecycleVariants.Scheduled => "article-scheduled",
+            CanonicalArticleLifecycleVariants.Archived => "article-archived",
+            CanonicalArticleLifecycleVariants.Deleted => "article-deleted",
+            CanonicalArticleLifecycleVariants.PublishedScheduledUpdate => "article-published-scheduled-update",
+            CanonicalArticleLifecycleVariants.Restore => "article-restore",
+            CanonicalArticleLifecycleVariants.Rollback => "article-rollback",
+            CanonicalArticleLifecycleVariants.MultipleRevisions => "article-multiple-revisions",
+            CanonicalArticleLifecycleVariants.MultiplePublications => "article-multiple-publications",
+            _ => null
+        };
+
+    private static string ComputeDigest(string value)
+        => "sha256:" + Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))
+            .ToLowerInvariant();
+
+    private static PublicContentObservedEntity StatusEntity(
+        int id,
+        string status,
+        string capabilityHint,
+        Article row,
+        List<long> revisionIds,
+        string? postconditionId = null)
         => new()
         {
             Kind = "article",
             Id = id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             CapabilityHint = capabilityHint,
+            PostconditionId = postconditionId,
             Fields = new Dictionary<string, object?>
             {
                 ["status"] = status,

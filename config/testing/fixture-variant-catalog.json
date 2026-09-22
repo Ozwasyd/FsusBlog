@@ -1933,6 +1933,49 @@
             ]
         },
         {
+            "id": "canonical.public.article.published-scheduled-update",
+            "capabilityId": "public.article.published-scheduled-update",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Lifecycle writer preserves the old publication until the scheduled transition creates the new release.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
             "id": "canonical.public.article.revision-history",
             "capabilityId": "public.article.revision-history",
             "validityClass": "canonical-positive",
@@ -1960,6 +2003,92 @@
                 "unverified-local-fallback-object"
             ],
             "expectedBoundary": "Current writer-contract boundary; no undeclared producer fallback.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.restore",
+            "capabilityId": "public.article.restore",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Restore clears only the delete marker and writes a new revision and publication through the formal transition writer.",
+            "allowedExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ],
+            "defaultExecutionClasses": [
+                "acceptance",
+                "browser",
+                "load",
+                "runtime",
+                "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.rollback",
+            "capabilityId": "public.article.rollback",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "current-production-write",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "no-media"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "Rollback targets historical content while creating a fresh revision and publication coordinate.",
             "allowedExecutionClasses": [
                 "acceptance",
                 "browser",

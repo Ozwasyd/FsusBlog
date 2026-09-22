@@ -609,6 +609,54 @@ function verifyMultiplePublications(ctx)
     return pass(id, { articleIds: owned.ids });
 }
 
+function verifyLifecycleTransition(id, expectedOperations, minimumRevisions, minimumPublications)
+{
+    return (ctx) =>
+    {
+        const db = ctx.observations?.database;
+        if (!db)
+        {
+            return fail(id, 'database observation required');
+        }
+        const scoped = entitiesOf(db, 'article').filter((item) => item.capabilityHint === id
+      || item.postconditionId === id
+      || item.fields?.variant === id.slice('article-'.length));
+        const owned = requireOwnedIds(scoped, id);
+        if (!owned.ok)
+        {
+            return fail(id, owned.reason);
+        }
+        for (const article of scoped)
+        {
+            const fields = article.fields ?? {};
+            if (String(fields.status ?? '') !== 'published'
+          || fields.deleted === true
+          || fields.isDeleted === true)
+            {
+                return fail(id, `article ${article.id} is not an active published lifecycle result`);
+            }
+            if (!Array.isArray(fields.revisionIds) || fields.revisionIds.length < minimumRevisions)
+            {
+                return fail(id, `article ${article.id} has insufficient immutable revisions`);
+            }
+            if (!Array.isArray(fields.publicationIds) || fields.publicationIds.length < minimumPublications)
+            {
+                return fail(id, `article ${article.id} has insufficient publications`);
+            }
+            if (fields.rightsResponsibilityBound !== true || fields.immutableHistoryVerified !== true)
+            {
+                return fail(id, `article ${article.id} is missing lifecycle authority proof`);
+            }
+            if (!Array.isArray(fields.operations)
+          || expectedOperations.some((operation) => !fields.operations.includes(operation)))
+            {
+                return fail(id, `article ${article.id} is missing expected lifecycle operations`);
+            }
+        }
+        return pass(id, { articleIds: owned.ids });
+    };
+}
+
 function verifyTaxonomyCategoryTag(ctx)
 {
     const id = 'taxonomy-category-tag';
@@ -1292,6 +1340,10 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
     'article-revision-history': verifyRevisionHistory,
     'article-multiple-revisions': verifyMultipleRevisions,
     'article-multiple-publications': verifyMultiplePublications,
+    'article-published-scheduled-update': verifyLifecycleTransition(
+        'article-published-scheduled-update', ['create', 'scheduled-update', 'scheduled-publish'], 2, 2),
+    'article-restore': verifyLifecycleTransition('article-restore', ['create', 'delete', 'restore'], 2, 2),
+    'article-rollback': verifyLifecycleTransition('article-rollback', ['create', 'update', 'rollback'], 3, 2),
     'taxonomy-category-tag': verifyTaxonomyCategoryTag,
     'search-indexed': verifySearchIndexed,
     'public-empty': verifyPublicEmpty,
