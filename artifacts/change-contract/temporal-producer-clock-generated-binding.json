@@ -14,6 +14,10 @@
         "tools/release/test-evidence-receipts.mjs",
         "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
         "tools/test-evidence/aot-spa-hydration-raw.mjs",
+        "tools/test-fixtures/producers/account-messaging-producer.mjs",
+        "tools/test-fixtures/producers/auth-session-producer.mjs",
+        "tools/test-fixtures/producers/backend-temporal-observer.mjs",
+        "tools/test-fixtures/producers/catalog-ports.mjs",
         "tools/test-fixtures/producers/security-fixture-producer.mjs",
         "tools/test-matrix/post-runtime-producer-registry.mjs",
         "tools/test/check-wall-clock-governance.mjs",
@@ -30,7 +34,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "b9789e314fb50388d1233fa2a64ffb9188f6ffdce7efad67df2fc1279cc5be95"
+            "sha256": "d0b4b97bf8f970fd96e463ebded341ce0408968c73611a7f0b1141c7599c1ca6"
         },
         {
             "path": "docs/releases/release-identity.md",
