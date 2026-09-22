@@ -5,8 +5,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { defaultTimeoutPolicyDigest, digestCanonical, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
-const { bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
+const { defaultTimeoutPolicyDigest, digestCanonical, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest, validateTemporalObservations } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
+const { applyBrowserTemporalClock, bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
 const { buildProducerChildEnv } = await import(new URL("../../tools/test-fixtures/producers/spawn-helper.mjs", import.meta.url));
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan } = await import(new URL("../../tools/testing/fixture-catalog.mjs", import.meta.url));
 
@@ -94,6 +94,8 @@ test('every correctness producer can bind an exact plan actual and receipt', () 
 {
     for (const producerId of [
         'account-messaging',
+        'account-profile-preferences',
+        'audit-records',
         'auth-session',
         'comment-moderation',
         'development-demo',
@@ -355,19 +357,58 @@ test('browser context binds explicit locale and timezone instead of Node TZ only
         locale: 'ja-JP',
         timezoneId: 'UTC'
     });
-    assert.equal(observeBrowserTemporalContext(context, {
+    const actual = {
         locale: 'ja-JP',
         timezoneId: 'UTC',
+        backendCulture: 'Invariant',
+        postgresTimezone: 'UTC',
+        businessEpochUtc: context.businessEpochUtc,
+        browserBusinessEpochUtc: context.businessEpochUtc,
         nodeTimezone: 'UTC'
-    }).uiLocale, 'ja-JP');
+    };
+    const observation = observeBrowserTemporalContext(context, actual);
+    assert.equal(observation.uiLocale, 'ja-JP');
+    assert.equal(observation.browserBusinessEpochUtc, context.businessEpochUtc);
+    assert.equal(observation.observationBoundary, 'browser-runtime');
     assert.throws(
         () => observeBrowserTemporalContext(context, {
-            locale: 'ja-JP',
-            timezoneId: 'America/Los_Angeles',
-            nodeTimezone: 'UTC'
+            ...actual,
+            timezoneId: 'America/Los_Angeles'
         }),
         (error) => error.reasonCode === 'temporal.actual-context-mismatch'
     );
+    for (const field of Object.keys(actual))
+    {
+        const incomplete = { ...actual };
+        delete incomplete[field];
+        assert.throws(() => observeBrowserTemporalContext(context, incomplete),
+            (error) => error.reasonCode === 'temporal.actual-context-missing', field);
+    }
+    for (const field of ['businessEpochUtc', 'browserBusinessEpochUtc'])
+    {
+        assert.throws(() => observeBrowserTemporalContext(context, {
+            ...actual,
+            [field]: '2024-03-01T00:00:00.000Z'
+        }), (error) => error.reasonCode === 'temporal.actual-context-mismatch', field);
+    }
+    const missingBrowserEpoch = { ...observation };
+    delete missingBrowserEpoch.browserBusinessEpochUtc;
+    assert.throws(() => validateTemporalObservations(context, missingBrowserEpoch),
+        (error) => error.reasonCode === 'temporal.actual-context-missing');
+    assert.throws(() => validateTemporalObservations(context, {
+        ...observation,
+        browserBusinessEpochUtc: '2024-03-01T00:00:00.000Z'
+    }), (error) => error.reasonCode === 'temporal.actual-context-mismatch');
+});
+
+test('browser business clock configures only fixed Date before actual observation', async () =>
+{
+    const context = qualificationTemporalContext({ ...contextInput(), producerId: 'comment-moderation' });
+    const calls = [];
+    const page = { clock: { setFixedTime: async (value) => calls.push(value) } };
+    await applyBrowserTemporalClock(context, page);
+    assert.deepEqual(calls, [context.businessEpochUtc]);
+    await assert.rejects(() => applyBrowserTemporalClock(context, { clock: {} }), /setFixedTime/u);
 });
 
 test('host TZ perturbation cannot change a fixed semantic business outcome', () =>

@@ -371,6 +371,7 @@ const observationBindings = Object.freeze([
     ['locale', 'temporal.browser-context-mismatch'],
     ['uiLocale', 'temporal.browser-context-mismatch'],
     ['businessEpochUtc', 'temporal.actual-context-mismatch'],
+    ['browserBusinessEpochUtc', 'temporal.actual-context-mismatch', 'businessEpochUtc'],
     ['calendar', 'temporal.actual-context-mismatch'],
     ['firstDayOfWeek', 'temporal.actual-context-mismatch']
 ]);
@@ -382,17 +383,25 @@ export function validateTemporalObservations(context, observations = {})
     {
         fail('temporal.actual-context-missing', 'temporal observations must be an object');
     }
-    for (const [field, reasonCode] of observationBindings)
+    if (observations.observationBoundary === 'browser-runtime')
+    {
+        for (const field of ['businessEpochUtc', 'browserBusinessEpochUtc', 'timezone',
+            'locale', 'uiLocale', 'backendCulture', 'postgresTimezone', 'nodeTimezone'])
+        {
+            requiredText(observations[field], field, 'temporal.actual-context-missing');
+        }
+    }
+    for (const [field, reasonCode, contextField = field] of observationBindings)
     {
         if (!(field in observations))
         {
             continue;
         }
-        if (canonicalJson(observations[field]) !== canonicalJson(normalized[field]))
+        if (canonicalJson(observations[field]) !== canonicalJson(normalized[contextField]))
         {
             fail(reasonCode, `${field} observation does not match planned temporal context`, {
                 actual: observations[field],
-                expected: normalized[field],
+                expected: normalized[contextField],
                 field
             });
         }

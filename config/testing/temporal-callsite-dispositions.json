@@ -722,6 +722,19 @@
             "semanticEffect": "excluded"
         },
         {
+            "callSiteId": "browser-contract.scenario.business-epoch-observation",
+            "path": "tests/browser-contract/run.mjs",
+            "symbol": "page.evaluate-after-applyBrowserTemporalClock",
+            "sourceAnchor": "browserBusinessEpochUtc: new Date().toISOString()",
+            "api": "new Date()",
+            "clockKind": "business-wall",
+            "authorityKind": "canonical-business-epoch",
+            "disposition": "business-wall",
+            "ingress": "canonical-injected",
+            "owner": "browser-contract",
+            "semanticEffect": "included"
+        },
+        {
             "callSiteId": "browser-contract.run.started-at",
             "path": "tests/browser-contract/run.mjs",
             "symbol": "run-artifact-identity",

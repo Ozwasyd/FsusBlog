@@ -12,7 +12,9 @@ import {
     materializeTemporalEnvironment,
     observeRuntimeTemporalContext,
     qualificationTemporalContext,
-    validateTemporalContext
+    TemporalContractError,
+    validateTemporalContext,
+    validateTemporalObservations
 } from './temporal-context.mjs';
 import {
     createTemporalDomainProducerReceipt,
@@ -229,28 +231,45 @@ export function resolveCorrectnessProducerTemporalContext({
     });
 }
 
+export async function applyBrowserTemporalClock(context, page)
+{
+    const normalized = validateTemporalContext(context);
+    // Set only the business Date clock; readiness timers and performance stay live.
+    await page.clock.setFixedTime(normalized.businessEpochUtc);
+}
+
 export function observeBrowserTemporalContext(context, {
     locale,
     timezoneId,
     backendCulture,
     postgresTimezone,
     businessEpochUtc,
-    nodeTimezone = process.env.TZ
+    browserBusinessEpochUtc,
+    nodeTimezone
 } = {})
 {
     const normalized = validateTemporalContext(context);
-    if (!locale || !timezoneId)
+    const actual = { locale, timezoneId, backendCulture, postgresTimezone,
+        businessEpochUtc, browserBusinessEpochUtc, nodeTimezone };
+    for (const [field, value] of Object.entries(actual))
     {
-        throw new Error('browser temporal observation requires explicit locale and timezoneId');
+        if (typeof value !== 'string' || !value.trim())
+        {
+            throw new TemporalContractError('temporal.actual-context-missing',
+                `browser temporal observation requires actual ${field}`);
+        }
     }
+    validateTemporalObservations(normalized, { businessEpochUtc });
     return observeRuntimeTemporalContext(normalized, {
+        observationBoundary: 'browser-runtime',
         locale,
         uiLocale: locale,
         timezone: timezoneId,
-        backendCulture: backendCulture ?? normalized.backendCulture,
-        postgresTimezone: postgresTimezone ?? normalized.postgresTimezone,
-        businessEpochUtc: businessEpochUtc ?? normalized.businessEpochUtc,
-        nodeTimezone: nodeTimezone ?? normalized.nodeTimezone
+        backendCulture,
+        postgresTimezone,
+        businessEpochUtc,
+        browserBusinessEpochUtc,
+        nodeTimezone
     });
 }
 
