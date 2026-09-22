@@ -1750,8 +1750,8 @@
         },
         {
             "path": "tools/contracts/lib/openapi-observation.mjs",
-            "contentDigest": "sha256:397bf7abfe95f6892bb63affc97796813dbb7b88e65da942c06bb63cf10804ab",
-            "indexDigest": "sha256:397bf7abfe95f6892bb63affc97796813dbb7b88e65da942c06bb63cf10804ab"
+            "contentDigest": "sha256:be02b4b29a4f3f65a4524603aaa0c60ccb99533e143cf6bc5fb302b1304d7a58",
+            "indexDigest": "sha256:be02b4b29a4f3f65a4524603aaa0c60ccb99533e143cf6bc5fb302b1304d7a58"
         },
         {
             "path": "tools/contracts/run-endpoint-depth-runtime.mjs",

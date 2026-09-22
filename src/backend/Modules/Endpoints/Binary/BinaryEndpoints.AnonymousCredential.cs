@@ -76,6 +76,9 @@ public static partial class BinaryEndpoints
                     cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithMetadata(new FsusOpenApiAedsContractMetadata(
+            RequestFrame: null,
+            ResponseFrame: AedsFrameType.AnonymousCredentialRevocationSnapshot))
         .WithName("binary_get_anonymous_credential_revocation_full")
         .WithSummary("public immutable revocation full snapshot");
 
@@ -102,6 +105,9 @@ public static partial class BinaryEndpoints
                     cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithMetadata(new FsusOpenApiAedsContractMetadata(
+            RequestFrame: null,
+            ResponseFrame: AedsFrameType.AnonymousCredentialRevocationDelta))
         .WithName("binary_get_anonymous_credential_revocation_delta")
         .WithSummary("public immutable revocation delta");
 

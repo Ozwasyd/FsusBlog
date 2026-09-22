@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/stability.md"
+            ],
+            "reason": "Preserve caller-visible AEDS route, frame, status and wire-field spellings in canonical generated API facts."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve generated test documentation identifiers while registering the typed AEDS observation owner paths."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+                "tools/contracts/lib/openapi-observation.mjs",
+                "tools/fact-extractors/openapi-aeds/extract.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment and endpoint metadata spellings while internal identifiers remain repository-style."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve generated correctness inventory and release-final authority JSON field spellings consumed by matrix verifiers."
+        }
+    ]
+}
