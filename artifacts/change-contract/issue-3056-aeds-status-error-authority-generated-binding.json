@@ -8,7 +8,6 @@
     "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
     "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
     "tools/contracts/lib/config-error-security-observation.mjs",
-    "tools/contracts/lib/openapi-observation.mjs",
     "tools/fact-extractors/config-error-security-policy/extract.mjs"
   ],
   "outputs": [
