@@ -32,6 +32,7 @@ import {
     assertTransitiveMaterialization,
     materializeTestMatrixRunner
 } from './support/esm-fixture-materializer-contracts.mjs';
+import { prepareSchedulerCliMatrixFixture } from './support/scheduler-cli-fixture.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -97,6 +98,18 @@ function createTempDir(name)
 function createRunnerFixture(temp)
 {
     const runner = materializeTestMatrixRunner(root, temp);
+    fs.mkdirSync(path.join(temp, 'tools/fixtures'), { recursive: true });
+    return commitRunnerFixture(temp, runner);
+}
+
+function sealRunnerFixture(temp, matrixFile)
+{
+    prepareSchedulerCliMatrixFixture(root, temp, matrixFile);
+    return commitRunnerFixture(temp, path.join(temp, 'tools/run-test-matrix.mjs'));
+}
+
+function commitRunnerFixture(temp, runner)
+{
     if (!fs.existsSync(path.join(temp, '.git')))
     {
         execFileSync('git', ['init', '--quiet'], { cwd: temp });
@@ -107,13 +120,14 @@ function createRunnerFixture(temp)
         '!/.gitignore',
         '!/.github/',
         '!/config/',
-        '!/tools/'
+        '!/tools/',
+        '!/tests/'
     ].join('\n') + '\n');
     prepareBehaviorDocAdmissionFixtureAuthority({
         sourceRepositoryRoot: root,
         repositoryRoot: temp
     });
-    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools'], {
+    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools', 'tests'], {
         cwd: temp
     });
     execFileSync(
@@ -3942,15 +3956,15 @@ test('runner accepts fresh, resume, and max-parallel flags while CI always execu
 {
     const temp = createTempDir('scheduler-cli');
     const runner = createRunnerFixture(temp);
-    const script = path.join(temp, 'append.mjs');
+    const script = path.join(temp, 'tools/fixtures/append.mjs');
     const marker = path.join(temp, 'marker.txt');
     const matrix = path.join(temp, 'matrix.yml');
     fs.writeFileSync(script, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'x')\n`);
     fs.writeFileSync(matrix, [
         'version: fsusblog-test-matrix-v2',
         'tiers:',
-        '  - id: fixture',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+        '  - id: backend-unit',
+        '    command: node tools/fixtures/append.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -3966,19 +3980,20 @@ test('runner accepts fresh, resume, and max-parallel flags while CI always execu
         '    evidence: []',
         '    ciJob: fixture'
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
 
     const baseEnv = {
         ...process.env,
         FSUSBLOG_MATRIX_FILE: matrix,
         FSUSBLOG_TEST_RUN_ID: `scheduler-cli-${process.pid}`
     };
-    const fresh = spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh', '--max-parallel', '1'], {
+    const fresh = spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--fresh', '--max-parallel', '1'], {
         cwd: temp,
         env: baseEnv,
         encoding: 'utf8'
     });
     assert.equal(fresh.status, 0, fresh.stderr);
-    const ciResume = spawnSync(process.execPath, [runner, 'run', 'fixture', '--resume', '--max-parallel=1'], {
+    const ciResume = spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--resume', '--max-parallel=1'], {
         cwd: temp,
         env: { ...baseEnv, CI: 'true' },
         encoding: 'utf8'
@@ -3995,11 +4010,11 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     {
         const runner = createRunnerFixture(temp);
         const matrix = path.join(temp, 'matrix.yml');
-        const script = path.join(temp, 'success.mjs');
+        const script = path.join(temp, 'tools/fixtures/success.mjs');
         fs.writeFileSync(script, 'process.exit(0)\n');
         const tierLines = (id, ciJob) => [
             `  - id: ${id}`,
-            `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+            '    command: node tools/fixtures/success.mjs',
             '    executionDependsOn: []',
             '    services: []',
             '    parallelizable: true',
@@ -4018,15 +4033,16 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
         fs.writeFileSync(matrix, [
             'version: fsusblog-test-matrix-v2',
             'tiers:',
-            ...tierLines('diagnostic-fixture', 'browser-diagnostics'),
-            ...tierLines('correctness-fixture', 'correctness-fixture')
+            ...tierLines('browser-diagnostics-manual', 'browser-diagnostics'),
+            ...tierLines('backend-unit', 'correctness-fixture')
         ].join('\n'));
+        sealRunnerFixture(temp, matrix);
         const env = {
             ...process.env,
             FSUSBLOG_MATRIX_FILE: matrix,
             FSUSBLOG_TEST_RUN_ID: `diagnostic-job-summary-${process.pid}`
         };
-        for (const id of ['diagnostic-fixture', 'correctness-fixture'])
+        for (const id of ['browser-diagnostics-manual', 'backend-unit'])
         {
             const result = spawnSync(process.execPath, [runner, 'run', id, '--no-deps', '--fresh'], {
                 cwd: temp,
@@ -4054,7 +4070,7 @@ test('viewport CLI never reuses failed Playwright progress across scheduler resu
     const runner = createRunnerFixture(temp);
     const history = path.join(temp, 'resume-env.txt');
     const artifact = path.join(temp, 'viewport-output.json');
-    const script = path.join(temp, 'viewport.mjs');
+    const script = path.join(temp, 'tools/fixtures/viewport.mjs');
     const matrix = path.join(temp, 'matrix.yml');
     fs.writeFileSync(script, [
         "import fs from 'node:fs'",
@@ -4065,7 +4081,7 @@ test('viewport CLI never reuses failed Playwright progress across scheduler resu
         'version: fsusblog-test-matrix-v2',
         'tiers:',
         '  - id: ux-viewport-smoke',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+        '    command: node tools/fixtures/viewport.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4078,10 +4094,12 @@ test('viewport CLI never reuses failed Playwright progress across scheduler resu
         '    executionKey: viewport-smoke',
         '    executionVariant: runtime',
         '    requiresPlaywright: chromium',
+        '    evidenceClass: diagnostic',
         '    artifacts: [viewport-output.json]',
         '    evidence: [viewport-output.json]',
         '    ciJob: ux-viewport-smoke'
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
 
     const env = {
         ...process.env,
@@ -4110,14 +4128,14 @@ test('local fresh runs isolate the default namespace by scheduler run id', () =>
     const temp = createTempDir('scheduler-fresh-namespace');
     const runner = createRunnerFixture(temp);
     const marker = path.join(temp, 'namespaces.txt');
-    const script = path.join(temp, 'namespace.mjs');
+    const script = path.join(temp, 'tools/fixtures/namespace.mjs');
     const matrix = path.join(temp, 'matrix.yml');
     fs.writeFileSync(script, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, process.env.FSUSBLOG_TEST_NAMESPACE + '\\n')\n`);
     fs.writeFileSync(matrix, [
         'version: fsusblog-test-matrix-v2',
         'tiers:',
-        '  - id: fixture',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+        '  - id: backend-unit',
+        '    command: node tools/fixtures/namespace.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4139,10 +4157,11 @@ test('local fresh runs isolate the default namespace by scheduler run id', () =>
         '    evidence: []',
         '    ciJob: fixture'
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
 
     for (const runId of ['fresh-namespace-a', 'fresh-namespace-b'])
     {
-        const result = spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh'], {
+        const result = spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--fresh'], {
             cwd: temp,
             env: {
                 ...process.env,
@@ -4166,15 +4185,15 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
     const temp = createTempDir('scheduler-summary-fresh');
     const runner = createRunnerFixture(temp);
     const marker = path.join(temp, 'workers.json');
-    const script = path.join(temp, 'workers.mjs');
+    const script = path.join(temp, 'tools/fixtures/workers.mjs');
     const matrix = path.join(temp, 'matrix.yml');
     fs.writeFileSync(script, `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ vitest: process.env.FSUSBLOG_VITEST_MAX_WORKERS, manifest: process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS, bundleBudget: process.env.FSUSBLOG_BUNDLE_CPU_BUDGET }))\n`);
     fs.writeFileSync(matrix, [
         'version: fsusblog-test-matrix-v2',
         'tiers:',
-        '  - id: fixture',
+        '  - id: backend-unit',
         '    physicalBundleId: fixture-bundle',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+        '    command: node tools/fixtures/workers.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4193,11 +4212,12 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
         '    evidence: []',
         '    ciJob: fixture'
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
     const env = { ...process.env, FSUSBLOG_MATRIX_FILE: matrix, FSUSBLOG_TEST_RUN_ID: 'same-fresh-run' };
     delete env.FSUSBLOG_VITEST_MAX_WORKERS;
     delete env.FSUSBLOG_COMMAND_MANIFEST_WORKERS;
     delete env.FSUSBLOG_BUNDLE_CPU_BUDGET;
-    const run = () => spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh'], { cwd: temp, env, encoding: 'utf8' });
+    const run = () => spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--fresh'], { cwd: temp, env, encoding: 'utf8' });
     const first = run();
     assert.equal(first.status, 0, first.stderr);
     const workers = JSON.parse(fs.readFileSync(marker, 'utf8'));
@@ -4219,11 +4239,11 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
     const temp = createTempDir('scheduler-summary-ci');
     const runner = createRunnerFixture(temp);
     const matrix = path.join(temp, 'matrix.yml');
-    const noop = path.join(temp, 'noop.mjs');
+    const noop = path.join(temp, 'tools/fixtures/noop.mjs');
     fs.writeFileSync(noop, 'process.exit(0)\n');
     const tierLines = (id) => [
         `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} ${noop}`)}`,
+        '    command: node tools/fixtures/noop.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4242,7 +4262,8 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
         '    evidence: []',
         '    ciJob: fixture'
     ];
-    fs.writeFileSync(matrix, ['version: fsusblog-test-matrix-v2', 'tiers:', ...tierLines('first'), ...tierLines('second')].join('\n'));
+    fs.writeFileSync(matrix, ['version: fsusblog-test-matrix-v2', 'tiers:', ...tierLines('backend-unit'), ...tierLines('backend-fast')].join('\n'));
+    sealRunnerFixture(temp, matrix);
     const run = (tierId, githubRunId) => spawnSync(process.execPath, [runner, 'run', tierId, '--no-deps', '--fresh'], {
         cwd: temp,
         env: {
@@ -4257,15 +4278,15 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
         },
         encoding: 'utf8'
     });
-    const firstRun = run('first', '100');
+    const firstRun = run('backend-unit', '100');
     assert.equal(firstRun.status, 0, firstRun.stderr);
-    const secondRun = run('second', '100');
+    const secondRun = run('backend-fast', '100');
     assert.equal(secondRun.status, 0, secondRun.stderr);
     const summaryFile = path.join(temp, '.tmp/release-evidence/jobs/fixture.json');
-    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds.sort(), ['first', 'second']);
-    const nextWorkflowRun = run('second', '101');
+    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds.sort(), ['backend-fast', 'backend-unit']);
+    const nextWorkflowRun = run('backend-fast', '101');
     assert.equal(nextWorkflowRun.status, 0, nextWorkflowRun.stderr);
-    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds, ['second']);
+    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds, ['backend-fast']);
 });
 
 test('production cleanup uses the same safe namespace for dot segments as fixture writers', () =>
@@ -4274,14 +4295,14 @@ test('production cleanup uses the same safe namespace for dot segments as fixtur
     execFileSync('git', ['init', '--quiet'], { cwd: temp });
     fs.writeFileSync(path.join(temp, '.gitignore'), '.tmp/\n');
     const runner = createRunnerFixture(temp);
-    const script = path.join(temp, 'fixture.mjs');
+    const script = path.join(temp, 'tools/fixtures/fixture.mjs');
     const matrix = path.join(temp, 'matrix.yml');
     fs.writeFileSync(script, "import fs from 'node:fs'\nfs.mkdirSync('.tmp/fixtures/local/auth', { recursive: true })\nfs.writeFileSync('.tmp/fixtures/local/auth/secret.json', '{}')\n");
     fs.writeFileSync(matrix, [
         'version: fsusblog-test-matrix-v2',
         'tiers:',
         '  - id: production',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+        '    command: node tools/fixtures/fixture.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4298,6 +4319,7 @@ test('production cleanup uses the same safe namespace for dot segments as fixtur
         '    evidence: []',
         '    ciJob: production-summary'
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
     const result = spawnSync(process.execPath, [runner, 'run', 'production', '--fresh'], {
         cwd: temp,
         env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrix, FSUSBLOG_TEST_NAMESPACE: '..' },
@@ -4314,15 +4336,15 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     const temp = createTempDir('scheduler-ci-job');
     const runner = createRunnerFixture(temp);
     const marker = path.join(temp, 'marker.txt');
-    const firstScript = path.join(temp, 'first.mjs');
-    const secondScript = path.join(temp, 'second.mjs');
+    const firstScript = path.join(temp, 'tools/fixtures/first.mjs');
+    const secondScript = path.join(temp, 'tools/fixtures/second.mjs');
     const matrix = path.join(temp, 'matrix.yml');
     fs.writeFileSync(firstScript, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'a')\n`);
     fs.writeFileSync(secondScript, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'b')\n`);
 
     const tierLines = (id, script) => [
         `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+        `    command: node ${path.relative(temp, script)}`,
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4343,9 +4365,10 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     fs.writeFileSync(matrix, [
         'version: fsusblog-test-matrix-v2',
         'tiers:',
-        ...tierLines('first', firstScript),
-        ...tierLines('second', secondScript)
+        ...tierLines('backend-unit', firstScript),
+        ...tierLines('backend-fast', secondScript)
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
 
     const runId = `scheduler-ci-job-${process.pid}`;
     const result = spawnSync(process.execPath, [
@@ -4366,7 +4389,45 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual([...fs.readFileSync(marker, 'utf8')].sort(), ['a', 'b']);
     const checkpoint = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/test-runs', runId, 'checkpoint.json'), 'utf8'));
-    assert.deepEqual(checkpoint.completedTiers.sort(), ['first', 'second']);
+    assert.deepEqual(checkpoint.completedTiers.sort(), ['backend-fast', 'backend-unit']);
+});
+
+test('sealed scheduler CLI fixture rejects missing finalizer and executable drift before child spawn', (t) =>
+{
+    const temp = createTempDir('scheduler-sealed-boundary');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runner = createRunnerFixture(temp);
+    const marker = path.join(temp, 'marker.txt');
+    const script = path.join(temp, 'tools/fixtures/marker.mjs');
+    const matrix = path.join(temp, 'matrix.yml');
+    fs.writeFileSync(script, `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(marker)}, 'spawned');\n`);
+    fs.writeFileSync(matrix, [
+        'version: fsusblog-test-matrix-v2',
+        'tiers:',
+        '  - id: backend-unit',
+        '    command: node tools/fixtures/marker.mjs',
+        '    executionDependsOn: []',
+        '    ciJob: fixture'
+    ].join('\n'));
+    sealRunnerFixture(temp, matrix);
+    const run = () => spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--fresh'], {
+        cwd: temp,
+        encoding: 'utf8',
+        env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrix }
+    });
+    const finalizer = path.join(temp, 'tools/test/lanes/release-final.sh');
+    const finalizerBytes = fs.readFileSync(finalizer);
+    fs.rmSync(finalizer);
+    const missing = run();
+    assert.notEqual(missing.status, 0);
+    assert.match(missing.stderr, /ENOENT.*release-final\.sh/u);
+    assert.equal(fs.existsSync(marker), false);
+    fs.writeFileSync(finalizer, finalizerBytes);
+    fs.appendFileSync(script, '// executable drift after fixture sealing\n');
+    const drifted = run();
+    assert.notEqual(drifted.status, 0);
+    assert.match(drifted.stderr, /working-tree bytes differ from the repository index/u);
+    assert.equal(fs.existsSync(marker), false);
 });
 
 test('tier fingerprints include shard, selected runtime environment, platform, architecture, and Node version', async () =>
@@ -4756,7 +4817,7 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     fs.mkdirSync(readyDir);
     const scriptFor = (id) =>
     {
-        const script = path.join(temp, `${id}.mjs`);
+        const script = path.join(temp, 'tools/fixtures', `${id}.mjs`);
         fs.writeFileSync(script, [
             "import fs from 'node:fs'",
             "import path from 'node:path'",
@@ -4777,7 +4838,7 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     };
     const tierLines = (id) => [
         `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} ${scriptFor(id)}`)}`,
+        `    command: node ${path.relative(temp, scriptFor(id))}`,
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -4803,9 +4864,10 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     fs.writeFileSync(matrix, [
         'version: fsusblog-test-matrix-v2',
         'tiers:',
-        ...tierLines('smart-a'),
-        ...tierLines('smart-b')
+        ...tierLines('backend-unit'),
+        ...tierLines('backend-fast')
     ].join('\n'));
+    sealRunnerFixture(temp, matrix);
 
     const result = spawnSync(process.execPath, [
         runner,
@@ -4824,9 +4886,9 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     });
     assert.equal(result.status, 0, result.stderr);
     const events = fs.readFileSync(marker, 'utf8').trim().split('\n');
-    const firstEnd = Math.min(events.indexOf('end:smart-a'), events.indexOf('end:smart-b'));
-    assert.ok(events.indexOf('start:smart-a') < firstEnd);
-    assert.ok(events.indexOf('start:smart-b') < firstEnd);
+    const firstEnd = Math.min(events.indexOf('end:backend-unit'), events.indexOf('end:backend-fast'));
+    assert.ok(events.indexOf('start:backend-unit') < firstEnd);
+    assert.ok(events.indexOf('start:backend-fast') < firstEnd);
 });
 
 test('resident leases stay in admission accounting, hand off once, and release capacity only after exit', async () =>

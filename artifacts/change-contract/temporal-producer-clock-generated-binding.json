@@ -3,7 +3,10 @@
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
         "tests/browser-contract/run.mjs",
+        "tests/tools/scheduler-owner-identity.test.mjs",
         "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+        "tests/tools/support/scheduler-cli-fixture.mjs",
+        "tests/tools/test-matrix-scheduler.test.mjs",
         "tools/data-scale/aeds-decoders.mjs",
         "tools/data-scale/product-backend.mjs",
         "tools/data-scale/runtime-provisioner-live.mjs",

@@ -18,6 +18,7 @@ import {
     prepareBehaviorDocAdmissionFixtureAuthority
 } from './support/behavior-doc-admission-fixture.mjs';
 import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-contracts.mjs';
+import { prepareSchedulerCliMatrixFixture } from './support/scheduler-cli-fixture.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -31,12 +32,14 @@ function fixture(t, name)
 function materializeSchedulerCliRunner(root)
 {
     const runner = materializeTestMatrixRunner(repositoryRoot, root);
+    fs.mkdirSync(path.join(root, 'tools/fixtures'), { recursive: true });
     fs.writeFileSync(path.join(root, '.gitignore'), [
         '/*',
         '!/.gitignore',
         '!/.github/',
         '!/config/',
-        '!/tools/'
+        '!/tools/',
+        '!/tests/'
     ].join('\n') + '\n');
     prepareBehaviorDocAdmissionFixtureAuthority({
         sourceRepositoryRoot: repositoryRoot,
@@ -48,7 +51,7 @@ function materializeSchedulerCliRunner(root)
         assert.equal(result.status, 0, result.stderr);
     };
     git(['init', '--quiet']);
-    git(['add', '--all', '--', '.gitignore', '.github', 'config', 'tools']);
+    git(['add', '--all', '--', '.gitignore', '.github', 'config', 'tools', 'tests']);
     git([
         '-c', 'user.name=Test',
         '-c', 'user.email=test@example.invalid',
@@ -56,6 +59,20 @@ function materializeSchedulerCliRunner(root)
         'commit', '--quiet', '--allow-empty', '-m', 'fixture'
     ]);
     return runner;
+}
+
+function sealSchedulerCliRunner(root, matrixFile, options)
+{
+    prepareSchedulerCliMatrixFixture(repositoryRoot, root, matrixFile, options);
+    for (const args of [
+        ['add', '--all', '--', 'config', 'tools', 'tests'],
+        ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+            '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'sealed fixture']
+    ])
+    {
+        const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+    }
 }
 
 function schedulerCliAdmissionEnvironment(root)
@@ -744,10 +761,11 @@ test('CLI scheduler errors preserve the original failure and seal the production
     const root = fixture(t, 'scheduler-cli-error-seal');
     const runner = materializeSchedulerCliRunner(root);
     const matrix = path.join(root, 'matrix.yml');
+    fs.writeFileSync(path.join(root, 'tools/fixtures/success.mjs'), 'process.exit(0);\n');
     const runId = `scheduler-cli-error-seal-${process.pid}`;
     const tierLines = (id, variant, supersedes = []) => [
         `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} -e "process.exit(0)"`)}`,
+        '    command: node tools/fixtures/success.mjs',
         '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
@@ -771,15 +789,16 @@ test('CLI scheduler errors preserve the original failure and seal the production
         [
             'version: fsusblog-test-matrix-v2',
             'tiers:',
-            ...tierLines('ordinary', 'ordinary'),
-            ...tierLines('invalid-replacement', 'ordinary', ['ordinary'])
+            ...tierLines('backend-unit', 'ordinary'),
+            ...tierLines('backend-fast', 'ordinary', ['backend-unit'])
         ].join('\n')
     );
+    sealSchedulerCliRunner(root, matrix);
     const admissionEnvironment = schedulerCliAdmissionEnvironment(root);
 
     const result = spawnSync(
         process.execPath,
-        [runner, 'run', 'invalid-replacement', '--no-deps', '--resume'],
+        [runner, 'run', 'backend-fast', '--no-deps', '--resume'],
         {
             cwd: root,
             env: {
@@ -811,30 +830,32 @@ test(
     {
         const root = fixture(t, 'scheduler-cli-tier-and-seal-failure');
         const runner = materializeSchedulerCliRunner(root);
-        const lifecycleFile = path.join(root, 'tools/test-matrix/production-build-lifecycle.mjs');
-        const lifecycleSource = fs.readFileSync(lifecycleFile, 'utf8');
-        const finalizeAdapter = '    finalize: finalizeProductionBuildLayout,';
-        assert.equal(lifecycleSource.split(finalizeAdapter).length - 1, 1);
-        fs.writeFileSync(
-            lifecycleFile,
-            lifecycleSource.replace(
-                finalizeAdapter,
-                "    finalize: () => { throw new Error('injected production build seal failure') },"
-            )
-        );
-
         const matrix = path.join(root, 'matrix.yml');
+        fs.writeFileSync(path.join(root, 'tools/fixtures/exit-seven.mjs'), 'process.exit(7);\n');
         const runId = `scheduler-cli-tier-and-seal-failure-${process.pid}`;
         fs.writeFileSync(
             matrix,
             [
                 'version: fsusblog-test-matrix-v2',
                 'tiers:',
-                ...cliTierLines('exit-seven', `${process.execPath} -e "process.exit(7)"`)
+                ...cliTierLines('backend-unit', 'node tools/fixtures/exit-seven.mjs')
             ].join('\n')
         );
+        sealSchedulerCliRunner(root, matrix, {
+            beforeSeal()
+            {
+                const lifecycleFile = path.join(root, 'tools/test-matrix/production-build-lifecycle.mjs');
+                const lifecycleSource = fs.readFileSync(lifecycleFile, 'utf8');
+                const finalizeAdapter = '    finalize: finalizeProductionBuildLayout,';
+                assert.equal(lifecycleSource.split(finalizeAdapter).length - 1, 1);
+                fs.writeFileSync(lifecycleFile, lifecycleSource.replace(
+                    finalizeAdapter,
+                    "    finalize: () => { throw new Error('injected production build seal failure') },"
+                ));
+            }
+        });
         const admissionEnvironment = schedulerCliAdmissionEnvironment(root);
-        const result = spawnSync(process.execPath, [runner, 'run', 'exit-seven', '--no-deps', '--resume'], {
+        const result = spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--no-deps', '--resume'], {
             cwd: root,
             env: {
                 ...process.env,
@@ -867,17 +888,19 @@ test(
         const root = fixture(t, 'scheduler-cli-sigterm');
         const runner = materializeSchedulerCliRunner(root);
         const matrix = path.join(root, 'matrix.yml');
+        fs.writeFileSync(path.join(root, 'tools/fixtures/long-running.mjs'), 'setTimeout(() => {}, 30000);\n');
         const runId = `scheduler-cli-sigterm-${process.pid}`;
         fs.writeFileSync(
             matrix,
             [
                 'version: fsusblog-test-matrix-v2',
                 'tiers:',
-                ...cliTierLines('long-running', `${process.execPath} -e "setTimeout(() => {}, 30000)"`)
+                ...cliTierLines('backend-unit', 'node tools/fixtures/long-running.mjs')
             ].join('\n')
         );
+        sealSchedulerCliRunner(root, matrix);
         const admissionEnvironment = schedulerCliAdmissionEnvironment(root);
-        const child = spawn(process.execPath, [runner, 'run', 'long-running', '--no-deps', '--resume'], {
+        const child = spawn(process.execPath, [runner, 'run', 'backend-unit', '--no-deps', '--resume'], {
             cwd: root,
             env: {
                 ...process.env,
