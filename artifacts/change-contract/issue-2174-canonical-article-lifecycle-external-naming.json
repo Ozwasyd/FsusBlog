@@ -1,0 +1,38 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+                "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+                "src/backend/Services/Fixtures/CanonicalArticleLifecycleVerifier.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+                "tools/governance/check-canonical-article-lifecycle-authority.mjs",
+                "tools/test-fixtures/producers/public-content-producer.mjs",
+                "tools/test-fixtures/receipt/postconditions.mjs"
+            ],
+            "reason": "Preserve caller-visible fixture capability, lifecycle variant, receipt field, environment, and governance identifier spellings while internal C# and JavaScript symbols follow repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/fixture-capability-catalog.json",
+                "config/testing/fixture-consumer-inventory.generated.json",
+                "config/testing/fixture-producer-registry.json",
+                "config/testing/fixture-profile-catalog.json",
+                "config/testing/fixture-variant-catalog.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve canonical fixture catalog, profile, variant, producer, consumer, and execution-authority JSON keys consumed across the test runtime boundary."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/fixture-capability-catalog.md"
+            ],
+            "reason": "Preserve generated fixture capability and lifecycle identifier spelling in the canonical testing document."
+        }
+    ]
+}
