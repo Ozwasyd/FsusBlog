@@ -788,6 +788,44 @@
             "mutability": "immutable"
         },
         {
+            "id": "public.article.published-scheduled-update",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-published-scheduled-update"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.restore",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-restore"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
             "id": "public.article.revision-history",
             "ownerProducerId": "public-content",
             "stateDomains": [
@@ -801,6 +839,25 @@
             "conflictsWith": [],
             "postconditionIds": [
                 "article-revision-history"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.rollback",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-rollback"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",
@@ -838,7 +895,10 @@
                 "public.article.multiple-publications",
                 "public.article.multiple-revisions",
                 "public.article.published",
+                "public.article.published-scheduled-update",
+                "public.article.restore",
                 "public.article.revision-history",
+                "public.article.rollback",
                 "public.article.scheduled",
                 "public.home.featured-hot",
                 "public.search.indexed",

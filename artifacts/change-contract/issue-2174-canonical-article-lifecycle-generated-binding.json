@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/testing/fixture-capability-catalog.json",
+        "config/testing/fixture-producer-registry.json",
+        "config/testing/fixture-profile-catalog.json",
+        "config/testing/fixture-variant-catalog.json",
+        "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+        "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+        "tools/test-fixtures/producers/public-content-producer.mjs",
+        "tools/test-fixtures/receipt/postconditions.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/fixture-consumer-inventory.generated.json",
+            "sha256": "ecb70e0412c291ef713ddbc582a5929eee13cd917454113afe0e1f0806b0cd86"
+        },
+        {
+            "path": "docs/testing/fixture-capability-catalog.md",
+            "sha256": "c04f5065a77bcdcf9e797964263240f5eea484c7b467f62300dfdc1383609f18"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "bcefd00c80629b6b903a946b0f10d3255d8232b232dde492b8026776479ac72e"
+        }
+    ]
+}

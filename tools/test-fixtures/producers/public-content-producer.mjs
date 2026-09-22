@@ -60,9 +60,15 @@ export function buildPublicContentPlan(capabilities = [])
             ? 'public-empty'
             : has('public.article.pagination-deep')
                 ? 'runtime-cache-pagination'
-            : (has('public.article.draft') || has('public.article.scheduled') || has('public.article.archived') || has('public.article.deleted')
-        ? 'public-content-lifecycle'
-        : 'public-minimal'),
+                : (has('public.article.draft')
+                  || has('public.article.scheduled')
+                  || has('public.article.archived')
+                  || has('public.article.deleted')
+                  || has('public.article.published-scheduled-update')
+                  || has('public.article.restore')
+                  || has('public.article.rollback')
+                    ? 'public-content-lifecycle'
+                    : 'public-minimal'),
         publishedArticleCount: publishedCount,
         requireCoverMix: publishedCount > 0,
         requireTaxonomy: has('public.taxonomy.category-tag') || publishedCount > 0,
@@ -81,7 +87,10 @@ export function buildPublicContentPlan(capabilities = [])
             draft: has('public.article.draft'),
             scheduled: has('public.article.scheduled'),
             archived: has('public.article.archived'),
-            deleted: has('public.article.deleted')
+            deleted: has('public.article.deleted'),
+            publishedScheduledUpdate: has('public.article.published-scheduled-update'),
+            restore: has('public.article.restore'),
+            rollback: has('public.article.rollback')
         }),
         empty: has('public.empty')
     });

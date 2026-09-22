@@ -292,6 +292,19 @@ test('runtime-cache-pagination plan requires the dedicated 10,020-row cursor aut
   })
 })
 
+test('public-content-lifecycle plan exposes all formal lifecycle transition variants', () => {
+  const planDocument = buildPublicContentPlan([
+    'public.article.published',
+    'public.article.published-scheduled-update',
+    'public.article.restore',
+    'public.article.rollback'
+  ])
+  assert.equal(planDocument.mode, 'public-content-lifecycle')
+  assert.equal(planDocument.lifecycle.publishedScheduledUpdate, true)
+  assert.equal(planDocument.lifecycle.restore, true)
+  assert.equal(planDocument.lifecycle.rollback, true)
+})
+
 test('public-empty plan is exclusive and zero published', () => {
   const planDocument = buildPublicContentPlan(['public.empty'])
   assert.equal(planDocument.mode, 'public-empty')
