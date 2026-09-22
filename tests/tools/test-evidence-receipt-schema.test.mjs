@@ -6,7 +6,14 @@ import path from 'node:path';
 import test from 'node:test';
 
 /* eslint-disable import-x/no-relative-parent-imports */
+
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+import { BehaviorId, digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
+import { scanZeroLegacyGovernance } from '../../tools/docs/behavior-document-consistency-final.mjs';
+import {
+    createReleaseFinalTerminalAcceptance,
+    validateReleaseFinalTerminalAcceptance
+} from '../../tools/release/release-final-terminal-acceptance.mjs';
 import {
     browserDiagnosticsReceiptSchema,
     browserlessCorrectnessReceiptSchema,
@@ -20,19 +27,15 @@ import {
     validatePublicPreviewEvidenceBinding,
     validateReleaseFinalTestEvidenceBinding
 } from '../../tools/release/test-evidence-receipts.mjs';
-import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
-import {
-    createRequiredEvidenceCatalogBinding
-} from '../../tools/test-matrix/required-evidence-catalog.mjs';
+import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from '../../tools/test-matrix/release-final-evidence-contract.mjs';
 import {
-    createReleaseFinalTerminalAcceptance,
-    validateReleaseFinalTerminalAcceptance
-} from '../../tools/release/release-final-terminal-acceptance.mjs';
-import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
+    createRequiredEvidenceCatalogBinding
+} from '../../tools/test-matrix/required-evidence-catalog.mjs';
+
+import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
 
 const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
     consumerId: 'production-correctness',
@@ -684,7 +687,7 @@ function postRuntimeBindingShape(pre)
         [...new Set(Object.values(producer.requiredObservations).flat())].sort()]));
     const results = registry.producers.flatMap((producer) =>
         classes[producer.producerId].map((classId, index) => ({
-            behaviorId: producer.behaviorId,
+            behaviorId: BehaviorId(producer.behaviorId),
             extractorId: catalog.contracts
                 .find((behavior) => behavior.id === producer.behaviorId).factExtractorId,
             producerId: producer.producerId,
@@ -725,7 +728,7 @@ function postRuntimeBindingShape(pre)
         },
         schedulerEvidence: reference('scheduler'),
         registryDigest: authorityDigest(registry), catalogDigest: `sha256:${digestCatalog(catalog)}`,
-        behaviorIds: registry.producers.map((producer) => producer.behaviorId),
+        behaviorIds: registry.producers.map((producer) => BehaviorId(producer.behaviorId)),
         requiredRuntimeProducers: registry.producers.map((producer) => producer.producerId),
         requiredObservationScopes: ['application', 'release-deployment'],
         requiredProducerClasses: classes, observedProducerClasses: structuredClone(classes),
@@ -768,7 +771,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         testEvidenceDigests: [`sha256:${'d'.repeat(64)}`],
         rawResultDigests: { testEvidence: `sha256:${'e'.repeat(64)}` },
         mutationEvidenceDigest: null,
-        behaviorIds: [loadPostRuntimeProducerRegistry().producers[0].behaviorId],
+        behaviorIds: [BehaviorId(loadPostRuntimeProducerRegistry().producers[0].behaviorId)],
         requiredTestKinds: {
             [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: []
         },
@@ -777,7 +780,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         },
         mutationStatus: {
             [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: {
-                behaviorId: loadPostRuntimeProducerRegistry().producers[0].behaviorId,
+                behaviorId: BehaviorId(loadPostRuntimeProducerRegistry().producers[0].behaviorId),
                 mutationRequired: false,
                 mutationStatus: 'not-applicable',
                 qualified: true,
@@ -820,6 +823,11 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         }
     });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
+    fs.mkdirSync(path.join(build.repositoryRoot, 'docs'));
+    fs.writeFileSync(path.join(build.repositoryRoot, 'docs', 'receipt-binding.md'), '# Receipt binding fixture\n');
+    const zeroLegacyScan = scanZeroLegacyGovernance(build.repositoryRoot);
+    assert.equal(zeroLegacyScan.scannedFileCount, 1);
+    assert.deepEqual(zeroLegacyScan.findings, []);
     const consistencyFinal = sealDocument({
         schema: 'fsusblog.behavior-document-consistency-final-report.v1',
         sourceIdentity: preRuntime.sourceIdentity,
@@ -827,7 +835,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             preRuntime: preRuntime.contentDigest,
             postRuntime: postRuntime.contentDigest
         },
-        zeroLegacyScan: { scannedFileCount: 10, findings: [] },
+        zeroLegacyScan,
         dagAudit: {
             tierCount: 22,
             edgeCount: 22,
@@ -913,6 +921,18 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     assert.deepEqual(terminalAcceptance.warnings, []);
     assert.equal(terminalAcceptance.spawnCounts.releaseFinalBeforePostRuntime, 0);
     assert.deepEqual(terminalAcceptance.dag.requiresEvidenceFrom, canonicalInputs);
+    const incompleteScanReport = sealDocument({
+        ...consistencyFinal,
+        zeroLegacyScan: { scannedFileCount: 1, findings: [] }
+    });
+    assert.throws(() => createReleaseFinalTerminalAcceptance({
+        binding,
+        preRuntimeReceipt: preRuntime,
+        postRuntimeReceipt: postRuntime,
+        consistencyFinalReport: incompleteScanReport,
+        currentRunContext,
+        canonicalInputs
+    }), /scan shape is open/u);
     for (const [name, mutate, pattern] of [
         ['input digest', (receipt) =>
         {
