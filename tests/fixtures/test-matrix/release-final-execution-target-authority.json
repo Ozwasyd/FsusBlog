@@ -25,8 +25,8 @@
         },
         {
             "path": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
-            "contentDigest": "sha256:55b326e049e722d2cf20f600af3fd708eb317d5437e91a0e0ed5b619f17beed1",
-            "indexDigest": "sha256:55b326e049e722d2cf20f600af3fd708eb317d5437e91a0e0ed5b619f17beed1"
+            "contentDigest": "sha256:41ac925db89962dc45679e0148767cfb828d17be4ce67aae2b94c8b5d2daa1d1",
+            "indexDigest": "sha256:41ac925db89962dc45679e0148767cfb828d17be4ce67aae2b94c8b5d2daa1d1"
         },
         {
             "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
@@ -1195,8 +1195,8 @@
         },
         {
             "path": "tests/tools/behavior-doc-static-admission.test.mjs",
-            "contentDigest": "sha256:701d58d06337179766513b171569f20b235c3428c587b040c0a8acc3bb11d1ac",
-            "indexDigest": "sha256:701d58d06337179766513b171569f20b235c3428c587b040c0a8acc3bb11d1ac"
+            "contentDigest": "sha256:ff39ed2a1ddc4b88d277aad33139e5d0708bcd09775982134cd7f0d187b7874e",
+            "indexDigest": "sha256:ff39ed2a1ddc4b88d277aad33139e5d0708bcd09775982134cd7f0d187b7874e"
         },
         {
             "path": "tests/tools/behavior-evidence-pre-runtime.test.mjs",

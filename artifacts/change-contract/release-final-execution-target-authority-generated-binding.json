@@ -2,13 +2,15 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
+        "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
+        "tests/tools/behavior-doc-static-admission.test.mjs",
         "tools/test-matrix/generate-release-final-execution-authority.mjs",
         "tools/test-matrix/release-final-static-boundary.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "4a37030eed8ea34b125a4ff0fcacc6bb3588ce9404cda31af1b2fcf3c4d0e951"
+            "sha256": "7218ab1a310a4a50237e53d9cb9affef374251bfb4335055992705cdf6edb14c"
         }
     ]
 }
