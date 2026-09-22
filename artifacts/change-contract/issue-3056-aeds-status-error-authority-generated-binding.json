@@ -1,7 +1,9 @@
 {
   "schema": "fsusblog.generated-output-binding.v1",
   "sources": [
+    "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
     "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+    "tests/tools/behavior-doc-static-admission.test.mjs",
     "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs",
     "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
     "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
@@ -25,6 +27,10 @@
     {
       "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
       "sha256": "d0b40979bd270b79fe9b63ce581e472995ecfb19702dcc9491ec7395ca03a1f4"
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "sha256": "7218ab1a310a4a50237e53d9cb9affef374251bfb4335055992705cdf6edb14c"
     }
   ]
 }
