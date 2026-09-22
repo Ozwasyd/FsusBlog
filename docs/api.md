@@ -19,7 +19,7 @@ See the [api/](api/) subdirectory for detailed documentation:
 | Symbol | Meaning |
 | ------ | ------ |
 | 🔓 | Anonymous access |
-| 🔑 | Login required (`HttpOnly Cookie session` / AEDS auth frame) |
+| 🔑 | Login required (HttpOnly Cookie session / AEDS auth frame) |
 | 👑 | `admin` role required |
 | 🚦 | Rate limited (`fixed_ip` / `public_read` / `read_proof` and related policies) |
 
