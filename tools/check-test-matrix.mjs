@@ -560,8 +560,14 @@ expectMatrixValidateFailure(
 
 expectMatrixValidateFailure(
     replaceTierField(matrixSourceText, 'release-final', 'requiresEvidenceFrom', '[missing-evidence-producer]'),
-    'release-final requires evidence from missing tier missing-evidence-producer',
-    'release-final must reject missing evidence producers'
+    'release-final.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer',
+    'release-final must reject unknown evidence inputs'
+);
+
+expectMatrixValidateFailure(
+    removeTier(matrixSourceText, 'test-quality-lint'),
+    'canonical release-final evidence inputs reference missing tiers: test-quality-lint',
+    'release-final must reject missing canonical evidence producers'
 );
 
 expectMatrixValidateFailure(

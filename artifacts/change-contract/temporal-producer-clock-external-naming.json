@@ -31,6 +31,7 @@
                 "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
                 "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
                 "src/backend/Services/Moderation/ModerationRuntimeStateService.cs",
+                "tools/check-test-matrix.mjs",
                 "tools/data-scale/aeds-decoders.mjs",
                 "tools/data-scale/product-backend.mjs",
                 "tools/data-scale/runtime-provisioner-live.mjs",
