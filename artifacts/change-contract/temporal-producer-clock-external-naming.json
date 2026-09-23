@@ -4,10 +4,11 @@
         {
             "id": "css-like-contract",
             "paths": [
+                "docs/api/aeds-only-policy.md",
                 "docs/api/schemas-and-errors.md",
                 "docs/releases/release-identity.md"
             ],
-            "reason": "Preserve registered public error, release authority and artifact names while aligning prose and generated facts with canonical compiled observation receipts."
+            "reason": "Preserve registered fixture tooling routes, public error, release authority and artifact names while aligning protocol classification, prose and generated facts with their existing owners."
         },
         {
             "id": "json-wire-key",
