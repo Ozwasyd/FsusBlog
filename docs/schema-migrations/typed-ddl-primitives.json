@@ -49,8 +49,20 @@
         "construction": "SchemaMigrationStep.BuildCommand(ISchemaDdlProvider)",
         "singleExecutionBoundary": "SchemaMigrationStep.ExecuteAsync",
         "preview": "SchemaMigrationPreviewer.PreviewAsync",
-        "transactionBoundary": "SchemaMigrationDescriptor.Transactional via SchemaMigrationRunner.UseTranAsync",
+        "transactionBoundary": "SchemaMigrationDescriptor.Transactional via SchemaMigrationTransactionExecutor.ExecuteAsync",
         "crossDialectSnapshot": "tests/migration/schema-ddl-provider-snapshots.json",
+        "mysql": {
+            "realEngineTests": "tests/migration/MySqlDdlExecutionTests.cs",
+            "testedEngine": "MySQL 8.4",
+            "selectedDatabaseRequired": true,
+            "ensureColumn": "Leave an existing column unchanged; otherwise execute admitted ADD COLUMN without MariaDB-only IF NOT EXISTS.",
+            "createIndex": "Resolve existence on the exact selected database and target table; preserve unique/non-unique intent without changing an existing index.",
+            "dropIndex": "Resolve one owning table, quote schema/table metadata, and no-op only for an absent index. Binary identity deduplication preserves case-only ambiguity; multiple owners fail before a write.",
+            "stringDefaults": "Decode shared doubled quotes and emit an explicit UTF-8 constant expression independent of backslash SQL mode.",
+            "ddlRollbackGuaranteed": false,
+            "transactionLimitation": "DDL may implicitly commit; descriptor transaction wrappers are not a promise of transactional DDL rollback.",
+            "historyAcceptance": "Primitive execution and snapshots do not certify every historical SQL template."
+        },
         "legacyEnsureTableBatch": {
             "firstStatement": "CREATE TABLE",
             "allowedTrailingStatements": [
