@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 const {resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const {digestCanonical} = await import(new URL('../receipt/canonical.mjs', import.meta.url));
 const {assertNoSecrets} = await import(new URL('../receipt/secrets.mjs', import.meta.url));
+const {observePreparedBackendTemporalContext, validateBackendTemporalObservation} = await import(new URL('./backend-temporal-observer.mjs', import.meta.url));
 export const SECURITY_FIXTURE_OBSERVATION_SCHEMA = 'fsusblog.security-fixture-observation.v1';
 export const SECURITY_FIXTURE_OPERATION_PLAN_SCHEMA = 'fsusblog.security-fixture-operation-plan.v1';
 
@@ -299,15 +300,20 @@ function requireDomainAdapter(value, family)
     return value;
 }
 
-function createHttpSecurityFixturePorts(context)
+function securityFixtureBaseUrl(context)
 {
-    const baseUrl = String(
+    return String(
         context.handles?.baseUrl
         ?? context.handles?.debugBackendUrl
         ?? process.env.FSUSBLOG_BASE_URL
         ?? process.env.FSUSBLOG_DEBUG_BACKEND_URL
         ?? ''
     ).replace(/\/+$/u, '');
+}
+
+function createHttpSecurityFixturePorts(context)
+{
+    const baseUrl = securityFixtureBaseUrl(context);
     const secret = String(
         context.handles?.localSecurityFixtureSecret
         ?? process.env.FSUSBLOG_LOCAL_SECURITY_FIXTURE_SECRET
@@ -372,6 +378,26 @@ function familyAdapters(context)
         ban: requireDomainAdapter(input.ban, 'ban'),
         credential: requireDomainAdapter(input.credential, 'credential')
     });
+}
+
+async function observeSecurityTemporalContext(context, familyObservations, signal)
+{
+    const first = familyObservations[0];
+    if (context.handles?.securityFixturePorts)
+    {
+        for (const observed of familyObservations)
+        {
+            validateBackendTemporalObservation(context.temporalContext, observed);
+        }
+        return Object.freeze({
+            businessEpochUtc: first.businessEpochUtc,
+            backendCulture: first.backendCulture,
+            postgresTimezone: first.postgresTimezone
+        });
+    }
+    return observePreparedBackendTemporalContext(context, {
+        businessEpochUtc: first.businessEpochUtc
+    }, signal, { baseUrl: securityFixtureBaseUrl(context) });
 }
 
 function fragmentForFamily(plan, family)
@@ -729,6 +755,7 @@ export async function prepareSecurityFixtures(context, signal)
     const familyObservations = [];
     const recoveryReceipts = [];
     const applied = [];
+    let temporalObservation;
     try
     {
         for (const family of selectedFamilies(plan))
@@ -750,6 +777,7 @@ export async function prepareSecurityFixtures(context, signal)
             );
             familyObservations.push(observed);
         }
+        temporalObservation = await observeSecurityTemporalContext(context, familyObservations, signal);
     }
     catch (error)
     {
@@ -784,9 +812,7 @@ export async function prepareSecurityFixtures(context, signal)
         providedCapabilities: plan.capabilities,
         operationPlan: plan,
         familyObservationDigests: familyObservations.map((observation) => observation.contentDigest).sort(),
-        temporalObservation: {
-            businessEpochUtc: familyObservations[0].businessEpochUtc
-        },
+        temporalObservation,
         recoveryReceipts,
         domainObservations: familyObservations.map((observation) => ({
             schema: observation.schema,
@@ -820,6 +846,7 @@ export async function verifySecurityFixtures(context, producerResult, signal)
     {
         throw new Error('security producer result is not bound to the current operation plan');
     }
+    validateBackendTemporalObservation(context.temporalContext, producerResult.temporalObservation);
     const adapters = familyAdapters(context);
     const observed = [];
     for (const family of selectedFamilies(plan))
@@ -830,6 +857,7 @@ export async function verifySecurityFixtures(context, producerResult, signal)
             family
         ));
     }
+    await observeSecurityTemporalContext(context, observed, signal);
     const digests = observed.map((item) => item.contentDigest).sort();
     if (JSON.stringify(digests) !== JSON.stringify(producerResult.familyObservationDigests))
     {

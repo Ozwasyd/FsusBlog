@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 
 const {digestCommentFixtureValue, readCommentFixtureInventory} = await import(new URL('../../test/comment-fixture-contract.mjs', import.meta.url));
 const {fixtureTestSessionHeaders, fixtureTestSessionSchema, resolveFixtureTestSession} = await import(new URL('../runtime-scope.mjs', import.meta.url));
+const {validateBackendTemporalObservation} = await import(new URL('./backend-temporal-observer.mjs', import.meta.url));
 const PRODUCER_ID = 'comment-moderation';
 const STRATEGY = 'transaction-fixture';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
@@ -312,7 +313,7 @@ async function observeBackendTemporalContext(context, signal)
     {
         throw new Error(`comment fixture temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`);
     }
-    return payload;
+    return validateBackendTemporalObservation(context.temporalContext, payload);
 }
 
 function variantForRole(role, variants)
@@ -799,6 +800,7 @@ export async function verifyCommentModeration(context, result)
 {
     try
     {
+        validateBackendTemporalObservation(context.temporalContext, result?.temporalObservation);
         if (!result || result.producerId !== PRODUCER_ID || !Array.isArray(result.entityIdentities)
             || !result.observations?.database || !result.observations?.cache
             || !Array.isArray(result.zkAuthorityEvidence) || result.zkAuthorityEvidence.length !== 2

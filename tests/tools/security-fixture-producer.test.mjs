@@ -139,7 +139,9 @@ function observation(plan, family, mutate = (value) => value)
         runId: plan.runId,
         namespace: plan.namespace,
         family,
-        businessEpochUtc: plan.temporal.businessEpochUtc,
+        businessEpochUtc: '2026-01-15T12:00:00.000Z',
+        backendCulture: 'Invariant',
+        postgresTimezone: 'UTC',
         capabilities: operations.map((operation) => operation.capabilityId),
         partial: false,
         warnings: [],
@@ -252,6 +254,102 @@ test('partial family failure recovers already applied state before rejecting', a
         'cleanup:ban',
         'observe-cleanup:ban'
     ]);
+});
+
+test('security injected families require complete actual clocks during preparation and verification', async () =>
+{
+    for (const [field, value] of [
+        ['backendCulture', undefined],
+        ['postgresTimezone', undefined],
+        ['backendCulture', 'zh-CN'],
+        ['postgresTimezone', 'Asia/Shanghai']
+    ])
+    {
+        const context = contextFor(['security.subject.banned']);
+        const { calls } = fakeAdapters(context, {
+            observationMutation: (observation) => ({ ...observation, [field]: value })
+        });
+        await assert.rejects(() => prepareSecurityFixtures(context), /actual|temporal/iu);
+        assert.deepEqual(calls.slice(-2), ['cleanup:ban', 'observe-cleanup:ban']);
+
+        const verifiedContext = contextFor(['security.subject.banned']);
+        fakeAdapters(verifiedContext);
+        const result = await prepareSecurityFixtures(verifiedContext);
+        await assert.rejects(() => verifySecurityFixtures(verifiedContext, {
+            ...result,
+            temporalObservation: { ...result.temporalObservation, [field]: value }
+        }), /actual|temporal/iu);
+        fakeAdapters(verifiedContext, {
+            observationMutation: (observation) => ({ ...observation, [field]: value })
+        });
+        await assert.rejects(() => verifySecurityFixtures(verifiedContext, result), /actual|temporal/iu);
+    }
+});
+
+test('security HTTP preparation and verification observe the same protected backend and recover failed preparation', async (t) =>
+{
+    const context = contextFor(['security.subject.banned']);
+    const { calls } = fakeAdapters(context);
+    const adapter = context.handles.securityFixturePorts.ban;
+    delete context.handles.securityFixturePorts;
+    Object.assign(context.handles, {
+        baseUrl: 'http://127.0.0.1:9876',
+        debugBackendUrl: 'http://127.0.0.1:9877',
+        localSecurityFixtureSecret: 'security-test-secret',
+        localAuthFixtureSecret: 'temporal-test-secret'
+    });
+    const actual = {
+        businessEpochUtc: '2026-01-15T12:00:00.000Z',
+        backendCulture: 'Invariant',
+        postgresTimezone: 'UTC'
+    };
+    let temporalObservation = actual;
+    let temporalReads = 0;
+    t.mock.method(globalThis, 'fetch', async (url, options) =>
+    {
+        assert.equal(new URL(url).origin, context.handles.baseUrl);
+        if (options.method !== 'POST')
+        {
+            assert.equal(url, `${context.handles.baseUrl}/__local/temporal-observation`);
+            assert.equal(options.headers['X-Fsus-Local-Temporal-Fixture-Secret'], 'temporal-test-secret');
+            temporalReads += 1;
+            return Response.json(temporalObservation);
+        }
+        assert.equal(options.headers['X-Fsus-Local-Security-Fixture-Secret'], 'security-test-secret');
+        const action = new URL(url).pathname.split('/').at(-1);
+        const method = action === 'observe-cleanup' ? 'observeCleanup' : action;
+        const output = await adapter[method](JSON.parse(options.body));
+        if (action === 'observe')
+        {
+            // The existing domain endpoint returns its epoch; the separate
+            // protected session endpoint supplies the actual culture/timezone.
+            delete output.backendCulture;
+            delete output.postgresTimezone;
+            delete output.contentDigest;
+            return Response.json(withDigest(output));
+        }
+        return Response.json(output);
+    });
+    const result = await prepareSecurityFixtures(context);
+    assert.deepEqual(result.temporalObservation, actual);
+    assert.equal((await verifySecurityFixtures(context, result)).ok, true);
+    assert.equal(temporalReads, 2);
+    for (const invalid of [
+        {},
+        { ...actual, businessEpochUtc: undefined },
+        { ...actual, backendCulture: undefined },
+        { ...actual, postgresTimezone: undefined },
+        { ...actual, businessEpochUtc: '2026-01-15T12:00:01.000Z' },
+        { ...actual, backendCulture: 'zh-CN' },
+        { ...actual, postgresTimezone: 'Asia/Shanghai' }
+    ])
+    {
+        temporalObservation = invalid;
+        await assert.rejects(() => prepareSecurityFixtures(context), /actual|temporal/iu);
+        assert.deepEqual(calls.slice(-2), ['cleanup:ban', 'observe-cleanup:ban']);
+        await assert.rejects(() => verifySecurityFixtures(context, result), /actual|temporal/iu);
+    }
+    assert.equal(temporalReads, 16);
 });
 
 for (const [name, mutate, pattern] of [

@@ -10,7 +10,7 @@ import path from 'node:path';
 const { readFixtureCatalogs } = await import(new URL("../../testing/fixture-catalog.mjs", import.meta.url));
 
 import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
-import { observeBackendTemporalContext } from './backend-temporal-observer.mjs';
+import { observeBackendTemporalContext, observePreparedBackendTemporalContext, validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 import {
     buildProducerChildEnv,
     repositoryRoot,
@@ -140,11 +140,13 @@ export function createPublicContentPort(catalogs = readFixtureCatalogs())
             assertNoStrategyEnv();
             // transaction-fixture only (#1712): domain-port composition root, no API/DB fallback.
             const {
-                preparePublicContent
+                preparePublicContent, resolvePublicContentBackendUrl
             } = await import('./public-content-producer.mjs');
             const result = await preparePublicContent(context, signal);
             const backendObservation = context.temporalContext
-                ? await observeBackendTemporalContext(context, signal)
+                ? await observePreparedBackendTemporalContext(context, result.temporalObservation, signal, {
+                    baseUrl: resolvePublicContentBackendUrl(context)
+                })
                 : null;
             return {
                 ...result,
@@ -185,10 +187,10 @@ export function createDevelopmentDemoPort(catalogs = readFixtureCatalogs())
         async prepare(context, signal)
         {
             assertNoStrategyEnv();
-            const { prepareDemoPublic } = await import('./demo-public-producer.mjs');
+            const { prepareDemoPublic, resolveDemoBackendUrl } = await import('./demo-public-producer.mjs');
             const result = await prepareDemoPublic(context, signal);
             const backendObservation = context.temporalContext
-                ? await observeBackendTemporalContext(context, signal)
+                ? await observeBackendTemporalContext(context, signal, { baseUrl: resolveDemoBackendUrl(context) })
                 : null;
             return {
                 ...result,
@@ -208,6 +210,17 @@ export function createDevelopmentDemoPort(catalogs = readFixtureCatalogs())
         },
         async verify(context, producerResult)
         {
+            if (context.temporalContext)
+            {
+                try
+                {
+                    validateBackendTemporalObservation(context.temporalContext, producerResult?.temporalObservation);
+                }
+                catch (error)
+                {
+                    return { ok: false, producerId: producer.id, reason: error.message };
+                }
+            }
             const { verifyDemoPublic } = await import('./demo-public-producer.mjs');
             return verifyDemoPublic(context, producerResult);
         },

@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const { projectFixtureIds } = await import(new URL("../receipt/projection.mjs", import.meta.url));
 
+import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 import { repositoryRoot } from './spawn-helper.mjs';
 
 const STRATEGY = 'transaction-fixture';
@@ -218,11 +219,10 @@ export async function preparePublicContent(context, signal)
 
     const observations = normalizeObservations(raw.observations ?? raw.Observations, context);
     assertVariantSemantics(observations.database?.entities ?? [], context);
-    const temporalObservation = raw.temporalObservation ?? raw.TemporalObservation ?? null;
-    if (context.temporalContext && !temporalObservation)
-    {
-        throw new Error('public-content backend did not return a temporal actual observation');
-    }
+    const rawTemporalObservation = raw.temporalObservation ?? raw.TemporalObservation ?? null;
+    const temporalObservation = context.temporalContext
+        ? validateBackendTemporalObservation(context.temporalContext, rawTemporalObservation)
+        : rawTemporalObservation;
     // Stamp execution namespace onto observations so receipt merge never sees a mismatch.
     const ns = context?.namespace ?? context?.plan?.executionIdentity?.namespace ?? null;
     if (ns)
@@ -402,6 +402,17 @@ async function prepareNonCanonicalPublicContent(context, variants)
 export async function verifyPublicContent(context, producerReceipt)
 {
     assertNoStrategyEnv();
+    if (context.temporalContext)
+    {
+        try
+        {
+            validateBackendTemporalObservation(context.temporalContext, producerReceipt?.temporalObservation);
+        }
+        catch (error)
+        {
+            return { ok: false, producerId: PRODUCER_ID, reason: error.message };
+        }
+    }
     if (!producerReceipt?.observations && !producerReceipt?.databaseObservation)
     {
         return { ok: false, producerId: PRODUCER_ID, reason: 'missing observations' };
@@ -494,14 +505,19 @@ async function materializeCoverAssets(context)
     }));
 }
 
-async function invokeLocalCompositionRoot(context, plan, signal)
+export function resolvePublicContentBackendUrl(context)
 {
-    const baseUrl = String(
+    return String(
         context.handles?.baseUrl
     ?? context.handles?.debugBackendUrl
     ?? process.env.FSUSBLOG_BASE_URL
     ?? ''
     ).replace(/\/+$/u, '');
+}
+
+async function invokeLocalCompositionRoot(context, plan, signal)
+{
+    const baseUrl = resolvePublicContentBackendUrl(context);
     if (!baseUrl)
     {
         throw new Error(
