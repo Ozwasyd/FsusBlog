@@ -1285,8 +1285,8 @@
         },
         {
             "path": "tests/tools/evidence-location-governance.test.mjs",
-            "contentDigest": "sha256:769f4ab5ee59153759b64f79d4eb62b942b9090def940df7d07f33d2c1877310",
-            "indexDigest": "sha256:769f4ab5ee59153759b64f79d4eb62b942b9090def940df7d07f33d2c1877310"
+            "contentDigest": "sha256:513beb86af29efca9278d6046302787e8d7ebc0f24897a8ae0efdd78dfec6e04",
+            "indexDigest": "sha256:513beb86af29efca9278d6046302787e8d7ebc0f24897a8ae0efdd78dfec6e04"
         },
         {
             "path": "tests/tools/fixture-mutation-recovery.test.mjs",
@@ -4015,8 +4015,8 @@
         },
         {
             "path": "tools/test/generate-evidence-location-governance.mjs",
-            "contentDigest": "sha256:62fa2ff72f6f70e3bce2c9fa8440d3d91634e462ede3a384dfd2d1ff5460506e",
-            "indexDigest": "sha256:62fa2ff72f6f70e3bce2c9fa8440d3d91634e462ede3a384dfd2d1ff5460506e"
+            "contentDigest": "sha256:c584dbbdc89befefb386e052bc2f40ddbba085e2a40e7eae6534d35ef525781c",
+            "indexDigest": "sha256:c584dbbdc89befefb386e052bc2f40ddbba085e2a40e7eae6534d35ef525781c"
         },
         {
             "path": "tools/test/governance-suite-plan.mjs",

@@ -6,15 +6,19 @@
     "outputs": [
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "7fb29a0115d5c1e4080f6ffc120c07306728be9028b52bd76ba0cef8021e64f2"
+            "sha256": "f045cf9a96284d0aa8fa268ecc3f6ef79206497b1e345ba739352f82dc88f907"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "60e20b9c71cdf2cda6e597f81a8d0c7794a3c1be0a58e939563c54338a4cdb2f"
+            "sha256": "f3390e1357cc9c850304ec583879bcac5378ed576e6dd80d57ac01983b015722"
         },
         {
             "path": "config/testing/evidence-locator-registry.json",
-            "sha256": "c152947f7efa1bd3c37109dc92f9f2a63f7b77810f3b4bd0c6b95537e4eb1ab7"
+            "sha256": "0b1bba1f3bf253b8e49b535c88f9ab3ff3c43f371d9e0debf55be85b67e8d364"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "cb59b710dcf9ecb2efa0f5cbb05ad6949b52ed8d651792c1445867b2666fad49"
         }
     ]
 }

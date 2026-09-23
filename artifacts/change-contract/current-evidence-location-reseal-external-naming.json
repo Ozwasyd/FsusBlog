@@ -7,15 +7,16 @@
                 "config/testing/evidence-location-migration-ledger.json",
                 "tools/test/generate-evidence-location-governance.mjs"
             ],
-            "reason": "Preserve the existing current-run evidence authority and caller-visible locator spellings while resealing exact finding identities and source locations."
+            "reason": "Preserve current-run evidence authority and caller-visible locator spellings while rebinding exact comment-fixture selectors after the article lifecycle source insertion."
         },
         {
             "id": "json-wire-key",
             "paths": [
                 "config/testing/current-run-evidence-location-acceptance.json",
-                "config/testing/evidence-locator-registry.json"
+                "config/testing/evidence-locator-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the current-run acceptance receipt wire keys while its canonical finding identities, counts, digests, and source locations are resealed."
+            "reason": "Preserve acceptance and execution-authority wire keys while canonical producers reseal current fixture selectors, project the existing document scanner consumer and bind exact execution-source digests."
         }
     ]
 }
