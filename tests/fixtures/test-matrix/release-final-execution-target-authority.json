@@ -3145,8 +3145,8 @@
         },
         {
             "path": "tools/test-fixtures/producers/audit-producer.mjs",
-            "contentDigest": "sha256:2076947953b6334ee3272f4e6a0e19c223f43c28432135296a2aa665629bc23a",
-            "indexDigest": "sha256:2076947953b6334ee3272f4e6a0e19c223f43c28432135296a2aa665629bc23a"
+            "contentDigest": "sha256:16be194d84c0c6c5355dc7fcfe7fb4eb688837078fc226ae11dbbaa7addebe47",
+            "indexDigest": "sha256:16be194d84c0c6c5355dc7fcfe7fb4eb688837078fc226ae11dbbaa7addebe47"
         },
         {
             "path": "tools/test-fixtures/producers/auth-session-producer.mjs",
@@ -4565,8 +4565,8 @@
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
-            "contentDigest": "sha256:516659a319f4b57e7ae19245c7208e22e765b920afdd56504d81b54224ffe2fe",
-            "indexDigest": "sha256:516659a319f4b57e7ae19245c7208e22e765b920afdd56504d81b54224ffe2fe"
+            "contentDigest": "sha256:ab02c93ade463b4348f73fe58b9f8aafef036df6581eb1187d08133fcfdf2eb1",
+            "indexDigest": "sha256:ab02c93ade463b4348f73fe58b9f8aafef036df6581eb1187d08133fcfdf2eb1"
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",
