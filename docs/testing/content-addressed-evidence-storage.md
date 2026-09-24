@@ -42,6 +42,11 @@ validates the envelope and complete reference graph before passing the original
 document to the existing schema validator. Missing, tampered, cyclic, and
 cross-run references never become an empty or stale receipt.
 
+`RunEvidenceObjectStore` accepts an explicit `readOnly: true` observation mode. Opening this mode requires the
+existing root and all store directories; it never creates missing state. Object/receipt/journal/checkpoint
+publication and collection reject before any write or lock acquisition. Resource-retention observation uses this
+mode rather than reconstructing an incomplete store while deciding whether capacity may be released.
+
 ## Scheduler journal and compact checkpoints
 
 The matrix scheduler appends `fsusblog.run-evidence-journal-event.v1` records,
@@ -51,13 +56,36 @@ content digest. Success, failure, cancellation, interruption, and timeout stay
 distinct; validity never depends on wall-clock age or TTL.
 
 A full compact checkpoint is written only at explicit boundaries: run start,
-run completion/failure, wall-clock termination, and evidence finalization.
+run completion/failure, wall-clock termination, resource reconciliation, and evidence finalization.
 Compatibility `checkpoint.json` remains the materialized view for existing
 callers; intermediate tier changes are journal records, not full rewrites.
 Recovery validates the compact checkpoint, journal continuity, and every payload
 object, then applies events after `lastSequence`. Truncation, sequence gaps,
 checkpoint corruption, missing payloads, or digest mismatch abort recovery;
 failure and cancellation evidence is retained.
+
+Changed scheduler resource grants are intermediate journal events too: the complete run/source/owner-bound state is
+under `resourceUtilization.resourceGrants`, and the existing worker-facing `resource-grants.json` is its mutable
+projection, not a second allocation authority. A successful kernel read-back precedes journal fsync, projection and
+resource-service payload release. Recovery must pass each event's referenced payload to the state-patch reducer.
+Fresh/resume admission uses the durable journal even if a mutable compatibility checkpoint claims a newer revision.
+It rejects active grants, failed resource cleanup and missing or mismatched projections before resetting evidence; this
+retention guard does not itself reconcile a dead owner's resources. See [resource enforcement](issue-1072-production-resource-enforcement.md).
+
+The same scheduler-owned reader exposes original build-owner retention observations. They bind the exact run,
+namespace, source, candidate, target, budget policy and original scheduler token, require a nonempty journal at least
+through its compact-checkpoint sequence, and reject missing or inconsistent worker projections. Missing grant state
+does not certify settlement. Capacity and build GC therefore retain the original owner after OS resources and private
+carriers are gone while its grants or interrupted/failed cleanup remain unresolved. This read-only observation does
+not acquire a new scheduler incarnation, clear grants, rewrite failures or delete build records.
+
+Explicit dead-build resource reconciliation is a separate scheduler-owned operation. It holds a new exact scheduler
+lease and the original build's reclaim exclusion while the existing process/resource owners prove absence. Only then
+does it append `resource-grants-reconciled` to this same journal, retaining the previous grant state and original failure.
+The old owner token remains on the zero grant document; the new recovery token is recorded separately. An interrupted
+run becomes failed rather than successful. Partial publication retains capacity; exact retries rebuild compact,
+compatibility and worker views from the committed journal without adding another release event. Serialized cleanup
+reports cannot call this writer, and ordinary Fresh/resume do not implicitly perform this reconciliation.
 
 ## Reference-aware collection
 

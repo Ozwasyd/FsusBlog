@@ -20,11 +20,41 @@ function fixtureError(reason, importer, specifier, resolvedTarget)
 
 const moduleRequestCache = new Map();
 const moduleRequestParser = [
+    "import Module from 'node:module';",
     "import vm from 'node:vm';",
     "let source = '';",
     "for await (const chunk of process.stdin) source += chunk;",
     "const module = new vm.SourceTextModule(source, { identifier: 'fixture-preflight' });",
-    'process.stdout.write(JSON.stringify(module.moduleRequests.map(({ specifier }) => specifier)));'
+    'const requests = module.moduleRequests.map(({ specifier }) => specifier);',
+    // Parse imports, never evaluate fixture source or infer dependencies from comments/string contents.
+    "const parser = new Module('fixture-preflight-acorn');",
+    "parser._compile(process.binding('natives')['internal/deps/acorn/acorn/dist/acorn'], 'fixture-preflight-acorn');",
+    "const ast = parser.exports.parse(source, { ecmaVersion: 'latest', sourceType: 'module' });",
+    'const literal = node => {',
+    "  if (node?.type === 'Literal' && typeof node.value === 'string') return node.value;",
+    "  if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0].value.cooked;",
+    '  return null;',
+    '};',
+    'const pending = [ast];',
+    'while (pending.length) {',
+    '  const node = pending.pop();',
+    "  if (!node || typeof node !== 'object') continue;",
+    "  if (node.type === 'ImportExpression') {",
+    '    let target = node.source;',
+    '    const base = target?.arguments?.[1];',
+    "    if (target?.type === 'NewExpression' && target.callee.type === 'Identifier' && target.callee.name === 'URL'",
+    "      && target.arguments.length === 2 && base?.type === 'MemberExpression' && !base.computed",
+    "      && base.object.type === 'MetaProperty' && base.object.meta.name === 'import'",
+    "      && base.object.property.name === 'meta' && base.property.name === 'url') target = target.arguments[0];",
+    '    const specifier = literal(target);',
+    '    if (specifier !== null) requests.push(specifier);',
+    '  }',
+    '  for (const value of Object.values(node)) {',
+    '    if (Array.isArray(value)) pending.push(...value);',
+    "    else if (value && typeof value === 'object') pending.push(value);",
+    '  }',
+    '}',
+    'process.stdout.write(JSON.stringify(requests));'
 ].join('\n');
 
 export function parseStaticRelativeEsmSpecifiers(source, importer = '<source>')
@@ -51,15 +81,6 @@ export function parseStaticRelativeEsmSpecifiers(source, importer = '<source>')
     }
     const specifiers = new Set(JSON.parse(parsed.stdout)
         .filter((specifier) => specifier.startsWith('./') || specifier.startsWith('../')));
-    const dynamicImportUrlPattern = /import\(\s*new\s+URL\(\s*['"`]([^'"`]+)['"`]\s*,\s*import\.meta\.url\s*\)\s*\)/gu;
-    for (const match of source.matchAll(dynamicImportUrlPattern))
-    {
-        const specifier = match[1];
-        if ((specifier.startsWith('./') || specifier.startsWith('../')) && !specifier.includes('${'))
-        {
-            specifiers.add(specifier);
-        }
-    }
     const result = [...specifiers];
     moduleRequestCache.set(source, result);
     return result;

@@ -51,6 +51,67 @@ function mutateJson(file, mutate)
     fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+test('read-only evidence observation never creates directories or publishes state', (t) =>
+{
+    const root = tempDirectory('evidence-read-only');
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const runId = 'read-only';
+    const options = { root: path.join(root, 'store'), runId, sourceState, readOnly: true };
+    assert.throws(() => new RunEvidenceObjectStore(options), /read-only/u);
+    assert.deepEqual(fs.readdirSync(root), []);
+    const writer = new RunEvidenceObjectStore({ ...options, readOnly: false });
+    const event = writer.appendJournalEvent({ eventType: 'run-started', status: 'running', payload: { value: 42 } });
+    writer.writeCompactCheckpoint({ stage: 'run-start', state: { value: 42 }, lastSequence: event.sequence });
+    const snapshot = () => fs.readdirSync(options.root, { recursive: true }).sort().map((file) =>
+    {
+        const target = path.join(options.root, file);
+        const stat = fs.lstatSync(target);
+        return { file, mode: stat.mode, inode: stat.ino, bytes: stat.isFile() ? fs.readFileSync(target).toString('base64') : null };
+    });
+    const before = snapshot();
+    const reader = new RunEvidenceObjectStore(options);
+    assert.equal(reader.readJournal().length, 1);
+    assert.deepEqual(reader.recover((state, _event, payload) => ({ ...state, ...payload })).state, { value: 42 });
+    const journalFile = path.join(options.root, 'journals', `${runId}.jsonl`);
+    const journalBytes = fs.readFileSync(journalFile, 'utf8');
+    fs.writeFileSync(journalFile, '');
+    try
+    {
+        assert.throws(() => reader.recover((state) => state), /journal.*truncated/u);
+    }
+    finally
+    {
+        fs.writeFileSync(journalFile, journalBytes);
+    }
+    for (const write of [
+        () => reader.publishObject({ unexpected: true }),
+        () => reader.publishLogicalReceipt({ logicalOwner: 'unexpected', requiredIds: [], decision: 'Passed', document: {} }),
+        () => reader.appendJournalEvent({ eventType: 'unexpected', status: 'running', payload: {} }),
+        () => reader.writeCompactCheckpoint({ stage: 'unexpected', state: {} }),
+        () => reader.garbageCollect()
+    ])
+    {
+        assert.throws(write, /read-only/u);
+        assert.deepEqual(snapshot(), before);
+    }
+    for (const name of ['objects', 'receipts', 'journals', 'checkpoints'])
+    {
+        const directory = path.join(options.root, name);
+        const saved = path.join(root, name);
+        fs.renameSync(directory, saved);
+        try
+        {
+            assert.throws(() => new RunEvidenceObjectStore(options), /ENOENT/u);
+            assert.equal(fs.existsSync(directory), false, 'read-only observation cannot recreate missing authority directories');
+        }
+        finally
+        {
+            fs.renameSync(saved, directory);
+        }
+    }
+    assert.deepEqual(snapshot(), before);
+});
+
 test('large producer evidence is stored once and shared by semantic logical receipts', () =>
 {
     const root = tempDirectory('evidence-deduplication');
@@ -503,7 +564,19 @@ test('scheduler persists incremental journal events and only two compact stage c
     assert.equal(journal.filter((event) => event.eventType === 'tier-completed').length, 3);
     assert.equal(journal.at(0).eventType, 'run-started');
     assert.equal(journal.at(-1).eventType, 'run-completed');
-    assert.deepEqual(journal.map((event) => event.sequence), [1, 2, 3, 4, 5]);
+    const expectedEvents = [
+        ['run-started', 'summary'],
+        ...tiers.flatMap(({ id }) => [
+            ['tier-admitted', id],
+            ['resource-grants-updated', null],
+            ['tier-completed', id],
+            ['resource-grants-updated', null]
+        ]),
+        ['run-completed', 'summary']
+    ];
+    assert.deepEqual(journal.map((event) => [event.sequence, event.eventType, event.tier]),
+        expectedEvents.map(([eventType, id], index) => [index + 1, eventType, id]));
+    assert.deepEqual(result.checkpoint.resourceUtilization.resourceGrants.grants, {});
 });
 
 function tiersId(index)
