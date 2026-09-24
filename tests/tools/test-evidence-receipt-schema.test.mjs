@@ -32,6 +32,10 @@ import {
     validateReleaseFinalTerminalAcceptance
 } from '../../tools/release/release-final-terminal-acceptance.mjs';
 import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
+import {
+    zeroLegacyRequiredPathClasses,
+    zeroLegacyScanSchema
+} from '../../tools/docs/behavior-document-consistency-final.mjs';
 import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 
 const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
@@ -827,7 +831,20 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             preRuntime: preRuntime.contentDigest,
             postRuntime: postRuntime.contentDigest
         },
-        zeroLegacyScan: { scannedFileCount: 10, findings: [] },
+        zeroLegacyScan: {
+            schema: zeroLegacyScanSchema,
+            scanRoots: [
+                { path: 'config', pathClass: 'config' },
+                { path: 'docs', pathClass: 'docs' },
+                { path: 'src', pathClass: 'production' },
+                { path: 'tests', pathClass: 'tests' },
+                { path: 'tools', pathClass: 'tools' }
+            ],
+            scannedFileCount: 10,
+            pathClassCounts: Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) =>
+                [pathClass, pathClass === 'tests' ? 10 : 0])),
+            findings: []
+        },
         dagAudit: {
             tierCount: 22,
             edgeCount: 22,
