@@ -31,7 +31,7 @@ import {
     createReleaseFinalTerminalAcceptance,
     validateReleaseFinalTerminalAcceptance
 } from '../../tools/release/release-final-terminal-acceptance.mjs';
-import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
+import { BehaviorId, digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import {
     zeroLegacyRequiredPathClasses,
     zeroLegacyScanSchema
@@ -688,7 +688,7 @@ function postRuntimeBindingShape(pre)
         [...new Set(Object.values(producer.requiredObservations).flat())].sort()]));
     const results = registry.producers.flatMap((producer) =>
         classes[producer.producerId].map((classId, index) => ({
-            behaviorId: producer.behaviorId,
+            behaviorId: BehaviorId(producer.behaviorId),
             extractorId: catalog.contracts
                 .find((behavior) => behavior.id === producer.behaviorId).factExtractorId,
             producerId: producer.producerId,
@@ -729,7 +729,7 @@ function postRuntimeBindingShape(pre)
         },
         schedulerEvidence: reference('scheduler'),
         registryDigest: authorityDigest(registry), catalogDigest: `sha256:${digestCatalog(catalog)}`,
-        behaviorIds: registry.producers.map((producer) => producer.behaviorId),
+        behaviorIds: registry.producers.map((producer) => BehaviorId(producer.behaviorId)),
         requiredRuntimeProducers: registry.producers.map((producer) => producer.producerId),
         requiredObservationScopes: ['application', 'release-deployment'],
         requiredProducerClasses: classes, observedProducerClasses: structuredClone(classes),
@@ -755,6 +755,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const browserContract = browserContractFixture(build);
     const releaseReliabilityQualifiedReceipt =
         releaseReliabilityBinding(build);
+    const receiptBehaviorId = BehaviorId(loadPostRuntimeProducerRegistry().producers[0].behaviorId);
     const correctnessFile = path.join(build.directory, 'correctness.json');
     const browserContractFile = path.join(build.directory, 'browser-contract.json');
     const preRuntime = sealDocument({
@@ -772,16 +773,16 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         testEvidenceDigests: [`sha256:${'d'.repeat(64)}`],
         rawResultDigests: { testEvidence: `sha256:${'e'.repeat(64)}` },
         mutationEvidenceDigest: null,
-        behaviorIds: [loadPostRuntimeProducerRegistry().producers[0].behaviorId],
+        behaviorIds: [BehaviorId(receiptBehaviorId)],
         requiredTestKinds: {
-            [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: []
+            [receiptBehaviorId]: []
         },
         observedTestKinds: {
-            [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: []
+            [receiptBehaviorId]: []
         },
         mutationStatus: {
-            [loadPostRuntimeProducerRegistry().producers[0].behaviorId]: {
-                behaviorId: loadPostRuntimeProducerRegistry().producers[0].behaviorId,
+            [receiptBehaviorId]: {
+                behaviorId: BehaviorId(receiptBehaviorId),
                 mutationRequired: false,
                 mutationStatus: 'not-applicable',
                 qualified: true,
