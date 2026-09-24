@@ -1,11 +1,48 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+const { createSystemdResourceTransport, prepareProductionSystemdResourceBoundary } = await import(new URL('./production-systemd-resource-boundary.mjs', import.meta.url));
+
 export const resourceEnforcementSchema = 'fsusblog.production.resource-enforcement.v1';
 const controllers = ['cpu', 'memory', 'pids'];
 const bytesPerGiB = 1024 ** 3;
+let observedMemoryPageBytes;
+
+function memoryPageBytes(machine)
+{
+    let value = machine.memoryPageBytes;
+    if (value === undefined)
+    {
+        if (observedMemoryPageBytes === undefined)
+        {
+            if (process.platform === 'linux')
+            {
+                const result = spawnSync('getconf', ['PAGESIZE'], {
+                    encoding: 'utf8', shell: false, timeout: 5000, maxBuffer: 1024
+                });
+                if (result.error || result.status !== 0 || !/^\d+\s*$/u.test(result.stdout ?? ''))
+                {
+                    throw new Error('Linux memory page size is unavailable for exact cgroup limits');
+                }
+                observedMemoryPageBytes = Number(result.stdout.trim());
+            }
+            else
+            {
+                // A non-Linux projection is advisory; it does not attest kernel enforcement.
+                observedMemoryPageBytes = 1;
+            }
+        }
+        value = observedMemoryPageBytes;
+    }
+    if (!Number.isSafeInteger(value) || value <= 0 || value > 16 * 1024 ** 2 || (value & (value - 1)) !== 0)
+    {
+        throw new Error('memory page size must be an exact supported power of two');
+    }
+    return value;
+}
 
 function exceedsFloatingPointEnvelope(value, envelope)
 {
@@ -51,6 +88,10 @@ function parseKeyValues(value)
 
 function numericOrNull(value)
 {
+    if (value === null || value === '')
+    {
+        return null;
+    }
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
 }
@@ -121,6 +162,7 @@ function enableControllers(directory)
 
 export function resolveCgroupLimits(grant, machine)
 {
+    const pageBytes = memoryPageBytes(machine);
     const cpuUnits = Number(grant.cpuUnits);
     const memoryGiB = Number(grant.memoryGiB);
     const machineCpu = Math.max(1, Number(machine.cpuUnits ?? machine.cpuCount) || os.availableParallelism?.() || 1);
@@ -140,16 +182,17 @@ export function resolveCgroupLimits(grant, machine)
         throw new Error(`cgroup memory grant ${memoryGiB} GiB exceeds machine envelope ${machineMemoryGiB} GiB`);
     }
     const periodUs = Math.max(10_000, Math.min(1_000_000, Math.round(100_000 * Math.sqrt(machineCpu) / Math.sqrt(cpuUnits))));
-    const quotaUs = Math.max(1_000, Math.round(periodUs * cpuUnits));
-    const memoryHighBytes = Math.max(16 * 1024 ** 2, requestedMemoryBytes);
+    const quotaUs = Math.max(1_000, Math.floor(periodUs * cpuUnits));
+    const memoryHighBytes = Math.max(16 * 1024 ** 2, Math.floor(requestedMemoryBytes / pageBytes) * pageBytes);
     const headroomBytes = Math.max(64 * 1024 ** 2, Math.round(memoryHighBytes / Math.sqrt(machineCpu * 16)));
-    const memoryMaxBytes = Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes);
+    const memoryMaxBytes = Math.floor(Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes) / pageBytes) * pageBytes;
     const cpuWeight = Math.max(1, Math.min(10_000, Math.round(10_000 * cpuUnits / machineCpu)));
     const pidsMax = Math.max(64, Math.min(8192,
         Math.ceil(Math.max(cpuUnits * 128, memoryGiB * 64))));
     return {
         cpuUnits,
         memoryGiB,
+        memoryPageBytes: pageBytes,
         cpuWeight,
         cpuMax: `${quotaUs} ${periodUs}`,
         cpuMaxPolicy: 'hard-grant-ceiling',
@@ -180,6 +223,24 @@ function sampleCgroup(directory)
         pidsEvents: parseKeyValues(readText(path.join(directory, 'pids.events'))),
         processIds: String(readText(path.join(directory, 'cgroup.procs')) ?? '').split(/\s+/u).filter(Boolean).map(Number),
         sampledAt: new Date().toISOString()
+    };
+}
+
+function grantConsistency(limits, sample)
+{
+    const expected = {
+        cpuMax: limits.cpuMax,
+        cpuWeight: String(limits.cpuWeight),
+        memoryHigh: String(limits.memoryHighBytes),
+        memoryMax: String(limits.memoryMaxBytes),
+        pidsMax: String(limits.pidsMax)
+    };
+    const effective = Object.fromEntries(Object.keys(expected).map((key) => [key, sample[key]]));
+    return {
+        status: Object.keys(expected).every((key) => effective[key] === expected[key]) ? 'consistent' : 'mismatch',
+        declaredGrant: { cpuUnits: limits.cpuUnits, memoryGiB: limits.memoryGiB },
+        expected,
+        effective
     };
 }
 
@@ -246,12 +307,14 @@ function cleanupStaleManagerCgroups(delegateRoot, removeDirectory)
             removed.push(entry.name);
         }
         catch
-        {}
+        {
+            // Empty stale manager cleanup is best-effort; active leaves are retained above.
+        }
     }
     return { removed, retainedActive };
 }
 
-export function createProductionResourceEnforcer(options)
+export async function createProductionResourceEnforcer(options)
 {
     const requestedMode = String(options.mode ?? process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto').toLowerCase();
     if (!['auto', 'strict', 'advisory', 'off'].includes(requestedMode))
@@ -261,7 +324,48 @@ export function createProductionResourceEnforcer(options)
     const strict = requestedMode === 'strict' || options.strict === true;
     const runId = safeSegment(options.runId, 'runId');
     const bundleIds = [...new Set(options.bundleIds ?? [])].map((value) => safeSegment(value, 'bundleId'));
-    const capabilities = resolveProductionCgroupCapabilities(options);
+    let capabilities = resolveProductionCgroupCapabilities(options);
+    const systemdOwners = new Map();
+    let systemdTransport = null;
+    let systemdContext = null;
+    const systemdRequested = Boolean(options.systemdBoundary) && !['off', 'advisory'].includes(requestedMode)
+        && (options.platform ?? process.platform) === 'linux';
+    if (systemdRequested)
+    {
+        if (options.delegateRoot || process.env.FSUSBLOG_CGROUP_DELEGATE_ROOT)
+        {
+            throw new Error('systemd resource enforcement cannot substitute for an explicitly selected filesystem delegate root');
+        }
+        const binding = options.systemdBoundary;
+        if (typeof binding.retainBinding !== 'function'
+            || !Number.isSafeInteger(binding.commandBudgetMs) || binding.commandBudgetMs <= 0
+            || !Number.isSafeInteger(binding.startupBudgetMs) || binding.startupBudgetMs <= 0
+            || !binding.context || binding.context.runId !== runId
+            || Object.keys(binding.context).sort().join(',') !== 'namespace,root,runId,schedulerOwnerToken,sourceState')
+        {
+            throw new Error('systemd resource enforcement requires independent retention, exact context and explicit command/startup budgets');
+        }
+        systemdContext = structuredClone(binding.context);
+        try
+        {
+            systemdTransport = options.systemdTransport ?? createSystemdResourceTransport({ commandBudgetMs: binding.commandBudgetMs });
+            const runtime = systemdTransport.runtimeIdentity();
+            capabilities = { status: 'available', reason: null, cgroupVersion: 2,
+                backend: 'systemd-user-manager', delegateRoot: runtime.cgroup.path, controllers: [...controllers],
+                memoryPageBytes: runtime.memoryPageBytes };
+        }
+        catch (error)
+        {
+            // Only an unavailable local capability can become advisory. Identity/protocol failures remain errors.
+            if (!['ENOENT', 'EACCES', 'ENOTSUP'].includes(error.code))
+            {
+                throw error;
+            }
+            capabilities = { status: 'unavailable', reason: `systemd-capability-unavailable:${error.code}`,
+                cgroupVersion: null, backend: 'systemd-user-manager', delegateRoot: null, controllers: [] };
+        }
+    }
+    let machine = Object.freeze({ ...options.machine, memoryPageBytes: 1 });
     const evidence = {
         schema: resourceEnforcementSchema,
         requestedMode,
@@ -269,22 +373,78 @@ export function createProductionResourceEnforcer(options)
         status: capabilities.status,
         reason: capabilities.reason,
         runId,
-        machine: options.machine,
+        machine,
         capabilities,
         cpuPolicy: 'cpu.weight plus cpu.max hard grant ceiling; quota is isolation, never a speed optimization',
-        memoryPolicy: 'memory.high equals the grant; memory.max adds machine-derived safety headroom',
+        memoryPolicy: 'memory.high projects the grant downward to kernel pages; memory.max adds page-aligned machine-derived safety headroom',
         cpusetPolicy: 'disabled unless topology, NUMA, and dynamic redistribution are proven',
         bundles: {},
         cleanup: null,
         generatedAt: new Date().toISOString()
     };
     let runRoot = null;
-    if (!['off', 'advisory'].includes(requestedMode) && capabilities.status === 'available')
+    if (systemdRequested && capabilities.status === 'available')
+    {
+        const binding = options.systemdBoundary;
+        const observedPageBytes = capabilities.memoryPageBytes;
+        if (options.machine?.memoryPageBytes !== undefined && options.machine.memoryPageBytes !== observedPageBytes)
+        {
+            throw new Error('resource enforcer machine page size differs from the observed host');
+        }
+        machine = Object.freeze({ ...options.machine, memoryPageBytes: observedPageBytes });
+        evidence.machine = machine;
+        try
+        {
+            for (const bundleId of bundleIds)
+            {
+                const owner = await prepareProductionSystemdResourceBoundary({ ...systemdContext, bundleId }, {
+                    retainBinding: binding.retainBinding,
+                    commandBudgetMs: binding.commandBudgetMs,
+                    startupBudgetMs: binding.startupBudgetMs,
+                    transport: systemdTransport,
+                    ...(options.systemdControllerIdentity ? { controllerIdentity: options.systemdControllerIdentity } : {}),
+                    ...(options.observeSystemdController ? { observeController: options.observeSystemdController } : {})
+                });
+                systemdOwners.set(bundleId, owner);
+                const state = owner.evidence();
+                evidence.bundles[bundleId] = { path: state.state.unitIdentity.path, grants: [], samples: [], attachedPid: null,
+                    resourceReference: owner.reference, resourceUnitName: state.owner.unitName };
+            }
+            evidence.mode = 'enforced';
+            evidence.status = 'active';
+            evidence.reason = null;
+        }
+        catch (error)
+        {
+            const reconciled = [];
+            for (const [bundleId, owner] of [...systemdOwners].reverse())
+            {
+                try
+                {
+                    reconciled.push({ bundleId, ...owner.cleanup() });
+                }
+                catch (cleanupError)
+                {
+                    reconciled.push({ bundleId, status: 'recovery-required', reference: owner.reference, reason: cleanupError.message });
+                }
+            }
+            error.enforcerSetupCleanup = { priorFailure: error.resourceCleanup ?? null, boundaries: reconciled };
+            throw error;
+        }
+    }
+    else if (!systemdRequested && !['off', 'advisory'].includes(requestedMode) && capabilities.status === 'available')
     {
         const createdDirectories = [];
         let managerRoot = null;
         try
         {
+            const observedPageBytes = memoryPageBytes({});
+            if (options.machine?.memoryPageBytes !== undefined && options.machine.memoryPageBytes !== observedPageBytes)
+            {
+                throw new Error('resource enforcer machine page size differs from the observed host');
+            }
+            machine = Object.freeze({ ...options.machine, memoryPageBytes: observedPageBytes });
+            evidence.machine = machine;
             evidence.managerCleanup = cleanupStaleManagerCgroups(capabilities.delegateRoot, options.removeDirectory);
             try
             {
@@ -391,99 +551,205 @@ export function createProductionResourceEnforcer(options)
         throw new Error(`strict cgroup enforcement unavailable: ${evidence.reason ?? evidence.status}`);
     }
 
-    const update = (bundleIdValue, grant) =>
+    const mode = evidence.mode;
+    const ownedPaths = new Map(Object.entries(evidence.bundles).map(([id, bundle]) => [id, bundle.path]));
+    const admittedGrants = new Map();
+    let closed = false;
+    let closing = false;
+    const requireBundle = (bundleIdValue) =>
     {
         const bundleId = safeSegment(bundleIdValue, 'bundleId');
-        const limits = resolveCgroupLimits(grant, options.machine);
-        const bundle = evidence.bundles[bundleId] ??= { path: null, grants: [], samples: [], attachedPid: null };
-        if (evidence.mode === 'enforced')
+        if (closed)
         {
-            writeControl(path.join(bundle.path, 'cpu.weight'), limits.cpuWeight);
-            writeControl(path.join(bundle.path, 'cpu.max'), limits.cpuMax);
-            const currentMemoryMax = Number(readText(path.join(bundle.path, 'memory.max')));
-            if (Number.isFinite(currentMemoryMax) && currentMemoryMax < limits.memoryMaxBytes)
+            throw new Error('resource enforcement owner is closed');
+        }
+        if (closing)
+        {
+            throw new Error('resource enforcement owner is finalizing retained resources');
+        }
+        if (mode === 'enforced' && (!ownedPaths.has(bundleId)
+            || evidence.bundles[bundleId]?.path !== ownedPaths.get(bundleId)))
+        {
+            throw new Error('resource enforcement requires an unchanged owned bundle path');
+        }
+        const bundle = evidence.bundles[bundleId] ??= { path: null, grants: [], samples: [], attachedPid: null };
+        return { bundleId, bundle };
+    };
+    const verifyGrant = (bundleId, bundle, limits) =>
+    {
+        bundle.effectiveLimits = null;
+        bundle.consistency = { status: 'unverified' };
+        try
+        {
+            if (systemdOwners.has(bundleId))
             {
-                writeControl(path.join(bundle.path, 'memory.max'), limits.memoryMaxBytes);
-                writeControl(path.join(bundle.path, 'memory.high'), limits.memoryHighBytes);
+                systemdOwners.get(bundleId).assertAdmitted();
+            }
+            bundle.effectiveLimits = sampleCgroup(ownedPaths.get(bundleId));
+            bundle.consistency = grantConsistency(limits, bundle.effectiveLimits);
+            if (bundle.consistency.status !== 'consistent')
+            {
+                throw new Error('effective process controls differ from the declared resource grant');
+            }
+        }
+        catch (error)
+        {
+            admittedGrants.delete(bundleId);
+            throw error;
+        }
+    };
+    const update = (bundleIdValue, grant) =>
+    {
+        const { bundleId, bundle } = requireBundle(bundleIdValue);
+        admittedGrants.delete(bundleId);
+        bundle.consistency = { status: 'unverified' };
+        const limits = resolveCgroupLimits(grant, machine);
+        if (mode === 'enforced')
+        {
+            const [quotaUs, periodUs] = limits.cpuMax.split(' ').map(Number);
+            if (quotaUs / periodUs > limits.cpuUnits)
+            {
+                throw new Error('cgroup CPU grant is below the minimum representable process quota');
+            }
+            if (limits.memoryHighBytes > Math.round(limits.memoryGiB * bytesPerGiB))
+            {
+                throw new Error('cgroup memory grant is below the minimum 16 MiB process envelope');
+            }
+            if (systemdOwners.has(bundleId))
+            {
+                systemdOwners.get(bundleId).update(limits);
             }
             else
             {
-                writeControl(path.join(bundle.path, 'memory.high'), limits.memoryHighBytes);
-                writeControl(path.join(bundle.path, 'memory.max'), limits.memoryMaxBytes);
+                writeControl(path.join(bundle.path, 'cpu.weight'), limits.cpuWeight);
+                writeControl(path.join(bundle.path, 'cpu.max'), limits.cpuMax);
+                const currentMemoryMax = Number(readText(path.join(bundle.path, 'memory.max')));
+                if (Number.isFinite(currentMemoryMax) && currentMemoryMax < limits.memoryMaxBytes)
+                {
+                    writeControl(path.join(bundle.path, 'memory.max'), limits.memoryMaxBytes);
+                    writeControl(path.join(bundle.path, 'memory.high'), limits.memoryHighBytes);
+                }
+                else
+                {
+                    writeControl(path.join(bundle.path, 'memory.high'), limits.memoryHighBytes);
+                    writeControl(path.join(bundle.path, 'memory.max'), limits.memoryMaxBytes);
+                }
+                writeControl(path.join(bundle.path, 'pids.max'), limits.pidsMax);
             }
-            writeControl(path.join(bundle.path, 'pids.max'), limits.pidsMax);
+            verifyGrant(bundleId, bundle, limits);
         }
+        else
+        {
+            bundle.effectiveLimits = null;
+            bundle.consistency = { status: 'advisory', declaredGrant: { cpuUnits: limits.cpuUnits, memoryGiB: limits.memoryGiB } };
+        }
+        admittedGrants.set(bundleId, Object.freeze({ ...limits }));
         const previous = bundle.grants.at(-1);
         if (!previous || previous.cpuMax !== limits.cpuMax
-      || previous.cpuWeight !== limits.cpuWeight
-      || previous.memoryHighBytes !== limits.memoryHighBytes
-      || previous.memoryMaxBytes !== limits.memoryMaxBytes
-      || previous.pidsMax !== limits.pidsMax)
+            || previous.cpuWeight !== limits.cpuWeight
+            || previous.memoryHighBytes !== limits.memoryHighBytes
+            || previous.memoryMaxBytes !== limits.memoryMaxBytes
+            || previous.pidsMax !== limits.pidsMax)
         {
             bundle.grants.push({ ...limits, effectiveAt: new Date().toISOString() });
         }
-        bundle.effectiveLimits = evidence.mode === 'enforced' ? sampleCgroup(bundle.path) : null;
-        bundle.consistency = evidence.mode === 'enforced' ? {
-      status: bundle.effectiveLimits.cpuMax === limits.cpuMax
-        && bundle.effectiveLimits.cpuWeight === String(limits.cpuWeight)
-        && bundle.effectiveLimits.memoryHigh === String(limits.memoryHighBytes)
-        && bundle.effectiveLimits.memoryMax === String(limits.memoryMaxBytes)
-        && bundle.effectiveLimits.pidsMax === String(limits.pidsMax)
-        ? 'consistent' : 'mismatch',
-      declaredGrant: { cpuUnits: limits.cpuUnits, memoryGiB: limits.memoryGiB },
-      expected: {
-        cpuMax: limits.cpuMax, cpuWeight: String(limits.cpuWeight),
-        memoryHigh: String(limits.memoryHighBytes), memoryMax: String(limits.memoryMaxBytes), pidsMax: String(limits.pidsMax)
-      },
-      effective: {
-        cpuMax: bundle.effectiveLimits.cpuMax, cpuWeight: bundle.effectiveLimits.cpuWeight,
-        memoryHigh: bundle.effectiveLimits.memoryHigh, memoryMax: bundle.effectiveLimits.memoryMax,
-        pidsMax: bundle.effectiveLimits.pidsMax
-      }
-    } : { status: 'advisory', declaredGrant: { cpuUnits: limits.cpuUnits, memoryGiB: limits.memoryGiB } };
-        return { ...limits, mode: evidence.mode, cgroupPath: bundle.path };
+        return { ...limits, mode, cgroupPath: bundle.path };
     };
-    const attach = (bundleIdValue, pid) =>
+    const attach = async (bundleIdValue, pid, identity = null) =>
     {
-        const bundleId = safeSegment(bundleIdValue, 'bundleId');
-        const bundle = evidence.bundles[bundleId] ??= { path: null, grants: [], samples: [], attachedPid: null };
+        const { bundleId, bundle } = requireBundle(bundleIdValue);
         if (!Number.isInteger(Number(pid)) || Number(pid) <= 0)
         {
             throw new Error('cgroup attach requires a positive PID');
         }
-        if (evidence.mode === 'enforced')
+        if (mode === 'enforced')
         {
-            writeControl(path.join(bundle.path, 'cgroup.procs'), Number(pid));
+            const limits = admittedGrants.get(bundleId);
+            if (!limits)
+            {
+                throw new Error('cgroup attach requires a verified current resource grant');
+            }
+            verifyGrant(bundleId, bundle, limits);
+            if (systemdOwners.has(bundleId))
+            {
+                if (identity?.pid !== Number(pid))
+                {
+                    throw new Error('systemd resource attachment requires the exact registered launcher identity');
+                }
+                bundle.launcherAdmission = await systemdOwners.get(bundleId).attachLauncher(identity, {
+                    startupBudgetMs: options.systemdBoundary.startupBudgetMs
+                });
+            }
+            else
+            {
+                writeControl(path.join(bundle.path, 'cgroup.procs'), Number(pid));
+                const members = String(readText(path.join(bundle.path, 'cgroup.procs')) ?? '').split(/\s+/u).map(Number);
+                if (!members.includes(Number(pid)))
+                {
+                    throw new Error('cgroup attach membership read-back does not contain the admitted PID');
+                }
+            }
+            verifyGrant(bundleId, bundle, limits);
         }
         bundle.attachedPid = Number(pid);
-        bundle.attachStatus = evidence.mode === 'enforced' ? 'attached' : 'advisory';
+        bundle.attachStatus = mode === 'enforced' ? 'attached' : 'advisory';
         return bundle.attachStatus;
     };
     const sample = () =>
     {
-        for (const bundle of Object.values(evidence.bundles))
+        for (const [bundleId, directory] of ownedPaths)
         {
-            if (evidence.mode === 'enforced' && bundle.path)
+            const bundle = evidence.bundles[bundleId];
+            if (mode === 'enforced' && directory)
             {
                 if (bundle.samples.length >= 4096)
                 {
                     bundle.samples = bundle.samples.filter((_, index) => index % 2 === 0);
                 }
-                bundle.samples.push(sampleCgroup(bundle.path));
+                bundle.samples.push(sampleCgroup(directory));
             }
         }
         return evidence;
     };
     const cleanup = () =>
     {
+        if (closed)
+        {
+            return evidence.cleanup;
+        }
+        closing = true;
+        admittedGrants.clear();
         sample();
-        if (evidence.mode !== 'enforced' || !runRoot)
+        if (systemdOwners.size > 0)
+        {
+            const boundaries = [];
+            for (const [bundleId, owner] of systemdOwners)
+            {
+                try
+                {
+                    boundaries.push({ bundleId, ...owner.cleanup() });
+                }
+                catch (error)
+                {
+                    boundaries.push({ bundleId, status: 'recovery-required', reference: owner.reference, reason: error.message });
+                }
+            }
+            const removed = boundaries.every((entry) => entry.status === 'removed');
+            evidence.cleanup = { status: removed ? 'removed' : 'retained-resources', boundaries, completedAt: new Date().toISOString() };
+            if (removed)
+            {
+                admittedGrants.clear();
+                closed = true;
+            }
+            return evidence.cleanup;
+        }
+        if (mode !== 'enforced' || !runRoot)
         {
             evidence.cleanup = { status: 'not-applicable', completedAt: new Date().toISOString() };
             return evidence.cleanup;
         }
-        const busy = Object.entries(evidence.bundles).filter(([, bundle]) =>
-            String(readText(path.join(bundle.path, 'cgroup.procs')) ?? '').trim() !== '');
+        const busy = [...ownedPaths].filter(([, directory]) =>
+            String(readText(path.join(directory, 'cgroup.procs')) ?? '').trim() !== '');
         if (busy.length)
         {
             evidence.cleanup = { status: 'retained-active', bundles: busy.map(([bundleId]) => bundleId), completedAt: new Date().toISOString() };
@@ -492,9 +758,9 @@ export function createProductionResourceEnforcer(options)
         try
         {
             const removeDirectory = options.removeDirectory ?? ((directory) => fs.rmdirSync(directory));
-            for (const bundle of Object.values(evidence.bundles))
+            for (const directory of ownedPaths.values())
             {
-                removeDirectory(bundle.path);
+                removeDirectory(directory);
             }
             removeDirectory(runRoot);
             const campaignRoot = path.dirname(runRoot);
@@ -510,6 +776,8 @@ export function createProductionResourceEnforcer(options)
                 }
             }
             evidence.cleanup = { status: 'removed', completedAt: new Date().toISOString() };
+            admittedGrants.clear();
+            closed = true;
         }
         catch (error)
         {
@@ -518,18 +786,42 @@ export function createProductionResourceEnforcer(options)
         return evidence.cleanup;
     };
     return {
-        mode: evidence.mode,
+        mode,
         capabilities,
         update,
         attach,
         sample,
         cleanup,
+        executionBoundary(bundleIdValue)
+        {
+            const { bundleId, bundle } = requireBundle(bundleIdValue);
+            const owner = systemdOwners.get(bundleId);
+            if (!owner)
+            {
+                return null;
+            }
+            const limits = admittedGrants.get(bundleId);
+            if (!limits)
+            {
+                throw new Error('systemd execution boundary requires a verified current resource grant');
+            }
+            verifyGrant(bundleId, bundle, limits);
+            return owner.executionBoundary(() =>
+            {
+                requireBundle(bundleId);
+                const current = admittedGrants.get(bundleId);
+                if (!current)
+                {
+                    throw new Error('systemd execution boundary lost its verified current resource grant');
+                }
+                verifyGrant(bundleId, bundle, current);
+            });
+        },
         environment(bundleId)
         {
-            const bundle = evidence.bundles[safeSegment(bundleId, 'bundleId')];
             return {
-                FSUSBLOG_CGROUP_ENFORCEMENT_MODE: evidence.mode,
-                FSUSBLOG_CGROUP_BUNDLE_PATH: bundle?.path ?? '',
+                FSUSBLOG_CGROUP_ENFORCEMENT_MODE: mode,
+                FSUSBLOG_CGROUP_BUNDLE_PATH: mode === 'enforced' ? (ownedPaths.get(safeSegment(bundleId, 'bundleId')) ?? '') : '',
                 FSUSBLOG_CGROUP_ENFORCEMENT_REASON: evidence.reason ?? ''
             };
         },
