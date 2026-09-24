@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { digestCatalog } from '../../contracts/behavior-contract-catalog.mjs'
+import { validateMinimalContractBuildReceipt } from '../../docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
+import { buildIdentitySchema, digestPath, resolveContainedPath, validateBuildIdentity } from '../identity.mjs';
 import { digestValue } from '../lib/canonicalize.mjs'
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json'
@@ -370,6 +372,76 @@ function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
   return { failureReasons, receipt }
 }
 
+function validateMinimalBuildReceipt(context)
+{
+    const failureReasons = [];
+    const receiptPath = context.buildReceiptPath;
+    if (typeof receiptPath !== 'string'
+    || !/^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}\/receipts\/[A-Za-z0-9_.-]+\.json$/u.test(receiptPath))
+    {
+        return { failureReasons: ['canonical minimal-build receipt path is missing or invalid'], receipt: null };
+    }
+    const sourceIdentity = {
+        sourceCommit: context.sourceCommit,
+        worktreeFingerprint: context.worktreeFingerprint
+    };
+    if (!/^[a-f0-9]{40}$/u.test(sourceIdentity.sourceCommit ?? '')
+    || !/^[a-f0-9]{64}$/u.test(sourceIdentity.worktreeFingerprint ?? ''))
+    {
+        return { failureReasons: ['canonical minimal-build source identity is missing'], receipt: null };
+    }
+    let absoluteReceiptPath;
+    try
+    {
+        absoluteReceiptPath = resolveContainedPath(context.repositoryRoot, receiptPath);
+    }
+    catch (error)
+    {
+        return { failureReasons: [error instanceof Error ? error.message : String(error)], receipt: null };
+    }
+    const minimalReceipt = readJson(absoluteReceiptPath, 'canonical minimal-build receipt', failureReasons);
+    if (minimalReceipt == null)
+    {
+        return { failureReasons, receipt: null };
+    }
+    try
+    {
+        validateBuildIdentity(context.buildIdentity, expectedArtifactId, {
+            repositoryRoot: context.repositoryRoot,
+            receiptPath,
+            receipt: minimalReceipt,
+            expectedSourceIdentity: sourceIdentity
+        });
+    }
+    catch (error)
+    {
+        return { failureReasons: [error instanceof Error ? error.message : String(error)], receipt: null };
+    }
+    try
+    {
+        validateMinimalContractBuildReceipt(minimalReceipt, {
+            expectedRunId: path.posix.basename(receiptPath, '.json'),
+            expectedSourceIdentity: sourceIdentity,
+            repositoryRoot: context.repositoryRoot,
+            readArtifactDigest: digestPath
+        });
+    }
+    catch (error)
+    {
+        failureReasons.push(error instanceof Error ? error.message : String(error));
+    }
+    if (receiptPath !== `${minimalReceipt.buildRoot}/receipts/${minimalReceipt.runId}.json`)
+    {
+        failureReasons.push('canonical minimal-build receipt path does not bind its build key and run');
+    }
+    return {
+        failureReasons,
+        receipt: failureReasons.length === 0
+            ? { artifactDigest: minimalReceipt.artifacts[expectedArtifactId].artifactDigest, observationDigest: null }
+            : null
+    };
+}
+
 const encodedKey = (prefix, identity) => `${prefix}_${Buffer.from(String(identity), 'utf8').toString('hex')}`
 const compactObject = (entries) => Object.fromEntries(entries.filter(([, value]) => value != null))
 
@@ -490,7 +562,17 @@ export function extract(context)
     }
   }
 
-  const receiptValidation = validateExactBuildReceipt(context.repositoryRoot, buildIdentity)
+  let receiptValidation;
+  if (Object.hasOwn(buildIdentity, 'schema'))
+  {
+    receiptValidation = buildIdentity.schema === buildIdentitySchema
+      ? validateMinimalBuildReceipt(context)
+      : { failureReasons: ['unknown canonical buildIdentity schema'], receipt: null };
+  }
+  else
+  {
+    receiptValidation = validateExactBuildReceipt(context.repositoryRoot, buildIdentity);
+  }
   if (receiptValidation.failureReasons.length > 0)
   {
     return {
@@ -582,7 +664,8 @@ export function extract(context)
     failureReasons.push('active/retired/migration/AEDS-only protocol states do not match canonical aeds-protocol.json')
   }
   if (observation.observationDigest !== observationContentDigest(observation)
-    || buildReceipt.observationDigest !== observation.observationDigest)
+    || (buildReceipt.observationDigest !== null
+      && buildReceipt.observationDigest !== observation.observationDigest))
   {
     failureReasons.push('observationDigest does not match current observation content and build receipt')
   }

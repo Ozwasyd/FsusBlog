@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -12,6 +12,8 @@ const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, rea
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
+const { buildIdentitySchema } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
+const { hostDeclarations, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs", import.meta.url));
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
@@ -146,6 +148,133 @@ function rewriteReceipt(repositoryRoot, mutate)
         artifactId: receipt.buildIdentity.artifactId,
         receiptDigest: receipt.buildIdentity.receiptDigest,
         artifactDigest: receipt.buildIdentity.artifactDigest
+    };
+}
+
+function writeMinimalBuildReceipt(repositoryRoot, sealedObservation)
+{
+    const sourceIdentity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    const runId = 'openapi-minimal-test';
+    const sourceClosureDigests = ['Directory.Build.props', 'Directory.Packages.props'].map((relative) =>
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        writeFileSync(absolute, `fixture source: ${relative}\n`);
+        return { path: relative, digest: sha256(readFileSync(absolute)) };
+    });
+    const toolchain = { dotnet: '10.0.100', configuration: 'Release', targetFramework: 'net10.0' };
+    const buildKey = digestValue({ sourceIdentity, toolchain, sourceClosureDigests });
+    const buildRoot = `.tmp/behavior-doc-contract-builds/${buildKey}`;
+    const runtimeBuildRoot = `.tmp/runtime-role-reproducible-builds/${buildKey}`;
+    const assemblyPath = `${runtimeBuildRoot}/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll`;
+    const deploymentPath = `${buildRoot}/observations/runtime-role-deployment-observation.json`;
+    const writeText = (relative, value) =>
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, value);
+        return sha256(readFileSync(absolute));
+    };
+    const assemblyDigest = writeText(assemblyPath, 'fixture assembly');
+    const deploymentDigest = writeText(deploymentPath, 'fixture deployment');
+    const artifacts = Object.fromEntries(Object.entries(hostDeclarations).map(([artifactId, declaration]) =>
+    {
+        const projectDigest = writeText(declaration.project, `fixture project: ${artifactId}`);
+        const artifactPath = `${buildRoot}/${declaration.cacheFile}`;
+        const bytes = artifactId === 'openapi-aeds-observation'
+            ? readFileSync(sealedObservation.absolute)
+            : Buffer.from(`fixture artifact: ${artifactId}\n`);
+        const artifactDigest = writeText(artifactPath, bytes);
+        writeText(declaration.output, bytes);
+        const buildReceipt = {
+            schema: declaration.buildReceiptSchema,
+            artifactId,
+            artifactPath: declaration.output,
+            artifactDigest,
+            configuration: 'Release'
+        };
+        const artifact = {
+            project: declaration.project,
+            projectDigest,
+            path: artifactPath,
+            artifactPath: declaration.output,
+            artifactDigest,
+            buildReceipt
+        };
+        if (artifactId === 'runtime-role-observation')
+        {
+            Object.assign(artifact, {
+                assemblyPath,
+                assemblyDigest,
+                deploymentArtifactPath: deploymentPath,
+                deploymentArtifactDigest: deploymentDigest
+            });
+            Object.assign(buildReceipt, {
+                sourceCommit: sourceIdentity.sourceCommit,
+                worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+                projectDigest,
+                assemblyPath,
+                assemblyDigest,
+                reproducibleBuild: {
+                    schema: 'fsusblog.runtime-role-reproducible-build-attestation.v1',
+                    project: declaration.project,
+                    command: [
+                        'dotnet', 'build', declaration.project, '--configuration', 'Release',
+                        '--no-incremental', '--disable-build-servers', '--artifacts-path',
+                        runtimeBuildRoot,
+                        '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
+                        runtimeReproduciblePathMapArgument,
+                        '/p:NuGetAudit=false', '/m:1'
+                    ],
+                    outputRoot: runtimeBuildRoot,
+                    assemblyPath,
+                    assemblyDigest,
+                    sourceClosureDigest: digestValue(sourceClosureDigests)
+                },
+                deploymentArtifactPath: deploymentPath,
+                deploymentArtifactDigest: deploymentDigest,
+                producer: 'dotnet-run-content-addressed-minimal-contract-host',
+                externalOracle: 'docker-compose-config-json-no-interpolate',
+                externalOracleVersion: '5.3.1',
+                dockerExecutable: { canonicalPath: '/usr/bin/docker', digest: '6'.repeat(64), version: '29.6.2' },
+                composeImplementation: { canonicalPath: '/usr/lib/docker/cli-plugins/docker-compose', digest: '7'.repeat(64), version: '5.3.1' },
+                effectiveComposeModelDigest: `sha256:${'5'.repeat(64)}`,
+                deploymentAuthoritySchema: 'fsusblog.monolithic-distributed-architecture.v2',
+                deploymentAuthorityContentDigest: `sha256:${'1'.repeat(64)}`,
+                deploymentObservationDigest: `sha256:${'2'.repeat(64)}`
+            });
+        }
+        return [artifactId, artifact];
+    }));
+    const body = {
+        schema: 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1',
+        runId,
+        ...sourceIdentity,
+        toolchain,
+        buildKey,
+        buildRoot,
+        sourceClosureDigests,
+        sourceDigest: digestValue(sourceClosureDigests),
+        artifacts,
+        status: 'ok',
+        failureReasons: []
+    };
+    const receipt = { ...body, contentDigest: null };
+    receipt.contentDigest = digestValue(receipt);
+    const receiptPath = `${buildRoot}/receipts/${runId}.json`;
+    writeText(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+    return {
+        repositoryRoot,
+        buildReceiptPath: receiptPath,
+        sourceCommit: sourceIdentity.sourceCommit,
+        worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+        buildIdentity: {
+            schema: buildIdentitySchema,
+            artifactId: 'openapi-aeds-observation',
+            receiptDigest: receipt.contentDigest,
+            artifactDigest: artifacts['openapi-aeds-observation'].artifactDigest,
+            sourceDigests: sourceClosureDigests,
+            sourceDigest: body.sourceDigest
+        }
     };
 }
 
@@ -615,6 +744,79 @@ test('extractor accepts sealed observation and emits operation map', () =>
         assert.equal(result.observations.operationCount, 2);
         assert.equal(result.observations.operations.binary_post_admin_article.auth, 'admin');
         assert.equal(result.observations.operations.binary_post_admin_article.pow, true);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('extractor accepts the exact BehaviorDoc minimal-build receipt without an ambient OpenAPI receipt', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-receipt-'));
+    try
+    {
+        const context = writeMinimalBuildReceipt(directory, writeObservation(directory, sampleObservation()));
+        rmSync(path.join(directory, buildReceiptRelative));
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'ok', result.failureReasons.join('\n'));
+        assert.equal(result.observations.operationCount, 2);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('BehaviorDoc minimal-build identity rejects absent, mismatched and ambient receipt bindings', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-reject-'));
+    try
+    {
+        const context = writeMinimalBuildReceipt(directory, writeObservation(directory, sampleObservation()));
+        const cases = [
+            [{ ...context, buildReceiptPath: null }, /receipt path/u],
+            [{ ...context, sourceCommit: 'f'.repeat(40) }, /source\/worktree identity mismatch/u],
+            [{ ...context, buildIdentity: { ...context.buildIdentity, artifactDigest: '0'.repeat(64) } }, /artifact identity|digest mismatch/u],
+            [{ ...context, buildReceiptPath: buildReceiptRelative }, /receipt path/u],
+            [{ ...context, buildIdentity: { ...context.buildIdentity, schema: 'untrusted' } }, /unknown canonical buildIdentity schema/u]
+        ];
+        for (const [candidate, reason] of cases)
+        {
+            const result = extractOpenApi(candidate);
+            assert.equal(result.status, 'failed');
+            assert.match(result.failureReasons.join('\n'), reason);
+        }
+        const observationPath = path.join(directory, observationRelative);
+        writeFileSync(observationPath, '{}\n');
+        const stale = extractOpenApi(context);
+        assert.equal(stale.status, 'failed');
+        assert.match(stale.failureReasons.join('\n'), /artifact digest mismatch/u);
+        const receiptPath = path.join(directory, context.buildReceiptPath);
+        const receiptBytes = readFileSync(receiptPath);
+        rmSync(receiptPath);
+        writeFileSync(`${receiptPath}.target`, receiptBytes);
+        symlinkSync(`${path.basename(receiptPath)}.target`, receiptPath);
+        const linked = extractOpenApi(context);
+        assert.equal(linked.status, 'failed');
+        assert.match(linked.failureReasons.join('\n'), /symbolic link/u);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('BehaviorDoc minimal-build receipt still rejects reverse-generated OpenAPI observation', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-reverse-'));
+    try
+    {
+        const observation = sampleObservation({ source: 'checked-in-openapi' });
+        const context = writeMinimalBuildReceipt(directory, writeObservation(directory, observation));
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /reverse-generated from checked-in OpenAPI/u);
     }
     finally
     {
