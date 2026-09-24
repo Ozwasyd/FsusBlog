@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/lanes/static-governance.sh"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "3d740c1a66644600c5cd14c4b78bfe1cda18b681a90d3e1eca8f40236596b02b"
+        }
+    ]
+}
