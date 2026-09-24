@@ -12,7 +12,6 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/testing.md",
                 "docs/testing/content-addressed-evidence-storage.md",
                 "docs/testing/issue-1069-run-bound-production-builds.md",
                 "docs/testing/issue-1072-production-resource-enforcement.md"
@@ -22,7 +21,6 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/run-test-matrix.mjs",
                 "tools/test-matrix/content-addressed-evidence-store.mjs",
                 "tools/test-matrix/production-build-layout.mjs",
                 "tools/test-matrix/production-build-lifecycle.mjs",
