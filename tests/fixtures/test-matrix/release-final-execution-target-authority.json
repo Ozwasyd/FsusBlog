@@ -1500,8 +1500,8 @@
         },
         {
             "path": "tests/tools/test-matrix-resource-boundary.test.mjs",
-            "contentDigest": "sha256:e9fcd472b0a391132a97448c118755e916e26869780e38787cae22a4cbda0ef9",
-            "indexDigest": "sha256:e9fcd472b0a391132a97448c118755e916e26869780e38787cae22a4cbda0ef9"
+            "contentDigest": "sha256:b0d10144da1030424a79ba6f5c956c59b30941df0953883f346e56de0705873e",
+            "indexDigest": "sha256:b0d10144da1030424a79ba6f5c956c59b30941df0953883f346e56de0705873e"
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
@@ -3660,8 +3660,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:3f5c3074e4d40ab4919fdc5f9cacb91239f35b03404d66ecb0dbc818f28bba06",
-            "indexDigest": "sha256:3f5c3074e4d40ab4919fdc5f9cacb91239f35b03404d66ecb0dbc818f28bba06"
+            "contentDigest": "sha256:b93631791842f42a7ea5625d663ac988014f4e448f9cea399e46a70bb463fb40",
+            "indexDigest": "sha256:b93631791842f42a7ea5625d663ac988014f4e448f9cea399e46a70bb463fb40"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",

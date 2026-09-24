@@ -8,12 +8,13 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { RunEvidenceObjectStore } from '../../tools/test-matrix/content-addressed-evidence-store.mjs';
-import { bindResidentLeaseEnforcement, createResidentLeaseInventory } from '../../tools/test-matrix/resident-resource-leases.mjs';
-import { sealSchedulerRunOwner } from '../../tools/test-matrix/scheduler-run-owner.mjs';
-import * as scheduler from '../../tools/test-matrix/scheduler.mjs';
-import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
 import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-runner.mjs';
+import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
+
+const { RunEvidenceObjectStore } = await import(new URL('../../tools/test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
+const { bindResidentLeaseEnforcement, createResidentLeaseInventory } = await import(new URL('../../tools/test-matrix/resident-resource-leases.mjs', import.meta.url));
+const { sealSchedulerRunOwner } = await import(new URL('../../tools/test-matrix/scheduler-run-owner.mjs', import.meta.url));
+const scheduler = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
