@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { recordCheckpointFailure } from '../../../tools/test-matrix/scheduler.mjs';
+const { recordCheckpointFailure } = await import(new URL('../../../tools/test-matrix/scheduler.mjs', import.meta.url));
 
 if (process.argv.length !== 4)
 {

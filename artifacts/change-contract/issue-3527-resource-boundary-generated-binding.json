@@ -6,7 +6,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "3d740c1a66644600c5cd14c4b78bfe1cda18b681a90d3e1eca8f40236596b02b"
+            "sha256": "5c78597beca6734d1f887cc3d5ba223136b3021ea1a2e58b3df386297829ada3"
         }
     ]
 }

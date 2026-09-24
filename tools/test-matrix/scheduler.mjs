@@ -33,8 +33,6 @@ import {
 } from '../test/physical-execution-process-tree.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler observations reuse the canonical process identity collector.
 import { collectProcessIdentity } from '../test/process-identity.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Resident transfer binds the canonical owner receipt digest.
-import { digestCanonical } from '../test-fixtures/receipt/canonical.mjs';
 import {
     validateRunBoundConsumerEvidence,
     validateRunBoundProjection
@@ -49,13 +47,14 @@ import {
 import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Temporal replay validation is shared with the execution owner.
 import { verifyTemporalReplay } from '../test/temporal-context.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Resident transfer binds the canonical owner receipt digest.
+import { digestCanonical } from '../test-fixtures/receipt/canonical.mjs';
 
 import {
     readAndValidateArtifactDigestTable,
     validateArtifactRefs
 } from './artifact-digest-table.mjs';
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs';
-import { inspectProductionSystemdServiceBinding } from './production-systemd-resource-boundary.mjs';
 import { RunEvidenceObjectStore } from './content-addressed-evidence-store.mjs';
 import {
     artifactSubstitutionBindingDigest,
@@ -63,6 +62,7 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
+import { inspectProductionSystemdServiceBinding } from './production-systemd-resource-boundary.mjs';
 import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 import {
     applyReleaseFinalizerSpawnDecision,
