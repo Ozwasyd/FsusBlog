@@ -106,6 +106,12 @@ const normalizeIdentifier = (value) => canonicalMachineText(value).toLowerCase()
 const canonicalField = (parts) => parts.map((part, index) => index === 0 ? part : `${part[0].toUpperCase()}${part.slice(1)}`).join('')
 const fieldMap = (parts) => new Map(parts.map((entry) => [normalizeIdentifier(entry.join('')), canonicalField(entry)]))
 const forbiddenMachineFields = fieldMap(forbiddenMachineFieldParts)
+const qualificationOnlyMachineFields = new Set([
+    ['expected', 'value'],
+    ['baseline', 'value'],
+    ['verified', 'at'],
+    ['waiver']
+].map(canonicalField))
 const booleanSelfCertificationFields = fieldMap(booleanSelfCertificationParts)
 const evidenceSelectionFields = fieldMap(evidenceSelectionRuleParts())
 const authorityResidueFields = fieldMap(authorityResidueRuleParts())
@@ -381,7 +387,7 @@ function isForbiddenMachineField(normalized, qualification)
 {
     const canonical = forbiddenMachineFields.get(normalized)
     if (!canonical) return null
-    if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
+    if (!qualification && qualificationOnlyMachineFields.has(canonical)) return null
     return canonical
 }
 
