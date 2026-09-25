@@ -3,6 +3,7 @@ import { lstatSync, readFileSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
+import { maskCSharpTrivia } from '../test/csharp-source-mask.mjs'
 
 // This is the last trusted master before retrospective post-baseline admission.
 // Moving the anchor is a governance change, not a candidate-ledger operation.
@@ -49,22 +50,41 @@ function readRegularFile(root, path)
 export function historicalXunitMethodPresent(source, className, methodName)
 {
   if (typeof source !== 'string') return false
-  const lines = source.split(/\r?\n/u)
-  const classDeclaration = /^\s*(?:public|internal|private)\s+(?:sealed\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)\b/u
-  const declaration = new RegExp(
-    `^\\s*public\\s+(?:async\\s+)?(?:void|Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?)\\s+${methodName}\\s*\\(`,
-    'u'
-  )
-  let owner = null
-  return lines.some((line, index) =>
+  const masked = maskCSharpTrivia(source)
+  const depths = new Uint32Array(masked.length + 1)
+  let depth = 0
+  for (let index = 0; index < masked.length; index += 1)
   {
-    const foundClass = classDeclaration.exec(line)
-    if (foundClass) owner = foundClass[1]
-    if (owner !== className || !declaration.test(line)) return false
-    let previous = index - 1
-    while (previous >= 0 && !lines[previous].trim()) previous -= 1
-    return previous >= 0 && /^\s*\[(?:Fact|Theory)\]\s*$/u.test(lines[previous])
-  })
+    if (masked[index] === '{') depth += 1
+    else if (masked[index] === '}') depth = Math.max(0, depth - 1)
+    depths[index + 1] = depth
+  }
+  const classDeclaration = /^[ \t]*(?:(?:public|internal|private|protected|abstract|sealed|static|partial)\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)\b/gmu
+  const declaration = new RegExp(
+    `^[ \\t]*public[ \\t]+(?:async[ \\t]+)?(?:void|Task(?:<[^>\\n]+>)?|ValueTask(?:<[^>\\n]+>)?)[ \\t]+${methodName}[ \\t]*\\(`,
+    'gmu'
+  )
+  for (const classMatch of masked.matchAll(classDeclaration))
+  {
+    if (classMatch[1] !== className) continue
+    const opening = masked.indexOf('{', classMatch.index + classMatch[0].length)
+    if (opening < 0) continue
+    const bodyDepth = depths[opening + 1]
+    let closing = opening + 1
+    while (closing < masked.length && !(masked[closing] === '}' && depths[closing] === bodyDepth))
+      closing += 1
+    if (closing === masked.length) continue
+    const body = masked.slice(opening + 1, closing)
+    for (const methodMatch of body.matchAll(declaration))
+    {
+      const methodOffset = opening + 1 + methodMatch.index
+      if (depths[methodOffset] !== bodyDepth) continue
+      const preceding = masked.slice(opening + 1, methodOffset)
+        .trimEnd().split(/\r?\n/u).at(-1)?.trim()
+      if (/^\[(?:Fact|Theory)\]$/u.test(preceding ?? '')) return true
+    }
+  }
+  return false
 }
 
 function validateV2Record({ root, record, baseline, anchorCommit })

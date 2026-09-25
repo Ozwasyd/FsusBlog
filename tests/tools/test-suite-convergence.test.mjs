@@ -142,8 +142,11 @@ test('historical xUnit identity rejects comments, missing attributes and another
   const legitimate = 'public class OldTests\n{\n    [Fact]\n    public void Removed() {}\n}'
   assert.equal(historicalXunitMethodPresent(legitimate, 'OldTests', 'Removed'), true)
   assert.equal(historicalXunitMethodPresent('// public class OldTests\n// [Fact]\n// public void Removed() {}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('/*\npublic class OldTests\n{\n    [Fact]\n    public void Removed() {}\n}\n*/', 'OldTests', 'Removed'), false)
   assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
   assert.equal(historicalXunitMethodPresent('public class OldTests\n{}\npublic class OtherTests\n{\n    [Fact]\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{}\n[Fact]\npublic void Removed() {}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n    class NestedTests\n    {\n        [Fact]\n        public void Removed() {}\n    }\n}', 'OldTests', 'Removed'), false)
 })
 
 test('post-baseline history ignores local Git replacement objects', () => {
