@@ -775,7 +775,8 @@ function readAssignmentValue(source, valueStart, commentStyle)
     let valueText = ''
     let quote = null
     let nesting = 0
-    const previousSignificant = () => {
+    const previousSignificant = () =>
+    {
         let previous = valueText.length - 1
         while (previous >= 0 && /\s/u.test(valueText[previous])) previous -= 1
         return valueText[previous] ?? ''
@@ -1134,7 +1135,10 @@ function structuralNodeIdentity(node, parser)
     const shape = (current) =>
     {
         const children = []
-        parser.forEachChild(current, (child) => { children.push(shape(child)) })
+        parser.forEachChild(current, (child) =>
+        {
+            children.push(shape(child))
+        })
         return [current.kind, parser.isSourceFile(current) ? null : typeof current.text === 'string' ? current.text : null, children]
     }
     return createHash('sha256').update(JSON.stringify(shape(node))).digest('hex')
@@ -1210,7 +1214,10 @@ function assertedFixtureProperties(sourceFile, parser, context)
         if (fs.realpathSync(canonicalScanner) !== canonicalScanner
             || !fs.readFileSync(canonicalScanner).equals(fs.readFileSync(path.join(root, scannerImplementationPath)))) return new Set()
     }
-    catch { return new Set() }
+    catch
+    {
+        return new Set()
+    }
     const properties = new Set()
     for (const statement of sourceFile.statements)
     {
@@ -1548,7 +1555,8 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         lineStarts.push(index + terminatorLength)
         index += terminatorLength - 1
     }
-    const lineAt = (target) => {
+    const lineAt = (target) =>
+    {
         let low = 0
         let high = lineStarts.length
         while (low < high)
@@ -1997,7 +2005,10 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
     {
         const file = entry.file
         const pathClasses = pathClassesFor(file)
-        pathClasses.forEach((pathClass) => { pathClassCounts[pathClass] += 1 })
+        pathClasses.forEach((pathClass) =>
+        {
+            pathClassCounts[pathClass] += 1
+        })
         const context = {
             file,
             repositoryRoot,
