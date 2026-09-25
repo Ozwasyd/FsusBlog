@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Services.DocumentExport;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -452,28 +451,26 @@ public sealed class DocumentExportContractTests
     [Fact]
     public void StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority()
     {
-        string[] sources =
+        Type catalog = Assert.Single(
+            typeof(DocumentExportContractCatalog).Assembly.GetTypes(),
+            type => type.Name == nameof(DocumentExportContractCatalog));
+        Assert.Same(typeof(DocumentExportContractCatalog), catalog);
+
+        Type[] contractTypes =
         [
-            BackendTestPaths.ReadAllTextFromRoot(
-                "src", "backend", "Services", "DocumentExport", "DocumentExportContracts.cs"),
-            BackendTestPaths.ReadAllTextFromRoot(
-                "src", "backend", "Services", "DocumentExport", "DocumentExportContractValidator.cs"),
-            BackendTestPaths.ReadAllTextFromRoot(
-                "src", "backend", "Services", "DocumentExport", "DocumentExportDigest.cs")
+            catalog,
+            typeof(DocumentExportContractValidator),
+            typeof(DocumentExportDigest)
         ];
-        Assert.Equal(
-            1,
-            sources.Sum(source => source.Split(
-                "public static class DocumentExportContractCatalog",
-                StringSplitOptions.None).Length - 1));
-        Assert.All(sources, source =>
+        Assert.All(contractTypes, type =>
         {
-            Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("ProcessStartInfo", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("GetLatest", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("HtmlToMarkdown", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Screenshot", source, StringComparison.Ordinal);
+            string compiled = RuntimeMetadataInspection.DescribeType(type);
+            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("ProcessStartInfo", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("GetLatest", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HtmlToMarkdown", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
         });
         Assert.All(DocumentExportContractCatalog.ExecutionBindings, binding =>
         {
