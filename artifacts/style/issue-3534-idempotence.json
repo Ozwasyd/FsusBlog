@@ -10,7 +10,7 @@
         "tests/tools/behavior-document-consistency-final.test.mjs",
         "tools/docs/behavior-document-consistency-final.mjs"
     ],
-    "firstPassTreeSha256": "734bb56dd3a8c85a013026629165231d58761a5278123c4b887b6abba37f4cbe",
-    "secondPassTreeSha256": "734bb56dd3a8c85a013026629165231d58761a5278123c4b887b6abba37f4cbe",
+    "firstPassTreeSha256": "7f936b8c56470d4bd02e574139023ffc0b73f61e28e8115474c5542500b5a64e",
+    "secondPassTreeSha256": "7f936b8c56470d4bd02e574139023ffc0b73f61e28e8115474c5542500b5a64e",
     "idempotent": true
 }
