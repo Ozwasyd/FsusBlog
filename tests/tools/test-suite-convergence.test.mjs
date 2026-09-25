@@ -21,6 +21,8 @@ import {
 } from '../../tools/test-convergence/audit.mjs'
 import { compactRetentionBaseline } from '../../tools/test-retention/audit.mjs'
 import {
+  POST_BASELINE_BEFORE_ANCHOR,
+  POST_BASELINE_HISTORY_ANCHOR,
   historicalXunitMethodPresent,
   validatePostBaselineHistory
 } from '../../tools/test-convergence/post-baseline-history.mjs'
@@ -39,10 +41,17 @@ test('matrix is the single current command and retention governance authority', 
   assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
   const postBaselines = matrix.governance.retention.postBaselines;
   assert.equal(new Set(postBaselines).size, postBaselines.length);
+  const trustedMatrix = parseMatrix(execFileSync('git', [
+    'show', `${POST_BASELINE_HISTORY_ANCHOR}:tests/matrix.yml`
+  ], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }))
+  const trustedPaths = new Set(trustedMatrix.governance.retention.postBaselines)
+  for (const path of trustedPaths) assert.ok(postBaselines.includes(path), `${path} remains trusted`)
   for (const baselinePath of postBaselines)
   {
     const baseline = JSON.parse(readFileSync(resolve(root, baselinePath), 'utf8'));
-    assert.equal(baseline.schema, 'fsusblog.issue-acceptance-baseline.v1');
+    assert.equal(baseline.schema, trustedPaths.has(baselinePath)
+      ? 'fsusblog.issue-acceptance-baseline.v1'
+      : 'fsusblog.issue-acceptance-baseline.v2');
     assert.ok(Array.isArray(baseline.records));
   }
   assert.equal(matrix.governance.retention.automaticDeletion, false)
@@ -56,6 +65,7 @@ test('new post-baseline retirement is bound to the trusted exact Git transition'
   const oldId = `xunit:${oldPath}#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason`
   const sourceCommit = 'd6d079b71a59b5ea1379a07857d71d947ce2e171'
   const deletionCommit = 'b5f77fc4030258cfe93ac227dcb494e74c1ff971'
+  assert.match(POST_BASELINE_BEFORE_ANCHOR, /^[0-9a-f]{40}$/u)
   const valid = {
     schema: 'fsusblog.issue-acceptance-baseline.v2',
     sourceCommit,
@@ -72,10 +82,11 @@ test('new post-baseline retirement is bound to the trusted exact Git transition'
     }]
   }
   const legacyPaths = matrix.governance.retention.postBaselines
-  const validate = (snapshot, { paths = [...legacyPaths, newPath], readCurrent } = {}) =>
+  const validate = (snapshot, { paths = [...legacyPaths, newPath], readCurrent, beforeCommit } = {}) =>
     validatePostBaselineHistory({
       root,
       paths,
+      beforeCommit,
       replacements: [
         ...ledger.deletedTests,
         ...snapshot.records.map((record) => ({ id: record.id, path: record.path }))
@@ -118,6 +129,8 @@ test('new post-baseline retirement is bound to the trusted exact Git transition'
     }]
   }
   assert.ok(validate(surviving).errors.some((error) => /survives deletion commit/u.test(error)))
+  assert.ok(validate(valid, { beforeCommit: POST_BASELINE_HISTORY_ANCHOR }).errors
+    .some((error) => /source commit predates trusted before snapshot/u.test(error)))
   assert.ok(validate(valid, { paths: [newPath] }).errors.some((error) => /trusted post-baseline path removed/u.test(error)))
   const tamperedLegacy = (path) => path === legacyPaths[0]
     ? '{}'
@@ -174,6 +187,7 @@ test('post-baseline history ignores local Git replacement objects', () => {
       paths: ['tests/forged-baseline.json'],
       replacements: [{ id: oldId, path: oldPath }],
       anchorCommit: deletionCommit,
+      beforeCommit: sourceCommit,
       readCurrent: () => JSON.stringify(baseline)
     })
     assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)))

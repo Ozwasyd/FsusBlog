@@ -7,6 +7,8 @@ import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 // This is the last trusted master before retrospective post-baseline admission.
 // Moving the anchor is a governance change, not a candidate-ledger operation.
 export const POST_BASELINE_HISTORY_ANCHOR = 'd653afbde02b75814d8384777886b10419fb38a1'
+// Freeze the compact before-snapshot cutoff for retrospective admission.
+export const POST_BASELINE_BEFORE_ANCHOR = 'b144a2e54e655b6e363948cb9f6773a59cbf7be7'
 
 const fullCommit = /^[0-9a-f]{40}$/u
 const blobOid = /^[0-9a-f]{40}$/u
@@ -83,14 +85,14 @@ function validateV2Record({ root, record, baseline, anchorCommit })
   {
     source = gitText(root, ['show', `${baseline.sourceCommit}:${path}`], `${record.id} source`)
     sourceOid = gitText(root, ['rev-parse', `${baseline.sourceCommit}:${path}`], `${record.id} source blob`).trim()
-    const resultExists = git(root, ['cat-file', '-e', `${baseline.deletionCommit}:${path}`])
-    if (resultExists.status === 0)
+    const resultListedOid = gitText(root, ['ls-tree', '--object-only', baseline.deletionCommit, '--', path], `${record.id} deletion tree`).trim()
+    if (resultListedOid)
     {
       result = gitText(root, ['show', `${baseline.deletionCommit}:${path}`], `${record.id} deletion result`)
-      resultOid = gitText(root, ['rev-parse', `${baseline.deletionCommit}:${path}`], `${record.id} result blob`).trim()
+      resultOid = resultListedOid
     }
-    const anchorExists = git(root, ['cat-file', '-e', `${anchorCommit}:${path}`])
-    if (anchorExists.status === 0)
+    const anchorListedOid = gitText(root, ['ls-tree', '--object-only', anchorCommit, '--', path], `${record.id} trusted anchor tree`).trim()
+    if (anchorListedOid)
     {
       anchor = gitText(root, ['show', `${anchorCommit}:${path}`], `${record.id} trusted anchor`)
     }
@@ -119,6 +121,7 @@ export function validatePostBaselineHistory({
   paths,
   replacements,
   anchorCommit = POST_BASELINE_HISTORY_ANCHOR,
+  beforeCommit = POST_BASELINE_BEFORE_ANCHOR,
   readCurrent = (path) => readRegularFile(root, path)
 })
 {
@@ -129,8 +132,8 @@ export function validatePostBaselineHistory({
   const observedIds = new Set()
   if (!Array.isArray(paths))
     return { ids, sources, errors: ['post-baseline paths must be an array'] }
-  if (!fullCommit.test(anchorCommit))
-    return { ids, sources, errors: ['post-baseline history anchor is not a full commit'] }
+  if (!fullCommit.test(anchorCommit) || !fullCommit.test(beforeCommit))
+    return { ids, sources, errors: ['post-baseline history anchors must be full commits'] }
 
   let legacyPaths
   try
@@ -209,6 +212,8 @@ export function validatePostBaselineHistory({
           errors.push(`${path}: deletion commit must have source commit as its sole immediate parent`)
         const ancestor = git(root, ['merge-base', '--is-ancestor', deletionCommit, anchorCommit])
         if (ancestor.status !== 0) errors.push(`${path}: deletion commit is not in trusted master history`)
+        const afterBefore = git(root, ['merge-base', '--is-ancestor', beforeCommit, sourceCommit])
+        if (afterBefore.status !== 0) errors.push(`${path}: source commit predates trusted before snapshot`)
       }
       catch (error)
       {
