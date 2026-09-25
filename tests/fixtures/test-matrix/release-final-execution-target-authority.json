@@ -1610,8 +1610,8 @@
         },
         {
             "path": "tools/check-test-suite-convergence.mjs",
-            "contentDigest": "sha256:2c09f7cb555383b3e69d4a8e90e6cd70948431342b3aa3fc18f15c770f1a3bbb",
-            "indexDigest": "sha256:2c09f7cb555383b3e69d4a8e90e6cd70948431342b3aa3fc18f15c770f1a3bbb"
+            "contentDigest": "sha256:fb09e7fec36976c8cee99f24f527d7cb2896a3a5ce8f85c70b1b954f93f30fb6",
+            "indexDigest": "sha256:fb09e7fec36976c8cee99f24f527d7cb2896a3a5ce8f85c70b1b954f93f30fb6"
         },
         {
             "path": "tools/check-wasm-artifact-ownership.mjs",
@@ -3012,6 +3012,11 @@
             "path": "tools/test-convergence/audit.mjs",
             "contentDigest": "sha256:8dee54f4c10b8e65ebd944842e524a9ca3975f500fa2f9d36ff4f25fe116e36e",
             "indexDigest": "sha256:8dee54f4c10b8e65ebd944842e524a9ca3975f500fa2f9d36ff4f25fe116e36e"
+        },
+        {
+            "path": "tools/test-convergence/post-baseline-history.mjs",
+            "contentDigest": "sha256:ba584708409039f4a9cc1d33e5168634d8b6e68fef0abe1fd153948e518e0401",
+            "indexDigest": "sha256:ba584708409039f4a9cc1d33e5168634d8b6e68fef0abe1fd153948e518e0401"
         },
         {
             "path": "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
@@ -31058,6 +31063,7 @@
                 "tools/security/verify-production-firewall-policy-evidence.sh",
                 "tools/style/line-ending-invariant.mjs",
                 "tools/test-convergence/audit.mjs",
+                "tools/test-convergence/post-baseline-history.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
                 "tools/test-evidence/browser-contract-observed-facts.mjs",
                 "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",

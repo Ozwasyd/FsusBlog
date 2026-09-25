@@ -18,6 +18,10 @@ import {
   verifySourceLockingFixtures
 } from '../../tools/test-convergence/audit.mjs'
 import { compactRetentionBaseline } from '../../tools/test-retention/audit.mjs'
+import {
+  historicalXunitMethodPresent,
+  validatePostBaselineHistory
+} from '../../tools/test-convergence/post-baseline-history.mjs'
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -40,6 +44,91 @@ test('matrix is the single current command and retention governance authority', 
     assert.ok(Array.isArray(baseline.records));
   }
   assert.equal(matrix.governance.retention.automaticDeletion, false)
+})
+
+test('new post-baseline retirement is bound to the trusted exact Git transition', () => {
+  const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
+  const ledger = JSON.parse(readFileSync(resolve(root, 'tests/test-retention-replacements.json'), 'utf8'))
+  const newPath = 'tests/retention-postbaseline-history-baseline.json'
+  const oldPath = 'tests/backend/Unit/BlacklistServiceTests.cs'
+  const oldId = `xunit:${oldPath}#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason`
+  const sourceCommit = 'd6d079b71a59b5ea1379a07857d71d947ce2e171'
+  const deletionCommit = 'b5f77fc4030258cfe93ac227dcb494e74c1ff971'
+  const valid = {
+    schema: 'fsusblog.issue-acceptance-baseline.v2',
+    sourceCommit,
+    deletionCommit,
+    issue: 3543,
+    expectedRecords: 1,
+    expectedMigrated: 1,
+    records: [{
+      id: oldId,
+      path: oldPath,
+      disposition: 'migrated',
+      sourceBlobOid: 'c3dcdabb4ea23b732f89a908ebc08911369c2462',
+      resultBlobOid: null
+    }]
+  }
+  const legacyPaths = matrix.governance.retention.postBaselines
+  const validate = (snapshot, { paths = [...legacyPaths, newPath], readCurrent } = {}) =>
+    validatePostBaselineHistory({
+      root,
+      paths,
+      replacements: [
+        ...ledger.deletedTests,
+        ...snapshot.records.map((record) => ({ id: record.id, path: record.path }))
+      ],
+      readCurrent: readCurrent ?? ((path) => path === newPath
+        ? JSON.stringify(snapshot)
+        : readFileSync(resolve(root, path), 'utf8'))
+    })
+
+  const accepted = validate(valid)
+  assert.deepEqual(accepted.errors, [])
+  assert.ok(accepted.ids.includes(oldId))
+  assert.equal(accepted.sources.length, legacyPaths.length + 1)
+
+  const refusalCases = [
+    ['v1 self-admission', { ...valid, schema: 'fsusblog.issue-acceptance-baseline.v1' }, /requires exact-history v2 schema/u],
+    ['abbreviated source', { ...valid, sourceCommit: sourceCommit.slice(0, 8) }, /full Git object IDs/u],
+    ['wrong parent', { ...valid, sourceCommit: deletionCommit }, /sole immediate parent/u],
+    ['wrong source blob', { ...valid, records: [{ ...valid.records[0], sourceBlobOid: '0'.repeat(40) }] }, /source blob binding differs/u],
+    ['wrong result blob', { ...valid, records: [{ ...valid.records[0], resultBlobOid: '0'.repeat(40) }] }, /deletion-result blob binding differs/u],
+    ['forged old method', { ...valid, records: [{ ...valid.records[0], id: `xunit:${oldPath}#BlacklistServiceTests.NotARealTest` }] }, /old attributed method is absent/u],
+    ['wrong owner path', { ...valid, records: [{ ...valid.records[0], path: 'tests/backend/Unit/OtherTests.cs' }] }, /exact legacy xUnit method and owner path/u],
+    ['wrong count', { ...valid, expectedMigrated: 2 }, /expected counts must equal/u],
+    ['duplicate record', { ...valid, expectedRecords: 2, expectedMigrated: 2, records: [valid.records[0], valid.records[0]] }, /duplicate post-baseline migrated ID/u]
+  ]
+  for (const [name, snapshot, refusal] of refusalCases)
+  {
+    assert.ok(validate(snapshot).errors.some((error) => refusal.test(error)), name)
+  }
+
+  const survivingPath = 'tests/backend/Unit/AdminSessionValidationServiceTests.cs'
+  const surviving = {
+    ...valid,
+    records: [{
+      id: `xunit:${survivingPath}#AdminSessionValidationServiceTests.ValidateAsync_UsesOnlyReadyLocalProjection_AndFailsClosedForUnknown`,
+      path: survivingPath,
+      disposition: 'migrated',
+      sourceBlobOid: 'f98b2c21d985771c4fa35d2bc65264a3e407fd6a',
+      resultBlobOid: 'ad083fe195976b32e5c752ed73688f60a155b1f2'
+    }]
+  }
+  assert.ok(validate(surviving).errors.some((error) => /survives deletion commit/u.test(error)))
+  assert.ok(validate(valid, { paths: [newPath] }).errors.some((error) => /trusted post-baseline path removed/u.test(error)))
+  const tamperedLegacy = (path) => path === legacyPaths[0]
+    ? '{}'
+    : path === newPath ? JSON.stringify(valid) : readFileSync(resolve(root, path), 'utf8')
+  assert.ok(validate(valid, { readCurrent: tamperedLegacy }).errors.some((error) => /trusted v1 post-baseline bytes changed/u.test(error)))
+})
+
+test('historical xUnit identity rejects comments, missing attributes and another class owner', () => {
+  const legitimate = 'public class OldTests\n{\n    [Fact]\n    public void Removed() {}\n}'
+  assert.equal(historicalXunitMethodPresent(legitimate, 'OldTests', 'Removed'), true)
+  assert.equal(historicalXunitMethodPresent('// public class OldTests\n// [Fact]\n// public void Removed() {}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{}\npublic class OtherTests\n{\n    [Fact]\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
 })
 
 test('backend source-locking owner accepts runtime artifacts and rejects production docs and test source', () => {

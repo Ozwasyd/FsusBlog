@@ -1,0 +1,27 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/testing/correctness-attempt-producers.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "reason": "Preserve serialized correctness-inventory and release-final authority keys while updating producer-derived source and dependency digests."
+    },
+    {
+      "id": "search-index-utf8-scalar-owner",
+      "paths": [
+        "docs/testing.generated.md"
+      ],
+      "reason": "Preserve generated testing-document identifiers while binding the new source input through the matrix producer."
+    },
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/test-convergence/post-baseline-history.mjs"
+      ],
+      "reason": "Preserve Git command and process environment spellings at the historical-governance tool boundary."
+    }
+  ]
+}

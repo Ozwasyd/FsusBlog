@@ -1,0 +1,22 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tests/matrix.yml",
+    "tools/check-test-suite-convergence.mjs",
+    "tools/test-convergence/post-baseline-history.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "93de0b8a0ddf8c485ed22c68cf000134ef89bac4d8bb646005dcf21beea4337a"
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "sha256": "9ba22d53dd8c930897b513824571d5e0322eb9cc49830988d37d5c02ec39d256"
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "sha256": "bdf30de420737f7bf3035225336f9c01a12441b497d5429f613116c0a7b7a260"
+    }
+  ]
+}
