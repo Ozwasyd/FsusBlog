@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Security/AdminSessionProjection.cs"
+            ],
+            "reason": "Preserve registered C# environment-variable naming boundaries while changing only documentation on the projection source."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/code-intent-registry.json"
+            ],
+            "reason": "Preserve serialized registry field names and contract spelling while rebinding only the existing AEDS policy anchor value."
+        }
+    ]
+}
