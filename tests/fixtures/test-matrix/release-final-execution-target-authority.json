@@ -2050,8 +2050,8 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:afcc1110953c9e1ff874550d9de39dc8a2ffe4833ff46acaa20a850829e15c36",
-            "indexDigest": "sha256:afcc1110953c9e1ff874550d9de39dc8a2ffe4833ff46acaa20a850829e15c36"
+            "contentDigest": "sha256:87ae2c4ee5263dba881997848254006598f1f0eadc568afac4d9fcef30566ba4",
+            "indexDigest": "sha256:87ae2c4ee5263dba881997848254006598f1f0eadc568afac4d9fcef30566ba4"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",

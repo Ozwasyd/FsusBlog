@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/docs/behavior-document-consistency-final.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "f70f9af7d28689a1d9d7800cf4f7210668448c75a4c98c8d72cd4ace548f038c"
+        }
+    ]
+}

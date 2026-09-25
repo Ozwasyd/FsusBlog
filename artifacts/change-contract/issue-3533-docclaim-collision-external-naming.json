@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs"
+            ],
+            "reason": "The scanner retains its existing process environment spellings; this repair changes only qualification-only field classification and introduces no environment-name migration."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "The canonical producer preserves the execution authority JSON keys and target inventory; only the changed scanner source digest pair is resealed."
+        }
+    ]
+}
