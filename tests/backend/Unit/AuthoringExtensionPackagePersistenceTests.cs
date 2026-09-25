@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -210,18 +211,62 @@ public sealed class AuthoringExtensionPackagePersistenceTests
     [Fact]
     public void PackageStaticGovernance_HasNoRemoteSelfUpdateOrSecondStoreComposition()
     {
-        string root = Path.Combine(
-            TestInfrastructure.BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions");
-        string packages = File.ReadAllText(Path.Combine(root, "AuthoringExtensionPackages.cs"));
-        string activation = File.ReadAllText(Path.Combine(root, "AuthoringPackageProductionActivation.cs"));
-        string source = string.Concat(packages, "\n", activation);
+        Type[] packageTypes =
+        [
+            typeof(AuthoringPackageTrustStatus),
+            typeof(AuthoringPackageOperation),
+            typeof(AuthoringPackageOutcome),
+            typeof(AuthoringPackageEntry),
+            typeof(AuthoringPackageArtifact),
+            typeof(AuthoringPackageArchiveContents),
+            typeof(AuthoringPackageTrustDecision),
+            typeof(AuthoringPackagePublisherKey),
+            typeof(VerifiedAuthoringPackage),
+            typeof(AuthoringPackageReceipt),
+            typeof(IAuthoringPackageTrustVerifier),
+            typeof(IAuthoringPackageKeyset),
+            typeof(IAuthoringPackageSourceFetcher),
+            typeof(LocalAuthoringPackageKeyset),
+            typeof(EcdsaAuthoringPackageTrustVerifier),
+            typeof(LocalApprovedAuthoringPackageSourceFetcher),
+            typeof(IAuthoringPackageArchiveReader),
+            typeof(IAuthoringPackageStore),
+            typeof(IAuthoringPackageHealthProbe),
+            typeof(IAuthoringPackageReceiptStore),
+            typeof(AuthoringPackageVerifier),
+            typeof(AuthoringPackageReferencePolicy),
+            typeof(AuthoringPackageClosedJson),
+            typeof(IAuthoringPackageCompatibilityPrecheck),
+            typeof(SchemaStableAuthoringPackageCompatibilityPrecheck),
+            typeof(AuthoringPackageActivationCoordinator)
+        ];
+        Type[] activationTypes =
+        [
+            typeof(AuthoringPackageIntegrityHealthProbe),
+            typeof(AuthoringPackageProductionActivation),
+            typeof(LocalAuthoringPackageRuntime),
+            typeof(LocalAuthoringPackageComposition)
+        ];
+        string[] compiled = packageTypes.Concat(activationTypes)
+            .Select(type => string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type)))
+            .ToArray();
 
-        Assert.DoesNotContain("new HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Assembly.Load", source, StringComparison.Ordinal);
-        Assert.Contains("\"github_pat_\"", packages, StringComparison.Ordinal);
-        Assert.Equal(1, activation.Split("new LocalAuthoringPackageStore(", StringSplitOptions.None).Length - 1);
+        Assert.All(compiled, description =>
+        {
+            Assert.DoesNotContain("HttpClient", description, StringComparison.Ordinal);
+            Assert.DoesNotContain("Process.Start", description, StringComparison.Ordinal);
+            Assert.DoesNotContain("Assembly.Load", description, StringComparison.Ordinal);
+        });
+        Assert.Contains("github_pat_", RuntimeMetadataInspection.DescribeConstructors(
+            typeof(AuthoringPackageReferencePolicy)), StringComparison.Ordinal);
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringPackageReferencePolicy.ValidateSource("approved-source/GITHUB_PAT_secret"));
+        string composition = RuntimeMetadataInspection.DescribeType(typeof(LocalAuthoringPackageComposition));
+        Assert.Equal(1, composition.Split("LocalAuthoringPackageStore..ctor", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, string.Join('\n', activationTypes.Select(RuntimeMetadataInspection.DescribeType))
+            .Split("LocalAuthoringPackageStore..ctor", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]
