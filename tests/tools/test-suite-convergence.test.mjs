@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os'
 import test from 'node:test'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   auditCompactRetentionRecords,
@@ -129,6 +131,57 @@ test('historical xUnit identity rejects comments, missing attributes and another
   assert.equal(historicalXunitMethodPresent('// public class OldTests\n// [Fact]\n// public void Removed() {}', 'OldTests', 'Removed'), false)
   assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
   assert.equal(historicalXunitMethodPresent('public class OldTests\n{}\npublic class OtherTests\n{\n    [Fact]\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
+})
+
+test('post-baseline history ignores local Git replacement objects', () => {
+  const repository = mkdtempSync(join(tmpdir(), 'fsusblog-postbaseline-replace-'))
+  const runGit = (args) => execFileSync('git', ['-C', repository, ...args], { encoding: 'utf8' }).trim()
+  const oldPath = 'tests/backend/Unit/OldTests.cs'
+  const oldId = `xunit:${oldPath}#OldTests.Removed`
+  try
+  {
+    runGit(['init', '--quiet'])
+    runGit(['config', 'user.name', 'History Test'])
+    runGit(['config', 'user.email', 'history-test@example.invalid'])
+    mkdirSync(resolve(repository, 'tests/backend/Unit'), { recursive: true })
+    writeFileSync(resolve(repository, 'tests/matrix.yml'), 'governance:\n  retention:\n    postBaselines: []\n')
+    writeFileSync(resolve(repository, oldPath), 'public class OldTests {}\n')
+    runGit(['add', '.'])
+    runGit(['commit', '--quiet', '-m', 'source without a test'])
+    const sourceCommit = runGit(['rev-parse', 'HEAD'])
+    rmSync(resolve(repository, oldPath))
+    runGit(['add', '-u'])
+    runGit(['commit', '--quiet', '-m', 'delete source file'])
+    const deletionCommit = runGit(['rev-parse', 'HEAD'])
+    runGit(['switch', '--quiet', '--orphan', 'forged-source'])
+    writeFileSync(resolve(repository, 'tests/matrix.yml'), 'governance:\n  retention:\n    postBaselines: []\n')
+    writeFileSync(resolve(repository, oldPath), 'public class OldTests\n{\n  [Fact]\n  public void Removed() {}\n}\n')
+    runGit(['add', '.'])
+    runGit(['commit', '--quiet', '-m', 'forged source'])
+    const forgedCommit = runGit(['rev-parse', 'HEAD'])
+    const forgedBlob = runGit(['rev-parse', `${forgedCommit}:${oldPath}`])
+    runGit(['replace', sourceCommit, forgedCommit])
+    const baseline = {
+      schema: 'fsusblog.issue-acceptance-baseline.v2',
+      sourceCommit,
+      deletionCommit,
+      expectedRecords: 1,
+      expectedMigrated: 1,
+      records: [{ id: oldId, path: oldPath, disposition: 'migrated', sourceBlobOid: forgedBlob, resultBlobOid: null }]
+    }
+    const result = validatePostBaselineHistory({
+      root: repository,
+      paths: ['tests/forged-baseline.json'],
+      replacements: [{ id: oldId, path: oldPath }],
+      anchorCommit: deletionCommit,
+      readCurrent: () => JSON.stringify(baseline)
+    })
+    assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)))
+  }
+  finally
+  {
+    rmSync(repository, { recursive: true, force: true })
+  }
 })
 
 test('backend source-locking owner accepts runtime artifacts and rejects production docs and test source', () => {

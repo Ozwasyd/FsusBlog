@@ -3015,8 +3015,8 @@
         },
         {
             "path": "tools/test-convergence/post-baseline-history.mjs",
-            "contentDigest": "sha256:ba584708409039f4a9cc1d33e5168634d8b6e68fef0abe1fd153948e518e0401",
-            "indexDigest": "sha256:ba584708409039f4a9cc1d33e5168634d8b6e68fef0abe1fd153948e518e0401"
+            "contentDigest": "sha256:61ad50c964022d2b266101d5b493c83dab1fae3d91ea56506ce0a8e9846feaa5",
+            "indexDigest": "sha256:61ad50c964022d2b266101d5b493c83dab1fae3d91ea56506ce0a8e9846feaa5"
         },
         {
             "path": "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",

@@ -14,7 +14,12 @@ const testPath = /^tests\/(?:backend\/Unit\/[A-Za-z0-9_.-]+\.cs|[A-Za-z0-9_./-]+
 
 function git(root, args)
 {
-  return spawnSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  return spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+  })
 }
 
 function gitText(root, args, label)
