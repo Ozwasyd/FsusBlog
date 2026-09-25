@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/fact-extractors/runner.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "94c9def24654bab15bb15d3aab520f7ff4fac348b24d804a83bc17782021444e"
+        }
+    ]
+}
