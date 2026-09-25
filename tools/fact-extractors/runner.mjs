@@ -197,7 +197,8 @@ export async function runExtractor({
         buildIdentity: normalizedBuildIdentity,
         buildReceiptPath: normalizedBuildReceiptPath,
         sourceCommit: identity.sourceCommit,
-        worktreeFingerprint: identity.worktreeFingerprint
+        worktreeFingerprint: identity.worktreeFingerprint,
+        canonicalDigest: digestValue
     });
     const normalized = normalizeExtractorResult(raw, extractor);
 

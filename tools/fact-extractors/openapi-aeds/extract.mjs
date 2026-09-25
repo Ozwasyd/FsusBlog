@@ -1,18 +1,15 @@
-import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
-import path from 'node:path'
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
-import { digestCatalog } from '../../contracts/behavior-contract-catalog.mjs'
-import { digestValue } from '../lib/canonicalize.mjs'
-
-const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json'
-const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json'
-const buildReceiptRelative = '.tmp/contracts/openapi/build-receipt.json'
-const expectedArtifactId = 'openapi-aeds-observation'
-const endpointContractRelative = 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json'
-const protocolRelative = 'src/shared/Contracts/Validation/aeds-protocol.json'
-const behaviorCatalogRelative = 'config/contracts/behavior-contracts.json'
-const generatorRelative = 'tools/contracts/lib/openapi-observation.mjs'
+const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
+const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
+const buildReceiptRelative = '.tmp/contracts/openapi/build-receipt.json';
+const expectedArtifactId = 'openapi-aeds-observation';
+const endpointContractRelative = 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json';
+const protocolRelative = 'src/shared/Contracts/Validation/aeds-protocol.json';
+const behaviorCatalogRelative = 'config/contracts/behavior-contracts.json';
+const generatorRelative = 'tools/contracts/lib/openapi-observation.mjs';
 const sourcePaths = Object.freeze([
   endpointContractRelative,
   protocolRelative,
@@ -31,36 +28,36 @@ const sourcePaths = Object.freeze([
   'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
   generatorRelative,
   'tools/fact-extractors/openapi-aeds/extract.mjs'
-])
-const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
+]);
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const exactKeys = (value, expected) => value && typeof value === 'object'
-  && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort())
-const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value)
+  && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort());
+const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isSortedUnique = (values) => Array.isArray(values)
   && JSON.stringify(values) === JSON.stringify([...new Set(values)].sort((left, right) =>
-    typeof left === 'number' ? left - right : String(left).localeCompare(String(right))))
-const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties']
-const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds']
-const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds']
-const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities']
-const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'bounds', 'evidence']
+    typeof left === 'number' ? left - right : String(left).localeCompare(String(right))));
+const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties'];
+const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds'];
+const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds'];
+const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities'];
+const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'bounds', 'evidence'];
 
 function validBound(value)
 {
   return exactKeys(value, boundKeys)
     && ['minimum', 'maximum'].every((key) => value[key] == null
       || (typeof value[key] === 'string' && value[key].length > 0))
-    && boundKeys.slice(2).every((key) => value[key] == null || (Number.isInteger(value[key]) && value[key] >= 0))
+    && boundKeys.slice(2).every((key) => value[key] == null || (Number.isInteger(value[key]) && value[key] >= 0));
 }
 
-const hasBound = (value) => boundKeys.some((key) => value[key] != null)
+const hasBound = (value) => boundKeys.some((key) => value[key] != null);
 const boundedProperties = (properties) => Object.fromEntries(Object.entries(properties)
   .filter(([, property]) => hasBound(property.bounds))
-  .map(([name, property]) => [name, property.bounds]))
+  .map(([name, property]) => [name, property.bounds]));
 
 function validProperties(properties, definitions)
 {
-  if (!isObject(properties)) return false
+  if (!isObject(properties)) {return false;}
   return Object.entries(properties).every(([name, property]) =>
     exactKeys(property, propertyKeys) && property.name === name
       && ['string', 'boolean', 'binary', 'enum', 'number', 'integer', 'array', 'object'].includes(property.type)
@@ -74,17 +71,17 @@ function validProperties(properties, definitions)
       && (property.type === 'enum') === (property.enumValues.length > 0)
       && isSortedUnique(property.enumValues) && validBound(property.bounds)
       && [property.schemaRef, property.itemSchemaRef].filter((value) => value != null).every((ref) =>
-        String(ref).startsWith('clr://') && Object.hasOwn(definitions, String(ref).slice('clr://'.length))))
+        String(ref).startsWith('clr://') && Object.hasOwn(definitions, String(ref).slice('clr://'.length))));
 }
 
 function validRequest(op)
 {
-  const request = op.request
+  const request = op.request;
   if (!exactKeys(request, requestKeys) || request.direction !== 'request' || !Array.isArray(request.requiredFields)
     || !Array.isArray(request.parameters) || !isObject(request.properties)
     || !isObject(request.definitions) || !Array.isArray(request.oneOf)
     || !isObject(request.bounds) || !Array.isArray(request.sourceTypes)
-    || !Array.isArray(request.readerIdentities) || request.nullable !== false) return false
+    || !Array.isArray(request.readerIdentities) || request.nullable !== false) {return false;}
   if (!request.parameters.every((parameter) => exactKeys(parameter, parameterKeys)
     && typeof parameter.name === 'string' && parameter.name.length > 0
     && parameter.direction === 'request' && ['path', 'query', 'header'].includes(parameter.source)
@@ -95,7 +92,7 @@ function validRequest(op)
     && Array.isArray(parameter.evidence) && parameter.evidence.length > 0
     && isSortedUnique(parameter.evidence))
     || new Set(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)).size !== request.parameters.length
-    || !isSortedUnique(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`))) return false
+    || !isSortedUnique(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`))) {return false;}
   if (op.requestFrame == null)
   {
     return request.source === 'none' && request.schemaRef === null && request.encoding === 'none'
@@ -104,7 +101,7 @@ function validRequest(op)
       && request.oneOf.length === 0 && request.discriminator === null && Object.keys(request.bounds).length === 0
       && request.fieldSetState === 'not-applicable' && request.boundsState === 'not-applicable'
       && request.unionState === 'not-applicable' && request.schemaDigest === null
-      && request.sourceTypes.length === 0 && request.readerIdentities.length === 0
+      && request.sourceTypes.length === 0 && request.readerIdentities.length === 0;
   }
   if (request.source !== 'aeds-frame-body' || request.schemaRef !== `aeds://request-schema/${op.operationId}`
     || !['binary-layout', 'binary-package', 'utf8-json'].includes(request.encoding)
@@ -116,11 +113,11 @@ function validRequest(op)
     || !isSortedUnique(request.requiredFields) || !isSortedUnique(request.oneOf)
     || !isSortedUnique(request.sourceTypes) || !isSortedUnique(request.readerIdentities)
     || !request.sourceTypes.every((identity) => typeof identity === 'string' && identity.length > 0)
-    || !request.readerIdentities.every((identity) => typeof identity === 'string' && identity.length > 0)) return false
-  const required = Object.values(request.properties).filter((property) => property.required).map((property) => property.name).sort()
+    || !request.readerIdentities.every((identity) => typeof identity === 'string' && identity.length > 0)) {return false;}
+  const required = Object.values(request.properties).filter((property) => property.required).map((property) => property.name).sort();
   if (JSON.stringify(required) !== JSON.stringify(request.requiredFields)
     || !validProperties(request.properties, request.definitions)
-    || JSON.stringify(boundedProperties(request.properties)) !== JSON.stringify(request.bounds)) return false
+    || JSON.stringify(boundedProperties(request.properties)) !== JSON.stringify(request.bounds)) {return false;}
   for (const [identity, definition] of Object.entries(request.definitions))
   {
     if (!exactKeys(definition, definitionKeys) || definition.typeIdentity !== identity
@@ -133,7 +130,7 @@ function validRequest(op)
         ? definition.discriminator !== null
         : typeof definition.discriminator !== 'string' || definition.discriminator.length === 0)
       || JSON.stringify(Object.values(definition.properties).filter((property) => property.required)
-        .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields)) return false
+        .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields)) {return false;}
   }
   const digest = createHash('sha256').update(JSON.stringify({
     direction: request.direction,
@@ -149,33 +146,33 @@ function validRequest(op)
     bounds: request.bounds,
     sourceTypes: request.sourceTypes,
     readerIdentities: request.readerIdentities
-  })).digest('hex')
+  })).digest('hex');
   return digest === request.schemaDigest
     && request.oneOf.every((identity) => Object.hasOwn(request.definitions, identity))
     && (request.oneOf.length === 0
       ? request.discriminator === null && request.unionState === 'none'
       : typeof request.discriminator === 'string' && request.discriminator.length > 0
-        && request.unionState === 'one-of')
+        && request.unionState === 'one-of');
 }
 
 function validResponses(op)
 {
   if (!isSortedUnique(op.publicErrorStatuses) || op.publicErrorStatuses.length === 0
-    || !isObject(op.publicErrorStatusEvidence)) return false
-  const refs = op.publicErrorStatuses.map((status) => `configuration-error-security-policy:error-transport-mappings:${status}`)
+    || !isObject(op.publicErrorStatusEvidence)) {return false;}
+  const refs = op.publicErrorStatuses.map((status) => `configuration-error-security-policy:error-transport-mappings:${status}`);
   if (JSON.stringify(op.publicErrorRefs) !== JSON.stringify(refs)
     || op.publicErrorRefState !== 'operation-status-authority-bound'
     || JSON.stringify(Object.keys(op.publicErrorStatusEvidence).sort((a, b) => Number(a) - Number(b)))
-      !== JSON.stringify(op.publicErrorStatuses.map(String))) return false
+      !== JSON.stringify(op.publicErrorStatuses.map(String))) {return false;}
   if (!op.publicErrorStatuses.every((status) => status >= 400 && status <= 599
     && Array.isArray(op.publicErrorStatusEvidence[String(status)])
     && op.publicErrorStatusEvidence[String(status)].length > 0
     && isSortedUnique(op.publicErrorStatusEvidence[String(status)])
     && op.publicErrorStatusEvidence[String(status)]
-      .every((source) => typeof source === 'string' && source.length > 0))) return false
-  if (!Array.isArray(op.responses) || op.responses.length !== op.publicErrorStatuses.length + 1) return false
-  const success = op.responses.filter((response) => response.kind === 'success')
-  const errors = op.responses.filter((response) => response.kind === 'error')
+      .every((source) => typeof source === 'string' && source.length > 0))) {return false;}
+  if (!Array.isArray(op.responses) || op.responses.length !== op.publicErrorStatuses.length + 1) {return false;}
+  const success = op.responses.filter((response) => response.kind === 'success');
+  const errors = op.responses.filter((response) => response.kind === 'error');
   return success.length === 1 && success[0].status === Number(op.successStatus)
     && success[0].schemaRef === `aeds://frame/${op.responseFrame}` && success[0].publicErrorRef === null
     && JSON.stringify(errors.map((response) => response.status)) === JSON.stringify(op.publicErrorStatuses)
@@ -183,7 +180,7 @@ function validResponses(op)
       && response.status != null && response.contentType === 'application/octet-stream'
       && response.resultPlacement === 'aeds.frame.payload' && response.nullable === false)
     && errors.every((response) => response.schemaRef === `aeds://frame/${op.errorFrame}`
-      && response.publicErrorRef === `configuration-error-security-policy:error-transport-mappings:${response.status}`)
+      && response.publicErrorRef === `configuration-error-security-policy:error-transport-mappings:${response.status}`);
 }
 
 function observationContentDigest(observation)
@@ -191,25 +188,25 @@ function observationContentDigest(observation)
   const dotNetJson = (value) => JSON.stringify(value)
     .replace(/\\"/gu, '\\u0022')
     .replace(/[+<>&'\u007f-\uffff]/gu, (character) =>
-      `\\u${character.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`)
+      `\\u${character.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
   const pascalRecord = (value) => !isObject(value) ? value : Object.fromEntries(Object.entries(value).map(([key, item]) => [
     `${key[0].toUpperCase()}${key.slice(1)}`,
     item
-  ]))
-  const bounds = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, pascalRecord(item)]))
+  ]));
+  const bounds = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, pascalRecord(item)]));
   const parameter = (value) => ({
     ...pascalRecord(value),
     Bounds: pascalRecord(value?.bounds)
-  })
+  });
   const properties = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
     ...pascalRecord(item),
     Bounds: pascalRecord(item.bounds)
-  }]))
+  }]));
   const definitions = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
     ...pascalRecord(item),
     Properties: properties(item.properties),
     Bounds: bounds(item.bounds)
-  }]))
+  }]));
   const operations = (observation.operations ?? []).map((operation) => ({
     ...pascalRecord(operation),
     Request: {
@@ -221,7 +218,7 @@ function observationContentDigest(observation)
     },
     Responses: operation.responses?.map(pascalRecord),
     PublicErrorStatusEvidence: operation.publicErrorStatusEvidence
-  }))
+  }));
   return sha256(Buffer.from(dotNetJson({
     Schema: observation.schema,
     Protocol: observation.protocol,
@@ -232,70 +229,70 @@ function observationContentDigest(observation)
     ProtocolStates: pascalRecord(observation.protocolStates),
     ErrorAuthority: pascalRecord(observation.errorAuthority),
     EndpointContractAuthority: pascalRecord(observation.endpointContractAuthority)
-  }), 'utf8'))
+  }), 'utf8'));
 }
 
 function protocolStateCatalog(protocol)
 {
-  const version = Number(protocol?.header?.version)
-  const frameTypes = protocol?.frameTypes
-  const retiredEntries = protocol?.retiredFrameValues
+  const version = Number(protocol?.header?.version);
+  const frameTypes = protocol?.frameTypes;
+  const retiredEntries = protocol?.retiredFrameValues;
   if (!Number.isInteger(version) || !Array.isArray(frameTypes) || frameTypes.length === 0
-    || !Array.isArray(retiredEntries)) return null
-  const frameNames = frameTypes.map((frame) => String(frame?.name ?? ''))
-  const frameValues = frameTypes.map((frame) => frame?.value)
-  const retiredFrameValues = retiredEntries.map((entry) => entry?.value)
+    || !Array.isArray(retiredEntries)) {return null;}
+  const frameNames = frameTypes.map((frame) => String(frame?.name ?? ''));
+  const frameValues = frameTypes.map((frame) => frame?.value);
+  const retiredFrameValues = retiredEntries.map((entry) => entry?.value);
   if (frameNames.some((name) => name.length === 0)
     || frameValues.some((value) => !Number.isInteger(value))
     || retiredFrameValues.some((value) => !Number.isInteger(value))
     || new Set(frameNames).size !== frameNames.length
     || new Set(frameValues).size !== frameValues.length
     || new Set(retiredFrameValues).size !== retiredFrameValues.length
-    || frameValues.some((value) => retiredFrameValues.includes(value))) return null
-  const named = frameNames.filter((name) => name !== 'Unknown').sort()
-  const activeFrameIds = named.filter((name) => !name.startsWith('Reserved'))
-  if (activeFrameIds.length === 0) return null
+    || frameValues.some((value) => retiredFrameValues.includes(value))) {return null;}
+  const named = frameNames.filter((name) => name !== 'Unknown').sort();
+  const activeFrameIds = named.filter((name) => !name.startsWith('Reserved'));
+  if (activeFrameIds.length === 0) {return null;}
   return {
     supportedVersions: [version],
     activeFrameIds,
     retiredFrameValues: [...retiredFrameValues].sort((left, right) => left - right),
     migrationOnlyFrameIds: named.filter((name) => name.startsWith('Reserved')),
     aedsOnly: true
-  }
+  };
 }
 
 function readJson(absolute, label, failureReasons)
 {
   if (!existsSync(absolute))
   {
-    failureReasons.push(`missing ${label}`)
-    return null
+    failureReasons.push(`missing ${label}`);
+    return null;
   }
   try
   {
-    return JSON.parse(readFileSync(absolute, 'utf8'))
+    return JSON.parse(readFileSync(absolute, 'utf8'));
   }
   catch (error)
   {
-    failureReasons.push(`${label} JSON parse failed: ${error instanceof Error ? error.message : String(error)}`)
-    return null
+    failureReasons.push(`${label} JSON parse failed: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
   }
 }
 
-function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
+function validateExactBuildReceipt(repositoryRoot, suppliedIdentity, canonicalDigest)
 {
-  const failureReasons = []
-  const receipt = readJson(path.join(repositoryRoot, buildReceiptRelative), 'canonical OpenAPI build receipt', failureReasons)
-  if (receipt == null) return { failureReasons, receipt: null }
+  const failureReasons = [];
+  const receipt = readJson(path.join(repositoryRoot, buildReceiptRelative), 'canonical OpenAPI build receipt', failureReasons);
+  if (receipt == null) {return { failureReasons, receipt: null };}
   const receiptKeys = [
     'schema', 'artifactId', 'observationPath', 'openapiPath', 'observationDigest', 'artifactDigest',
     'openapiDigest', 'sourceDigests', 'sourceDigest', 'contractDigest', 'errorCatalogDigest',
     'generatorDigest', 'protocolDigest', 'configuration', 'buildIdentity'
-  ]
+  ];
   const identityKeys = [
     'artifactId', 'receiptDigest', 'artifactDigest', 'sourceDigest', 'contractDigest',
     'errorCatalogDigest', 'generatorDigest', 'protocolDigest'
-  ]
+  ];
   if (!exactKeys(receipt, receiptKeys)
     || receipt.schema !== 'fsusblog.openapi-observation-build-receipt.v1'
     || receipt.artifactId !== expectedArtifactId
@@ -305,78 +302,78 @@ function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
     || !exactKeys(receipt.buildIdentity, identityKeys)
     || !exactKeys(receipt.sourceDigests, sourcePaths))
   {
-    failureReasons.push('canonical OpenAPI build receipt shape/path/source set is invalid')
-    return { failureReasons, receipt }
+    failureReasons.push('canonical OpenAPI build receipt shape/path/source set is invalid');
+    return { failureReasons, receipt };
   }
 
-  const { buildIdentity: embeddedIdentity, ...receiptBody } = receipt
-  const actualReceiptDigest = digestValue(receiptBody)
+  const { buildIdentity: embeddedIdentity, ...receiptBody } = receipt;
+  const actualReceiptDigest = canonicalDigest(receiptBody);
   if (embeddedIdentity.receiptDigest !== actualReceiptDigest)
   {
-    failureReasons.push('canonical OpenAPI build receipt self-digest mismatch')
+    failureReasons.push('canonical OpenAPI build receipt self-digest mismatch');
   }
   for (const key of identityKeys.filter((key) => key !== 'receiptDigest'))
   {
-    if (embeddedIdentity[key] !== receipt[key]) failureReasons.push(`build receipt embedded ${key} mismatch`)
+    if (embeddedIdentity[key] !== receipt[key]) {failureReasons.push(`build receipt embedded ${key} mismatch`);}
   }
   if (!exactKeys(suppliedIdentity, ['artifactId', 'receiptDigest', 'artifactDigest'])
     || suppliedIdentity.artifactId !== embeddedIdentity.artifactId
     || suppliedIdentity.receiptDigest !== embeddedIdentity.receiptDigest
     || suppliedIdentity.artifactDigest !== embeddedIdentity.artifactDigest)
   {
-    failureReasons.push('supplied buildIdentity does not identify the canonical OpenAPI build receipt')
+    failureReasons.push('supplied buildIdentity does not identify the canonical OpenAPI build receipt');
   }
 
-  const actualSourceDigests = {}
+  const actualSourceDigests = {};
   for (const relative of sourcePaths)
   {
-    const absolute = path.join(repositoryRoot, relative)
+    const absolute = path.join(repositoryRoot, relative);
     if (!existsSync(absolute))
     {
-      failureReasons.push(`build receipt source missing: ${relative}`)
-      continue
+      failureReasons.push(`build receipt source missing: ${relative}`);
+      continue;
     }
-    actualSourceDigests[relative] = sha256(readFileSync(absolute))
+    actualSourceDigests[relative] = sha256(readFileSync(absolute));
     if (receipt.sourceDigests[relative] !== actualSourceDigests[relative])
     {
-      failureReasons.push(`build receipt source digest mismatch: ${relative}`)
+      failureReasons.push(`build receipt source digest mismatch: ${relative}`);
     }
   }
-  if (receipt.sourceDigest !== digestValue(actualSourceDigests)) failureReasons.push('build receipt aggregate source digest mismatch')
-  if (receipt.generatorDigest !== actualSourceDigests[generatorRelative]) failureReasons.push('build receipt generator digest mismatch')
-  if (receipt.protocolDigest !== actualSourceDigests[protocolRelative]) failureReasons.push('build receipt protocol digest mismatch')
+  if (receipt.sourceDigest !== canonicalDigest(actualSourceDigests)) {failureReasons.push('build receipt aggregate source digest mismatch');}
+  if (receipt.generatorDigest !== actualSourceDigests[generatorRelative]) {failureReasons.push('build receipt generator digest mismatch');}
+  if (receipt.protocolDigest !== actualSourceDigests[protocolRelative]) {failureReasons.push('build receipt protocol digest mismatch');}
 
-  const endpointContract = readJson(path.join(repositoryRoot, endpointContractRelative), 'canonical endpoint contract', failureReasons)
+  const endpointContract = readJson(path.join(repositoryRoot, endpointContractRelative), 'canonical endpoint contract', failureReasons);
   if (endpointContract != null)
   {
-    const { contentDigest: declared, ...content } = endpointContract
-    const actual = sha256(Buffer.from(JSON.stringify(content), 'utf8'))
-    if (declared !== actual || receipt.contractDigest !== actual) failureReasons.push('build receipt contract digest mismatch')
+    const { contentDigest: declared, ...content } = endpointContract;
+    const actual = sha256(Buffer.from(JSON.stringify(content), 'utf8'));
+    if (declared !== actual || receipt.contractDigest !== actual) {failureReasons.push('build receipt contract digest mismatch');}
   }
-  const behaviorCatalog = readJson(path.join(repositoryRoot, behaviorCatalogRelative), 'current BehaviorCatalog', failureReasons)
-  if (behaviorCatalog != null && receipt.errorCatalogDigest !== digestCatalog(behaviorCatalog))
+  const behaviorCatalog = readJson(path.join(repositoryRoot, behaviorCatalogRelative), 'current BehaviorCatalog', failureReasons);
+  if (behaviorCatalog != null && receipt.errorCatalogDigest !== canonicalDigest(behaviorCatalog))
   {
-    failureReasons.push('build receipt error authority digest mismatch')
+    failureReasons.push('build receipt error authority digest mismatch');
   }
   for (const [relative, expected, label] of [
     [observationRelative, receipt.artifactDigest, 'observation artifact'],
     [observedOpenApiRelative, receipt.openapiDigest, 'observed OpenAPI artifact']
   ])
   {
-    const absolute = path.join(repositoryRoot, relative)
-    if (!existsSync(absolute)) failureReasons.push(`missing ${label} at fixed canonical path`)
-    else if (sha256(readFileSync(absolute)) !== expected) failureReasons.push(`${label} digest mismatch`)
+    const absolute = path.join(repositoryRoot, relative);
+    if (!existsSync(absolute)) {failureReasons.push(`missing ${label} at fixed canonical path`);}
+    else if (sha256(readFileSync(absolute)) !== expected) {failureReasons.push(`${label} digest mismatch`);}
   }
-  return { failureReasons, receipt }
+  return { failureReasons, receipt };
 }
 
-const encodedKey = (prefix, identity) => `${prefix}_${Buffer.from(String(identity), 'utf8').toString('hex')}`
-const compactObject = (entries) => Object.fromEntries(entries.filter(([, value]) => value != null))
+const encodedKey = (prefix, identity) => `${prefix}_${Buffer.from(String(identity), 'utf8').toString('hex')}`;
+const compactObject = (entries) => Object.fromEntries(entries.filter(([, value]) => value != null));
 
 function projectBounds(bounds)
 {
-  const projected = Object.fromEntries(Object.entries(bounds).filter(([, value]) => value != null))
-  return Object.keys(projected).length > 0 ? projected : null
+  const projected = Object.fromEntries(Object.entries(bounds).filter(([, value]) => value != null));
+  return Object.keys(projected).length > 0 ? projected : null;
 }
 
 function projectProperties(properties)
@@ -390,7 +387,7 @@ function projectProperties(properties)
       ['enumValues', property.enumValues.length > 0 ? property.enumValues : null],
       ['bounds', projectBounds(property.bounds)]
     ])
-  ]))
+  ]));
 }
 
 function projectParameter(parameter)
@@ -404,7 +401,7 @@ function projectParameter(parameter)
     ['nullable', parameter.nullable],
     ['bounds', projectBounds(parameter.bounds)],
     ['evidence', parameter.evidence]
-  ])
+  ]);
 }
 
 function projectRequest(request)
@@ -424,7 +421,7 @@ function projectRequest(request)
           }]))
         : null]
     ])
-  ]))
+  ]));
   return compactObject([
     ['direction', request.direction], ['source', request.source], ['schemaRef', request.schemaRef], ['encoding', request.encoding],
     ['required', request.required], ['nullable', request.nullable],
@@ -447,12 +444,12 @@ function projectRequest(request)
     ['fieldSetState', request.fieldSetState], ['boundsState', request.boundsState], ['unionState', request.unionState],
     ['schemaDigest', request.schemaDigest], ['sourceTypes', request.sourceTypes.length > 0 ? request.sourceTypes : null],
     ['readerIdentities', request.readerIdentities.length > 0 ? request.readerIdentities : null]
-  ])
+  ]);
 }
 
 function projectResponse(response)
 {
-  return compactObject(Object.entries(response))
+  return compactObject(Object.entries(response));
 }
 
 /**
@@ -463,14 +460,14 @@ function projectResponse(response)
 // BEHAVIOR-OWNER: binary-api-aeds-contract
 export function extract(context)
 {
-  const buildIdentity = context.buildIdentity
+  const buildIdentity = context.buildIdentity;
   if (buildIdentity == null || typeof buildIdentity !== 'object')
   {
     return {
       status: 'failed',
       failureReasons: ['openapi-aeds-fact-extractor requires exact buildIdentity'],
       observations: {}
-    }
+    };
   }
   if (buildIdentity.artifactId !== expectedArtifactId)
   {
@@ -478,7 +475,7 @@ export function extract(context)
       status: 'failed',
       failureReasons: [`unexpected artifactId ${buildIdentity.artifactId}`],
       observations: {}
-    }
+    };
   }
   if (/bin[/\\](?:Debug|Release)\b/iu.test(String(buildIdentity.artifactId))
     || /bin[/\\](?:Debug|Release)\b/iu.test(String(buildIdentity.path ?? '')))
@@ -487,32 +484,42 @@ export function extract(context)
       status: 'failed',
       failureReasons: ['refuses ambient bin/Debug or bin/Release observation identity'],
       observations: {}
-    }
+    };
   }
 
-  const receiptValidation = validateExactBuildReceipt(context.repositoryRoot, buildIdentity)
+  const canonicalDigest = context.canonicalDigest;
+  if (typeof canonicalDigest !== 'function')
+  {
+    return {
+      status: 'failed',
+      failureReasons: ['openapi-aeds-fact-extractor requires canonical digest capability from runner'],
+      observations: {}
+    };
+  }
+
+  const receiptValidation = validateExactBuildReceipt(context.repositoryRoot, buildIdentity, canonicalDigest);
   if (receiptValidation.failureReasons.length > 0)
   {
     return {
       status: 'failed',
       failureReasons: receiptValidation.failureReasons,
       observations: {}
-    }
+    };
   }
-  const buildReceipt = receiptValidation.receipt
+  const buildReceipt = receiptValidation.receipt;
 
-  const absolute = path.join(context.repositoryRoot, observationRelative)
+  const absolute = path.join(context.repositoryRoot, observationRelative);
   if (!existsSync(absolute))
   {
     return {
       status: 'failed',
       failureReasons: [`missing sealed observation artifact ${observationRelative}`],
       observations: {}
-    }
+    };
   }
 
-  const bytes = readFileSync(absolute)
-  const artifactDigest = sha256(bytes)
+  const bytes = readFileSync(absolute);
+  const artifactDigest = sha256(bytes);
   if (artifactDigest !== buildReceipt.artifactDigest)
   {
     return {
@@ -521,13 +528,13 @@ export function extract(context)
         `observation artifact digest mismatch (refuses unbound or stale build; expected ${buildReceipt.artifactDigest}, got ${artifactDigest})`
       ],
       observations: {}
-    }
+    };
   }
 
-  let observation
+  let observation;
   try
   {
-    observation = JSON.parse(bytes.toString('utf8'))
+    observation = JSON.parse(bytes.toString('utf8'));
   }
   catch (error)
   {
@@ -535,7 +542,7 @@ export function extract(context)
       status: 'failed',
       failureReasons: [`observation JSON parse failed: ${error instanceof Error ? error.message : String(error)}`],
       observations: {}
-    }
+    };
   }
 
   if (observation?.schema !== 'fsusblog.api-aeds-observation.v4')
@@ -544,7 +551,7 @@ export function extract(context)
       status: 'failed',
       failureReasons: ['observation schema is not fsusblog.api-aeds-observation.v4'],
       observations: {}
-    }
+    };
   }
   if (!Array.isArray(observation.operations) || observation.operations.length === 0)
   {
@@ -552,7 +559,7 @@ export function extract(context)
       status: 'failed',
       failureReasons: ['observation operations empty'],
       observations: {}
-    }
+    };
   }
 
   // Reject reverse generation from checked-in OpenAPI: observation must not claim checked-in file as source.
@@ -564,27 +571,27 @@ export function extract(context)
       status: 'failed',
       failureReasons: ['observation must not be reverse-generated from checked-in OpenAPI'],
       observations: {}
-    }
+    };
   }
 
-  const operations = {}
-  const operationKeys = []
-  const seenOperationIds = new Set()
-  const seenMethodPaths = new Set()
-  const failureReasons = []
-  const protocolStates = observation.protocolStates
-  const errorAuthority = observation.errorAuthority
-  const endpointAuthority = observation.endpointContractAuthority
-  const protocol = readJson(path.join(context.repositoryRoot, protocolRelative), 'canonical AEDS protocol', failureReasons)
-  const expectedProtocolStates = protocolStateCatalog(protocol)
+  const operations = {};
+  const operationKeys = [];
+  const seenOperationIds = new Set();
+  const seenMethodPaths = new Set();
+  const failureReasons = [];
+  const protocolStates = observation.protocolStates;
+  const errorAuthority = observation.errorAuthority;
+  const endpointAuthority = observation.endpointContractAuthority;
+  const protocol = readJson(path.join(context.repositoryRoot, protocolRelative), 'canonical AEDS protocol', failureReasons);
+  const expectedProtocolStates = protocolStateCatalog(protocol);
   if (expectedProtocolStates == null || JSON.stringify(protocolStates) !== JSON.stringify(expectedProtocolStates))
   {
-    failureReasons.push('active/retired/migration/AEDS-only protocol states do not match canonical aeds-protocol.json')
+    failureReasons.push('active/retired/migration/AEDS-only protocol states do not match canonical aeds-protocol.json');
   }
   if (observation.observationDigest !== observationContentDigest(observation)
     || buildReceipt.observationDigest !== observation.observationDigest)
   {
-    failureReasons.push('observationDigest does not match current observation content and build receipt')
+    failureReasons.push('observationDigest does not match current observation content and build receipt');
   }
   if (!exactKeys(errorAuthority, ['behaviorId', 'catalogDigest', 'documentPath', 'factIds'])
     || errorAuthority.behaviorId !== 'configuration-error-security-policy'
@@ -595,60 +602,61 @@ export function extract(context)
       'facts.error-codes.transport-mapping'
     ]))
   {
-    failureReasons.push('error authority binding is missing, duplicated, or stale')
+    failureReasons.push('error authority binding is missing, duplicated, or stale');
   }
   if (!exactKeys(endpointAuthority, ['schema', 'documentPath', 'contentDigest'])
     || endpointAuthority.schema !== 'fsusblog.aeds-endpoint-contracts.v2'
     || endpointAuthority.documentPath !== endpointContractRelative
     || !/^[a-f0-9]{64}$/u.test(String(endpointAuthority.contentDigest ?? '')))
   {
-    failureReasons.push('endpoint contract authority binding is missing, duplicated, or stale')
+    failureReasons.push('endpoint contract authority binding is missing, duplicated, or stale');
   }
-  const behaviorCatalog = path.join(context.repositoryRoot, behaviorCatalogRelative)
+  const behaviorCatalog = path.join(context.repositoryRoot, behaviorCatalogRelative);
   if (existsSync(behaviorCatalog)
-    && digestCatalog(JSON.parse(readFileSync(behaviorCatalog, 'utf8'))) !== errorAuthority?.catalogDigest)
+    && canonicalDigest(JSON.parse(readFileSync(behaviorCatalog, 'utf8'))) !== errorAuthority?.catalogDigest)
   {
-    failureReasons.push('error authority catalog digest does not match current BehaviorCatalog')
+    failureReasons.push('error authority catalog digest does not match current BehaviorCatalog');
   }
-  const endpointContract = path.join(context.repositoryRoot, endpointContractRelative)
+  const endpointContract = path.join(context.repositoryRoot, endpointContractRelative);
   if (existsSync(endpointContract))
   {
-    const document = JSON.parse(readFileSync(endpointContract, 'utf8'))
-    const { contentDigest: _contentDigest, ...content } = document
-    const actual = createHash('sha256').update(JSON.stringify(content)).digest('hex')
+    const document = JSON.parse(readFileSync(endpointContract, 'utf8'));
+    const content = { ...document };
+    delete content.contentDigest;
+    const actual = createHash('sha256').update(JSON.stringify(content)).digest('hex');
     if (actual !== endpointAuthority?.contentDigest || document.contentDigest !== actual)
     {
-      failureReasons.push('endpoint contract content digest does not match current canonical shared contract')
+      failureReasons.push('endpoint contract content digest does not match current canonical shared contract');
     }
   }
 
   for (const op of observation.operations)
   {
-    const key = `${op.method} ${op.path}`
-    if (seenMethodPaths.has(key)) failureReasons.push(`duplicate method/path ${key}`)
-    seenMethodPaths.add(key)
-    if (!op.operationId) failureReasons.push(`${key} missing operationId`)
-    if (seenOperationIds.has(op.operationId)) failureReasons.push(`duplicate operationId ${op.operationId}`)
-    seenOperationIds.add(op.operationId)
-    const requestValid = validRequest(op)
+    const key = `${op.method} ${op.path}`;
+    if (seenMethodPaths.has(key)) {failureReasons.push(`duplicate method/path ${key}`);}
+    seenMethodPaths.add(key);
+    if (!op.operationId) {failureReasons.push(`${key} missing operationId`);}
+    if (seenOperationIds.has(op.operationId)) {failureReasons.push(`duplicate operationId ${op.operationId}`);}
+    seenOperationIds.add(op.operationId);
+    const requestValid = validRequest(op);
     if (!requestValid)
     {
-      failureReasons.push(`${key} request contract is not closed and typed`)
+      failureReasons.push(`${key} request contract is not closed and typed`);
     }
     if (!validResponses(op))
     {
-      failureReasons.push(`${key} response contracts/result placement are invalid`)
+      failureReasons.push(`${key} response contracts/result placement are invalid`);
     }
     if (op.errorAuthorityBehaviorId !== 'configuration-error-security-policy'
       || op.publicErrorRefState !== 'operation-status-authority-bound')
     {
-      failureReasons.push(`${key} public errors must reference the exact current error authority`)
+      failureReasons.push(`${key} public errors must reference the exact current error authority`);
     }
     if (op.protocolState !== 'active-aeds-only' || op.resultPlacement !== 'aeds.frame.payload')
     {
-      failureReasons.push(`${key} protocol state/result placement is invalid`)
+      failureReasons.push(`${key} protocol state/result placement is invalid`);
     }
-    operationKeys.push(key)
+    operationKeys.push(key);
     operations[op.operationId] = {
       method: String(op.method),
       path: String(op.path),
@@ -676,15 +684,15 @@ export function extract(context)
       errorAuthorityBehaviorId: op.errorAuthorityBehaviorId,
       resultPlacement: op.resultPlacement,
       protocolState: op.protocolState
-    }
+    };
   }
 
   if (failureReasons.length > 0)
   {
-    return { status: 'failed', failureReasons, observations: {} }
+    return { status: 'failed', failureReasons, observations: {} };
   }
 
-  operationKeys.sort()
+  operationKeys.sort();
   return {
     status: 'ok',
     failureReasons: [],
@@ -709,5 +717,5 @@ export function extract(context)
       endpointContractAuthority: endpointAuthority,
       artifactDigest
     }
-  }
+  };
 }

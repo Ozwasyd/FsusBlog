@@ -10,8 +10,43 @@ const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contrac
 const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
 const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
-const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
+const { extract: extractOpenApiDirect } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
+
+const extractOpenApi = (context) => extractOpenApiDirect({ ...context, canonicalDigest: digestValue });
+
+test('OpenAPI extractor requires the runner canonical digest capability', () =>
+{
+    const catalog = loadCatalog();
+    assert.equal(digestValue(catalog), digestCatalog(catalog));
+    const missingCapability = extractOpenApiDirect({
+        repositoryRoot: root,
+        buildIdentity: { artifactId: 'openapi-aeds-observation' }
+    });
+    assert.equal(missingCapability.status, 'failed');
+    assert.match(missingCapability.failureReasons.join('\n'), /canonical digest capability/iu);
+});
+
+test('OpenAPI extractor refuses an incompatible canonical digest capability', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-digest-'));
+    try
+    {
+        const observation = sampleObservation();
+        const { buildIdentity } = writeObservation(directory, observation);
+        const result = extractOpenApiDirect({
+            repositoryRoot: directory,
+            buildIdentity,
+            canonicalDigest: () => '0'.repeat(64)
+        });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /receipt self-digest mismatch|aggregate source digest mismatch|error authority digest mismatch/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
@@ -130,7 +165,8 @@ function rewriteReceipt(repositoryRoot, mutate)
     const absolute = path.join(repositoryRoot, buildReceiptRelative);
     const receipt = JSON.parse(readFileSync(absolute, 'utf8'));
     mutate(receipt);
-    const { buildIdentity: _oldIdentity, ...body } = receipt;
+    const body = { ...receipt };
+    delete body.buildIdentity;
     receipt.buildIdentity = {
         artifactId: body.artifactId,
         receiptDigest: digestValue(body),
