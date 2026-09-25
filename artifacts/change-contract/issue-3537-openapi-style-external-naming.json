@@ -16,6 +16,13 @@
                 "tools/fact-extractors/runner.mjs"
             ],
             "reason": "Preserve the documented fact-receipt JSON field names while the runner supplies an internal canonical digest capability."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the execution-target fixture's externally consumed JSON keys while its canonical source digests are regenerated."
         }
     ]
 }
