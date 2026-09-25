@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -258,17 +258,38 @@ public sealed class AuthoringExtensionRpcTests
     [Fact]
     public void RpcSource_DoesNotExposeLiveEditorOrDirectMutationAuthority()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs"));
-
-        Assert.DoesNotContain("editorRef", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Pinia", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("innerHTML", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("splice", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Delegate", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Callback", source, StringComparison.Ordinal);
+        Type[] rpcTypes =
+        [
+            typeof(AuthoringRpcMethod),
+            typeof(AuthoringMutationOperation),
+            typeof(AuthoringTextRange),
+            typeof(AuthoringDocumentSnapshot),
+            typeof(AuthoringMutation),
+            typeof(AuthoringMutationPlan),
+            typeof(AuthoringRpcPayload),
+            typeof(AuthoringRpcEnvelope),
+            typeof(AuthoringCapabilityGrant),
+            typeof(AuthoringGrantRequest),
+            typeof(AuthoringMutationApproval),
+            typeof(AuthoringTransactionReceipt),
+            typeof(IAuthoringCapabilityGrantStore),
+            typeof(IAuthoringCanonicalDocumentTransaction),
+            typeof(AuthoringCapabilityGrantAuthority),
+            typeof(AuthoringExtensionRpcAuthority)
+        ];
+        Assert.All(rpcTypes, type =>
+        {
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("innerHTML", compiled, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("splice", compiled, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Callback", compiled, StringComparison.Ordinal);
+        });
     }
 
     private static async ValueTask<RpcFixture> CreateFixtureAsync(
