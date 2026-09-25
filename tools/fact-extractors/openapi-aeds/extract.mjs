@@ -27,7 +27,9 @@ const sourcePaths = Object.freeze([
     'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
     'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
     generatorRelative,
-    'tools/fact-extractors/openapi-aeds/extract.mjs'
+    'tools/fact-extractors/openapi-aeds/extract.mjs',
+    'tools/fact-extractors/runner.mjs',
+    'tools/fact-extractors/lib/canonicalize.mjs'
 ]);
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const exactKeys = (value, expected) => value && typeof value === 'object'

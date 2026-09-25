@@ -741,6 +741,75 @@ test('canonical receipt self-digest and recomputed aggregate source digest fail 
     }
 });
 
+test('OpenAPI build receipt rejects changed runner digest resolution and canonicalizer source', () =>
+{
+    const cases = [
+        {
+            relative: 'tools/fact-extractors/runner.mjs',
+            change: (source) => source.replace(
+                "from './lib/canonicalize.mjs'",
+                "from './lib/alternate-canonicalize.mjs'"
+            )
+        },
+        {
+            relative: 'tools/fact-extractors/lib/canonicalize.mjs',
+            change: (source) => `${source}\n// changed digest implementation\n`
+        }
+    ];
+    for (const { relative, change } of cases)
+    {
+        assert.ok(observationBuildSourcePaths.includes(relative), `${relative} must be source-bound`);
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-digest-source-'));
+        try
+        {
+            const observation = sampleObservation();
+            writeObservation(directory, observation);
+            const sourcePath = path.join(directory, relative);
+            const currentSource = readFileSync(path.join(root, relative), 'utf8');
+            writeFileSync(sourcePath, currentSource);
+            const buildIdentity = rewriteReceipt(directory, (receipt) =>
+            {
+                receipt.sourceDigests[relative] = sha256(readFileSync(sourcePath));
+                receipt.sourceDigest = digestValue(receipt.sourceDigests);
+            });
+            assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity }).status, 'ok');
+            const changedSource = change(currentSource);
+            assert.notEqual(changedSource, currentSource, `${relative} mutation must be effective`);
+            writeFileSync(sourcePath, changedSource);
+            const staleBinding = extractOpenApi({ repositoryRoot: directory, buildIdentity });
+            assert.equal(staleBinding.status, 'failed');
+            assert.ok(staleBinding.failureReasons.some((reason) => reason.includes(relative)),
+                `${relative} drift must be named: ${staleBinding.failureReasons.join('; ')}`);
+        }
+        finally
+        {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+});
+
+test('OpenAPI build receipt rejects an omitted digest capability source after resealing', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-missing-digest-source-'));
+    try
+    {
+        const observation = sampleObservation();
+        writeObservation(directory, observation);
+        const buildIdentity = rewriteReceipt(directory, (receipt) =>
+        {
+            delete receipt.sourceDigests['tools/fact-extractors/runner.mjs'];
+            receipt.sourceDigest = digestValue(receipt.sourceDigests);
+        });
+        const result = extractOpenApi({ repositoryRoot: directory, buildIdentity });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /source set is invalid/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test('receipt cannot self-select contract, error, generator, protocol, or artifact digests', () =>
 {
     const cases = [
