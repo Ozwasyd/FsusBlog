@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "4b8e000286c57ca96cdc139a25c8a088542397fd",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "FSUSBLOG_STYLE_ROOT=. tools/frontend/style-toolchain/node_modules/.bin/eslint --config eslint.config.mjs --fix --rule 'curly: off' --rule '@stylistic/semi: off' tools/fact-extractors/openapi-aeds/extract.mjs tests/tools/openapi-aeds-observation.test.mjs"
+    },
+    "paths": [
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tools/fact-extractors/openapi-aeds/extract.mjs"
+    ],
+    "firstPassTreeSha256": "1a84f99592e494cbcb3d506fe5e092138f0e9d7af6072330fb278de78ccd8d58",
+    "secondPassTreeSha256": "1a84f99592e494cbcb3d506fe5e092138f0e9d7af6072330fb278de78ccd8d58",
+    "idempotent": true
+}
