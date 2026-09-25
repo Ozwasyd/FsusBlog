@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -311,25 +313,65 @@ public sealed class AuthoringCommandContributionTests
     [Fact]
     public void ProductionCommandBoundary_DoesNotExposeUiOrMutationBypasses()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandContributions.cs"));
-
-        foreach (string forbidden in new[]
+        Type[] commandTypes =
+        [
+            typeof(AuthoringCommandCategory),
+            typeof(AuthoringCommandSurface),
+            typeof(AuthoringCommandContextFact),
+            typeof(AuthoringCommandContextOperator),
+            typeof(AuthoringShortcutModifier),
+            typeof(AuthoringCommandLocalization),
+            typeof(AuthoringCommandContextCondition),
+            typeof(AuthoringShortcutRequest),
+            typeof(AuthoringCommandContribution),
+            typeof(AuthoringShortcutDecision),
+            typeof(AuthoringCommandState),
+            typeof(AuthoringCommandContextSnapshot),
+            typeof(AuthoringCommandAvailability),
+            typeof(AuthoringCommandProjection),
+            typeof(AuthoringCommandExecutionContext),
+            typeof(AuthoringCommandExecutionResponse),
+            typeof(IAuthoringCommandExecutionPort),
+            typeof(AuthoringCommandRegistry),
+            typeof(AuthoringCommandExecutionCoordinator),
+            typeof(AuthoringCommandTransactionAdapter)
+        ];
+        const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Instance | BindingFlags.Static;
+        Assert.All(commandTypes, type =>
         {
-            "addEventListener",
-            "keydown",
-            "innerHTML",
-            ".splice(",
-            "IServiceProvider",
-            "Delegate",
-            "dynamic "
-        })
-        {
-            Assert.DoesNotContain(forbidden, source, StringComparison.OrdinalIgnoreCase);
-        }
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            foreach (string forbidden in new[]
+                     {
+                         "addEventListener",
+                         "keydown",
+                         "innerHTML",
+                         ".splice(",
+                         "IServiceProvider",
+                         "Delegate",
+                         "Microsoft.CSharp.RuntimeBinder",
+                         "System.Runtime.CompilerServices.CallSite"
+                     })
+            {
+                Assert.DoesNotContain(forbidden, compiled, StringComparison.OrdinalIgnoreCase);
+            }
 
-        Assert.False(ContainsIdentifierToken(source, "document"));
+            Assert.DoesNotContain(type.GetMembers(Declared), member =>
+                member.Name.Equals("document", StringComparison.OrdinalIgnoreCase) ||
+                member is MethodBase method && method.GetParameters().Any(parameter =>
+                    string.Equals(parameter.Name, "document", StringComparison.OrdinalIgnoreCase)));
+            Assert.DoesNotContain(type.CustomAttributes, attribute =>
+                attribute.AttributeType == typeof(DynamicAttribute));
+            Assert.DoesNotContain(type.GetMembers(Declared), member =>
+                member.CustomAttributes.Any(attribute => attribute.AttributeType == typeof(DynamicAttribute)) ||
+                member is MethodBase method && method.GetParameters().Any(parameter =>
+                    parameter.CustomAttributes.Any(attribute => attribute.AttributeType == typeof(DynamicAttribute))) ||
+                member is MethodInfo methodInfo && methodInfo.ReturnParameter.CustomAttributes.Any(attribute =>
+                    attribute.AttributeType == typeof(DynamicAttribute)));
+        });
+
         Assert.False(ContainsIdentifierToken("const message = \"bound to another document.\";", "document"));
         Assert.True(ContainsIdentifierToken("var body = document.body;", "document"));
     }
