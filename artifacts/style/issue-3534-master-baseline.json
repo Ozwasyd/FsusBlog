@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.issue-3534-master-style-baseline.v1",
+    "issue": 3534,
+    "baseCommit": "d653afbde02b75814d8384777886b10419fb38a1",
+    "sourceBlobs": {
+        "tests/tools/behavior-document-consistency-final.test.mjs": "8fd31bd09510977fd20621a43ce68520515041f7",
+        "tools/docs/behavior-document-consistency-final.mjs": "91180cedd5bbd71af674dc0fbc9c35c57fcbfdb2"
+    },
+    "authorityBlobs": {
+        "tools/frontend/check-frontend-style.mjs": "7e906de20284e8441eb3fc254049044ea478d3b2",
+        "config/development/frontend-style-policy.json": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+        "config/development/frontend-style-baseline.json": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+        "config/development/frontend-style-reviewed-residual.json": "082fe1ef336d2a5677baf7dd0d5d799eed6a988b"
+    },
+    "diagnosticCommand": "node tools/frontend/check-frontend-style.mjs --mode changed --file tools/docs/behavior-document-consistency-final.mjs --file tests/tools/behavior-document-consistency-final.test.mjs",
+    "diagnosticExitCode": 1,
+    "diagnosticOutputSha256": "d025c717b5ce2e3592186ba258bb2746e5587c5f78dc7304ec6db347eae76489",
+    "diagnosticCount": 1669,
+    "diagnosticsByPath": {
+        "tests/tools/behavior-document-consistency-final.test.mjs": 549,
+        "tools/docs/behavior-document-consistency-final.mjs": 1120
+    },
+    "diagnosticsByRule": {
+        "@stylistic/semi": 1452,
+        "import-x/no-relative-parent-imports": 9,
+        "import-x/order": 5,
+        "@stylistic/brace-style": 15,
+        "curly": 182,
+        "@stylistic/max-statements-per-line": 3,
+        "no-useless-escape": 1,
+        "no-unused-vars": 1,
+        "no-useless-assignment": 1
+    },
+    "reviewedResidualCommand": "node tools/frontend/reviewed-residual-classification.mjs",
+    "reviewedResidualResult": {
+        "exitCode": 0,
+        "paths": 149,
+        "parentImportDiagnostics": 329,
+        "otherDiagnostics": 0
+    }
+}
