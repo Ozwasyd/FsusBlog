@@ -5575,6 +5575,19 @@
             ]
         },
         {
+            "file": "tests/tools/migration-doc-lint.test.mjs",
+            "owner": "workflow-lint:quality-gate.yml",
+            "executionCategory": "workflow-only",
+            "lifecycle": "conditional-governance",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/migration-terminal-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
