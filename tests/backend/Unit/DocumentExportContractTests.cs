@@ -464,7 +464,9 @@ public sealed class DocumentExportContractTests
         ];
         Assert.All(contractTypes, type =>
         {
-            string compiled = RuntimeMetadataInspection.DescribeType(type);
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
             Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
             Assert.DoesNotContain("ProcessStartInfo", compiled, StringComparison.Ordinal);
             Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
