@@ -242,7 +242,8 @@
         ".webp"
     ],
     "nonSourceSpecialFiles": [
-        "LICENSE"
+        "LICENSE",
+        "fsusui-public-npm-migration.patch.gz"
     ],
     "requiredPathClassificationIds": [
         "generated",

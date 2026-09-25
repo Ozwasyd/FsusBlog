@@ -83,6 +83,27 @@ test('authoritative development documentation authoritative development document
     });
 });
 
+test('authoritative development documentation classifies only the pinned FsusUI migration archive as non-source', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        const archive = 'fsusui-public-npm-migration.patch.gz';
+        assert.ok(manifest.nonSourceSpecialFiles.includes(archive));
+        assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
+
+        manifest.nonSourceSpecialFiles = manifest.nonSourceSpecialFiles.filter((file) => file !== archive);
+        writeManifest(overlay, manifest);
+
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        assert.match(
+            output(result),
+            /config\/dependencies\/fsusui-public-npm-migration\.patch\.gz has no style owner or non-source classification/
+        );
+    });
+});
+
 test('authoritative development documentation checker rejects a stale AGENTS repository path', () =>
 {
     withOverlay((overlay) =>
