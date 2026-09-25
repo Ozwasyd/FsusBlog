@@ -465,16 +465,16 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         User banned = await db.Queryable<User>().InSingleAsync(userId);
         Assert.Equal(1, banned.Status);
         Assert.Equal("policy", banned.BanReason);
-        Assert.Equal(1, banned.BanStateGeneration);
+        Assert.Equal(2, banned.BanStateGeneration);
         BanStateSnapshot state = await service.GetBanStateAsync(userId, subjectHash);
         Assert.True(state.IsBanned);
-        Assert.Equal("manual_ban", state.ReasonCode);
-        Assert.Equal(1, state.Generation);
+        Assert.Equal(BanStateProjectionFacts.ManualReasonCode, state.ReasonCode);
+        Assert.Equal(2, state.Generation);
         await accountStates.Received(1).ProjectCommittedMutationAsync(userId, Arg.Any<CancellationToken>());
 
         await service.BanUserAsync(userId, "policy");
 
-        Assert.Equal(1, (await db.Queryable<User>().InSingleAsync(userId)).BanStateGeneration);
+        Assert.Equal(2, (await db.Queryable<User>().InSingleAsync(userId)).BanStateGeneration);
         await accountStates.Received(1).ProjectCommittedMutationAsync(userId, Arg.Any<CancellationToken>());
     }
 
