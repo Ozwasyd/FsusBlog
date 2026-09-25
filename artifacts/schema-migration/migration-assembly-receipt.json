@@ -689,7 +689,7 @@
     },
     {
       "path": "src/migration/SchemaMigrationDdlPrimitives.cs",
-      "sha256": "10e79f34d58509c73a0504099a89d93e52d0822a11e9beead74287f7d8250fec",
+      "sha256": "e198cca7c6b3bccc91cb08ddd940cd0a3228cdf236b1d851b11b9cf5be6ccc14",
       "symbols": [
         "ISchemaDdlProvider",
         "MySqlSchemaDdlProvider",
@@ -2449,7 +2449,7 @@
       },
       {
         "newPath": "src/migration/SchemaMigrationDdlPrimitives.cs",
-        "newSha256": "10e79f34d58509c73a0504099a89d93e52d0822a11e9beead74287f7d8250fec",
+        "newSha256": "e198cca7c6b3bccc91cb08ddd940cd0a3228cdf236b1d851b11b9cf5be6ccc14",
         "oldFiles": [
           {
             "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
@@ -2688,7 +2688,7 @@
       "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"
     ]
   },
-  "contentDigest": "0de4403349b803556119e690b80ec0bf87002f0e857987d2ecc64f218701b1ac",
+  "contentDigest": "6264da6b771f2bd879ef43c8c70196b0ab061bc849a9d521a92be601eaa52743",
   "testFiles": [
     {
       "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
@@ -2696,7 +2696,15 @@
     },
     {
       "path": "tests/migration/MigrationAssemblyBoundaryTests.cs",
-      "sha256": "a2a241a9359712c801ba5efb9b713fc9c2e17635f4c710c4a82bcb95cb9affd3"
+      "sha256": "ca1abffb54ef9694806337288a512f062053e4f3334a33c9eee9166668b84d49"
+    },
+    {
+      "path": "tests/migration/MySqlDdlExecutionTests.cs",
+      "sha256": "d049564c67c592afa9c33c46056db1d06ca9258a191f938d075fd4296a18ae44"
+    },
+    {
+      "path": "tests/migration/MySqlDdlFixture.cs",
+      "sha256": "474eb6ba34389ef63477bfe5e6e39cb955af57f9546537473ac01b892b3007a5"
     },
     {
       "path": "tests/migration/OfflineMigrationCommandLineTests.cs",
@@ -2708,29 +2716,29 @@
     },
     {
       "path": "tests/migration/schema-ddl-provider-snapshots.json",
-      "sha256": "5a820a6fd24e42208816c1fbea01714ffb9aefebab84de0875bbbf3054adfb96"
+      "sha256": "68af39ff942a02bc1e614617a7e7d530d5a9b46ba2b7ca53cac3932c937956a1"
     },
     {
       "path": "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
-      "sha256": "5ab89b14fd6de0fcdea83656facca23980405c604230da63deab3aaf57d0011e"
+      "sha256": "add58769d05a3c6edd092e10700cad4169e2f7d30785489f5eab47918b77ea42"
     }
   ],
-  "testContentDigest": "ef941999b7922a6a67b7162dbdea78eb7306c6a1c03718c802908ee75d7d865a",
-  "verificationInputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
+  "testContentDigest": "ed522341c0775cce42eb1fedb95a99105f1369122f0194a1b39323303e50bb47",
+  "verificationInputDigest": "3c2c2afc90540210874e446f65a4b79afcb1cfa69a7b4db9af30bf70712e3130",
   "verificationResults": [
     {
       "command": "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
-      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:00.71"
+      "inputDigest": "3c2c2afc90540210874e446f65a4b79afcb1cfa69a7b4db9af30bf70712e3130",
+      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:06.36"
     },
     {
       "command": "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
-      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 135 ms - FsusBlog.Migration.Tests.dll (net10.0)"
+      "inputDigest": "3c2c2afc90540210874e446f65a4b79afcb1cfa69a7b4db9af30bf70712e3130",
+      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    58, Skipped:     0, Total:    58, Duration: 59 s - FsusBlog.Migration.Tests.dll (net10.0)"
     }
   ]
 }

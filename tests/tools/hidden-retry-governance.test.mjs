@@ -54,7 +54,7 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     const first = scanHiddenRetries(root);
     const second = scanHiddenRetries(root);
     assert.equal(first.contentDigest, second.contentDigest);
-    assert.equal(first.findings.length, 6);
+    assert.equal(first.findings.length, 7);
     assert.equal(new Set(first.findings.map((item) => item.findingId)).size, first.findings.length);
     const registry = JSON.parse(fs.readFileSync(
         path.join(root, 'config/testing/retry-disposition-registry.json'),
@@ -66,6 +66,28 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
         item.location.path === 'ops/docker/FsusBlog.Server.Dockerfile'
     )), false);
     assert.equal(registry.entries.some((entry) => entry.action === 'remove'), false);
+
+    const mysqlFixturePath = 'tests/migration/MySqlDdlFixture.cs';
+    const mysqlEntry = registry.entries.filter((entry) => entry.location.path === mysqlFixturePath);
+    assert.equal(mysqlEntry.length, 1);
+    assert.equal(mysqlEntry[0].classification, 'non-retry');
+    assert.equal(mysqlEntry[0].policyId, null);
+    assert.equal(mysqlEntry[0].owner, 'schema-migration');
+    const mysqlFixture = fs.readFileSync(path.join(root, mysqlFixturePath), 'utf8');
+    const initialize = mysqlFixture.slice(
+        mysqlFixture.indexOf('public async Task InitializeAsync()'),
+        mysqlFixture.indexOf('public async Task DisposeAsync()')
+    );
+    assert.equal((initialize.match(/ExecuteAsync\(/gu) ?? []).length, 1);
+    assert.match(initialize, /ExecuteAsync\(null, "SELECT VERSION\(\);", startupTimeout\.Token\)/u);
+    assert.match(initialize, /startupTimeout = new CancellationTokenSource\(TimeSpan\.FromSeconds\(30\)\)/u);
+    assert.match(initialize, /Task\.Delay\(500, startupTimeout\.Token\)/u);
+    const execute = mysqlFixture.slice(
+        mysqlFixture.indexOf('public Task<SqlResult> ExecuteAsync('),
+        mysqlFixture.indexOf('private static Dictionary<string, string> CreateLabels()')
+    );
+    assert.doesNotMatch(execute, /\b(?:for|while)\s*\(|Task\.Delay/u);
+    assert.match(execute, /return DockerAsync\(\[\.\. args\], cancellationToken\);/u);
 });
 
 test('dev container selection is an exact non-retry disposition', () =>

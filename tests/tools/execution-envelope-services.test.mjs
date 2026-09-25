@@ -1570,7 +1570,14 @@ test('publication rejects incomplete, extra and wrong-kind bindings before any o
         ['missing producer', { producerId: '' }],
         ['missing run', { runId: '' }],
         ['invalid catalog', { catalog: { ...catalog, version: 1 } }],
-        ['unregistered MySQL', { requiredServices: ['mysql'], containers: { mysql: 'owned-mysql' } }],
+        ['unregistered MySQL', {
+            requiredServices: ['mysql'],
+            containers: { mysql: 'owned-mysql' },
+            catalog: {
+                ...catalog,
+                services: Object.fromEntries(Object.entries(catalog.services).filter(([id]) => id !== 'mysql'))
+            }
+        }],
         ['implicit duplicate ownership', {
             requiredServices: undefined, runOwnedProcesses: { postgres: {} }
         }]
@@ -1596,7 +1603,7 @@ test('publication rejects incomplete, extra and wrong-kind bindings before any o
 
 function controlledMySqlServiceFixture(runId = 'run-mysql-observer-fixture')
 {
-    // A controlled observer contract, not canonical MySQL registration or live qualification.
+    // A controlled observer contract, not live MySQL qualification.
     const fixtureCatalog = structuredClone(catalog);
     fixtureCatalog.services.mysql = {
         ...fixtureCatalog.services.redis,

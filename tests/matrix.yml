@@ -2629,7 +2629,7 @@ tiers:
       owner: ServerContractAgent
       command: tools/test/lanes/backend-unit.sh
       executionDependsOn: [backend-build-governance]
-      services: []
+      services: [mysql]
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
       phase: 1
@@ -2652,11 +2652,13 @@ tiers:
               src/shared,
               tests/backend,
               tests/migration,
+              config/testing/test-execution-service-catalog.json,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
               tools/test/run-backend-production-shards.mjs,
               tools/test/build-migration-tests.mjs,
               tools/test/run-migration-tests.mjs,
+              tools/test-fixtures/services/mysql.mjs,
               tools/test/migration-build-binding.mjs,
               tools/test/migration-execution-evidence.mjs,
               tools/test/vstest-discovery-diagnostic.mjs,

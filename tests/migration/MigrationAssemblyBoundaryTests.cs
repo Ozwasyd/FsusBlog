@@ -55,9 +55,18 @@ public sealed class MigrationAssemblyBoundaryTests
             SchemaColumnDefinition.Parse("integer NOT NULL DEFAULT 0", "definition"));
 
         Assert.Equal(dialect, provider.Dialect);
-        Assert.Contains(quotedTable, sql, StringComparison.Ordinal);
         Assert.Contains("legacy_value", sql, StringComparison.Ordinal);
-        Assert.Contains("integer", sql, StringComparison.OrdinalIgnoreCase);
+        if (dialect == SchemaDdlDialect.MySql)
+        {
+            string ddl = $"ALTER TABLE {quotedTable} ADD COLUMN `legacy_value` integer NOT NULL DEFAULT 0;";
+            Assert.Contains($"CONVERT(X'{Convert.ToHexString(Encoding.UTF8.GetBytes(ddl))}' USING utf8mb4)", sql, StringComparison.Ordinal);
+            Assert.Contains("table_name = 'example'", sql, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains(quotedTable, sql, StringComparison.Ordinal);
+            Assert.Contains("integer", sql, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     private static string ComputePlanFingerprint(IReadOnlyList<ISchemaMigrationDescriptor> descriptors)
