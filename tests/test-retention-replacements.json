@@ -12183,6 +12183,75 @@
                 "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--3340203fd7"
             ],
             "reason": "Issue #2615 retains the parser-toolchain receipt invalidation case as the named parser-toolchain mutation-table row with the exact expected and unexpected reason oracles."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.UserAuthPostgresConcurrencyTests.BlacklistService_BanPersistsNormalizedReasonAndPublishesOneGeneration#case-0000"
+            ],
+            "reason": "Issue #3543 checks the current PostgreSQL ban mutation, normalized durable reason, monotonic generation and local projection. The retired Redis string-cache assertion is not retained by the bounded projection architecture."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.UserAuthPostgresConcurrencyTests.BlacklistService_UnbanPublishesVersionedNormalStateWithoutErasingHistory#case-0000"
+            ],
+            "reason": "Issue #3543 checks that an actual PostgreSQL unban clears the durable reason, increments the generation and publishes a known normal local projection. The former Redis key-removal assertion is intentionally retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_UsesOnlyReadyLocalProjection_AndFailsClosedForUnknown#case-0000",
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000"
+            ],
+            "reason": "Issue #3543 maps active-session acceptance to the ready projection and last-seen scheduling to the bounded coalescing touch queue; the old synchronous database touch behavior is retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath#case-0000",
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0000"
+            ],
+            "reason": "Issue #3543 replaces private handler metadata inspection with TestServer acceptance of a signed admin token and rejection of a bad signature before the session validator runs."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded#case-0000",
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000"
+            ],
+            "reason": "Issue #3543 maps the old bounded snapshot assertion to the bounded projection/touch queue. The previous row-version predicate was replaced by validation-version, token-hash and expiry identity guards and needs independent execution proof before this disposition is accepted."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay#case-0000",
+                "xunit:tests/backend/Unit/ArticleDetailViewProjectionTests.cs#FsusBlog.Server.Tests.Unit.ArticleDetailViewProjectionTests.Project_UsesMaximumWithoutAllowingOutOfOrderRegression#case-0000"
+            ],
+            "reason": "Issue #3543 retires the former Redis sorted-set overlay and binds current GetById projection wiring plus executable monotonic local view projection behavior."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+            "path": "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#FsusBlog.Server.Tests.Unit.BannedUserMiddlewareIdentityKindTests.BannedWrite_ReturnsLocked#case-0000"
+            ],
+            "reason": "Issue #3543 preserves the observable 423 rejection for a banned write through the current account-subject and projection boundary, without restoring legacy user identity."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+            "path": "tests/backend/Unit/RelatedReadingServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.RankingProjection_PreservesLegacyBusinessWeightsAndReasons#case-0000",
+                "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation#case-0000"
+            ],
+            "reason": "Issue #3543 binds the same category, shared-tag, keyword and publication-time reason oracles to the current ranking and scoring functions, including duplicate-tag and cross-field negatives."
         }
     ],
     "assertionReplacements": [
