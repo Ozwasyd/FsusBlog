@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/fact-extractors/openapi-aeds/extract.mjs"
+            ],
+            "reason": "The OpenAPI fact extractor preserves existing process environment spellings while this change binds only the BehaviorDoc minimal-build receipt and leaves environment names unchanged."
+        }
+    ]
+}

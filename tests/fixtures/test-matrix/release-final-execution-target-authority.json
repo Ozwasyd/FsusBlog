@@ -1750,8 +1750,8 @@
         },
         {
             "path": "tools/contracts/lib/openapi-observation.mjs",
-            "contentDigest": "sha256:be02b4b29a4f3f65a4524603aaa0c60ccb99533e143cf6bc5fb302b1304d7a58",
-            "indexDigest": "sha256:be02b4b29a4f3f65a4524603aaa0c60ccb99533e143cf6bc5fb302b1304d7a58"
+            "contentDigest": "sha256:82ef2d2fbb534c16f6cd2a93de230d469e1bf5f5bcb08aa9f1e5684c56952c89",
+            "indexDigest": "sha256:82ef2d2fbb534c16f6cd2a93de230d469e1bf5f5bcb08aa9f1e5684c56952c89"
         },
         {
             "path": "tools/contracts/run-endpoint-depth-runtime.mjs",
@@ -2045,8 +2045,8 @@
         },
         {
             "path": "tools/docs/behavior-doc-static-admission.mjs",
-            "contentDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb",
-            "indexDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb"
+            "contentDigest": "sha256:65a50c9f56b27a081da01089608408c1446d6af8726645a8aa08d9c8e3ee2a45",
+            "indexDigest": "sha256:65a50c9f56b27a081da01089608408c1446d6af8726645a8aa08d9c8e3ee2a45"
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
@@ -2330,8 +2330,8 @@
         },
         {
             "path": "tools/fact-extractors/runner.mjs",
-            "contentDigest": "sha256:3a073ca9a22a84b121d405e45368b75021653d1198ae56ad2df552b9b889d3f7",
-            "indexDigest": "sha256:3a073ca9a22a84b121d405e45368b75021653d1198ae56ad2df552b9b889d3f7"
+            "contentDigest": "sha256:825a548629b80ef7f6fa6b2436f10a7165a54121b4d07de7478fc3c3bf6f98ea",
+            "indexDigest": "sha256:825a548629b80ef7f6fa6b2436f10a7165a54121b4d07de7478fc3c3bf6f98ea"
         },
         {
             "path": "tools/frontend/bench-pow-wasm.mjs",
@@ -5367,8 +5367,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb",
-            "indexDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb",
+            "contentDigest": "sha256:65a50c9f56b27a081da01089608408c1446d6af8726645a8aa08d9c8e3ee2a45",
+            "indexDigest": "sha256:65a50c9f56b27a081da01089608408c1446d6af8726645a8aa08d9c8e3ee2a45",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
