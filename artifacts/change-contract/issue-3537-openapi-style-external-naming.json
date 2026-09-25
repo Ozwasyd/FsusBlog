@@ -4,9 +4,10 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/fact-extractors/openapi-aeds/extract.mjs"
             ],
-            "reason": "Preserve the extractor's registered process environment spellings while dependency injection and formatting change only internal JavaScript ownership."
+            "reason": "Preserve the producer and extractor process environment spellings while the digest-provider source closure and internal JavaScript ownership change."
         },
         {
             "id": "post-runtime-observation-authority",
