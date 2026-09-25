@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/authoritative-development-docs.json"
+            ],
+            "reason": "Preserve serialized style-ownership manifest keys while adding one exact non-source filename to the existing declaration."
+        }
+    ]
+}
