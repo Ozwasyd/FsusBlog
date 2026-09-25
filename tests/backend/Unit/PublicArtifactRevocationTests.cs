@@ -1,9 +1,10 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Reflection;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -402,36 +403,24 @@ public sealed class PublicArtifactRevocationTests
     [Fact]
     public void RevocationReadPath_HasNoClassifierCallOrValuesScan()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "PublicReadArtifacts",
-            "PublicArtifactRevocation.cs"));
-        string registry = Slice(
-            source,
-            "public sealed class PublicArtifactRevocationRegistry",
-            "public readonly record struct PublicArtifactRevocationRegistrySnapshot");
-        string lookup = Slice(
-            registry,
-            "internal bool TryResolve",
-            "internal PublicArtifactRevocationRegistrySnapshot MetricsSnapshot");
-        string middleware = source[source.IndexOf(
-            "public static class PublicArtifactRevocationMiddleware",
-            StringComparison.Ordinal)..];
-        string observabilityRegistration = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "Observability",
-            "FsusObservabilityServiceCollectionExtensions.cs"));
+        string registry = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(PublicArtifactRevocationRegistry)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(PublicArtifactRevocationRegistry)));
+        string lookup = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicArtifactRevocationRegistry), "TryResolve");
+        string middleware = RuntimeMetadataInspection.DescribeType(typeof(PublicArtifactRevocationMiddleware));
+        string observabilityRegistration = RuntimeMetadataInspection.DescribeMethods(
+            typeof(FsusObservabilityServiceCollectionExtensions),
+            nameof(FsusObservabilityServiceCollectionExtensions.AddFsusObservability));
 
         Assert.DoesNotContain("TryCreateRequestFeature", middleware, StringComparison.Ordinal);
         Assert.DoesNotContain(".Values", lookup, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Values", lookup, StringComparison.Ordinal);
         Assert.DoesNotContain(
-            "ConcurrentDictionary<int, PublicArtifactTombstone> _active",
-            registry,
-            StringComparison.Ordinal);
+            typeof(PublicArtifactRevocationRegistry).GetFields(
+                BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic),
+            field => field.Name == "_active" &&
+                field.FieldType == typeof(ConcurrentDictionary<int, PublicArtifactTombstone>));
         Assert.DoesNotContain("legacy", registry, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("fsus.public_artifact_revocation.lookup.hit", registry, StringComparison.Ordinal);
         Assert.Contains("fsus.public_artifact_revocation.lookup.miss", registry, StringComparison.Ordinal);
@@ -439,10 +428,7 @@ public sealed class PublicArtifactRevocationTests
         Assert.Contains("fsus.public_artifact_revocation.apply", registry, StringComparison.Ordinal);
         Assert.Contains("fsus.public_artifact_revocation.clear", registry, StringComparison.Ordinal);
         Assert.Contains("fsus.public_artifact_revocation.active.count", registry, StringComparison.Ordinal);
-        Assert.Contains(
-            "PublicArtifactRevocationRegistry.MeterName",
-            observabilityRegistration,
-            StringComparison.Ordinal);
+        Assert.Contains(PublicArtifactRevocationRegistry.MeterName, observabilityRegistration, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -793,15 +779,6 @@ public sealed class PublicArtifactRevocationTests
         DefaultHttpContext context = CreateContext(path);
         return Assert.IsType<PublicHotReadRequestFeature>(
             context.Features.Get<PublicHotReadRequestFeature>()).Route;
-    }
-
-    private static string Slice(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"missing start marker: {startMarker}");
-        Assert.True(end > start, $"missing end marker: {endMarker}");
-        return source[start..end];
     }
 
     private static DefaultHttpContext CreateContext(string path, bool attachFeature = true)
