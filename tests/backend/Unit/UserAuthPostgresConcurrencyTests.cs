@@ -5,8 +5,8 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
@@ -442,6 +442,77 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         bool Verified,
         bool LoginSucceeded,
         SessionTokenResponseDto? SessionTokens);
+
+    [Fact]
+    public async Task BlacklistService_BanPersistsNormalizedReasonAndPublishesOneGeneration()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        int userId = SeedUser(db, mfaEnabled: false);
+        string subjectHash = new('a', 64);
+        Assert.Equal(1, db.Ado.ExecuteCommand(
+            "UPDATE sys_user SET account_subject_hash = @SubjectHash WHERE id = @AccountId;",
+            new SugarParameter("@SubjectHash", subjectHash),
+            new SugarParameter("@AccountId", userId)));
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        (BanStateProjection projection, IBanStateProjectionObligationCoordinator obligations) =
+            TestBanStateProjectionRuntime.Create(db);
+        var service = new BlacklistService(db, accountStates, projection, obligations);
+
+        await service.BanUserAsync(userId, "  policy  ");
+
+        User banned = await db.Queryable<User>().InSingleAsync(userId);
+        Assert.Equal(1, banned.Status);
+        Assert.Equal("policy", banned.BanReason);
+        Assert.Equal(1, banned.BanStateGeneration);
+        BanStateSnapshot state = await service.GetBanStateAsync(userId, subjectHash);
+        Assert.True(state.IsBanned);
+        Assert.Equal("manual_ban", state.ReasonCode);
+        Assert.Equal(1, state.Generation);
+        await accountStates.Received(1).ProjectCommittedMutationAsync(userId, Arg.Any<CancellationToken>());
+
+        await service.BanUserAsync(userId, "policy");
+
+        Assert.Equal(1, (await db.Queryable<User>().InSingleAsync(userId)).BanStateGeneration);
+        await accountStates.Received(1).ProjectCommittedMutationAsync(userId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BlacklistService_UnbanPublishesVersionedNormalStateWithoutErasingHistory()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        int userId = SeedUser(db, mfaEnabled: false);
+        string subjectHash = new('b', 64);
+        Assert.Equal(1, db.Ado.ExecuteCommand(
+            "UPDATE sys_user SET account_subject_hash = @SubjectHash, status = 1, banreason = 'policy', "
+                + "ban_state_generation = 7 WHERE id = @AccountId;",
+            new SugarParameter("@SubjectHash", subjectHash),
+            new SugarParameter("@AccountId", userId)));
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        (BanStateProjection projection, IBanStateProjectionObligationCoordinator obligations) =
+            TestBanStateProjectionRuntime.Create(db);
+        var service = new BlacklistService(db, accountStates, projection, obligations);
+
+        await service.UnbanUserAsync(userId);
+
+        User unbanned = await db.Queryable<User>().InSingleAsync(userId);
+        Assert.Equal(0, unbanned.Status);
+        Assert.Null(unbanned.BanReason);
+        Assert.Equal(8, unbanned.BanStateGeneration);
+        BanStateSnapshot state = await service.GetBanStateAsync(userId, subjectHash);
+        Assert.True(state.IsKnown);
+        Assert.False(state.IsBanned);
+        Assert.Equal(8, state.Generation);
+        await accountStates.Received(1).ProjectCommittedMutationAsync(userId, Arg.Any<CancellationToken>());
+
+        await service.UnbanUserAsync(userId);
+
+        Assert.Equal(8, (await db.Queryable<User>().InSingleAsync(userId)).BanStateGeneration);
+        await accountStates.Received(1).ProjectCommittedMutationAsync(userId, Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task BlacklistService_BanAndUnbanCannotResurrectDeletedAccount()
