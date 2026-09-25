@@ -12205,27 +12205,30 @@
             "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_UsesOnlyReadyLocalProjection_AndFailsClosedForUnknown#case-0000",
-                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000"
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000",
+                "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#FsusBlog.Server.Tests.AdminSessionProjectionTouchIntegrationTests.ShutdownFlush_DrainsQueuedTouchBeforeWorkerStops#case-0000"
             ],
-            "reason": "Issue #3543 maps active-session acceptance to the ready projection and last-seen scheduling to the bounded coalescing touch queue; the old synchronous database touch behavior is retired."
+            "reason": "Issue #3543 maps active-session acceptance to the ready projection, coalesced scheduling to the bounded touch queue, and durable last-seen persistence to the actual PostgreSQL worker flush; the old synchronous request-path database touch is retired."
         },
         {
             "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
             "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath#case-0000",
-                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0000"
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0001",
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0002"
             ],
-            "reason": "Issue #3543 replaces private handler metadata inspection with TestServer acceptance of a signed admin token and rejection of a bad signature before the session validator runs."
+            "reason": "Issue #3543 replaces private handler metadata inspection with TestServer acceptance of a signed admin token and wrong-key/tampered-signature rejection before the session validator runs."
         },
         {
             "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
             "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded#case-0000",
-                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000"
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000",
+                "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#FsusBlog.Server.Tests.AdminSessionProjectionTouchIntegrationTests.TouchCasConflict_PerformsOneAuthorityRefreshOutsideRequestPath#case-0000"
             ],
-            "reason": "Issue #3543 maps the old bounded snapshot assertion to the bounded projection/touch queue. The previous row-version predicate was replaced by validation-version, token-hash and expiry identity guards and needs independent execution proof before this disposition is accepted."
+            "reason": "Issue #3543 maps the old bounded snapshot assertion to the bounded projection/touch queue and proves the replacement validation-version CAS against actual PostgreSQL with one authority refresh; the former row-version predicate is retired."
         },
         {
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
