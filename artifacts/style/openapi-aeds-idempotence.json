@@ -10,7 +10,7 @@
         "tests/tools/openapi-aeds-observation.test.mjs",
         "tools/fact-extractors/openapi-aeds/extract.mjs"
     ],
-    "firstPassTreeSha256": "1a84f99592e494cbcb3d506fe5e092138f0e9d7af6072330fb278de78ccd8d58",
-    "secondPassTreeSha256": "1a84f99592e494cbcb3d506fe5e092138f0e9d7af6072330fb278de78ccd8d58",
+    "firstPassTreeSha256": "b89bca556f353a029df310d7c3a7fe5a741edef16ae9ca60d5b304d1e49ff222",
+    "secondPassTreeSha256": "b89bca556f353a029df310d7c3a7fe5a741edef16ae9ca60d5b304d1e49ff222",
     "idempotent": true
 }
