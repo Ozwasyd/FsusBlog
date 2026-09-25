@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.format-idempotence-evidence.v1",
-    "revision": "4b8e000286c57ca96cdc139a25c8a088542397fd",
+    "revision": "4c5c8741b2c114a3669920bca9ddd369728ebd05",
     "formatter": {
         "identity": "eslint",
         "version": "10.8.0",
