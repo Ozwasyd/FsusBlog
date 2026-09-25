@@ -326,17 +326,17 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
             excerpt: "if (fields.route !== 'article/list/home' || fields.sort !== 'latest' || fields.pageSize !== 10)" },
         { findingId: 'ee66fd905eb77a13', line: 109, column: 91, function: 'verifyArticlePaginationDeep',
             excerpt: "return fail(id, 'pagination route/sort/page-size binding is not article/list/home latest size=10');" },
-        { findingId: 'c19608dadceeccb6', line: 768, column: 32, function: 'verifyCommentMatrix',
+        { findingId: 'b9fb82434e2ff8d0', line: 816, column: 32, function: 'verifyCommentMatrix',
             excerpt: 'const fields = matches[0].fields ?? {};' },
-        { findingId: '212094fdc17ae867', line: 830, column: 38, function: 'verifyCommentMatrix',
+        { findingId: '37addad575b805a2', line: 878, column: 38, function: 'verifyCommentMatrix',
             excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)" },
-        { findingId: '60f921a49741cbd0', line: 883, column: 19, function: 'verifyCommentMatrix',
+        { findingId: '2f504d4c0fa1a5c8', line: 931, column: 19, function: 'verifyCommentMatrix',
             excerpt: "const root = one('approved-root')[0];" },
-        { findingId: 'fa1174fe6503f0d3', line: 926, column: 30, function: 'verifyCommentMatrix',
+        { findingId: 'fb91078afca6d15f', line: 974, column: 30, function: 'verifyCommentMatrix',
             excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)" },
-        { findingId: 'e7e117c63487b915', line: 930, column: 46, function: 'verifyCommentMatrix',
+        { findingId: '1445d298b9ef9126', line: 978, column: 46, function: 'verifyCommentMatrix',
             excerpt: "const deletedRoot = one('deleted-root')[0];" },
-        { findingId: '2f504d4c0fa1a5c8', line: 931, column: 47, function: 'verifyCommentMatrix',
+        { findingId: '776887fd959a8427', line: 979, column: 47, function: 'verifyCommentMatrix',
             excerpt: "const deletedChild = one('deleted-root-child')[0];" }
     ]);
     assert(findings.every((entry) => [
@@ -358,7 +358,22 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
             'const fields = matches.at(0).fields ?? {}'));
     const replacedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
     assert.throws(() => validateEvidenceLocationClassificationOverrides(replacedSelector),
-        /non-evidence finding override c19608dadceeccb6 changed (?:column|excerpt)/u);
+        /non-evidence finding override b9fb82434e2ff8d0 changed (?:column|excerpt)/u);
+    // A line-based finding ID can survive a source shift while denoting a
+    // different selector. The former deleted-child ID now belongs to root;
+    // matching that ID alone must never inherit its old semantic exemption.
+    const staleIdentity = structuredClone(generated.scan);
+    const rootFinding = staleIdentity.findings.find((entry) => entry.findingId === '2f504d4c0fa1a5c8');
+    rootFinding.column = 47;
+    rootFinding.excerpt = "const deletedChild = one('deleted-root-child')[0];";
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(staleIdentity),
+        /non-evidence finding override 2f504d4c0fa1a5c8 changed (?:column|excerpt)/u);
+    fs.writeFileSync(path.join(mutationRoot, source),
+        sourceText.replace("const root = one('approved-root')[0];",
+            'const root = evidenceCandidates[0];'));
+    const repurposedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(repurposedSelector),
+        /non-evidence finding override 2f504d4c0fa1a5c8 changed (?:column|excerpt)/u);
     const findingIds = new Set(findings.map((entry) => entry.findingId));
     const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
     assert.equal(ledgerEntries.length, findings.length);
