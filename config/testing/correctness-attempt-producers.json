@@ -3,8 +3,8 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:5b35b04eba2fd6aed179b24ea427dfc18d35b91b29e182af93dfc23dea914582",
-        "tests/matrix.yml": "sha256:3f44d9ad8ac54887e46aa96e31a5c0bac873361b7deb893fbac2d67cfa6a5e60",
-        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68aa97c378721a429272b9c47060e3a255d1e255dd003c0805ec11510d81287c",
+        "tests/matrix.yml": "sha256:d687f867f11f41f12e92e0bb26aa0c8d693215b3b3d62df70639d453af0ab500",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:ef15c0e8327696b326ae9acd0d4c0bcffbb113e00f478c45b799f90def3a2651",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
         "config/testing/test-execution-envelope-applicability.json": "sha256:13fa59e8e56185b0e0105f837a313985bf247cf3b11f5573c36f4ba1a932a28b",
         "tools/test/attempt-runner.mjs": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c",
@@ -3625,6 +3625,60 @@
             }
         },
         {
+            "producerId": "physical:backend-tests:migration-test-execution",
+            "domain": "test-producers",
+            "producerKind": "unit",
+            "sourceAuthority": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+            "canonicalCommand": "production-fresh bundle backend-tests producer migration-test-execution",
+            "logicalTierIds": [],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "backend-tests",
+            "executionOwner": "tools/test/bundles/run-bundle.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "tools/test/physical-execution-process-tree.mjs#runPhysicalExecution",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "physical:backend-tests:migration-tests-build",
+            "domain": "build-release-producers",
+            "producerKind": "build",
+            "sourceAuthority": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+            "canonicalCommand": "production-fresh bundle backend-tests producer migration-tests-build",
+            "logicalTierIds": [],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "backend-tests",
+            "executionOwner": "tools/test/bundles/run-bundle.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "tools/test/physical-execution-process-tree.mjs#runPhysicalExecution",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
             "producerId": "physical:backend-tests:perception-evidence-finalize",
             "domain": "test-producers",
             "producerKind": "unit",
@@ -3684,6 +3738,33 @@
             "producerKind": "unit",
             "sourceAuthority": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
             "canonicalCommand": "production-fresh bundle backend-tests producer services",
+            "logicalTierIds": [],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "backend-tests",
+            "executionOwner": "tools/test/bundles/run-bundle.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "tools/test/physical-execution-process-tree.mjs#runPhysicalExecution",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "physical:backend-tests:xunit-inventory-adapter-build",
+            "domain": "build-release-producers",
+            "producerKind": "build",
+            "sourceAuthority": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+            "canonicalCommand": "production-fresh bundle backend-tests producer xunit-inventory-adapter-build",
             "logicalTierIds": [],
             "policyId": "correctness-first-attempt",
             "allowedRetries": 0,
@@ -6258,5 +6339,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:f2139a10cfc0a984f0aef8c4bb36c4dfb0cc2bd393cb34d3c7feae00f08c7d07"
+    "contentDigest": "sha256:c7ece9f48f328036f053b7a703cc20c10bad69abb3c1a2537cd840404edcb637"
 }

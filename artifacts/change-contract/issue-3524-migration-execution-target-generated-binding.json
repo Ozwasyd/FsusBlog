@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/test-inventory/produce.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test-retention/audit.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8edecd5609f8549fbdeb253c7c4acf94ad2ba55fbfe62fd382b2d1b0d2073d86"
+        }
+    ]
+}

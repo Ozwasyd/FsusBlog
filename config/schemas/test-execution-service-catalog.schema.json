@@ -79,6 +79,9 @@
                 "frontend": {
                     "$ref": "#/$defs/processService"
                 },
+                "mysql": {
+                    "$ref": "#/$defs/mysqlService"
+                },
                 "postgres": {
                     "$ref": "#/$defs/postgresService"
                 },
@@ -160,6 +163,65 @@
                         "networkMode",
                         "ports",
                         "resourceLimits"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "mysqlService": {
+            "type": "object",
+            "required": [
+                "kind",
+                "imageReference",
+                "version",
+                "databaseIdentityAuthority",
+                "username",
+                "clientOptionsFile",
+                "versionCommand",
+                "hostNativeAllowed",
+                "requiredIdentityFields"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "container"
+                },
+                "imageReference": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9./_-]+@sha256:[a-f0-9]{64}$"
+                },
+                "version": {
+                    "const": "8.4.11"
+                },
+                "databaseIdentityAuthority": {
+                    "const": "mysql-server-uuid-exact"
+                },
+                "username": {
+                    "const": "fixture_user"
+                },
+                "clientOptionsFile": {
+                    "const": "/run/fsusblog-mysql/client.cnf"
+                },
+                "versionCommand": {
+                    "const": [
+                        "mysql",
+                        "--version"
+                    ]
+                },
+                "hostNativeAllowed": {
+                    "const": false
+                },
+                "requiredIdentityFields": {
+                    "const": [
+                        "containerId",
+                        "imageReference",
+                        "imageId",
+                        "repositoryDigest",
+                        "serviceVersion",
+                        "networkMode",
+                        "ports",
+                        "resourceLimits",
+                        "databaseIdentity",
+                        "ownership"
                     ]
                 }
             },

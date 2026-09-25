@@ -27,33 +27,13 @@ internal static partial class XunitAdapterProgram
         return testAttribute is not null;
     }
 
-    private static bool ReadAllowUnsafeBlocks(string projectPath)
-    {
-        string projectText = File.ReadAllText(projectPath);
-        int index = projectText.IndexOf("<AllowUnsafeBlocks>", StringComparison.Ordinal);
-        if (index < 0)
-            return false;
-        int start = index + "<AllowUnsafeBlocks>".Length;
-        int end = projectText.IndexOf("</AllowUnsafeBlocks>", start, StringComparison.Ordinal);
-        return end > start && bool.TryParse(projectText[start..end].Trim(), out bool value) && value;
-    }
-
-    private static string[] CollectSourceFiles(string projectDir, string projectPath)
+    private static string[] CollectSourceFiles(string projectDir, string intermediateOutputPath)
     {
         var files = new List<string>();
         CollectCsFiles(projectDir, files);
-        string objDir = ResolveProjectBuildDirectory(projectDir, projectPath, "obj");
-        if (Directory.Exists(objDir))
+        foreach (string generated in Directory.EnumerateFiles(intermediateOutputPath, "*.g.cs", SearchOption.AllDirectories))
         {
-            foreach (string generated in Directory.EnumerateFiles(objDir, "*.g.cs", SearchOption.AllDirectories))
-            {
-                files.Add(generated);
-            }
-        }
-        string? expectedOutput = FindOutputDirectory(projectDir, projectPath);
-        if (expectedOutput is not null && !Directory.Exists(expectedOutput))
-        {
-            throw new InvalidOperationException($"test project build output is missing at {expectedOutput}; run dotnet build on {Path.GetFileName(projectPath)} before invoking the adapter");
+            files.Add(generated);
         }
         return files
             .Where(file =>
@@ -84,37 +64,6 @@ internal static partial class XunitAdapterProgram
             else if (entry.EndsWith(".cs", StringComparison.Ordinal))
                 files.Add(entry);
         }
-    }
-
-    private static string ResolveProjectBuildDirectory(string projectDir, string projectPath, string leaf)
-    {
-        string configuredRoot = Environment.GetEnvironmentVariable("FSUSBLOG_PRODUCTION_BUILD_ROOT")?.Trim() ?? "";
-        return configuredRoot.Length == 0
-            ? Path.Combine(projectDir, leaf)
-            : Path.Combine(
-                Path.GetFullPath(configuredRoot),
-                "dotnet",
-                Path.GetFileNameWithoutExtension(projectPath),
-                leaf);
-    }
-
-    private static string? FindOutputDirectory(string projectDir, string projectPath)
-    {
-        string binDir = ResolveProjectBuildDirectory(projectDir, projectPath, "bin");
-        if (!Directory.Exists(binDir))
-            return null;
-        foreach (string config in new[] { "Debug", "Release" })
-        {
-            string candidate = Path.Combine(binDir, config, "net10.0");
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        foreach (string framework in Directory.EnumerateDirectories(binDir, "*", SearchOption.AllDirectories))
-        {
-            if (Directory.EnumerateFiles(framework, "*.dll").Any())
-                return framework;
-        }
-        return null;
     }
 
 }

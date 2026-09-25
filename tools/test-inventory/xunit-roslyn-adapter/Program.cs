@@ -7,9 +7,10 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-if (args.Length < 2)
+if (args.Length is not (2 or 4)
+    || (args.Length == 4 && (args[2] != "--configuration" || args[3] is not ("Debug" or "Release"))))
 {
-    Console.Error.WriteLine("usage: FsusBlog.XunitRoslynAdapter <repository-root> <test-project-path>");
+    Console.Error.WriteLine("usage: FsusBlog.XunitRoslynAdapter <repository-root> <test-project-path> [--configuration Debug|Release]");
     return 2;
 }
 
@@ -22,7 +23,8 @@ if (!File.Exists(projectArg))
     return 1;
 }
 
-XunitAdapterProgram.Result result = XunitAdapterProgram.Run(root, projectArg);
+string configuration = args.Length == 4 ? args[3] : "Debug";
+XunitAdapterProgram.Result result = XunitAdapterProgram.Run(root, projectArg, configuration);
 XunitAdapterProgram.WriteReport(result);
 return result.Diagnostics.Any(item => item.Severity == "error") ? 1 : 0;
 
@@ -39,34 +41,17 @@ internal static partial class XunitAdapterProgram
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static Result Run(string root, string projectPath)
+    public static Result Run(string root, string projectPath, string configuration)
     {
         var result = new Result();
         string projectDir = Path.GetDirectoryName(projectPath) ?? root;
         string relativeProject = Path.GetRelativePath(root, projectPath).Replace(Path.DirectorySeparatorChar, '/');
-        bool allowUnsafeBlocks = ReadAllowUnsafeBlocks(projectPath);
-
         string[] sources;
-        try
-        {
-            sources = CollectSourceFiles(projectDir, projectPath);
-        }
-        catch (Exception error)
-        {
-            result.Diagnostics.Add(new DiagnosticEntry
-            {
-                Severity = "error",
-                Code = "xunit-compile-context-unavailable",
-                File = relativeProject,
-                Message = error.Message
-            });
-            return result;
-        }
-
         ResolvedReferenceContext referenceContext;
         try
         {
-            referenceContext = BuildReferences(projectDir, projectPath);
+            referenceContext = BuildReferences(projectDir, projectPath, configuration);
+            sources = CollectSourceFiles(projectDir, referenceContext.IntermediateOutputPath);
         }
         catch (Exception error)
         {
@@ -82,7 +67,7 @@ internal static partial class XunitAdapterProgram
 
         var syntaxTrees = new List<SyntaxTree>();
         var sourceByTree = new Dictionary<string, string>();
-        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+        CSharpParseOptions parseOptions = referenceContext.ParseOptions;
         foreach (string sourcePath in sources)
         {
             string relative = Path.GetRelativePath(root, sourcePath).Replace(Path.DirectorySeparatorChar, '/');
@@ -98,7 +83,7 @@ internal static partial class XunitAdapterProgram
             syntaxTrees,
             referenceContext.References,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithAllowUnsafe(allowUnsafeBlocks));
+                .WithAllowUnsafe(referenceContext.AllowUnsafeBlocks));
 
         ImmutableArray<Diagnostic> generatorDiagnostics;
         try

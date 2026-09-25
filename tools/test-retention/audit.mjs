@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const { isInventoryPath } = await import(new URL('../test-inventory/adapters.mjs', import.meta.url));
+const { xunitProjectForSource } = await import(new URL('../test-inventory/xunit-projects.mjs', import.meta.url));
 const { snapshotGitWorktree } = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
 function tierExecutionDependencies(tier)
 {
@@ -469,13 +470,6 @@ export function vitestTestId(file, name, ordinal = 1)
     return `vitest:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`;
 }
 
-function namedJavascriptTestId(framework, file, name, ordinal = 1)
-{
-    return framework === 'vitest'
-        ? vitestTestId(file, name, ordinal)
-        : `${framework}:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`;
-}
-
 function normalizeSemanticSource(source)
 {
     return source
@@ -782,6 +776,7 @@ export function isTestInventoryPath(file)
 export function inferTierIdsForFile(file, source = '', explicitCategory = undefined)
 {
     const tiers = new Set();
+    const xunitProject = file.endsWith('.cs') ? xunitProjectForSource(file) : null;
     if (/^tests\/frontend\/unit\/.*\.test\.[cm]?[jt]sx?$/u.test(file))
     {
         tiers.add('frontend-unit-shard');
@@ -797,7 +792,7 @@ export function inferTierIdsForFile(file, source = '', explicitCategory = undefi
         tiers.add('ux-viewport-visual');
         tiers.add('ux-viewport-boundaries');
     }
-    if (/^tests\/backend\/.*\.cs$/u.test(file))
+    if (xunitProject?.project === 'tests/backend/FsusBlog.Server.Tests.csproj')
     {
         const category = explicitCategory === undefined
             ? String(source).match(/\[Trait\(\s*"Category"\s*,\s*"([^"]+)"\s*\)\]/u)?.[1] ?? null
@@ -841,6 +836,16 @@ export function inferTierIdsForFile(file, source = '', explicitCategory = undefi
             tiers.add('backend-unit');
             tiers.add('coverage-backend');
         }
+    }
+    else if (xunitProject?.project === 'tests/migration/FsusBlog.Migration.Tests.csproj')
+    {
+        // The independent assembly executes once and unfiltered. Server
+        // coverage/category lanes and the fast summary do not execute it.
+        tiers.add('backend-unit');
+    }
+    else if (xunitProject)
+    {
+        throw new Error(`xunit project has no retention execution projection: ${xunitProject.project}`);
     }
     return [...tiers].sort();
 }
@@ -1317,7 +1322,7 @@ export async function auditTestRecords({
             const historyId = extracted.methodHistoryId ?? extracted.id;
             const timings = historyFor(timingHistory, historyId, file);
             const failures = historyFor(failureHistory, historyId, file);
-            const inferredRecordTiers = extracted.framework === 'xunit' && /^tests\/backend\/.*\.cs$/u.test(file)
+            const inferredRecordTiers = extracted.framework === 'xunit' && xunitProjectForSource(file)
                 ? inferTierIdsForFile(file, '', extracted._tierCategory ?? null)
                 : metadata.tierIds ?? [];
             const tierIds = [...new Set(inferredRecordTiers)].sort();
@@ -1365,7 +1370,14 @@ export async function auditTestRecords({
     }
 
     applyEquivalence(records);
-    return records.map(({ _semanticSignature, _retentionClass, _tierCategory, ...item }) => item);
+    return records.map((record) =>
+    {
+        const item = { ...record };
+        delete item._semanticSignature;
+        delete item._retentionClass;
+        delete item._tierCategory;
+        return item;
+    });
 }
 
 export function reviewCandidateFiles(candidateFiles, records)

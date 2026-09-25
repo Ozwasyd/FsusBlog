@@ -9,15 +9,17 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const [
-    { ADAPTERS, classifyFile },
+    { ADAPTERS, classifyFile, isInventoryPath },
     { computeInventoryDigest, isInventoryStale, loadCanonicalInventory },
     { canonicalStringify, discoverTestInventory },
-    { INVENTORY_SCHEMA, validateInventoryArtifact }
+    { INVENTORY_SCHEMA, validateInventoryArtifact },
+    { groupXunitSources, validateXunitProjectReport, xunitProjects }
 ] = await Promise.all([
     import(new URL('../../tools/test-inventory/adapters.mjs', import.meta.url)),
     import(new URL('../../tools/test-inventory/api.mjs', import.meta.url)),
     import(new URL('../../tools/test-inventory/discovery.mjs', import.meta.url)),
-    import(new URL('../../tools/test-inventory/schema.mjs', import.meta.url))
+    import(new URL('../../tools/test-inventory/schema.mjs', import.meta.url)),
+    import(new URL('../../tools/test-inventory/xunit-projects.mjs', import.meta.url))
 ]);
 
 function writeFile(root, relative, content)
@@ -87,6 +89,9 @@ function writeFullSurfaceFixture(root)
     writeFile(root, 'tests/backend/Unit/FooTests.cs', 'public sealed class FooTests { }\n');
     writeFile(root, 'tests/backend/Unit/BarTest.cs', 'public sealed class BarTest { }\n');
     writeFile(root, 'tests/backend/Helpers/SeedDataFixture.cs', 'public sealed class SeedDataFixture { }\n');
+    writeFile(root, 'tests/migration/SchemaMigrationDdlTests.cs', 'public sealed class SchemaMigrationDdlTests { }\n');
+    writeFile(root, 'tests/migration/ProviderTest.cs', 'public sealed class ProviderTest { }\n');
+    writeFile(root, 'tests/migration/MySqlDdlFixture.cs', 'public sealed class MySqlDdlFixture { }\n');
     writeFile(root, 'tests/backend/Fixtures/seed-data.json', '{ "seed": true }\n');
     writeFile(root, 'tests/frontend/unit/foo.test.ts', "import { describe, it, expect } from 'vitest'\n");
     writeFile(root, 'tests/frontend/unit/node.test.mjs', "import { test } from 'node:test'\n");
@@ -106,6 +111,124 @@ function inventoryAdapterMap(root)
     return new Map(artifact.sourceFiles.map((sourceFile) => [sourceFile.path, sourceFile]));
 }
 
+test('xunit project ownership separates compile contexts without changing case identity', () =>
+{
+    assert.deepEqual(xunitProjects, [
+        { project: 'tests/backend/FsusBlog.Server.Tests.csproj', sourceDirectory: 'tests/backend' },
+        { project: 'tests/migration/FsusBlog.Migration.Tests.csproj', sourceDirectory: 'tests/migration' }
+    ]);
+    assert.equal(Object.isFrozen(xunitProjects), true);
+    assert.ok(xunitProjects.every(Object.isFrozen));
+    const backend = { path: 'tests/backend/Unit/FooTests.cs', adapter: 'xunit' };
+    const migration = { path: 'tests/migration/SchemaMigrationDdlTests.cs', adapter: 'xunit' };
+    const groups = groupXunitSources([
+        backend,
+        migration,
+        { path: 'tests/migration/MySqlDdlFixture.cs', adapter: 'xunit-support' }
+    ]);
+    assert.deepEqual(groups.map((owner) => owner.sourceFiles), [[backend], [migration]]);
+    for (const owner of groups)
+    {
+        const ownerFile = owner.sourceFiles[0].path;
+        const report = {
+            schema: 'fsusblog.test-inventory.xunit-roslyn.v1',
+            adapter: 'xunit',
+            adapterVersion: 'xunit.v2',
+            testCases: [{ adapter: 'xunit', ownerFile, id: `xunit:${ownerFile}#Suite.Method` }],
+            diagnostics: []
+        };
+        assert.equal(validateXunitProjectReport(owner, report), report);
+    }
+});
+
+test('xunit project ownership rejects unknown duplicate ambiguous and noncanonical sources', () =>
+{
+    for (const file of [
+        'tests/unknown/FooTests.cs',
+        'tests/backend-extra/FooTests.cs',
+        'tests/backend/../migration/FooTests.cs',
+        'tests/backend/./FooTests.cs',
+        'tests/backend//FooTests.cs',
+        'tests/backend\\FooTests.cs'
+    ])
+    {
+        assert.throws(() => groupXunitSources([{ path: file, adapter: 'xunit' }]), /xunit source/u);
+    }
+    const source = { path: 'tests/migration/FooTests.cs', adapter: 'xunit' };
+    assert.throws(() => groupXunitSources([source, source]), /unique normalized/u);
+    for (const projects of [
+        [xunitProjects[0], xunitProjects[0]],
+        [xunitProjects[0], { ...xunitProjects[0], project: 'tests/backend/Other.Tests.csproj' }],
+        [{ project: '../FsusBlog.Server.Tests.csproj', sourceDirectory: 'tests/backend' }],
+        [{ project: 'tests/backend/nested/Tests.csproj', sourceDirectory: 'tests/backend' }]
+    ])
+    {
+        assert.throws(() => groupXunitSources([], projects), /unique repository test projects/u);
+    }
+});
+
+test('xunit project reports reject incomplete diagnostic foreign and duplicate cases', () =>
+{
+    const ownerFile = 'tests/migration/FooTests.cs';
+    const owner = groupXunitSources([{ path: ownerFile, adapter: 'xunit' }])
+        .find((entry) => entry.sourceDirectory === 'tests/migration');
+    const testCase = { adapter: 'xunit', ownerFile, id: `xunit:${ownerFile}#Suite.Method` };
+    const report = {
+        schema: 'fsusblog.test-inventory.xunit-roslyn.v1',
+        adapter: 'xunit',
+        adapterVersion: 'xunit.v2',
+        testCases: [testCase],
+        diagnostics: []
+    };
+    for (const invalid of [
+        null,
+        { ...report, schema: 'unknown' },
+        { ...report, adapter: 'node-test' },
+        { ...report, adapterVersion: 'xunit.v1' },
+        { ...report, testCases: null },
+        { ...report, diagnostics: null },
+        { ...report, testCases: [] },
+        { ...report, diagnostics: [{ severity: 'error', code: 'xunit-compile-context-unavailable' }] },
+        { ...report, diagnostics: [{ severity: 'warning', code: 'unresolved-case' }] },
+        { ...report, testCases: [testCase, testCase] },
+        { ...report, testCases: [null] },
+        { ...report, testCases: [{ ...testCase, adapter: 'node-test' }] },
+        { ...report, testCases: [{ ...testCase, ownerFile: 'tests/backend/FooTests.cs' }] },
+        { ...report, testCases: [{ ...testCase, ownerFile: 'tests/migration/MySqlDdlFixture.cs' }] },
+        { ...report, testCases: [{ ...testCase, id: 'xunit:tests/backend/FooTests.cs#Suite.Method' }] },
+        { ...report, testCases: [{ ...testCase, id: `xunit:${ownerFile}#` }] },
+        { ...report, testCases: [{ ...testCase, id: 1 }] }
+    ])
+    {
+        assert.throws(() => validateXunitProjectReport(owner, invalid), /xunit/u);
+    }
+    const emptyOwner = groupXunitSources([])[1];
+    assert.equal(emptyOwner.project, 'tests/migration/FsusBlog.Migration.Tests.csproj');
+    assert.throws(
+        () => validateXunitProjectReport(emptyOwner, { ...report, testCases: [] }),
+        /returned no cases/u
+    );
+});
+
+test('xunit discovery fails closed when project or canonical adapter is absent', () =>
+{
+    const root = createFixtureRoot();
+    try
+    {
+        writeMinimalAuthorities(root);
+        writeFile(root, 'tests/migration/FooTests.cs', 'public sealed class FooTests { }\n');
+        assert.throws(() => discoverTestInventory(root), /xunit test project is missing: tests\/backend\/FsusBlog.Server.Tests.csproj/u);
+        writeFile(root, 'tests/backend/FsusBlog.Server.Tests.csproj', '<Project />\n');
+        assert.throws(() => discoverTestInventory(root), /xunit test project is missing: tests\/migration\/FsusBlog.Migration.Tests.csproj/u);
+        writeFile(root, 'tests/migration/FsusBlog.Migration.Tests.csproj', '<Project />\n');
+        assert.throws(() => discoverTestInventory(root), /xunit adapter project is not present/u);
+    }
+    finally
+    {
+        removeFixture(root);
+    }
+});
+
 test('canonical discovery covers xunit, vitest, node:test, playwright, tests/tools, native fuzz and matrix shell entrypoints', () =>
 {
     const root = createFixtureRoot();
@@ -116,6 +239,10 @@ test('canonical discovery covers xunit, vitest, node:test, playwright, tests/too
 
         assert.equal(byPath.get('tests/backend/Unit/FooTests.cs')?.adapter, 'xunit');
         assert.equal(byPath.get('tests/backend/Unit/BarTest.cs')?.adapter, 'xunit');
+        assert.equal(byPath.get('tests/migration/SchemaMigrationDdlTests.cs')?.adapter, 'xunit');
+        assert.equal(byPath.get('tests/migration/ProviderTest.cs')?.adapter, 'xunit');
+        assert.equal(byPath.get('tests/migration/MySqlDdlFixture.cs')?.adapter, 'xunit-support');
+        assert.equal(byPath.get('tests/migration/MySqlDdlFixture.cs')?.kind, 'fixture');
         assert.equal(byPath.get('tests/frontend/unit/foo.test.ts')?.adapter, 'vitest');
         assert.equal(byPath.get('tests/frontend/unit/node.test.mjs')?.adapter, 'node-test');
         assert.equal(byPath.get('tests/frontend/e2e/acceptance/pw.spec.ts')?.adapter, 'playwright');
@@ -282,7 +409,7 @@ test('source, path and adapter changes make a stored inventory stale', () =>
     }
 });
 
-test('quality and retention consumers no longer own private walk or file-discovery authority', () =>
+test('quality and retention consumers no longer own private walk or file-discovery authority', async () =>
 {
     for (const consumer of ['tools/ci/check-test-quality.mjs', 'tools/check-test-retention.mjs'])
     {
@@ -298,8 +425,39 @@ test('quality and retention consumers no longer own private walk or file-discove
     const retentionSource = readFileSync(path.join(repositoryRoot, 'tools/check-test-retention.mjs'), 'utf8');
     assert.match(retentionSource, /inventorySourceFiles\(root\)/u);
     const auditSource = readFileSync(path.join(repositoryRoot, 'tools/test-retention/audit.mjs'), 'utf8');
-    assert.match(auditSource, /import\s*\{[^}]*isInventoryPath[^}]*\}\s*from\s*'\.\.\/test-inventory\/adapters\.mjs'/u);
     assert.match(auditSource, /return isInventoryPath\(file\)/u);
+    const { isTestInventoryPath } = await import(new URL('../../tools/test-retention/audit.mjs', import.meta.url));
+    for (const file of [
+        'tests/backend/Unit/FooTests.cs',
+        'tests/migration/FooTests.cs',
+        'tests/migration/MySqlDdlFixture.cs',
+        'tests/tools/check.test.mjs',
+        'src/migration/Program.cs'
+    ])
+    {
+        assert.equal(isTestInventoryPath(file), isInventoryPath(file), file);
+    }
+    const probePath = 'tests/migration/OwnershipProbeTests.cs';
+    const dispatch = new Error('canonical adapter dispatch observed');
+    ADAPTERS.push({
+        id: 'retention-delegation-probe',
+        matches: (file) =>
+        {
+            if (file === probePath)
+            {
+                throw dispatch;
+            }
+            return false;
+        }
+    });
+    try
+    {
+        assert.throws(() => isTestInventoryPath(probePath), (error) => error === dispatch);
+    }
+    finally
+    {
+        ADAPTERS.pop();
+    }
 });
 
 test('identical inputs produce byte-stable inventory artifacts', () =>
@@ -430,13 +588,18 @@ test('CI produces one sealed inventory and static governance only consumes it', 
     const producer = readFileSync(path.join(repositoryRoot, 'tools/test-inventory/produce.mjs'), 'utf8');
     assert.match(
         producer,
-        /const backendTestProject = 'tests\/backend\/FsusBlog\.Server\.Tests\.csproj'/u,
-        'the canonical producer must own the backend test project'
+        /import \{ xunitProjects \} from '\.\/xunit-projects\.mjs'/u,
+        'the canonical producer must consume the closed project ownership registry'
     );
     assert.match(
         producer,
-        /spawnSync\(\s*'dotnet',\s*\[\s*'build',\s*path\.join\(root,\s*backendTestProject\)/u,
+        /spawnSync\(\s*'dotnet',\s*\[\s*'build',\s*path\.join\(root,\s*testProject\)/u,
         'the canonical producer must create the xUnit compile context'
+    );
+    assert.match(
+        producer,
+        /for \(const owner of xunitProjects\)\s*\{\s*prepareXunitCompileContext\(owner\.project\)/u,
+        'each registered test assembly requires its own compile context'
     );
 
     const governanceRunner = readFileSync(

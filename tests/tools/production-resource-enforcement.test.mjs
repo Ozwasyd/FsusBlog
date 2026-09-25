@@ -4,13 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
+const {
     createProductionResourceEnforcer,
     dockerResourceArguments,
+    partitionContainerResourceGrant,
     resolveCgroupLimits,
     resolveProductionCgroupCapabilities
-} from '../../tools/test-matrix/production-resource-enforcement.mjs';
-import { runDag } from '../../tools/test-matrix/scheduler.mjs';
+} = await import(new URL('../../tools/test-matrix/production-resource-enforcement.mjs', import.meta.url));
+const { runDag } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 
 function fakeCgroup()
 {
@@ -48,6 +49,244 @@ function fakeCgroup()
     prepareDirectory(delegateRoot);
     return { root, mountRoot, delegateRoot, prepareDirectory };
 }
+
+function containerResourceFixture(t)
+{
+    const fixture = fakeCgroup();
+    t.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+    const enforcer = createProductionResourceEnforcer({
+        runId: 'mysql-resource-contract', bundleIds: ['backend-unit'], mode: 'strict',
+        machine: { cpuUnits: 8, memoryGiB: 16 }, platform: 'linux',
+        mountRoot: fixture.mountRoot, mountType: 'cgroup2fs', delegateRoot: fixture.delegateRoot,
+        prepareDirectory: fixture.prepareDirectory,
+        removeDirectory: (directory) => fs.rmSync(directory, { recursive: true })
+    });
+    const totalGrant = { cpuUnits: 4, memoryGiB: 4 };
+    const initial = enforcer.update('backend-unit', totalGrant);
+    enforcer.attach('backend-unit', 4242);
+    const identity = { root: fixture.root, runId: 'mysql-resource-contract', namespace: 'mysql-owner',
+        bundleId: 'matrix:backend-unit', stepId: 'migration-services',
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) } };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2, memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const request = { id: 'mysql', identity, limits };
+    const context = () => ({ ...structuredClone(identity), resourceGrant: { ...limits } });
+    return { fixture, enforcer, initial, totalGrant, request, context };
+}
+
+test('container partition conserves CPU, high/max memory and pids without duplicated headroom', () =>
+{
+    const machine = { cpuUnits: 8, memoryGiB: 16 };
+    const grant = { cpuUnits: 4, memoryGiB: 4 };
+    const reservation = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2, memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const allocation = partitionContainerResourceGrant(grant, [reservation, reservation], machine);
+    const ratio = (value) =>
+    {
+        const [quota, period] = value.cpuMax.split(' ').map(Number);
+        return quota / period;
+    };
+    assert.equal(allocation.process.cpuUnits, 2);
+    assert.ok(ratio(allocation.process) + allocation.reserved.cpuUnits <= grant.cpuUnits);
+    for (const key of ['memoryHighBytes', 'memoryMaxBytes', 'pidsMax'])
+    {
+        assert.equal(allocation.process[key] + allocation.reserved[key], allocation.total[key], key);
+    }
+    assert.ok(allocation.process.memoryMaxBytes >= allocation.process.memoryHighBytes);
+    assert.deepEqual(partitionContainerResourceGrant(grant, [], machine).process, resolveCgroupLimits(grant, machine));
+    const fractional = partitionContainerResourceGrant(grant, [{ ...reservation, cpuUnits: 0.333333333 }], machine);
+    assert.ok(ratio(fractional.process) + fractional.reserved.cpuUnits <= grant.cpuUnits);
+});
+
+test('cgroup memory projection uses exact kernel page granularity without exceeding the declared envelope', () =>
+{
+    for (const pageBytes of [4096, 16384, 65536])
+    {
+        const machine = { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes };
+        const limits = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2.000001 }, machine);
+        assert.equal(limits.memoryHighBytes % pageBytes, 0);
+        assert.equal(limits.memoryMaxBytes % pageBytes, 0);
+        assert.equal(limits.memoryPageBytes, pageBytes);
+        assert.ok(limits.memoryHighBytes <= 2.000001 * 1024 ** 3);
+        assert.ok(limits.memoryMaxBytes <= machine.memoryGiB * 1024 ** 3);
+        assert.ok(limits.memoryMaxBytes > limits.memoryHighBytes);
+        const reservation = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2, memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+        const partition = partitionContainerResourceGrant({ cpuUnits: 2, memoryGiB: 2.000001 }, [reservation], machine);
+        assert.equal(partition.process.memoryMaxBytes % pageBytes, 0);
+        assert.equal(partition.process.memoryHighBytes % pageBytes, 0);
+        assert.throws(() => partitionContainerResourceGrant({ cpuUnits: 2, memoryGiB: 2 },
+            [{ ...reservation, memoryHighBytes: reservation.memoryHighBytes - 1 }], machine), /page granularity/u);
+    }
+    const exact = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2 }, { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: 4096 });
+    assert.equal(exact.memoryHighBytes, 2147483648);
+    assert.equal(exact.memoryMaxBytes, 2337292288);
+    for (const pageBytes of [0, -1, 1000, NaN, '4096', 2 ** 25])
+    {
+        assert.throws(() => resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2 },
+            { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes }), /page size/u);
+    }
+});
+
+test('container partition rejects absent, rounded, oversold or inverted residual shares', () =>
+{
+    const machine = { cpuUnits: 8, memoryGiB: 16 };
+    const grant = { cpuUnits: 4, memoryGiB: 4 };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2, memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    for (const reservation of [null, {}, { ...limits, extra: true }, { ...limits, cpuUnits: 1 / 3 },
+        { ...limits, cpuUnits: 0 }, { ...limits, cpuUnits: NaN }, { ...limits, memoryHighBytes: 0 },
+        { ...limits, memoryMaxBytes: limits.memoryHighBytes - 1 }, { ...limits, pidsMax: 1.5 },
+        { ...limits, pidsMax: Number.MAX_SAFE_INTEGER + 1 }, { ...limits, cpuUnits: 4 },
+        { ...limits, memoryHighBytes: 4 * 1024 ** 3, memoryMaxBytes: 4 * 1024 ** 3 },
+        { ...limits, memoryMaxBytes: 5 * 1024 ** 3 }, { ...limits, pidsMax: 512 }])
+    {
+        assert.throws(() => partitionContainerResourceGrant(grant, [reservation], machine));
+    }
+    assert.throws(() => partitionContainerResourceGrant(grant, null, machine), /explicit list/u);
+    assert.throws(() => partitionContainerResourceGrant(grant, [limits, limits, limits, limits], machine), /process share/u);
+});
+
+test('enforcer retains container reservation across dynamic updates and rejects invalid contraction before writes', async (t) =>
+{
+    const { enforcer, initial, request, context } = containerResourceFixture(t);
+    const lease = enforcer.reserveContainerResources('backend-unit', request);
+    const first = lease.assertHeld(context());
+    assert.equal(first.total.cpuUnits, 4);
+    assert.equal(first.process.cpuUnits, 3);
+    assert.equal(fs.readFileSync(path.join(initial.cgroupPath, 'memory.high'), 'utf8'), String(first.process.memoryHighBytes));
+    const expanded = enforcer.update('backend-unit', { cpuUnits: 6, memoryGiB: 6 });
+    assert.equal(expanded.cpuUnits, 5);
+    assert.equal(expanded.totalGrant.cpuUnits, 6);
+    assert.deepEqual(expanded.containerReservations, [request]);
+    assert.deepEqual(lease.assertHeld(context()).reservation.limits, request.limits);
+    const before = ['cpu.max', 'memory.high', 'memory.max', 'pids.max'].map((name) => fs.readFileSync(path.join(initial.cgroupPath, name), 'utf8'));
+    assert.throws(() => enforcer.update('backend-unit', { cpuUnits: 1, memoryGiB: 6 }), /process share/u);
+    assert.throws(() => enforcer.update('backend-unit', { cpuUnits: 6, memoryGiB: 0.5 }), /process share/u);
+    assert.deepEqual(['cpu.max', 'memory.high', 'memory.max', 'pids.max'].map((name) => fs.readFileSync(path.join(initial.cgroupPath, name), 'utf8')), before);
+    assert.equal(lease.assertHeld(context()).total.cpuUnits, 6);
+    await lease.releaseAfterCleanup(async () => ({ containerAbsent: true, credentialsRemoved: true }));
+    assert.equal(enforcer.evidence().bundles['backend-unit'].allocation.process.cpuUnits, 6);
+    assert.equal(lease.snapshot().held, false);
+    assert.throws(() => lease.assertHeld(context()), /absent or crosses/u);
+    assert.throws(() => enforcer.reserveContainerResources('backend-unit', request), /cannot be reused/u);
+});
+
+test('container reservations bind exact run, source, producer and immutable copies before control writes', (t) =>
+{
+    for (const mutation of [
+        (request) =>
+        {
+            request.extra = true;
+        },
+        (request) =>
+        {
+            request.identity.runId = 'foreign';
+        },
+        (request) =>
+        {
+            request.identity.bundleId = 'foreign';
+        },
+        (request) =>
+        {
+            delete request.identity.sourceState.commit;
+        },
+        (request) =>
+        {
+            request.identity.namespace = '../foreign';
+        },
+        (request) =>
+        {
+            request.limits.cpuUnits = 4;
+        },
+        (request) =>
+        {
+            request.limits.pidsMax = -1;
+        }
+    ])
+    {
+        const { enforcer, initial, request } = containerResourceFixture(t);
+        const before = fs.readFileSync(path.join(initial.cgroupPath, 'cpu.max'), 'utf8');
+        mutation(request);
+        assert.throws(() => enforcer.reserveContainerResources('backend-unit', request));
+        assert.equal(fs.readFileSync(path.join(initial.cgroupPath, 'cpu.max'), 'utf8'), before);
+        assert.deepEqual(enforcer.evidence().bundles['backend-unit'].allocation.containerReservations, []);
+    }
+    const { enforcer, request, context } = containerResourceFixture(t);
+    const original = context();
+    const lease = enforcer.reserveContainerResources('backend-unit', request);
+    request.limits.cpuUnits = 99;
+    request.identity.namespace = 'modified-after-admission';
+    const copied = lease.snapshot();
+    copied.limits.cpuUnits = 88;
+    assert.equal(lease.assertHeld(original).reservation.limits.cpuUnits, 1);
+    for (const mutate of [
+        (value) =>
+        {
+            value.runId = 'foreign';
+        },
+        (value) =>
+        {
+            value.sourceState.worktreeFingerprint = 'c'.repeat(64);
+        },
+        (value) =>
+        {
+            value.stepId = 'foreign';
+        },
+        (value) =>
+        {
+            value.resourceGrant.memoryMaxBytes++;
+        }
+    ])
+    {
+        const changed = structuredClone(original);
+        mutate(changed);
+        assert.throws(() => lease.assertHeld(changed), /absent or crosses/u);
+    }
+});
+
+test('container reservation cannot use advisory, disposed, unknown or unattached process authority', (t) =>
+{
+    const { enforcer, initial, request, context } = containerResourceFixture(t);
+    assert.throws(() => enforcer.reserveContainerResources('foreign', request), /live enforced/u);
+    const advisory = createProductionResourceEnforcer({ runId: request.identity.runId,
+        bundleIds: ['backend-unit'], machine: { cpuUnits: 8, memoryGiB: 16 }, platform: 'darwin', mode: 'advisory' });
+    advisory.update('backend-unit', { cpuUnits: 4, memoryGiB: 4 });
+    assert.throws(() => advisory.reserveContainerResources('backend-unit', request), /live enforced/u);
+    const lease = enforcer.reserveContainerResources('backend-unit', request);
+    fs.writeFileSync(path.join(initial.cgroupPath, 'cgroup.procs'), '');
+    assert.throws(() => lease.assertHeld(context()), /attached bundle process/u);
+    assert.equal(enforcer.cleanup().status, 'retained-container-reservations');
+    fs.writeFileSync(path.join(initial.cgroupPath, 'cgroup.procs'), '4242');
+    fs.writeFileSync(path.join(initial.cgroupPath, 'cpu.max'), 'max 100000');
+    assert.throws(() => lease.assertHeld(context()), /controls drifted/u);
+    enforcer.update('backend-unit', { cpuUnits: 4, memoryGiB: 4 });
+    assert.equal(lease.assertHeld(context()).process.cpuUnits, 3);
+});
+
+test('container resource release waits for successful exact cleanup and retains failed or concurrent attempts', async (t) =>
+{
+    const { enforcer, initial, request, context } = containerResourceFixture(t);
+    const lease = enforcer.reserveContainerResources('backend-unit', request);
+    await assert.rejects(lease.releaseAfterCleanup(async () =>
+    {
+        throw new Error('owned container remains');
+    }), /owned container remains/u);
+    await assert.rejects(lease.releaseAfterCleanup(async () => ({ containerAbsent: false, credentialsRemoved: true })), /complete lifecycle cleanup/u);
+    assert.equal(lease.snapshot().held, true);
+    assert.equal(enforcer.cleanup().status, 'retained-container-reservations');
+    let finish;
+    const released = lease.releaseAfterCleanup(() => new Promise((resolve) =>
+    {
+        finish = resolve;
+    }));
+    await assert.rejects(lease.releaseAfterCleanup(async () => ({ containerAbsent: true, credentialsRemoved: true })), /one active owner/u);
+    enforcer.update('backend-unit', { cpuUnits: 6, memoryGiB: 6 });
+    assert.equal(lease.assertHeld(context()).process.cpuUnits, 5);
+    finish({ containerAbsent: true, credentialsRemoved: true });
+    await released;
+    assert.equal(enforcer.evidence().bundles['backend-unit'].allocation.process.cpuUnits, 6);
+    fs.writeFileSync(path.join(initial.cgroupPath, 'cgroup.procs'), '');
+    assert.equal(enforcer.cleanup().status, 'removed');
+    assert.throws(() => enforcer.update('backend-unit', { cpuUnits: 4, memoryGiB: 4 }), /disposed/u);
+    assert.throws(() => enforcer.reserveContainerResources('backend-unit', { ...request, id: 'next' }), /live enforced/u);
+});
 
 test('capability probe distinguishes cgroup v2 delegation from unsupported platforms', () =>
 {
@@ -116,7 +355,7 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
             { cpuUnits: 8 + Number.EPSILON * 8, memoryGiB: roundedSameMemoryGrantGiB },
             { cpuUnits: 8, memoryGiB: machineMemoryGiB }
         ).memoryHighBytes,
-        Math.round(machineMemoryGiB * 1024 ** 3)
+        Math.floor(Math.round(machineMemoryGiB * 1024 ** 3) / one.memoryPageBytes) * one.memoryPageBytes
     );
     assert.throws(
         () => resolveCgroupLimits({ cpuUnits: 9, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 }),

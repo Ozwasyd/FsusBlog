@@ -16,13 +16,11 @@ import {
     resumeCurrentRunEvidenceCheckpoint
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates canonical current-run locator inputs.
-import {
+const { locateCurrentRunEvidence } = await import(new URL('../test/current-run-evidence-locator.mjs', import.meta.url));
+const {
     validateCurrentRunEvidenceContext,
     validateEvidenceLocatorRegistry
-} from '../test/evidence-location-contract.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
-import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
+} = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 import {
     loadPhysicalExecutionProcessPolicy,
     terminatePhysicalExecutionAuthoritySync
@@ -57,11 +55,11 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
+import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 import {
     applyReleaseFinalizerSpawnDecision,
     validateRepositoryReleaseFinalStaticBoundary
 } from './release-final-static-boundary.mjs';
-import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
@@ -4830,10 +4828,21 @@ async function runDagUnlocked(options)
     const writeActiveResourceGrants = () =>
     {
         const grants = Object.fromEntries([...active.values()]
-            .map(({ tier }) => [tier.id, {
-                cpuUnits: tierResourceUnits(tier).cpuUnits,
-                memoryGiB: tierResourceUnits(tier).memoryGiB
-            }])
+            .map(({ tier }) =>
+            {
+                // Publish only after process controls acknowledge the allocation.
+                // Accounted scheduler usage remains the total tier grant; workers
+                // may consume only the process share after container reservations.
+                const allocation = resourceEnforcer.update(tier.physicalBundleId ?? tier.id, tierResourceUnits(tier));
+                return [tier.id, {
+                    cpuUnits: allocation.cpuUnits,
+                    memoryGiB: allocation.memoryGiB,
+                    ...(allocation.containerReservations.length ? {
+                        totalGrant: { cpuUnits: allocation.totalGrant.cpuUnits, memoryGiB: allocation.totalGrant.memoryGiB },
+                        containerReservations: allocation.containerReservations
+                    } : {})
+                }];
+            })
             .sort(([left], [right]) => left.localeCompare(right)));
         const document = {
             schema: 'fsusblog.test-matrix.resource-grants.v1',
@@ -4846,10 +4855,6 @@ async function runDagUnlocked(options)
         const temporary = `${resourceGrantFile}.next-${process.pid}`;
         fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`);
         fs.renameSync(temporary, resourceGrantFile);
-        for (const { tier } of active.values())
-        {
-            resourceEnforcer.update(tier.physicalBundleId ?? tier.id, tierResourceUnits(tier));
-        }
     };
 
     const rebalanceActiveDynamicGrants = ({ expand = true } = {}) =>

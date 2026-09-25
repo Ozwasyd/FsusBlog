@@ -2655,6 +2655,15 @@ tiers:
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
               tools/test/run-backend-production-shards.mjs,
+              tools/test/build-migration-tests.mjs,
+              tools/test/run-migration-tests.mjs,
+              tools/test/migration-build-binding.mjs,
+              tools/test/migration-execution-evidence.mjs,
+              tools/test/vstest-discovery-diagnostic.mjs,
+              tools/test/execution-envelope-environment.mjs,
+              tools/test-inventory,
+              tests/tools/migration-execution-evidence.test.mjs,
+              tests/tools/migration-fast-lane.test.mjs,
               tools/check-backend-test-governance.mjs,
               tools/test/lanes/backend-unit.sh,
               tools/test/lanes,
@@ -3037,9 +3046,19 @@ tiers:
       minCpuUnits: 1
       executionKey: backend-fast-summary
       executionVariant: ordinary
-      cacheInputs: [tests/matrix.yml, tools/test/lanes/backend-fast.sh]
+      cacheInputs:
+          [
+              tests/matrix.yml,
+              tools/test/lanes/backend-fast.sh,
+              tools/test/lanes/_suite-support.sh,
+              tools/test/run-migration-tests.mjs,
+              tools/test/migration-build-binding.mjs,
+              tools/test/migration-execution-evidence.mjs,
+              tools/test-inventory,
+              tests/tools/migration-fast-lane.test.mjs,
+          ]
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none

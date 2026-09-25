@@ -16,6 +16,11 @@ export const executionEnvelopeServicesSchema =
     'fsusblog.test-execution-envelope-services.v2';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
 const decimalIdentifierPattern = /^[1-9][0-9]*$/u;
+const containerServiceOptions = [
+    ['postgres', '--postgres-container'],
+    ['redis', '--redis-container'],
+    ['mysql', '--mysql-container']
+];
 const containerIdentityFields = [
     'containerId',
     'imageReference',
@@ -27,6 +32,24 @@ const containerIdentityFields = [
     'resourceLimits'
 ];
 const postgresIdentityFields = [...containerIdentityFields, 'databaseIdentity'];
+const mysqlIdentityFields = [...containerIdentityFields, 'databaseIdentity', 'ownership'];
+const mysqlClientOptionsFile = '/run/fsusblog-mysql/client.cnf';
+const mysqlOwnershipLabels = {
+    runId: 'io.fsusblog.test.run-id',
+    bundleId: 'io.fsusblog.test.bundle-id',
+    stepId: 'io.fsusblog.test.step-id',
+    namespace: 'io.fsusblog.test.namespace',
+    repositoryRootDigest: 'io.fsusblog.test.repository-root-digest'
+};
+const mysqlDatabaseIdentityQuery = [
+    'SELECT JSON_OBJECT(',
+    "'serverUuid', @@server_uuid,",
+    "'serverVersion', VERSION(),",
+    "'currentUser', CURRENT_USER(),",
+    "'database', DATABASE(),",
+    "'port', @@port",
+    ');'
+].join(' ');
 const postgresDatabaseIdentityQuery = [
     'SELECT json_build_object(',
     "'systemIdentifier', (pg_control_system()).system_identifier::text,",
@@ -86,6 +109,7 @@ function validatePostgresDatabaseIdentity(identity, catalogEntry)
 function validateObservedContainerService(identity, catalogEntry)
 {
     const isPostgres = identity?.id === 'postgres';
+    const isMysql = identity?.id === 'mysql';
     const expectedProperties = [
         'id',
         'kind',
@@ -99,7 +123,8 @@ function validateObservedContainerService(identity, catalogEntry)
         'networkNamespace',
         'ports',
         'resourceLimits',
-        ...(isPostgres ? ['databaseIdentity'] : [])
+        ...(isPostgres || isMysql ? ['databaseIdentity'] : []),
+        ...(isMysql ? ['ownership'] : [])
     ];
     if (!hasExactProperties(identity, expectedProperties)
         || identity.kind !== 'container'
@@ -136,6 +161,81 @@ function validateObservedContainerService(identity, catalogEntry)
     if (isPostgres)
     {
         validatePostgresDatabaseIdentity(identity.databaseIdentity, catalogEntry);
+    }
+    if (isMysql)
+    {
+        validateMysqlServiceIdentity(identity, catalogEntry);
+    }
+}
+
+function validMysqlCatalogIdentity(service)
+{
+    return service.databaseIdentityAuthority === 'mysql-server-uuid-exact'
+        && service.username === 'fixture_user'
+        && service.version === '8.4.11'
+        && service.clientOptionsFile === mysqlClientOptionsFile
+        && hasExactArray(service.versionCommand, ['mysql', '--version']);
+}
+
+function validateMysqlDatabaseIdentity(identity, catalogEntry)
+{
+    if (!hasExactProperties(identity, [
+        'serverUuid', 'serverVersion', 'currentUser', 'database', 'port'
+    ]))
+    {
+        throw new Error('mysql: database identity is malformed');
+    }
+    if (typeof identity.serverUuid !== 'string'
+        || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(identity.serverUuid)
+        || identity.serverUuid === '00000000-0000-0000-0000-000000000000'
+        || identity.serverVersion !== catalogEntry.version
+        || identity.currentUser !== `${catalogEntry.username}@%`
+        || identity.database !== null
+        || identity.port !== 3306)
+    {
+        throw new Error('mysql: database identity drift');
+    }
+}
+
+function validateMysqlServiceIdentity(identity, catalogEntry)
+{
+    if (!validMysqlCatalogIdentity(catalogEntry))
+    {
+        throw new Error('mysql: database identity authority is invalid');
+    }
+    validateMysqlDatabaseIdentity(identity.databaseIdentity, catalogEntry);
+    const ownership = identity.ownership;
+    if (!hasExactProperties(ownership, Object.keys(mysqlOwnershipLabels))
+        || ['runId', 'bundleId', 'stepId', 'namespace'].some((key) =>
+            typeof ownership[key] !== 'string'
+            || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]*$/u.test(ownership[key]))
+        || !digestPattern.test(ownership.repositoryRootDigest ?? ''))
+    {
+        throw new Error('mysql: run ownership is malformed');
+    }
+    const port = identity.ports[0];
+    if (identity.networkMode !== 'bridge'
+        || identity.ports.length !== 1
+        || port.containerPort !== '3306/tcp'
+        || port.hostIp !== '127.0.0.1'
+        || typeof port.hostPort !== 'string'
+        || !decimalIdentifierPattern.test(port.hostPort)
+        || Number(port.hostPort) > 65535)
+    {
+        throw new Error('mysql: isolated loopback TCP binding is required');
+    }
+    if (Object.values(identity.resourceLimits).some((value) => !Number.isSafeInteger(value) || value <= 0)
+        || identity.resourceLimits.memoryReservation > identity.resourceLimits.memory)
+    {
+        throw new Error('mysql: positive bounded resource limits are required');
+    }
+}
+
+function validateServiceRun(identity, runId)
+{
+    if (identity.id === 'mysql' && identity.ownership.runId !== runId)
+    {
+        throw new Error('mysql: service run ownership drift');
     }
 }
 
@@ -230,6 +330,11 @@ export function validateExecutionServiceCatalog(catalog, matrix)
     }
     for (const [id, service] of Object.entries(catalog?.services ?? {}))
     {
+        if (id === 'mysql' && service?.kind !== 'container')
+        {
+            errors.push('mysql: service identity must be a pinned container');
+            continue;
+        }
         if (!matrixServices.has(id))
         {
             errors.push(`execution service catalog entry is absent from matrix: ${id}`);
@@ -237,6 +342,7 @@ export function validateExecutionServiceCatalog(catalog, matrix)
         if (service.kind === 'container')
         {
             const isPostgres = id === 'postgres';
+            const isMysql = id === 'mysql';
             const expectedProperties = [
                 'kind',
                 'imageReference',
@@ -249,6 +355,11 @@ export function validateExecutionServiceCatalog(catalog, matrix)
                     'database',
                     'username',
                     'serverVersionNumber'
+                ] : []),
+                ...(isMysql ? [
+                    'databaseIdentityAuthority',
+                    'username',
+                    'clientOptionsFile'
                 ] : [])
             ];
             if (!hasExactProperties(service, expectedProperties))
@@ -275,7 +386,7 @@ export function validateExecutionServiceCatalog(catalog, matrix)
             }
             if (!hasExactArray(
                 service.requiredIdentityFields,
-                isPostgres ? postgresIdentityFields : containerIdentityFields
+                isPostgres ? postgresIdentityFields : isMysql ? mysqlIdentityFields : containerIdentityFields
             ))
             {
                 errors.push(`${id}: required container identity fields are invalid`);
@@ -288,6 +399,10 @@ export function validateExecutionServiceCatalog(catalog, matrix)
                     || service.serverVersionNumber !== '160015'))
             {
                 errors.push('postgres: database identity authority is invalid');
+            }
+            if (isMysql && !validMysqlCatalogIdentity(service))
+            {
+                errors.push('mysql: database identity authority is invalid');
             }
         }
         else if (service.kind !== 'run-owned-process')
@@ -374,6 +489,10 @@ export function observeContainerService({
     {
         throw new Error(`${id}: service is not a container catalog entry`);
     }
+    if (id === 'mysql' && !validMysqlCatalogIdentity(catalogEntry))
+    {
+        throw new Error('mysql: database identity authority is invalid');
+    }
     const container = dockerJson(['inspect', containerName], docker)?.[0];
     const image = dockerJson(['image', 'inspect', catalogEntry.imageReference], docker)?.[0];
     if (!container?.Id || container?.State?.Running !== true)
@@ -396,7 +515,7 @@ export function observeContainerService({
     }
     const versionResult = docker('docker', [
         'exec',
-        containerName,
+        id === 'mysql' ? container.Id : containerName,
         ...catalogEntry.versionCommand
     ], { encoding: 'utf8', shell: false, windowsHide: true });
     if (versionResult?.error || versionResult?.status !== 0)
@@ -448,6 +567,31 @@ export function observeContainerService({
         }
         validatePostgresDatabaseIdentity(databaseIdentity, catalogEntry);
     }
+    if (id === 'mysql')
+    {
+        // The lifecycle owner provisions this private file. Never obtain a
+        // password from ambient host settings, arguments, or an admitted receipt.
+        const identityResult = docker('docker', [
+            'exec', container.Id, 'mysql',
+            `--defaults-file=${mysqlClientOptionsFile}`,
+            '--no-login-paths', '--protocol=TCP', '--host=127.0.0.1', '--port=3306',
+            `--user=${catalogEntry.username}`, '--batch', '--raw', '--skip-column-names',
+            '--execute', mysqlDatabaseIdentityQuery
+        ], { encoding: 'utf8', shell: false, windowsHide: true });
+        if (identityResult?.error || identityResult?.status !== 0)
+        {
+            throw new Error('mysql: database identity is unobservable');
+        }
+        try
+        {
+            databaseIdentity = JSON.parse(String(identityResult.stdout).trim());
+        }
+        catch
+        {
+            throw new Error('mysql: database identity is malformed');
+        }
+        validateMysqlDatabaseIdentity(databaseIdentity, catalogEntry);
+    }
     const ports = Object.entries(container.NetworkSettings?.Ports ?? {})
         .flatMap(([containerPort, bindings]) => (bindings ?? []).map((binding) => ({
             containerPort,
@@ -477,6 +621,11 @@ export function observeContainerService({
     if (databaseIdentity)
     {
         identity.databaseIdentity = databaseIdentity;
+    }
+    if (id === 'mysql')
+    {
+        identity.ownership = Object.fromEntries(Object.entries(mysqlOwnershipLabels)
+            .map(([key, label]) => [key, container.Config?.Labels?.[label] ?? null]));
     }
     validateObservedContainerService(identity, catalogEntry);
     return identity;
@@ -556,7 +705,7 @@ function validateRuntimeIdentity(runtime)
     }
 }
 
-function validateEnvelopeShape(envelope, catalog)
+function validateAdmissionCatalog(catalog)
 {
     const catalogErrors = validateExecutionServiceCatalog(catalog, {
         tiers: [{ services: Object.keys(catalog?.services ?? {}) }]
@@ -565,6 +714,11 @@ function validateEnvelopeShape(envelope, catalog)
     {
         throw new Error(`execution service catalog is invalid: ${catalogErrors.join('; ')}`);
     }
+}
+
+function validateEnvelopeShape(envelope, catalog)
+{
+    validateAdmissionCatalog(catalog);
     if (!hasExactProperties(envelope, [
         'schema',
         'qualificationEligible',
@@ -637,12 +791,18 @@ export function verifyLiveServiceEnvelope({
         if (catalogEntry.kind === 'container')
         {
             validateObservedContainerService(admitted, catalogEntry);
+            validateServiceRun(admitted, envelope.runId);
             const identity = observeService({
                 id,
                 containerName: admitted.containerId,
                 catalogEntry
             });
+            if (identity?.id !== id)
+            {
+                throw new Error(`${id}: observed service identity owner drift`);
+            }
             validateObservedContainerService(identity, catalogEntry);
+            validateServiceRun(identity, envelope.runId);
             return identity;
         }
         return observeProcessService({
@@ -657,27 +817,72 @@ export function verifyLiveServiceEnvelope({
     return envelope;
 }
 
-export function createAndAdmitServiceEnvelope({
+function validateServiceAdmissionInputs({
     producerId,
     runId,
     containers,
+    runOwnedProcesses,
+    requiredServices,
+    catalog
+})
+{
+    validateAdmissionCatalog(catalog);
+    if (typeof producerId !== 'string' || !producerId.trim()
+        || typeof runId !== 'string' || !runId.trim())
+    {
+        throw new Error('execution service admission requires producer and run identities');
+    }
+    for (const bindings of [containers, runOwnedProcesses])
+    {
+        if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings))
+        {
+            throw new Error(`${producerId}: service bindings must be objects`);
+        }
+    }
+    const required = requiredServices === undefined
+        ? [...Object.keys(containers), ...Object.keys(runOwnedProcesses)]
+        : requiredServices;
+    if (!Array.isArray(required)
+        || required.some((id) => typeof id !== 'string'
+            || !Object.hasOwn(catalog.services, id))
+        || new Set(required).size !== required.length)
+    {
+        throw new Error(`${producerId}: required service roster is duplicate or unknown`);
+    }
+    const declared = [...required].sort();
+    const containerIds = declared.filter((id) => catalog.services[id].kind === 'container');
+    const processIds = declared.filter((id) => catalog.services[id].kind === 'run-owned-process');
+    if (!hasExactProperties(containers, containerIds)
+        || !hasExactProperties(runOwnedProcesses, processIds))
+    {
+        throw new Error(`${producerId}: service bindings must exactly match the required roster and kinds`);
+    }
+    for (const id of containerIds)
+    {
+        if (typeof containers[id] !== 'string'
+            || !/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/u.test(containers[id]))
+        {
+            throw new Error(`${id}: exact container name or ID is required`);
+        }
+    }
+    return declared;
+}
+
+export function createAndAdmitServiceEnvelope({
+    producerId,
+    runId,
+    containers = {},
     runOwnedProcesses = {},
-    requiredServices = [...new Set([
-        ...Object.keys(containers ?? {}),
-        ...Object.keys(runOwnedProcesses)
-    ])].sort(),
+    requiredServices,
     catalog,
     observeRuntime = observeDockerRuntime,
     observeService = observeContainerService,
     observeProcessService = observeRunOwnedService
 })
 {
-    const declared = [...new Set(requiredServices)].sort();
-    if (declared.length !== requiredServices.length
-        || declared.some((id) => !catalog?.services?.[id]))
-    {
-        throw new Error(`${producerId}: required service roster is duplicate or unknown`);
-    }
+    const declared = validateServiceAdmissionInputs({
+        producerId, runId, containers, runOwnedProcesses, requiredServices, catalog
+    });
     const containerIds = declared.filter((id) => catalog.services[id].kind === 'container');
     const observe = () =>
     {
@@ -702,7 +907,12 @@ export function createAndAdmitServiceEnvelope({
                 });
             if (catalogEntry.kind === 'container')
             {
+                if (identity?.id !== id)
+                {
+                    throw new Error(`${id}: observed service identity owner drift`);
+                }
                 validateObservedContainerService(identity, catalogEntry);
+                validateServiceRun(identity, runId);
             }
             return identity;
         });
@@ -735,8 +945,7 @@ export function parseExecutionEnvelopeServicesOptions(argv)
         '--producer-id',
         '--run-id',
         '--required-services',
-        '--postgres-container',
-        '--redis-container',
+        ...containerServiceOptions.map(([, option]) => option),
         '--process-evidence',
         '--output'
     ]);
@@ -764,6 +973,24 @@ export function parseExecutionEnvelopeServicesOptions(argv)
         values.set(name, value);
     }
     return values;
+}
+
+export function resolveExecutionServiceContainers(values, requiredServices)
+{
+    const containers = {};
+    for (const [serviceId, option] of containerServiceOptions)
+    {
+        const required = requiredServices.includes(serviceId);
+        if (required !== values.has(option))
+        {
+            throw new Error(`${option} must be present exactly when ${serviceId} is required`);
+        }
+        if (required)
+        {
+            containers[serviceId] = values.get(option);
+        }
+    }
+    return containers;
 }
 
 function requireExactOptions(values, required, optional = [])
@@ -827,8 +1054,7 @@ async function main(argv)
         '--output'
     ], [
         '--required-services',
-        '--postgres-container',
-        '--redis-container',
+        ...containerServiceOptions.map(([, option]) => option),
         '--process-evidence',
         '--service-catalog'
     ]);
@@ -839,26 +1065,13 @@ async function main(argv)
     );
     const output = path.resolve(values.get('--output'));
     const requiredServices = String(values.get('--required-services') ?? 'postgres,redis')
-        .split(',').filter(Boolean).sort();
-    for (const [serviceId, option] of [
-        ['postgres', '--postgres-container'],
-        ['redis', '--redis-container']
-    ])
-    {
-        const required = requiredServices.includes(serviceId);
-        if (required !== values.has(option))
-        {
-            throw new Error(`${option} must be present exactly when ${serviceId} is required`);
-        }
-    }
+        .split(',').sort();
+    const containers = resolveExecutionServiceContainers(values, requiredServices);
     const envelope = createAndAdmitServiceEnvelope({
         producerId: values.get('--producer-id'),
         runId: values.get('--run-id'),
         requiredServices,
-        containers: {
-            postgres: values.get('--postgres-container'),
-            redis: values.get('--redis-container')
-        },
+        containers,
         runOwnedProcesses: values.has('--process-evidence')
             ? JSON.parse(fs.readFileSync(path.resolve(values.get('--process-evidence')), 'utf8'))
             : {},

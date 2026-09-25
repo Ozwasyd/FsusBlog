@@ -1,11 +1,112 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { isDeepStrictEqual } from 'node:util';
 
 export const resourceEnforcementSchema = 'fsusblog.production.resource-enforcement.v1';
 const controllers = ['cpu', 'memory', 'pids'];
 const bytesPerGiB = 1024 ** 3;
+let observedMemoryPageBytes;
+
+function memoryPageBytes(machine)
+{
+    let value = machine.memoryPageBytes;
+    if (value === undefined)
+    {
+        if (observedMemoryPageBytes === undefined)
+        {
+            if (process.platform === 'linux')
+            {
+                const result = spawnSync('getconf', ['PAGESIZE'], { encoding: 'utf8', shell: false, timeout: 5000, maxBuffer: 1024 });
+                if (result.error || result.status !== 0 || !/^\d+\s*$/u.test(result.stdout ?? ''))
+                {
+                    throw new Error('Linux memory page size is unavailable for exact cgroup limits');
+                }
+                observedMemoryPageBytes = Number(result.stdout.trim());
+            }
+            else
+            {
+                // Non-Linux projection is advisory and does not claim cgroup enforcement.
+                observedMemoryPageBytes = 1;
+            }
+        }
+        value = observedMemoryPageBytes;
+    }
+    if (!Number.isSafeInteger(value) || value <= 0 || value > 16 * 1024 ** 2 || (value & (value - 1)) !== 0)
+    {
+        throw new Error('memory page size must be an exact supported power of two');
+    }
+    return value;
+}
+
+function containerReservationLimits(value)
+{
+    const keys = ['cpuUnits', 'memoryHighBytes', 'memoryMaxBytes', 'pidsMax'];
+    if (!value || !isDeepStrictEqual(Object.keys(value).sort(), keys.sort())
+        || typeof value.cpuUnits !== 'number' || value.cpuUnits <= 0 || !Number.isSafeInteger(value.cpuUnits * 1e9)
+        || keys.slice(1).some((key) => !Number.isSafeInteger(value[key]) || value[key] <= 0)
+        || value.memoryHighBytes > value.memoryMaxBytes)
+    {
+        throw new Error('container reservation requires exact positive CPU/memory/pids limits');
+    }
+    return { ...value };
+}
+
+/** Partition one existing bundle grant; never grant extra headroom per container. */
+export function partitionContainerResourceGrant(grant, reservations, machine)
+{
+    if (!Array.isArray(reservations))
+    {
+        throw new Error('container reservations must be an explicit list');
+    }
+    const total = resolveCgroupLimits(grant, machine);
+    const reserved = { cpuUnits: 0, memoryHighBytes: 0, memoryMaxBytes: 0, pidsMax: 0 };
+    let nanoCpus = 0;
+    for (const reservation of reservations)
+    {
+        const limits = containerReservationLimits(reservation);
+        if (limits.memoryHighBytes % total.memoryPageBytes !== 0 || limits.memoryMaxBytes % total.memoryPageBytes !== 0)
+        {
+            throw new Error('container memory reservations must match the cgroup page granularity');
+        }
+        nanoCpus += limits.cpuUnits * 1e9;
+        for (const key of ['memoryHighBytes', 'memoryMaxBytes', 'pidsMax'])
+        {
+            reserved[key] += limits[key];
+            if (!Number.isSafeInteger(reserved[key]))
+            {
+                throw new Error('container reservation sum is not exactly representable');
+            }
+        }
+    }
+    if (!Number.isSafeInteger(nanoCpus))
+    {
+        throw new Error('container CPU reservation sum is not exactly representable');
+    }
+    reserved.cpuUnits = nanoCpus / 1e9;
+    if (reservations.length === 0)
+    {
+        return { total, process: { ...total }, reserved };
+    }
+    const cpuUnits = total.cpuUnits - reserved.cpuUnits;
+    const memoryHighBytes = total.memoryHighBytes - reserved.memoryHighBytes;
+    const memoryMaxBytes = total.memoryMaxBytes - reserved.memoryMaxBytes;
+    const pidsMax = total.pidsMax - reserved.pidsMax;
+    const period = Number(total.cpuMax.split(' ')[1]);
+    const quota = Math.floor(cpuUnits * period);
+    if (cpuUnits <= 0 || quota < 1000 || memoryHighBytes < 16 * 1024 ** 2
+        || memoryMaxBytes < memoryHighBytes || pidsMax < 1)
+    {
+        throw new Error('container reservations leave no valid process share inside the bundle grant');
+    }
+    const processLimits = resolveCgroupLimits({ cpuUnits: quota / period, memoryGiB: memoryHighBytes / bytesPerGiB }, machine);
+    return { total, reserved, process: {
+        ...processLimits, cpuMax: `${quota} ${period}`, memoryHighBytes, memoryMaxBytes,
+        memoryHeadroomBytes: memoryMaxBytes - memoryHighBytes, pidsMax
+    } };
+}
 
 function exceedsFloatingPointEnvelope(value, envelope)
 {
@@ -121,6 +222,7 @@ function enableControllers(directory)
 
 export function resolveCgroupLimits(grant, machine)
 {
+    const pageBytes = memoryPageBytes(machine);
     const cpuUnits = Number(grant.cpuUnits);
     const memoryGiB = Number(grant.memoryGiB);
     const machineCpu = Math.max(1, Number(machine.cpuUnits ?? machine.cpuCount) || os.availableParallelism?.() || 1);
@@ -141,15 +243,16 @@ export function resolveCgroupLimits(grant, machine)
     }
     const periodUs = Math.max(10_000, Math.min(1_000_000, Math.round(100_000 * Math.sqrt(machineCpu) / Math.sqrt(cpuUnits))));
     const quotaUs = Math.max(1_000, Math.round(periodUs * cpuUnits));
-    const memoryHighBytes = Math.max(16 * 1024 ** 2, requestedMemoryBytes);
+    const memoryHighBytes = Math.max(16 * 1024 ** 2, Math.floor(requestedMemoryBytes / pageBytes) * pageBytes);
     const headroomBytes = Math.max(64 * 1024 ** 2, Math.round(memoryHighBytes / Math.sqrt(machineCpu * 16)));
-    const memoryMaxBytes = Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes);
+    const memoryMaxBytes = Math.floor(Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes) / pageBytes) * pageBytes;
     const cpuWeight = Math.max(1, Math.min(10_000, Math.round(10_000 * cpuUnits / machineCpu)));
     const pidsMax = Math.max(64, Math.min(8192,
         Math.ceil(Math.max(cpuUnits * 128, memoryGiB * 64))));
     return {
         cpuUnits,
         memoryGiB,
+        memoryPageBytes: pageBytes,
         cpuWeight,
         cpuMax: `${quotaUs} ${periodUs}`,
         cpuMaxPolicy: 'hard-grant-ceiling',
@@ -246,7 +349,9 @@ function cleanupStaleManagerCgroups(delegateRoot, removeDirectory)
             removed.push(entry.name);
         }
         catch
-        {}
+        {
+            // Empty stale manager cleanup is best-effort; active leaves are retained above.
+        }
     }
     return { removed, retainedActive };
 }
@@ -261,6 +366,16 @@ export function createProductionResourceEnforcer(options)
     const strict = requestedMode === 'strict' || options.strict === true;
     const runId = safeSegment(options.runId, 'runId');
     const bundleIds = [...new Set(options.bundleIds ?? [])].map((value) => safeSegment(value, 'bundleId'));
+    const observedPageBytes = memoryPageBytes({});
+    if (options.machine?.memoryPageBytes !== undefined && options.machine.memoryPageBytes !== observedPageBytes)
+    {
+        throw new Error('resource enforcer machine page size differs from the observed host');
+    }
+    const machine = Object.freeze({ ...options.machine, memoryPageBytes: observedPageBytes });
+    const containerReservations = new Map();
+    const usedReservationIds = new Set();
+    const totalGrants = new Map();
+    let disposed = false;
     const capabilities = resolveProductionCgroupCapabilities(options);
     const evidence = {
         schema: resourceEnforcementSchema,
@@ -269,7 +384,7 @@ export function createProductionResourceEnforcer(options)
         status: capabilities.status,
         reason: capabilities.reason,
         runId,
-        machine: options.machine,
+        machine,
         capabilities,
         cpuPolicy: 'cpu.weight plus cpu.max hard grant ceiling; quota is isolation, never a speed optimization',
         memoryPolicy: 'memory.high equals the grant; memory.max adds machine-derived safety headroom',
@@ -391,10 +506,15 @@ export function createProductionResourceEnforcer(options)
         throw new Error(`strict cgroup enforcement unavailable: ${evidence.reason ?? evidence.status}`);
     }
 
-    const update = (bundleIdValue, grant) =>
+    const applyGrant = (bundleIdValue, grant, reservations) =>
     {
         const bundleId = safeSegment(bundleIdValue, 'bundleId');
-        const limits = resolveCgroupLimits(grant, options.machine);
+        if (disposed)
+        {
+            throw new Error('resource enforcer is already disposed');
+        }
+        const allocation = partitionContainerResourceGrant(grant, reservations.map((entry) => entry.limits), machine);
+        const limits = allocation.process;
         const bundle = evidence.bundles[bundleId] ??= { path: null, grants: [], samples: [], attachedPid: null };
         if (evidence.mode === 'enforced')
         {
@@ -420,8 +540,11 @@ export function createProductionResourceEnforcer(options)
       || previous.memoryMaxBytes !== limits.memoryMaxBytes
       || previous.pidsMax !== limits.pidsMax)
         {
-            bundle.grants.push({ ...limits, effectiveAt: new Date().toISOString() });
+            bundle.grants.push({ ...limits, totalGrant: { ...allocation.total },
+                containerReservations: structuredClone(reservations), effectiveAt: new Date().toISOString() });
         }
+        bundle.allocation = { total: { ...allocation.total }, process: { ...limits },
+            reserved: { ...allocation.reserved }, containerReservations: structuredClone(reservations) };
         bundle.effectiveLimits = evidence.mode === 'enforced' ? sampleCgroup(bundle.path) : null;
         bundle.consistency = evidence.mode === 'enforced' ? {
       status: bundle.effectiveLimits.cpuMax === limits.cpuMax
@@ -441,7 +564,113 @@ export function createProductionResourceEnforcer(options)
         pidsMax: bundle.effectiveLimits.pidsMax
       }
     } : { status: 'advisory', declaredGrant: { cpuUnits: limits.cpuUnits, memoryGiB: limits.memoryGiB } };
-        return { ...limits, mode: evidence.mode, cgroupPath: bundle.path };
+        if (bundle.consistency.status === 'mismatch')
+        {
+            throw new Error('effective process controls differ from the partitioned resource grant');
+        }
+        return { ...limits, mode: evidence.mode, cgroupPath: bundle.path,
+            totalGrant: { ...allocation.total }, containerReservations: structuredClone(reservations) };
+    };
+    const update = (bundleIdValue, grant) =>
+    {
+        const bundleId = safeSegment(bundleIdValue, 'bundleId');
+        const result = applyGrant(bundleId, grant, [...(containerReservations.get(bundleId)?.values() ?? [])]);
+        totalGrants.set(bundleId, { cpuUnits: Number(grant.cpuUnits), memoryGiB: Number(grant.memoryGiB) });
+        return result;
+    };
+    const reserveContainerResources = (bundleIdValue, request) =>
+    {
+        const bundleId = safeSegment(bundleIdValue, 'bundleId');
+        if (disposed || evidence.mode !== 'enforced' || !bundleIds.includes(bundleId) || !totalGrants.has(bundleId))
+        {
+            throw new Error('container reservation requires a live enforced admitted bundle grant');
+        }
+        if (!request || !isDeepStrictEqual(Object.keys(request).sort(), ['id', 'identity', 'limits']))
+        {
+            throw new Error('container reservation requires an exact request');
+        }
+        const id = safeSegment(request.id, 'reservationId');
+        const identity = structuredClone(request.identity);
+        const identityKeys = ['root', 'runId', 'namespace', 'bundleId', 'stepId', 'sourceState'];
+        if (!identity || !isDeepStrictEqual(Object.keys(identity).sort(), identityKeys.sort())
+            || identity.runId !== runId || typeof identity.root !== 'string' || fs.realpathSync(identity.root) !== identity.root
+            || ![bundleId, `matrix:${bundleId}`].includes(identity.bundleId)
+            || ['namespace', 'bundleId', 'stepId'].some((key) => typeof identity[key] !== 'string'
+                || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]*$/u.test(identity[key]))
+            || !identity.sourceState || !isDeepStrictEqual(Object.keys(identity.sourceState).sort(), ['commit', 'worktreeFingerprint'])
+            || !/^[a-f0-9]{40}$/u.test(identity.sourceState.commit)
+            || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(identity.sourceState.worktreeFingerprint))
+        {
+            throw new Error('container reservation identity must bind the current run and exact producer/source');
+        }
+        const limits = containerReservationLimits(request.limits);
+        const key = `${bundleId}/${id}`;
+        if (usedReservationIds.has(key))
+        {
+            throw new Error('container reservation identity cannot be reused');
+        }
+        const reservations = containerReservations.get(bundleId) ?? new Map();
+        const reservation = { id, identity, limits };
+        const totalGrant = totalGrants.get(bundleId);
+        applyGrant(bundleId, totalGrant, [...reservations.values(), reservation]);
+        reservations.set(id, reservation);
+        containerReservations.set(bundleId, reservations);
+        usedReservationIds.add(key);
+        let releasing = false;
+        const assertHeld = (context) =>
+        {
+            if (disposed || reservations.get(id) !== reservation
+                || identityKeys.some((field) => !isDeepStrictEqual(context?.[field], identity[field]))
+                || !isDeepStrictEqual(context?.resourceGrant, limits))
+            {
+                throw new Error('container resource reservation is absent or crosses its exact owner');
+            }
+            const bundle = evidence.bundles[bundleId];
+            if (!Number.isSafeInteger(bundle.attachedPid) || bundle.attachedPid <= 0
+                || !String(readText(path.join(bundle.path, 'cgroup.procs')) ?? '').split(/\s+/u).includes(String(bundle.attachedPid)))
+            {
+                throw new Error('container reservation requires its attached bundle process to remain in the owned cgroup');
+            }
+            const allocation = partitionContainerResourceGrant(totalGrants.get(bundleId), [...reservations.values()].map((entry) => entry.limits), machine);
+            const observed = sampleCgroup(bundle.path);
+            const expected = allocation.process;
+            if (observed.cpuMax !== expected.cpuMax || observed.cpuWeight !== String(expected.cpuWeight)
+                || observed.memoryHigh !== String(expected.memoryHighBytes) || observed.memoryMax !== String(expected.memoryMaxBytes)
+                || observed.pidsMax !== String(expected.pidsMax))
+            {
+                throw new Error('container resource reservation process controls drifted');
+            }
+            return { runId, bundleId, reservation: structuredClone(reservation), process: { ...expected }, total: { ...allocation.total } };
+        };
+        return Object.freeze({
+            assertHeld,
+            snapshot: () => ({ runId, bundleId, ...structuredClone(reservation), held: reservations.get(id) === reservation }),
+            async releaseAfterCleanup(cleanup)
+            {
+                if (disposed || reservations.get(id) !== reservation || releasing || typeof cleanup !== 'function')
+                {
+                    throw new Error('container resource release requires one active owner and its exact cleanup');
+                }
+                releasing = true;
+                try
+                {
+                    // The canonical lifecycle owns deletion. Resource reclamation
+                    // can only follow successful exact cleanup, never step exit.
+                    const result = await cleanup();
+                    if (!isDeepStrictEqual(result, { containerAbsent: true, credentialsRemoved: true }))
+                    {
+                        throw new Error('container resource release lacks complete lifecycle cleanup');
+                    }
+                    applyGrant(bundleId, totalGrants.get(bundleId), [...reservations.values()].filter((entry) => entry !== reservation));
+                    reservations.delete(id);
+                    return result;
+                }
+                finally
+                {
+                    releasing = false;
+                }
+            }
+        });
     };
     const attach = (bundleIdValue, pid) =>
     {
@@ -477,9 +706,17 @@ export function createProductionResourceEnforcer(options)
     const cleanup = () =>
     {
         sample();
+        const held = [...containerReservations.entries()].flatMap(([bundleId, reservations]) =>
+            [...reservations.values()].map((entry) => ({ bundleId, reservationId: entry.id })));
+        if (held.length)
+        {
+            evidence.cleanup = { status: 'retained-container-reservations', reservations: held, completedAt: new Date().toISOString() };
+            return evidence.cleanup;
+        }
         if (evidence.mode !== 'enforced' || !runRoot)
         {
             evidence.cleanup = { status: 'not-applicable', completedAt: new Date().toISOString() };
+            disposed = true;
             return evidence.cleanup;
         }
         const busy = Object.entries(evidence.bundles).filter(([, bundle]) =>
@@ -510,6 +747,7 @@ export function createProductionResourceEnforcer(options)
                 }
             }
             evidence.cleanup = { status: 'removed', completedAt: new Date().toISOString() };
+            disposed = true;
         }
         catch (error)
         {
@@ -521,6 +759,7 @@ export function createProductionResourceEnforcer(options)
         mode: evidence.mode,
         capabilities,
         update,
+        reserveContainerResources,
         attach,
         sample,
         cleanup,
