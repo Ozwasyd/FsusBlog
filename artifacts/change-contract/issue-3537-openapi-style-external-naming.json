@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/fact-extractors/openapi-aeds/extract.mjs"
+            ],
+            "reason": "Preserve the extractor's registered process environment spellings while dependency injection and formatting change only internal JavaScript ownership."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md",
+                "tools/fact-extractors/runner.mjs"
+            ],
+            "reason": "Preserve the documented fact-receipt JSON field names while the runner supplies an internal canonical digest capability."
+        }
+    ]
+}
