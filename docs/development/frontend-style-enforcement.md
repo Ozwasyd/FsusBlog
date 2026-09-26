@@ -14,6 +14,13 @@ The covered source sets are:
 - `tools/**/*.mjs` and `tests/**/*.mjs` for Node tooling;
 - generated, public artifacts, vendored dependencies, minified files and intentional fixture directories only through explicit policy exclusions.
 
+The suite-convergence test keeps its canonical `tests/tools/` path and consumes
+the three governance module exports from the private local `tools/` package.
+`tests/tools/package-lock.json` binds that file dependency. Before running this
+test or the static-governance Node contracts directly in a fresh checkout, run
+`npm --prefix tests/tools ci --ignore-scripts --no-audit`; the generated
+`node_modules` link is not source or an acceptance artifact.
+
 Run the changed-file gate from the frontend package:
 
 ```bash
