@@ -657,3 +657,49 @@ test('diff checker detects deleted tests, renamed tests and removed discoverable
         rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-identity-git-'));
+    const file = path.join(root, 'tests/tools/Example.test.mjs');
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+
+        writeFileSync(file, "import test from 'node:test';\ntest('first', () =>\n{\n});\ntest('second', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'format'], { cwd: root });
+        assert.deepEqual(detectReplacementRequiredChanges({ root, base: 'HEAD^' }), []);
+        assert.deepEqual(verifyDiffHasTransaction({ root, base: 'HEAD^' }), []);
+
+        writeFileSync(file, "import test from 'node:test';\ntest('first', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+        assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u);
+
+        writeFileSync(file, "import test from 'node:test';\ntest('renamed', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'rename first'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+
+        writeFileSync(file, "import test from 'node:test';\ntest('renamed', () => {\n");
+        execFileSync('git', ['commit', '-qam', 'malformed'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+
+        writeFileSync(file, "import test from 'node:test';\ntest('restored', () => {});\n");
+        execFileSync('git', ['commit', '-qam', 'restore'], { cwd: root });
+        writeFileSync(file, "import test from 'node:test';\nconst helper = () => {};\n");
+        execFileSync('git', ['commit', '-qam', 'undiscoverable'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /no unique cases/u);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
