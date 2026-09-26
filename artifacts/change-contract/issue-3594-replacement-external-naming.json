@@ -11,9 +11,19 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-locator-registry.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the generated release authority JSON keys and tier identifiers while updating the indexed source closure."
+            "reason": "Preserve current-run acceptance, registry and generated release authority wire keys while updating the indexed source closure."
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "tools/test/generate-evidence-location-governance.mjs"
+            ],
+            "reason": "Preserve the existing current-run locator contract while the scanner ledger is regenerated for the governed test-identity change."
         },
         {
             "id": "environment-variable",
