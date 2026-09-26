@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import process from 'node:process';
 
 import {
     materializeEsmFixture,
@@ -14,60 +15,126 @@ function createTempDir(name)
     return fs.mkdtempSync(path.join(os.tmpdir(), `fsusblog-${name}-`));
 }
 
-export async function assertTransitiveMaterialization()
+export function assertTransitiveMaterialization()
 {
     const source = createTempDir('esm-fixture-source');
     const fixture = createTempDir('esm-fixture-target');
-    fs.mkdirSync(path.join(source, 'tools/nested'), { recursive: true });
-    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { value } from './level-one.mjs';\n");
-    fs.writeFileSync(path.join(source, 'tools/level-one.mjs'), "import { value } from './nested/level-two.mjs';\nexport { value };\n");
-    fs.writeFileSync(path.join(source, 'tools/nested/level-two.mjs'), "export const value = 'complete';\n");
+    try
+    {
+        fs.mkdirSync(path.join(source, 'tools/nested'), { recursive: true });
+        fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "import { value } from './level-one.mjs';\nconsole.log(value);\n");
+        fs.writeFileSync(path.join(source, 'tools/level-one.mjs'), "import { value } from './nested/level-two.mjs';\nexport { value };\n");
+        fs.writeFileSync(path.join(source, 'tools/nested/level-two.mjs'), "export const value = 'complete';\n");
 
-    const result = materializeEsmFixture({
-        repositoryRoot: source,
-        fixtureRoot: fixture,
-        entries: ['tools/entry.mjs'],
-        allowedRoots: ['tools']
-    });
-    assert.deepEqual(result.files, [
-        'tools/entry.mjs',
-        'tools/level-one.mjs',
-        'tools/nested/level-two.mjs'
-    ]);
-    const loaded = await import(`${pathToFileURL(result.entryFiles[0]).href}?test=${Date.now()}-${Math.random()}`);
-    assert.equal(loaded.value, 'complete');
+        const result = materializeEsmFixture({
+            repositoryRoot: source,
+            fixtureRoot: fixture,
+            entries: ['tools/entry.mjs'],
+            allowedRoots: ['tools']
+        });
+        assert.deepEqual(result.files, [
+            'tools/entry.mjs',
+            'tools/level-one.mjs',
+            'tools/nested/level-two.mjs'
+        ]);
+        assert.equal(execFileSync(process.execPath, [result.entryFiles[0]], { encoding: 'utf8' }), 'complete\n');
+    }
+    finally
+    {
+        fs.rmSync(source, { recursive: true, force: true });
+        fs.rmSync(fixture, { recursive: true, force: true });
+    }
 }
 
 export function assertMissingDependencyDiagnostic()
 {
     const fixture = createTempDir('esm-fixture-missing');
-    fs.mkdirSync(path.join(fixture, 'tools'), { recursive: true });
-    const importer = path.join(fixture, 'tools/entry.mjs');
-    const missing = path.join(fixture, 'tools/missing.mjs');
-    fs.writeFileSync(importer, "import './missing.mjs';\n");
-    assert.throws(
-        () => preflightMaterializedEsmFixture({ fixtureRoot: fixture, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] }),
-        (error) =>
-        {
-            assert.match(error.message, new RegExp(`importer=${importer.replaceAll('\\', '\\\\')}`, 'u'));
-            assert.match(error.message, /specifier=\.\/missing\.mjs/u);
-            assert.match(error.message, new RegExp(`resolved=${missing.replaceAll('\\', '\\\\')}`, 'u'));
-            return true;
-        }
-    );
+    try
+    {
+        fs.mkdirSync(path.join(fixture, 'tools'), { recursive: true });
+        const importer = path.join(fixture, 'tools/entry.mjs');
+        const missing = path.join(fixture, 'tools/missing.mjs');
+        fs.writeFileSync(importer, "import './missing.mjs';\n");
+        assert.throws(
+            () => preflightMaterializedEsmFixture({ fixtureRoot: fixture, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] }),
+            (error) =>
+            {
+                assert.match(error.message, new RegExp(`importer=${importer.replaceAll('\\', '\\\\')}`, 'u'));
+                assert.match(error.message, /specifier=\.\/missing\.mjs/u);
+                assert.match(error.message, new RegExp(`resolved=${missing.replaceAll('\\', '\\\\')}`, 'u'));
+                return true;
+            }
+        );
+    }
+    finally
+    {
+        fs.rmSync(fixture, { recursive: true, force: true });
+    }
 }
 
 export function assertAllowedRootBoundary()
 {
     const source = createTempDir('esm-fixture-escape-source');
     const fixture = createTempDir('esm-fixture-escape-target');
-    fs.mkdirSync(path.join(source, 'tools'), { recursive: true });
-    fs.writeFileSync(path.join(source, 'outside.mjs'), 'export const escaped = true;\n');
-    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { escaped } from '../outside.mjs';\n");
-    assert.throws(
-        () => materializeEsmFixture({ repositoryRoot: source, fixtureRoot: fixture, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] }),
-        /resolved target escapes allowed roots.*specifier=\.\.\/outside\.mjs/u
-    );
+    try
+    {
+        fs.mkdirSync(path.join(source, 'tools'), { recursive: true });
+        fs.writeFileSync(path.join(source, 'outside.mjs'), 'export const escaped = true;\n');
+        fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "export { escaped } from '../outside.mjs';\n");
+        assert.throws(
+            () => materializeEsmFixture({ repositoryRoot: source, fixtureRoot: fixture, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] }),
+            /resolved target escapes allowed roots.*specifier=\.\.\/outside\.mjs/u
+        );
+    }
+    finally
+    {
+        fs.rmSync(source, { recursive: true, force: true });
+        fs.rmSync(fixture, { recursive: true, force: true });
+    }
+}
+
+export function assertRuntimeAssetBoundary()
+{
+    const source = createTempDir('esm-runtime-asset-source');
+    const fixture = createTempDir('esm-runtime-asset-target');
+    const entry = 'tools/entry.mjs';
+    const asset = 'tools/test/lanes/release-final.sh';
+    try
+    {
+        fs.mkdirSync(path.join(source, 'tools/test/lanes'), { recursive: true });
+        fs.writeFileSync(path.join(source, entry), 'export const ready = true;\n');
+        const options = { repositoryRoot: source, fixtureRoot: fixture, entries: [entry],
+            assets: [asset], allowedRoots: ['tools'] };
+        assert.throws(() => materializeEsmFixture(options), /runtime asset is missing/u);
+        const target = path.join(source, asset);
+        fs.writeFileSync(target, '#!/usr/bin/env bash\nexit 0\n');
+        const result = materializeEsmFixture(options);
+        assert.ok(result.files.includes(asset));
+        assert.deepEqual(fs.readFileSync(path.join(fixture, asset)), fs.readFileSync(target));
+        const external = path.join(source, 'outside.txt');
+        fs.writeFileSync(external, 'sentinel');
+        fs.rmSync(path.join(fixture, asset));
+        fs.symlinkSync(external, path.join(fixture, asset));
+        assert.throws(() => materializeEsmFixture(options), /destination must be a literal regular file/u);
+        assert.equal(fs.readFileSync(external, 'utf8'), 'sentinel');
+        fs.rmSync(path.join(fixture, asset));
+        const externalDirectory = path.join(source, 'outside-directory');
+        fs.mkdirSync(externalDirectory);
+        const fixtureLaneDirectory = path.join(fixture, 'tools/test/lanes');
+        fs.rmdirSync(fixtureLaneDirectory);
+        fs.symlinkSync(externalDirectory, fixtureLaneDirectory);
+        assert.throws(() => materializeEsmFixture(options), /destination parent must be a literal directory/u);
+        assert.deepEqual(fs.readdirSync(externalDirectory), []);
+        fs.rmSync(fixtureLaneDirectory);
+        fs.rmSync(target);
+        fs.symlinkSync('../entry.mjs', target);
+        assert.throws(() => materializeEsmFixture(options), /runtime asset must be a literal regular file/u);
+    }
+    finally
+    {
+        fs.rmSync(source, { recursive: true, force: true });
+        fs.rmSync(fixture, { recursive: true, force: true });
+    }
 }
 
 export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
@@ -84,9 +151,23 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         entries: [
             'tools/run-test-matrix.mjs',
             'tools/test-matrix/production-build-gc.mjs',
-            'tools/test/measurement-noise-envelope.mjs'
+            'tools/test/measurement-noise-envelope.mjs',
+            'tools/test/attempt-runner.mjs',
+            'tools/test/bundles/run-bundle.mjs',
+            'tools/test/temporal-context.mjs',
+            'tools/test/physical-execution-unix-bootstrap.mjs',
+            'tools/test/physical-execution-linux-systemd-bootstrap.mjs'
         ],
-        allowedRoots: ['tools']
+        assets: [
+            'tools/test/physical-execution-linux-preexec.py',
+            'tools/test/physical-execution-windows-job.ps1',
+            'tools/test-matrix/windows-job-members.ps1',
+            'tools/test-matrix/windows-job-supervisor.ps1',
+            'tools/test/lanes/release-final.sh',
+            'tests/fixtures/test-matrix/release-final-evidence-inputs.json'
+        ],
+        allowedRoots: ['tools', 'src/frontend/scripts/fsusui-root.mjs',
+            'tests/fixtures/test-matrix/release-final-evidence-inputs.json']
     });
     fs.copyFileSync(
         path.join(repositoryRoot, '.github/workflows/quality-gate.yml'),
@@ -113,15 +194,5 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         path.join(repositoryRoot, 'tests/matrix.yml'),
         path.join(testDirectory, 'matrix.yml')
     );
-    for (const file of [
-        'tools/test/attempt-runner.mjs',
-        'tools/test/bundles/run-bundle.mjs',
-        'tools/test/temporal-context.mjs'
-    ])
-    {
-        const target = path.join(fixtureRoot, file);
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.copyFileSync(path.join(repositoryRoot, file), target);
-    }
     return fixture.entryFiles[0];
 }

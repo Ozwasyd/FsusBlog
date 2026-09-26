@@ -1440,13 +1440,13 @@
         },
         {
             "path": "tests/tools/support/esm-fixture-materializer-contracts.mjs",
-            "contentDigest": "sha256:239695169a167e17fc833ea117680c33112e4aeb8d1af9a8304951aa05258420",
-            "indexDigest": "sha256:239695169a167e17fc833ea117680c33112e4aeb8d1af9a8304951aa05258420"
+            "contentDigest": "sha256:ae245caa42b7c890eb99c08d323bb2b30a1ca3f1e5f05f9f52bc8064900bc556",
+            "indexDigest": "sha256:ae245caa42b7c890eb99c08d323bb2b30a1ca3f1e5f05f9f52bc8064900bc556"
         },
         {
             "path": "tests/tools/support/esm-fixture-materializer.mjs",
-            "contentDigest": "sha256:321b199d3bb9a19f13a465c4b51b106c273f47e31546385264165459e96b609e",
-            "indexDigest": "sha256:321b199d3bb9a19f13a465c4b51b106c273f47e31546385264165459e96b609e"
+            "contentDigest": "sha256:a7f9a0de3e41284f4e9d749c58cafc8cce19b80eaf351aa5fe01dc8d0353278e",
+            "indexDigest": "sha256:a7f9a0de3e41284f4e9d749c58cafc8cce19b80eaf351aa5fe01dc8d0353278e"
         },
         {
             "path": "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",

@@ -136,10 +136,68 @@ function discoverClosure(root, entries, allowedRoots)
     return [...discovered].sort();
 }
 
-export function preflightMaterializedEsmFixture({ fixtureRoot, entries, allowedRoots })
+function discoverRuntimeAssets(root, assets, allowedRoots)
+{
+    if (!Array.isArray(assets) || assets.some((asset) => typeof asset !== 'string' || !asset
+        || path.isAbsolute(asset) || asset.includes('\\') || asset.split('/').some((part) => !part || part === '.' || part === '..'))
+        || new Set(assets).size !== assets.length)
+    {
+        throw new Error('ESM fixture runtime assets must be unique repository-relative paths');
+    }
+    return assets.map((asset) =>
+    {
+        const target = path.resolve(root, asset);
+        assertAllowed(target, allowedRoots, '<runtime-asset>', asset);
+        const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+        if (!stat)
+        {
+            throw fixtureError('runtime asset is missing', '<runtime-asset>', asset, target);
+        }
+        if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(target) !== target)
+        {
+            throw fixtureError('runtime asset must be a literal regular file', '<runtime-asset>', asset, target);
+        }
+        return target;
+    });
+}
+
+function prepareLiteralDestination(fixtureRoot, destination)
+{
+    const rootStat = fs.lstatSync(fixtureRoot, { throwIfNoEntry: false });
+    if (!rootStat?.isDirectory() || rootStat.isSymbolicLink())
+    {
+        throw new Error(`ESM fixture root must be a literal directory: ${fixtureRoot}`);
+    }
+    const parent = path.dirname(destination);
+    const relativeParent = path.relative(fixtureRoot, parent);
+    let current = fixtureRoot;
+    for (const part of relativeParent ? relativeParent.split(path.sep) : [])
+    {
+        current = path.join(current, part);
+        if (!fs.existsSync(current))
+        {
+            fs.mkdirSync(current);
+        }
+        const stat = fs.lstatSync(current);
+        if (!stat.isDirectory() || stat.isSymbolicLink())
+        {
+            throw new Error(`ESM fixture destination parent must be a literal directory: ${current}`);
+        }
+    }
+    const existing = fs.lstatSync(destination, { throwIfNoEntry: false });
+    if (existing && (!existing.isFile() || existing.isSymbolicLink()))
+    {
+        throw new Error(`ESM fixture destination must be a literal regular file: ${destination}`);
+    }
+}
+
+export function preflightMaterializedEsmFixture({ fixtureRoot, entries, allowedRoots, assets = [] })
 {
     const configuration = normalizeConfiguration(fixtureRoot, allowedRoots);
-    return discoverClosure(configuration.absoluteRoot, entries, configuration.absoluteAllowedRoots)
+    return [...new Set([
+        ...discoverClosure(configuration.absoluteRoot, entries, configuration.absoluteAllowedRoots),
+        ...discoverRuntimeAssets(configuration.absoluteRoot, assets, configuration.absoluteAllowedRoots)
+    ])].sort()
         .map((file) => path.relative(configuration.absoluteRoot, file).replaceAll(path.sep, '/'));
 }
 
@@ -147,7 +205,8 @@ export function materializeEsmFixture({
     repositoryRoot,
     fixtureRoot,
     entries,
-    allowedRoots
+    allowedRoots,
+    assets = []
 })
 {
     if (!Array.isArray(entries) || entries.length === 0)
@@ -155,7 +214,10 @@ export function materializeEsmFixture({
         throw new Error('ESM fixture materializer requires at least one entry');
     }
     const source = normalizeConfiguration(repositoryRoot, allowedRoots);
-    const files = discoverClosure(source.absoluteRoot, entries, source.absoluteAllowedRoots);
+    const files = [...new Set([
+        ...discoverClosure(source.absoluteRoot, entries, source.absoluteAllowedRoots),
+        ...discoverRuntimeAssets(source.absoluteRoot, assets, source.absoluteAllowedRoots)
+    ])].sort();
     const absoluteFixtureRoot = path.resolve(fixtureRoot);
     for (const file of files)
     {
@@ -165,13 +227,14 @@ export function materializeEsmFixture({
         {
             throw new Error(`ESM fixture destination escapes fixture root: ${destination}`);
         }
-        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        prepareLiteralDestination(absoluteFixtureRoot, destination);
         fs.copyFileSync(file, destination);
     }
     const materializedFiles = preflightMaterializedEsmFixture({
         fixtureRoot: absoluteFixtureRoot,
         entries,
-        allowedRoots
+        allowedRoots,
+        assets
     });
     return { entryFiles: entries.map((entry) => path.join(absoluteFixtureRoot, entry)), files: materializedFiles };
 }
