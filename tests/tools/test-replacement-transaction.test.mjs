@@ -730,3 +730,62 @@ test('a renamed source cannot mask a separate JS case removal', () =>
         rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('diff checker binds multiline JS case identities without relying on removed call text', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-multiline-git-'));
+    const file = path.join(root, 'tests/tools/Multiline.test.mjs');
+    const first = "test\n(\n    'first',\n    () => {}\n);\n";
+    const renamed = "test\n(\n    'renamed',\n    () => {}\n);\n";
+    const second = "test\n(\n    'second',\n    () => {}\n);\n";
+    const third = "test\n(\n    'third',\n    () => {}\n);\n";
+    const source = (body, includeImport = true) => `${includeImport ? "import test from 'node:test';\n" : ''}${body}`;
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, source(first + second));
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+
+        writeFileSync(file, source(renamed + second));
+        execFileSync('git', ['commit', '-qam', 'rename title'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+        assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u);
+
+        writeFileSync(file, source(renamed + second + third));
+        execFileSync('git', ['commit', '-qam', 'add case'], { cwd: root });
+        assert.deepEqual(detectReplacementRequiredChanges({ root, base: 'HEAD^' }), []);
+
+        writeFileSync(file, source(renamed + third));
+        execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+
+        writeFileSync(file, source(renamed + third, false));
+        execFileSync('git', ['commit', '-qam', 'remove owner import'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+
+        writeFileSync(file, source(renamed + third));
+        execFileSync('git', ['commit', '-qam', 'restore owner import'], { cwd: root });
+        writeFileSync(file, source(renamed + third.slice(0, -3)));
+        execFileSync('git', ['commit', '-qam', 'malformed case'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+
+        writeFileSync(file, source(renamed + third));
+        execFileSync('git', ['commit', '-qam', 'restore syntax'], { cwd: root });
+        writeFileSync(file, Buffer.concat([
+            Buffer.from(`${source(renamed + third)}// `),
+            Buffer.from([0xff, 0x0a])
+        ]));
+        execFileSync('git', ['commit', '-qam', 'invalid encoding'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /UTF-8/u);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});

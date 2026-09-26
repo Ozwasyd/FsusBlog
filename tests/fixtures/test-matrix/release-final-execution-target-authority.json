@@ -3730,8 +3730,8 @@
         },
         {
             "path": "tools/test-replacement/transaction.mjs",
-            "contentDigest": "sha256:79fa2a412884b9c79f72bd0b0049655d6cf08b62b69ee0e83959876a482fef99",
-            "indexDigest": "sha256:79fa2a412884b9c79f72bd0b0049655d6cf08b62b69ee0e83959876a482fef99"
+            "contentDigest": "sha256:402a734c7241cf1aa270deb32dfa842024a8d69933be0f13abac3c7ba3d5c658",
+            "indexDigest": "sha256:402a734c7241cf1aa270deb32dfa842024a8d69933be0f13abac3c7ba3d5c658"
         },
         {
             "path": "tools/test-retention/audit.mjs",

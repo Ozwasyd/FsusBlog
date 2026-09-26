@@ -1,3 +1,4 @@
+import { isUtf8 } from 'node:buffer';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -950,11 +951,16 @@ function revisionFile(root, revision, file)
     {
         fail(`test identity source is not an exact regular Git blob: ${revision}:${file}`);
     }
-    return execFileSync('git', ['show', `${revision}:${file}`], {
+    const source = execFileSync('git', ['show', `${revision}:${file}`], {
         cwd: root,
         maxBuffer: 64 * 1024 * 1024,
         env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
     });
+    if (!isUtf8(source))
+    {
+        fail(`test identity source is not UTF-8: ${revision}:${file}`);
+    }
+    return source;
 }
 
 function astCaseIds(file, source, adapter)
@@ -1003,12 +1009,8 @@ function astCaseIds(file, source, adapter)
     }
 }
 
-function preservesExactJsCases(root, base, head, file)
+function removesPriorJsCases(root, base, head, file)
 {
-    if (!JS_TEST_SOURCE.test(file))
-    {
-        return false;
-    }
     const before = revisionFile(root, base, file);
     const after = revisionFile(root, head, file);
     const beforeOwner = classifyFile(file, before.toString('utf8'));
@@ -1017,12 +1019,11 @@ function preservesExactJsCases(root, base, head, file)
         || beforeOwner.adapter !== afterOwner.adapter
         || !['node-test', 'vitest', 'playwright'].includes(beforeOwner.adapter))
     {
-        return false;
+        fail(`AST identity extraction is incomplete for ${file}: test owner changed or is unsupported`);
     }
     const beforeIds = astCaseIds(file, before, beforeOwner.adapter);
-    const afterIds = astCaseIds(file, after, afterOwner.adapter);
-    return beforeIds.length === afterIds.length
-        && beforeIds.every((id, index) => id === afterIds[index]);
+    const afterIds = new Set(astCaseIds(file, after, afterOwner.adapter));
+    return beforeIds.some((id) => !afterIds.has(id));
 }
 
 export function detectReplacementRequiredChanges({ root, base, head = 'HEAD' })
@@ -1058,22 +1059,32 @@ export function detectReplacementRequiredChanges({ root, base, head = 'HEAD' })
         {
             changes.push({ status, path: `${oldFile} -> ${file}`, reason: 'test-source-delete-or-rename' });
         }
+        else if (status.startsWith('T') && isTestSource(file))
+        {
+            changes.push({ status, path: file, reason: 'test-source-type-change' });
+        }
     }
-    const changedTests = execFileSync('git', ['diff', '--name-only', '-z', baseCommit, headCommit, '--', 'tests'], {
+    const modifiedJsTests = execFileSync('git', [
+        'diff', '--name-only', '--diff-filter=M', '-z', baseCommit, headCommit, '--', 'tests', 'tools/test'
+    ], {
         cwd: root, encoding: 'utf8', env: gitEnvironment
-    }).split('\0').filter(Boolean);
-    for (const file of changedTests)
+    }).split('\0').filter((file) => file && JS_TEST_SOURCE.test(file) && isTestSource(file));
+    for (const file of modifiedJsTests)
+    {
+        if (removesPriorJsCases(root, baseCommit, headCommit, file))
+        {
+            changes.push({ status: 'M', path: file, reason: 'discoverable-test-or-case-removal' });
+        }
+    }
+    const changedNonJsTests = execFileSync('git', ['diff', '--name-only', '-z', baseCommit, headCommit, '--', 'tests'], {
+        cwd: root, encoding: 'utf8', env: gitEnvironment
+    }).split('\0').filter((file) => file && !JS_TEST_SOURCE.test(file));
+    for (const file of changedNonJsTests)
     {
         const patch = execFileSync('git', ['diff', '--unified=0', baseCommit, headCommit, '--', file], {
             cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: gitEnvironment
         });
-        const sourceLifecycleChange = changes.some((change) => (
-            change.reason === 'test-source-delete-or-rename'
-            && (change.path === file || change.path.startsWith(`${file} -> `) || change.path.endsWith(` -> ${file}`))
-        ));
-        if (/^-.*(?:\[(?:Fact|Theory)\]|\b(?:test|it)(?:\.each)?\s*\()/mu.test(patch)
-            && (sourceLifecycleChange
-                || !preservesExactJsCases(root, baseCommit, headCommit, file)))
+        if (/^-.*(?:\[(?:Fact|Theory)\]|\b(?:test|it)(?:\.each)?\s*\()/mu.test(patch))
         {
             changes.push({ status: 'M', path: file, reason: 'discoverable-test-or-case-removal' });
         }
