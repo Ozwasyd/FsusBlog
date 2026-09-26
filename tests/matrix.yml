@@ -3925,6 +3925,7 @@ tiers:
           - tests/backend/security-hardening-evidence.json
           - tests/test-retention-replacements.json
           - tools/test-convergence/post-baseline-history.mjs
+          - tools/post-baseline-history.test.mjs
           - tests/tools/test-suite-convergence.test.mjs
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt

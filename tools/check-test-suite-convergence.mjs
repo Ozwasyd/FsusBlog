@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { maskCSharpTrivia } from './test/csharp-source-mask.mjs';
 import {
     auditCompactRetentionRecords,
     auditRetentionRecords,
@@ -12,13 +13,14 @@ import {
     validateAfterSnapshotAuthority,
     verifySourceLockingFixtures
 } from './test-convergence/audit.mjs';
+import { validatePostBaselineHistory } from './test-convergence/post-baseline-history.mjs';
 import { loadTestMatrix } from './test-matrix/command-groups.mjs';
+import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     decodeCompactRetentionIndex,
     isCompactRetentionBaseline,
     validateCompactRetentionBaseline
 } from './test-retention/audit.mjs';
-import { validatePostBaselineHistory } from './test-convergence/post-baseline-history.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -127,7 +129,9 @@ const replacementChainAuthority = validateReplacementChainAuthority(merged.entri
 const postBaseline = validatePostBaselineHistory({
     root,
     paths: retentionGovernance.postBaselines,
-    replacements: merged.entries
+    replacements: merged.entries,
+    parseMatrix,
+    maskCSharpTrivia
 });
 const defaultAfterPath = resolve(root, retentionGovernance.auditOutput ?? '.tmp/release-evidence/test-retention-audit.json');
 const afterPath = options.after ?? (options.final && existsSync(defaultAfterPath) ? defaultAfterPath : null);

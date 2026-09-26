@@ -1610,8 +1610,8 @@
         },
         {
             "path": "tools/check-test-suite-convergence.mjs",
-            "contentDigest": "sha256:fb09e7fec36976c8cee99f24f527d7cb2896a3a5ce8f85c70b1b954f93f30fb6",
-            "indexDigest": "sha256:fb09e7fec36976c8cee99f24f527d7cb2896a3a5ce8f85c70b1b954f93f30fb6"
+            "contentDigest": "sha256:f6b97671db74b36e3b95812091f765d7abbe1ea3a20cdb9e95ff4a495781e585",
+            "indexDigest": "sha256:f6b97671db74b36e3b95812091f765d7abbe1ea3a20cdb9e95ff4a495781e585"
         },
         {
             "path": "tools/check-wasm-artifact-ownership.mjs",
@@ -2749,6 +2749,11 @@
             "indexDigest": "sha256:2a00df2e18680b0d7bc40fcc951b85eef8a289f9f4219596deefc804f74819c3"
         },
         {
+            "path": "tools/post-baseline-history.test.mjs",
+            "contentDigest": "sha256:9f15e769196e4c694aef31252b6f839f2e5da40789fe3434f6f7f9613adafcf4",
+            "indexDigest": "sha256:9f15e769196e4c694aef31252b6f839f2e5da40789fe3434f6f7f9613adafcf4"
+        },
+        {
             "path": "tools/release/browser-contract-receipt-contract.mjs",
             "contentDigest": "sha256:966b904e3134f9cfd8fd70c34e864c2824d60649387ff309c7bf8e81bdedcd3d",
             "indexDigest": "sha256:966b904e3134f9cfd8fd70c34e864c2824d60649387ff309c7bf8e81bdedcd3d"
@@ -3015,8 +3020,8 @@
         },
         {
             "path": "tools/test-convergence/post-baseline-history.mjs",
-            "contentDigest": "sha256:2fd0474a72ef9de6f403b6fc63eceebead007ed64ae7c18727a676c3a0cc399b",
-            "indexDigest": "sha256:2fd0474a72ef9de6f403b6fc63eceebead007ed64ae7c18727a676c3a0cc399b"
+            "contentDigest": "sha256:47755ae45eeaa8ec8e153b5921c4e8e067ed751adbadab31393aeb674371cf74",
+            "indexDigest": "sha256:47755ae45eeaa8ec8e153b5921c4e8e067ed751adbadab31393aeb674371cf74"
         },
         {
             "path": "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
@@ -30533,8 +30538,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:6b4af9fb04a363938899230bb81eecb49a390e136351d3f4035594159cfc1a15",
-            "indexDigest": "sha256:6b4af9fb04a363938899230bb81eecb49a390e136351d3f4035594159cfc1a15",
+            "contentDigest": "sha256:69636e4181aa4222b65bf097c74577ba2a2869941fb9abc1848a05208d4c3294",
+            "indexDigest": "sha256:69636e4181aa4222b65bf097c74577ba2a2869941fb9abc1848a05208d4c3294",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
@@ -31030,6 +31035,7 @@
                 "tools/governance/validate-dependency-required-checks.mjs",
                 "tools/operations/evidence-classification.mjs",
                 "tools/operations/static-client-payload-budget.mjs",
+                "tools/post-baseline-history.test.mjs",
                 "tools/release/browser-contract-receipt-contract.mjs",
                 "tools/release/browser-release-clean-attempt-consumers.mjs",
                 "tools/release/clean-attempt-evidence-source.mjs",
