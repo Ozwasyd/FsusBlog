@@ -961,13 +961,13 @@ This set of data only proves that parallel builds are available on the current m
 
 #### Root CI setup and fail-fast diagnostics
 
-`validate-matrix` is the root job of Quality Gate. It first runs:
+`validate-matrix` is the root job of Quality Gate. The workflow enters the scheduler-owned matrix tier:
 
 ```bash
-node tools/run-test-matrix.mjs preflight
+./tools/test.sh ci-tier validate-matrix --no-deps
 ```
 
-`preflight` will create and verify `.tmp/`, `.tmp/release-evidence/`, `.tmp/gate-logs/`, `.tmp/env/`, `.tmp/docs/`, confirm that the test matrix, workflow, runner script and Git metadata are available, and write out `.tmp/gate-logs/preflight.json`. When troubleshooting the CI root failure locally, run the same command first; if it fails, fix the missing directory, permissions, or matrix errors in the output before looking at downstream tests.
+The tier's canonical command is `tools/test/run-matrix-governance-once.sh validate-matrix`. Its governed producer runs `preflight` and matrix validation under the scheduler's execution binding. `preflight` creates and verifies `.tmp/`, `.tmp/release-evidence/`, `.tmp/gate-logs/`, `.tmp/env/`, `.tmp/docs/`, confirms that the test matrix, workflow, runner script and Git metadata are available, and writes `.tmp/gate-logs/preflight.json`. When troubleshooting the CI root failure locally, run the scheduler entry first; if it fails, fix the missing directory, permissions, or matrix errors in the output before looking at downstream tests.
 
 `ci-plan` must use `--out` to write files:
 
