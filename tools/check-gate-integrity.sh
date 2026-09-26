@@ -263,6 +263,14 @@ EOF
     ExpectFixtureFailure 'workflow must invoke the scheduler-owned canonical tier exactly once'
     cp "$tempDir/quality-gate.baseline.yml" "$workflow"
 
+    sed -i '/^      - run: .\/tools\/test.sh coverage-threshold$/a\      - run: >\n          ./tools/test.sh ci-tier validate-matrix --no-deps' "$workflow"
+    ExpectFixtureFailure 'workflow must invoke the scheduler-owned canonical tier exactly once'
+    cp "$tempDir/quality-gate.baseline.yml" "$workflow"
+
+    sed -i '/^      - run: .\/tools\/test.sh coverage-threshold$/a\      - run: |-\n          ./tools/test.sh ci-tier validate-matrix --no-deps' "$workflow"
+    ExpectFixtureFailure 'workflow must invoke the scheduler-owned canonical tier exactly once'
+    cp "$tempDir/quality-gate.baseline.yml" "$workflow"
+
     sed -i 's#^    command: tools/test/run-matrix-governance-once.sh validate-matrix$#    command: tools/ok.sh#' "$matrix"
     ExpectFixtureFailure 'validate-matrix tier must run the canonical matrix governance owner exactly once'
     cp "$tempDir/matrix.baseline.yml" "$matrix"
@@ -447,6 +455,11 @@ function scanPackageJson() {
   }
 }
 
+function isYamlRunBlock(value) {
+  const marker = value.trim().replace(/\s+#.*$/u, '');
+  return /^[|>](?:[+-][1-9]?|[1-9][+-]?)?$/u.test(marker);
+}
+
 function scanWorkflow(file) {
   const text = readRequired(file);
   if (file.endsWith('quality-gate.yml')) {
@@ -471,7 +484,7 @@ function scanWorkflow(file) {
     for (const line of text.split(/\r?\n/)) {
       const run = line.match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
       if (run) {
-        blockIndent = run[2].trim() === '|' ? run[1].length : -1;
+        blockIndent = isYamlRunBlock(run[2]) ? run[1].length : -1;
         if (blockIndent < 0) executableCommands.push(run[2].trim());
         continue;
       }
@@ -533,7 +546,7 @@ function scanWorkflow(file) {
   for (const line of lines) {
     const runMatch = line.match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
     if (runMatch) {
-      inRunBlock = runMatch[2].trim() === '|';
+      inRunBlock = isYamlRunBlock(runMatch[2]);
       runIndent = runMatch[1].length;
       addRefsFromText(runMatch[2], file);
       continue;
