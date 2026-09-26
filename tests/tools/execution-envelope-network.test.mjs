@@ -249,7 +249,7 @@ test('Landlock grants only the exact null device while retaining default-deny wr
     assert.equal(result.status, 0, result.stderr);
     assert.equal(fs.readFileSync(allowedFile, 'utf8'), 'allowed');
     assert.equal(fs.readFileSync(deniedFile, 'utf8'), 'unchanged');
-    assert.deepEqual(prepared.linuxReadWritePaths.filter((entry) => entry.startsWith('/dev/')), ['/dev/null']);
+    assert.deepEqual(prepared.linuxReadWritePaths, ['/dev/null', ...Object.values(directories)].sort());
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 
