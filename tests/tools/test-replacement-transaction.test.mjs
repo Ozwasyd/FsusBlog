@@ -789,3 +789,42 @@ test('diff checker binds multiline JS case identities without relying on removed
         rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('tool-owned JS test cases require the same exact replacement transaction', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-tool-owner-git-'));
+    const file = 'tools/frontend/Owner.test.mjs';
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.join(root, 'tools/frontend'), { recursive: true });
+        writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+
+        writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\ntest('second', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'format'], { cwd: root });
+        assert.deepEqual(detectReplacementRequiredChanges({ root, base: 'HEAD^' }), []);
+
+        writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.path === file && change.reason === 'discoverable-test-or-case-removal'));
+
+        execFileSync('git', ['mv', file, 'tools/frontend/Renamed.test.mjs'], { cwd: root });
+        execFileSync('git', ['commit', '-qam', 'rename owner'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'test-source-delete-or-rename'));
+
+        execFileSync('git', ['rm', 'tools/frontend/Renamed.test.mjs'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'delete owner'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'test-source-delete-or-rename'));
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});

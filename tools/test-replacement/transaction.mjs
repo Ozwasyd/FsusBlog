@@ -933,7 +933,7 @@ export function applyReplacementTransaction({
 
 function isTestSource(file)
 {
-    return /(?:^|\/)(?:tests\/.*(?:Tests?\.cs|\.(?:test|spec)\.[cm]?[jt]sx?|\.cpp)$|tools\/test\/.*\.(?:sh|mjs|js))$/u.test(file);
+    return /(?:^|\/)(?:tests\/.*(?:Tests?\.cs|\.(?:test|spec)\.[cm]?[jt]sx?|\.cpp)$|tools\/.*\.(?:test|spec)\.[cm]?[jt]sx?|tools\/test\/.*\.(?:sh|mjs|js))$/u.test(file);
 }
 
 const JS_TEST_SOURCE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
@@ -1065,7 +1065,7 @@ export function detectReplacementRequiredChanges({ root, base, head = 'HEAD' })
         }
     }
     const modifiedJsTests = execFileSync('git', [
-        'diff', '--name-only', '--diff-filter=M', '-z', baseCommit, headCommit, '--', 'tests', 'tools/test'
+        'diff', '--name-only', '--diff-filter=M', '-z', baseCommit, headCommit, '--', 'tests', 'tools'
     ], {
         cwd: root, encoding: 'utf8', env: gitEnvironment
     }).split('\0').filter((file) => file && JS_TEST_SOURCE.test(file) && isTestSource(file));
