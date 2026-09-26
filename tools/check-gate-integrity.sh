@@ -267,6 +267,10 @@ EOF
     ExpectFixtureFailure 'workflow must invoke the scheduler-owned canonical tier exactly once'
     cp "$tempDir/quality-gate.baseline.yml" "$workflow"
 
+    sed -i '/^      - run: .\/tools\/test.sh coverage-threshold$/a\      - run: >\n          ./tools/test.sh ci-tier\n          validate-matrix --no-deps' "$workflow"
+    ExpectFixtureFailure 'workflow must invoke the scheduler-owned canonical tier exactly once'
+    cp "$tempDir/quality-gate.baseline.yml" "$workflow"
+
     sed -i '/^      - run: .\/tools\/test.sh coverage-threshold$/a\      - run: |-\n          ./tools/test.sh ci-tier validate-matrix --no-deps' "$workflow"
     ExpectFixtureFailure 'workflow must invoke the scheduler-owned canonical tier exactly once'
     cp "$tempDir/quality-gate.baseline.yml" "$workflow"
@@ -481,19 +485,27 @@ function scanWorkflow(file) {
     }
     const executableCommands = [];
     let blockIndent = -1;
+    let blockLines = [];
+    function flushRunBlock() {
+      if (blockLines.length > 0) executableCommands.push(blockLines.join(' ').replace(/\s+/gu, ' ').trim());
+      blockIndent = -1;
+      blockLines = [];
+    }
     for (const line of text.split(/\r?\n/)) {
       const run = line.match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
       if (run) {
+        flushRunBlock();
         blockIndent = isYamlRunBlock(run[2]) ? run[1].length : -1;
         if (blockIndent < 0) executableCommands.push(run[2].trim());
         continue;
       }
       if (blockIndent >= 0 && line.trim()) {
         const indent = line.match(/^\s*/)[0].length;
-        if (indent > blockIndent) executableCommands.push(line.trim());
-        else blockIndent = -1;
+        if (indent > blockIndent) blockLines.push(line.trim());
+        else flushRunBlock();
       }
     }
+    flushRunBlock();
     const schedulerStep = './tools/test.sh ci-tier validate-matrix --no-deps';
     const matrixInvocations = executableCommands.filter((command) =>
       /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command)
