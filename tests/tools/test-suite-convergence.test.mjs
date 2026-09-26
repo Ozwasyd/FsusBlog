@@ -58,7 +58,6 @@ test('matrix is the single current command and retention governance authority', 
 })
 
 test('new post-baseline retirement is bound to the trusted exact Git transition', () => {
-  const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
   const ledger = JSON.parse(readFileSync(resolve(root, 'tests/test-retention-replacements.json'), 'utf8'))
   const newPath = 'tests/retention-postbaseline-history-baseline.json'
   const oldPath = 'tests/backend/Unit/BlacklistServiceTests.cs'
@@ -81,7 +80,11 @@ test('new post-baseline retirement is bound to the trusted exact Git transition'
       resultBlobOid: null
     }]
   }
-  const legacyPaths = matrix.governance.retention.postBaselines
+  // Keep this synthetic candidate separate from later admitted v2 snapshots.
+  const trustedMatrix = parseMatrix(execFileSync('git', [
+    'show', `${POST_BASELINE_HISTORY_ANCHOR}:tests/matrix.yml`
+  ], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }))
+  const legacyPaths = trustedMatrix.governance.retention.postBaselines
   const validate = (snapshot, { paths = [...legacyPaths, newPath], readCurrent, beforeCommit } = {}) =>
     validatePostBaselineHistory({
       root,
