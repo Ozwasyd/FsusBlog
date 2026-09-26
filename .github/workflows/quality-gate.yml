@@ -726,6 +726,7 @@ jobs:
                   name: validate-matrix
                   path: .
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
+            - run: npm --prefix tests/tools ci --ignore-scripts --no-audit --progress=false
             - run: node tools/db/migration-doc-lint.mjs
             - run: ./tools/test.sh static-governance --no-deps
             - run: ./tools/test.sh app-config-local-tuning --no-deps
