@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve GitHub Actions keys and job identifiers while adding the local suite test package install step."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/tools/package-lock.json",
+                "tests/tools/package.json"
+            ],
+            "reason": "Preserve canonical generated JSON keys, package metadata keys, and test evidence identifiers during the package boundary migration."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve documented CSS-style contract spelling while describing the local test package installation boundary."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve existing generated testing tier and evidence identifiers while the matrix producer records the suite package files."
+        }
+    ]
+}
