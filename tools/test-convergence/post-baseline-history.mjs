@@ -51,6 +51,18 @@ export function historicalXunitMethodPresent(source, className, methodName)
 {
   if (typeof source !== 'string') return false
   const masked = maskCSharpTrivia(source)
+  const conditionalDirectives = [...masked.matchAll(/^[ \t]*#\s*(if|endif)\b/gmu)]
+  const insideConditional = (offset) =>
+  {
+    let depth = 0
+    for (const directive of conditionalDirectives)
+    {
+      if (directive.index >= offset) break
+      depth += directive[1] === 'if' ? 1 : -1
+      if (depth < 0) return true
+    }
+    return depth !== 0
+  }
   const depths = new Uint32Array(masked.length + 1)
   let depth = 0
   for (let index = 0; index < masked.length; index += 1)
@@ -69,16 +81,21 @@ export function historicalXunitMethodPresent(source, className, methodName)
     if (classMatch[1] !== className) continue
     const opening = masked.indexOf('{', classMatch.index + classMatch[0].length)
     if (opening < 0) continue
+    if (insideConditional(classMatch.index) || insideConditional(opening)) continue
     const bodyDepth = depths[opening + 1]
     let closing = opening + 1
     while (closing < masked.length && !(masked[closing] === '}' && depths[closing] === bodyDepth))
       closing += 1
     if (closing === masked.length) continue
+    if (insideConditional(closing)) continue
     const body = masked.slice(opening + 1, closing)
     for (const methodMatch of body.matchAll(declaration))
     {
       const methodOffset = opening + 1 + methodMatch.index
       if (depths[methodOffset] !== bodyDepth) continue
+      // Without the historical compilation symbols, an attributed method in a
+      // conditional region cannot be proven to have been an executable test.
+      if (insideConditional(methodOffset)) continue
       const preceding = masked.slice(opening + 1, methodOffset)
         .trimEnd().split(/\r?\n/u).at(-1)?.trim()
       if (/^\[(?:Fact|Theory)\]$/u.test(preceding ?? '')) return true

@@ -138,9 +138,13 @@ test('new post-baseline retirement is bound to the trusted exact Git transition'
   assert.ok(validate(valid, { readCurrent: tamperedLegacy }).errors.some((error) => /trusted v1 post-baseline bytes changed/u.test(error)))
 })
 
-test('historical xUnit identity rejects comments, missing attributes and another class owner', () => {
+test('historical xUnit identity rejects conditional code, comments, missing attributes and another class owner', () => {
   const legitimate = 'public class OldTests\n{\n    [Fact]\n    public void Removed() {}\n}'
   assert.equal(historicalXunitMethodPresent(legitimate, 'OldTests', 'Removed'), true)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n#if false\n    [Fact]\n    public void Removed() {}\n#endif\n}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n#if FEATURE\n    [Fact]\n    public void Removed() {}\n#endif\n}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('#if false\npublic class OldTests {\n#endif\n    [Fact]\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
+  assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n#if false\n    public void Helper() {}\n#endif\n    [Fact]\n    public void Removed() {}\n}', 'OldTests', 'Removed'), true)
   assert.equal(historicalXunitMethodPresent('// public class OldTests\n// [Fact]\n// public void Removed() {}', 'OldTests', 'Removed'), false)
   assert.equal(historicalXunitMethodPresent('/*\npublic class OldTests\n{\n    [Fact]\n    public void Removed() {}\n}\n*/', 'OldTests', 'Removed'), false)
   assert.equal(historicalXunitMethodPresent('public class OldTests\n{\n    public void Removed() {}\n}', 'OldTests', 'Removed'), false)
