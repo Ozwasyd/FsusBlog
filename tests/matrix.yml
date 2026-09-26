@@ -8,6 +8,7 @@ governance:
         postBaselines:
             - tests/admin-inline-empty-state-retirement-baseline.json
             - tests/anonymous-nullifier-concurrency-retirement-baseline.json
+            - tests/bounded-runtime-projection-retirement-baseline.json
             - tests/ci-local-matrix-retirement-baseline.json
             - tests/lightweight-acceptance-baseline.json
             - tests/moderation-regions-datalist-retirement-baseline.json
