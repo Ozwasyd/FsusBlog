@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-inventory/package.json",
+        "tools/test-replacement/package.json",
+        "tools/test-replacement/transaction.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "28851445182b80d0405cf76ff037e1c44753d894c6c43072b32c83d19a463063"
+        }
+    ]
+}

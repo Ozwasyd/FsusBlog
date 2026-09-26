@@ -14,7 +14,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "a8b2e38ffe8c790c8f033b2a4620e12ae66985e921b9da2a29fa4c29420bad2f"
+            "sha256": "28851445182b80d0405cf76ff037e1c44753d894c6c43072b32c83d19a463063"
         }
     ]
 }

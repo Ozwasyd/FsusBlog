@@ -6,17 +6,32 @@
             "paths": [
                 ".github/workflows/quality-gate.yml"
             ],
-            "reason": "Preserve GitHub Actions keys and job identifiers while adding the local suite test package install step."
+            "reason": "Preserve GitHub Actions keys and job identifiers while adding both local test package install steps."
         },
         {
             "id": "json-wire-key",
             "paths": [
                 "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "tests/tools/package-lock.json",
                 "tests/tools/package.json"
             ],
             "reason": "Preserve canonical generated JSON keys, package metadata keys, and test evidence identifiers during the package boundary migration."
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json"
+            ],
+            "reason": "Preserve the established ledger schema names during regeneration."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-replacement/transaction.mjs"
+            ],
+            "reason": "Preserve the process environment key spelling used by Git."
         },
         {
             "id": "css-like-contract",

@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process';
+import { isUtf8 } from 'node:buffer';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
     existsSync,
@@ -10,7 +11,11 @@ import {
     rmSync,
     writeFileSync
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { classifyFile } from '@fsusblog/test-inventory/adapters';
 
 const { contentDigest, REPLACEMENT_TRANSACTION_SCHEMA } = await import(new URL('../test-quality/schema.mjs', import.meta.url));
 export const REPLACEMENT_RECEIPT_SCHEMA = 'fsusblog.test-replacement-receipt.v1';
@@ -928,14 +933,111 @@ export function applyReplacementTransaction({
 
 function isTestSource(file)
 {
-    return /(?:^|\/)(?:tests\/.*(?:Tests?\.cs|\.(?:test|spec)\.[cm]?[jt]sx?|\.cpp)$|tools\/test\/.*\.(?:sh|mjs|js))$/u.test(file);
+    return /(?:^|\/)(?:tests\/.*(?:Tests?\.cs|\.(?:test|spec)\.[cm]?[jt]sx?|\.cpp)$|tools\/.*\.(?:test|spec)\.[cm]?[jt]sx?|tools\/test\/.*\.(?:sh|mjs|js))$/u.test(file);
+}
+
+const JS_TEST_SOURCE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
+const AST_ADAPTER_ENTRY = path.join(path.dirname(fileURLToPath(import.meta.url)), '../test-inventory/ts-ast-adapter/index.mjs');
+
+function revisionFile(root, revision, file)
+{
+    const entry = execFileSync('git', ['ls-tree', revision, '--', file], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+    }).trimEnd();
+    if (!/^100(?:644|755) blob [a-f0-9]{40}\t/u.test(entry)
+        || entry.slice(entry.indexOf('\t') + 1) !== file)
+    {
+        fail(`test identity source is not an exact regular Git blob: ${revision}:${file}`);
+    }
+    const source = execFileSync('git', ['show', `${revision}:${file}`], {
+        cwd: root,
+        maxBuffer: 64 * 1024 * 1024,
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+    });
+    if (!isUtf8(source))
+    {
+        fail(`test identity source is not UTF-8: ${revision}:${file}`);
+    }
+    return source;
+}
+
+function astCaseIds(file, source, adapter)
+{
+    const ownedRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-replacement-identity-'));
+    try
+    {
+        const absolute = path.join(ownedRoot, file);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, source);
+        const requestPath = path.join(ownedRoot, 'request.json');
+        writeFileSync(requestPath, JSON.stringify({ root: ownedRoot, files: [{ path: file, adapter }] }));
+        const result = spawnSync(process.execPath, [AST_ADAPTER_ENTRY, requestPath], {
+            encoding: 'utf8',
+            maxBuffer: 64 * 1024 * 1024
+        });
+        if (result.status !== 0)
+        {
+            fail(`AST identity extraction failed for ${file}: ${String(result.stderr).trim()}`);
+        }
+        let report;
+        try
+        {
+            report = JSON.parse(result.stdout);
+        }
+        catch (error)
+        {
+            fail(`AST identity extraction returned invalid JSON for ${file}: ${error.message}`);
+        }
+        if (!Array.isArray(report.testCases) || !Array.isArray(report.diagnostics)
+            || report.diagnostics.length > 0
+            || report.testCases.some((testCase) => testCase.ownerFile !== file || typeof testCase.id !== 'string'))
+        {
+            fail(`AST identity extraction is incomplete for ${file}`);
+        }
+        const ids = report.testCases.map((testCase) => testCase.id).sort();
+        if (ids.length === 0 || new Set(ids).size !== ids.length)
+        {
+            fail(`AST identity extraction has no unique cases for ${file}`);
+        }
+        return ids;
+    }
+    finally
+    {
+        rmSync(ownedRoot, { recursive: true, force: true });
+    }
+}
+
+function removesPriorJsCases(root, base, head, file)
+{
+    const before = revisionFile(root, base, file);
+    const after = revisionFile(root, head, file);
+    const beforeOwner = classifyFile(file, before.toString('utf8'));
+    const afterOwner = classifyFile(file, after.toString('utf8'));
+    if (beforeOwner?.kind !== 'discoverable-test' || afterOwner?.kind !== 'discoverable-test'
+        || beforeOwner.adapter !== afterOwner.adapter
+        || !['node-test', 'vitest', 'playwright'].includes(beforeOwner.adapter))
+    {
+        fail(`AST identity extraction is incomplete for ${file}: test owner changed or is unsupported`);
+    }
+    const beforeIds = astCaseIds(file, before, beforeOwner.adapter);
+    const afterIds = new Set(astCaseIds(file, after, afterOwner.adapter));
+    return beforeIds.some((id) => !afterIds.has(id));
 }
 
 export function detectReplacementRequiredChanges({ root, base, head = 'HEAD' })
 {
-    const nameStatus = execFileSync('git', ['diff', '--name-status', '-z', base, head, '--'], {
+    const gitEnvironment = { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' };
+    const baseCommit = execFileSync('git', ['rev-parse', '--verify', `${base}^{commit}`], {
+        cwd: root, encoding: 'utf8', env: gitEnvironment
+    }).trim();
+    const headCommit = execFileSync('git', ['rev-parse', '--verify', `${head}^{commit}`], {
+        cwd: root, encoding: 'utf8', env: gitEnvironment
+    }).trim();
+    const nameStatus = execFileSync('git', ['diff', '--name-status', '-z', baseCommit, headCommit, '--'], {
         cwd: root,
-        encoding: 'utf8'
+        encoding: 'utf8', env: gitEnvironment
     }).split('\0').filter(Boolean);
     const changes = [];
     for (let index = 0; index < nameStatus.length;)
@@ -957,15 +1059,35 @@ export function detectReplacementRequiredChanges({ root, base, head = 'HEAD' })
         {
             changes.push({ status, path: `${oldFile} -> ${file}`, reason: 'test-source-delete-or-rename' });
         }
+        else if (status.startsWith('T') && isTestSource(file))
+        {
+            changes.push({ status, path: file, reason: 'test-source-type-change' });
+        }
     }
-    const patch = execFileSync('git', ['diff', '--unified=0', base, head, '--', 'tests'], {
-        cwd: root,
-        encoding: 'utf8',
-        maxBuffer: 64 * 1024 * 1024
-    });
-    if (/^-.*(?:\[(?:Fact|Theory)\]|\b(?:test|it)(?:\.each)?\s*\()/mu.test(patch))
+    const modifiedJsTests = execFileSync('git', [
+        'diff', '--name-only', '--diff-filter=M', '-z', baseCommit, headCommit, '--', 'tests', 'tools'
+    ], {
+        cwd: root, encoding: 'utf8', env: gitEnvironment
+    }).split('\0').filter((file) => file && JS_TEST_SOURCE.test(file) && isTestSource(file));
+    for (const file of modifiedJsTests)
     {
-        changes.push({ status: 'M', path: '<diff>', reason: 'discoverable-test-or-case-removal' });
+        if (removesPriorJsCases(root, baseCommit, headCommit, file))
+        {
+            changes.push({ status: 'M', path: file, reason: 'discoverable-test-or-case-removal' });
+        }
+    }
+    const changedNonJsTests = execFileSync('git', ['diff', '--name-only', '-z', baseCommit, headCommit, '--', 'tests'], {
+        cwd: root, encoding: 'utf8', env: gitEnvironment
+    }).split('\0').filter((file) => file && !JS_TEST_SOURCE.test(file));
+    for (const file of changedNonJsTests)
+    {
+        const patch = execFileSync('git', ['diff', '--unified=0', baseCommit, headCommit, '--', file], {
+            cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: gitEnvironment
+        });
+        if (/^-.*(?:\[(?:Fact|Theory)\]|\b(?:test|it)(?:\.each)?\s*\()/mu.test(patch))
+        {
+            changes.push({ status: 'M', path: file, reason: 'discoverable-test-or-case-removal' });
+        }
     }
     return changes;
 }

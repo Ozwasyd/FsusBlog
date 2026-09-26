@@ -1,0 +1,34 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve GitHub Actions schema keys and job identifiers while installing the two canonical local test packages."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve current-run acceptance and generated release authority wire keys while updating the indexed source closure."
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json"
+            ],
+            "reason": "Preserve the existing current-run locator contract while the scanner ledger is regenerated for the governed test-identity change."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-replacement/transaction.mjs"
+            ],
+            "reason": "Preserve the process environment contract while explicitly disabling Git replacement objects for immutable identity checks."
+        }
+    ]
+}
