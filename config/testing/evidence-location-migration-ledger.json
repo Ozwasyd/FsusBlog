@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:97a64b5ba31b689889c57f9ca1640c3fc347b1a9a2850fef4f876912b6e3b7f3",
+    "scanDigest": "sha256:782636aa6e5ae9f7adda32039291dfa597514267e9c0fd961ec009ee2f67e7f6",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -676,6 +676,30 @@
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#7ee8c0ef8f134afe"
+        },
+        {
+            "findingId": "1ad0b3980d35828f",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3594-replacement-external-naming",
+            "location": "artifacts/change-contract/issue-3594-replacement-external-naming.json:14",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#1ad0b3980d35828f"
+        },
+        {
+            "findingId": "f67a1d73ef42cd46",
+            "consumerId": "evidence-consumer.artifacts.change-contract.issue-3594-replacement-external-naming",
+            "location": "artifacts/change-contract/issue-3594-replacement-external-naming.json:14",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#f67a1d73ef42cd46"
         },
         {
             "findingId": "f1adb905a41d9fc1",
@@ -6066,5 +6090,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#f2095ddec51b72bb"
         }
     ],
-    "contentDigest": "sha256:de88e43511908eb917112af39b6f68eae2e841f11a4e4755a13fbd8dc996684a"
+    "contentDigest": "sha256:0fb41acdcac2577724137e9877c9749b9169645c98fa3e9ab96caa01a9c8c0ad"
 }
