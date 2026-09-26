@@ -1067,8 +1067,12 @@ export function detectReplacementRequiredChanges({ root, base, head = 'HEAD' })
         const patch = execFileSync('git', ['diff', '--unified=0', baseCommit, headCommit, '--', file], {
             cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: gitEnvironment
         });
+        const sourceLifecycleChange = changes.some((change) => (
+            change.reason === 'test-source-delete-or-rename'
+            && (change.path === file || change.path.startsWith(`${file} -> `) || change.path.endsWith(` -> ${file}`))
+        ));
         if (/^-.*(?:\[(?:Fact|Theory)\]|\b(?:test|it)(?:\.each)?\s*\()/mu.test(patch)
-            && (changes.some((change) => change.reason === 'test-source-delete-or-rename')
+            && (sourceLifecycleChange
                 || !preservesExactJsCases(root, baseCommit, headCommit, file)))
         {
             changes.push({ status: 'M', path: file, reason: 'discoverable-test-or-case-removal' });

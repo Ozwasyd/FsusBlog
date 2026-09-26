@@ -703,3 +703,30 @@ test('diff checker uses exact AST case identities for JS rewrites and fails clos
         rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('a renamed source cannot mask a separate JS case removal', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-mixed-git-'));
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.join(root, 'tests/tools'), { recursive: true });
+        writeFileSync(path.join(root, 'tests/tools/Old.test.mjs'), "import test from 'node:test';\ntest('old', () => {});\n");
+        writeFileSync(path.join(root, 'tests/tools/Keep.test.mjs'), "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+        execFileSync('git', ['mv', 'tests/tools/Old.test.mjs', 'tests/tools/New.test.mjs'], { cwd: root });
+        writeFileSync(path.join(root, 'tests/tools/Keep.test.mjs'), "import test from 'node:test';\ntest('first', () => {});\n");
+        execFileSync('git', ['commit', '-qam', 'after'], { cwd: root });
+        const changes = detectReplacementRequiredChanges({ root, base: 'HEAD^' });
+        assert.ok(changes.some((change) => change.reason === 'test-source-delete-or-rename'));
+        assert.ok(changes.some((change) => change.path === 'tests/tools/Keep.test.mjs'
+            && change.reason === 'discoverable-test-or-case-removal'));
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
