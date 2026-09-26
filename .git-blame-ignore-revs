@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Suite-convergence Node test formatting for #3593.
+97c9e65cfb043d45b6eefa73122447b0cb8e5e9e
