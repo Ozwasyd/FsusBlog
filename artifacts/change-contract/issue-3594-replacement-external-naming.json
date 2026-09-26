@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve GitHub Actions schema keys and job identifiers while installing the two canonical local test packages."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the generated release authority JSON keys and tier identifiers while updating the indexed source closure."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-replacement/transaction.mjs"
+            ],
+            "reason": "Preserve the process environment contract while explicitly disabling Git replacement objects for immutable identity checks."
+        }
+    ]
+}
