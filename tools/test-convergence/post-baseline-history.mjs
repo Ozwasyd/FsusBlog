@@ -47,6 +47,20 @@ function readRegularFile(root, path)
   return readFileSync(absolute, 'utf8')
 }
 
+function historicalRegularBlobOid(root, commit, path, label, required = false)
+{
+  const entry = gitText(root, ['ls-tree', '-z', commit, '--', path], label)
+  if (entry.length === 0)
+  {
+    if (required) throw new Error(`${label}: historical Git blob is missing`)
+    return null
+  }
+  const match = /^(?:100644|100755) blob ([0-9a-f]{40})\t([^\0]+)\0$/u.exec(entry)
+  if (!match || match[2] !== path)
+    throw new Error(`${label}: non-regular historical Git blob`)
+  return match[1]
+}
+
 export function historicalXunitMethodPresent(source, className, methodName)
 {
   if (typeof source !== 'string') return false
@@ -120,13 +134,12 @@ function validateV2Record({ root, record, baseline, anchorCommit })
   let anchor
   try
   {
+    sourceOid = historicalRegularBlobOid(root, baseline.sourceCommit, path, `${record.id} source`, true)
     source = gitText(root, ['show', `${baseline.sourceCommit}:${path}`], `${record.id} source`)
-    sourceOid = gitText(root, ['rev-parse', `${baseline.sourceCommit}:${path}`], `${record.id} source blob`).trim()
-    const resultListedOid = gitText(root, ['ls-tree', '--object-only', baseline.deletionCommit, '--', path], `${record.id} deletion tree`).trim()
-    if (resultListedOid)
+    resultOid = historicalRegularBlobOid(root, baseline.deletionCommit, path, `${record.id} deletion result`)
+    if (resultOid)
     {
       result = gitText(root, ['show', `${baseline.deletionCommit}:${path}`], `${record.id} deletion result`)
-      resultOid = resultListedOid
     }
     const anchorListedOid = gitText(root, ['ls-tree', '--object-only', anchorCommit, '--', path], `${record.id} trusted anchor tree`).trim()
     if (anchorListedOid)

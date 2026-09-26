@@ -208,6 +208,71 @@ test('post-baseline history ignores local Git replacement objects', () => {
   }
 })
 
+test('post-baseline history rejects non-regular historical xUnit paths', () => {
+  for (const nonRegularSide of ['source', 'deletion'])
+  {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-postbaseline-mode-'))
+    const runGit = (args) => execFileSync('git', ['-C', repository, ...args], { encoding: 'utf8' }).trim()
+    const oldPath = 'tests/backend/Unit/OldTests.cs'
+    const oldId = `xunit:${oldPath}#OldTests.Removed`
+    const putSymlink = (target) => {
+      const oid = execFileSync('git', ['-C', repository, 'hash-object', '-w', '--stdin'], {
+        input: target,
+        encoding: 'utf8'
+      }).trim()
+      runGit(['update-index', '--add', '--cacheinfo', `120000,${oid},${oldPath}`])
+      return oid
+    }
+    try
+    {
+      runGit(['init', '--quiet'])
+      runGit(['config', 'user.name', 'History Test'])
+      runGit(['config', 'user.email', 'history-test@example.invalid'])
+      mkdirSync(resolve(repository, 'tests/backend/Unit'), { recursive: true })
+      writeFileSync(resolve(repository, 'tests/matrix.yml'), 'governance:\n  retention:\n    postBaselines: []\n')
+      runGit(['add', 'tests/matrix.yml'])
+      if (nonRegularSide === 'source')
+        putSymlink('public class OldTests\n{\n  [Fact]\n  public void Removed() {}\n}\n')
+      else
+      {
+        writeFileSync(resolve(repository, oldPath), 'public class OldTests\n{\n  [Fact]\n  public void Removed() {}\n}\n')
+        runGit(['add', oldPath])
+      }
+      runGit(['commit', '--quiet', '-m', 'source with attributed method'])
+      const sourceCommit = runGit(['rev-parse', 'HEAD'])
+      const sourceBlobOid = runGit(['rev-parse', `${sourceCommit}:${oldPath}`])
+      if (nonRegularSide === 'source')
+        runGit(['update-index', '--force-remove', oldPath])
+      else
+        putSymlink('not a C# test')
+      runGit(['commit', '--quiet', '-m', 'delete attributed method'])
+      const deletionCommit = runGit(['rev-parse', 'HEAD'])
+      const resultBlobOid = nonRegularSide === 'source' ? null : runGit(['rev-parse', `${deletionCommit}:${oldPath}`])
+      const baseline = {
+        schema: 'fsusblog.issue-acceptance-baseline.v2',
+        sourceCommit,
+        deletionCommit,
+        expectedRecords: 1,
+        expectedMigrated: 1,
+        records: [{ id: oldId, path: oldPath, disposition: 'migrated', sourceBlobOid, resultBlobOid }]
+      }
+      const result = validatePostBaselineHistory({
+        root: repository,
+        paths: ['tests/non-regular-baseline.json'],
+        replacements: [{ id: oldId, path: oldPath }],
+        anchorCommit: deletionCommit,
+        beforeCommit: sourceCommit,
+        readCurrent: () => JSON.stringify(baseline)
+      })
+      assert.ok(result.errors.some((error) => /non-regular historical Git blob/u.test(error)), nonRegularSide)
+    }
+    finally
+    {
+      rmSync(repository, { recursive: true, force: true })
+    }
+  }
+})
+
 test('backend source-locking owner accepts runtime artifacts and rejects production docs and test source', () => {
   const positive = readFileSync(
     resolve(root, 'tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt'),
