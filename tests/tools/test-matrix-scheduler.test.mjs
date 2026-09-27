@@ -180,8 +180,12 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () => {}, opt
             }
             // Preserve the canonical finalizer graph while isolating this CLI
             // concurrency scenario from unrelated PR-default work.
-            tier.smartGateMode = 'full-only';
-            tier.prDefault = false;
+            if (tier.smartGateMode === 'always' || tier.prDefault === true
+                || (tier.smartGateMode === undefined && tier.requiredFor === 'fast'))
+            {
+                tier.smartGateMode = 'full-only';
+                tier.prDefault = false;
+            }
         }
     }
     const flow = (value) =>
