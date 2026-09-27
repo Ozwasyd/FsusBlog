@@ -1195,8 +1195,8 @@
         },
         {
             "path": "tests/tools/behavior-doc-static-admission.test.mjs",
-            "contentDigest": "sha256:701d58d06337179766513b171569f20b235c3428c587b040c0a8acc3bb11d1ac",
-            "indexDigest": "sha256:701d58d06337179766513b171569f20b235c3428c587b040c0a8acc3bb11d1ac"
+            "contentDigest": "sha256:a31d4d6c46ad4dc007524bd13ea36d19d4edd4c8b893da7215cb5945afc0c245",
+            "indexDigest": "sha256:a31d4d6c46ad4dc007524bd13ea36d19d4edd4c8b893da7215cb5945afc0c245"
         },
         {
             "path": "tests/tools/behavior-evidence-pre-runtime.test.mjs",
@@ -1450,8 +1450,8 @@
         },
         {
             "path": "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
-            "contentDigest": "sha256:d6b8fafc56880791c4d5acbef5ac972a1dc65f6a32709816a8d5620fde2ab3f2",
-            "indexDigest": "sha256:d6b8fafc56880791c4d5acbef5ac972a1dc65f6a32709816a8d5620fde2ab3f2"
+            "contentDigest": "sha256:5675eeed48a116698db5f91665d42b25671885cc81e932ed9c169305cc920857",
+            "indexDigest": "sha256:5675eeed48a116698db5f91665d42b25671885cc81e932ed9c169305cc920857"
         },
         {
             "path": "tests/tools/support/timing-policy.mjs",
@@ -1750,8 +1750,8 @@
         },
         {
             "path": "tools/contracts/lib/openapi-observation.mjs",
-            "contentDigest": "sha256:be02b4b29a4f3f65a4524603aaa0c60ccb99533e143cf6bc5fb302b1304d7a58",
-            "indexDigest": "sha256:be02b4b29a4f3f65a4524603aaa0c60ccb99533e143cf6bc5fb302b1304d7a58"
+            "contentDigest": "sha256:a8b6c51b47acca9b14c7ba467c8f1e8e4dc70cdc502d9fb2afa5f5cc0b38ca17",
+            "indexDigest": "sha256:a8b6c51b47acca9b14c7ba467c8f1e8e4dc70cdc502d9fb2afa5f5cc0b38ca17"
         },
         {
             "path": "tools/contracts/run-endpoint-depth-runtime.mjs",
@@ -2030,13 +2030,13 @@
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
-            "contentDigest": "sha256:2bd37d44ea6f8c348daa6ce9afe397b0f25c38488101d5893512592b567455a1",
-            "indexDigest": "sha256:2bd37d44ea6f8c348daa6ce9afe397b0f25c38488101d5893512592b567455a1"
+            "contentDigest": "sha256:4673abf84b1e1677508623182fdd1fc63c56d665df844e0a2f05cab7f9285c22",
+            "indexDigest": "sha256:4673abf84b1e1677508623182fdd1fc63c56d665df844e0a2f05cab7f9285c22"
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
-            "contentDigest": "sha256:729b7e9c70348a089bd05d09cb87a55d205e22912a9c3c87ea6f3b8717de2a8a",
-            "indexDigest": "sha256:729b7e9c70348a089bd05d09cb87a55d205e22912a9c3c87ea6f3b8717de2a8a"
+            "contentDigest": "sha256:4ff823be0ad0c3ce12e3ef55fe545947ba00ec9effcd751a107007942871fc34",
+            "indexDigest": "sha256:4ff823be0ad0c3ce12e3ef55fe545947ba00ec9effcd751a107007942871fc34"
         },
         {
             "path": "tools/docs/behavior-doc-static-admission-contract.mjs",
@@ -2045,8 +2045,8 @@
         },
         {
             "path": "tools/docs/behavior-doc-static-admission.mjs",
-            "contentDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb",
-            "indexDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb"
+            "contentDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93",
+            "indexDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93"
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
@@ -5367,12 +5367,14 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb",
-            "indexDigest": "sha256:67123b154fc091eb2c2916ed78301e95f9e6cd924b2fd6cd35941922139a9dcb",
+            "contentDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93",
+            "indexDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
                 "tools/docs/behavior-doc-static-admission-contract.mjs",
@@ -5469,6 +5471,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
@@ -11130,6 +11134,8 @@
                 "tools/contracts/behavior-owner-binding.mjs",
                 "tools/contracts/behavior-test-binding.mjs",
                 "tools/contracts/behavior-test.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
@@ -13801,6 +13807,8 @@
                 "tools/contracts/behavior-test-binding.mjs",
                 "tools/contracts/behavior-test.mjs",
                 "tools/contracts/check-behavior-test-evidence.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/deployment/zero-downtime-rehearsal-plan.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
@@ -14626,6 +14634,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/deployment/release-rollout-asset-compatibility-contract.mjs",
                 "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
@@ -17470,6 +17480,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/data-scale/aeds-decoders.mjs",
                 "tools/data-scale/aot-evidence.mjs",
                 "tools/data-scale/probe.sh",
@@ -24697,6 +24709,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",
@@ -27631,6 +27645,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/deployment/release-rollout-asset-compatibility-contract.mjs",
                 "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
@@ -30410,6 +30426,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/data-scale/aeds-decoders.mjs",
                 "tools/data-scale/aot-evidence.mjs",
                 "tools/data-scale/runtime-plan.mjs",
@@ -35023,6 +35041,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/deployment/check-production-compose-environment.mjs",
                 "tools/deployment/verify-container-termination.mjs",
@@ -35257,6 +35277,8 @@
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
+                "tools/contracts/lib/openapi-contracts.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
                 "tools/docs/behavior-doc-minimal-contract-build.mjs",

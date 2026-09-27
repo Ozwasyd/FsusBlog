@@ -105,6 +105,7 @@ test('canonical runtime-role v3 independently checks every project, observation,
     {
         digests.set(artifact.project, artifact.projectDigest)
         digests.set(artifact.path, artifact.artifactDigest)
+        if (artifact.projectionPath) digests.set(artifact.projectionPath, artifact.projectionDigest)
         if (artifact.assemblyPath) digests.set(artifact.assemblyPath, artifact.assemblyDigest)
         if (artifact.deploymentArtifactPath) digests.set(artifact.deploymentArtifactPath, artifact.deploymentArtifactDigest)
     }

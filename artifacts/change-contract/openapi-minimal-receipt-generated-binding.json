@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/behavior-doc-static-admission.test.mjs",
+        "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/docs/behavior-doc-static-admission.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "4a8b3f0112696a0362b1e70869ec0bdee4379ae6a171270b9f07feae71603da5"
+        }
+    ]
+}
