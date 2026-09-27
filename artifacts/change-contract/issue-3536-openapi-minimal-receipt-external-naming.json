@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/fact-extractors/runner.mjs",
+                "tools/fact-extractors/openapi-aeds/extract.mjs"
+            ],
+            "reason": "The BehaviorDoc caller, fact runner, and OpenAPI extractor preserve existing process environment spellings while their minimal-build receipt binding changes."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve externally consumed execution-target JSON keys while the canonical producer rebinds the changed caller and runner digests."
+        }
+    ]
+}
