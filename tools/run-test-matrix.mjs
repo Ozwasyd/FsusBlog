@@ -1931,6 +1931,28 @@ function resourceEnvironmentForTier(tier, baseEnv = {})
     return env;
 }
 
+function mysqlServiceSchedulerOptions(buildLayout, tiers)
+{
+    if (!tiers.some((tier) => tier.services?.includes('mysql')))
+    {
+        return {};
+    }
+    const policy = loadPhysicalExecutionProcessPolicy();
+    return {
+        resourceEnforcementMode: 'strict',
+        resourceEnforcementOptions: { systemdBoundary: {
+            commandBudgetMs: policy.systemdControlCommandTimeoutMs,
+            startupBudgetMs: policy.systemdResourceStartupTimeoutMs,
+            retainBinding: (reference) => retainProductionBuildResourceBoundary(buildLayout, reference, {
+                commandBudgetMs: policy.systemdControlCommandTimeoutMs
+            })
+        } },
+        retainManagedContainment: (authority) => retainProductionBuildServiceContainment(buildLayout, authority),
+        markManagedContainmentCreationAttempt: (authority, _tier, sender) =>
+            markProductionBuildServiceCreationAttempt(buildLayout, authority, sender)
+    };
+}
+
 export function cleanupSensitiveFixtures(namespace, namespaceEnv = {})
 {
     const configuredRoot = namespaceEnv.FSUSBLOG_FIXTURE_ROOT ?? process.env.FSUSBLOG_FIXTURE_ROOT;
@@ -3717,7 +3739,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                         afterTierSettled: async (tier) =>
                             runtime.productionCapacityReservation?.completeProducer(tier.id),
                         reuseAcrossSourceChanges: false,
-                        resourceEnforcementMode: process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
+                        resourceEnforcementMode: scheduledPhysicalTiers.some((tier) => tier.services?.includes('mysql'))
+                            ? 'strict' : process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
                         resourceEnforcementOptions: { systemdBoundary: {
                             commandBudgetMs: physicalProcessPolicy.systemdControlCommandTimeoutMs,
                             startupBudgetMs: physicalProcessPolicy.systemdResourceStartupTimeoutMs,
@@ -4464,6 +4487,7 @@ async function runTier(matrix, tierId, args)
                 await runDag({
                     registerManagedProcess: (identity, _tier, authority) =>
                         registerProductionBuildCompiler(buildLayout, identity, authority),
+                    ...mysqlServiceSchedulerOptions(buildLayout, scheduledTiers),
                     sourceState: buildSourceState,
                     namespace: runNamespace,
                     tiers: scheduledTiers,
@@ -5004,6 +5028,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                 await runDag({
                     registerManagedProcess: (identity, _tier, authority) =>
                         registerProductionBuildCompiler(buildLayout, identity, authority),
+                    ...mysqlServiceSchedulerOptions(buildLayout, tiers),
                     sourceState: buildSourceState,
                     namespace: buildNamespace,
                     tiers,
@@ -5032,7 +5057,8 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                     },
                     envForTier(tier)
                     {
-                        const runNamespace = namespaceFor(tier, options.shard, runId);
+                        const runNamespace = tier.services?.includes('mysql')
+                            ? buildNamespace : namespaceFor(tier, options.shard, runId);
                         const env = applyNamespaceBuildEnvironment(
                             tier,
                             productionBuildEnvironment(buildLayout, {
@@ -6160,6 +6186,7 @@ async function ciPrSmart(matrix, args)
                 await runDag({
                     registerManagedProcess: (identity, _tier, authority) =>
                         registerProductionBuildCompiler(buildLayout, identity, authority),
+                    ...mysqlServiceSchedulerOptions(buildLayout, scheduledTiers),
                     sourceState: buildSourceState,
                     namespace: runNamespace,
                     tiers: scheduledTiers,

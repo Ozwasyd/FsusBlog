@@ -2,9 +2,11 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tests/matrix.yml",
+        "tools/run-test-matrix.mjs",
         "tools/test-inventory/produce.mjs",
         "tools/test-matrix/scheduler.mjs",
         "tools/test-retention/audit.mjs",
+        "tools/test/build-migration-tests.mjs",
         "tools/test/run-migration-tests.mjs",
         "tools/test/generate-evidence-location-governance.mjs",
         "tools/test/generate-current-run-evidence-location-acceptance.mjs"
@@ -12,7 +14,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "467e22e5b6ae757a3d6b25b739c8e63a0d49f46e830e8bd08d4a7cdd3997f96c"
+            "sha256": "63b8826b4aa8eaa0a269cce996cf301091268674fd2c82e9d4432f5c2c04a049"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",

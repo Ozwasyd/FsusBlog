@@ -659,6 +659,7 @@ test('matrix Migration build and execution retain their own producer instead of 
     ]);
     assert.equal(subject.buildCalls.slice(0, 2).every((args) => args.includes('--locked-mode')), true);
     assert.equal(subject.buildCalls.slice(2).every((args) => args.includes('Release') && args.includes('--no-restore') && args.includes('/m:1')), true);
+    assert.equal(subject.buildCalls.slice(2).every((args) => args.includes('/p:UseSharedCompilation=false')), true);
     assert.equal(subject.buildCalls[2].includes('--no-dependencies'), false);
     assert.equal(subject.buildCalls[3].includes('--no-dependencies'), true);
     await assert.rejects(readMigrationBuildReady({ ...subject.options, producer: 'backend-tests' }), /producer mismatch/u);

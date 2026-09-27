@@ -2895,8 +2895,8 @@
         },
         {
             "path": "tools/run-test-matrix.mjs",
-            "contentDigest": "sha256:3fa2404c1a8033e149f7373cc8a92f0f0caf4c56130d0651e825d037738391c9",
-            "indexDigest": "sha256:3fa2404c1a8033e149f7373cc8a92f0f0caf4c56130d0651e825d037738391c9"
+            "contentDigest": "sha256:5e58a83968397b260687bde450cf8b8f377bb537de82bf9e058a7581ab330753",
+            "indexDigest": "sha256:5e58a83968397b260687bde450cf8b8f377bb537de82bf9e058a7581ab330753"
         },
         {
             "path": "tools/runtime-profiles/release-runtime-matrix.mjs",
@@ -3885,8 +3885,8 @@
         },
         {
             "path": "tools/test/build-migration-tests.mjs",
-            "contentDigest": "sha256:827b53bbe61997e93bcdc42d8b6f96e5883ae851b670f1795b14ad2cbd474bf8",
-            "indexDigest": "sha256:827b53bbe61997e93bcdc42d8b6f96e5883ae851b670f1795b14ad2cbd474bf8"
+            "contentDigest": "sha256:2f3be3ffa9b04b3124404cfabf7ef85539e4011033981cd3d47dbeff076993d0",
+            "indexDigest": "sha256:2f3be3ffa9b04b3124404cfabf7ef85539e4011033981cd3d47dbeff076993d0"
         },
         {
             "path": "tools/test/bundles/bundle-steps.mjs",
@@ -5578,8 +5578,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:3fa2404c1a8033e149f7373cc8a92f0f0caf4c56130d0651e825d037738391c9",
-            "indexDigest": "sha256:3fa2404c1a8033e149f7373cc8a92f0f0caf4c56130d0651e825d037738391c9",
+            "contentDigest": "sha256:5e58a83968397b260687bde450cf8b8f377bb537de82bf9e058a7581ab330753",
+            "indexDigest": "sha256:5e58a83968397b260687bde450cf8b8f377bb537de82bf9e058a7581ab330753",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",

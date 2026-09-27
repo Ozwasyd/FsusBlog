@@ -24,7 +24,7 @@ export async function buildMigrationUnitTests(options, { env = process.env, exec
     fs.mkdirSync(directory);
     const cpuUnits = resolveDotnetBuildParallelism({ env });
     const buildArguments = ['-c', 'Release', '--no-restore', '-warnaserror', '-v', 'minimal',
-        `/m:${cpuUnits}`, '/p:UseSharedCompilation=true', '/p:NuGetAudit=false'];
+        `/m:${cpuUnits}`, '/p:UseSharedCompilation=false', '/p:NuGetAudit=false'];
     const commands = [
         ['restore', artifacts.migrationTests.projectFile, '--locked-mode', '-v', 'minimal', '/p:NuGetAudit=false'],
         ['restore', artifacts.xunitAdapter.projectFile, '--locked-mode', '-v', 'minimal', '/p:NuGetAudit=false'],
