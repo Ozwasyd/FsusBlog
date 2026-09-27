@@ -20,6 +20,45 @@ test('network policy is default deny with no ambient external endpoint', () =>
     assert.equal(policy.buildRestorePolicy.phase, 'separate-from-correctness');
 });
 
+test('pinned matrix governance grants only private .NET mutex scratch to Landlock, never host /tmp to systemd', {
+    skip: process.platform !== 'linux'
+}, (t) =>
+{
+    const directoryEnvelope = prepareRunOwnedDirectories({
+        repositoryRoot: process.cwd(),
+        cwd: process.cwd(),
+        runId: `private-dotnet-scratch-${process.pid}`,
+        producerId: 'matrix-governance',
+        attemptId: 'matrix-governance'
+    });
+    t.after(() => finalizeRunOwnedDirectories(directoryEnvelope));
+    const environment = {
+        ...directoryEnvelope.environment,
+        PATH: process.env.PATH,
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        TZ: 'UTC',
+        FSUSBLOG_CONTENT_FIELD_DOTNET: '/opt/pinned/dotnet'
+    };
+    const prepared = prepareNetworkSandbox({
+        command: [process.execPath, '-e', 'process.exit(0)'],
+        cwd: process.cwd(),
+        directories: directoryEnvelope.fragment.directories,
+        writableRoots: directoryEnvelope.fragment.writableRoots,
+        environment,
+        policy,
+        producerId: 'matrix-governance',
+        attemptId: 'matrix-governance'
+    });
+    assert.equal(prepared.privateDotnetScratch, true);
+    assert.equal(prepared.linuxReadWritePaths.includes('/tmp'), false);
+    assert.equal(prepared.linuxReadWritePaths.includes('/tmp/.dotnet/shm'), false);
+    assert.equal(prepared.fragment.sandbox.filesystem.privateDotnetScratch, '/tmp/.dotnet/shm');
+    const index = prepared.command.indexOf('/tmp/.dotnet/shm');
+    assert.ok(index > 0);
+    assert.equal(prepared.command[index - 1], '--writable');
+});
+
 test('service endpoints project exact protocol, loopback address, and current-run port', () =>
 {
     assert.deepEqual(projectPlannedEndpoints({
