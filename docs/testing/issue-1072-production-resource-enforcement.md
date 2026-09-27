@@ -53,6 +53,13 @@ resumes it. Ordinary descendants therefore inherit the boundary without a spawn 
 planning remains authoritative inside the boundary (`FSUSBLOG_STEP_CPU_BUDGET`, Playwright workers, .NET processors,
 MSBuild `/m`, and similar settings).
 
+The Linux physical-execution adapter now accepts an explicit task-owned slice ancestor for nested systemd work. When
+one is supplied, it first checks the caller's unified cgroup membership, starts the transient unit with
+`--slice-inherit`, and checks the unit's actual slice, cgroup path and supervisor identity again before releasing the
+target process. A missing, foreign or drifting ancestor fails closed. This guard does not establish the ancestor or
+partition the scheduler grant: #3527 must still connect the durable bundle and resource owner to one real task slice
+before nested execution can count as production resource enforcement.
+
 Production container helpers translate the admitted step grant to `--cpus`, `--memory-reservation`, `--memory`, and
 `--pids-limit`. Containers are labeled with run, bundle, and step identity. Existing acceptance PostgreSQL/Redis
 containers are updated before restart. Bundle evidence reads Docker's effective `HostConfig` back and compares it to

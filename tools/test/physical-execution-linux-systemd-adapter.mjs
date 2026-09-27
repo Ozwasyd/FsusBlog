@@ -150,6 +150,7 @@ function unitProperties(unitName, runSystemctl)
         '--property=LoadState',
         '--property=ActiveState',
         '--property=ControlGroup',
+        '--property=Slice',
         '--property=MainPID',
         '--property=PrivateNetwork',
         '--property=IPAddressAllow',
@@ -182,6 +183,26 @@ function unitProperties(unitName, runSystemctl)
     const values = Object.fromEntries(String(result.stdout).trim().split(/\r?\n/u)
         .map((line) => line.split(/=(.*)/su).slice(0, 2)));
     return { status: 'verified', values, command: commandResultEvidence(args, result) };
+}
+
+function requireExpectedCgroupAncestor(value, readCurrentCgroup)
+{
+    if (value == null)
+    {
+        return null;
+    }
+    if (typeof value !== 'string' || !/^\/[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*\.slice$/u.test(value)
+        || value.split('/').some((part) => part === '.' || part === '..'))
+    {
+        throw new Error('physical execution requires a canonical task-owned slice ancestor');
+    }
+    const records = String(readCurrentCgroup()).trim().split(/\r?\n/u)
+        .filter((line) => line.startsWith('0::'));
+    if (records.length !== 1 || !records[0].slice(3).startsWith(`${value}/`))
+    {
+        throw new Error('physical execution caller is outside its declared slice ancestor');
+    }
+    return value;
 }
 
 function exactPropertyTokens(value, expected)
@@ -413,6 +434,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
     resolvePython = (environment) => resolveExecutablePath(environment.FSUSBLOG_PYTHON ?? 'python3', {
         pathValue: environment.PATH
     }),
+    readCurrentCgroup = () => fs.readFileSync('/proc/self/cgroup', 'utf8'),
     removeControlRoot = (controlRoot) => fs.rmSync(controlRoot, { recursive: true, force: true }),
     handshakeTimeoutMs = 10_000
 } = {})
@@ -430,6 +452,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             linuxPrivateNetwork = false,
             linuxNetworkPolicy = null,
             linuxReadWritePaths = [],
+            linuxExpectedCgroupAncestor = null,
             signal,
             policy,
             stdout,
@@ -439,6 +462,9 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
         })
         {
             requireSystemdAuthority(runSystemctl);
+            const expectedCgroupAncestor = requireExpectedCgroupAncestor(
+                linuxExpectedCgroupAncestor, readCurrentCgroup
+            );
             const authorityId = randomUUID();
             const { privateKey, publicKey } = generateKeyPairSync('ed25519');
             let python;
@@ -498,6 +524,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 '--service-type=exec',
                 '--property=KillMode=control-group',
                 '--property=ExitType=cgroup',
+                // A nested transient service otherwise leaves the bundle's slice.
+                ...(expectedCgroupAncestor ? ['--slice-inherit'] : []),
                 ...(linuxPrivateNetwork ? ['--property=PrivateNetwork=yes'] : []),
                 ...(linuxNetworkPolicy ? [
                     `--property=IPAddressDeny=${linuxNetworkPolicy.deny}`,
@@ -812,6 +840,12 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         }`
                     );
                 }
+                if (expectedCgroupAncestor
+                    && (properties.values.Slice !== path.posix.basename(expectedCgroupAncestor)
+                        || !properties.values.ControlGroup.startsWith(`${expectedCgroupAncestor}/`)))
+                {
+                    throw new Error('physical execution unit is outside its declared slice ancestor');
+                }
                 if (linuxPrivateNetwork && properties.values.PrivateNetwork !== 'yes')
                 {
                     throw new Error('physical execution systemd private network authority is unverifiable');
@@ -915,6 +949,18 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 if (signal?.aborted)
                 {
                     throw new WaitForFileCancellation('admission', signal.reason);
+                }
+                if (expectedCgroupAncestor)
+                {
+                    requireExpectedCgroupAncestor(expectedCgroupAncestor, readCurrentCgroup);
+                    const beforeRelease = unitProperties(unitName, runSystemctl);
+                    if (beforeRelease.status !== 'verified'
+                        || beforeRelease.values.ControlGroup !== controlGroup
+                        || beforeRelease.values.Slice !== path.posix.basename(expectedCgroupAncestor)
+                        || Number(beforeRelease.values.MainPID) !== supervisorPid)
+                    {
+                        throw new Error('physical execution slice or unit identity drifted before target release');
+                    }
                 }
                 executionAdmission = {
                     phase: 'pre-exec',

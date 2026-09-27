@@ -130,12 +130,16 @@ function createStubSystemdExecution({
     cgroupReadErrorAt = null,
     removeRootError = null,
     onHandshake = null,
-    onCommandProcessGroupObserved = null
+    onCommandProcessGroupObserved = null,
+    callerCgroup = '0::/user.slice/parent.service\n',
+    unitControlGroup = '/user.slice/fsusblog-stub.scope',
+    unitSlice = 'user.slice'
 } = {})
 {
     const state = {
         controlRoot: null,
         unitName: null,
+        spawnArgs: null,
         members: [...initialMembers],
         loadState: 'loaded',
         showCount: 0,
@@ -160,6 +164,7 @@ function createStubSystemdExecution({
     const adapter = createPhysicalExecutionLinuxSystemdAdapter({
         spawnProcess(_executable, args)
         {
+            state.spawnArgs = [...args];
             state.controlRoot = args.at(-1);
             state.unitName = args.find((argument) => argument.startsWith('--unit='))
                 .slice('--unit='.length);
@@ -204,7 +209,7 @@ function createStubSystemdExecution({
                         executables: [],
                         startIdentity: 'stub-202',
                         processGroup: 202,
-                        cgroup: '0::/user.slice/fsusblog-stub.scope\n'
+                        cgroup: `0::${unitControlGroup}\n`
                     }));
                 }
                 if (handshake === 'result')
@@ -248,7 +253,8 @@ function createStubSystemdExecution({
                     stdout: [
                         `LoadState=${state.loadState}`,
                         `ActiveState=${state.loadState === 'not-found' ? 'inactive' : 'failed'}`,
-                        'ControlGroup=/user.slice/fsusblog-stub.scope',
+                        `ControlGroup=${unitControlGroup}`,
+                        `Slice=${typeof unitSlice === 'function' ? unitSlice(state) : unitSlice}`,
                         'MainPID=101'
                     ].join('\n'),
                     stderr: ''
@@ -320,6 +326,7 @@ function createStubSystemdExecution({
         },
         readExecutableSnapshot: () => [],
         resolvePython: () => process.execPath,
+        readCurrentCgroup: () => typeof callerCgroup === 'function' ? callerCgroup(state) : callerCgroup,
         readProcessIdentity(pid)
         {
             return {
@@ -952,6 +959,73 @@ test('Linux systemd adapter carries the complete child environment without expos
     });
     assert.equal(evidence.authority.kind, 'linux-cgroup-process-group');
     assert.equal(evidence.postObservation, 'zero-members');
+});
+
+test('nested Linux systemd execution requires the caller and unit to share the declared slice before target release', async (t) =>
+{
+    const cwd = temporaryRoot('systemd-owned-slice');
+    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    const options = {
+        command: [process.execPath, '-e', 'process.exit(0)'], cwd, env: {}, policy: fastPolicy,
+        stdout: quiet, stderr: quiet, schema: physicalExecutionProcessTreeSchema,
+        linuxExpectedCgroupAncestor: '/user.slice/owned.slice'
+    };
+    const fixtureOptions = {
+        callerCgroup: '0::/user.slice/owned.slice/parent.service\n',
+        unitControlGroup: '/user.slice/owned.slice/fsusblog-stub.scope',
+        unitSlice: 'owned.slice',
+        finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] }
+    };
+    const admitted = createStubSystemdExecution(fixtureOptions);
+    const evidence = await admitted.adapter.run(options);
+    assert.equal(evidence.postObservation, 'zero-members');
+    assert.equal(admitted.state.spawnArgs.includes('--slice-inherit'), true);
+
+    const foreignCaller = createStubSystemdExecution({ ...fixtureOptions,
+        callerCgroup: '0::/user.slice/foreign.slice/parent.service\n' });
+    await assert.rejects(foreignCaller.adapter.run(options), /caller is outside its declared slice ancestor/u);
+    assert.equal(foreignCaller.state.spawnArgs, null);
+
+    for (const changed of [
+        { unitControlGroup: '/user.slice/foreign.slice/fsusblog-stub.scope' },
+        { unitSlice: 'foreign.slice' }
+    ])
+    {
+        const foreignUnit = createStubSystemdExecution({ ...fixtureOptions, ...changed });
+        await assert.rejects(foreignUnit.adapter.run(options), /unit is outside its declared slice ancestor/u);
+        assert.equal(foreignUnit.state.spawnArgs.includes('--slice-inherit'), true);
+        if (foreignUnit.state.controlRoot && fs.existsSync(foreignUnit.state.controlRoot))
+        {
+            fs.rmSync(foreignUnit.state.controlRoot, { recursive: true, force: true });
+        }
+    }
+    let callerReads = 0;
+    const callerDrift = createStubSystemdExecution({ ...fixtureOptions,
+        callerCgroup: () => ++callerReads === 1
+            ? '0::/user.slice/owned.slice/parent.service\n'
+            : '0::/user.slice/foreign.slice/parent.service\n' });
+    await assert.rejects(callerDrift.adapter.run(options), /caller is outside its declared slice ancestor/u);
+    assert.equal(fs.existsSync(path.join(callerDrift.state.controlRoot, 'release.json')), false);
+    if (fs.existsSync(callerDrift.state.controlRoot))
+    {
+        fs.rmSync(callerDrift.state.controlRoot, { recursive: true, force: true });
+    }
+
+    const unitDrift = createStubSystemdExecution({ ...fixtureOptions,
+        unitSlice: (state) => state.showCount === 1 ? 'owned.slice' : 'foreign.slice' });
+    await assert.rejects(unitDrift.adapter.run(options), /slice or unit identity drifted before target release/u);
+    assert.equal(fs.existsSync(path.join(unitDrift.state.controlRoot, 'release.json')), false);
+    if (fs.existsSync(unitDrift.state.controlRoot))
+    {
+        fs.rmSync(unitDrift.state.controlRoot, { recursive: true, force: true });
+    }
+    for (const ancestor of ['/user.slice/../owned.slice', '/user.slice/owned.slice/', '/user.slice/owned.service'])
+    {
+        const invalid = createStubSystemdExecution(fixtureOptions);
+        await assert.rejects(invalid.adapter.run({ ...options, linuxExpectedCgroupAncestor: ancestor }),
+            /canonical task-owned slice ancestor/u);
+        assert.equal(invalid.state.spawnArgs, null);
+    }
 });
 
 test('Linux systemd adapter cleanup treats command results as evidence and final state as authority', async (t) =>
