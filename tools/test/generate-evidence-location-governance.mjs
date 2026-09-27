@@ -63,53 +63,23 @@ const nonEvidenceFindingOverrides = new Map([
         indirectVia: null
     },
     {
-        findingId: 'c19608dadceeccb6',
+        findingId: 'b9fb82434e2ff8d0',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 768,
+        line: 816,
         column: 32,
         function: 'verifyCommentMatrix',
         excerpt: 'const fields = matches[0].fields ?? {};',
         indirectVia: null
     },
     {
-        findingId: '212094fdc17ae867',
+        findingId: '37addad575b805a2',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 830,
+        line: 878,
         column: 38,
         function: 'verifyCommentMatrix',
         excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)",
-        indirectVia: null
-    },
-    {
-        findingId: '60f921a49741cbd0',
-        ruleId: 'evidence-selection.first-match',
-        file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 883,
-        column: 19,
-        function: 'verifyCommentMatrix',
-        excerpt: "const root = one('approved-root')[0];",
-        indirectVia: null
-    },
-    {
-        findingId: 'fa1174fe6503f0d3',
-        ruleId: 'evidence-selection.first-match',
-        file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 926,
-        column: 30,
-        function: 'verifyCommentMatrix',
-        excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)",
-        indirectVia: null
-    },
-    {
-        findingId: 'e7e117c63487b915',
-        ruleId: 'evidence-selection.first-match',
-        file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 930,
-        column: 46,
-        function: 'verifyCommentMatrix',
-        excerpt: "const deletedRoot = one('deleted-root')[0];",
         indirectVia: null
     },
     {
@@ -117,6 +87,36 @@ const nonEvidenceFindingOverrides = new Map([
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
         line: 931,
+        column: 19,
+        function: 'verifyCommentMatrix',
+        excerpt: "const root = one('approved-root')[0];",
+        indirectVia: null
+    },
+    {
+        findingId: 'fb91078afca6d15f',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 974,
+        column: 30,
+        function: 'verifyCommentMatrix',
+        excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true)",
+        indirectVia: null
+    },
+    {
+        findingId: '1445d298b9ef9126',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 978,
+        column: 46,
+        function: 'verifyCommentMatrix',
+        excerpt: "const deletedRoot = one('deleted-root')[0];",
+        indirectVia: null
+    },
+    {
+        findingId: '776887fd959a8427',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 979,
         column: 47,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedChild = one('deleted-root-child')[0];",
