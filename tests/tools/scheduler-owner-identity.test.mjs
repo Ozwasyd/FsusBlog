@@ -7,17 +7,19 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { currentProcessIdentity, processIdentityStatus } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
+const { collectProcessIdentity, currentProcessIdentity, processIdentityStatus } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { bindProductionBuildLayoutSource, finalizeProductionBuildLayout, prepareProductionBuildLayout, registerProductionBuildCompiler } = await import(new URL("../../tools/test-matrix/production-build-layout.mjs", import.meta.url));
 const { collectSchedulerProcessGroupOrJobIdentity, createSchedulerRunOwner, finalizeSchedulerRunOwner, heartbeatSchedulerRunOwner, readSchedulerProducerTerminalFailure, schedulerCandidateIdentityDigest, schedulerProcessGroupOrJobIdentityIsComplete, schedulerRunOwnerFields, schedulerRunOwnerSchema, sealSchedulerRunOwner, verifySchedulerProcessAuthority, verifySchedulerRunOwner } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
 const { findLatestRunId, reclaimSchedulerRunLock, runDag, schedulerRunLockActivity, schedulerRunLockIsActive } = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
 const { runWindowsJobSupervisorStateMachine, windowsJobSupervisorStateSchema } = await import(new URL("../../tools/test-matrix/windows-job-supervisor-state.mjs", import.meta.url));
+const { parseMatrix } = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
+const { resolveGitRepositoryAuthority } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
 
 import {
     createBehaviorDocAdmissionFixture,
     prepareBehaviorDocAdmissionFixtureAuthority
 } from './support/behavior-doc-admission-fixture.mjs';
-import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-contracts.mjs';
+import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-runner.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -30,36 +32,83 @@ function fixture(t, name)
 
 function materializeSchedulerCliRunner(root)
 {
-    const runner = materializeTestMatrixRunner(repositoryRoot, root);
-    fs.writeFileSync(path.join(root, '.gitignore'), [
-        '/*',
-        '!/.gitignore',
-        '!/.github/',
-        '!/config/',
-        '!/tools/'
-    ].join('\n') + '\n');
-    prepareBehaviorDocAdmissionFixtureAuthority({
-        sourceRepositoryRoot: repositoryRoot,
-        repositoryRoot: root
-    });
-    const git = (args) =>
+    assert.deepEqual(fs.readdirSync(root), [], 'the canonical component fixture must be isolated and empty');
+    const git = (args, cwd = root) =>
     {
-        const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+        const result = spawnSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd, encoding: 'utf8' });
         assert.equal(result.status, 0, result.stderr);
+        return result.stdout.trim();
     };
-    git(['init', '--quiet']);
-    git(['add', '--all', '--', '.gitignore', '.github', 'config', 'tools']);
-    git([
-        '-c', 'user.name=Test',
-        '-c', 'user.email=test@example.invalid',
-        '-c', 'commit.gpgsign=false',
-        'commit', '--quiet', '--allow-empty', '-m', 'fixture'
-    ]);
+    const revision = git(['rev-parse', 'HEAD'], repositoryRoot);
+    git(['clone', '--quiet', '--no-hardlinks', '--no-checkout', '--', repositoryRoot, root], repositoryRoot);
+    git(['checkout', '--quiet', '--detach', revision]);
+    assert.equal(resolveGitRepositoryAuthority(root).gitDirectory, path.join(root, '.git'));
+    const canonicalInputs = ['tests/matrix.yml', 'config/testing/correctness-attempt-producers.json']
+        .map((file) => ({ file, bytes: fs.readFileSync(path.join(root, file)) }));
+    // Retain the complete canonical graph and its producer inventory, then overlay the actual runtime.
+    const runner = materializeTestMatrixRunner(repositoryRoot, root);
+    for (const { file, bytes } of canonicalInputs)
+    {
+        assert.deepEqual(fs.readFileSync(path.join(root, file)), bytes, `canonical fixture input changed: ${file}`);
+    }
+    prepareBehaviorDocAdmissionFixtureAuthority({ sourceRepositoryRoot: repositoryRoot, repositoryRoot: root });
     return runner;
+}
+
+function schedulerCliScenario(root, payload, { invalidSupersedes = false } = {})
+{
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const workerId = 'ux-viewport-plan-progress';
+    const replacementId = 'runtime-cache-evidence';
+    for (const id of invalidSupersedes ? [workerId, replacementId] : [workerId])
+    {
+        const selected = matrix.tiers.find((entry) => entry.id === id);
+        assert.ok(selected);
+        assert.match(selected.command, /^node tools\/[a-z0-9/-]+\.mjs$/u);
+        Object.assign(selected, { executionDependsOn: [], requiresEvidenceFrom: [], services: [],
+            parallelizable: true, exclusiveResources: [], resourceClass: 'cpu', maxParallel: 1,
+            cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [], cacheProfile: 'none',
+            executionKey: 'fixture/shared', executionVariant: 'ordinary', coverage: ['ordinary-unit'],
+            requiresPlaywright: 'none', requiresBootstrap: 'none', artifacts: [], evidence: [] });
+        if (id === replacementId)
+        {
+            selected.supersedes = [workerId];
+        }
+        // Only the selected component payload is simulated; no original product producer is executed.
+        fs.writeFileSync(path.join(root, selected.command.slice('node '.length)), payload);
+    }
+    const flow = (value) =>
+    {
+        if (Array.isArray(value))
+        {
+            return `[${value.map(flow).join(', ')}]`;
+        }
+        if (value && typeof value === 'object')
+        {
+            return `{${Object.entries(value).map(([key, entry]) =>
+            {
+                assert.match(key, /^[A-Za-z_][A-Za-z0-9_.-]*$/u);
+                return `${key}: ${flow(entry)}`;
+            }).join(', ')}}`;
+        }
+        return JSON.stringify(value);
+    };
+    const text = Object.entries(matrix).map(([key, value]) => `${key}: ${flow(value)}`).join('\n') + '\n';
+    assert.deepEqual(parseMatrix(text), matrix);
+    fs.mkdirSync(path.join(root, '.tmp'), { recursive: true });
+    const file = path.join(root, '.tmp/cli-scenario-matrix.yml');
+    fs.writeFileSync(file, text);
+    return { file, target: invalidSupersedes ? replacementId : workerId };
 }
 
 function schedulerCliAdmissionEnvironment(root)
 {
+    const stage = spawnSync('git', ['-c', 'core.hooksPath=/dev/null', 'add', '--all', '--', 'tools', 'config'],
+        { cwd: root, encoding: 'utf8' });
+    assert.equal(stage.status, 0, stage.stderr);
+    const generated = spawnSync(process.execPath, ['tools/test-matrix/generate-release-final-execution-authority.mjs'],
+        { cwd: root, encoding: 'utf8' });
+    assert.equal(generated.status, 0, generated.stderr);
     const admission = createBehaviorDocAdmissionFixture({
         sourceRepositoryRoot: repositoryRoot,
         repositoryRoot: root
@@ -108,30 +157,6 @@ function tier(id, command)
         executionVariant: 'ordinary',
         coverage: []
     };
-}
-
-function cliTierLines(id, command)
-{
-    return [
-        `  - id: ${id}`,
-        `    command: ${JSON.stringify(command)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    resourceClass: cpu',
-        '    maxParallel: 1',
-        '    cpuUnits: 1',
-        '    memoryGiB: 0.1',
-        '    cacheInputs: []',
-        `    executionKey: ${id}`,
-        '    executionVariant: ordinary',
-        '    coverage: []',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        `    ciJob: ${id}`
-    ];
 }
 
 async function waitFor(predicate, message, timeoutMs = 10_000)
@@ -637,6 +662,45 @@ test(
 );
 
 test(
+    'rejected durable registration terminates the stopped launcher without releasing its workload',
+    {
+        skip: process.platform !== 'linux'
+    },
+    async (t) =>
+    {
+        const root = fixture(t, 'scheduler-rejected-registration');
+        const marker = path.join(root, 'unadmitted-workload');
+        const command = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(`require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'executed')`)}`;
+        let registered = null;
+        await assert.rejects(() => runDag({
+            tiers: [tier('rejected', command)],
+            root,
+            runsRoot: path.join(root, 'runs'),
+            runId: 'rejected',
+            mode: 'fresh',
+            maxParallel: 1,
+            snapshotWorktree: stableSnapshot,
+            registerManagedProcess(identity, _tier, authority)
+            {
+                registered = { identity, authority };
+                throw new Error('independent registration refused');
+            }
+        }), /independent registration refused/u);
+        assert.ok(registered);
+        const deadline = Date.now() + 5000;
+        while (fs.existsSync(`/proc/${registered.identity.pid}`) && Date.now() < deadline)
+        {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        assert.equal(fs.existsSync(`/proc/${registered.identity.pid}`), false, 'the exact task launcher must become terminal');
+        const unit = spawnSync('systemctl', ['--user', 'show', registered.authority.unitName, '--property=ActiveState', '--value'], { encoding: 'utf8' });
+        assert.ok([0, 4].includes(unit.status), unit.stderr);
+        assert.equal(unit.stdout.trim(), 'inactive');
+        assert.equal(fs.existsSync(marker), false, 'registration failure must not resume the actual workload');
+    }
+);
+
+test(
     'durable Linux containment kills a detached new-session writer before scheduler success',
     {
         skip: process.platform !== 'linux'
@@ -743,49 +807,19 @@ test('CLI scheduler errors preserve the original failure and seal the production
 {
     const root = fixture(t, 'scheduler-cli-error-seal');
     const runner = materializeSchedulerCliRunner(root);
-    const matrix = path.join(root, 'matrix.yml');
+    const scenario = schedulerCliScenario(root, 'process.exit(0);\n', { invalidSupersedes: true });
     const runId = `scheduler-cli-error-seal-${process.pid}`;
-    const tierLines = (id, variant, supersedes = []) => [
-        `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} -e "process.exit(0)"`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    resourceClass: cpu',
-        '    maxParallel: 1',
-        '    cpuUnits: 1',
-        '    memoryGiB: 0.1',
-        '    cacheInputs: []',
-        '    executionKey: shared',
-        `    executionVariant: ${variant}`,
-        '    coverage: [ordinary-unit]',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        `    ciJob: ${id}`,
-        ...(supersedes.length > 0 ? [`    supersedes: [${supersedes.join(', ')}]`] : [])
-    ];
-    fs.writeFileSync(
-        matrix,
-        [
-            'version: fsusblog-test-matrix-v2',
-            'tiers:',
-            ...tierLines('ordinary', 'ordinary'),
-            ...tierLines('invalid-replacement', 'ordinary', ['ordinary'])
-        ].join('\n')
-    );
     const admissionEnvironment = schedulerCliAdmissionEnvironment(root);
 
     const result = spawnSync(
         process.execPath,
-        [runner, 'run', 'invalid-replacement', '--no-deps', '--resume'],
+        [runner, 'run', scenario.target, '--no-deps', '--resume'],
         {
             cwd: root,
             env: {
                 ...process.env,
                 ...admissionEnvironment,
-                FSUSBLOG_MATRIX_FILE: matrix,
+                FSUSBLOG_MATRIX_FILE: scenario.file,
                 FSUSBLOG_TEST_RUN_ID: runId
             },
             encoding: 'utf8'
@@ -823,23 +857,15 @@ test(
             )
         );
 
-        const matrix = path.join(root, 'matrix.yml');
+        const scenario = schedulerCliScenario(root, 'process.exit(7);\n');
         const runId = `scheduler-cli-tier-and-seal-failure-${process.pid}`;
-        fs.writeFileSync(
-            matrix,
-            [
-                'version: fsusblog-test-matrix-v2',
-                'tiers:',
-                ...cliTierLines('exit-seven', `${process.execPath} -e "process.exit(7)"`)
-            ].join('\n')
-        );
         const admissionEnvironment = schedulerCliAdmissionEnvironment(root);
-        const result = spawnSync(process.execPath, [runner, 'run', 'exit-seven', '--no-deps', '--resume'], {
+        const result = spawnSync(process.execPath, [runner, 'run', scenario.target, '--no-deps', '--resume'], {
             cwd: root,
             env: {
                 ...process.env,
                 ...admissionEnvironment,
-                FSUSBLOG_MATRIX_FILE: matrix,
+                FSUSBLOG_MATRIX_FILE: scenario.file,
                 FSUSBLOG_TEST_RUN_ID: runId
             },
             encoding: 'utf8'
@@ -864,36 +890,36 @@ test(
     },
     async (t) =>
     {
-        const root = fixture(t, 'scheduler-cli-sigterm');
-        const runner = materializeSchedulerCliRunner(root);
-        const matrix = path.join(root, 'matrix.yml');
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-scheduler-cli-sigterm-'));
         const runId = `scheduler-cli-sigterm-${process.pid}`;
-        fs.writeFileSync(
-            matrix,
-            [
-                'version: fsusblog-test-matrix-v2',
-                'tiers:',
-                ...cliTierLines('long-running', `${process.execPath} -e "setTimeout(() => {}, 30000)"`)
-            ].join('\n')
-        );
+        const runRoot = path.join(root, '.tmp/build', runId);
+        let child = null;
+        t.after(() =>
+        {
+            assert.ok(child === null || child.exitCode !== null || child.signalCode !== null,
+                `retain live CLI fixture diagnostics: ${root}`);
+            assert.equal(fs.existsSync(path.join(runRoot, '.active.json')), false,
+                `retain unsealed build-owner diagnostics: ${root}`);
+            fs.rmSync(root, { recursive: true, force: true });
+        });
+        const runner = materializeSchedulerCliRunner(root);
+        const startedFile = path.join(root, '.tmp/cli-workload-started.json');
+        const scenario = schedulerCliScenario(root, [
+            "import fs from 'node:fs';",
+            `fs.writeFileSync(${JSON.stringify(startedFile)}, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 });`,
+            'setTimeout(() => {}, 30000);'
+        ].join('\n'));
         const admissionEnvironment = schedulerCliAdmissionEnvironment(root);
-        const child = spawn(process.execPath, [runner, 'run', 'long-running', '--no-deps', '--resume'], {
+        child = spawn(process.execPath, [runner, 'run', scenario.target, '--no-deps', '--resume'], {
             cwd: root,
             env: {
                 ...process.env,
                 ...admissionEnvironment,
                 FSUSBLOG_CGROUP_ENFORCEMENT: 'advisory',
-                FSUSBLOG_MATRIX_FILE: matrix,
+                FSUSBLOG_MATRIX_FILE: scenario.file,
                 FSUSBLOG_TEST_RUN_ID: runId
             },
             stdio: ['ignore', 'pipe', 'pipe']
-        });
-        t.after(() =>
-        {
-            if (child.exitCode === null && child.signalCode === null)
-            {
-                child.kill('SIGKILL');
-            }
         });
         child.stdout.resume();
         let stderr = '';
@@ -905,26 +931,56 @@ test(
         {
             child.once('close', (code, signal) => resolve({ code, signal }));
         });
-        const runRoot = path.join(root, '.tmp/build', runId);
-        await waitFor(() =>
+        try
         {
-            try
+            // The canonical graph validates its full release-final authority before it can
+            // create a build layout; this is a test watchdog, not the workload startup budget.
+            await waitFor(() =>
             {
-                const manifest = JSON.parse(fs.readFileSync(path.join(runRoot, 'layout.json'), 'utf8'));
-                return manifest.owner?.state === 'building';
-            }
-            catch
+                if (child.exitCode !== null || child.signalCode !== null)
+                {
+                    throw new Error(`CLI exited before building: ${stderr}`);
+                }
+                try
+                {
+                    const manifest = JSON.parse(fs.readFileSync(path.join(runRoot, 'layout.json'), 'utf8'));
+                    return manifest.owner?.state === 'building';
+                }
+                catch
+                {
+                    return false;
+                }
+            }, `CLI did not enter building state after canonical preflight: ${stderr}`, 10 * 60_000);
+            await waitFor(() =>
             {
-                return false;
+                if (child.exitCode !== null || child.signalCode !== null)
+                {
+                    throw new Error(`CLI exited before its controlled workload started: ${stderr}`);
+                }
+                return fs.existsSync(startedFile);
+            }, `CLI did not start its controlled workload: ${stderr}`, 120_000);
+            const { pid } = JSON.parse(fs.readFileSync(startedFile, 'utf8'));
+            const workload = collectProcessIdentity(pid);
+            assert.equal(workload.status, 'verified', 'the actual workload PID must be observable before cancellation');
+            assert.equal(processIdentityStatus(workload).status, 'live');
+            child.kill('SIGTERM');
+            const outcome = await closed;
+            assert.deepEqual(outcome, { code: 143, signal: null }, stderr);
+            const manifest = JSON.parse(fs.readFileSync(path.join(runRoot, 'layout.json'), 'utf8'));
+            assert.equal(manifest.status, 'cancelled');
+            assert.equal(manifest.owner.state, 'cancelled');
+            assert.equal(fs.existsSync(path.join(runRoot, '.active.json')), false);
+            await waitFor(() => ['dead', 'mismatch'].includes(processIdentityStatus(workload).status),
+                'the exact controlled workload identity remained live after CLI cancellation', 30_000);
+        }
+        finally
+        {
+            if (child.exitCode === null && child.signalCode === null)
+            {
+                child.kill('SIGTERM');
             }
-        }, `CLI did not enter building state: ${stderr}`);
-        child.kill('SIGTERM');
-        const outcome = await closed;
-        assert.deepEqual(outcome, { code: 143, signal: null }, stderr);
-        const manifest = JSON.parse(fs.readFileSync(path.join(runRoot, 'layout.json'), 'utf8'));
-        assert.equal(manifest.status, 'cancelled');
-        assert.equal(manifest.owner.state, 'cancelled');
-        assert.equal(fs.existsSync(path.join(runRoot, '.active.json')), false);
+            await closed; // Keep the fixture's owner records until its controller has finished cleanup.
+        }
     }
 );
 

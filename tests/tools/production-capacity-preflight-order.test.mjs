@@ -176,6 +176,50 @@ test('reservation is acquired before runtime/output/cache cleanup and build-root
     assert.ok(buildRoot > outputCleanup);
 });
 
+test('prior grant recovery follows capacity and BehaviorDoc admission but precedes fresh cleanup', async (t) =>
+{
+    const repository = fs.mkdtempSync(path.join(os.tmpdir(), 'capacity-recovery-order-'));
+    t.after(() => fs.rmSync(repository, { recursive: true, force: true }));
+    const matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, 'tests/matrix.yml'), 'utf8'));
+    const calls = [];
+    const contentDigest = productionDiskDemandDigest('capacity-recovery-order-admission');
+    await assert.rejects(() => runLocalProfile(matrix, 'production',
+        { planOnly: false, fresh: true, resume: false, maxParallel: 2 }, {
+            ...productionRuntime(repository, 'capacity-recovery-order'),
+            acquireProductionCapacityReservation: () =>
+            {
+                calls.push('capacity-admitted');
+                return {
+                    guardProducer: () => calls.push('admission-guard'),
+                    completeProducer: () => calls.push('admission-completed'),
+                    async reconcilePriorBuildResources()
+                    {
+                        calls.push('prior-resource-recovery');
+                        throw new Error('fixture prior recovery retains resources');
+                    },
+                    release(state)
+                    {
+                        calls.push(`capacity-${state}`);
+                    }
+                };
+            },
+            runBehaviorDocStaticAdmission: async () =>
+            {
+                calls.push('behavior-admitted');
+                return { receiptFile: path.join(repository, 'admission.json'), receipt: { contentDigest } };
+            },
+            behaviorDocSourceIdentity: () => ({}),
+            readBehaviorDocStaticAdmissionReceipt: () =>
+            {
+                calls.push('admission-verified');
+                return { contentDigest };
+            },
+            cleanupRuntime: () => calls.push('runtime-cleanup')
+        }), /fixture prior recovery retains resources/u);
+    assert.deepEqual(calls, ['capacity-admitted', 'admission-guard', 'behavior-admitted',
+        'admission-completed', 'admission-verified', 'prior-resource-recovery', 'capacity-aborted']);
+});
+
 test('live guard runs before output retirement, log creation and producer spawn', () =>
 {
     const guard = scheduler.indexOf('await options.beforeTierStart?.(');
@@ -188,6 +232,17 @@ test('live guard runs before output retirement, log creation and producer spawn'
     assert.ok(cleanup > guard);
     assert.ok(log > cleanup);
     assert.ok(spawn > log);
+});
+
+test('physical production retains capacity build identity before admission and releases inside post-seal callback', () =>
+{
+    const retain = runner.indexOf('runtime.productionCapacityReservation.retainBuildOwner(buildLayout)');
+    const spawn = runner.indexOf('recordSchedulerResult(await runDag({', retain);
+    const postSeal = runner.indexOf('afterFinalize(() =>', spawn);
+    const release = runner.indexOf('runtime.productionCapacityReservation.release(', spawn);
+    assert.ok(retain > 0 && spawn > retain);
+    assert.ok(postSeal > spawn && release > postSeal);
+    assert.equal(runner.slice(spawn, postSeal).includes('productionCapacityReservation.release('), false);
 });
 
 test('--plan-only resolves and prints demand without acquiring reservation', () =>
@@ -341,6 +396,7 @@ test('Production Fresh holds one reservation across one BehaviorDoc admission an
                         entry.producerId === 'behavior-doc-static-admission'));
                     return {
                         receipt: { reservationId: 'fixture-reservation' },
+                        reconcilePriorBuildResources: async () => [],
                         guardProducer: (producerId) =>
                         {
                             guardCalls += 1;
@@ -415,6 +471,7 @@ test('source drift after BehaviorDoc admission fails closed and releases the res
                     held = true;
                     return {
                         receipt: { reservationId: 'fixture-drift-reservation' },
+                        reconcilePriorBuildResources: async () => cleanupCalls += 1,
                         guardProducer: () => assert.equal(held, true),
                         completeProducer: () =>
                         {
@@ -496,6 +553,7 @@ test('source drift with a pre-existing BehaviorDoc receipt also fails before cle
                     held = true;
                     return {
                         receipt: { reservationId: 'fixture-existing-drift-reservation' },
+                        reconcilePriorBuildResources: async () => cleanupCalls += 1,
                         guardProducer: () => assert.fail('pre-existing admission must not execute'),
                         completeProducer: () => assert.fail('pre-existing admission must not complete'),
                         assertPlan: () =>
@@ -529,10 +587,10 @@ test('source drift with a pre-existing BehaviorDoc receipt also fails before cle
     assert.equal(held, false);
 });
 
-test('BehaviorDoc admission and completion failures both release capacity before cleanup', async (t) =>
+test('BehaviorDoc failures release capacity before cleanup and preserve primary errors when release fails', async (t) =>
 {
     const matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, 'tests/matrix.yml'), 'utf8'));
-    for (const failurePoint of ['admission', 'completion'])
+    for (const failurePoint of ['admission', 'completion', 'admission-and-release'])
     {
         await t.test(failurePoint, async (subtest) =>
         {
@@ -544,6 +602,7 @@ test('BehaviorDoc admission and completion failures both release capacity before
             let completeCalls = 0;
             let releaseCalls = 0;
             let cleanupCalls = 0;
+            const primaryPoint = failurePoint === 'admission-and-release' ? 'admission' : failurePoint;
             await assert.rejects(
                 runLocalProfile(
                     matrix,
@@ -556,6 +615,7 @@ test('BehaviorDoc admission and completion failures both release capacity before
                             held = true;
                             return {
                                 receipt: { reservationId: `fixture-${failurePoint}-reservation` },
+                                reconcilePriorBuildResources: async () => cleanupCalls += 1,
                                 guardProducer: () => assert.equal(held, true),
                                 completeProducer: () =>
                                 {
@@ -570,6 +630,10 @@ test('BehaviorDoc admission and completion failures both release capacity before
                                 release: () =>
                                 {
                                     releaseCalls += 1;
+                                    if (failurePoint === 'admission-and-release')
+                                    {
+                                        throw new Error('injected capacity release failure');
+                                    }
                                     held = false;
                                 }
                             };
@@ -578,7 +642,7 @@ test('BehaviorDoc admission and completion failures both release capacity before
                         {
                             admissionCalls += 1;
                             assert.equal(held, true);
-                            if (failurePoint === 'admission')
+                            if (primaryPoint === 'admission')
                             {
                                 throw new Error('fixture BehaviorDoc admission failed');
                             }
@@ -593,12 +657,20 @@ test('BehaviorDoc admission and completion failures both release capacity before
                             return {};
                         }
                     }),
-                new RegExp(`fixture BehaviorDoc ${failurePoint} failed`, 'u'));
+                (error) =>
+                {
+                    assert.match(error.message, new RegExp(`fixture BehaviorDoc ${primaryPoint} failed`, 'u'));
+                    if (failurePoint === 'admission-and-release')
+                    {
+                        assert.equal(error.productionCapacityReleaseError.message, 'injected capacity release failure');
+                    }
+                    return true;
+                });
             assert.equal(admissionCalls, 1);
             assert.equal(completeCalls, failurePoint === 'completion' ? 1 : 0);
             assert.equal(cleanupCalls, 0);
             assert.equal(releaseCalls, 1);
-            assert.equal(held, false);
+            assert.equal(held, failurePoint === 'admission-and-release');
         });
     }
 });
