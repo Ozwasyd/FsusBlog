@@ -1470,8 +1470,8 @@
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
-            "contentDigest": "sha256:906afb02dda3294bae274a959de7d125f0d6899f66caaa0a9e169c37a3c537c5",
-            "indexDigest": "sha256:906afb02dda3294bae274a959de7d125f0d6899f66caaa0a9e169c37a3c537c5"
+            "contentDigest": "sha256:b4da0a1ec7d6dab96f8250ca381a07cb54f962625e4ad9401d6ff5a68f7cc01b",
+            "indexDigest": "sha256:b4da0a1ec7d6dab96f8250ca381a07cb54f962625e4ad9401d6ff5a68f7cc01b"
         },
         {
             "path": "tests/tools/test-matrix-topology.test.mjs",

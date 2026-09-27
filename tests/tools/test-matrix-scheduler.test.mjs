@@ -8,6 +8,7 @@ import process from 'node:process';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as scheduler from '../../tools/test-matrix/scheduler.mjs';
 
 const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
@@ -38,7 +39,7 @@ const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
 
 test('scheduler source snapshot excludes owned current-run outputs but detects source drift', async (t) =>
 {
-    const { snapshotSourceState } = await import(pathToFileURL(schedulerFile).href);
+    const { snapshotSourceState } = scheduler;
     const repository = createTempDir('current-run-scheduler-source');
     t.after(() => fs.rmSync(repository, { recursive: true, force: true }));
     const git = (...args) => execFileSync('git', args, { cwd: repository, encoding: 'utf8' });
@@ -79,14 +80,7 @@ test('scheduler source snapshot excludes owned current-run outputs but detects s
 
 async function loadScheduler()
 {
-    try
-    {
-        return await import(`${pathToFileURL(schedulerFile).href}?test=${Date.now()}-${Math.random()}`);
-    }
-    catch
-    {
-        return {};
-    }
+    return scheduler;
 }
 
 function createTempDir(name)
@@ -140,6 +134,91 @@ function createRunnerFixture(temp)
         `await import(${JSON.stringify(pathToFileURL(runner).href)})`
     ].join('\n'));
     return wrapper;
+}
+
+function createCanonicalCliFixture(temp, payloads, configureTier = () => {}, options = {})
+{
+    assert.deepEqual(fs.readdirSync(temp), [], 'scheduler CLI fixture must start isolated and empty');
+    const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'clone', '--quiet', '--no-hardlinks',
+        '--no-checkout', '--', root, temp], { cwd: root });
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'checkout', '--quiet', '--detach', revision],
+        { cwd: temp });
+    const runner = materializeTestMatrixRunner(root, temp);
+    const matrix = parseMatrix(fs.readFileSync(path.join(temp, 'tests/matrix.yml'), 'utf8'));
+    const scripts = typeof payloads === 'string'
+        ? { 'ux-viewport-plan-progress': payloads }
+        : payloads;
+    const tierIds = Object.keys(scripts);
+    assert.ok(tierIds.length >= 1 && tierIds.length <= 2);
+    for (const tierId of tierIds)
+    {
+        const selected = matrix.tiers.find((entry) => entry.id === tierId);
+        assert.ok(selected);
+        assert.match(selected.command, /^(?:node tools\/[a-z0-9/-]+\.mjs|tools\/test\/lanes\/[a-z0-9-]+\.sh)$/u);
+        const commandPath = selected.command.startsWith('node ')
+            ? selected.command.slice('node '.length)
+            : selected.command;
+        fs.writeFileSync(path.join(temp, commandPath), scripts[tierId]);
+        Object.assign(selected, {
+            executionDependsOn: [], requiresEvidenceFrom: [], services: [],
+            parallelizable: true, exclusiveResources: [], resourceClass: 'cpu',
+            maxParallel: 1, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [],
+            cacheProfile: 'none', requiresPlaywright: 'none', requiresBootstrap: 'none',
+            artifacts: [], evidence: []
+        });
+        configureTier(selected, tierId);
+    }
+    if (options.prSmartSelectedOnly === true)
+    {
+        assert.equal(tierIds.length, 2);
+        for (const tier of matrix.tiers)
+        {
+            if (tierIds.includes(tier.id))
+            {
+                continue;
+            }
+            // Preserve the canonical finalizer graph while isolating this CLI
+            // concurrency scenario from unrelated PR-default work.
+            tier.smartGateMode = 'full-only';
+            tier.prDefault = false;
+        }
+    }
+    const flow = (value) =>
+    {
+        if (Array.isArray(value))
+        {
+            return `[${value.map(flow).join(', ')}]`;
+        }
+        if (value && typeof value === 'object')
+        {
+            return `{${Object.entries(value).map(([key, entry]) => `${key}: ${flow(entry)}`).join(', ')}}`;
+        }
+        return JSON.stringify(value);
+    };
+    const matrixFile = path.join(temp, '.tmp/cli-scenario-matrix.yml');
+    fs.mkdirSync(path.dirname(matrixFile), { recursive: true });
+    fs.writeFileSync(matrixFile, Object.entries(matrix)
+        .map(([key, value]) => `${key}: ${flow(value)}`).join('\n') + '\n');
+    assert.deepEqual(parseMatrix(fs.readFileSync(matrixFile, 'utf8')), matrix);
+    prepareBehaviorDocAdmissionFixtureAuthority({ sourceRepositoryRoot: root, repositoryRoot: temp });
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'add', '--all', '--', 'tools', 'config'],
+        { cwd: temp });
+    execFileSync(process.execPath, ['tools/test-matrix/generate-release-final-execution-authority.mjs'],
+        { cwd: temp });
+    const admission = createBehaviorDocAdmissionFixture({ sourceRepositoryRoot: root,
+        repositoryRoot: temp });
+    return {
+        runner,
+        tierId: tierIds[0],
+        tierIds,
+        matrixFile,
+        admissionEnvironment: {
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: admission.receiptFile,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: admission.contentDigest,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: admission.runId
+        }
+    };
 }
 
 test('ESM fixture materializer follows first- and second-level relative imports without a file list', assertTransitiveMaterialization);
@@ -3930,47 +4009,27 @@ test('coverage registry tierIds fail closed on stale or non-covering tiers', () 
     assert.match(result.stderr, /tierIds must exactly match matrix covering tiers/u);
 });
 
-test('runner accepts fresh, resume, and max-parallel flags while CI always executes fresh', () =>
+test('runner accepts fresh, resume, and max-parallel flags while CI always executes fresh', (t) =>
 {
     const temp = createTempDir('scheduler-cli');
-    const runner = createRunnerFixture(temp);
-    const script = path.join(temp, 'append.mjs');
-    const marker = path.join(temp, 'marker.txt');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(script, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'x')\n`);
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        '  - id: fixture',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    resourceClass: cpu',
-        '    maxParallel: 2',
-        '    cpuUnits: 1',
-        '    memoryGiB: 0.1',
-        '    cacheInputs: []',
-        '    executionKey: fixture',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        '    ciJob: fixture'
-    ].join('\n'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const marker = path.join(temp, '.tmp/marker.txt');
+    const fixture = createCanonicalCliFixture(temp,
+        `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'x')\n`);
 
     const baseEnv = {
         ...process.env,
-        FSUSBLOG_MATRIX_FILE: matrix,
+        ...fixture.admissionEnvironment,
+        FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
         FSUSBLOG_TEST_RUN_ID: `scheduler-cli-${process.pid}`
     };
-    const fresh = spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh', '--max-parallel', '1'], {
+    const fresh = spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--fresh', '--max-parallel', '1'], {
         cwd: temp,
         env: baseEnv,
         encoding: 'utf8'
     });
     assert.equal(fresh.status, 0, fresh.stderr);
-    const ciResume = spawnSync(process.execPath, [runner, 'run', 'fixture', '--resume', '--max-parallel=1'], {
+    const ciResume = spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--resume', '--max-parallel=1'], {
         cwd: temp,
         env: { ...baseEnv, CI: 'true' },
         encoding: 'utf8'
@@ -3985,42 +4044,24 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     const temp = createTempDir('diagnostic-job-summary');
     try
     {
-        const runner = createRunnerFixture(temp);
-        const matrix = path.join(temp, 'matrix.yml');
-        const script = path.join(temp, 'success.mjs');
-        fs.writeFileSync(script, 'process.exit(0)\n');
-        const tierLines = (id, ciJob) => [
-            `  - id: ${id}`,
-            `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-            '    executionDependsOn: []',
-            '    services: []',
-            '    parallelizable: true',
-            '    exclusiveResources: []',
-            '    resourceClass: cpu',
-            '    maxParallel: 2',
-            '    cpuUnits: 1',
-            '    memoryGiB: 0.1',
-            '    cacheInputs: []',
-            `    executionKey: ${id}`,
-            '    requiresPlaywright: none',
-            '    artifacts: []',
-            '    evidence: []',
-            `    ciJob: ${ciJob}`
-        ];
-        fs.writeFileSync(matrix, [
-            'version: fsusblog-test-matrix-v2',
-            'tiers:',
-            ...tierLines('diagnostic-fixture', 'browser-diagnostics'),
-            ...tierLines('correctness-fixture', 'correctness-fixture')
-        ].join('\n'));
+        const diagnosticTierId = 'ux-viewport-plan-progress';
+        const correctnessTierId = 'runtime-cache-evidence';
+        const fixture = createCanonicalCliFixture(temp, {
+            [diagnosticTierId]: 'process.exit(0)\n',
+            [correctnessTierId]: 'process.exit(0)\n'
+        }, (tier, id) =>
+        {
+            tier.ciJob = id === diagnosticTierId ? 'browser-diagnostics' : 'correctness-fixture';
+        });
         const env = {
             ...process.env,
-            FSUSBLOG_MATRIX_FILE: matrix,
+            ...fixture.admissionEnvironment,
+            FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
             FSUSBLOG_TEST_RUN_ID: `diagnostic-job-summary-${process.pid}`
         };
-        for (const id of ['diagnostic-fixture', 'correctness-fixture'])
+        for (const id of [diagnosticTierId, correctnessTierId])
         {
-            const result = spawnSync(process.execPath, [runner, 'run', id, '--no-deps', '--fresh'], {
+            const result = spawnSync(process.execPath, [fixture.runner, 'run', id, '--no-deps', '--fresh'], {
                 cwd: temp,
                 env,
                 encoding: 'utf8'
@@ -4040,55 +4081,42 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     }
 });
 
-test('viewport CLI never reuses failed Playwright progress across scheduler resume', () =>
+test('viewport CLI never reuses failed Playwright progress across scheduler resume', (t) =>
 {
     const temp = createTempDir('scheduler-viewport-resume');
-    const runner = createRunnerFixture(temp);
-    const history = path.join(temp, 'resume-env.txt');
-    const artifact = path.join(temp, 'viewport-output.json');
-    const script = path.join(temp, 'viewport.mjs');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(script, [
-        "import fs from 'node:fs'",
-        `fs.appendFileSync(${JSON.stringify(history)}, (process.env.FSUSBLOG_UX_VIEWPORT_RESUME ?? 'unset') + '\\n')`,
-        `fs.writeFileSync(${JSON.stringify(artifact)}, '{}\\n')`
-    ].join('\n'));
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        '  - id: ux-viewport-smoke',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    resourceClass: browser',
-        '    maxParallel: 1',
-        '    cpuUnits: 1',
-        '    memoryGiB: 0.1',
-        '    cacheInputs: []',
-        '    executionKey: viewport-smoke',
-        '    executionVariant: runtime',
-        '    requiresPlaywright: chromium',
-        '    artifacts: [viewport-output.json]',
-        '    evidence: [viewport-output.json]',
-        '    ciJob: ux-viewport-smoke'
-    ].join('\n'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const history = path.join(temp, '.tmp/resume-env.txt');
+    const artifact = path.join(temp, '.tmp/viewport-output.json');
+    const fixture = createCanonicalCliFixture(temp, {
+        'ux-viewport-smoke': [
+            '#!/usr/bin/env bash',
+            'set -euo pipefail',
+            'printf "%s\\n" "$FSUSBLOG_UX_VIEWPORT_RESUME" >> ' + JSON.stringify(history),
+            'printf "{}\\n" > ' + JSON.stringify(artifact)
+        ].join('\n') + '\n'
+    }, (tier) =>
+    {
+        Object.assign(tier, { resourceClass: 'browser', executionVariant: 'runtime',
+            executionKey: 'viewport-smoke', requiresPlaywright: 'chromium',
+            artifacts: ['.tmp/viewport-output.json'], evidence: ['.tmp/viewport-output.json'],
+            ciJob: 'ux-viewport-smoke' });
+    });
 
     const env = {
         ...process.env,
-        FSUSBLOG_MATRIX_FILE: matrix,
+        ...fixture.admissionEnvironment,
+        FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
         FSUSBLOG_TEST_RUN_ID: `viewport-resume-${process.pid}`,
         FSUSBLOG_UX_VIEWPORT_RESUME: '1'
     };
-    const fresh = spawnSync(process.execPath, [runner, 'run', 'ux-viewport-smoke', '--fresh'], {
+    const fresh = spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--fresh'], {
         cwd: temp,
         env,
         encoding: 'utf8'
     });
     assert.equal(fresh.status, 0, fresh.stderr);
     fs.rmSync(artifact);
-    const resumed = spawnSync(process.execPath, [runner, 'run', 'ux-viewport-smoke', '--resume'], {
+    const resumed = spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--resume'], {
         cwd: temp,
         env,
         encoding: 'utf8'
@@ -4097,48 +4125,22 @@ test('viewport CLI never reuses failed Playwright progress across scheduler resu
     assert.deepEqual(fs.readFileSync(history, 'utf8').trim().split('\n'), ['0', '0']);
 });
 
-test('local fresh runs isolate the default namespace by scheduler run id', () =>
+test('local fresh runs isolate the default namespace by scheduler run id', (t) =>
 {
     const temp = createTempDir('scheduler-fresh-namespace');
-    const runner = createRunnerFixture(temp);
-    const marker = path.join(temp, 'namespaces.txt');
-    const script = path.join(temp, 'namespace.mjs');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(script, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, process.env.FSUSBLOG_TEST_NAMESPACE + '\\n')\n`);
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        '  - id: fixture',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    phase: 1',
-        '    resourceClass: cpu',
-        '    cpuWeight: 1',
-        '    memoryWeight: 1',
-        '    minCpuUnits: 1',
-        '    maxParallel: 1',
-        '    cpuUnits: 1',
-        '    memoryGiB: 0.1',
-        '    cacheInputs: []',
-        '    executionKey: fixture',
-        '    executionVariant: ordinary',
-        '    coverage: []',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        '    ciJob: fixture'
-    ].join('\n'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const marker = path.join(temp, '.tmp/namespaces.txt');
+    const fixture = createCanonicalCliFixture(temp,
+        `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, process.env.FSUSBLOG_TEST_NAMESPACE + '\\n')\n`);
 
     for (const runId of ['fresh-namespace-a', 'fresh-namespace-b'])
     {
-        const result = spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh'], {
+        const result = spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--fresh'], {
             cwd: temp,
             env: {
                 ...process.env,
-                FSUSBLOG_MATRIX_FILE: matrix,
+                ...fixture.admissionEnvironment,
+                FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
                 FSUSBLOG_TEST_RUN_ID: runId,
                 FSUSBLOG_TEST_NAMESPACE: ''
             },
@@ -4153,43 +4155,27 @@ test('local fresh runs isolate the default namespace by scheduler run id', () =>
     assert.match(namespaces[1], /fresh-namespace-b/u);
 });
 
-test('fresh summaries reset locally while tier resources cap nested worker pools', () =>
+test('fresh summaries reset locally while tier resources cap nested worker pools', (t) =>
 {
     const temp = createTempDir('scheduler-summary-fresh');
-    const runner = createRunnerFixture(temp);
-    const marker = path.join(temp, 'workers.json');
-    const script = path.join(temp, 'workers.mjs');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(script, `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ vitest: process.env.FSUSBLOG_VITEST_MAX_WORKERS, manifest: process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS, bundleBudget: process.env.FSUSBLOG_BUNDLE_CPU_BUDGET }))\n`);
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        '  - id: fixture',
-        '    physicalBundleId: fixture-bundle',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    phase: 1',
-        '    resourceClass: cpu',
-        '    cpuWeight: 2',
-        '    memoryWeight: 2',
-        '    minCpuUnits: 1',
-        '    cacheInputs: []',
-        '    executionKey: fixture',
-        '    executionVariant: ordinary',
-        '    coverage: []',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        '    ciJob: fixture'
-    ].join('\n'));
-    const env = { ...process.env, FSUSBLOG_MATRIX_FILE: matrix, FSUSBLOG_TEST_RUN_ID: 'same-fresh-run' };
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const marker = path.join(temp, '.tmp/workers.json');
+    const fixture = createCanonicalCliFixture(temp,
+        `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ vitest: process.env.FSUSBLOG_VITEST_MAX_WORKERS, manifest: process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS, bundleBudget: process.env.FSUSBLOG_BUNDLE_CPU_BUDGET }))\n`,
+        (tier) =>
+        {
+            Object.assign(tier, { physicalBundleId: 'fixture-bundle', cpuWeight: 2,
+                memoryWeight: 2, minCpuUnits: 1, ciJob: 'fixture' });
+            delete tier.cpuUnits;
+            delete tier.memoryGiB;
+        });
+    const env = { ...process.env, ...fixture.admissionEnvironment,
+        FSUSBLOG_MATRIX_FILE: fixture.matrixFile, FSUSBLOG_TEST_RUN_ID: 'same-fresh-run' };
     delete env.FSUSBLOG_VITEST_MAX_WORKERS;
     delete env.FSUSBLOG_COMMAND_MANIFEST_WORKERS;
     delete env.FSUSBLOG_BUNDLE_CPU_BUDGET;
-    const run = () => spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh'], { cwd: temp, env, encoding: 'utf8' });
+    const run = () => spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--fresh'],
+        { cwd: temp, env, encoding: 'utf8' });
     const first = run();
     assert.equal(first.status, 0, first.stderr);
     const workers = JSON.parse(fs.readFileSync(marker, 'utf8'));
@@ -4206,93 +4192,66 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
     assert.ok(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).durationMs < 100_000);
 });
 
-test('fresh CI steps accumulate within one workflow job but reset on the next workflow run', () =>
+test('fresh CI steps accumulate within one workflow job but reset on the next workflow run', (t) =>
 {
     const temp = createTempDir('scheduler-summary-ci');
-    const runner = createRunnerFixture(temp);
-    const matrix = path.join(temp, 'matrix.yml');
-    const noop = path.join(temp, 'noop.mjs');
-    fs.writeFileSync(noop, 'process.exit(0)\n');
-    const tierLines = (id) => [
-        `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} ${noop}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    phase: 1',
-        '    resourceClass: cpu',
-        '    maxParallel: 1',
-        '    cpuUnits: 1',
-        '    memoryGiB: 1',
-        '    cacheInputs: []',
-        `    executionKey: ${id}`,
-        '    executionVariant: ordinary',
-        '    coverage: []',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        '    ciJob: fixture'
-    ];
-    fs.writeFileSync(matrix, ['version: fsusblog-test-matrix-v2', 'tiers:', ...tierLines('first'), ...tierLines('second')].join('\n'));
-    const run = (tierId, githubRunId) => spawnSync(process.execPath, [runner, 'run', tierId, '--no-deps', '--fresh'], {
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const firstTierId = 'ux-viewport-plan-progress';
+    const secondTierId = 'runtime-cache-evidence';
+    const fixture = createCanonicalCliFixture(temp, {
+        [firstTierId]: 'process.exit(0)\n',
+        [secondTierId]: 'process.exit(0)\n'
+    }, (tier) =>
+    {
+        Object.assign(tier, { ciJob: 'fixture', maxParallel: 1, memoryGiB: 1 });
+    });
+    const run = (tierId, githubRunId) => spawnSync(process.execPath,
+        [fixture.runner, 'run', tierId, '--no-deps', '--fresh'], {
         cwd: temp,
         env: {
             ...process.env,
+            ...fixture.admissionEnvironment,
             CI: 'true',
             GITHUB_ACTIONS: 'true',
             GITHUB_RUN_ID: githubRunId,
             GITHUB_RUN_ATTEMPT: '1',
             GITHUB_JOB: 'fixture-workflow-job',
-            FSUSBLOG_MATRIX_FILE: matrix,
+            FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
             FSUSBLOG_TEST_RUN_ID: `${githubRunId}-${tierId}`
         },
         encoding: 'utf8'
     });
-    const firstRun = run('first', '100');
+    const firstRun = run(firstTierId, '100');
     assert.equal(firstRun.status, 0, firstRun.stderr);
-    const secondRun = run('second', '100');
+    const secondRun = run(secondTierId, '100');
     assert.equal(secondRun.status, 0, secondRun.stderr);
     const summaryFile = path.join(temp, '.tmp/release-evidence/jobs/fixture.json');
-    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds.sort(), ['first', 'second']);
-    const nextWorkflowRun = run('second', '101');
+    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds.sort(),
+        [firstTierId, secondTierId].sort());
+    const nextWorkflowRun = run(secondTierId, '101');
     assert.equal(nextWorkflowRun.status, 0, nextWorkflowRun.stderr);
-    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds, ['second']);
+    assert.deepEqual(JSON.parse(fs.readFileSync(summaryFile, 'utf8')).tierIds, [secondTierId]);
 });
 
-test('production cleanup uses the same safe namespace for dot segments as fixture writers', () =>
+test('production cleanup uses the same safe namespace for dot segments as fixture writers', (t) =>
 {
     const temp = createTempDir('scheduler-namespace-cleanup');
-    execFileSync('git', ['init', '--quiet'], { cwd: temp });
-    fs.writeFileSync(path.join(temp, '.gitignore'), '.tmp/\n');
-    const runner = createRunnerFixture(temp);
-    const script = path.join(temp, 'fixture.mjs');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(script, "import fs from 'node:fs'\nfs.mkdirSync('.tmp/fixtures/local/auth', { recursive: true })\nfs.writeFileSync('.tmp/fixtures/local/auth/secret.json', '{}')\n");
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        '  - id: production',
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    phase: 1',
-        '    resourceClass: cpu',
-        '    cpuWeight: 1',
-        '    memoryWeight: 1',
-        '    minCpuUnits: 1',
-        '    maxParallel: 1',
-        '    cacheInputs: []',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        '    ciJob: production-summary'
-    ].join('\n'));
-    const result = spawnSync(process.execPath, [runner, 'run', 'production', '--fresh'], {
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const fixture = createCanonicalCliFixture(temp, {
+        production: [
+            '#!/usr/bin/env bash',
+            'set -euo pipefail',
+            'mkdir -p .tmp/fixtures/local/auth',
+            'printf "{}\\n" > .tmp/fixtures/local/auth/secret.json'
+        ].join('\n') + '\n'
+    }, (tier) =>
+    {
+        Object.assign(tier, { phase: 1, resourceClass: 'cpu', ciJob: 'production-summary' });
+    });
+    const result = spawnSync(process.execPath, [fixture.runner, 'run', fixture.tierId, '--no-deps', '--fresh'], {
         cwd: temp,
-        env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrix, FSUSBLOG_TEST_NAMESPACE: '..' },
+        env: { ...process.env, ...fixture.admissionEnvironment,
+            FSUSBLOG_MATRIX_FILE: fixture.matrixFile, FSUSBLOG_TEST_NAMESPACE: '..' },
         encoding: 'utf8'
     });
     assert.equal(result.status, 0, result.stderr);
@@ -4301,47 +4260,25 @@ test('production cleanup uses the same safe namespace for dot segments as fixtur
     assert.equal(evidence.namespace, 'local');
 });
 
-test('ci-job keeps its CLI contract while using one scheduler checkpoint for all job tiers', () =>
+test('ci-job keeps its CLI contract while using one scheduler checkpoint for all job tiers', (t) =>
 {
     const temp = createTempDir('scheduler-ci-job');
-    const runner = createRunnerFixture(temp);
-    const marker = path.join(temp, 'marker.txt');
-    const firstScript = path.join(temp, 'first.mjs');
-    const secondScript = path.join(temp, 'second.mjs');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(firstScript, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'a')\n`);
-    fs.writeFileSync(secondScript, `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'b')\n`);
-
-    const tierLines = (id, script) => [
-        `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    resourceClass: cpu',
-        '    maxParallel: 2',
-        '    cpuUnits: 1',
-        '    memoryGiB: 0.1',
-        '    cacheInputs: []',
-        `    executionKey: ${id}`,
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        '    ciJob: fixture-job',
-        '    localOnly: false',
-        '    nightlyOnly: false'
-    ];
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        ...tierLines('first', firstScript),
-        ...tierLines('second', secondScript)
-    ].join('\n'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const marker = path.join(temp, '.tmp/marker.txt');
+    const firstTierId = 'ux-viewport-plan-progress';
+    const secondTierId = 'runtime-cache-evidence';
+    const fixture = createCanonicalCliFixture(temp, {
+        [firstTierId]: `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'a')\n`,
+        [secondTierId]: `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'b')\n`
+    }, (tier) =>
+    {
+        Object.assign(tier, { ciJob: 'fixture-job', localOnly: false,
+            nightlyOnly: false, maxParallel: 2 });
+    });
 
     const runId = `scheduler-ci-job-${process.pid}`;
     const result = spawnSync(process.execPath, [
-        runner,
+        fixture.runner,
         'ci-job',
         'fixture-job',
         '--fresh',
@@ -4350,7 +4287,8 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
         cwd: temp,
         env: {
             ...process.env,
-            FSUSBLOG_MATRIX_FILE: matrix,
+            ...fixture.admissionEnvironment,
+            FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
             FSUSBLOG_TEST_RUN_ID: runId
         },
         encoding: 'utf8'
@@ -4358,7 +4296,7 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual([...fs.readFileSync(marker, 'utf8')].sort(), ['a', 'b']);
     const checkpoint = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/test-runs', runId, 'checkpoint.json'), 'utf8'));
-    assert.deepEqual(checkpoint.completedTiers.sort(), ['first', 'second']);
+    assert.deepEqual(checkpoint.completedTiers.sort(), [firstTierId, secondTierId].sort());
 });
 
 test('tier fingerprints include shard, selected runtime environment, platform, architecture, and Node version', async () =>
@@ -4736,20 +4674,16 @@ test('pollution detection catches staging and executable-bit changes without rej
     assert.ok(mode.failure.changedPaths.includes('tracked.txt'));
 });
 
-test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () =>
+test('ci-pr-smart executes selected tiers through one asynchronous DAG run', (t) =>
 {
     const temp = createTempDir('scheduler-ci-pr-smart');
-    const runner = createRunnerFixture(temp);
-    const marker = path.join(temp, 'events.txt');
-    const readyDir = path.join(temp, 'ready');
-    const changedFiles = path.join(temp, 'changed.txt');
-    const matrix = path.join(temp, 'matrix.yml');
-    fs.writeFileSync(changedFiles, '');
-    fs.mkdirSync(readyDir);
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const marker = path.join(temp, '.tmp/events.txt');
+    const readyDir = path.join(temp, '.tmp/ready');
+    const changedFiles = path.join(temp, '.tmp/changed.txt');
     const scriptFor = (id) =>
     {
-        const script = path.join(temp, `${id}.mjs`);
-        fs.writeFileSync(script, [
+        return [
             "import fs from 'node:fs'",
             "import path from 'node:path'",
             `fs.appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`start:${id}\n`)})`,
@@ -4764,43 +4698,23 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
             '  setTimeout(waitForPeer, 10)',
             '}',
             'waitForPeer()'
-        ].join('\n'));
-        return script;
+        ].join('\n');
     };
-    const tierLines = (id) => [
-        `  - id: ${id}`,
-        `    command: ${JSON.stringify(`${process.execPath} ${scriptFor(id)}`)}`,
-        '    executionDependsOn: []',
-        '    services: []',
-        '    parallelizable: true',
-        '    exclusiveResources: []',
-        '    phase: 1',
-        '    resourceClass: cpu',
-        '    maxParallel: 2',
-        '    cpuUnits: 0.1',
-        '    memoryGiB: 0.01',
-        '    cacheInputs: []',
-        `    executionKey: ${id}`,
-        '    executionVariant: ordinary',
-        '    coverage: []',
-        '    requiresPlaywright: none',
-        '    artifacts: []',
-        '    evidence: []',
-        `    ciJob: ${id}`,
-        '    localOnly: false',
-        '    nightlyOnly: false',
-        '    requiredFor: fast',
-        '    smartGateMode: always'
-    ];
-    fs.writeFileSync(matrix, [
-        'version: fsusblog-test-matrix-v2',
-        'tiers:',
-        ...tierLines('smart-a'),
-        ...tierLines('smart-b')
-    ].join('\n'));
+    const firstTierId = 'ux-viewport-plan-progress';
+    const secondTierId = 'runtime-cache-evidence';
+    const fixture = createCanonicalCliFixture(temp, {
+        [firstTierId]: scriptFor(firstTierId),
+        [secondTierId]: scriptFor(secondTierId)
+    }, (tier) =>
+    {
+        Object.assign(tier, { phase: 1, ciJob: `fixture-${tier.id}`, smartGateMode: 'always',
+            prDefault: true, localOnly: false, nightlyOnly: false, manualOnly: false });
+    }, { prSmartSelectedOnly: true });
+    fs.mkdirSync(readyDir, { recursive: true });
+    fs.writeFileSync(changedFiles, '');
 
     const result = spawnSync(process.execPath, [
-        runner,
+        fixture.runner,
         'ci-pr-smart',
         '--changed-files',
         changedFiles
@@ -4808,17 +4722,19 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
         cwd: temp,
         env: {
             ...process.env,
-            FSUSBLOG_MATRIX_FILE: matrix,
-            FSUSBLOG_TEST_SOURCE_COMMIT: '1'.repeat(40),
-            FSUSBLOG_TEST_SOURCE_FINGERPRINT: `sha256:${'2'.repeat(64)}`
+            ...fixture.admissionEnvironment,
+            FSUSBLOG_MATRIX_FILE: fixture.matrixFile
         },
         encoding: 'utf8'
     });
     assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual([...result.stderr.matchAll(/\[matrix:ci-pr-smart\] started ([^:]+):/gu)]
+        .map((match) => match[1]).filter((id) => id !== 'managed-production-build-gc').sort(),
+    [firstTierId, secondTierId].sort());
     const events = fs.readFileSync(marker, 'utf8').trim().split('\n');
-    const firstEnd = Math.min(events.indexOf('end:smart-a'), events.indexOf('end:smart-b'));
-    assert.ok(events.indexOf('start:smart-a') < firstEnd);
-    assert.ok(events.indexOf('start:smart-b') < firstEnd);
+    const firstEnd = Math.min(events.indexOf(`end:${firstTierId}`), events.indexOf(`end:${secondTierId}`));
+    assert.ok(events.indexOf(`start:${firstTierId}`) < firstEnd);
+    assert.ok(events.indexOf(`start:${secondTierId}`) < firstEnd);
 });
 
 test('resident leases stay in admission accounting, hand off once, and release capacity only after exit', async () =>
