@@ -1,7 +1,10 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tools/testing/generate-test-execution-envelope-applicability.mjs"
+        "tools/testing/generate-test-execution-envelope-applicability.mjs",
+        "tools/test-matrix/execution-envelope-policy.mjs",
+        "tools/test/run-matrix-governance-once.sh",
+        "tools/testing/content-shape-catalog.mjs"
     ],
     "outputs": [
         {
@@ -11,6 +14,10 @@
         {
             "path": "config/testing/correctness-attempt-producers.json",
             "sha256": "0a7c8e62da19fa4a4c3e1b1c519f072dde5cc435840c1d25a1dd45a445559e7a"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "a4b9105895642a86c1acb4ab9cd0520fa13fe8e7b9748e4c01d614c56e67e03c"
         }
     ]
 }
