@@ -2,15 +2,12 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tests/matrix.yml",
-        "tools/docs/generate-testing-docs.mjs",
         "tools/test/execution-envelope-network.mjs",
-        "tools/test/generate-correctness-attempt-producers.mjs",
         "tools/test/physical-execution-linux-systemd-adapter.mjs",
+        "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
         "tools/test/physical-execution-private-dotnet-scratch.mjs",
         "tools/test/physical-execution-process-tree.mjs",
-        "tools/test/run-deterministic-command.mjs",
-        "tools/test-matrix/generate-release-final-execution-authority.mjs",
-        "tools/test-matrix/release-final-static-boundary.mjs"
+        "tools/test/run-deterministic-command.mjs"
     ],
     "outputs": [
         {
