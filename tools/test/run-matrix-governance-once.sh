@@ -5,12 +5,17 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONSUMER_ID="${1:-${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID:-matrix-governance}}"
 PROJECTION_DIR="${FSUSBLOG_PHYSICAL_EXECUTION_PROJECTION_DIR:-.tmp/physical-execution-projections}"
 DOCS_EVIDENCE_DIR="${FSUSBLOG_DOCS_EVIDENCE_DIR:-.tmp/docs}"
+DOTNET_HOST_ENV_ARGS=()
+if [[ "$CONSUMER_ID" == matrix-governance || "$CONSUMER_ID" == validate-matrix ]]; then
+    DOTNET_HOST_ENV_ARGS=(--env FSUSBLOG_CONTENT_FIELD_DOTNET)
+fi
 
 exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
     --key matrix-governance \
     --execution-class correctness \
     --producer-id "$CONSUMER_ID" \
     --consumer "$CONSUMER_ID" \
+    "${DOTNET_HOST_ENV_ARGS[@]}" \
     --cwd "$ROOT_DIR" \
     --projection-directory "$PROJECTION_DIR" \
     --path tests/matrix.yml \

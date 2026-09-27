@@ -83,11 +83,14 @@ function fieldApplicability(tier = {})
     ]);
 }
 
-function allowedEnvironment(tier = {})
+function allowedEnvironment(tier = {}, producerId = '')
 {
     const services = requiredServices(tier);
     return [
         'PATH',
+        ...(['matrix-governance', 'validate-matrix'].includes(producerId)
+            ? ['FSUSBLOG_CONTENT_FIELD_DOTNET']
+            : []),
         ...(tier.requiresDotnet ? ['DOTNET_ROOT'] : []),
         ...(tier.requiresPlaywright && tier.requiresPlaywright !== 'none'
             ? ['PLAYWRIGHT_BROWSERS_PATH']
@@ -167,7 +170,7 @@ export function generateApplicability(matrix, producerContract)
             policyId: 'correctness-hermetic-v1',
             evidenceClass: evidenceClass(tier),
             executionClass: tier.executionClass,
-            allowedEnvironment: allowedEnvironment(tier),
+            allowedEnvironment: allowedEnvironment(tier, tier.id),
             requiredServices: requiredServices(tier),
             fieldApplicability: fieldApplicability(tier)
         }));
@@ -180,7 +183,7 @@ export function generateApplicability(matrix, producerContract)
             policyId: 'correctness-hermetic-v1',
             evidenceClass: 'correctness',
             executionClass: 'static-governance',
-            allowedEnvironment: allowedEnvironment(),
+            allowedEnvironment: allowedEnvironment({}, producerId),
             requiredServices: [],
             fieldApplicability: fieldApplicability()
         }));

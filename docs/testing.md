@@ -141,8 +141,11 @@ local/ref alias/ref-out/helper/local-function/lambda/partial-file dataflow 都�
 repo-pinned SDK/runtime、absolute dotnet host 与 Roslyn/analyzer binary digests、backend project、
 `Directory.Build.props`、central packages 和 locked dependency inputs；restore/build 均使用 locked
 source 和显式 SDK，不消费 `PATH`、`DOTNET_ROOT`、TPA 或 `LanguageVersion.Latest`。隔离 host
-可用 `FSUSBLOG_CONTENT_FIELD_DOTNET` 指向已有的 absolute dotnet host，但该 host 仍须完整匹配
-repo-pinned SDK/runtime 与上述 binary identity，变量也不会传入 production compilation。实际 field
+可用 `FSUSBLOG_CONTENT_FIELD_DOTNET` 指向已有的 absolute dotnet host；隔离矩阵治理仅在
+`matrix-governance` 与 `validate-matrix` 两个 producer 显式传递此输入，其他 producer 不继承它。
+显式指定的 host 若不存在、不可观测或 SDK 版本不符即拒绝，不回退到默认路径；它仍须完整匹配
+repo-pinned SDK/runtime 与上述 binary identity，变量也不会传入
+production compilation。实际 field
 inventory、normalization、计数或边界变化仍会 fail closed。production
 的“字符”计数语义固定为 .NET UTF-16
 `string.Length`，byte 计数固定为 `Encoding.UTF8.GetByteCount`，generator 另行记录
