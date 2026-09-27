@@ -464,6 +464,29 @@ test('zero-legacy machine-field mutation corpus rejects separator variants and b
     assert.ok(rules.includes('forbidden-self-certification:reviewed'))
 })
 
+test('zero-legacy qualification-only fields retain their exact path scope', (t) =>
+{
+    const fields = {
+        expectedValue: 1,
+        baselineValue: 1,
+        verifiedAt: 'now',
+        waiver: 'manual'
+    }
+    const qualified = 'config/testing/behavior-qualification.json'
+    const ordinary = 'config/runtime/options.json'
+    const scan = scanZeroLegacyGovernance(repositoryFixture(t, {
+        [qualified]: JSON.stringify(fields),
+        [ordinary]: JSON.stringify(fields)
+    }))
+    for (const field of Object.keys(fields))
+    {
+        assert.ok(scan.findings.some((finding) => finding.file === qualified
+            && finding.rule === `forbidden-machine-field:${field}`), `${field} escaped qualification`)
+        assert.equal(scan.findings.some((finding) => finding.file === ordinary
+            && finding.rule === `forbidden-machine-field:${field}`), false, `${field} leaked outside qualification`)
+    }
+})
+
 test('zero-legacy fixture classification requires the complete reviewed source to rejection sink', (t) =>
 {
     const source = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
