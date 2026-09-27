@@ -7,6 +7,7 @@ import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { finished } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission consumes the canonical BehaviorDoc receipt validator.
 import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission.mjs';
@@ -2053,7 +2054,7 @@ function beginResourceService(tier, { root, env, outputPipeline, boundary, resou
                 {
                     const receipt = await processOwner.register(identity, authority);
                     rootPid ??= identity.pid;
-                    resolveRegistration();
+                    resolveRegistration({ identity, authority, receipt });
                     await releaseReady;
                     if (controller.signal.aborted)
                     {
@@ -2104,6 +2105,7 @@ function beginResourceService(tier, { root, env, outputPipeline, boundary, resou
             logTruncationReason: result.logTruncationReason ?? evidence?.logTruncationReason ?? null };
     })();
     return { promise, registrationReady, resume: release, terminate, ownsProcessTree: true,
+        signal: controller.signal,
         get rootPid()
         {
             return rootPid;
@@ -5987,7 +5989,83 @@ async function runDagUnlocked(options)
     {
         schedulerWaitLedger.observe(tier.id, null);
         const enforcementBundleId = tier.physicalBundleId ?? tier.id;
-        const effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
+        let effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
+        let mysqlScope = null;
+        if ((tier.services ?? []).includes('mysql'))
+        {
+            const productionBundle = tier.physicalBundleId === 'backend-tests'
+                && tier.logicalMembers?.includes('backend-unit');
+            const matrixUnit = tier.id === 'backend-unit' && !tier.physicalBundleId;
+            if (!isDeepStrictEqual(tier.services, ['mysql']) || (!productionBundle && !matrixUnit)
+                || options.executeTier)
+            {
+                throw new Error('MySQL service admission requires its exact physical Migration producer');
+            }
+            const [{ loadExecutionServiceCatalog, validateExecutionServiceCatalog }, admission, lifecycle] = await Promise.all([
+                import(new URL('../test/execution-envelope-services.mjs', import.meta.url)),
+                import(new URL('../test/mysql-fixture-admission.mjs', import.meta.url)),
+                import(new URL('../test-fixtures/services/mysql.mjs', import.meta.url))
+            ]);
+            const catalog = loadExecutionServiceCatalog();
+            const catalogErrors = validateExecutionServiceCatalog(catalog,
+                { tiers: [{ services: Object.keys(catalog.services ?? {}) }] });
+            if (catalogErrors.length)
+            {
+                throw new Error(`MySQL scheduler service catalog is invalid: ${catalogErrors.join('; ')}`);
+            }
+            const service = catalog.services.mysql;
+            const identity = { root: fs.realpathSync(root), runId, namespace: options.namespace,
+                bundleId: productionBundle ? 'backend-tests' : 'matrix:backend-unit',
+                stepId: 'migration-services', sourceState };
+            const context = { ...identity, resourceGrant: structuredClone(service.resourceGrant),
+                startupBudgetMs: service.lifecycleBudgets.startupMs,
+                commandBudgetMs: service.lifecycleBudgets.commandMs,
+                cleanupBudgetMs: service.lifecycleBudgets.cleanupMs };
+            const lease = resourceEnforcer.reserveContainerResources(enforcementBundleId, {
+                id: 'mysql-migration', identity, limits: context.resourceGrant
+            });
+            const scope = { context, lease, lifecycle, admission, service: null, binding: null,
+                released: false, cleanupPromise: null };
+            scope.cleanup = () => scope.cleanupPromise ??= lease.releaseAfterCleanup(async () =>
+            {
+                if (scope.service)
+                {
+                    await scope.service.cleanup();
+                }
+                if (!scope.binding)
+                {
+                    // The lifecycle cannot create until it has retained this binding.
+                    // A preflight/source failure therefore has no container to remove.
+                    return { containerAbsent: true, credentialsRemoved: true };
+                }
+                return lifecycle.verifyMySqlFixtureServiceCleanup(context,
+                    { expectedBindingDigest: scope.binding.bindingDigest }).cleanup;
+            }).then((result) =>
+            {
+                scope.released = true;
+                if (checkpoint.mysqlFixtureServices?.[tier.id])
+                {
+                    checkpoint.mysqlFixtureServices[tier.id].status = 'cleaned';
+                    checkpoint.mysqlFixtureServices[tier.id].cleanup = result;
+                    writeCheckpoint(checkpointFile, checkpoint, { eventType: 'mysql-service-cleaned',
+                        tier: tier.id, step: 'migration-services' });
+                }
+                return result;
+            }).catch((error) =>
+            {
+                scope.cleanupPromise = null;
+                throw error;
+            });
+            mysqlScope = scope;
+            options.registerSchedulerFinalizer?.(async () =>
+            {
+                if (!scope.released)
+                {
+                    await scope.cleanup();
+                }
+            });
+            effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
+        }
         schedulerAdmissionSequence += 1;
         const releaseFinalRecorded = checkpoint.tiers?.['release-final'];
         const releaseFinalSpawnCountBeforeAdmission = active.has('release-final')
@@ -6036,6 +6114,8 @@ async function runDagUnlocked(options)
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID: runId,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id,
+            ...(mysqlScope ? { FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE:
+                mysqlScope.admission.mysqlFixtureAdmissionFile(mysqlScope.context) } : {}),
             ...(tier.residentLeaseConsumer === true ? {
         FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
         FSUSBLOG_RESIDENT_LEASE_HANDOFF: residentHandoffFile
@@ -6239,6 +6319,7 @@ async function runDagUnlocked(options)
         const requiresProcessRegistration =
             resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess);
         let execution;
+        let mysqlRegistration = null;
         const serviceBoundary = options.executeTier ? null : resourceEnforcer.executionBoundary(enforcementBundleId);
         if (options.executeTier)
         {
@@ -6298,8 +6379,7 @@ async function runDagUnlocked(options)
                         } } : {}) } });
             startingExecutions.add(execution);
             // Admission failures settle through the ordinary failure/retained-resource ledger.
-            await execution.registrationReady.catch(() =>
-            {});
+            mysqlRegistration = await execution.registrationReady.catch(() => null);
         }
         else
         {
@@ -6348,6 +6428,68 @@ async function runDagUnlocked(options)
                 await execution.promise;
                 await outputPipeline.close({ complete: false, truncationReason: 'cgroup-attach-failed' });
                 throw new Error(`cgroup attach failed for ${enforcementBundleId}: ${error.message}`, { cause: error });
+            }
+        }
+        if (mysqlScope)
+        {
+            try
+            {
+                if (!mysqlRegistration || !execution.ownsProcessTree)
+                {
+                    throw new Error('MySQL fixture requires a registered pre-exec systemd service');
+                }
+                resourceEnforcer.bindManagedService(enforcementBundleId,
+                    mysqlRegistration.identity, mysqlRegistration.authority);
+                mysqlScope.service = await mysqlScope.lifecycle.prepareMySqlFixtureService(mysqlScope.context, {
+                    signal: execution.signal,
+                    assertResourcesHeld: async (context) => mysqlScope.lease.assertHeld(context),
+                    retainRecoveryBinding: async (binding) =>
+                    {
+                        if (mysqlScope.binding)
+                        {
+                            throw new Error('MySQL scheduler refuses a repeated recovery binding');
+                        }
+                        mysqlScope.binding = structuredClone(binding);
+                        checkpoint.mysqlFixtureServices ??= {};
+                        checkpoint.mysqlFixtureServices[tier.id] = {
+                            ...structuredClone(binding), status: 'creating'
+                        };
+                        writeCheckpoint(checkpointFile, checkpoint, {
+                            eventType: 'mysql-service-intent-retained', tier: tier.id, step: 'migration-services'
+                        });
+                    }
+                });
+                await mysqlScope.service.verify();
+                const admissionFile = mysqlScope.admission.publishMySqlFixtureAdmission({
+                    context: mysqlScope.context,
+                    stateFile: mysqlScope.service.stateFile,
+                    bindingDigest: mysqlScope.service.bindingDigest,
+                    envelope: mysqlScope.service.envelope,
+                    reservation: mysqlScope.lease.snapshot()
+                });
+                checkpoint.mysqlFixtureServices[tier.id].status = 'prepared';
+                checkpoint.mysqlFixtureServices[tier.id].admissionFile = admissionFile;
+                writeCheckpoint(checkpointFile, checkpoint, {
+                    eventType: 'mysql-service-prepared', tier: tier.id, step: 'migration-services'
+                });
+            }
+            catch (error)
+            {
+                execution.terminate(error);
+                await execution.promise;
+                startingExecutions.delete(execution);
+                let failure = error;
+                try
+                {
+                    await mysqlScope.cleanup();
+                }
+                catch (cleanupError)
+                {
+                    failure = new AggregateError([error, cleanupError],
+                        'MySQL preparation and exact scheduler cleanup failed', { cause: cleanupError });
+                }
+                await outputPipeline.close({ complete: false, truncationReason: 'mysql-preparation-failed' });
+                throw failure;
             }
         }
         const resourceCollector = execution.child || execution.rootPid
@@ -6409,6 +6551,21 @@ async function runDagUnlocked(options)
                 else
                 {
                     executionResult = outcome.result;
+                }
+                if (mysqlScope)
+                {
+                    try
+                    {
+                        await mysqlScope.cleanup();
+                    }
+                    catch (error)
+                    {
+                        executionResult = { ...executionResult, code: 1,
+                            error: executionResult.error
+                                ? new AggregateError([executionResult.error, error],
+                                    'Migration execution and MySQL cleanup failed', { cause: error })
+                                : error };
+                    }
                 }
                 const logFinalization = await outputPipeline.close({
                     complete: executionResult.logComplete !== false,

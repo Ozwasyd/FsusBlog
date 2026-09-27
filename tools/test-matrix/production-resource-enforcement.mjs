@@ -257,8 +257,11 @@ export function partitionContainerResourceGrant(grant, reservations, machine)
         return { total, process: { ...total }, reserved };
     }
     const cpuUnits = total.cpuUnits - reserved.cpuUnits;
-    const memoryHighBytes = total.memoryHighBytes - reserved.memoryHighBytes;
     const memoryMaxBytes = total.memoryMaxBytes - reserved.memoryMaxBytes;
+    // A container may reserve more hard-limit headroom than soft-limit memory.
+    // Constrain the process high watermark to its remaining hard ceiling; never
+    // synthesize extra memory merely to preserve exact soft-limit subtraction.
+    const memoryHighBytes = Math.min(total.memoryHighBytes - reserved.memoryHighBytes, memoryMaxBytes);
     const pidsMax = total.pidsMax - reserved.pidsMax;
     const period = Number(total.cpuMax.split(' ')[1]);
     const quota = Math.floor(cpuUnits * period);

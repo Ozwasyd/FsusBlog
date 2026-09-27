@@ -342,6 +342,12 @@ export async function prepareMySqlFixtureService(context, {
     {
         throw new Error('MySQL lifecycle resource grant differs from its registered service contract');
     }
+    if (context.startupBudgetMs > entry.lifecycleBudgets.startupMs
+        || context.commandBudgetMs > entry.lifecycleBudgets.commandMs
+        || context.cleanupBudgetMs > entry.lifecycleBudgets.cleanupMs)
+    {
+        throw new Error('MySQL lifecycle budgets exceed its registered service contract');
+    }
     const requireCurrentSource = async () =>
     {
         const current = await observeSource(context.root);
@@ -556,7 +562,7 @@ export async function withMySqlFixtureService(context, options, consume)
     return result;
 }
 
-function readRetainedLifecycle(context, expectedBindingDigest)
+export function readRetainedMySqlFixtureLifecycle(context, expectedBindingDigest)
 {
     validateContext(context);
     if (!/^sha256:[a-f0-9]{64}$/u.test(expectedBindingDigest ?? ''))
@@ -614,7 +620,7 @@ export function verifyMySqlFixtureServiceCleanup(context, {
 } = {})
 {
     context = freezeDeep(structuredClone(context));
-    const { paths, bytes, state } = readRetainedLifecycle(context, expectedBindingDigest);
+    const { paths, bytes, state } = readRetainedMySqlFixtureLifecycle(context, expectedBindingDigest);
     if (state.phase !== 'cleaned')
     {
         throw new Error('MySQL cleanup verification requires a completed lifecycle cleanup');
@@ -713,7 +719,7 @@ export async function recoverMySqlFixtureService(context, {
 } = {})
 {
     context = freezeDeep(structuredClone(context));
-    const { paths, bytes, state } = readRetainedLifecycle(context, expectedBindingDigest);
+    const { paths, bytes, state } = readRetainedMySqlFixtureLifecycle(context, expectedBindingDigest);
     const requireDeadController = () =>
     {
         if (observeController(state.controllerIdentity)?.status !== 'dead')

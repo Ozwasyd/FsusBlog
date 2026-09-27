@@ -62,7 +62,8 @@ import {
     validateLocalBundleSummary,
     validateLocalProfileRunSummary,
     validateLocalProfiles,
-    projectLocalBootstrapFixtureProfile
+    projectLocalBootstrapFixtureProfile,
+    projectLocalNonResidentServiceRequirements
 } from './test-matrix/local-profile.mjs';
 import {
     appendFreshRuntimeCleanupFailure,
@@ -3035,6 +3036,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
         if (!projectionOnly)
         {
             projectLocalBootstrapFixtureProfile(physicalTiers, matrix.tiers);
+            projectLocalNonResidentServiceRequirements(physicalTiers, matrix.tiers);
         }
         const capacityTiers = projectionOnly
             ? prependBehaviorDocCapacityAuthority([{
@@ -3421,6 +3423,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
     const physicalTiers = capacityPlanning?.physicalTiers
     ?? createLocalBundleTiers(profileId, resolvedProfile, { maxParallel: launchParallelism });
     projectLocalBootstrapFixtureProfile(physicalTiers, resolvedLogicalMatrix.tiers);
+    projectLocalNonResidentServiceRequirements(physicalTiers, resolvedLogicalMatrix.tiers);
     if (profileCorrectnessBudget)
     {
         for (const tier of physicalTiers)

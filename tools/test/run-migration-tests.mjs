@@ -10,6 +10,7 @@ const { groupXunitSources, validateXunitProjectReport } = await import(new URL('
 const { productionDotnetArtifacts, resolveProductionBuildLayout } = await import(new URL('../test-matrix/production-build-layout.mjs', import.meta.url));
 const { publishRunBoundMarker, readRunBoundMarker } = await import(new URL('../test-matrix/run-bound-marker.mjs', import.meta.url));
 const { migrationProducerIdentity, readMigrationBuildReady } = await import(new URL('./migration-build-binding.mjs', import.meta.url));
+const { readMySqlFixtureAdmissionForRun } = await import(new URL('./mysql-fixture-admission.mjs', import.meta.url));
 const { observeExecutableIdentity, resolveExecutablePath } = await import(new URL('./execution-envelope-environment.mjs', import.meta.url));
 const { reconcileMigrationDiscovery, reconcileMigrationTrx } = await import(new URL('./migration-execution-evidence.mjs', import.meta.url));
 const { readVstestDiscoveryDiagnostic } = await import(new URL('./vstest-discovery-diagnostic.mjs', import.meta.url));
@@ -135,14 +136,43 @@ export function migrationFixtureRequirements(report)
     };
 }
 
-function requireAdmittedCases(report)
+function mysqlAdmissionForRun(options, env, phase)
+{
+    const producer = migrationProducerIdentity(options.producer);
+    return readMySqlFixtureAdmissionForRun({
+        root: options.root, runId: options.runId, namespace: options.namespace,
+        bundleId: producer.bundleId, stepId: 'migration-services', sourceState: options.sourceState
+    }, { file: String(env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE ?? '').trim(), phase });
+}
+
+function requireAdmittedCases(report, options, env, phase)
 {
     const requirements = migrationFixtureRequirements(report);
-    // Source ownership alone never admits a Docker service or permits execution.
-    if (requirements.profile !== 'none')
+    const file = String(env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE ?? '').trim();
+    if (requirements.profile === 'none')
+    {
+        if (file)
+        {
+            throw new Error('Migration execution refuses a MySQL service without source-owned fixture cases');
+        }
+        return { evidence: { profile: 'none', observations: [] }, executionEnvironment: {} };
+    }
+    if (!file)
     {
         throw new Error('Migration execution requires admitted MySQL fixture service, grant and cleanup evidence');
     }
+    const admission = mysqlAdmissionForRun(options, env, phase);
+    return {
+        evidence: { profile: 'mysql', observations: [{
+            sourceCaseIds: requirements.sourceCaseIds,
+            admissionDigest: admission.contentDigest,
+            bindingDigest: admission.record.bindingDigest,
+            stateFile: admission.record.stateFile,
+            envelope: admission.record.envelope,
+            reservation: admission.record.reservation
+        }] },
+        executionEnvironment: admission.executionEnvironment
+    };
 }
 
 /** Capture an actual dotnet child; the enclosing producer owns resource admission and cancellation. */
@@ -196,12 +226,13 @@ function readCommand(plan, name)
     return fs.readFileSync(files.stdoutFile, 'utf8');
 }
 
-function readInventory(options, plan)
+function readInventory(options, plan, env, phase = 'live')
 {
     const owner = sourceOwner(options.root);
     const report = validateXunitProjectReport(owner, JSON.parse(readCommand(plan, 'inventory')));
-    requireAdmittedCases(report);
-    return { sourceFiles: owner.sourceFiles, inventoryCases: report.testCases, assemblyFile: plan.assemblyFile };
+    const fixture = requireAdmittedCases(report, options, env, phase);
+    return { sourceFiles: owner.sourceFiles, inventoryCases: report.testCases, assemblyFile: plan.assemblyFile,
+        fixtureEvidence: fixture.evidence, fixtureExecutionEnvironment: fixture.executionEnvironment };
 }
 
 function readDiscovery(plan)
@@ -269,7 +300,7 @@ function inspectExecution(options, plan, build, env)
     {
         throw new Error('Migration execution engine changed between discovery and execution');
     }
-    const input = readInventory(options, plan);
+    const input = readInventory(options, plan, env, 'live-or-cleaned');
     const discoveredCases = readDiscovery(plan);
     if (JSON.stringify(evidenceFiles(options.root, path.join(plan.directory, 'execution')).filter((file) => file.endsWith('.trx')))
         !== JSON.stringify([plan.trxFile]))
@@ -289,12 +320,12 @@ function inspectExecution(options, plan, build, env)
         buildMarkerDigest: build.marker.digest,
         configuration: 'Release',
         engine: { ...engine, discoveryVersion: versions[0], executionVersion: versions[1] },
-        fixture: { profile: 'none', observations: [] },
+        fixture: input.fixtureEvidence,
         ...reconciliation
     };
 }
 
-function receiptOptions(options, plan, build)
+function receiptOptions(options, plan, build, admission)
 {
     const producer = migrationProducerIdentity(options.producer);
     return {
@@ -310,7 +341,11 @@ function receiptOptions(options, plan, build)
             namespace: options.namespace,
             buildMarkerDigest: build.marker.digest,
             project,
-            assembly: plan.assemblyFile
+            assembly: plan.assemblyFile,
+            ...(admission ? {
+                fixtureAdmissionDigest: admission.contentDigest,
+                fixtureBindingDigest: admission.record.bindingDigest
+            } : {})
         }
     };
 }
@@ -320,7 +355,9 @@ export async function readMigrationExecution(options, env = process.env)
 {
     const build = await readMigrationBuildReady(options);
     const plan = executionPlan(options, env);
-    const receipt = readRunBoundMarker(plan.receiptFile, receiptOptions(options, plan, build));
+    const admission = String(env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE ?? '').trim()
+        ? mysqlAdmissionForRun(options, env, 'live-or-cleaned') : null;
+    const receipt = readRunBoundMarker(plan.receiptFile, receiptOptions(options, plan, build, admission));
     const summary = inspectExecution(options, plan, build, env);
     if (JSON.stringify(JSON.parse(fs.readFileSync(plan.summaryFile, 'utf8'))) !== JSON.stringify(summary))
     {
@@ -357,38 +394,51 @@ export async function runMigrationTests(options, { env = process.env, execute = 
     fs.mkdirSync(plan.directory);
     fs.mkdirSync(path.join(plan.directory, 'discovery'));
     fs.mkdirSync(path.join(plan.directory, 'execution'));
+    const commandEnvironment = { ...env };
+    for (const key of Object.keys(commandEnvironment))
+    {
+        if (key.startsWith('FSUSBLOG_MYSQL_FIXTURE_') && key !== 'FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE')
+        {
+            delete commandEnvironment[key];
+        }
+    }
+    let fixtureExecutionEnvironment = {};
     for (const name of ['sdk', 'sdkPaths', 'inventory', 'discovery', 'execution'])
     {
         if (!['sdk', 'sdkPaths'].includes(name))
         {
-            requireUnchangedEngine(plan, env);
+            requireUnchangedEngine(plan, commandEnvironment);
         }
         const files = commandPaths(plan, name);
-        const result = await execute(plan.commands[name], { root: options.root, env, ...files });
+        const result = await execute(plan.commands[name], { root: options.root,
+            env: name === 'execution' ? { ...commandEnvironment, ...fixtureExecutionEnvironment } : commandEnvironment,
+            ...files });
         fs.writeFileSync(files.commandFile, JSON.stringify({
             executable: 'dotnet', args: plan.commands[name], code: result.code, signal: result.signal
         }), { flag: 'wx' });
         readCommand(plan, name);
         if (name === 'sdkPaths')
         {
-            fs.writeFileSync(path.join(plan.directory, 'engine.json'), JSON.stringify(observeEngine(plan, env)), { flag: 'wx' });
+            fs.writeFileSync(path.join(plan.directory, 'engine.json'), JSON.stringify(observeEngine(plan, commandEnvironment)), { flag: 'wx' });
         }
         if (name === 'inventory')
         {
-            readInventory(options, plan);
+            fixtureExecutionEnvironment = readInventory(options, plan, commandEnvironment).fixtureExecutionEnvironment;
         }
         if (name === 'discovery')
         {
-            const input = readInventory(options, plan);
+            const input = readInventory(options, plan, commandEnvironment);
             reconcileMigrationDiscovery({ ...input, discoveredCases: readDiscovery(plan) });
             await readMigrationBuildReady(options);
         }
     }
-    const summary = inspectExecution(options, plan, build, env);
+    const summary = inspectExecution(options, plan, build, commandEnvironment);
     await readMigrationBuildReady(options);
     fs.writeFileSync(plan.summaryFile, `${JSON.stringify(summary, null, 2)}\n`, { flag: 'wx' });
-    publishRunBoundMarker({ file: plan.receiptFile, ...receiptOptions(options, plan, build) });
-    return readMigrationExecution(options, env);
+    const admission = String(commandEnvironment.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE ?? '').trim()
+        ? mysqlAdmissionForRun(options, commandEnvironment, 'live') : null;
+    publishRunBoundMarker({ file: plan.receiptFile, ...receiptOptions(options, plan, build, admission) });
+    return readMigrationExecution(options, commandEnvironment);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

@@ -43,6 +43,11 @@
                 "memoryMaxBytes": 1073741824,
                 "pidsMax": 128
             },
+            "lifecycleBudgets": {
+                "startupMs": 120000,
+                "commandMs": 15000,
+                "cleanupMs": 60000
+            },
             "versionCommand": [
                 "mysql",
                 "--version"

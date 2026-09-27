@@ -360,7 +360,8 @@ export function validateExecutionServiceCatalog(catalog, matrix)
                     'databaseIdentityAuthority',
                     'username',
                     'clientOptionsFile',
-                    'resourceGrant'
+                    'resourceGrant',
+                    'lifecycleBudgets'
                 ] : [])
             ];
             if (!hasExactProperties(service, expectedProperties))
@@ -418,6 +419,14 @@ export function validateExecutionServiceCatalog(catalog, matrix)
                     || !Number.isSafeInteger(grant.pidsMax) || grant.pidsMax < 64 || grant.pidsMax > 512)
                 {
                     errors.push('mysql: resource grant must be exact, bounded and page-aligned');
+                }
+                const budgets = service.lifecycleBudgets;
+                if (!hasExactProperties(budgets, ['startupMs', 'commandMs', 'cleanupMs'])
+                    || !Number.isSafeInteger(budgets.startupMs) || budgets.startupMs < 1000 || budgets.startupMs > 300000
+                    || !Number.isSafeInteger(budgets.commandMs) || budgets.commandMs < 1000 || budgets.commandMs > 60000
+                    || !Number.isSafeInteger(budgets.cleanupMs) || budgets.cleanupMs < 1000 || budgets.cleanupMs > 180000)
+                {
+                    errors.push('mysql: lifecycle budgets must be exact and bounded');
                 }
             }
         }
@@ -732,7 +741,7 @@ function validateAdmissionCatalog(catalog)
     }
 }
 
-function validateEnvelopeShape(envelope, catalog)
+export function validateExecutionServiceEnvelopeShape(envelope, catalog)
 {
     validateAdmissionCatalog(catalog);
     if (!hasExactProperties(envelope, [
@@ -790,7 +799,7 @@ export function verifyLiveServiceEnvelope({
     observeProcessService = observeRunOwnedService
 })
 {
-    const declared = validateEnvelopeShape(envelope, catalog);
+    const declared = validateExecutionServiceEnvelopeShape(envelope, catalog);
     const admittedServices = new Map(
         envelope.actual.services.map((service) => [service.id, service])
     );

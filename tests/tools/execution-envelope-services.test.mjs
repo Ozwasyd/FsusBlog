@@ -7,6 +7,8 @@ const {createAndAdmitServiceEnvelope, executionServiceImageReference, loadExecut
 const {loadExecutionEnvelopeApplicability} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const {prepareMySqlFixtureService, recoverMySqlFixtureService, verifyMySqlFixtureServiceCleanup, withMySqlFixtureService} = await import(new URL('../../tools/test-fixtures/services/mysql.mjs', import.meta.url));
+const {mysqlFixtureAdmissionFile, publishMySqlFixtureAdmission, readMySqlFixtureAdmission,
+    readMySqlFixtureAdmissionForRun} = await import(new URL('../../tools/test/mysql-fixture-admission.mjs', import.meta.url));
 const {digestReceiptBody} = await import(new URL('../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url));
 const matrix = parseMatrix(
     fs.readFileSync(new URL('../../tests/matrix.yml', import.meta.url), 'utf8')
@@ -26,7 +28,9 @@ function controlledMySqlLifecycle(t)
         bundleId: 'matrix:backend-unit', stepId: 'migration-services',
         sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
         resourceGrant: { cpuUnits: 1, memoryHighBytes: 536870912, memoryMaxBytes: 1073741824, pidsMax: 128 },
-        startupBudgetMs: 1000, commandBudgetMs: 1000, cleanupBudgetMs: 1000
+        startupBudgetMs: catalog.services.mysql.lifecycleBudgets.startupMs,
+        commandBudgetMs: catalog.services.mysql.lifecycleBudgets.commandMs,
+        cleanupBudgetMs: catalog.services.mysql.lifecycleBudgets.cleanupMs
     };
     const state = {
         calls: [], container: null, createCount: 0, removalIds: [],
@@ -190,6 +194,57 @@ test('MySQL lifecycle exclusively prepares a pinned bounded service and removes 
     await assert.rejects(service.verify, /no longer prepared/u);
 });
 
+test('MySQL private admission binds one held grant, live SQL service and exact cleanup', async (t) =>
+{
+    const fixture = controlledMySqlLifecycle(t);
+    const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
+    const identity = Object.fromEntries(['root', 'runId', 'namespace', 'bundleId', 'stepId', 'sourceState']
+        .map((key) => [key, fixture.context[key]]));
+    const reservation = { runId: fixture.context.runId, bundleId: 'backend-unit',
+        id: 'mysql-migration', identity, limits: fixture.context.resourceGrant, held: true };
+    const file = publishMySqlFixtureAdmission({ context: fixture.context, stateFile: service.stateFile,
+        bindingDigest: service.bindingDigest, envelope: service.envelope, reservation });
+    assert.equal(file, mysqlFixtureAdmissionFile(fixture.context));
+    const observation = {
+        observeRuntime: () => structuredClone(fixture.state.runtimeIdentity),
+        observeService: () => structuredClone(service.envelope.actual.services[0])
+    };
+    const live = readMySqlFixtureAdmission(fixture.context, { ...observation });
+    const expected = Object.fromEntries(['root', 'runId', 'namespace', 'bundleId', 'stepId', 'sourceState']
+        .map((key) => [key, fixture.context[key]]));
+    assert.equal(readMySqlFixtureAdmissionForRun(expected, { file, ...observation }).contentDigest, live.contentDigest);
+    assert.throws(() => readMySqlFixtureAdmissionForRun({ ...expected, bundleId: 'foreign' },
+        { file, ...observation }), /crosses its run/u);
+    assert.equal(live.executionEnvironment.FSUSBLOG_MYSQL_FIXTURE_PORT, '23306');
+    assert.equal(live.executionEnvironment.FSUSBLOG_MYSQL_FIXTURE_CLIENT_FILE, service.clientOptionsFile);
+    assert.equal(live.record.bindingDigest, service.bindingDigest);
+    assert.throws(() => publishMySqlFixtureAdmission({ context: fixture.context,
+        stateFile: service.stateFile, bindingDigest: service.bindingDigest, envelope: service.envelope, reservation }),
+    /stale or repeated/u);
+    const original = fs.readFileSync(file);
+    for (const mutate of [
+        (record) => { record.reservation.bundleId = 'matrix:backend-unit'; },
+        (record) => { record.reservation.identity.stepId = 'foreign'; },
+        (record) => { record.envelope.catalogDigest = `sha256:${'0'.repeat(64)}`; },
+        (record) => { record.envelope.actual.services[0].ports[0].hostPort = '23307'; }
+    ])
+    {
+        const record = JSON.parse(original);
+        mutate(record);
+        fs.writeFileSync(file, JSON.stringify(record));
+        assert.throws(() => readMySqlFixtureAdmission(fixture.context, observation));
+    }
+    fs.writeFileSync(file, original);
+    await service.cleanup();
+    assert.throws(() => readMySqlFixtureAdmission(fixture.context, observation), /live service/u);
+    const cleaned = readMySqlFixtureAdmission(fixture.context, {
+        phase: 'live-or-cleaned',
+        verifyCleanup: (context, { expectedBindingDigest }) => verifyMySqlFixtureServiceCleanup(context,
+            { expectedBindingDigest, docker: fixture.options.docker })
+    });
+    assert.equal(cleaned.contentDigest, live.contentDigest);
+});
+
 test('MySQL lifecycle rejects missing identity, grant, registration and source before creation', async (t) =>
 {
     for (const mutate of [
@@ -224,6 +279,10 @@ test('MySQL lifecycle rejects missing identity, grant, registration and source b
         (value) =>
         {
             value.context.commandBudgetMs = 0;
+        },
+        (value) =>
+        {
+            value.context.commandBudgetMs = catalog.services.mysql.lifecycleBudgets.commandMs + 1;
         },
         (value) =>
         {
@@ -1019,6 +1078,9 @@ test('service catalog exactly covers matrix services with immutable container re
     assert.deepEqual(catalog.services.mysql.resourceGrant, {
         cpuUnits: 1, memoryHighBytes: 536870912, memoryMaxBytes: 1073741824, pidsMax: 128
     });
+    assert.deepEqual(catalog.services.mysql.lifecycleBudgets, {
+        startupMs: 120000, commandMs: 15000, cleanupMs: 60000
+    });
     assert.match(catalog.services.postgres.imageReference, /@sha256:[a-f0-9]{64}$/u);
     assert.match(catalog.services.redis.imageReference, /@sha256:[a-f0-9]{64}$/u);
     assert.equal(catalog.correctnessPhase.imagePull, 'denied');
@@ -1622,6 +1684,7 @@ function controlledMySqlServiceFixture(runId = 'run-mysql-observer-fixture')
         username: 'fixture_user',
         clientOptionsFile: '/run/fsusblog-mysql/client.cnf',
         resourceGrant: structuredClone(catalog.services.mysql.resourceGrant),
+        lifecycleBudgets: structuredClone(catalog.services.mysql.lifecycleBudgets),
         requiredIdentityFields: [...fixtureCatalog.services.redis.requiredIdentityFields, 'databaseIdentity', 'ownership']
     };
     const { runtime, service: postgresService } = liveEnvelopeFixture();
@@ -1840,6 +1903,18 @@ test('MySQL catalog authority rejects mutable, root, foreign config and incomple
         assert.match(validateExecutionServiceCatalog(fixture.catalog, {
             tiers: [{ services: Object.keys(fixture.catalog.services) }]
         }).join('\n'), /mysql: resource grant/u);
+    }
+    for (const lifecycleBudgets of [null, {},
+        { ...catalog.services.mysql.lifecycleBudgets, startupMs: 0 },
+        { ...catalog.services.mysql.lifecycleBudgets, commandMs: 60001 },
+        { ...catalog.services.mysql.lifecycleBudgets, cleanupMs: 180001 },
+        { ...catalog.services.mysql.lifecycleBudgets, extra: true }])
+    {
+        const fixture = mysqlDockerFixture();
+        fixture.catalog.services.mysql.lifecycleBudgets = lifecycleBudgets;
+        assert.match(validateExecutionServiceCatalog(fixture.catalog, {
+            tiers: [{ services: Object.keys(fixture.catalog.services) }]
+        }).join('\n'), /mysql: lifecycle budgets/u);
     }
 });
 

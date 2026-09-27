@@ -296,10 +296,22 @@ test('container partition conserves one CPU, memory and PID envelope and rejects
         memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
     const allocation = partitionContainerResourceGrant(grant, [limits, limits], machine);
     assert.equal(allocation.process.cpuUnits, 2);
-    for (const key of ['memoryHighBytes', 'memoryMaxBytes', 'pidsMax'])
+    for (const key of ['memoryMaxBytes', 'pidsMax'])
     {
         assert.equal(allocation.process[key] + allocation.reserved[key], allocation.total[key], key);
     }
+    assert.ok(allocation.process.memoryHighBytes + allocation.reserved.memoryHighBytes
+        <= allocation.total.memoryHighBytes);
+    assert.ok(allocation.process.memoryHighBytes <= allocation.process.memoryMaxBytes);
+    const asymmetric = partitionContainerResourceGrant({ cpuUnits: 2, memoryGiB: 2.43 }, [{
+        cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 1024 * 1024 ** 2, pidsMax: 128
+    }], machine);
+    assert.equal(asymmetric.process.memoryHighBytes, asymmetric.process.memoryMaxBytes);
+    assert.ok(asymmetric.process.memoryHighBytes + asymmetric.reserved.memoryHighBytes
+        < asymmetric.total.memoryHighBytes);
+    assert.equal(asymmetric.process.memoryMaxBytes + asymmetric.reserved.memoryMaxBytes,
+        asymmetric.total.memoryMaxBytes);
     assert.deepEqual(partitionContainerResourceGrant(grant, [], machine).process, resolveCgroupLimits(grant, machine));
     for (const invalid of [{ ...limits, cpuUnits: 4 }, { ...limits, memoryMaxBytes: 5 * 1024 ** 3 },
         { ...limits, memoryHighBytes: limits.memoryHighBytes - 1 }, { ...limits, pidsMax: 8192 },
