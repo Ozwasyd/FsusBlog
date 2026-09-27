@@ -12,7 +12,7 @@ const { migrationBuildMarkerContext, migrationProducerIdentity, publishMigration
 const { buildMigrationUnitTests } = await import(new URL('../../tools/test/build-migration-tests.mjs', import.meta.url));
 const { publishRunBoundMarker } = await import(new URL('../../tools/test-matrix/run-bound-marker.mjs', import.meta.url));
 const { snapshotSourceState } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
-const { migrationExecutionPaths, readMigrationExecution, runMigrationTests } =
+const { migrationExecutionPaths, migrationFixtureRequirements, readMigrationExecution, runMigrationTests } =
     await import(new URL('../../tools/test/run-migration-tests.mjs', import.meta.url));
 const { assertProductionFreshBundleProducerWiring, productionFreshProducerInventory } =
     await import(new URL('../../tools/test-matrix/production-fresh-run-bound-outputs.mjs', import.meta.url));
@@ -60,7 +60,7 @@ test('Migration production build has a separate run-owned project layout and ass
         [...producers, 'unregistered-migration-build']), /unexpected=unregistered-migration-build/u);
 });
 
-async function buildBindingFixture(t, { execution = false } = {})
+async function buildBindingFixture(t, { execution = false, mysqlSource = false } = {})
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-migration-marker-'));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -83,6 +83,11 @@ async function buildBindingFixture(t, { execution = false } = {})
         fs.writeFileSync(path.join(root, 'tests/coverage-registry.json'), '{"entries":[]}');
         fs.writeFileSync(path.join(root, 'tests/backend/Fixtures/backend-test-requirements.json'), '{"profiles":[]}');
         fs.writeFileSync(path.join(root, 'tests/migration/ExampleTests.cs'), 'public class ExampleTests { }\n');
+        if (mysqlSource)
+        {
+            fs.writeFileSync(path.join(root, 'tests/migration/MySqlDdlExecutionTests.cs'),
+                'public class MySqlDdlExecutionTests { }\n');
+        }
     }
     const git = (args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
     git(['init', '--quiet']);
@@ -264,9 +269,9 @@ function fixture()
 }
 
 async function executionFixture(t, mutate = () =>
-{})
+{}, { mysqlSource = false } = {})
 {
-    const { options, layout } = await buildBindingFixture(t, { execution: true });
+    const { options, layout } = await buildBindingFixture(t, { execution: true, mysqlSource });
     const engineRoot = path.join(options.root, '.tmp/controlled-sdk');
     fs.mkdirSync(path.join(engineRoot, 'sdk/10.0.302'), { recursive: true });
     fs.writeFileSync(path.join(engineRoot, 'dotnet'), 'controlled host, not an actual engine', { mode: 0o755 });
@@ -406,6 +411,70 @@ test('Migration command driver executes the observed tool path with captured raw
 });
 
 
+test('Migration fixture requirement binds only the exact MySQL source owner without admitting a service', () =>
+{
+    const source = fixture().inventoryCases[0];
+    const mysql = {
+        ...source,
+        id: 'xunit:tests/migration/MySqlDdlExecutionTests.cs#FsusBlog.Migration.Tests.MySqlDdlExecutionTests.Fact#case-0000',
+        ownerFile: 'tests/migration/MySqlDdlExecutionTests.cs',
+        ownerClass: 'MySqlDdlExecutionTests',
+        ownerSuite: 'FsusBlog.Migration.Tests.MySqlDdlExecutionTests',
+        fixture: 'FsusBlog.Migration.Tests.MySqlDdlFixture',
+        traits: [], explicit: false
+    };
+    const report = { testCases: [mysql] };
+    assert.deepEqual(migrationFixtureRequirements(report), {
+        profile: 'mysql',
+        fixture: {
+            ownerFile: mysql.ownerFile, ownerSuite: mysql.ownerSuite, fixture: mysql.fixture
+        },
+        sourceCaseIds: [mysql.id]
+    });
+    assert.deepEqual(migrationFixtureRequirements({ testCases: [{ ...source, traits: [], explicit: false }] }), {
+        profile: 'none', fixture: null, sourceCaseIds: []
+    });
+    for (const mutation of [
+        { ownerFile: 'tests/migration/OtherTests.cs' },
+        { ownerSuite: 'FsusBlog.Migration.Tests.OtherTests' },
+        { ownerClass: 'OtherTests' },
+        { fixture: 'FsusBlog.Migration.Tests.OtherFixture' },
+        { id: 'xunit:tests/migration/OtherTests.cs#Other.Fact#case-0000' }
+    ])
+    {
+        assert.throws(() => migrationFixtureRequirements({ testCases: [{ ...mysql, ...mutation }] }),
+            /exact source-owned MySQL fixture identity/u);
+    }
+    for (const mutation of [{ skipReason: 'missing' }, { explicit: true }, { identity: 'dynamic' },
+        { traits: [{ name: 'Dependency', value: 'Docker' }] }])
+    {
+        assert.throws(() => migrationFixtureRequirements({ testCases: [{ ...mysql, ...mutation }] }),
+            /requires admitted static/u);
+    }
+    assert.throws(() => migrationFixtureRequirements({}), /validated source inventory/u);
+});
+
+test('Migration execution refuses its exact source-owned MySQL fixture before discovery without scheduler admission', async (t) =>
+{
+    const subject = await executionFixture(t, (state) =>
+    {
+        if (state.name === 'inventory')
+        {
+            Object.assign(state.report.testCases[0], {
+                id: 'xunit:tests/migration/MySqlDdlExecutionTests.cs#FsusBlog.Migration.Tests.MySqlDdlExecutionTests.Fact#case-0000',
+                ownerFile: 'tests/migration/MySqlDdlExecutionTests.cs',
+                ownerClass: 'MySqlDdlExecutionTests',
+                ownerSuite: 'FsusBlog.Migration.Tests.MySqlDdlExecutionTests',
+                fixture: 'FsusBlog.Migration.Tests.MySqlDdlFixture'
+            });
+            state.stdout = JSON.stringify(state.report);
+        }
+    }, { mysqlSource: true });
+    await assert.rejects(runMigrationTests(subject.options, subject),
+        /requires admitted MySQL fixture service, grant and cleanup evidence/u);
+    assert.deepEqual(subject.calls.map((entry) => entry.name), ['sdk', 'sdkPaths', 'inventory']);
+});
+
 test('Migration owner rejects unadmitted fixtures and skipped, explicit or dynamic cases before discovery', async (t) =>
 {
     for (const change of [
@@ -421,7 +490,8 @@ test('Migration owner rejects unadmitted fixtures and skipped, explicit or dynam
                 state.stdout = JSON.stringify(state.report);
             }
         });
-        await assert.rejects(runMigrationTests(subject.options, subject), /requires admitted/u);
+        await assert.rejects(runMigrationTests(subject.options, subject),
+            change.fixture ? /requires an exact source-owned MySQL fixture identity/u : /requires admitted static/u);
         assert.deepEqual(subject.calls.map((entry) => entry.name), ['sdk', 'sdkPaths', 'inventory']);
         assert.equal(fs.existsSync(subject.paths.receiptFile), false);
     }

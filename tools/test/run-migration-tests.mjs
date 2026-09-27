@@ -15,6 +15,11 @@ const { reconcileMigrationDiscovery, reconcileMigrationTrx } = await import(new 
 const { readVstestDiscoveryDiagnostic } = await import(new URL('./vstest-discovery-diagnostic.mjs', import.meta.url));
 
 const project = 'tests/migration/FsusBlog.Migration.Tests.csproj';
+const mysqlFixtureOwner = Object.freeze({
+    ownerFile: 'tests/migration/MySqlDdlExecutionTests.cs',
+    ownerSuite: 'FsusBlog.Migration.Tests.MySqlDdlExecutionTests',
+    fixture: 'FsusBlog.Migration.Tests.MySqlDdlFixture'
+});
 
 function requireOwnedPath(root, file, { createDirectories = false } = {})
 {
@@ -95,18 +100,48 @@ function sourceOwner(root)
     return groupXunitSources(inventory.sourceFiles).find((owner) => owner.project === project);
 }
 
-function requireAdmittedCases(report)
+/** Classify only the source-owned fixture need; this is not service admission. */
+export function migrationFixtureRequirements(report)
 {
+    if (!Array.isArray(report?.testCases))
+    {
+        throw new Error('Migration execution requires a validated source inventory');
+    }
+    const mysqlCaseIds = [];
     for (const testCase of report.testCases)
     {
-        // No fixture-backed case may start until the existing service/fixture
-        // contracts admit it. This deliberately does not qualify the MySQL lane.
-        if (testCase.fixture != null || testCase.skipReason != null || testCase.explicit !== false
+        if (testCase.skipReason != null || testCase.explicit !== false
             || !Array.isArray(testCase.traits) || testCase.traits.length !== 0
             || testCase.identity !== 'static')
         {
             throw new Error('Migration execution requires admitted static, non-skipped cases without unregistered fixtures or traits');
         }
+        if (testCase.fixture == null)
+        {
+            continue;
+        }
+        if (Object.entries(mysqlFixtureOwner).some(([field, value]) => testCase[field] !== value)
+            || testCase.ownerClass !== 'MySqlDdlExecutionTests'
+            || typeof testCase.id !== 'string' || !testCase.id.startsWith(`xunit:${mysqlFixtureOwner.ownerFile}#`))
+        {
+            throw new Error('Migration execution requires an exact source-owned MySQL fixture identity');
+        }
+        mysqlCaseIds.push(testCase.id);
+    }
+    return {
+        profile: mysqlCaseIds.length === 0 ? 'none' : 'mysql',
+        fixture: mysqlCaseIds.length === 0 ? null : { ...mysqlFixtureOwner },
+        sourceCaseIds: mysqlCaseIds.sort()
+    };
+}
+
+function requireAdmittedCases(report)
+{
+    const requirements = migrationFixtureRequirements(report);
+    // Source ownership alone never admits a Docker service or permits execution.
+    if (requirements.profile !== 'none')
+    {
+        throw new Error('Migration execution requires admitted MySQL fixture service, grant and cleanup evidence');
     }
 }
 
