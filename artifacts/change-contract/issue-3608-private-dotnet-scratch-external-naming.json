@@ -10,11 +10,11 @@
             "reason": "The generated correctness inventory and execution-target authority retain their machine-readable field names while their source digests and closure are refreshed."
         },
         {
-            "id": "css-like-contract",
+            "id": "search-index-utf8-scalar-owner",
             "paths": [
                 "docs/testing.generated.md"
             ],
-            "reason": "The generated testing index preserves its documented caller-visible matrix paths and option spellings while only the governed source rows change."
+            "reason": "This exact generated testing index path is registered under the trusted owner; the producer preserves its caller-visible matrix names while refreshing only governed source rows."
         },
         {
             "id": "environment-variable",
