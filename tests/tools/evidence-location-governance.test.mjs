@@ -461,6 +461,64 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
     assert.equal(fs.existsSync(path.join(root, `${outputPath}.handoff.json`)), false);
 });
 
+test('Migration run-owned artifact enumeration cannot become an evidence locator', (context) =>
+{
+    const source = 'tools/test/run-migration-tests.mjs';
+    const generated = generateEvidenceLocationGovernance();
+    const findings = generated.scan.findings.filter((entry) => entry.file === source);
+    assert.deepEqual(findings.map((entry) => ({
+        findingId: entry.findingId,
+        ruleId: entry.ruleId,
+        line: entry.line,
+        column: entry.column,
+        function: entry.function,
+        excerpt: entry.excerpt,
+        indirectVia: entry.indirectVia
+    })), [
+        { findingId: '14233adcdb585bae', ruleId: 'evidence-selection.directory-scan',
+            line: 45, column: 15, function: 'evidenceFiles',
+            excerpt: 'return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>',
+            indirectVia: null },
+        { findingId: 'e348a49643b76b7d', ruleId: 'evidence-selection.indirect-helper-call',
+            line: 239, column: 24, function: 'inspectExecution',
+            excerpt: "if (JSON.stringify(evidenceFiles(options.root, path.join(plan.directory, 'execution')).filter((file) => file.endsWith('.trx')))",
+            indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan' },
+        { findingId: 'bba2f770f61cce29', ruleId: 'evidence-selection.indirect-helper-call',
+            line: 272, column: 36, function: 'receiptOptions',
+            excerpt: 'artifacts: [build.file, ...evidenceFiles(options.root, plan.directory).filter((file) => file !== plan.receiptFile)],',
+            indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan' }
+    ]);
+    const ledgerEntries = generated.ledger.entries.filter((entry) => findings.some((finding) =>
+        finding.findingId === entry.findingId));
+    assert.equal(ledgerEntries.length, findings.length);
+    assert(ledgerEntries.every((entry) => entry.classification === 'not-evidence'
+        && entry.newAuthorityId === null && entry.locatorMode === 'not-applicable'));
+    assert.equal(generated.registry.entries.some((entry) => entry.producerSource === source), false);
+
+    const sourceText = fs.readFileSync(path.join(repositoryRoot, source), 'utf8');
+    assert.match(sourceText, /fs\.mkdirSync\(plan\.directory\);/u);
+    assert.match(sourceText, /JSON\.stringify\(\[plan\.trxFile\]\)/u);
+    const mutationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'migration-artifact-enumeration-'));
+    context.after(() => fs.rmSync(mutationRoot, { recursive: true, force: true }));
+    const mutationFile = path.join(mutationRoot, source);
+    fs.mkdirSync(path.dirname(mutationFile), { recursive: true });
+    const mutatedScan = (value) =>
+    {
+        fs.writeFileSync(mutationFile, value);
+        const changed = scanEvidenceLocations({ root: mutationRoot, files: [source] });
+        return { ...generated.scan, findings: [
+            ...generated.scan.findings.filter((entry) => entry.file !== source), ...changed.findings
+        ] };
+    };
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(mutatedScan(
+        sourceText.replace('return fs.readdirSync(directory, { withFileTypes: true })',
+            "return fs.readdirSync(path.join(root, '.tmp'), { withFileTypes: true })"))),
+    /non-evidence finding override 14233adcdb585bae changed excerpt/u);
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(mutatedScan(
+        `${sourceText}\nfunction selectLatestEvidence() { return fs.readdirSync('.tmp/release-evidence'); }\n`)),
+    /unreviewed evidence selector in import-only module/u);
+});
+
 test('clean-attempt evidence retains its finding and binds the real CLI through its library caller', () =>
 {
     const generated = generateEvidenceLocationGovernance();

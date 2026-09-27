@@ -4,12 +4,23 @@
         "tests/matrix.yml",
         "tools/test-inventory/produce.mjs",
         "tools/test-matrix/scheduler.mjs",
-        "tools/test-retention/audit.mjs"
+        "tools/test-retention/audit.mjs",
+        "tools/test/run-migration-tests.mjs",
+        "tools/test/generate-evidence-location-governance.mjs",
+        "tools/test/generate-current-run-evidence-location-acceptance.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "8edecd5609f8549fbdeb253c7c4acf94ad2ba55fbfe62fd382b2d1b0d2073d86"
+            "sha256": "467e22e5b6ae757a3d6b25b739c8e63a0d49f46e830e8bd08d4a7cdd3997f96c"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "1e852cf1bf328ffa88714c0f0cb02740aa1f5a1a38a1ad892b2f3332de110676"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "e8fc0ec4c2b3875eedc6eed09bfc71ca688f4b60545b1ddfb500b6ae9f803e7b"
         }
     ]
 }
