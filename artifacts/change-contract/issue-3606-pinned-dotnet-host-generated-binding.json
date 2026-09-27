@@ -1,10 +1,7 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tools/testing/generate-test-execution-envelope-applicability.mjs",
-        "tools/test/generate-correctness-attempt-producers.mjs",
-        "tests/matrix.yml",
-        "config/testing/producer-execution-class-contract.json"
+        "tools/testing/generate-test-execution-envelope-applicability.mjs"
     ],
     "outputs": [
         {

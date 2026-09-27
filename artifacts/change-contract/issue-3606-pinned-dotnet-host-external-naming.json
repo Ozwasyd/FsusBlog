@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/test-execution-envelope-applicability.json"
+            ],
+            "reason": "Keep the generated catalog and receipt field names stable across consumers while changing only the two admitted environment bindings."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/execution-envelope-policy.mjs",
+                "tools/testing/content-shape-catalog.mjs",
+                "tools/testing/generate-test-execution-envelope-applicability.mjs"
+            ],
+            "reason": "The pinned host process environment key is externally supplied; internal JavaScript option and local names retain repository style."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "The shell runner forwards the existing caller-visible process environment key without renaming its external spelling."
+        }
+    ]
+}
