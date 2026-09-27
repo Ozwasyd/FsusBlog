@@ -29,7 +29,7 @@ public sealed class MySqlDdlExecutionTests(MySqlDdlFixture fixture, ITestOutputH
         await ExecuteAsync(database, sql);
         Assert.Equal("0", await ExecuteAsync(database, "SELECT non_unique FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'article' AND index_name = 'idx_title';"));
         Assert.Equal("2", await ExecuteAsync(database, "SELECT COUNT(DISTINCT table_name) FROM information_schema.statistics WHERE table_schema = DATABASE() AND index_name = 'idx_title';"));
-        MySqlDdlFixture.SqlResult duplicate = await fixture.ExecuteAsync(database, "INSERT INTO article VALUES (2, 'preserved');");
+        MySqlDdlClient.SqlResult duplicate = await fixture.ExecuteAsync(database, "INSERT INTO article VALUES (2, 'preserved');");
         Assert.NotEqual(0, duplicate.ExitCode);
         Assert.Contains("1062", duplicate.Error, StringComparison.Ordinal);
         Assert.Equal("1\tpreserved", await ExecuteAsync(database, "SELECT id, title FROM article;"));
@@ -52,7 +52,7 @@ public sealed class MySqlDdlExecutionTests(MySqlDdlFixture fixture, ITestOutputH
     public async Task DropIndex_RejectsAmbiguousTableBeforeAnyWrite()
     {
         string database = await CreateAsync("CREATE TABLE article (title VARCHAR(64)); CREATE TABLE other (title VARCHAR(64)); CREATE INDEX idx_title ON article (title); CREATE INDEX idx_title ON other (title);");
-        MySqlDdlFixture.SqlResult result = await fixture.ExecuteAsync(database, s_provider.DropIndex(Id("idx_title")));
+        MySqlDdlClient.SqlResult result = await fixture.ExecuteAsync(database, s_provider.DropIndex(Id("idx_title")));
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("1242", result.Error, StringComparison.Ordinal);
         Assert.Equal("2", await IndexCountAsync(database));
@@ -79,7 +79,7 @@ public sealed class MySqlDdlExecutionTests(MySqlDdlFixture fixture, ITestOutputH
         await ExecuteAsync(database, s_provider.EnsureColumn(Id("Article"), Id("title"), Definition("varchar(64) NULL")));
         await ExecuteAsync(database, s_provider.CreateIndex(Id("idx_title"), "CREATE INDEX idx_title ON Article (title);"));
         Assert.Equal("2", await IndexCountAsync(database));
-        MySqlDdlFixture.SqlResult ambiguous = await fixture.ExecuteAsync(database, s_provider.DropIndex(Id("idx_title")));
+        MySqlDdlClient.SqlResult ambiguous = await fixture.ExecuteAsync(database, s_provider.DropIndex(Id("idx_title")));
         Assert.NotEqual(0, ambiguous.ExitCode);
         Assert.Contains("1242", ambiguous.Error, StringComparison.Ordinal);
         Assert.Equal("2", await IndexCountAsync(database));
@@ -114,7 +114,7 @@ public sealed class MySqlDdlExecutionTests(MySqlDdlFixture fixture, ITestOutputH
     {
         string database = await CreateAsync("CREATE TABLE article (id INT PRIMARY KEY);");
         string sql = s_provider.EnsureColumn(Id("article"), Id("title"), Definition("varchar(64) NULL"));
-        MySqlDdlFixture.SqlResult result = await fixture.ExecuteAsync(
+        MySqlDdlClient.SqlResult result = await fixture.ExecuteAsync(
             database,
             $"{sql} {sql} SELECT @fsus_schema_ddl IS NULL; EXECUTE fsus_schema_ddl_statement;");
         Assert.Equal("1", result.Output.Trim());
@@ -127,7 +127,7 @@ public sealed class MySqlDdlExecutionTests(MySqlDdlFixture fixture, ITestOutputH
     {
         string database = await CreateAsync("CREATE TABLE article (id INT PRIMARY KEY); INSERT INTO article VALUES (1);");
         string sql = s_provider.CreateIndex(Id("idx_title"), "CREATE INDEX idx_title ON article (title);");
-        MySqlDdlFixture.SqlResult result = await fixture.ExecuteAsync(database, sql);
+        MySqlDdlClient.SqlResult result = await fixture.ExecuteAsync(database, sql);
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("1072", result.Error, StringComparison.Ordinal);
         Assert.Equal("0", await IndexCountAsync(database));

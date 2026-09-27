@@ -91,9 +91,7 @@ public sealed class MySqlDdlClient
     public async Task<SqlResult> ExecuteAsync(string? database, string sql, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        if (database is not null
-            && (database.Length > 64 || !database.StartsWith(_databasePrefix, StringComparison.Ordinal)
-                || database.Length == _databasePrefix.Length || !IsIdentifier(database)))
+        if (database is not null && !IsOwnedDatabase(database))
         {
             throw new ArgumentException("MySQL database is outside the admitted fixture namespace.", nameof(database));
         }
@@ -102,6 +100,7 @@ public sealed class MySqlDdlClient
         await using var connection = new MySqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await RequireServerIdentityAsync(connection, cancellationToken);
+        var output = new StringBuilder();
         try
         {
             if (database is not null)
@@ -110,7 +109,6 @@ public sealed class MySqlDdlClient
             }
             await using var command = new MySqlCommand(sql, connection);
             await using MySqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            var output = new StringBuilder();
             bool hasRows = false;
             do
             {
@@ -136,7 +134,7 @@ public sealed class MySqlDdlClient
         }
         catch (MySqlException exception) when (exception.Number > 0 && exception.SqlState is { Length: 5 })
         {
-            return new SqlResult(exception.Number, string.Empty,
+            return new SqlResult(exception.Number, output.ToString(),
                 $"ERROR {exception.Number} ({exception.SqlState}): {exception.Message}");
         }
     }
@@ -161,6 +159,18 @@ public sealed class MySqlDdlClient
     {
         return value.All(character => char.IsAsciiLetterLower(character)
             || char.IsAsciiDigit(character) || character == '_');
+    }
+
+    internal bool IsOwnedDatabase(string database)
+    {
+        if (database.Length is > 64 or 0 || database.Length == _databasePrefix.Length)
+        {
+            return false;
+        }
+        return (database.StartsWith(_databasePrefix, StringComparison.Ordinal) && IsIdentifier(database))
+            || (database.StartsWith(_databasePrefix.ToUpperInvariant(), StringComparison.Ordinal)
+                && database.All(character => char.IsAsciiLetterUpper(character)
+                    || char.IsAsciiDigit(character) || character == '_'));
     }
 
     private static string FormatCell(object value)

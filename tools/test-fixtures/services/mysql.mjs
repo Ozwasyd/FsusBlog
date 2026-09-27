@@ -447,8 +447,9 @@ export async function prepareMySqlFixtureService(context, {
             throw new Error('MySQL lifecycle exhausted its admitted startup budget');
         }
         const pattern = prefix.replaceAll('_', '\\_') + '%';
+        const upperPattern = prefix.toUpperCase().replaceAll('_', '\\_') + '%';
         invoke(['exec', '-i', state.containerId, ...rootSqlCommand], {
-            input: `CREATE USER 'fixture_user'@'%' IDENTIFIED BY '${password}'; GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON \`${pattern}\`.* TO 'fixture_user'@'%';`
+            input: `CREATE USER 'fixture_user'@'%' IDENTIFIED BY '${password}'; GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON \`${pattern}\`.* TO 'fixture_user'@'%'; GRANT CREATE, ALTER, DROP, INDEX, SELECT, INSERT, UPDATE, DELETE ON \`${upperPattern}\`.* TO 'fixture_user'@'%';`
         });
         invoke(['exec', state.containerId, 'mkdir', '-m', '700', '-p', path.posix.dirname(entry.clientOptionsFile)]);
         invoke(['cp', clientFile, `${state.containerId}:${entry.clientOptionsFile}`]);

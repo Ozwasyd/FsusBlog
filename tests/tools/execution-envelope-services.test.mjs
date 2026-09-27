@@ -172,6 +172,7 @@ test('MySQL lifecycle exclusively prepares a pinned bounded service and removes 
     assert.match(service.databasePrefix, /^ddl_[a-f0-9]{20}_$/u);
     const sql = fixture.state.calls.find(({ options }) => options.input?.startsWith('CREATE USER'));
     assert.ok(sql.options.input.includes(service.databasePrefix.replaceAll('_', '\\_') + '%'));
+    assert.ok(sql.options.input.includes(service.databasePrefix.toUpperCase().replaceAll('_', '\\_') + '%'));
     assert.equal(sql.args.some((item) => item.includes('IDENTIFIED BY')), false);
     const credential = fs.readFileSync(service.clientOptionsFile, 'utf8').split('password=')[1].trim();
     assert.equal(fs.statSync(service.clientOptionsFile).mode & 0o777, 0o600);

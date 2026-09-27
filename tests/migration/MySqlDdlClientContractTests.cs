@@ -53,6 +53,19 @@ public sealed class MySqlDdlClientContractTests
         await Assert.ThrowsAsync<ArgumentException>(() => client.ExecuteAsync(database, "SELECT 1;"));
     }
 
+    [Fact]
+    public void OwnedDatabaseSelection_AdmitsOnlyTheExactLowerOrUpperRunPrefix()
+    {
+        var client = new MySqlDdlClient(23306, "fixture_user", "controlled-fixture-value", "ddl_contract_",
+            Guid.Parse("7b04c028-0d90-4a62-ac80-9cd923051a52"), "8.4.11", 30);
+
+        Assert.True(client.IsOwnedDatabase("ddl_contract_1"));
+        Assert.True(client.IsOwnedDatabase("DDL_CONTRACT_1"));
+        Assert.False(client.IsOwnedDatabase("Ddl_contract_1"));
+        Assert.False(client.IsOwnedDatabase("DDL_OTHER_1"));
+        Assert.False(client.IsOwnedDatabase("DDL_CONTRACT_"));
+    }
+
     [Theory]
     [InlineData(0, "client failure")]
     [InlineData(1062, "duplicate key")]
