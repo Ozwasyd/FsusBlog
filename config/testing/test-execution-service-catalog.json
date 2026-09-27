@@ -37,6 +37,12 @@
             "databaseIdentityAuthority": "mysql-server-uuid-exact",
             "username": "fixture_user",
             "clientOptionsFile": "/run/fsusblog-mysql/client.cnf",
+            "resourceGrant": {
+                "cpuUnits": 1,
+                "memoryHighBytes": 536870912,
+                "memoryMaxBytes": 1073741824,
+                "pidsMax": 128
+            },
             "versionCommand": [
                 "mysql",
                 "--version"

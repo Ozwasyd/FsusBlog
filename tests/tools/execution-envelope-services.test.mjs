@@ -211,6 +211,10 @@ test('MySQL lifecycle rejects missing identity, grant, registration and source b
         },
         (value) =>
         {
+            value.context.resourceGrant.cpuUnits = 0.5;
+        },
+        (value) =>
+        {
             value.context.resourceGrant.memoryHighBytes = value.context.resourceGrant.memoryMaxBytes + 1;
         },
         (value) =>
@@ -1012,6 +1016,9 @@ test('MySQL recovery retains its total cleanup budget and permits only a new exp
 test('service catalog exactly covers matrix services with immutable container references', () =>
 {
     assert.deepEqual(validateExecutionServiceCatalog(catalog, matrix), []);
+    assert.deepEqual(catalog.services.mysql.resourceGrant, {
+        cpuUnits: 1, memoryHighBytes: 536870912, memoryMaxBytes: 1073741824, pidsMax: 128
+    });
     assert.match(catalog.services.postgres.imageReference, /@sha256:[a-f0-9]{64}$/u);
     assert.match(catalog.services.redis.imageReference, /@sha256:[a-f0-9]{64}$/u);
     assert.equal(catalog.correctnessPhase.imagePull, 'denied');
@@ -1614,6 +1621,7 @@ function controlledMySqlServiceFixture(runId = 'run-mysql-observer-fixture')
         databaseIdentityAuthority: 'mysql-server-uuid-exact',
         username: 'fixture_user',
         clientOptionsFile: '/run/fsusblog-mysql/client.cnf',
+        resourceGrant: structuredClone(catalog.services.mysql.resourceGrant),
         requiredIdentityFields: [...fixtureCatalog.services.redis.requiredIdentityFields, 'databaseIdentity', 'ownership']
     };
     const { runtime, service: postgresService } = liveEnvelopeFixture();
@@ -1819,6 +1827,19 @@ test('MySQL catalog authority rejects mutable, root, foreign config and incomple
             requiredServices: ['mysql'], containers: { mysql: 'owned-mysql' }, catalog: fixture.catalog,
             observeRuntime: () => assert.fail('invalid authority reached observation')
         }), /service catalog is invalid/u, field);
+    }
+    for (const resourceGrant of [null, {},
+        { ...catalog.services.mysql.resourceGrant, cpuUnits: 1 / 3 },
+        { ...catalog.services.mysql.resourceGrant, memoryHighBytes: 536870913 },
+        { ...catalog.services.mysql.resourceGrant, memoryMaxBytes: 268435456 },
+        { ...catalog.services.mysql.resourceGrant, pidsMax: 0 },
+        { ...catalog.services.mysql.resourceGrant, extra: true }])
+    {
+        const fixture = mysqlDockerFixture();
+        fixture.catalog.services.mysql.resourceGrant = resourceGrant;
+        assert.match(validateExecutionServiceCatalog(fixture.catalog, {
+            tiers: [{ services: Object.keys(fixture.catalog.services) }]
+        }).join('\n'), /mysql: resource grant/u);
     }
 });
 

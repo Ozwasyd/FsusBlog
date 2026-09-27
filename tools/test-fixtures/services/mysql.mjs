@@ -338,6 +338,10 @@ export async function prepareMySqlFixtureService(context, {
     {
         throw new Error('MySQL lifecycle requires a registered pinned MySQL service contract');
     }
+    if (canonicalJson(context.resourceGrant) !== canonicalJson(entry.resourceGrant))
+    {
+        throw new Error('MySQL lifecycle resource grant differs from its registered service contract');
+    }
     const requireCurrentSource = async () =>
     {
         const current = await observeSource(context.root);

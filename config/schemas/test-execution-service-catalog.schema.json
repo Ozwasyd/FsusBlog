@@ -68,6 +68,7 @@
             "required": [
                 "backend",
                 "frontend",
+                "mysql",
                 "postgres",
                 "preview",
                 "redis"
@@ -177,6 +178,7 @@
                 "databaseIdentityAuthority",
                 "username",
                 "clientOptionsFile",
+                "resourceGrant",
                 "versionCommand",
                 "hostNativeAllowed",
                 "requiredIdentityFields"
@@ -200,6 +202,22 @@
                 },
                 "clientOptionsFile": {
                     "const": "/run/fsusblog-mysql/client.cnf"
+                },
+                "resourceGrant": {
+                    "type": "object",
+                    "required": [
+                        "cpuUnits",
+                        "memoryHighBytes",
+                        "memoryMaxBytes",
+                        "pidsMax"
+                    ],
+                    "properties": {
+                        "cpuUnits": { "type": "number", "minimum": 0.25, "maximum": 2 },
+                        "memoryHighBytes": { "type": "integer", "minimum": 268435456, "maximum": 1073741824 },
+                        "memoryMaxBytes": { "type": "integer", "minimum": 268435456, "maximum": 1610612736 },
+                        "pidsMax": { "type": "integer", "minimum": 64, "maximum": 512 }
+                    },
+                    "additionalProperties": false
                 },
                 "versionCommand": {
                     "const": [

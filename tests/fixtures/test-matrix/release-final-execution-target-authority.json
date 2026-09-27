@@ -4045,8 +4045,8 @@
         },
         {
             "path": "tools/test/execution-envelope-services.mjs",
-            "contentDigest": "sha256:9f2b04dc1e81be9f4f9cd56ced1f77d205bd26cf9bd6c835aac63e4330c029ef",
-            "indexDigest": "sha256:9f2b04dc1e81be9f4f9cd56ced1f77d205bd26cf9bd6c835aac63e4330c029ef"
+            "contentDigest": "sha256:466177c5c6e35f725cb5ac34a89d3eb7bf72fd6401cfad1e2018292742ca19b7",
+            "indexDigest": "sha256:466177c5c6e35f725cb5ac34a89d3eb7bf72fd6401cfad1e2018292742ca19b7"
         },
         {
             "path": "tools/test/execution-replay-contract.mjs",

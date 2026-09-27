@@ -359,7 +359,8 @@ export function validateExecutionServiceCatalog(catalog, matrix)
                 ...(isMysql ? [
                     'databaseIdentityAuthority',
                     'username',
-                    'clientOptionsFile'
+                    'clientOptionsFile',
+                    'resourceGrant'
                 ] : [])
             ];
             if (!hasExactProperties(service, expectedProperties))
@@ -403,6 +404,21 @@ export function validateExecutionServiceCatalog(catalog, matrix)
             if (isMysql && !validMysqlCatalogIdentity(service))
             {
                 errors.push('mysql: database identity authority is invalid');
+            }
+            if (isMysql)
+            {
+                const grant = service.resourceGrant;
+                if (!hasExactProperties(grant, ['cpuUnits', 'memoryHighBytes', 'memoryMaxBytes', 'pidsMax'])
+                    || typeof grant.cpuUnits !== 'number' || !Number.isSafeInteger(grant.cpuUnits * 1e9)
+                    || grant.cpuUnits < 0.25 || grant.cpuUnits > 2
+                    || !Number.isSafeInteger(grant.memoryHighBytes) || grant.memoryHighBytes < 268435456
+                    || grant.memoryHighBytes > 1073741824 || grant.memoryHighBytes % 4096 !== 0
+                    || !Number.isSafeInteger(grant.memoryMaxBytes) || grant.memoryMaxBytes < grant.memoryHighBytes
+                    || grant.memoryMaxBytes > 1610612736 || grant.memoryMaxBytes % 4096 !== 0
+                    || !Number.isSafeInteger(grant.pidsMax) || grant.pidsMax < 64 || grant.pidsMax > 512)
+                {
+                    errors.push('mysql: resource grant must be exact, bounded and page-aligned');
+                }
             }
         }
         else if (service.kind !== 'run-owned-process')
