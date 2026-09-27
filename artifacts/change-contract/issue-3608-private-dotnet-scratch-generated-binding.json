@@ -2,7 +2,9 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tests/matrix.yml",
+        "tools/docs/generate-testing-docs.mjs",
         "tools/test/execution-envelope-network.mjs",
+        "tools/test/generate-correctness-attempt-producers.mjs",
         "tools/test/physical-execution-linux-systemd-adapter.mjs",
         "tools/test/physical-execution-private-dotnet-scratch.mjs",
         "tools/test/physical-execution-process-tree.mjs",
@@ -11,6 +13,14 @@
         "tools/test-matrix/release-final-static-boundary.mjs"
     ],
     "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "c91664d99c278a42d82cb9f0fc0d06c9d885c9c482a05f993cbf75d7bd3fa078"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "a498a0eae4798fdcb495aa809199e4ce197929248cda80eb6ab69b1f1c48ea2f"
+        },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
             "sha256": "fa72e3615a676ae417d49ebe500d3b03731e5c10c76f74aa1d950648b6238aa1"
