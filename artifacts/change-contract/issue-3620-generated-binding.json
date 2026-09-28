@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/process-identity.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "0c17bf17b84ef89168ecb2c600a48e25a138ee97ab26a750bd7315ecba69f2df"
+        }
+    ]
+}

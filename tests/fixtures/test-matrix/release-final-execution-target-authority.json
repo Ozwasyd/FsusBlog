@@ -4200,8 +4200,8 @@
         },
         {
             "path": "tools/test/process-identity.mjs",
-            "contentDigest": "sha256:925dbb3c8f9f77db6d438e858dde730178fb0b5697a661932aade6aa3e54fc43",
-            "indexDigest": "sha256:925dbb3c8f9f77db6d438e858dde730178fb0b5697a661932aade6aa3e54fc43"
+            "contentDigest": "sha256:eb856862b4d25ee89283c532e9dbe7864af8b576fff4fd2e35b755d74979348d",
+            "indexDigest": "sha256:eb856862b4d25ee89283c532e9dbe7864af8b576fff4fd2e35b755d74979348d"
         },
         {
             "path": "tools/test/produce-integrity-proof-evidence.mjs",
