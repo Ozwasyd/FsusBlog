@@ -54,7 +54,7 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     const first = scanHiddenRetries(root);
     const second = scanHiddenRetries(root);
     assert.equal(first.contentDigest, second.contentDigest);
-    assert.equal(first.findings.length, 7);
+    assert.equal(first.findings.length, 6);
     assert.equal(new Set(first.findings.map((item) => item.findingId)).size, first.findings.length);
     const registry = JSON.parse(fs.readFileSync(
         path.join(root, 'config/testing/retry-disposition-registry.json'),
@@ -69,26 +69,48 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
 
     const mysqlFixturePath = 'tests/migration/MySqlDdlFixture.cs';
     const mysqlEntry = registry.entries.filter((entry) => entry.location.path === mysqlFixturePath);
-    assert.equal(mysqlEntry.length, 1);
-    assert.equal(mysqlEntry[0].classification, 'non-retry');
-    assert.equal(mysqlEntry[0].policyId, null);
-    assert.equal(mysqlEntry[0].owner, 'schema-migration');
+    assert.deepEqual(mysqlEntry, []);
+    assert.equal(first.findings.some((finding) => finding.location.path === mysqlFixturePath), false);
     const mysqlFixture = fs.readFileSync(path.join(root, mysqlFixturePath), 'utf8');
     const initialize = mysqlFixture.slice(
         mysqlFixture.indexOf('public async Task InitializeAsync()'),
-        mysqlFixture.indexOf('public async Task DisposeAsync()')
+        mysqlFixture.indexOf('public Task DisposeAsync()')
     );
     assert.equal((initialize.match(/ExecuteAsync\(/gu) ?? []).length, 1);
-    assert.match(initialize, /ExecuteAsync\(null, "SELECT VERSION\(\);", startupTimeout\.Token\)/u);
-    assert.match(initialize, /startupTimeout = new CancellationTokenSource\(TimeSpan\.FromSeconds\(30\)\)/u);
-    assert.match(initialize, /Task\.Delay\(500, startupTimeout\.Token\)/u);
+    assert.match(initialize, /client\.ExecuteAsync\(null, "SELECT VERSION\(\);"\)/u);
+    assert.match(initialize, /RequiredEnvironment\("FSUSBLOG_MYSQL_FIXTURE_CLIENT_FILE"\)/u);
+    assert.match(initialize, /RequiredEnvironment\("FSUSBLOG_MYSQL_FIXTURE_SERVER_UUID"\)/u);
+    assert.doesNotMatch(mysqlFixture, /\b(?:for|while)\s*\(|Task\.Delay|DockerAsync|Process\.Start/u);
     const execute = mysqlFixture.slice(
-        mysqlFixture.indexOf('public Task<SqlResult> ExecuteAsync('),
-        mysqlFixture.indexOf('private static Dictionary<string, string> CreateLabels()')
+        mysqlFixture.indexOf('public Task<MySqlDdlClient.SqlResult> ExecuteAsync('),
+        mysqlFixture.indexOf('private MySqlDdlClient RequireClient()')
     );
     assert.doesNotMatch(execute, /\b(?:for|while)\s*\(|Task\.Delay/u);
-    assert.match(execute, /return DockerAsync\(\[\.\. args\], cancellationToken\);/u);
+    assert.match(execute, /=> RequireClient\(\)\.ExecuteAsync\(database, sql, cancellationToken\);/u);
 });
+
+test('removed Migration fixture loops cannot retain a disposition by refreshing only the source digest', () => withFixture({
+    'tests/migration/MySqlDdlFixture.cs': 'for (int attempt = 0; attempt < 3; attempt++) { ExecuteAsync(); }\n'
+}, (directory) =>
+{
+    const initial = scanHiddenRetries(directory);
+    assert.equal(initial.findings.length, 1);
+    const entry = disposition(directory, initial.findings[0]);
+    const file = path.join(directory, entry.location.path);
+    fs.writeFileSync(file, 'public Task InitializeAsync() => ExecuteAsync();\n');
+    const current = scanHiddenRetries(directory);
+    assert.deepEqual(current.findings, []);
+    const orphan = sealContentDigest({
+        schema: 'fsusblog.retry-disposition-registry.v1',
+        scannerVersion: hiddenRetryScannerVersion,
+        sourceDigestAlgorithm: 'sha256',
+        entries: [{ ...entry, sourceDigest: sourceDigest(file) }]
+    });
+    assert.throws(
+        () => validateRetryDispositionRegistry(directory, orphan, current, readRetryPolicyRegistry()),
+        /stale retry\.csharp-attempt-loop/u
+    );
+}));
 
 test('dev container selection is an exact non-retry disposition', () =>
 {
