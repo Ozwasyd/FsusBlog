@@ -1563,71 +1563,61 @@ test('Linux systemd adapter carries the complete child environment without expos
     assert.equal(evidence.postObservation, 'zero-members');
 });
 
-test('nested Linux systemd execution requires the caller and unit to share the declared slice before target release', async (t) =>
+test('nested Linux systemd execution rejects copied capabilities and foreign services before target release', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
 {
-    const cwd = temporaryRoot('systemd-owned-slice');
-    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    const cwd = temporaryRoot('systemd-owned-boundary');
+    const context = { root: cwd, runId: 'owned-boundary', namespace: 'component',
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        schedulerOwnerToken: randomUUID() };
+    const enforcer = await createProductionResourceEnforcer({
+        runId: context.runId, bundleIds: ['worker'], mode: 'strict', machine: { cpuUnits: 2, memoryGiB: 2 },
+        systemdBoundary: { context, commandBudgetMs: 5000, startupBudgetMs: 5000,
+            retainBinding(reference)
+            {
+                writePrivateJson(path.join(cwd, 'independent-reference.json'), reference);
+                return { bindingDigest: reference.bindingDigest };
+            } }
+    });
+    t.after(() =>
+    {
+        assert.equal(enforcer.cleanup().status, 'removed');
+        fs.rmSync(cwd, { recursive: true, force: true });
+    });
+    enforcer.update('worker', { cpuUnits: 1, memoryGiB: 0.25 });
+    const boundary = enforcer.executionBoundary('worker');
     const options = {
         command: [process.execPath, '-e', 'process.exit(0)'], cwd, env: {}, policy: fastPolicy,
         stdout: quiet, stderr: quiet, schema: physicalExecutionProcessTreeSchema,
-        linuxExpectedCgroupAncestor: '/user.slice/owned.slice'
+        resourceBoundary: boundary, resourceContext: { ...context, bundleId: 'worker' }
     };
-    const fixtureOptions = {
-        callerCgroup: '0::/user.slice/owned.slice/parent.service\n',
-        unitControlGroup: '/user.slice/owned.slice/fsusblog-stub.scope',
-        unitSlice: 'owned.slice',
-        finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] }
-    };
-    const admitted = createStubSystemdExecution(fixtureOptions);
-    const evidence = await admitted.adapter.run(options);
-    assert.equal(evidence.postObservation, 'zero-members');
-    assert.equal(admitted.state.spawnArgs.includes('--slice-inherit'), true);
-
-    const foreignCaller = createStubSystemdExecution({ ...fixtureOptions,
-        callerCgroup: '0::/user.slice/foreign.slice/parent.service\n' });
-    await assert.rejects(foreignCaller.adapter.run(options), /caller is outside its declared slice ancestor/u);
-    assert.equal(foreignCaller.state.spawnArgs, null);
-
+    // The current owner requires its live capability, not the obsolete slice-name hint.
+    for (const copied of ['/user.slice/owned.slice', { ...boundary }, JSON.parse(JSON.stringify(boundary))])
+    {
+        const denied = createStubSystemdExecution();
+        await assert.rejects(denied.adapter.run({ ...options, resourceBoundary: copied }),
+            /live resource-owner capability/u);
+        assert.equal(denied.state.spawnArgs, null);
+    }
     for (const changed of [
-        { unitControlGroup: '/user.slice/foreign.slice/fsusblog-stub.scope' },
-        { unitSlice: 'foreign.slice' }
+        { runId: 'foreign-run' }, { namespace: 'foreign-namespace' }, { bundleId: 'foreign-worker' },
+        { sourceState: { ...context.sourceState, commit: 'c'.repeat(40) } },
+        { schedulerOwnerToken: randomUUID() }
     ])
     {
-        const foreignUnit = createStubSystemdExecution({ ...fixtureOptions, ...changed });
-        await assert.rejects(foreignUnit.adapter.run(options), /unit is outside its declared slice ancestor/u);
-        assert.equal(foreignUnit.state.spawnArgs.includes('--slice-inherit'), true);
-        if (foreignUnit.state.controlRoot && fs.existsSync(foreignUnit.state.controlRoot))
-        {
-            fs.rmSync(foreignUnit.state.controlRoot, { recursive: true, force: true });
-        }
+        const denied = createStubSystemdExecution();
+        await assert.rejects(denied.adapter.run({ ...options,
+            resourceContext: { ...options.resourceContext, ...changed } }), /execution context differs/u);
+        assert.equal(denied.state.spawnArgs, null);
     }
-    let callerReads = 0;
-    const callerDrift = createStubSystemdExecution({ ...fixtureOptions,
-        callerCgroup: () => ++callerReads === 1
-            ? '0::/user.slice/owned.slice/parent.service\n'
-            : '0::/user.slice/foreign.slice/parent.service\n' });
-    await assert.rejects(callerDrift.adapter.run(options), /caller is outside its declared slice ancestor/u);
-    assert.equal(fs.existsSync(path.join(callerDrift.state.controlRoot, 'release.json')), false);
-    if (fs.existsSync(callerDrift.state.controlRoot))
-    {
-        fs.rmSync(callerDrift.state.controlRoot, { recursive: true, force: true });
-    }
-
-    const unitDrift = createStubSystemdExecution({ ...fixtureOptions,
-        unitSlice: (state) => state.showCount === 1 ? 'owned.slice' : 'foreign.slice' });
-    await assert.rejects(unitDrift.adapter.run(options), /slice or unit identity drifted before target release/u);
-    assert.equal(fs.existsSync(path.join(unitDrift.state.controlRoot, 'release.json')), false);
-    if (fs.existsSync(unitDrift.state.controlRoot))
-    {
-        fs.rmSync(unitDrift.state.controlRoot, { recursive: true, force: true });
-    }
-    for (const ancestor of ['/user.slice/../owned.slice', '/user.slice/owned.slice/', '/user.slice/owned.service'])
-    {
-        const invalid = createStubSystemdExecution(fixtureOptions);
-        await assert.rejects(invalid.adapter.run({ ...options, linuxExpectedCgroupAncestor: ancestor }),
-            /canonical task-owned slice ancestor/u);
-        assert.equal(invalid.state.spawnArgs, null);
-    }
+    const foreignUnit = createStubSystemdExecution({
+        unitControlGroup: '/user.slice/foreign.slice/fsusblog-stub.scope', unitSlice: 'foreign.slice',
+        finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] }
+    });
+    await assert.rejects(foreignUnit.adapter.run(options), /pre-exec process ancestry is invalid/u);
+    assert.ok(foreignUnit.state.spawnArgs.includes(`--property=Slice=${boundary.admission.unitName}`));
+    assert.equal(fs.existsSync(path.join(foreignUnit.state.controlRoot, 'release.json')), false);
 });
 
 test('Linux systemd adapter cleanup treats command results as evidence and final state as authority', async (t) =>
