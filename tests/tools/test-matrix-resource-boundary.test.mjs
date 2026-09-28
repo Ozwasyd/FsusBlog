@@ -129,6 +129,11 @@ test('materialized runner retains the actual physical execution scripts, platfor
     t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
     materializeTestMatrixRunner(root, fixture);
     for (const file of [
+        'tools/test/native/execution-envelope-landlock.c',
+        'tools/test-fixtures/producers/temporal-child-handshake.bash',
+        'tools/test-fixtures/producers/temporal-child-handshake.cjs',
+        'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',
+        'tools/test-fixtures/producers/temporal-child-observer.mjs',
         'tools/test/physical-execution-unix-bootstrap.mjs',
         'tools/test/physical-execution-linux-systemd-bootstrap.mjs',
         'tools/test/physical-execution-linux-preexec.py',
@@ -137,6 +142,7 @@ test('materialized runner retains the actual physical execution scripts, platfor
         'tools/test-matrix/windows-job-members.ps1',
         'tools/test-matrix/windows-job-supervisor.ps1',
         'tools/test/lanes/release-final.sh',
+        'src/shared/Contracts/Localization/locale-catalog.json',
         'tests/fixtures/test-matrix/release-final-evidence-inputs.json'
     ])
     {
@@ -149,6 +155,11 @@ test('materialized runner retains the actual physical execution scripts, platfor
     assert.throws(() => preflightMaterializedEsmFixture({ fixtureRoot: fixture,
         entries: ['tools/run-test-matrix.mjs'], assets: [input],
         allowedRoots: ['tools', 'src/frontend/scripts/fsusui-root.mjs', input] }), /runtime asset.*missing/u);
+    const nativeSource = 'tools/test/native/execution-envelope-landlock.c';
+    fs.unlinkSync(path.join(fixture, nativeSource));
+    assert.throws(() => preflightMaterializedEsmFixture({ fixtureRoot: fixture,
+        entries: ['tools/run-test-matrix.mjs'], assets: [nativeSource],
+        allowedRoots: ['tools', 'src/frontend/scripts/fsusui-root.mjs'] }), /runtime asset.*missing/u);
 });
 
 

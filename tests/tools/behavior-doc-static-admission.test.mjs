@@ -7,6 +7,9 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { materializeEsmFixture } from './support/esm-fixture-materializer.mjs';
+import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-runner.mjs';
+
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, bindCanonicalOpenApiIdentity, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
@@ -23,6 +26,97 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 function tempDirectory(label)
 {
     return fs.mkdtempSync(path.join(os.tmpdir(), `fsusblog-${label}-`));
+}
+
+function createBehaviorDocCliFixture(t)
+{
+    const fixtureRoot = tempDirectory('behavior-doc-cli');
+    t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, fixtureRoot);
+    materializeEsmFixture({
+        repositoryRoot: root,
+        fixtureRoot,
+        entries: [
+            'tools/test-matrix/generate-release-final-execution-authority.mjs',
+            'tools/test/run-deterministic-command.mjs',
+            'tools/release/check-release-final.mjs'
+        ],
+        allowedRoots: [
+            'tools',
+            'src/frontend/scripts/fsusui-root.mjs',
+            'tests/tools/fixtures',
+            'tests/browser-contract'
+        ]
+    });
+    fs.cpSync(path.join(root, 'config/testing'), path.join(fixtureRoot, 'config/testing'), { recursive: true });
+    fs.cpSync(path.join(root, 'config/schemas'), path.join(fixtureRoot, 'config/schemas'), { recursive: true });
+    fs.copyFileSync(path.join(root, '.gitignore'), path.join(fixtureRoot, '.gitignore'));
+    const validatorDependencies = 'tools/test-matrix/schema-validator/node_modules';
+    fs.cpSync(path.join(root, validatorDependencies), path.join(fixtureRoot, validatorDependencies), { recursive: true });
+    const authority = JSON.parse(fs.readFileSync(
+        path.join(root, 'tests/fixtures/test-matrix/release-final-execution-target-authority.json'),
+        'utf8'
+    ));
+    for (const { target } of authority.targets)
+    {
+        const destination = path.join(fixtureRoot, target);
+        if (fs.existsSync(destination))
+        {
+            continue;
+        }
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        // The declaration index stays canonical. Unselected payloads fail if
+        // accidentally executed; this fixture cannot certify product execution.
+        fs.writeFileSync(destination, target.endsWith('.sh')
+            ? '#!/usr/bin/env bash\nset -euo pipefail\necho "an unselected component producer executed" >&2\nexit 97\n'
+            : "throw new Error('an unselected component producer executed');\n");
+        fs.chmodSync(destination, fs.statSync(path.join(root, target)).mode & 0o777);
+    }
+    return fixtureRoot;
+}
+
+function sealBehaviorDocCliFixture(fixtureRoot)
+{
+    assert.deepEqual(
+        fs.readFileSync(path.join(fixtureRoot, 'tests/matrix.yml')),
+        fs.readFileSync(path.join(root, 'tests/matrix.yml')),
+        'the canonical matrix and independent declaration index must stay unchanged'
+    );
+    assert.deepEqual(
+        fs.readFileSync(path.join(fixtureRoot, 'config/testing/release-final-execution-authority-index.json')),
+        fs.readFileSync(path.join(root, 'config/testing/release-final-execution-authority-index.json'))
+    );
+    const git = (args) =>
+    {
+        const result = spawnSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
+            cwd: fixtureRoot,
+            encoding: 'utf8',
+            timeout: 30_000
+        });
+        assert.equal(result.status, 0, result.stderr);
+        return result.stdout.trim();
+    };
+    git(['init', '--quiet', '--initial-branch=fixture']);
+    git(['add', '--all']);
+    const indexedTargets = JSON.parse(fs.readFileSync(
+        path.join(root, 'tests/fixtures/test-matrix/release-final-execution-target-authority.json'),
+        'utf8'
+    )).targets.map(({ target }) => target);
+    // Generic output-ignore patterns also match some tracked canonical owners.
+    // Recreate only the original exact target roster in this private Git index.
+    git(['add', '--force', '--', ...indexedTargets]);
+    const generated = spawnSync(process.execPath, [
+        'tools/test-matrix/generate-release-final-execution-authority.mjs'
+    ], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        timeout: 30_000
+    });
+    assert.equal(generated.status, 0, generated.stderr);
+    git(['add', '--all']);
+    git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+        'commit', '--quiet', '-m', 'test: seal isolated BehaviorDoc CLI fixture\n\nRefs: #3524']);
+    return git(['rev-parse', 'HEAD']);
 }
 
 function seal(value)
@@ -1037,29 +1131,18 @@ test('matrix validation binds scheduler identity while plan-only paths never est
 {
     const directory = tempDirectory('behavior-doc-pure-plan');
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const matrixFile = path.join(directory, 'matrix.yml');
+    const fixtureRoot = createBehaviorDocCliFixture(t);
     const marker = path.join(directory, 'dotnet-invoked');
     const deniedIdentityEvidence = path.join(directory, 'identity-evidence.jsonl');
-    const inventoryEvidenceDirectory = path.join(
-        root,
-        '.tmp/behavior-doc-static-admission-fixtures',
-        path.basename(directory)
-    );
-    const identityEvidence = path.join(
-        inventoryEvidenceDirectory,
-        'identity',
-        'identity-evidence.jsonl'
-    );
-    const inventoryEvidence = path.join(
-        inventoryEvidenceDirectory,
-        'inventory',
-        'inventory-evidence.json'
-    );
-    const identityEvidenceRelative = path.relative(root, identityEvidence).replaceAll('\\', '/');
-    const inventoryEvidenceRelative = path.relative(root, inventoryEvidence).replaceAll('\\', '/');
-    const identityProbe = path.join(directory, 'identity-probe.mjs');
-    const inventoryProbe = path.join(directory, 'inventory-probe.mjs');
-    t.after(() => fs.rmSync(inventoryEvidenceDirectory, { recursive: true, force: true }));
+    const identityEvidence = path.join(fixtureRoot, '.tmp/release-evidence/identity-evidence.jsonl');
+    const inventoryEvidence = path.join(fixtureRoot, '.tmp/release-evidence/test-inventory.json');
+    const identityEvidenceRelative = path.relative(fixtureRoot, identityEvidence).replaceAll('\\', '/');
+    const probeDirectory = path.join(fixtureRoot, 'tools/fixtures/behavior-doc');
+    fs.mkdirSync(probeDirectory, { recursive: true });
+    const identityProbe = path.join(probeDirectory, 'identity-probe.mjs');
+    const inventoryProbe = path.join(probeDirectory, 'inventory-probe.mjs');
+    const identityProbeRelative = path.relative(fixtureRoot, identityProbe).replaceAll('\\', '/');
+    const inventoryProbeRelative = path.relative(fixtureRoot, inventoryProbe).replaceAll('\\', '/');
     fs.writeFileSync(identityProbe, [
         "import assert from 'node:assert/strict';",
         "import fs from 'node:fs';",
@@ -1104,36 +1187,31 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     fs.chmodSync(dotnet, 0o755);
     const guardedPath = `${fakeBin}${path.delimiter}${process.env.PATH}`;
     const producerCommand = [
-        JSON.stringify(process.execPath),
+        'node',
         'tools/test/run-deterministic-command.mjs',
         '--key matrix-governance',
         '--execution-class correctness',
         '--producer-id validate-matrix',
         '--consumer validate-matrix',
-        `--cwd ${JSON.stringify(root)}`,
+        `--cwd ${JSON.stringify(fixtureRoot)}`,
         '--projection-directory .tmp/physical-execution-projections',
         '--path tools/test/run-deterministic-command.mjs',
+        `--path ${JSON.stringify(identityProbeRelative)}`,
         '--output .tmp/release-evidence/test-plan.json',
         `--output ${JSON.stringify(identityEvidenceRelative)}`,
         '--test-id matrix-validate',
         '--',
-        JSON.stringify(process.execPath),
-        JSON.stringify(identityProbe)
+        'node',
+        JSON.stringify(identityProbeRelative)
     ].join(' ');
-    const matrixSource = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
-        .replace(
-            'command: tools/test/run-matrix-governance-once.sh validate-matrix',
-            `command: ${JSON.stringify(producerCommand)}`
-        )
-        .replace(
-            'command: tools/test/lanes/test-inventory.sh',
-            `command: ${JSON.stringify(`${process.execPath} ${inventoryProbe}`)}`
-        )
-        .replaceAll('.tmp/release-evidence/test-inventory.json', inventoryEvidenceRelative);
-    fs.writeFileSync(matrixFile, matrixSource);
+    fs.writeFileSync(path.join(fixtureRoot, 'tools/test/run-matrix-governance-once.sh'),
+        `#!/usr/bin/env bash\nset -euo pipefail\nexec ${producerCommand}\n`);
+    fs.writeFileSync(path.join(fixtureRoot, 'tools/test/lanes/test-inventory.sh'),
+        `#!/usr/bin/env bash\nset -euo pipefail\nexec node ${JSON.stringify(inventoryProbeRelative)}\n`);
+    const fixtureCommit = sealBehaviorDocCliFixture(fixtureRoot);
     const env = {
         ...process.env,
-        FSUSBLOG_MATRIX_FILE: matrixFile,
+        FSUSBLOG_MATRIX_FILE: path.join(fixtureRoot, 'tests/matrix.yml'),
         FSUSBLOG_TEST_RUN_ID: '',
         FSUSBLOG_TEST_SOURCE_COMMIT: '',
         FSUSBLOG_TEST_SOURCE_FINGERPRINT: '',
@@ -1145,7 +1223,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         'validate-matrix',
         '--no-deps'
     ], {
-        cwd: root,
+        cwd: fixtureRoot,
         encoding: 'utf8',
         env,
         timeout: 30_000
@@ -1159,7 +1237,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         'validate-matrix',
         '--fresh'
     ], {
-        cwd: root,
+        cwd: fixtureRoot,
         encoding: 'utf8',
         env,
         timeout: 30_000
@@ -1172,10 +1250,12 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         .split('\n')
         .map((line) => JSON.parse(line));
     assert.equal(identities.length, 2);
+    assert.equal(new Set(identities.map((identity) => identity.runId)).size, 2);
     for (const identity of identities)
     {
         assert.ok(identity.runId);
         assert.match(identity.commit, /^[a-f0-9]{40}$/u);
+        assert.equal(identity.commit, fixtureCommit);
         assert.match(identity.worktreeFingerprint, /^(?:sha256:)?[a-f0-9]{64}$/u);
     }
     assert.equal(fs.existsSync(deniedIdentityEvidence), false);
@@ -1186,7 +1266,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         'frontend-build',
         '--plan-only'
     ], {
-        cwd: root,
+        cwd: fixtureRoot,
         encoding: 'utf8',
         env,
         timeout: 30_000
@@ -1254,7 +1334,9 @@ test('nested runners consume the pinned admission receipt instead of regeneratin
 
 test('docs-only and source-only PR plans always select the admission tier', (t) =>
 {
-    const directory = path.join(root, '.tmp', `behavior-doc-smart-gate-${process.pid}`);
+    const fixtureRoot = createBehaviorDocCliFixture(t);
+    sealBehaviorDocCliFixture(fixtureRoot);
+    const directory = path.join(fixtureRoot, '.tmp', `behavior-doc-smart-gate-${process.pid}`);
     fs.rmSync(directory, { recursive: true, force: true });
     fs.mkdirSync(directory, { recursive: true });
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -1269,11 +1351,11 @@ test('docs-only and source-only PR plans always select the admission tier', (t) 
         const result = spawnSync(process.execPath, [
             'tools/run-test-matrix.mjs',
             'ci-pr-plan',
-            '--changed-files', path.relative(root, changedFile),
+            '--changed-files', path.relative(fixtureRoot, changedFile),
             '--event-name', 'pull_request',
-            '--out', path.relative(root, outputFile)
+            '--out', path.relative(fixtureRoot, outputFile)
         ], {
-            cwd: root,
+            cwd: fixtureRoot,
             encoding: 'utf8',
             timeout: 30_000
         });
