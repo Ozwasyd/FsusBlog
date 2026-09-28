@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/doc-claim.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment spelling and existing DocClaim tool identifiers; this exact rejecting-guard recognition does not rename exported keys, and internal JavaScript identifiers retain repository naming."
+        }
+    ]
+}
