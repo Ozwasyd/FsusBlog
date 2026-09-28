@@ -2,6 +2,13 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/process-identity.mjs"
+            ],
+            "reason": "Preserve existing process environment and exported identity-field spellings while correcting only Linux disappearance observation; no caller-visible keys are renamed."
+        },
+        {
             "id": "json-wire-key",
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
