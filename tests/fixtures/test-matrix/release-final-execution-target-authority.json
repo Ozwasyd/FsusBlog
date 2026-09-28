@@ -2100,8 +2100,8 @@
         },
         {
             "path": "tools/docs/doc-claim.mjs",
-            "contentDigest": "sha256:ea6b43dbfa03129f85ae2d949b24ef1739b940fc3c1f91aae952d9722e3fb3bc",
-            "indexDigest": "sha256:ea6b43dbfa03129f85ae2d949b24ef1739b940fc3c1f91aae952d9722e3fb3bc"
+            "contentDigest": "sha256:30e0b1bbcfecb761d0321f26513efcfa5aaae0e3f5ef5bdc323c079b90c54c25",
+            "indexDigest": "sha256:30e0b1bbcfecb761d0321f26513efcfa5aaae0e3f5ef5bdc323c079b90c54c25"
         },
         {
             "path": "tools/docs/document-lifecycle.mjs",
