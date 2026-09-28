@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "The generated correctness inventory and execution-target authority retain their machine-readable field names while their source digests and closure are refreshed."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "This exact generated testing index path is registered under the trusted owner; the producer preserves its caller-visible matrix names while refreshing only governed source rows."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/physical-execution-linux-systemd-adapter.mjs",
+                "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
+                "tools/test/physical-execution-private-dotnet-scratch.mjs",
+                "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/run-deterministic-command.mjs"
+            ],
+            "reason": "The existing pinned host and run identity environment keys remain externally supplied; internal JavaScript names and private scratch authority stay within the existing runtime owner."
+        }
+    ]
+}

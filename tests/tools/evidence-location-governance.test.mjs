@@ -475,16 +475,16 @@ test('Migration run-owned artifact enumeration cannot become an evidence locator
         excerpt: entry.excerpt,
         indirectVia: entry.indirectVia
     })), [
-        { findingId: '14233adcdb585bae', ruleId: 'evidence-selection.directory-scan',
-            line: 45, column: 15, function: 'evidenceFiles',
+        { findingId: '88c8cb325349ef3d', ruleId: 'evidence-selection.directory-scan',
+            line: 51, column: 15, function: 'evidenceFiles',
             excerpt: 'return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>',
             indirectVia: null },
-        { findingId: 'e348a49643b76b7d', ruleId: 'evidence-selection.indirect-helper-call',
-            line: 239, column: 24, function: 'inspectExecution',
+        { findingId: '606bb9faa6bba071', ruleId: 'evidence-selection.indirect-helper-call',
+            line: 305, column: 24, function: 'inspectExecution',
             excerpt: "if (JSON.stringify(evidenceFiles(options.root, path.join(plan.directory, 'execution')).filter((file) => file.endsWith('.trx')))",
             indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan' },
-        { findingId: 'bba2f770f61cce29', ruleId: 'evidence-selection.indirect-helper-call',
-            line: 272, column: 36, function: 'receiptOptions',
+        { findingId: '9dded06f43ddfc49', ruleId: 'evidence-selection.indirect-helper-call',
+            line: 338, column: 36, function: 'receiptOptions',
             excerpt: 'artifacts: [build.file, ...evidenceFiles(options.root, plan.directory).filter((file) => file !== plan.receiptFile)],',
             indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan' }
     ]);
@@ -494,6 +494,30 @@ test('Migration run-owned artifact enumeration cannot become an evidence locator
     assert(ledgerEntries.every((entry) => entry.classification === 'not-evidence'
         && entry.newAuthorityId === null && entry.locatorMode === 'not-applicable'));
     assert.equal(generated.registry.entries.some((entry) => entry.producerSource === source), false);
+
+    for (const finding of findings)
+    {
+        for (const field of ['ruleId', 'file', 'line', 'column', 'function', 'excerpt', 'indirectVia'])
+        {
+            const changedValue = typeof finding[field] === 'number'
+                ? finding[field] + 1 : `${finding[field] ?? ''}:changed`;
+            const changedScan = { ...generated.scan, findings: generated.scan.findings.map((entry) =>
+                entry.findingId === finding.findingId ? { ...entry, [field]: changedValue } : entry) };
+            assert.throws(() => validateEvidenceLocationClassificationOverrides(changedScan),
+                new RegExp(`non-evidence finding override ${finding.findingId} changed ${field}`, 'u'));
+        }
+    }
+    const staleIdentities = [
+        { findingId: '14233adcdb585bae', line: 45 },
+        { findingId: 'e348a49643b76b7d', line: 239 },
+        { findingId: 'bba2f770f61cce29', line: 272 }
+    ];
+    const staleScan = { ...generated.scan, findings: [
+        ...generated.scan.findings.filter((entry) => entry.file !== source),
+        ...findings.map((entry, index) => ({ ...entry, ...staleIdentities[index] }))
+    ] };
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(staleScan),
+        /non-evidence finding override is missing: 88c8cb325349ef3d/u);
 
     const sourceText = fs.readFileSync(path.join(repositoryRoot, source), 'utf8');
     assert.match(sourceText, /fs\.mkdirSync\(plan\.directory\);/u);
@@ -513,7 +537,9 @@ test('Migration run-owned artifact enumeration cannot become an evidence locator
     assert.throws(() => validateEvidenceLocationClassificationOverrides(mutatedScan(
         sourceText.replace('return fs.readdirSync(directory, { withFileTypes: true })',
             "return fs.readdirSync(path.join(root, '.tmp'), { withFileTypes: true })"))),
-    /non-evidence finding override 14233adcdb585bae changed excerpt/u);
+    /non-evidence finding override 88c8cb325349ef3d changed excerpt/u);
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(mutatedScan(`\n${sourceText}`)),
+        /non-evidence finding override is missing: 88c8cb325349ef3d/u);
     assert.throws(() => validateEvidenceLocationClassificationOverrides(mutatedScan(
         `${sourceText}\nfunction selectLatestEvidence() { return fs.readdirSync('.tmp/release-evidence'); }\n`)),
     /unreviewed evidence selector in import-only module/u);

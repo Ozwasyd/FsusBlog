@@ -48,21 +48,25 @@
                 "tools/test/bundles/run-bundle.mjs",
                 "tools/test/check-backend-production-build-authority.mjs",
                 "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-envelope-services.mjs",
                 "tools/test/generate-evidence-location-governance.mjs",
                 "tools/test/migration-build-binding.mjs",
                 "tools/test/migration-execution-evidence.mjs",
                 "tools/test/mysql-fixture-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
+                "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
                 "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/physical-execution-private-dotnet-scratch.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
                 "tools/test/physical-execution-systemd-sender.mjs",
                 "tools/test/process-identity.mjs",
+                "tools/test/run-deterministic-command.mjs",
                 "tools/test/run-migration-tests.mjs",
                 "tools/testing/content-shape-catalog.mjs",
                 "tools/testing/generate-test-execution-envelope-applicability.mjs"
             ],
-            "reason": "Preserve existing process-environment, CLI and runtime-tooling spellings in the Migration inventory, execution, fixture and dependent scheduler/doc owners; internal C# and JavaScript identifiers remain repository-governed. Preserve the externally supplied pinned SDK host key in the exact content-shape policy and generator; no arbitrary ambient environment is inherited."
+            "reason": "Preserve existing process-environment, CLI and runtime-tooling spellings in the Migration inventory, execution, fixture and dependent scheduler/doc owners; internal C# and JavaScript identifiers remain repository-governed. Preserve the externally supplied pinned SDK host key in the exact content-shape policy and generator; no arbitrary ambient environment is inherited. Bind the private .NET mutex scratch to the existing exact run/source environment keys without admitting host temporary storage."
         },
         {
             "id": "json-wire-key",

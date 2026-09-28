@@ -14,6 +14,11 @@ import { createPhysicalExecutionOutputTracker, residentServiceOutputSchema,
     resourceServiceContainmentIsComplete, resourceServiceContainmentSchema } from './physical-execution-process-tree.mjs';
 import { systemdSenderReadyIsComplete, verifySystemdSenderTerminal } from './physical-execution-systemd-sender.mjs';
 import {
+    tmpIdentity,
+    verifyPrivateDotnetScratchBinding,
+    verifyPrivateTmpNamespace
+} from './physical-execution-private-dotnet-scratch.mjs';
+import {
     collectProcessGroupOrJobIdentity,
     collectProcessIdentity,
     processIdentityStatus
@@ -300,6 +305,7 @@ function waitForFile({
 function writePrivateJsonFile(controlRoot, name, value, { durable = false } = {})
 {
     const file = path.join(controlRoot, name);
+    const temporary = `${file}.next-${randomUUID()}`;
     const serialized = JSON.stringify(value);
     if (typeof serialized !== 'string')
     {
@@ -310,9 +316,11 @@ function writePrivateJsonFile(controlRoot, name, value, { durable = false } = {}
     fs.constants.O_EXCL |
     (fs.constants.O_NOFOLLOW ?? 0);
     let descriptor;
+    let temporaryCreated = false;
     try
     {
-        descriptor = fs.openSync(file, flags, 0o600);
+        descriptor = fs.openSync(temporary, flags, 0o600);
+        temporaryCreated = true;
         fs.writeFileSync(descriptor, `${serialized}\n`, 'utf8');
         const stat = fs.fstatSync(descriptor);
         if (!stat.isFile() || (stat.mode & 0o777) !== 0o600)
@@ -322,6 +330,13 @@ function writePrivateJsonFile(controlRoot, name, value, { durable = false } = {}
         if (durable)
         {
             fs.fsyncSync(descriptor);
+        }
+        // Publish complete bytes without replacing an existing carrier or symlink.
+        fs.linkSync(temporary, file);
+        fs.unlinkSync(temporary);
+        temporaryCreated = false;
+        if (durable)
+        {
             const directory = fs.openSync(controlRoot, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
             try
             {
@@ -338,6 +353,10 @@ function writePrivateJsonFile(controlRoot, name, value, { durable = false } = {}
         if (descriptor !== undefined)
         {
             fs.closeSync(descriptor);
+        }
+        if (temporaryCreated)
+        {
+            fs.unlinkSync(temporary);
         }
     }
 }
@@ -624,6 +643,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             linuxPrivateNetwork = false,
             linuxNetworkPolicy = null,
             linuxReadWritePaths = [],
+            privateDotnetScratch = null,
             signal,
             policy,
             stdout,
@@ -674,6 +694,9 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 }
                 cwd = literalCwd;
             }
+            const hostMountNamespace = privateDotnetScratch
+                ? fs.readlinkSync('/proc/self/ns/mnt') : null;
+            const hostTmpIdentity = privateDotnetScratch ? tmpIdentity('/tmp') : null;
             const controlRoot = createControlRoot({
                 env,
                 linuxReadWritePaths
@@ -694,6 +717,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             const resultFile = path.join(controlRoot, 'result.json');
             const finalizeFile = path.join(controlRoot, 'finalize');
             let containmentAuthority = null;
+            let privateDotnetScratchReceipt = null;
+            let privateTmpMountNamespace = null;
             const removeUnestablishedRoot = (primaryError) =>
             {
                 try
@@ -717,13 +742,26 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             };
             try
             {
+                if (privateDotnetScratch)
+                {
+                    if (linuxReadWritePaths.length === 0)
+                    {
+                        throw new Error('private .NET scratch requires protected filesystem execution');
+                    }
+                    verifyPrivateDotnetScratchBinding(privateDotnetScratch, {
+                        environment: env, cwd, controlRoot
+                    });
+                }
                 writePrivateJsonFile(controlRoot, 'command.json', command);
                 writePrivateJsonFile(controlRoot, 'environment.json', env);
                 python = resolvePython(controlEnv);
                 writePrivateJsonFile(controlRoot, 'admission.json', {
                     authorityId,
                     publicKey: publicKey.export({ type: 'spki', format: 'pem' }),
-                    python
+                    python,
+                    privateDotnetScratch: privateDotnetScratch
+                        ? { ...privateDotnetScratch, unitName, hostMountNamespace, hostTmpIdentity }
+                        : null
                 });
                 if (resourceAdmission)
                 {
@@ -1269,6 +1307,17 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 authorityEstablished = true;
                 supervisorPid = Number(fs.readFileSync(readyFile, 'utf8').trim());
                 controlGroup = properties.values.ControlGroup;
+                if (privateDotnetScratch)
+                {
+                    privateTmpMountNamespace = fs.readlinkSync(`/proc/${supervisorPid}/ns/mnt`);
+                    verifyPrivateTmpNamespace({
+                        hostNamespace: hostMountNamespace,
+                        unitNamespace: privateTmpMountNamespace,
+                        hostTmpIdentity,
+                        unitTmpIdentity: tmpIdentity(`/proc/${supervisorPid}/root/tmp`),
+                        privateTmp: properties.values.PrivateTmp
+                    });
+                }
                 const supervisorIdentity = readProcessIdentity(supervisorPid);
                 if (supervisorIdentity.status !== 'verified')
                 {
@@ -1590,6 +1639,46 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     }
                 }
             }
+            if (privateDotnetScratch && cleanupVerified && !fs.existsSync(startFile))
+            {
+                privateDotnetScratchReceipt = {
+                    path: privateDotnetScratch.path,
+                    binding: privateDotnetScratch,
+                    authorityId,
+                    unitName,
+                    cleanup: 'not-started'
+                };
+            }
+            else if (privateDotnetScratch && cleanupVerified)
+            {
+                try
+                {
+                    privateDotnetScratchReceipt = JSON.parse(fs.readFileSync(
+                        path.join(controlRoot, 'private-dotnet-scratch-finalized.json'), 'utf8'
+                    ));
+                    if (!['removed', 'not-prepared'].includes(privateDotnetScratchReceipt.cleanup)
+                        || (privateDotnetScratchReceipt.cleanup === 'not-prepared' && !primaryError)
+                        || privateDotnetScratchReceipt.path !== privateDotnetScratch.path
+                        || privateDotnetScratchReceipt.unitName !== unitName
+                        || privateDotnetScratchReceipt.authorityId !== authorityId
+                        || (privateDotnetScratchReceipt.cleanup === 'removed'
+                            && privateDotnetScratchReceipt.mountNamespace !== privateTmpMountNamespace)
+                        || JSON.stringify(privateDotnetScratchReceipt.binding)
+                            !== JSON.stringify(privateDotnetScratch))
+                    {
+                        throw new Error('private .NET scratch cleanup receipt binding drift');
+                    }
+                }
+                catch (error)
+                {
+                    cleanup = {
+                        ...cleanup,
+                        status: 'unverifiable',
+                        reason: `private .NET scratch cleanup is unverifiable: ${error.message}`
+                    };
+                    cleanupVerified = false;
+                }
+            }
             if (cleanupVerified)
             {
                 lifecycle.push('post-observe-zero-members');
@@ -1675,6 +1764,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         readWritePaths: [...linuxReadWritePaths]
                     }
                     : null,
+                privateDotnetScratch: privateDotnetScratchReceipt,
                 established: establishedState,
                 attemptedUnitName: establishedState === true ? null : unitName
             };

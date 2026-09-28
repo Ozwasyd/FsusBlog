@@ -2293,6 +2293,127 @@ test('Linux systemd abort before admission never executes the target', {
     assert.equal(fs.existsSync(marker), false);
 });
 
+test('Linux systemd release carrier stays unpublished until its JSON bytes are complete', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const capability = spawnSync('systemctl', ['--user', 'show-environment'], { encoding: 'utf8' });
+    if (capability.status !== 0)
+    {
+        t.skip('systemd user authority unavailable');
+        return;
+    }
+    const cwd = temporaryRoot('systemd-atomic-release');
+    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    let controlRoot;
+    let observedWrites = 0;
+    const adapter = createPhysicalExecutionLinuxSystemdAdapter({
+        spawnProcess(executable, args, options)
+        {
+            controlRoot = args.at(-1);
+            return spawn(executable, args, options);
+        }
+    });
+    const originalWrite = fs.writeFileSync;
+    fs.writeFileSync = (descriptor, ...args) =>
+    {
+        if (Number.isInteger(descriptor) && controlRoot)
+        {
+            const file = fs.readlinkSync(`/proc/self/fd/${descriptor}`);
+            if (path.dirname(file) === controlRoot && path.basename(file).startsWith('release.json'))
+            {
+                observedWrites++;
+                assert.equal(fs.existsSync(path.join(controlRoot, 'release.json')), false,
+                    'the bootstrap must not observe the release carrier before serialization finishes');
+            }
+        }
+        return originalWrite(descriptor, ...args);
+    };
+    try
+    {
+        const evidence = await adapter.run({
+            command: [process.execPath, '-e', 'process.exit(0)'], cwd, env: process.env,
+            policy: fastPolicy, stdout: quiet, stderr: quiet, schema: physicalExecutionProcessTreeSchema
+        });
+        assert.equal(observedWrites, 1);
+        assert.equal(evidence.cleanup.status, 'verified');
+        assert.equal(evidence.postObservation, 'zero-members');
+        assert.equal(fs.existsSync(controlRoot), false);
+    }
+    finally
+    {
+        fs.writeFileSync = originalWrite;
+    }
+});
+
+test('Linux systemd release publication refuses a crossed carrier without overwriting it', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const capability = spawnSync('systemctl', ['--user', 'show-environment'], { encoding: 'utf8' });
+    if (capability.status !== 0)
+    {
+        t.skip('systemd user authority unavailable');
+        return;
+    }
+    const cwd = temporaryRoot('systemd-crossed-release');
+    const marker = path.join(cwd, 'command-ran');
+    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    let controlRoot;
+    let observedPublication = 0;
+    let foreignBytesPreserved = false;
+    const adapter = createPhysicalExecutionLinuxSystemdAdapter({
+        spawnProcess(executable, args, options)
+        {
+            controlRoot = args.at(-1);
+            return spawn(executable, args, options);
+        }
+    });
+    const originalLink = fs.linkSync;
+    fs.linkSync = (temporary, file) =>
+    {
+        if (controlRoot && file === path.join(controlRoot, 'release.json'))
+        {
+            observedPublication++;
+            const foreignBytes = '{"foreign":true}\n';
+            fs.writeFileSync(file, foreignBytes, { flag: 'wx', mode: 0o600 });
+            try
+            {
+                return originalLink(temporary, file);
+            }
+            catch (error)
+            {
+                foreignBytesPreserved = fs.readFileSync(file, 'utf8') === foreignBytes;
+                throw error;
+            }
+        }
+        return originalLink(temporary, file);
+    };
+    try
+    {
+        await assert.rejects(adapter.run({
+            command: [process.execPath, '-e',
+                `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'ran')`],
+            cwd, env: process.env, policy: fastPolicy, stdout: quiet, stderr: quiet,
+            schema: physicalExecutionProcessTreeSchema
+        }), (error) =>
+        {
+            assert.equal(error.code, 'EEXIST');
+            assert.equal(error.physicalExecution.cleanup.status, 'verified');
+            assert.equal(error.physicalExecution.postObservation, 'zero-members');
+            return true;
+        });
+        assert.equal(observedPublication, 1);
+        assert.equal(foreignBytesPreserved, true);
+        assert.equal(fs.existsSync(marker), false);
+        assert.equal(fs.existsSync(controlRoot), false);
+    }
+    finally
+    {
+        fs.linkSync = originalLink;
+    }
+});
+
 test('Linux systemd adapter finalizes failed and cancelled supervisors without control-root or unit leaks', {
     skip: process.platform !== 'linux'
 }, async (t) =>

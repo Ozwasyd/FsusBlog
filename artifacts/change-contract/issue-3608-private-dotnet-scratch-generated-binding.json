@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/test/execution-envelope-network.mjs",
+        "tools/test/physical-execution-linux-systemd-adapter.mjs",
+        "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
+        "tools/test/physical-execution-private-dotnet-scratch.mjs",
+        "tools/test/physical-execution-process-tree.mjs",
+        "tools/test/run-deterministic-command.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "552d4f882941320a012c4e6ed4ef32bc29928c50a9e4d1a223d5134172b3d1b7"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "a91ee41f933d27e1883f7bbf8522439927d1b54eb76319d53d117c06fef0d06f"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "d77f01810289653804d1f56086106182f2962087510280e4b02ce42219eccc92"
+        }
+    ]
+}

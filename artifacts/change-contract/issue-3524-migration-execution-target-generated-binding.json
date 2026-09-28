@@ -42,6 +42,7 @@
         "tools/test/backend-platform-selection.mjs",
         "tools/test/build-migration-tests.mjs",
         "tools/test/correctness-attempt-migration.mjs",
+        "tools/test/execution-envelope-network.mjs",
         "tools/test/execution-envelope-services.mjs",
         "tools/test/generate-evidence-location-governance.mjs",
         "tools/test/lanes/_suite-support.sh",
@@ -49,10 +50,13 @@
         "tools/test/migration-execution-evidence.mjs",
         "tools/test/mysql-fixture-admission.mjs",
         "tools/test/physical-execution-linux-systemd-adapter.mjs",
+        "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
         "tools/test/physical-execution-nested-channel.mjs",
+        "tools/test/physical-execution-private-dotnet-scratch.mjs",
         "tools/test/physical-execution-process-tree.mjs",
         "tools/test/physical-execution-systemd-sender.mjs",
         "tools/test/process-identity.mjs",
+        "tools/test/run-deterministic-command.mjs",
         "tools/test/run-matrix-governance-once.sh",
         "tools/test/run-migration-tests.mjs",
         "tools/testing/content-shape-catalog.mjs",
@@ -61,19 +65,19 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "e8119897a83932fd7288c1a3e520aa1ff5705ecaee85b5eb22224aa14f29234d"
+            "sha256": "d77f01810289653804d1f56086106182f2962087510280e4b02ce42219eccc92"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "1e852cf1bf328ffa88714c0f0cb02740aa1f5a1a38a1ad892b2f3332de110676"
+            "sha256": "446668224faf36e0d5465aaeec9d5e0e5b74dbe6130b8fbd08fe2e96c16eb78e"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "e8fc0ec4c2b3875eedc6eed09bfc71ca688f4b60545b1ddfb500b6ae9f803e7b"
+            "sha256": "5bbb740f1320fb276911fe7210d598bf8b7a19f32581487d72159515f731ec67"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "8b9dd67e0a46ca44d6049a0a4bbe7b0cdeae762d7eaabdb82bc78bdabe6413ee"
+            "sha256": "552d4f882941320a012c4e6ed4ef32bc29928c50a9e4d1a223d5134172b3d1b7"
         },
         {
             "path": "config/testing/test-execution-envelope-applicability.json",
@@ -81,7 +85,7 @@
         },
         {
             "path": "docs/testing.generated.md",
-            "sha256": "e3d2a11c65267768e7c58ca9f55b4158970585dfb89a6001a80f69e2c375409d"
+            "sha256": "a91ee41f933d27e1883f7bbf8522439927d1b54eb76319d53d117c06fef0d06f"
         }
     ]
 }

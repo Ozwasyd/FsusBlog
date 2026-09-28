@@ -126,30 +126,30 @@ const nonEvidenceFindingOverrides = new Map([
     // The first call rejects a second TRX; the second seals every produced
     // artifact. Neither chooses a receipt from candidate evidence locations.
     {
-        findingId: '14233adcdb585bae',
+        findingId: '88c8cb325349ef3d',
         ruleId: 'evidence-selection.directory-scan',
         file: 'tools/test/run-migration-tests.mjs',
-        line: 45,
+        line: 51,
         column: 15,
         function: 'evidenceFiles',
         excerpt: 'return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>',
         indirectVia: null
     },
     {
-        findingId: 'e348a49643b76b7d',
+        findingId: '606bb9faa6bba071',
         ruleId: 'evidence-selection.indirect-helper-call',
         file: 'tools/test/run-migration-tests.mjs',
-        line: 239,
+        line: 305,
         column: 24,
         function: 'inspectExecution',
         excerpt: "if (JSON.stringify(evidenceFiles(options.root, path.join(plan.directory, 'execution')).filter((file) => file.endsWith('.trx')))",
         indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan'
     },
     {
-        findingId: 'bba2f770f61cce29',
+        findingId: '9dded06f43ddfc49',
         ruleId: 'evidence-selection.indirect-helper-call',
         file: 'tools/test/run-migration-tests.mjs',
-        line: 272,
+        line: 338,
         column: 36,
         function: 'receiptOptions',
         excerpt: 'artifacts: [build.file, ...evidenceFiles(options.root, plan.directory).filter((file) => file !== plan.receiptFile)],',
