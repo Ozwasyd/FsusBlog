@@ -33,6 +33,7 @@
                 "tools/test-inventory/produce.mjs",
                 "tools/test-inventory/xunit-projects.mjs",
                 "tools/test-matrix/content-addressed-evidence-store.mjs",
+                "tools/test-matrix/execution-envelope-policy.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/production-build-layout.mjs",
                 "tools/test-matrix/production-build-lifecycle.mjs",
@@ -57,9 +58,11 @@
                 "tools/test/physical-execution-process-tree.mjs",
                 "tools/test/physical-execution-systemd-sender.mjs",
                 "tools/test/process-identity.mjs",
-                "tools/test/run-migration-tests.mjs"
+                "tools/test/run-migration-tests.mjs",
+                "tools/testing/content-shape-catalog.mjs",
+                "tools/testing/generate-test-execution-envelope-applicability.mjs"
             ],
-            "reason": "Preserve existing process-environment, CLI and runtime-tooling spellings in the Migration inventory, execution, fixture and dependent scheduler/doc owners; internal C# and JavaScript identifiers remain repository-governed."
+            "reason": "Preserve existing process-environment, CLI and runtime-tooling spellings in the Migration inventory, execution, fixture and dependent scheduler/doc owners; internal C# and JavaScript identifiers remain repository-governed. Preserve the externally supplied pinned SDK host key in the exact content-shape policy and generator; no arbitrary ambient environment is inherited."
         },
         {
             "id": "json-wire-key",
@@ -101,9 +104,10 @@
             "id": "shell-environment-variable",
             "paths": [
                 "tools/test/lanes/_suite-support.sh",
-                "tools/test/lanes/static-governance.sh"
+                "tools/test/lanes/static-governance.sh",
+                "tools/test/run-matrix-governance-once.sh"
             ],
-            "reason": "Preserve exported FSUSBLOG lane environment variables and canonical shell entry points while selecting independent Migration execution and resource-bound tests."
+            "reason": "Preserve exported FSUSBLOG lane environment variables and canonical shell entry points while selecting independent Migration execution and resource-bound tests. Preserve the same pinned SDK key at the canonical matrix-governance shell boundary."
         }
     ]
 }

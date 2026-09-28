@@ -517,6 +517,9 @@ export function validateExecutionEnvelopeContracts({
                 }
                 const expectedAllowedEnvironment = [
                     'PATH',
+                    ...(tierId === 'validate-matrix'
+                        ? ['FSUSBLOG_CONTENT_FIELD_DOTNET']
+                        : []),
                     ...(tier.requiresDotnet ? ['DOTNET_ROOT'] : []),
                     ...(tier.requiresPlaywright !== 'none'
                         ? ['PLAYWRIGHT_BROWSERS_PATH']
@@ -565,7 +568,11 @@ export function validateExecutionEnvelopeContracts({
             if (entry.sourceKind !== 'canonical-runner'
                 || entry.evidenceClass !== 'correctness'
                 || entry.executionClass !== 'static-governance'
-                || JSON.stringify(entry.allowedEnvironment) !== JSON.stringify(['PATH'])
+                || JSON.stringify(entry.allowedEnvironment) !== JSON.stringify(
+                    runnerId === 'matrix-governance'
+                        ? ['FSUSBLOG_CONTENT_FIELD_DOTNET', 'PATH']
+                        : ['PATH']
+                )
                 || JSON.stringify(entry.requiredServices) !== JSON.stringify([])
                 || entry.fieldApplicability?.browserRendering?.status !== 'not-applicable'
                 || entry.fieldApplicability?.services?.status !== 'not-applicable')

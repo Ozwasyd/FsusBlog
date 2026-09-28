@@ -4478,6 +4478,7 @@
             "evidenceClass": "correctness",
             "executionClass": "static-governance",
             "allowedEnvironment": [
+                "FSUSBLOG_CONTENT_FIELD_DOTNET",
                 "PATH"
             ],
             "requiredServices": [],
@@ -8366,6 +8367,7 @@
             "evidenceClass": "correctness",
             "executionClass": "coordination",
             "allowedEnvironment": [
+                "FSUSBLOG_CONTENT_FIELD_DOTNET",
                 "PATH"
             ],
             "requiredServices": [],

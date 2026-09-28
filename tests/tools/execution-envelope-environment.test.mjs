@@ -55,6 +55,32 @@ test('sensitive allowlisted inputs record presence, type, and digest without pla
     assert.doesNotMatch(JSON.stringify(result.observation), new RegExp(secret, 'u'));
 });
 
+test('declared pinned dotnet host crosses only the explicit child environment boundary', () =>
+{
+    const name = 'FSUSBLOG_CONTENT_FIELD_DOTNET';
+    const host = '/isolated/dotnet-10.0.302/dotnet';
+    const parentEnvironment = {
+        PATH: '/controlled/bin',
+        [name]: host,
+        DOTNET_ROOT: '/unrelated/dotnet'
+    };
+    const admitted = createMinimalCorrectnessEnvironment({
+        parentEnvironment,
+        producerAllowlist: [name],
+        policy
+    });
+    assert.equal(admitted.childEnvironment[name], host);
+    assert.equal(admitted.childEnvironment.DOTNET_ROOT, undefined);
+    assert.equal(admitted.observation.variables.find((entry) =>
+        entry.name === name)?.valueDigest != null, true);
+    const denied = createMinimalCorrectnessEnvironment({
+        parentEnvironment,
+        producerAllowlist: [],
+        policy
+    });
+    assert.equal(denied.childEnvironment[name], undefined);
+});
+
 test('executable identity includes absolute path, real path, version, and binary digest', () =>
 {
     const identity = observeExecutableIdentity(process.execPath, {
