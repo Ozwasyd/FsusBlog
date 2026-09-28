@@ -48,28 +48,6 @@
             "syntaxDigest": "sha256:0a6693237be6d637278a3af1f65e6a3497d3e71b312306ad9b5294f1b509c7e4"
         },
         {
-            "producerId": "csharp-mysqlddlfixture",
-            "findingId": "sha256:a9d02160f3c7caf9a6963464c67e832c9e31068f0dfdc0b33536e63147b0f6d5",
-            "location": {
-                "path": "tests/migration/MySqlDdlFixture.cs",
-                "start": {
-                    "line": 39,
-                    "column": 13
-                },
-                "end": {
-                    "line": 41,
-                    "column": 54
-                }
-            },
-            "ruleId": "retry.csharp-attempt-loop",
-            "classification": "non-retry",
-            "policyId": null,
-            "action": "restore-only",
-            "owner": "schema-migration",
-            "sourceDigest": "sha256:474eb6ba34389ef63477bfe5e6e39cb955af57f9546537473ac01b892b3007a5",
-            "syntaxDigest": "sha256:633d2992defc9d108130dac74b61b08d192103baf735e7f59caae1a71e3a1754"
-        },
-        {
             "producerId": "flaky-diagnostic-runner",
             "findingId": "sha256:a6e5178b037e51ff17f9c8e63f94375c2762e29eb65f5d88626e92e7ccca87d2",
             "location": {
@@ -158,5 +136,5 @@
             "syntaxDigest": "sha256:bdcce7a77881b6b9ab628eb719eb3893ea4fe57f40b9516969c02ec1e46f2901"
         }
     ],
-    "contentDigest": "sha256:801114727e2b26eec49bc8e51f24800e09d755048c1794743eade2a0b7977d0a"
+    "contentDigest": "sha256:7341cff543c41952331b84f3eb55bce4ec4b6fea5d48791c389f8f23c32abdb1"
 }
