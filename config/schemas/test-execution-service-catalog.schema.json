@@ -213,20 +213,52 @@
                         "pidsMax"
                     ],
                     "properties": {
-                        "cpuUnits": { "type": "number", "minimum": 0.25, "maximum": 2 },
-                        "memoryHighBytes": { "type": "integer", "minimum": 268435456, "maximum": 1073741824 },
-                        "memoryMaxBytes": { "type": "integer", "minimum": 268435456, "maximum": 1610612736 },
-                        "pidsMax": { "type": "integer", "minimum": 64, "maximum": 512 }
+                        "cpuUnits": {
+                            "type": "number",
+                            "minimum": 0.25,
+                            "maximum": 2
+                        },
+                        "memoryHighBytes": {
+                            "type": "integer",
+                            "minimum": 268435456,
+                            "maximum": 1073741824
+                        },
+                        "memoryMaxBytes": {
+                            "type": "integer",
+                            "minimum": 268435456,
+                            "maximum": 1610612736
+                        },
+                        "pidsMax": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 512
+                        }
                     },
                     "additionalProperties": false
                 },
                 "lifecycleBudgets": {
                     "type": "object",
-                    "required": ["startupMs", "commandMs", "cleanupMs"],
+                    "required": [
+                        "startupMs",
+                        "commandMs",
+                        "cleanupMs"
+                    ],
                     "properties": {
-                        "startupMs": { "type": "integer", "minimum": 1000, "maximum": 300000 },
-                        "commandMs": { "type": "integer", "minimum": 1000, "maximum": 60000 },
-                        "cleanupMs": { "type": "integer", "minimum": 1000, "maximum": 180000 }
+                        "startupMs": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 300000
+                        },
+                        "commandMs": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 60000
+                        },
+                        "cleanupMs": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 180000
+                        }
                     },
                     "additionalProperties": false
                 },
