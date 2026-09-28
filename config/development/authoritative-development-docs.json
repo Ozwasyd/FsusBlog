@@ -290,7 +290,8 @@
             "patterns": [
                 "**/package-lock.json",
                 "**/pnpm-lock.yaml",
-                "**/yarn.lock"
+                "**/yarn.lock",
+                "tests/migration/packages.lock.json"
             ],
             "reason": "package managers own lock ordering and formatting"
         },
