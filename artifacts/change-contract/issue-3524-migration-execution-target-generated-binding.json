@@ -1,6 +1,7 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "artifacts/change-contract/issue-3524-canonical-external-naming.json",
         "tests/matrix.yml",
         "tests/tools/behavior-doc-static-admission.test.mjs",
         "tests/tools/content-addressed-evidence-store.test.mjs",
@@ -69,11 +70,11 @@
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "446668224faf36e0d5465aaeec9d5e0e5b74dbe6130b8fbd08fe2e96c16eb78e"
+            "sha256": "d9dc87c578705fca55f0246cd911e51fecd389f2d481aacf258ed2969477d997"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "5bbb740f1320fb276911fe7210d598bf8b7a19f32581487d72159515f731ec67"
+            "sha256": "9f0ba10c547ac192ad59436039b628dde7f818e6cf66ea6901d1846c350df611"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
