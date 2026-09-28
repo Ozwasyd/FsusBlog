@@ -263,12 +263,33 @@ test('guard and completion re-resolve a deleted planned leaf on the same filesys
     };
     delete reservationOptions.remeasureFilesystem;
 
-    const reservation = acquireProductionCapacityReservation(reservationOptions);
-    fs.rmSync(plannedLeaf, { recursive: true, force: true });
-
-    assert.equal(reservation.guardProducer('producer').status, 'admitted');
-    assert.equal(reservation.completeProducer('producer').status, 'within-declaration');
-    reservation.release('released');
+    // Exercise the default path/identity remeasurement while isolating its free-byte
+    // counter from unrelated writers on the shared test filesystem. Estimator
+    // under-declaration is covered separately; its 300-byte fixture grant is unchanged.
+    const readFilesystem = fs.statfsSync;
+    const initialStatistics = readFilesystem(plannedLeaf);
+    const probes = [];
+    fs.statfsSync = (probe, settings) =>
+    {
+        const observed = readFilesystem(probe, settings);
+        probes.push(String(probe));
+        return { ...observed, bavail: initialStatistics.bavail };
+    };
+    let reservation;
+    try
+    {
+        reservation = acquireProductionCapacityReservation(reservationOptions);
+        fs.rmSync(plannedLeaf, { recursive: true, force: true });
+        assert.equal(reservation.guardProducer('producer').status, 'admitted');
+        assert.equal(reservation.completeProducer('producer').status, 'within-declaration');
+        assert.ok(probes.filter((probe) => probe === path.dirname(plannedLeaf)).length >= 2,
+            'guard and completion must independently re-resolve the deleted leaf to its existing ancestor');
+    }
+    finally
+    {
+        fs.statfsSync = readFilesystem;
+        reservation?.release('released');
+    }
 });
 
 test('owner PID reuse or command mismatch remains blocking', (t) =>
