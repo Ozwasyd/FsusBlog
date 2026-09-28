@@ -1,0 +1,106 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve typed OpenAPI public-error state and authority identifiers verbatim in the current API prose; only the stale claim value is aligned, without renaming observer, wire, ABI or generated-section keys."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/releases/release-identity.md",
+                "docs/testing/content-addressed-evidence-storage.md",
+                "docs/testing/issue-1069-run-bound-production-builds.md",
+                "docs/testing/issue-1072-production-resource-enforcement.md"
+            ],
+            "reason": "Preserve documented external selectors, command paths, resource fields and content-addressed receipt markers in current ownership and testing documentation."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tools/contracts/lib/openapi-observation.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/docs/doc-claim.mjs",
+                "tools/test-fixtures/services/mysql.mjs",
+                "tools/test-inventory/adapters.mjs",
+                "tools/test-inventory/discovery.mjs",
+                "tools/test-inventory/produce.mjs",
+                "tools/test-inventory/xunit-projects.mjs",
+                "tools/test-matrix/content-addressed-evidence-store.mjs",
+                "tools/test-matrix/local-profile.mjs",
+                "tools/test-matrix/production-build-layout.mjs",
+                "tools/test-matrix/production-build-lifecycle.mjs",
+                "tools/test-matrix/production-capacity-reservation.mjs",
+                "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+                "tools/test-matrix/production-resource-enforcement.mjs",
+                "tools/test-matrix/production-systemd-resource-boundary.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test-retention/audit.mjs",
+                "tools/test/backend-platform-selection.mjs",
+                "tools/test/build-migration-tests.mjs",
+                "tools/test/bundles/run-bundle.mjs",
+                "tools/test/check-backend-production-build-authority.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/execution-envelope-services.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/migration-build-binding.mjs",
+                "tools/test/migration-execution-evidence.mjs",
+                "tools/test/mysql-fixture-admission.mjs",
+                "tools/test/physical-execution-linux-systemd-adapter.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/physical-execution-systemd-sender.mjs",
+                "tools/test/process-identity.mjs",
+                "tools/test/run-migration-tests.mjs"
+            ],
+            "reason": "Preserve existing process-environment, CLI and runtime-tooling spellings in the Migration inventory, execution, fixture and dependent scheduler/doc owners; internal C# and JavaScript identifiers remain repository-governed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-doc-static-admission-receipt.schema.json",
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/schemas/test-execution-service-catalog.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/physical-execution-process-policy.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "config/testing/test-execution-service-catalog.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/backend-production-build-consumers.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/migration/packages.lock.json",
+                "tests/migration/schema-ddl-provider-snapshots.json"
+            ],
+            "reason": "Preserve existing external JSON keys, case and provider identities, fixture schema names and generated execution-target identifiers; versioned internal receipt changes are explicit rather than compatibility renames."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission.mjs"
+            ],
+            "reason": "Preserve the existing BehaviorDoc CLI, extractor and source-identity field names while binding current observations to the exact minimal-host receipt; no public AEDS fields or independent acceptance authority are renamed."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the generated testing-document identifiers and section markers on the already registered docs/testing.generated.md surface; regenerate it through its original producer without changing search ABI or expanding registry scope."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve exported FSUSBLOG lane environment variables and canonical shell entry points while selecting independent Migration execution and resource-bound tests."
+        }
+    ]
+}
