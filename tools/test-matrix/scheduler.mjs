@@ -62,6 +62,10 @@ import {
     externalEvidenceReceiptDigest,
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
+import {
+    assertRetainedMySqlFixtureRecoveryComplete,
+    reconcileRetainedMySqlFixtureServices
+} from './mysql-fixture-recovery.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
 import { inspectProductionSystemdServiceBinding } from './production-systemd-resource-boundary.mjs';
 import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
@@ -4479,6 +4483,12 @@ function schedulerResourcesUnsettled(checkpointFile, runId,
     {
         return true;
     }
+    const mysql = checkpoint?.mysqlFixtureServices;
+    if (mysql !== undefined && (!plainObject(mysql) || Object.values(mysql).some((record) =>
+        record?.status !== 'cleaned' || record.cleanup?.containerAbsent !== true || record.cleanup?.credentialsRemoved !== true)))
+    {
+        return true;
+    }
     const projection = readSchedulerGrantProjection(path.join(path.dirname(checkpointFile), 'resource-grants.json'), runId);
     const journal = checkpoint?.resourceUtilization?.resourceGrants;
     if (journal !== undefined && journal !== null)
@@ -4578,7 +4588,18 @@ function schedulerResourceReconciliationIsComplete(checkpoint)
     {
         throw new Error('scheduler resource reconciliation differs from its settled journal');
     }
+    assertRetainedMySqlFixtureRecoveryComplete({ allocations: checkpoint.mysqlFixtureServices,
+        records: record.mysqlFixtureReconciliation ?? [], requireCleaned: true });
     return true;
+}
+
+function assertMySqlFixtureRecoveryComplete(checkpoint, records, lifecycle)
+{
+    if (Object.keys(checkpoint.mysqlFixtureServices ?? {}).length > 0 && !lifecycle)
+    {
+        throw new Error('MySQL scheduler grant release requires the canonical lifecycle observer');
+    }
+    assertRetainedMySqlFixtureRecoveryComplete({ allocations: checkpoint.mysqlFixtureServices, records, lifecycle });
 }
 
 /** Only the scheduler can mint this in-process capability; serialized owners or reports are not leases. */
@@ -4615,6 +4636,8 @@ export function completeSchedulerResourceRecovery(capability, binding)
     {
         throw new Error('scheduler resource journal changed during original-owner recovery');
     }
+    assertMySqlFixtureRecoveryComplete(checkpoint, recovery.mysqlFixtureReconciliation, recovery.mysqlFixtureLifecycle);
+    assertSchedulerResourceRecovery(capability, binding);
     let reconciled = schedulerResourceReconciliationIsComplete(checkpoint);
     if (!reconciled)
     {
@@ -4627,6 +4650,15 @@ export function completeSchedulerResourceRecovery(capability, binding)
             priorRetainedResourceGrants: structuredClone(checkpoint.resourceUtilization.retainedResourceGrants),
             priorCleanupFailure: checkpoint.resourceCleanupFailure ?? null
         };
+        if (Object.keys(checkpoint.mysqlFixtureServices ?? {}).length > 0)
+        {
+            checkpoint.resourceReconciliation.mysqlFixtureReconciliation = structuredClone(recovery.mysqlFixtureReconciliation);
+            for (const record of recovery.mysqlFixtureReconciliation)
+            {
+                checkpoint.mysqlFixtureServices[record.tierId].status = 'cleaned';
+                checkpoint.mysqlFixtureServices[record.tierId].cleanup = structuredClone(record.cleanup);
+            }
+        }
         checkpoint.resourceUtilization.resourceGrants = {
             ...checkpoint.resourceUtilization.resourceGrants, generatedAt: completedAt,
             grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 }
@@ -4727,6 +4759,15 @@ export async function reconcileSchedulerResourceGrants(reference, { assertAdmiss
     try
     {
         assertSchedulerResourceRecovery(capability, { reference, schedulerOwner: original.schedulerOwner });
+        const recovery = schedulerResourceRecoveries.get(capability);
+        if (Object.keys(checkpoint.mysqlFixtureServices ?? {}).length > 0)
+        {
+            recovery.mysqlFixtureLifecycle = await import(new URL('../test-fixtures/services/mysql.mjs', import.meta.url));
+        }
+        recovery.mysqlFixtureReconciliation = await reconcileRetainedMySqlFixtureServices({
+            allocations: checkpoint.mysqlFixtureServices, binding, lifecycle: recovery.mysqlFixtureLifecycle,
+            assertRecovery: () => assertSchedulerResourceRecovery(capability, { reference, schedulerOwner: original.schedulerOwner })
+        });
         result = build.recoverProductionBuildResourceTree(reference, { schedulerRecovery: capability });
     }
     catch (error)

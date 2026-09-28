@@ -370,8 +370,12 @@ cgroup is empty. Evidence records total/process/reserved shares and each allocat
 
 This API does not start, adopt or delete containers, establish fixture admission, or discover grants from environment
 variables. Its caller must be the enclosing canonical supervisor, which owns durable recovery binding and invokes the
-exact lifecycle cleanup before releasing scheduler usage. The MySQL supervisor/bootstrap/fixture wiring is not yet
-implemented; direct component use of this resource owner is not full scheduler or fixture qualification. Existing
+exact lifecycle cleanup before releasing scheduler usage. MySQL preparation, private admission and normal cleanup
+are wired into the canonical local-production and applicable standalone/CI supervisors. Original-owner recovery
+also consumes the exact durable MySQL allocation roster under its scheduler recovery lease before build-tree release,
+reobserves container and credential absence at grant commit, and seals the cleanup proof in the existing journal.
+Any binding, lifecycle, observation or lease failure retains scheduler resources. This wiring and controlled component
+tests are not live canonical execution, crash-recovery or fixture qualification. Existing
 PostgreSQL/Redis and resident-runtime handoff semantics are unchanged.
 
 ## Evidence and cleanup

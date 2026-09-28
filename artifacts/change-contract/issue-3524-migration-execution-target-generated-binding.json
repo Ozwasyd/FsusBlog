@@ -32,6 +32,7 @@
         "tools/test-matrix/content-addressed-evidence-store.mjs",
         "tools/test-matrix/execution-envelope-policy.mjs",
         "tools/test-matrix/local-profile.mjs",
+        "tools/test-matrix/mysql-fixture-recovery.mjs",
         "tools/test-matrix/production-build-layout.mjs",
         "tools/test-matrix/production-build-lifecycle.mjs",
         "tools/test-matrix/production-capacity-reservation.mjs",
@@ -66,15 +67,15 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "d77f01810289653804d1f56086106182f2962087510280e4b02ce42219eccc92"
+            "sha256": "63c40331de9ca1ba6e23ce9e215a610a2ccb8625e0186bf1d18bded369cf1c9d"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "d9dc87c578705fca55f0246cd911e51fecd389f2d481aacf258ed2969477d997"
+            "sha256": "a66bbf5035e737e72a31ccd37706189957c1ee12a5e34726f4eaaddd4c8a9b3d"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "9f0ba10c547ac192ad59436039b628dde7f818e6cf66ea6901d1846c350df611"
+            "sha256": "6595f1108763649a84622cd0aa59998ebacaac5fc00974429f5a537a45775b2d"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
