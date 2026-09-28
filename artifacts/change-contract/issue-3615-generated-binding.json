@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/docs/doc-claim.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "2aab867bdbee6a99756ede6389da10290027c08d43ca1e433e98c9c0442522a9"
+        }
+    ]
+}

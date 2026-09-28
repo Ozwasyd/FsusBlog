@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/doc-claim.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment spelling and existing DocClaim tool identifiers; this exact rejecting-guard recognition does not rename exported keys, and internal JavaScript identifiers retain repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the registered JSON key spelling, schema and target roster of the execution target authority; the canonical regeneration changes only content/index digests for the corrected DocClaim owner."
+        }
+    ]
+}

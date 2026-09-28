@@ -79,6 +79,7 @@ export function minimalContractSourceClosureDigests(repositoryRoot, compiledExtr
     ...dotnetProjectInputs,
     'config/contracts/behavior-fact-extractors.json',
     'tools/docs/behavior-doc-minimal-contract-build.mjs',
+    'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
     'tools/fact-extractors/identity.mjs',
     'Directory.Build.props',
     'Directory.Packages.props',
@@ -356,6 +357,19 @@ function publishCanonicalObservations(repositoryRoot, receipt) {
     if (artifactDigest(repositoryRoot, declaration.output) !== artifact.artifactDigest) {
       throw new Error(`minimal contract build artifact ${artifactId} publish digest mismatch`)
     }
+    if (artifactId === 'openapi-aeds-observation') {
+      const projectionSource = path.join(repositoryRoot, artifact.projectionPath)
+      if (artifactDigest(repositoryRoot, artifact.projectionPath) !== artifact.projectionDigest) {
+        throw new Error('minimal contract build OpenAPI projection changed before consumption')
+      }
+      const projectionDestination = path.join(repositoryRoot, declaration.projectionOutput)
+      const projectionTemporary = `${projectionDestination}.next-${process.pid}-${randomUUID()}`
+      fs.copyFileSync(projectionSource, projectionTemporary)
+      fs.renameSync(projectionTemporary, projectionDestination)
+      if (artifactDigest(repositoryRoot, declaration.projectionOutput) !== artifact.projectionDigest) {
+        throw new Error('minimal contract build OpenAPI projection publish digest mismatch')
+      }
+    }
   }
 }
 
@@ -501,6 +515,12 @@ export function runMinimalContractBuild({
         }
         const artifactDigestValue = digestPath(stagingRoot, declaration.cacheFile)
         const projectDigestValue = artifactDigest(repositoryRoot, declaration.project)
+        const projectionPath = artifactId === 'openapi-aeds-observation'
+          ? path.posix.join(cacheRelative, buildKey, declaration.projectionCacheFile)
+          : null
+        const projectionDigest = artifactId === 'openapi-aeds-observation'
+          ? digestPath(stagingRoot, declaration.projectionCacheFile)
+          : null
         const assemblyPath = artifactId === 'runtime-role-observation'
           ? runtimeReproducibleBuild.assemblyPath
           : null
@@ -522,6 +542,9 @@ export function runMinimalContractBuild({
           artifactPath: declaration.output,
           artifactDigest: artifactDigestValue,
           configuration: 'Release',
+          ...(artifactId === 'openapi-aeds-observation'
+            ? { projectionPath, projectionDigest }
+            : {}),
           ...(artifactId === 'runtime-role-observation'
             ? {
                 sourceCommit: sourceIdentity.sourceCommit,
@@ -556,6 +579,9 @@ export function runMinimalContractBuild({
           ),
           artifactPath: declaration.output,
           artifactDigest: artifactDigestValue,
+          ...(artifactId === 'openapi-aeds-observation'
+            ? { projectionPath, projectionDigest }
+            : {}),
           ...(artifactId === 'runtime-role-observation'
             ? {
                 assemblyPath,

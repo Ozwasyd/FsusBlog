@@ -19,8 +19,10 @@ export const hostDeclarations = Object.freeze({
     project: 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
     output: '.tmp/contracts/openapi/api-aeds-observation.json',
     cacheFile: 'observations/openapi-aeds-observation.json',
+    projectionOutput: '.tmp/contracts/openapi/fsusblog.openapi.observed.json',
+    projectionCacheFile: 'observations/fsusblog.openapi.observed.json',
     repositoryRootArgument: true,
-    buildReceiptSchema: 'fsusblog.openapi-aeds-observation-build-receipt.v1'
+    buildReceiptSchema: 'fsusblog.openapi-aeds-observation-build-receipt.v2'
   },
   'auth-session-permission-observation': {
     project: 'tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj',
@@ -154,7 +156,10 @@ export function validateMinimalContractBuildReceipt(receipt, {
           'assemblyDigest', 'deploymentArtifactPath', 'deploymentArtifactDigest',
           'buildReceipt'
         ]
-      : ['project', 'projectDigest', 'path', 'artifactPath', 'artifactDigest', 'buildReceipt']
+      : artifactId === 'openapi-aeds-observation'
+        ? ['project', 'projectDigest', 'path', 'artifactPath', 'artifactDigest',
+            'projectionPath', 'projectionDigest', 'buildReceipt']
+        : ['project', 'projectDigest', 'path', 'artifactPath', 'artifactDigest', 'buildReceipt']
     if (artifact?.project !== declaration.project
       || artifact?.path !== expectedArtifactPath
       || artifact?.artifactPath !== declaration.output
@@ -174,7 +179,10 @@ export function validateMinimalContractBuildReceipt(receipt, {
           'deploymentAuthoritySchema', 'deploymentAuthorityContentDigest',
           'deploymentObservationDigest'
         ]
-      : ['schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration']
+      : artifactId === 'openapi-aeds-observation'
+        ? ['schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration',
+            'projectionPath', 'projectionDigest']
+        : ['schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration']
     if (!hasExactKeys(artifact.buildReceipt, expectedReceiptKeys)
       || artifact.buildReceipt.schema !== declaration.buildReceiptSchema
       || artifact.buildReceipt.artifactId !== artifactId
@@ -182,6 +190,13 @@ export function validateMinimalContractBuildReceipt(receipt, {
       || artifact.buildReceipt.artifactDigest !== artifact.artifactDigest
       || artifact.buildReceipt.configuration !== 'Release') {
       throw new Error(`minimal contract build artifact ${artifactId} receipt is invalid`)
+    }
+    if (artifactId === 'openapi-aeds-observation'
+      && (artifact.projectionPath !== path.posix.join(receipt.buildRoot, declaration.projectionCacheFile)
+        || !/^[a-f0-9]{64}$/u.test(artifact.projectionDigest ?? '')
+        || artifact.buildReceipt.projectionPath !== artifact.projectionPath
+        || artifact.buildReceipt.projectionDigest !== artifact.projectionDigest)) {
+      throw new Error('minimal contract build OpenAPI projection receipt is incomplete')
     }
     if (artifactId === 'runtime-role-observation'
       && (artifact.buildReceipt.deploymentAuthoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
@@ -236,6 +251,8 @@ export function validateMinimalContractBuildReceipt(receipt, {
     if (repositoryRoot !== null
       && (readArtifactDigest(repositoryRoot, artifact.project) !== artifact.projectDigest
         || readArtifactDigest(repositoryRoot, artifact.path) !== artifact.artifactDigest
+        || (artifactId === 'openapi-aeds-observation'
+          && readArtifactDigest(repositoryRoot, artifact.projectionPath) !== artifact.projectionDigest)
         || (artifactId === 'runtime-role-observation'
           && (readArtifactDigest(repositoryRoot, artifact.assemblyPath) !== artifact.assemblyDigest
             || readArtifactDigest(repositoryRoot, artifact.deploymentArtifactPath)

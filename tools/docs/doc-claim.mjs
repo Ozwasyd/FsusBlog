@@ -1014,6 +1014,28 @@ const governanceAllowRelative = new Set([
     'docs/development/doc-claim-protocol.md'
 ])
 
+// The final consistency owner names these fields only to reject them outside
+// qualification paths. Exempt that one exact rejecting implementation block,
+// not its file or any other mention of a self-proving DocClaim field.
+const rejectionOnlyMachineFields = `function isForbiddenMachineField(normalized, qualification)
+{
+    const canonical = forbiddenMachineFields.get(normalized)
+    if (!canonical) return null
+    if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
+    return canonical
+}`
+
+function withoutExactRejectionOnlyMachineFields(relative, source)
+{
+    if (relative !== 'tools/docs/behavior-document-consistency-final.mjs'
+        || source.indexOf(rejectionOnlyMachineFields) < 0
+        || source.indexOf(rejectionOnlyMachineFields) !== source.lastIndexOf(rejectionOnlyMachineFields))
+    {
+        return source
+    }
+    return source.replace(rejectionOnlyMachineFields, '')
+}
+
 /**
  * Repository governance scan: no second protocol, compat parser, or self-proving baseline surfaces.
  */
@@ -1064,7 +1086,9 @@ export function scanDocClaimGovernance(repositoryRoot = root)
             {
                 violations.push({ code: DocClaimErrorCode.SECOND_PROTOCOL, documentPath: relative, message: 'second/legacy DocClaim protocol marker detected' })
             }
-            if (relative.startsWith('tools/') && selfProvingInClaimTools.test(source) && /doc-claim|DocClaim/u.test(source))
+            const selfProvingSource = withoutExactRejectionOnlyMachineFields(relative, source)
+            if (relative.startsWith('tools/') && selfProvingInClaimTools.test(selfProvingSource)
+                && /doc-claim|DocClaim/u.test(source))
             {
                 violations.push({ code: DocClaimErrorCode.SELF_PROVING_SURFACE, documentPath: relative, message: 'self-proving claim field surface detected' })
             }
