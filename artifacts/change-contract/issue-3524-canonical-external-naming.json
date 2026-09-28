@@ -11,6 +11,7 @@
         {
             "id": "css-like-contract",
             "paths": [
+                "docs/development/native-tooling-style-enforcement.md",
                 "docs/releases/release-identity.md",
                 "docs/testing/content-addressed-evidence-storage.md",
                 "docs/testing/issue-1069-run-bound-production-builds.md",
@@ -63,6 +64,8 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/development/authoritative-development-docs.json",
+                "config/development/native-tooling-style-policy.json",
                 "config/schemas/behavior-doc-static-admission-receipt.schema.json",
                 "config/schemas/test-execution-envelope-applicability.schema.json",
                 "config/schemas/test-execution-service-catalog.schema.json",
@@ -78,7 +81,7 @@
                 "tests/migration/packages.lock.json",
                 "tests/migration/schema-ddl-provider-snapshots.json"
             ],
-            "reason": "Preserve existing external JSON keys, case and provider identities, fixture schema names and generated execution-target identifiers; versioned internal receipt changes are explicit rather than compatibility renames."
+            "reason": "Preserve existing external JSON keys, ownership classifications, case/provider identities, fixture schema names and generated execution-target identifiers; versioned internal receipt changes are explicit rather than compatibility renames."
         },
         {
             "id": "post-runtime-observation-authority",
