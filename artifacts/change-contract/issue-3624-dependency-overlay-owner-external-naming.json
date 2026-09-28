@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/authoritative-development-docs.json",
+                "config/development/native-tooling-style-policy.json"
+            ],
+            "reason": "Preserve existing vendor, lock, DependencyOwner and PackageManager JSON identifiers while registering only the exact compressed dependency overlay and NuGet-produced Migration lock paths; no new classification, wildcard or checker change."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/coding-conventions.md",
+                "docs/development/native-tooling-style-enforcement.md"
+            ],
+            "reason": "Preserve current documented paths and external ownership markers while explaining exact dependency-input classification, original consumer or package-manager validation and neighboring-file rejection."
+        }
+    ]
+}

@@ -11,13 +11,14 @@
         {
             "id": "css-like-contract",
             "paths": [
+                "docs/development/coding-conventions.md",
                 "docs/development/native-tooling-style-enforcement.md",
                 "docs/releases/release-identity.md",
                 "docs/testing/content-addressed-evidence-storage.md",
                 "docs/testing/issue-1069-run-bound-production-builds.md",
                 "docs/testing/issue-1072-production-resource-enforcement.md"
             ],
-            "reason": "Preserve documented external selectors, command paths, resource fields and content-addressed receipt markers in current ownership and testing documentation."
+            "reason": "Preserve documented external selectors, command paths, resource fields and content-addressed receipt markers in current ownership and testing documentation. Preserve the exact compressed dependency-overlay input path and its existing DependencyOwner markers without exempting neighboring archives or authorizing dependency migration."
         },
         {
             "id": "environment-variable",
