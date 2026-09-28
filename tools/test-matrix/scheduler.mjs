@@ -4639,6 +4639,13 @@ export function completeSchedulerResourceRecovery(capability, binding)
     assertMySqlFixtureRecoveryComplete(checkpoint, recovery.mysqlFixtureReconciliation, recovery.mysqlFixtureLifecycle);
     assertSchedulerResourceRecovery(capability, binding);
     let reconciled = schedulerResourceReconciliationIsComplete(checkpoint);
+    if (reconciled)
+    {
+        // Publication retry consumes the original sealed proof, not a newly hashed cleanup observation.
+        assertMySqlFixtureRecoveryComplete(checkpoint, checkpoint.resourceReconciliation.mysqlFixtureReconciliation ?? [],
+            recovery.mysqlFixtureLifecycle);
+        assertSchedulerResourceRecovery(capability, binding);
+    }
     if (!reconciled)
     {
         const completedAt = new Date().toISOString();

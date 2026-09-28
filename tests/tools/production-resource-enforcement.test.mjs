@@ -4090,3 +4090,91 @@ test('scheduler MySQL recovery completion rejects incomplete durable cleanup and
     assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ allocations: { ...fixture.allocations, second: fixture.record }, records: duplicate }), /invalid cleanup proof/u);
     assertRetainedMySqlFixtureRecoveryComplete({ allocations: undefined, records: [] });
 });
+
+for (const drift of [false, true])
+{
+    test(`scheduler MySQL recovery publication retry ${drift ? 'rejects rehashed cleanup' : 'preserves its sealed proof'}`, async () =>
+    {
+        const { runInNewContext } = await import('node:vm');
+        const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+        const fixture = retainedMySqlRecoveryFixture();
+        const sealed = await reconcileRetainedMySqlFixtureServices(fixture);
+        fixture.record.status = 'cleaned';
+        fixture.record.cleanup = structuredClone(sealed[0].cleanup);
+        const verify = fixture.lifecycle.verifyMySqlFixtureServiceCleanup;
+        fixture.lifecycle.verifyMySqlFixtureServiceCleanup = (...args) =>
+        {
+            const observed = verify(...args);
+            if (drift)
+            {
+                observed.stateDigest = 'sha256:' + '1'.repeat(64);
+            }
+            return observed;
+        };
+        const current = await reconcileRetainedMySqlFixtureServices(fixture);
+        const checkpoint = { mysqlFixtureServices: fixture.allocations,
+            resourceReconciliation: { mysqlFixtureReconciliation: structuredClone(sealed) },
+            resourceUtilization: { resourceGrants: { grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } } } };
+        const fingerprint = value => JSON.stringify(value);
+        const originalCheckpoint = fingerprint(checkpoint);
+        const journalBytes = 'original sealed resource-grants-reconciled event\n';
+        const views = { journal: journalBytes, compatibility: 'old compatibility bytes', grants: 'old grant bytes' };
+        const originalViews = structuredClone(views);
+        const writes = [];
+        const capability = {};
+        const recovery = { binding: fixture.binding, reference: { runId: fixture.binding.runId },
+            checkpointDigest: fingerprint(checkpoint), mysqlFixtureReconciliation: current,
+            mysqlFixtureLifecycle: fixture.lifecycle };
+        const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+        const start = source.indexOf('export function completeSchedulerResourceRecovery(');
+        const end = source.indexOf('/** Reconcile only the original retained build', start);
+        assert.ok(start >= 0 && end > start);
+        // Execute the exact completion function with memory-only I/O and held-lease adapters.
+        // This is a publication component regression, not live Docker or recovery qualification.
+        const context = { fingerprint, path,
+            assertSchedulerResourceRecovery: () => ({ status: 'verified' }),
+            schedulerResourceRecoveries: new Map([[capability, recovery]]),
+            readOriginalSchedulerResourceCheckpoint: () => ({ checkpointFile: '/owned/runs/owned-run/checkpoint.json', checkpoint }),
+            assertMySqlFixtureRecoveryComplete: (value, records, lifecycle) =>
+                assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices, records, lifecycle }),
+            schedulerResourceReconciliationIsComplete: value =>
+            {
+                assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices,
+                    records: value.resourceReconciliation.mysqlFixtureReconciliation, requireCleaned: true });
+                return true;
+            },
+            checkpointPersistence: new Map(),
+            schedulerPersistence: () => ({ store: { readJournal: () => [{ sequence: 1 }] } }),
+            publishCheckpointBoundary: () =>
+            {
+                writes.push('compatibility');
+                views.compatibility = fingerprint(checkpoint);
+            },
+            fs: {
+                writeFileSync: (_file, bytes) =>
+                {
+                    writes.push('grant');
+                    views.grants = bytes;
+                },
+                renameSync: () => writes.push('grant-rename')
+            },
+            process: { pid: process.pid },
+            schedulerResourcesUnsettled: () => false };
+        runInNewContext(source.slice(start, end).replace('export function ', 'function ')
+            + '\nglobalThis.complete = completeSchedulerResourceRecovery;', context);
+        if (drift)
+        {
+            assert.notEqual(current[0].stateDigest, sealed[0].stateDigest);
+            assert.throws(() => context.complete(capability, { reference: recovery.reference }), /changed before grant release/u);
+            assert.deepEqual(writes, []);
+            assert.deepEqual(views, originalViews, 'rejection preserves original journal, grant and compatibility bytes');
+        }
+        else
+        {
+            context.complete(capability, { reference: recovery.reference });
+            assert.deepEqual(writes, ['compatibility', 'grant', 'grant-rename']);
+            assert.equal(views.journal, journalBytes, 'normal publication retry cannot append a second release');
+        }
+        assert.equal(fingerprint(checkpoint), originalCheckpoint, 'neither retry can replace the sealed cleanup proof');
+    });
+}

@@ -374,6 +374,8 @@ exact lifecycle cleanup before releasing scheduler usage. MySQL preparation, pri
 are wired into the canonical local-production and applicable standalone/CI supervisors. Original-owner recovery
 also consumes the exact durable MySQL allocation roster under its scheduler recovery lease before build-tree release,
 reobserves container and credential absence at grant commit, and seals the cleanup proof in the existing journal.
+Publication retry reobserves that original sealed proof, including its exact lifecycle state digest, before writing
+checkpoint or grant views; a newly rehashed observation with the same immutable binding cannot replace it.
 Any binding, lifecycle, observation or lease failure retains scheduler resources. This wiring and controlled component
 tests are not live canonical execution, crash-recovery or fixture qualification. Existing
 PostgreSQL/Redis and resident-runtime handoff semantics are unchanged.

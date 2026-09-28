@@ -1390,8 +1390,8 @@
         },
         {
             "path": "tests/tools/production-resource-enforcement.test.mjs",
-            "contentDigest": "sha256:1a52df5a7b821c81de6f0813081eb0644fe6dad1f92a83cc09dd4ee129c0abe5",
-            "indexDigest": "sha256:1a52df5a7b821c81de6f0813081eb0644fe6dad1f92a83cc09dd4ee129c0abe5"
+            "contentDigest": "sha256:f2d07da12ed028b0eed1eaeb6be4344cbfb70fe3d4de5c95d9d7ad69d4581c37",
+            "indexDigest": "sha256:f2d07da12ed028b0eed1eaeb6be4344cbfb70fe3d4de5c95d9d7ad69d4581c37"
         },
         {
             "path": "tests/tools/release-deployment-doc-exactness.test.mjs",
@@ -3675,8 +3675,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:c39f259f41c9b0a9fef5b9f8053d90d3930ff339bae236f77cab0d849a7486de",
-            "indexDigest": "sha256:c39f259f41c9b0a9fef5b9f8053d90d3930ff339bae236f77cab0d849a7486de"
+            "contentDigest": "sha256:59eba2dcce69c8c0892f921692e7d74bf668dad3ba71c709b07b3fbc31c85031",
+            "indexDigest": "sha256:59eba2dcce69c8c0892f921692e7d74bf668dad3ba71c709b07b3fbc31c85031"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",

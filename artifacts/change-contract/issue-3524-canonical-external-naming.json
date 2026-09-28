@@ -36,6 +36,7 @@
                 "tools/test-matrix/content-addressed-evidence-store.mjs",
                 "tools/test-matrix/execution-envelope-policy.mjs",
                 "tools/test-matrix/local-profile.mjs",
+                "tools/test-matrix/mysql-fixture-recovery.mjs",
                 "tools/test-matrix/production-build-layout.mjs",
                 "tools/test-matrix/production-build-lifecycle.mjs",
                 "tools/test-matrix/production-capacity-reservation.mjs",

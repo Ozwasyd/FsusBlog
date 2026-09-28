@@ -67,15 +67,15 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "63c40331de9ca1ba6e23ce9e215a610a2ccb8625e0186bf1d18bded369cf1c9d"
+            "sha256": "3ab52ed28ad7bad210dd4e40709ce7f7e6401e9adf555f015e28a8e2e8c3e47f"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "a66bbf5035e737e72a31ccd37706189957c1ee12a5e34726f4eaaddd4c8a9b3d"
+            "sha256": "0def0ce28903f41355789fd62d76b04fa7c2c4781d0576fe13ebf9616df7c7a6"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "6595f1108763649a84622cd0aa59998ebacaac5fc00974429f5a537a45775b2d"
+            "sha256": "b2651735ef2cc7ca3babc8cdb8bb30827efcbf51a5d3c6c3935a7389b742f7ff"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
