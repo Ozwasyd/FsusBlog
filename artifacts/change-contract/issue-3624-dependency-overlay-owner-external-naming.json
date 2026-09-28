@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/authoritative-development-docs.json"
+            ],
+            "reason": "Preserve existing vendor classification and DependencyOwner JSON identifiers while registering only the exact immutable compressed dependency overlay input; no new classification, wildcard or checker change."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/coding-conventions.md"
+            ],
+            "reason": "Preserve current documented paths and external ownership markers while explaining the compressed dependency overlay input, original consumer validation and exact exclusion boundary."
+        }
+    ]
+}
