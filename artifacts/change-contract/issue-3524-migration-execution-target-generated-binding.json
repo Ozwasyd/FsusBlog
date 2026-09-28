@@ -9,12 +9,17 @@
         "tools/test/build-migration-tests.mjs",
         "tools/test/run-migration-tests.mjs",
         "tools/test/generate-evidence-location-governance.mjs",
-        "tools/test/generate-current-run-evidence-location-acceptance.mjs"
+        "tools/test/process-identity.mjs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/docs/doc-claim.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "63b8826b4aa8eaa0a269cce996cf301091268674fd2c82e9d4432f5c2c04a049"
+            "sha256": "f6362d494f030f2b5865cf63a88249cf7a31138466caac65b62952592249d6fe"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
