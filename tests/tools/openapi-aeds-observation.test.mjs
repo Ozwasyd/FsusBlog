@@ -9,7 +9,7 @@ import test from 'node:test';
 const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
 const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
 const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
-const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
+const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, sealProducedOpenApiObservation, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 
@@ -655,6 +655,40 @@ test('arbitrary lowercase sha256 identity cannot select an unreceipted artifact'
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /canonical OpenAPI build receipt/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('canonical receipt sealing requires the producer-bound observation and projection digests', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-producer-seal-'));
+    try
+    {
+        const produced = writeObservation(directory, sampleObservation());
+        const projectionPath = path.join(directory, observedOpenApiRelative);
+        const options = {
+            repositoryRoot: directory,
+            expectedArtifactDigest: produced.artifactDigest,
+            expectedOpenApiDigest: sha256(readFileSync(projectionPath))
+        };
+        const sealed = sealProducedOpenApiObservation(options);
+        assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity }).status, 'ok');
+        for (const patch of [
+            { expectedArtifactDigest: undefined },
+            { expectedOpenApiDigest: undefined },
+            { expectedArtifactDigest: '0'.repeat(64) },
+            { expectedOpenApiDigest: '0'.repeat(64) }
+        ])
+        {
+            assert.throws(() => sealProducedOpenApiObservation({ ...options, ...patch }), /requires exact|differs from its producer/u);
+        }
+        writeFileSync(projectionPath, '{"tampered":true}\n');
+        assert.throws(() => sealProducedOpenApiObservation(options), /differs from its producer/u);
+        rmSync(projectionPath);
+        assert.throws(() => sealProducedOpenApiObservation(options), /ENOENT/u);
     }
     finally
     {

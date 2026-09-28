@@ -3,13 +3,13 @@
     "dialects": {
         "MySql": {
             "EnsureTable": "CREATE TABLE IF NOT EXISTS article (id bigint);",
-            "EnsureColumn": "ALTER TABLE `article` ADD COLUMN IF NOT EXISTS `title` varchar(64) NULL;",
+            "EnsureColumn": "SET @fsus_schema_ddl = CASE\n    WHEN DATABASE() IS NULL THEN NULL\n    WHEN EXISTS (\n        SELECT 1 FROM information_schema.columns\n        WHERE table_schema = DATABASE()\n          AND table_name = 'article'\n          AND column_name = 'title'\n    ) THEN 'DO 0'\n    ELSE CONVERT(X'414C544552205441424C45206061727469636C65602041444420434F4C554D4E20607469746C6560207661726368617228363429204E554C4C3B' USING utf8mb4)\nEND;\nPREPARE fsus_schema_ddl_statement FROM @fsus_schema_ddl;\nEXECUTE fsus_schema_ddl_statement;\nDEALLOCATE PREPARE fsus_schema_ddl_statement;\nSET @fsus_schema_ddl = NULL;",
             "RenameTable": "RENAME TABLE `article` TO `article_archive`;",
             "RenameColumn": "ALTER TABLE `article` RENAME COLUMN `title` TO `headline`;",
             "DropColumn": "ALTER TABLE `article` DROP COLUMN `legacy_title`;",
             "DropTable": "DROP TABLE IF EXISTS `article_archive`;",
-            "DropIndex": "DROP INDEX `idx_article_title`;",
-            "CreateIndex": "CREATE INDEX IF NOT EXISTS idx_article_title ON article (title);"
+            "DropIndex": "SET @fsus_schema_ddl = CASE\n    WHEN DATABASE() IS NULL THEN NULL\n    ELSE COALESCE((\n        SELECT DISTINCT CAST(CONCAT(\n            CONVERT(X'44524F5020494E44455820606964785F61727469636C655F7469746C6560204F4E20' USING utf8mb4),\n            CHAR(96), REPLACE(table_schema, CHAR(96), CHAR(96, 96)),\n            CHAR(96), '.', CHAR(96), REPLACE(table_name, CHAR(96), CHAR(96, 96)), CHAR(96), ';') AS BINARY)\n        FROM information_schema.statistics\n        WHERE table_schema = DATABASE()\n          AND index_name = 'idx_article_title'\n    ), 'DO 0')\nEND;\nPREPARE fsus_schema_ddl_statement FROM @fsus_schema_ddl;\nEXECUTE fsus_schema_ddl_statement;\nDEALLOCATE PREPARE fsus_schema_ddl_statement;\nSET @fsus_schema_ddl = NULL;",
+            "CreateIndex": "SET @fsus_schema_ddl = CASE\n    WHEN DATABASE() IS NULL THEN NULL\n    WHEN EXISTS (\n        SELECT 1 FROM information_schema.statistics\n        WHERE table_schema = DATABASE()\n          AND table_name = 'article'\n          AND index_name = 'idx_article_title'\n    ) THEN 'DO 0'\n    ELSE CONVERT(X'43524541544520494E44455820606964785F61727469636C655F7469746C6560204F4E206061727469636C656020287469746C65293B' USING utf8mb4)\nEND;\nPREPARE fsus_schema_ddl_statement FROM @fsus_schema_ddl;\nEXECUTE fsus_schema_ddl_statement;\nDEALLOCATE PREPARE fsus_schema_ddl_statement;\nSET @fsus_schema_ddl = NULL;"
         },
         "Sqlite": {
             "EnsureTable": "CREATE TABLE IF NOT EXISTS article (id bigint);",

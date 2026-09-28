@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { PassThrough } from 'node:stream';
+import { finished } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission consumes the canonical BehaviorDoc receipt validator.
 import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission.mjs';
@@ -16,15 +19,16 @@ import {
     resumeCurrentRunEvidenceCheckpoint
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates canonical current-run locator inputs.
-import {
+const { locateCurrentRunEvidence } = await import(new URL('../test/current-run-evidence-locator.mjs', import.meta.url));
+const {
     validateCurrentRunEvidenceContext,
     validateEvidenceLocatorRegistry
-} from '../test/evidence-location-contract.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
-import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
+} = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 import {
     loadPhysicalExecutionProcessPolicy,
+    residentServiceTransferSchema,
+    resourceServiceContainmentIsComplete,
+    runPhysicalExecution,
     terminatePhysicalExecutionAuthoritySync
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler containment reuses the canonical process-tree authority.
 } from '../test/physical-execution-process-tree.mjs';
@@ -44,6 +48,8 @@ import {
 import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Temporal replay validation is shared with the execution owner.
 import { verifyTemporalReplay } from '../test/temporal-context.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Resident transfer binds the canonical owner receipt digest.
+import { digestCanonical } from '../test-fixtures/receipt/canonical.mjs';
 
 import {
     readAndValidateArtifactDigestTable,
@@ -57,14 +63,16 @@ import {
     resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs';
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs';
+import { inspectProductionSystemdServiceBinding } from './production-systemd-resource-boundary.mjs';
+import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 import {
     applyReleaseFinalizerSpawnDecision,
     validateRepositoryReleaseFinalStaticBoundary
 } from './release-final-static-boundary.mjs';
-import { createReleaseFinalSpawnSeal } from './release-final-spawn-seal.mjs';
 import { releaseReliabilityResourceConflict } from './release-reliability-scheduler-projection.mjs';
 import {
     createResidentLeaseHandoff,
+    observeResidentService,
     readResidentLeaseDocument,
     reconcileResidentLeaseInventory,
     validateResidentLeaseHandoff,
@@ -83,7 +91,10 @@ import {
     acquireSchedulerRunLock,
     createSchedulerTierAdmission,
     schedulerCandidateIdentityDigest,
+    schedulerRunLockActivity,
     schedulerRunLockIsActive,
+    schedulerRunOwnerIdentityMatches,
+    schedulerRunOwnerIsComplete,
     writeSchedulerTierAdmission
 } from './scheduler-run-owner.mjs';
 
@@ -94,6 +105,7 @@ export {
 } from './scheduler-run-owner.mjs';
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1';
+const schedulerResourceRecoveries = new WeakMap();
 const currentRunPreexecutedTierBindingSchema =
     'fsusblog.test-matrix.current-run-preexecuted-tier-binding.v1';
 const currentRunBehaviorDocAdmissionBindingSchema =
@@ -1450,7 +1462,8 @@ function normalizeExecutionResult(value)
     return {
         code: value?.code ?? value?.status ?? 0,
         signal: value?.signal ?? null,
-        error: value?.error ?? null
+        error: value?.error ?? null,
+        physicalExecutionTermination: value?.physicalExecutionTermination ?? null
     };
 }
 
@@ -1714,6 +1727,7 @@ function beginSubprocess(
     let settled = false;
     let budgetExpired = false;
     let terminationStarted = false;
+    let entryResumed = !suspendedEntry && durableSpec?.authority?.kind !== 'windows-job-object';
     let terminationAuthority = null;
     const tierBudgetMs =
         Number.isFinite(Number(tier.producerExecutionBudgetMs)) &&
@@ -1781,6 +1795,26 @@ function beginSubprocess(
                     leaderProcessStartIdentity: leader.processStartIdentity
                 }
                 : null;
+            if (suspendedEntry && !entryResumed)
+            {
+                // The service does not exist yet. Never resume its launcher merely to clean up a rejected admission.
+                terminationAuthority = processGroupAuthority;
+                const termination = terminatePhysicalExecutionAuthoritySync({
+                    authority: terminationAuthority,
+                    expectedIdentities: leader.status === 'verified' ? [leader] : [],
+                    reason: budgetExpired ? 'producer-deadline-before-admission' : 'scheduler-cancel-before-admission',
+                    policy: { ...loadPhysicalExecutionProcessPolicy(), gracefulTerminationMs: 0 }
+                });
+                closePipes();
+                settle({
+                    ...(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' }),
+                    physicalExecutionTermination: termination,
+                    ...(termination.terminated ? {} : {
+                        error: new Error(`unreleased launcher termination failed closed: ${termination.reason}`)
+                    })
+                });
+                return;
+            }
             const authority = durableSpec?.authority?.kind === 'darwin-process-group'
                 ? processGroupAuthority
                 : durableSpec?.authority ?? (
@@ -1930,6 +1964,10 @@ function beginSubprocess(
         registrationReady,
         resume()
         {
+            if (terminationStarted || settled)
+            {
+                return false;
+            }
             if (suspendedEntry)
             {
                 child.kill('SIGCONT');
@@ -1940,6 +1978,8 @@ function beginSubprocess(
                     mode: 0o600
                 });
             }
+            entryResumed = true;
+            return true;
         },
         terminate()
         {
@@ -1953,6 +1993,235 @@ function beginSubprocess(
             }
         }
     };
+}
+
+function beginResourceService(tier, { root, env, outputPipeline, boundary, resourceContext, processOwner, terminationGraceMs, residualRoot })
+{
+    const controller = new AbortController();
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    outputPipeline.attach(stdout, 'stdout');
+    outputPipeline.attach(stderr, 'stderr');
+    const drained = Promise.all([finished(stdout, { cleanup: true }), finished(stderr, { cleanup: true })]);
+    drained.catch(() =>
+    {});
+    let resolveRegistration;
+    let rejectRegistration;
+    let release;
+    let rootPid = null;
+    let budgetExpired = false;
+    const registrationReady = new Promise((resolve, reject) =>
+    {
+        resolveRegistration = resolve;
+        rejectRegistration = reject;
+    });
+    registrationReady.catch(() =>
+    {});
+    const releaseReady = new Promise((resolve) =>
+    {
+        release = resolve;
+    });
+    const terminate = (reason = new Error('scheduler cancelled resource-bound execution')) =>
+    {
+        controller.abort(reason);
+        release();
+    };
+    const removeLogFailure = outputPipeline.onFailure((error) =>
+    {
+        terminate(error);
+        stdout.destroy(error);
+        stderr.destroy(error);
+    });
+    const tierBudgetMs = Number.isFinite(Number(tier.producerExecutionBudgetMs)) && Number(tier.producerExecutionBudgetMs) > 0
+        ? Number(tier.producerExecutionBudgetMs)
+        : Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0 ? Number(tier.budgetMs) : null;
+    const budgetTimer = tierBudgetMs === null ? null : setTimeout(() =>
+    {
+        budgetExpired = true;
+        terminate(new Error(`bundle budget exceeded (${tierBudgetMs}ms)`));
+    }, tierBudgetMs);
+    budgetTimer?.unref?.();
+    const promise = (async () =>
+    {
+        let result;
+        let evidence;
+        try
+        {
+            evidence = await runPhysicalExecution({ command: ['/bin/bash', '-lc', tier.command], cwd: root, env,
+                resourceBoundary: boundary, resourceContext, residualRoot,
+                residentServiceOutput: tier.residentLeaseProducer === true,
+                processOwner: { ...processOwner, async register(identity, authority)
+                {
+                    const receipt = await processOwner.register(identity, authority);
+                    rootPid ??= identity.pid;
+                    resolveRegistration({ identity, authority, receipt });
+                    await releaseReady;
+                    if (controller.signal.aborted)
+                    {
+                        throw controller.signal.reason;
+                    }
+                    return receipt;
+                } },
+                policy: { ...loadPhysicalExecutionProcessPolicy(), gracefulTerminationMs: terminationGraceMs },
+                signal: controller.signal, stdout, stderr });
+            result = { code: 0, signal: null };
+        }
+        catch (error)
+        {
+            evidence = error.physicalExecution;
+            const timeoutPhase = controller.signal.reason?.timeoutPhase === 'global' ? 'global'
+                : budgetExpired ? tier.producerTimeoutPhase ?? 'termination' : null;
+            result = { code: timeoutPhase ? 124 : error.exitCode ?? 1, signal: error.signal ?? null, error,
+                ...(timeoutPhase ? { timeoutPhase } : {}) };
+        }
+        finally
+        {
+            if (budgetTimer)
+            {
+                clearTimeout(budgetTimer);
+            }
+            stdout.end();
+            stderr.end();
+            try
+            {
+                await drained;
+            }
+            catch (error)
+            {
+                result = { ...result, code: result?.code || 1, error: result?.error ?? error,
+                    logComplete: false, logTruncationReason: 'writer-error' };
+            }
+            removeLogFailure();
+        }
+        rejectRegistration(result.error ?? new Error('resource-bound execution ended before registration'));
+        return { ...result,
+            physicalExecutionTermination: { terminated: evidence?.postObservation === 'zero-members',
+                postObservation: evidence?.postObservation ?? 'unverifiable',
+                reason: evidence?.cleanup?.reason ?? (result.error?.message ?? 'completed') },
+            physicalExecutionAuthority: evidence?.containmentAuthority ?? null,
+            physicalExecutionNested: evidence?.nestedExecution ?? null,
+            resourceExecutionAdmission: evidence?.resourceExecutionAdmission ?? null,
+            logComplete: result.logComplete !== false && evidence?.logComplete === true,
+            logTruncationReason: result.logTruncationReason ?? evidence?.logTruncationReason ?? null };
+    })();
+    return { promise, registrationReady, resume: release, terminate, ownsProcessTree: true,
+        signal: controller.signal,
+        get rootPid()
+        {
+            return rootPid;
+        } };
+}
+
+/** Re-read real resident PID identities and cgroup ancestry before an enforced handoff or grant update. */
+export function verifyResidentProcessResourceScope(inventory, expectedPath, { serviceControlGroup = null } = {})
+{
+    if (inventory.enforcement?.mode !== 'enforced')
+    {
+        return { status: 'not-enforced', processes: [] };
+    }
+    if (process.platform !== 'linux' || !path.isAbsolute(expectedPath ?? '')
+        || inventory.enforcement.processScope?.path !== expectedPath
+        || path.resolve(expectedPath) !== expectedPath || fs.realpathSync(expectedPath) !== expectedPath)
+    {
+        throw new Error('resident process enforcement scope differs from its actual Linux resource ancestor');
+    }
+    const relative = path.relative('/sys/fs/cgroup', expectedPath);
+    if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`))
+    {
+        throw new Error('resident process enforcement scope is outside cgroup v2');
+    }
+    const expectedGroup = `/${relative.split(path.sep).join('/')}`;
+    if (serviceControlGroup !== null && (typeof serviceControlGroup !== 'string'
+        || !serviceControlGroup.startsWith(`${expectedGroup}/`)
+        || serviceControlGroup.endsWith('/') || serviceControlGroup.includes('//')))
+    {
+        throw new Error('resident service cgroup differs from its enforced resource ancestor');
+    }
+    const processes = inventory.services.filter((service) => service.kind === 'process').map((service) =>
+    {
+        const pid = service.identity.pid;
+        const startTimeTicks = service.identity.startTimeTicks;
+        const readStart = () =>
+        {
+            let stat;
+            try
+            {
+                stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+            }
+            catch (error)
+            {
+                if (error.code === 'ENOENT')
+                {
+                    return null;
+                }
+                throw error;
+            }
+            const closingName = stat.lastIndexOf(')');
+            const actual = closingName < 0 ? null : stat.slice(closingName + 2).trim().split(/\s+/u)[19];
+            if (!actual)
+            {
+                throw new Error(`resident process ${service.id} has an invalid kernel identity`);
+            }
+            return actual;
+        };
+        const before = readStart();
+        if (before === null)
+        {
+            return { id: service.id, pid, status: 'exited' };
+        }
+        if (before !== startTimeTicks)
+        {
+            throw new Error(`resident process ${service.id} identity changed before cgroup read-back`);
+        }
+        const cgroup = fs.readFileSync(`/proc/${pid}/cgroup`, 'utf8').trim();
+        const group = /^0::(\/[^\n]*)$/u.exec(cgroup)?.[1];
+        const after = readStart();
+        if (after !== startTimeTicks)
+        {
+            throw new Error(`resident process ${service.id} identity changed during cgroup read-back`);
+        }
+        if (!group || (group !== expectedGroup && !group.startsWith(`${expectedGroup}/`)))
+        {
+            throw new Error(`resident process ${service.id} is outside its enforced resource ancestor`);
+        }
+        if (serviceControlGroup !== null && group !== serviceControlGroup
+            && !group.startsWith(`${serviceControlGroup}/`))
+        {
+            throw new Error(`resident process ${service.id} is outside its exact bound service`);
+        }
+        return { id: service.id, pid, status: 'live', cgroup: group };
+    });
+    return { status: 'verified', expectedPath, processes };
+}
+
+/** A resident PID in the bundle slice is insufficient: it must remain in the producer's exact owned service. */
+function verifyResidentProcessServiceScope(inventory, expectedPath, authority, expectedContext)
+{
+    if (!resourceServiceContainmentIsComplete(authority) || !authority.residentOutput
+        || !['pre-exec', 'resident-transferred'].includes(authority.phase)
+        || fingerprint(authority.serviceBinding.reference.context) !== fingerprint(expectedContext))
+    {
+        throw new Error('resident process has no exact retained producer service authority');
+    }
+    const serviceControlGroup = authority.serviceBinding.identity?.controlGroup;
+    if (typeof serviceControlGroup !== 'string')
+    {
+        throw new Error('resident producer service has no retained cgroup identity');
+    }
+    const scope = verifyResidentProcessResourceScope(inventory, expectedPath, { serviceControlGroup });
+    const live = scope.processes.filter((entry) => entry.status === 'live');
+    if (live.length > 0)
+    {
+        const observed = inspectProductionSystemdServiceBinding(authority.serviceBinding, {
+            commandBudgetMs: authority.commandBudgetMs
+        });
+        if (observed.status !== 'present' || observed.unit.ActiveState !== 'active'
+            || live.some((entry) => !observed.group.processIds.includes(entry.pid)))
+        {
+            throw new Error('resident process is not live in its exact retained producer service');
+        }
+    }
+    return scope;
 }
 
 function defaultSystemResources()
@@ -2400,9 +2669,9 @@ function prepareProjectionResumeTransaction(checkpointFile, checkpoint, successf
     return { file, transaction, baseline: checkpoint, expectedSuccess };
 }
 
-function readCheckpoint(checkpointFile)
+function readCheckpoint(checkpointFile, { journalAuthority = false, requireCompleteJournal = false } = {})
 {
-    const projectionTransaction = projectionResumeTransactionState(checkpointFile);
+    const projectionTransaction = journalAuthority ? null : projectionResumeTransactionState(checkpointFile);
     if (projectionTransaction)
     {
         return structuredClone(
@@ -2439,10 +2708,28 @@ function readCheckpoint(checkpointFile)
     const store = new RunEvidenceObjectStore({
         root: storeRoot,
         runId: identity.runId,
-        sourceState: identity.sourceState
+        sourceState: identity.sourceState,
+        readOnly: requireCompleteJournal
     });
-    const recovered = store.recover(applyCheckpointPatch);
+    const recovered = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload));
+    if (requireCompleteJournal)
+    {
+        const lastSequence = store.readJournal().at(-1)?.sequence ?? 0;
+        if (lastSequence === 0 || lastSequence < recovered.checkpointSequence)
+        {
+            throw new Error('scheduler resource retention journal is missing or truncated before its compact checkpoint');
+        }
+    }
     const recoveredCheckpoint = recovered.state?.schema === checkpointSchema ? recovered.state : null;
+    if (journalAuthority)
+    {
+        if (!recoveredCheckpoint && compatibilityCheckpoint)
+        {
+            throw new Error('scheduler resource grant journal is missing its authoritative checkpoint');
+        }
+        // Mutable compatibility revision numbers cannot override durable grant ownership.
+        return recoveredCheckpoint;
+    }
     if (compatibilityCheckpoint
     && (!recoveredCheckpoint
       || Number(compatibilityCheckpoint.revision) >= Number(recoveredCheckpoint.revision)))
@@ -2583,7 +2870,7 @@ function schedulerPersistence(checkpointFile, checkpoint)
         let previous = null;
         try
         {
-            previous = store.recover(applyCheckpointPatch).state;
+            previous = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload)).state;
         }
         catch (error)
         {
@@ -2635,10 +2922,15 @@ function writeCheckpoint(checkpointFile, checkpoint, {
     {
         return;
     }
+    publishCheckpointBoundary(checkpointFile, checkpoint, persistence, { stage, lastSequence: event.sequence });
+}
+
+function publishCheckpointBoundary(checkpointFile, checkpoint, persistence, { stage, lastSequence })
+{
     persistence.store.writeCompactCheckpoint({
         stage: stage ?? (checkpoint.status === 'running' ? 'run-start' : 'run-complete'),
         state: checkpoint,
-        lastSequence: event.sequence,
+        lastSequence,
         retention: {
             activeRun: checkpoint.status === 'running',
             releaseBinding: checkpoint.status === 'success'
@@ -4121,6 +4413,363 @@ function resetFreshRunDirectory(runDirectory, preservation = null)
     assertPreservedEntries();
 }
 
+function validateSchedulerGrantDocument(document, runId, checkpoint = null)
+{
+    const units = (value, minimum) => plainObject(value)
+        && Object.keys(value).sort().join(',') === 'cpuUnits,memoryGiB'
+        && Object.values(value).every((number) => typeof number === 'number' && Number.isFinite(number)
+            && (minimum === 0 ? number >= 0 : number > 0));
+    if (!plainObject(document) || document.schema !== 'fsusblog.test-matrix.resource-grants.v1'
+        || document.runId !== runId || !units(document.resourceBudget, 1) || !units(document.residentReservation, 0)
+        || !plainObject(document.grants) || Object.entries(document.grants).some(([id, grant]) =>
+        !/^[A-Za-z0-9][A-Za-z0-9_.:/-]*$/u.test(id) || !units(grant, 1))
+        || !Number.isFinite(Date.parse(document.generatedAt)))
+    {
+        throw new Error('scheduler resource grant projection is incomplete or invalid');
+    }
+    if (checkpoint && (!sameCheckpointSource(document.sourceState, checkpoint.sourceState)
+        || document.schedulerOwnerToken !== checkpoint.schedulerRunOwnerToken
+        || typeof document.schedulerOwnerToken !== 'string' || !document.schedulerOwnerToken))
+    {
+        throw new Error('scheduler resource grant journal owner or source binding differs');
+    }
+}
+
+function readSchedulerGrantProjection(file, runId)
+{
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (!stat)
+    {
+        return null;
+    }
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || fs.realpathSync(file) !== file
+        || (process.platform !== 'win32' && (stat.uid !== process.getuid() || (stat.mode & 0o022) !== 0)))
+    {
+        throw new Error('scheduler resource grant projection must be an owned, literal, singly linked regular file');
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    try
+    {
+        const opened = fs.fstatSync(descriptor);
+        if (opened.dev !== stat.dev || opened.ino !== stat.ino || opened.ctimeMs !== stat.ctimeMs)
+        {
+            throw new Error('scheduler resource grant projection changed during open');
+        }
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor);
+        if (after.ctimeMs !== opened.ctimeMs || after.size !== opened.size)
+        {
+            throw new Error('scheduler resource grant projection changed during observation');
+        }
+        const document = JSON.parse(bytes.toString('utf8'));
+        validateSchedulerGrantDocument(document, runId);
+        return document;
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
+function schedulerResourcesUnsettled(checkpointFile, runId,
+    checkpoint = readCheckpoint(checkpointFile, { journalAuthority: true }))
+{
+    const retained = checkpoint?.resourceUtilization?.retainedResourceGrants;
+    if (retained !== undefined && (!plainObject(retained) || Object.keys(retained).length > 0))
+    {
+        return true;
+    }
+    const projection = readSchedulerGrantProjection(path.join(path.dirname(checkpointFile), 'resource-grants.json'), runId);
+    const journal = checkpoint?.resourceUtilization?.resourceGrants;
+    if (journal !== undefined && journal !== null)
+    {
+        validateSchedulerGrantDocument(journal, runId, checkpoint);
+        if (!projection || fingerprint(journal) !== fingerprint(projection))
+        {
+            throw new Error('scheduler resource grant projection differs from its durable journal; independent owner reconciliation required');
+        }
+    }
+    for (const document of [journal, projection])
+    {
+        if (document && (Object.keys(document.grants).length > 0
+            || document.residentReservation.cpuUnits > 0 || document.residentReservation.memoryGiB > 0))
+        {
+            return true;
+        }
+    }
+    if (!schedulerResourceReconciliationIsComplete(checkpoint)
+        && ((checkpoint && Object.hasOwn(checkpoint, 'resourceCleanupFailure'))
+            || (checkpoint?.status === 'running' && checkpoint.resourceEnforcement?.mode === 'enforced')))
+    {
+        // Neither zero worker grants nor interrupted creation proves resource-owner cleanup.
+        return true;
+    }
+    return false;
+}
+
+function readOriginalSchedulerResourceCheckpoint({ root, runId, namespace, sourceState, schedulerOwner })
+{
+    if (!schedulerRunOwnerIsComplete(schedulerOwner) || schedulerOwner.runId !== runId
+        || schedulerOwner.candidateIdentityDigest !== schedulerCandidateIdentityDigest({
+            runId, namespace, sourceState, targetTierId: schedulerOwner.targetTierId,
+            budgetPolicyDigest: schedulerOwner.budgetPolicyDigest ?? null
+        }))
+    {
+        throw new Error('scheduler resource retention requires its exact independently retained owner');
+    }
+    const directory = path.join(path.resolve(root), '.tmp/test-runs', safeRunId(runId));
+    if (!fs.existsSync(path.join(directory, 'evidence-store')))
+    {
+        throw new Error('scheduler resource retention is missing its durable journal');
+    }
+    const checkpointFile = path.join(directory, 'checkpoint.json');
+    const checkpoint = readCheckpoint(checkpointFile, { journalAuthority: true, requireCompleteJournal: true });
+    if (!checkpoint || checkpoint.runId !== runId || checkpoint.namespace !== namespace
+        || !sameCheckpointSource(checkpoint.sourceState, sourceState)
+        || checkpoint.schedulerRunOwnerToken !== schedulerOwner.ownerToken
+        || checkpoint.schedulerCandidateIdentityDigest !== schedulerOwner.candidateIdentityDigest
+        || checkpoint.targetTierId !== schedulerOwner.targetTierId
+        || (checkpoint.budgetPolicyDigest ?? null) !== (schedulerOwner.budgetPolicyDigest ?? null))
+    {
+        throw new Error('scheduler resource retention journal differs from the original build owner');
+    }
+    return { checkpointFile, checkpoint };
+}
+
+/** Observe the original build owner's grant journal without acquiring, resetting or releasing it. */
+export function inspectSchedulerResourceRetention(binding)
+{
+    const { checkpointFile, checkpoint } = readOriginalSchedulerResourceCheckpoint(binding);
+    // Absence of a grant record cannot certify a resource-bound build as settled.
+    const retained = !checkpoint.resourceUtilization?.resourceGrants
+        || schedulerResourcesUnsettled(checkpointFile, binding.runId, checkpoint);
+    return { status: retained ? 'retained' : 'released' };
+}
+
+function schedulerResourceReconciliationIsComplete(checkpoint)
+{
+    const record = checkpoint?.resourceReconciliation;
+    if (record === undefined)
+    {
+        return false;
+    }
+    const grants = checkpoint.resourceUtilization?.resourceGrants;
+    const owner = record?.recoveryOwner;
+    if (!record || record.schema !== 'fsusblog.scheduler-resource-reconciliation.v1'
+        || !schedulerRunOwnerIsComplete(owner) || owner.runId !== checkpoint.runId
+        || owner.ownerToken === checkpoint.schedulerRunOwnerToken
+        || owner.candidateIdentityDigest !== checkpoint.schedulerCandidateIdentityDigest
+        || owner.targetTierId !== checkpoint.targetTierId
+        || (owner.budgetPolicyDigest ?? null) !== (checkpoint.budgetPolicyDigest ?? null)
+        || record.reference?.runId !== checkpoint.runId || record.reference?.namespace !== checkpoint.namespace
+        || record.reference?.sourceCommit !== checkpoint.sourceState?.commit
+        || record.reference?.worktreeFingerprint !== checkpoint.sourceState?.worktreeFingerprint
+        || fingerprint(record.priorCleanupFailure) !== fingerprint(checkpoint.resourceCleanupFailure ?? null)
+        || checkpoint.status === 'running' || checkpoint.status === 'success'
+        || !plainObject(record.priorRetainedResourceGrants) || !grants)
+    {
+        throw new Error('scheduler resource reconciliation binding is invalid');
+    }
+    validateSchedulerGrantDocument(record.priorResourceGrants, checkpoint.runId, checkpoint);
+    validateSchedulerGrantDocument(grants, checkpoint.runId, checkpoint);
+    if (fingerprint(grants) !== fingerprint({ ...record.priorResourceGrants,
+        generatedAt: record.completedAt, grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } })
+        || Object.keys(checkpoint.resourceUtilization.retainedResourceGrants ?? {}).length !== 0)
+    {
+        throw new Error('scheduler resource reconciliation differs from its settled journal');
+    }
+    return true;
+}
+
+/** Only the scheduler can mint this in-process capability; serialized owners or reports are not leases. */
+export function assertSchedulerResourceRecovery(capability, { reference, schedulerOwner })
+{
+    const recovery = schedulerResourceRecoveries.get(capability);
+    if (!recovery || fingerprint(reference) !== fingerprint(recovery.reference)
+        || !schedulerRunOwnerIdentityMatches(schedulerOwner, recovery.binding.schedulerOwner))
+    {
+        throw new Error('resource reconciliation requires an acquired scheduler recovery capability');
+    }
+    recovery.assertAdmission?.();
+    const activity = schedulerRunLockActivity({ runsRoot: recovery.runsRoot, runId: reference.runId,
+        candidateIdentityDigest: schedulerOwner.candidateIdentityDigest, targetTierId: schedulerOwner.targetTierId });
+    const metadata = fs.lstatSync(recovery.controller.lockPath);
+    if (activity.status !== 'active' || activity.owner?.pid !== process.pid
+        || !schedulerRunOwnerIdentityMatches(recovery.controller.owner, activity.owner)
+        || metadata.dev !== recovery.lockIdentity.dev || metadata.ino !== recovery.lockIdentity.ino
+        || !metadata.isDirectory() || metadata.isSymbolicLink()
+        || fs.realpathSync.native(recovery.controller.lockPath) !== recovery.controller.lockPath)
+    {
+        throw new Error('scheduler resource recovery lease changed or is no longer active');
+    }
+    return { status: 'verified' };
+}
+
+/** Called by the build owner only while its reclaim exclusion and exact OS absence observations still hold. */
+export function completeSchedulerResourceRecovery(capability, binding)
+{
+    assertSchedulerResourceRecovery(capability, binding);
+    const recovery = schedulerResourceRecoveries.get(capability);
+    const { checkpointFile, checkpoint } = readOriginalSchedulerResourceCheckpoint(recovery.binding);
+    if (fingerprint(checkpoint) !== recovery.checkpointDigest)
+    {
+        throw new Error('scheduler resource journal changed during original-owner recovery');
+    }
+    let reconciled = schedulerResourceReconciliationIsComplete(checkpoint);
+    if (!reconciled)
+    {
+        const completedAt = new Date().toISOString();
+        checkpoint.resourceReconciliation = {
+            schema: 'fsusblog.scheduler-resource-reconciliation.v1', completedAt,
+            reference: recovery.reference, recoveryOwner: structuredClone(recovery.controller.owner),
+            priorCheckpointDigest: recovery.checkpointDigest, priorStatus: checkpoint.status,
+            priorResourceGrants: structuredClone(checkpoint.resourceUtilization.resourceGrants),
+            priorRetainedResourceGrants: structuredClone(checkpoint.resourceUtilization.retainedResourceGrants),
+            priorCleanupFailure: checkpoint.resourceCleanupFailure ?? null
+        };
+        checkpoint.resourceUtilization.resourceGrants = {
+            ...checkpoint.resourceUtilization.resourceGrants, generatedAt: completedAt,
+            grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 }
+        };
+        checkpoint.resourceUtilization.retainedResourceGrants = {};
+        if (checkpoint.status === 'running')
+        {
+            const failure = { tierId: checkpoint.targetTierId, exitCode: 1, signal: null,
+                reason: 'original scheduler controller interrupted; resources reconciled without resuming execution', changedPaths: [] };
+            checkpoint.status = 'failure';
+            checkpoint.failure ??= failure;
+            checkpoint.failurePoint ??= checkpoint.targetTierId;
+            checkpoint.failures.push(failure);
+            checkpoint.finishedAt = completedAt;
+        }
+        reconciled = schedulerResourceReconciliationIsComplete(checkpoint);
+        // This existing fsynced journal is authoritative even if projection publication is interrupted.
+        checkpointPersistence.delete(path.resolve(checkpointFile));
+        writeCheckpoint(checkpointFile, checkpoint, { boundary: true, stage: 'resource-reconciled',
+            eventType: 'resource-grants-reconciled', step: 'scheduler' });
+        recovery.checkpointDigest = fingerprint(checkpoint);
+    }
+    else
+    {
+        // A prior journal fsync may have succeeded before compact/compatibility publication failed.
+        // Re-materialize those views without creating a second release event or changing the original failure.
+        checkpointPersistence.delete(path.resolve(checkpointFile));
+        const persistence = schedulerPersistence(checkpointFile, checkpoint);
+        publishCheckpointBoundary(checkpointFile, checkpoint, persistence, {
+            stage: 'resource-reconciled', lastSequence: persistence.store.readJournal().at(-1).sequence
+        });
+    }
+    if (!reconciled)
+    {
+        throw new Error('scheduler resource reconciliation did not settle its original journal');
+    }
+    assertSchedulerResourceRecovery(capability, binding);
+    const grantFile = path.join(path.dirname(checkpointFile), 'resource-grants.json');
+    const temporary = `${grantFile}.next-${process.pid}`;
+    fs.writeFileSync(temporary, `${JSON.stringify(checkpoint.resourceUtilization.resourceGrants, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(temporary, grantFile);
+    if (schedulerResourcesUnsettled(checkpointFile, binding.reference.runId, checkpoint))
+    {
+        throw new Error('scheduler resource reconciliation remains unsettled');
+    }
+}
+
+/** Reconcile only the original retained build's resources; never adopt them into another execution. */
+export async function reconcileSchedulerResourceGrants(reference, { assertAdmission = null } = {})
+{
+    if (assertAdmission !== null && typeof assertAdmission !== 'function')
+    {
+        throw new Error('scheduler resource recovery admission guard must be callable');
+    }
+    assertAdmission?.();
+    const build = await import(new URL('./production-build-layout.mjs', import.meta.url));
+    const original = build.inspectProductionBuildRecoveryBinding(reference);
+    const binding = { ...original, root: reference.repositoryRoot, runId: reference.runId };
+    const { checkpointFile, checkpoint } = readOriginalSchedulerResourceCheckpoint(binding);
+    const grants = checkpoint.resourceUtilization?.resourceGrants;
+    validateSchedulerGrantDocument(grants, reference.runId, checkpoint);
+    const reconciled = schedulerResourceReconciliationIsComplete(checkpoint);
+    const priorGrants = reconciled ? checkpoint.resourceReconciliation.priorResourceGrants : grants;
+    if (checkpoint.status === 'success' || !plainObject(checkpoint.resourceUtilization.retainedResourceGrants)
+        || !['not-acquired', 'released'].includes(checkpoint.residentResourceLeases?.status)
+        || priorGrants.residentReservation.cpuUnits !== 0 || priorGrants.residentReservation.memoryGiB !== 0
+        || Object.keys(priorGrants.grants).some((id) => !original.resourceBundleIds.includes(id))
+        || Object.keys(checkpoint.resourceUtilization.retainedResourceGrants).some((id) => !original.resourceBundleIds.includes(id)))
+    {
+        throw new Error('scheduler resource recovery cannot reconcile success, resident or unbound bundle grants');
+    }
+    const projection = readSchedulerGrantProjection(path.join(path.dirname(checkpointFile), 'resource-grants.json'), reference.runId);
+    if (!projection || (fingerprint(projection) !== fingerprint(grants)
+        && (!reconciled || fingerprint(projection) !== fingerprint(priorGrants))))
+    {
+        throw new Error('scheduler resource recovery projection is not the exact original or settled journal');
+    }
+    if (reconciled && fingerprint(checkpoint.resourceReconciliation.reference) !== fingerprint(reference))
+    {
+        throw new Error('scheduler resource recovery reference differs from prior reconciliation');
+    }
+    const runsRoot = path.dirname(path.dirname(checkpointFile));
+    const previous = schedulerRunLockActivity({ runsRoot, runId: reference.runId,
+        candidateIdentityDigest: original.schedulerOwner.candidateIdentityDigest, targetTierId: original.schedulerOwner.targetTierId });
+    if (previous.status !== 'inactive'
+        || (previous.owner && !schedulerRunOwnerIdentityMatches(previous.owner, original.schedulerOwner)))
+    {
+        throw new Error('scheduler resource recovery original owner is active, changed or unverifiable');
+    }
+    const controller = acquireSchedulerRunLock({ runsRoot, runId: reference.runId,
+        candidateIdentityDigest: original.schedulerOwner.candidateIdentityDigest,
+        targetTierId: original.schedulerOwner.targetTierId, budgetPolicyDigest: original.schedulerOwner.budgetPolicyDigest ?? null });
+    const capability = Object.freeze({});
+    schedulerResourceRecoveries.set(capability, { reference: structuredClone(reference), binding,
+        checkpointDigest: fingerprint(checkpoint), runsRoot, controller, lockIdentity: fs.lstatSync(controller.lockPath), assertAdmission });
+    let failure;
+    let result;
+    try
+    {
+        assertSchedulerResourceRecovery(capability, { reference, schedulerOwner: original.schedulerOwner });
+        result = build.recoverProductionBuildResourceTree(reference, { schedulerRecovery: capability });
+    }
+    catch (error)
+    {
+        failure = error;
+    }
+    finally
+    {
+        schedulerResourceRecoveries.delete(capability);
+    }
+    try
+    {
+        if (!controller.finalize('failed'))
+        {
+            throw new Error('scheduler resource recovery could not release its exact scheduler lease');
+        }
+    }
+    catch (error)
+    {
+        if (failure)
+        {
+            failure.resourceRecoveryLeaseError = error.message;
+        }
+        else
+        {
+            failure = error;
+        }
+    }
+    if (failure)
+    {
+        throw failure;
+    }
+    return result;
+}
+
+function assertPriorSchedulerResourcesSettled(checkpointFile, runId)
+{
+    if (schedulerResourcesUnsettled(checkpointFile, runId))
+    {
+        throw new Error(`scheduler run ${runId} retains unsettled resource grants; independent owner reconciliation required`);
+    }
+}
+
 async function runDagUnlocked(options)
 {
     const root = path.resolve(options.root);
@@ -4137,6 +4786,7 @@ async function runDagUnlocked(options)
     const runDirectory = path.join(runsRoot, runId);
     const releaseFinalSchedulerNonce = crypto.randomBytes(32).toString('hex');
     const checkpointFile = path.join(runDirectory, 'checkpoint.json');
+    assertPriorSchedulerResourcesSettled(checkpointFile, runId);
     const resourceGrantFile = path.join(runDirectory, 'resource-grants.json');
     const residentLeaseFile = path.join(runDirectory, 'resident-resource-leases.json');
     const residentHandoffFile = path.join(runDirectory, 'resident-resource-handoff.json');
@@ -4269,8 +4919,19 @@ async function runDagUnlocked(options)
     {
         throw new Error('resident lease producer target must match its consumer');
     }
-    const resourceEnforcer = createProductionResourceEnforcer({
+    const requestedSystemdBoundary = options.resourceEnforcementOptions?.systemdBoundary;
+    const systemdContext = requestedSystemdBoundary ? { root: fs.realpathSync(root), runId, namespace: options.namespace,
+        sourceState, schedulerOwnerToken: options.schedulerRunOwnerToken } : null;
+    if (requestedSystemdBoundary && (typeof options.retainManagedContainment !== 'function'
+        || typeof options.markManagedContainmentCreationAttempt !== 'function'
+        || typeof options.registerManagedProcess !== 'function'
+        || (requestedSystemdBoundary.context && fingerprint(requestedSystemdBoundary.context) !== fingerprint(systemdContext))))
+    {
+        throw new Error('scheduler systemd boundary requires exact scheduler context and independent process-owner callbacks');
+    }
+    const resourceEnforcer = await createProductionResourceEnforcer({
         ...(options.resourceEnforcementOptions ?? {}),
+        ...(requestedSystemdBoundary ? { systemdBoundary: { ...requestedSystemdBoundary, context: systemdContext } } : {}),
         runId,
         bundleIds: tiers.map((tier) => tier.physicalBundleId ?? tier.id),
         machine: { cpuUnits: budget.cpuUnits, memoryGiB: budget.memoryGiB },
@@ -4284,8 +4945,19 @@ async function runDagUnlocked(options)
             return;
         }
         resourceEnforcerFinalized = true;
-        resourceEnforcer.sample();
-        resourceEnforcer.cleanup();
+        try
+        {
+            const cleanup = resourceEnforcer.cleanup();
+            if (!['removed', 'not-applicable'].includes(cleanup?.status))
+            {
+                throw new Error(`resource enforcement cleanup incomplete: ${cleanup?.status ?? 'missing-result'}`);
+            }
+        }
+        catch (error)
+        {
+            error.resourceEnforcement = resourceEnforcer.evidence();
+            throw error;
+        }
     };
     options.registerSchedulerFinalizer?.(finalizeResourceEnforcer);
     const conservativeRepositoryFingerprint = tiers.some((tier) => effectiveCacheInputs(tier).length === 0)
@@ -4345,6 +5017,7 @@ async function runDagUnlocked(options)
         targetTierId: options.targetTierId ?? tiers.at(-1)?.id ?? null,
         namespace: options.namespace,
         schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
+        schedulerRunOwnerToken: options.schedulerRunOwnerToken,
         mode,
         authoritative: mode === 'fresh',
         status: 'running',
@@ -4364,7 +5037,8 @@ async function runDagUnlocked(options)
             status: 'collecting',
             samples: [],
             curveCompactions: 0,
-            waits: null
+            waits: null,
+            retainedResourceGrants: {}
         },
         resourceEnforcement: resourceEnforcer.evidence(),
         residentResourceLeases: {
@@ -4442,6 +5116,9 @@ async function runDagUnlocked(options)
     const failed = new Set();
     const resultFingerprints = new Map();
     const active = new Map();
+    const startingExecutions = new Set();
+    // A settled promise is not proof that its independent owner reclaimed the work.
+    const retainedResourceGrants = new Map();
     let schedulerAdmissionSequence = Math.max(
         0,
         ...Object.values(checkpoint.schedulerAdmissions ?? {})
@@ -4468,6 +5145,12 @@ async function runDagUnlocked(options)
                 return;
             }
             interrupted = { signal, exitCode };
+            for (const execution of startingExecutions)
+            {
+                execution.terminate(Object.assign(new Error(`scheduler interrupted by ${signal}`), {
+                    name: 'AbortError', signal, exitCode
+                }));
+            }
             for (const entry of active.values())
             {
                 entry.cancelRequested = true;
@@ -4493,7 +5176,9 @@ async function runDagUnlocked(options)
     let schedulerReplayAdmissionIndex = 0;
     let firstFailure = null;
     let producerAdmissionClosed = false;
+    let settlementAdmissionClosed = false;
     let residentState = null;
+    const transferredServiceAuthorities = new Map();
     let lastResidentSampleAtMs = 0;
     const residentSampleIntervalMs = Math.max(
         500,
@@ -4511,7 +5196,7 @@ async function runDagUnlocked(options)
     const residentUsage = () => residentState?.reconciliation?.reservation ?? { cpuUnits: 0, memoryGiB: 0 };
     const accountedUsage = (entries) =>
     {
-        const active = activeUsage(entries);
+        const active = activeUsage([...entries, ...retainedResourceGrants.values()]);
         const resident = residentUsage();
         return {
             cpuUnits: active.cpuUnits + resident.cpuUnits,
@@ -4559,6 +5244,18 @@ async function runDagUnlocked(options)
         && inventory.enforcement.processScope?.path !== expectedProcessScope.FSUSBLOG_CGROUP_BUNDLE_PATH))
         {
             throw new Error('resident lease enforcement scope does not match scheduler cgroup evidence');
+        }
+        if (resourceEnforcer.mode === 'enforced')
+        {
+            if (requestedSystemdBoundary)
+            {
+                verifyResidentProcessServiceScope(inventory, expectedProcessScope.FSUSBLOG_CGROUP_BUNDLE_PATH,
+                    state.serviceAuthority, { ...systemdContext, bundleId: state.enforcementBundleId });
+            }
+            else
+            {
+                verifyResidentProcessResourceScope(inventory, expectedProcessScope.FSUSBLOG_CGROUP_BUNDLE_PATH);
+            }
         }
         const processReservation = inventory.services
             .filter((service) => service.kind === 'process')
@@ -4613,8 +5310,38 @@ async function runDagUnlocked(options)
             }
         }
         const reconciliation = reconcileResidentLeaseInventory(residentState.inventory, {
-            observeService: options.observeResidentService
+            observeService: resourceEnforcer.mode === 'enforced'
+                ? (service) => service.kind === 'process'
+                    ? observeResidentService(service)
+                    : (options.observeResidentService?.(service) ?? observeResidentService(service))
+                : options.observeResidentService
         });
+        if (resourceEnforcer.mode === 'enforced')
+        {
+            const expectedPath = resourceEnforcer.environment(residentState.enforcementBundleId).FSUSBLOG_CGROUP_BUNDLE_PATH;
+            const scope = requestedSystemdBoundary
+                ? verifyResidentProcessServiceScope(residentState.inventory, expectedPath,
+                    residentState.serviceAuthority, { ...systemdContext, bundleId: residentState.enforcementBundleId })
+                : verifyResidentProcessResourceScope(residentState.inventory, expectedPath);
+            for (const process of scope.processes)
+            {
+                const service = reconciliation.services.find((entry) => entry.id === process.id);
+                if (process.status === 'live' && service.status === 'exited')
+                {
+                    throw new Error(`resident process ${process.id} cannot release a live enforced scope`);
+                }
+                if (process.status === 'exited' && service.status === 'live')
+                {
+                    service.status = 'unknown';
+                    service.reason = 'process-exited-during-scope-readback';
+                    reconciliation.healthy = false;
+                }
+                if (process.status === 'live')
+                {
+                    service.cgroup = process.cgroup;
+                }
+            }
+        }
         residentState.reconciliation = reconciliation;
         residentEvidence.generation = residentState.inventory.generation;
         residentEvidence.digest = residentState.inventory.digest;
@@ -4672,7 +5399,8 @@ async function runDagUnlocked(options)
     };
     const acquireResidentState = (tier, tierEnvironment, {
         publishHandoff = true,
-        resourceGrantHistory = [tierResourceUnits(tier)]
+        resourceGrantHistory = [tierResourceUnits(tier)],
+        serviceAuthority = null
     } = {}) =>
     {
         if (!fs.existsSync(residentLeaseFile))
@@ -4689,12 +5417,18 @@ async function runDagUnlocked(options)
             ...(tier.residentLeaseServiceIds ? { requiredServiceIds: tier.residentLeaseServiceIds } : {}),
             sourceState: sourceState.commit ? sourceState : undefined
         });
+        if (serviceAuthority?.phase === 'resident-transferred'
+            && `sha256:${inventory.digest}` !== serviceAuthority.residentTransfer.inventoryDigest)
+        {
+            throw new Error('resident lease inventory changed after exact service transfer');
+        }
         residentState = {
             inventory,
             reconciliation: null,
             enforcementBundleId: tier.physicalBundleId ?? tier.id,
             resourceGrantHistory,
-            requiredServiceIds: tier.residentLeaseServiceIds
+            requiredServiceIds: tier.residentLeaseServiceIds,
+            serviceAuthority
         };
         residentEvidence.status = 'acquired';
         residentEvidence.ownerBundleId = inventory.ownerBundleId;
@@ -4785,7 +5519,16 @@ async function runDagUnlocked(options)
         ? null
         : new Promise((resolve) =>
 {
-        budgetTimer = setTimeout(() => resolve({ budgetExpired: true }), remainingWallClockBudgetMs);
+        budgetTimer = setTimeout(() =>
+        {
+            for (const execution of startingExecutions)
+            {
+                execution.terminate(Object.assign(new Error(`wall-clock budget exceeded (${wallClockBudgetMs}ms)`), {
+                    name: 'TimeoutError', timeoutPhase: 'global'
+                }));
+            }
+            resolve({ budgetExpired: true });
+        }, remainingWallClockBudgetMs);
         budgetTimer.unref?.();
       });
     let deadlineExpired = remainingWallClockBudgetMs === 0;
@@ -4829,27 +5572,40 @@ async function runDagUnlocked(options)
 
     const writeActiveResourceGrants = () =>
     {
-        const grants = Object.fromEntries([...active.values()]
+        const grants = Object.fromEntries([...active.values(), ...retainedResourceGrants.values()]
             .map(({ tier }) => [tier.id, {
                 cpuUnits: tierResourceUnits(tier).cpuUnits,
                 memoryGiB: tierResourceUnits(tier).memoryGiB
             }])
             .sort(([left], [right]) => left.localeCompare(right)));
-        const document = {
+        const state = {
             schema: 'fsusblog.test-matrix.resource-grants.v1',
             runId,
+            sourceState,
+            schedulerOwnerToken: options.schedulerRunOwnerToken,
             resourceBudget: budget,
             residentReservation: residentUsage(),
-            grants,
-            generatedAt: new Date().toISOString()
+            grants
         };
-        const temporary = `${resourceGrantFile}.next-${process.pid}`;
-        fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`);
-        fs.renameSync(temporary, resourceGrantFile);
         for (const { tier } of active.values())
         {
             resourceEnforcer.update(tier.physicalBundleId ?? tier.id, tierResourceUnits(tier));
         }
+        // Consumers may observe only grants whose kernel controls have been read back.
+        const previous = checkpoint.resourceUtilization.resourceGrants;
+        const previousState = { ...(previous ?? {}) };
+        delete previousState.generatedAt;
+        const document = previous && fingerprint(previousState) === fingerprint(state)
+            ? previous : { ...state, generatedAt: new Date().toISOString() };
+        if (document !== previous)
+        {
+            checkpoint.resourceUtilization.resourceGrants = document;
+            // The existing fsynced journal precedes the mutable worker projection and payload release.
+            writeCheckpoint(checkpointFile, checkpoint, { eventType: 'resource-grants-updated', step: 'scheduler' });
+        }
+        const temporary = `${resourceGrantFile}.next-${process.pid}`;
+        fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 });
+        fs.renameSync(temporary, resourceGrantFile);
     };
 
     const rebalanceActiveDynamicGrants = ({ expand = true } = {}) =>
@@ -5233,7 +5989,83 @@ async function runDagUnlocked(options)
     {
         schedulerWaitLedger.observe(tier.id, null);
         const enforcementBundleId = tier.physicalBundleId ?? tier.id;
-        const effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
+        let effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
+        let mysqlScope = null;
+        if ((tier.services ?? []).includes('mysql'))
+        {
+            const productionBundle = tier.physicalBundleId === 'backend-tests'
+                && tier.logicalMembers?.includes('backend-unit');
+            const matrixUnit = tier.id === 'backend-unit' && !tier.physicalBundleId;
+            if (!isDeepStrictEqual(tier.services, ['mysql']) || (!productionBundle && !matrixUnit)
+                || options.executeTier)
+            {
+                throw new Error('MySQL service admission requires its exact physical Migration producer');
+            }
+            const [{ loadExecutionServiceCatalog, validateExecutionServiceCatalog }, admission, lifecycle] = await Promise.all([
+                import(new URL('../test/execution-envelope-services.mjs', import.meta.url)),
+                import(new URL('../test/mysql-fixture-admission.mjs', import.meta.url)),
+                import(new URL('../test-fixtures/services/mysql.mjs', import.meta.url))
+            ]);
+            const catalog = loadExecutionServiceCatalog();
+            const catalogErrors = validateExecutionServiceCatalog(catalog,
+                { tiers: [{ services: Object.keys(catalog.services ?? {}) }] });
+            if (catalogErrors.length)
+            {
+                throw new Error(`MySQL scheduler service catalog is invalid: ${catalogErrors.join('; ')}`);
+            }
+            const service = catalog.services.mysql;
+            const identity = { root: fs.realpathSync(root), runId, namespace: options.namespace,
+                bundleId: productionBundle ? 'backend-tests' : 'matrix:backend-unit',
+                stepId: 'migration-services', sourceState };
+            const context = { ...identity, resourceGrant: structuredClone(service.resourceGrant),
+                startupBudgetMs: service.lifecycleBudgets.startupMs,
+                commandBudgetMs: service.lifecycleBudgets.commandMs,
+                cleanupBudgetMs: service.lifecycleBudgets.cleanupMs };
+            const lease = resourceEnforcer.reserveContainerResources(enforcementBundleId, {
+                id: 'mysql-migration', identity, limits: context.resourceGrant
+            });
+            const scope = { context, lease, lifecycle, admission, service: null, binding: null,
+                released: false, cleanupPromise: null };
+            scope.cleanup = () => scope.cleanupPromise ??= lease.releaseAfterCleanup(async () =>
+            {
+                if (scope.service)
+                {
+                    await scope.service.cleanup();
+                }
+                if (!scope.binding)
+                {
+                    // The lifecycle cannot create until it has retained this binding.
+                    // A preflight/source failure therefore has no container to remove.
+                    return { containerAbsent: true, credentialsRemoved: true };
+                }
+                return lifecycle.verifyMySqlFixtureServiceCleanup(context,
+                    { expectedBindingDigest: scope.binding.bindingDigest }).cleanup;
+            }).then((result) =>
+            {
+                scope.released = true;
+                if (checkpoint.mysqlFixtureServices?.[tier.id])
+                {
+                    checkpoint.mysqlFixtureServices[tier.id].status = 'cleaned';
+                    checkpoint.mysqlFixtureServices[tier.id].cleanup = result;
+                    writeCheckpoint(checkpointFile, checkpoint, { eventType: 'mysql-service-cleaned',
+                        tier: tier.id, step: 'migration-services' });
+                }
+                return result;
+            }).catch((error) =>
+            {
+                scope.cleanupPromise = null;
+                throw error;
+            });
+            mysqlScope = scope;
+            options.registerSchedulerFinalizer?.(async () =>
+            {
+                if (!scope.released)
+                {
+                    await scope.cleanup();
+                }
+            });
+            effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier));
+        }
         schedulerAdmissionSequence += 1;
         const releaseFinalRecorded = checkpoint.tiers?.['release-final'];
         const releaseFinalSpawnCountBeforeAdmission = active.has('release-final')
@@ -5282,6 +6114,8 @@ async function runDagUnlocked(options)
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID: runId,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id,
+            ...(mysqlScope ? { FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE:
+                mysqlScope.admission.mysqlFixtureAdmissionFile(mysqlScope.context) } : {}),
             ...(tier.residentLeaseConsumer === true ? {
         FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
         FSUSBLOG_RESIDENT_LEASE_HANDOFF: residentHandoffFile
@@ -5485,6 +6319,8 @@ async function runDagUnlocked(options)
         const requiresProcessRegistration =
             resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess);
         let execution;
+        let mysqlRegistration = null;
+        const serviceBoundary = options.executeTier ? null : resourceEnforcer.executionBoundary(enforcementBundleId);
         if (options.executeTier)
         {
             execution = {
@@ -5493,6 +6329,57 @@ async function runDagUnlocked(options)
                     .then(normalizeExecutionResult, (error) => ({ code: 1, signal: null, error })),
                 terminate: () => options.abortTier?.(tier)
             };
+        }
+        else if (serviceBoundary)
+        {
+            execution = beginResourceService(tier, { root, env: tierEnvironment, outputPipeline,
+                boundary: serviceBoundary, terminationGraceMs,
+                resourceContext: { ...systemdContext, bundleId: enforcementBundleId },
+                residualRoot: path.join(runDirectory, 'physical-execution-residuals'),
+                processOwner: { commandBudgetMs: requestedSystemdBoundary.commandBudgetMs,
+                    retain: (authority) => options.retainManagedContainment(authority, tier),
+                    beforeCreation: (authority, creationSender) =>
+                        options.markManagedContainmentCreationAttempt(authority, tier, creationSender),
+                    register: (identity, authority) => options.registerManagedProcess(identity, tier, authority),
+                    ...(tier.residentLeaseProducer === true && typeof options.transferManagedResidentService === 'function'
+                        ? { transfer: async (authority, captured) =>
+                        {
+                            if (!resourceServiceContainmentIsComplete(authority) || authority.phase !== 'pre-exec'
+                                || !authority.residentOutput || !fs.existsSync(residentLeaseFile))
+                            {
+                                throw new Error('resident producer lacks its exact live service or inventory');
+                            }
+                            const inventory = readResidentLeaseDocument(residentLeaseFile);
+                            validateResidentLeaseInventory(inventory, { runId,
+                                namespace: tierEnvironment.FSUSBLOG_TEST_NAMESPACE,
+                                ownerBundleId: enforcementBundleId,
+                                resourceGrantHistory: active.get(tier.id)?.resourceGrantHistory ?? [tierResourceUnits(tier)],
+                                resourceBudget: budget,
+                                ...(tier.residentLeaseServiceIds ? { requiredServiceIds: tier.residentLeaseServiceIds } : {}),
+                                sourceState: sourceState.commit ? sourceState : undefined });
+                            const expectedPath = resourceEnforcer.environment(enforcementBundleId).FSUSBLOG_CGROUP_BUNDLE_PATH;
+                            const scope = verifyResidentProcessServiceScope(inventory, expectedPath, authority,
+                                { ...systemdContext, bundleId: enforcementBundleId });
+                            const memberPids = new Set(captured.memberIdentities.map((identity) => identity.pid));
+                            if (inventory.enforcement?.mode !== 'enforced'
+                                || !scope.processes.some((entry) => entry.status === 'live')
+                                || scope.processes.some((entry) => entry.status !== 'live' || !memberPids.has(entry.pid)))
+                            {
+                                throw new Error('resident producer inventory is not its exact live service roster');
+                            }
+                            const residentTransfer = { schema: residentServiceTransferSchema,
+                                serviceBindingDigest: digestCanonical(authority.serviceBinding),
+                                inventoryDigest: `sha256:${inventory.digest}`,
+                                memberIdentities: captured.memberIdentities,
+                                supervisorIdentity: captured.supervisorIdentity,
+                                outputFiles: captured.outputFiles,
+                                transferredAt: new Date().toISOString() };
+                            const receipt = await options.transferManagedResidentService(authority, residentTransfer, tier);
+                            return { ...receipt, residentTransfer };
+                        } } : {}) } });
+            startingExecutions.add(execution);
+            // Admission failures settle through the ordinary failure/retained-resource ledger.
+            mysqlRegistration = await execution.registrationReady.catch(() => null);
         }
         else
         {
@@ -5517,7 +6404,6 @@ async function runDagUnlocked(options)
             catch (error)
             {
                 execution.terminate();
-                execution.resume?.();
                 await execution.promise;
                 await outputPipeline.close({ complete: false, truncationReason: 'registration-handshake-failed' });
                 throw error;
@@ -5526,7 +6412,6 @@ async function runDagUnlocked(options)
             if (identity.status !== 'verified')
             {
                 execution.terminate();
-                execution.resume?.();
                 await execution.promise;
                 await outputPipeline.close({ complete: false, truncationReason: 'registration-identity-failed' });
                 throw new Error(`scheduler child identity is unverifiable: ${identity.reason}`);
@@ -5534,21 +6419,82 @@ async function runDagUnlocked(options)
             try
             {
                 options.registerManagedProcess?.(identity, tier, execution.containmentAuthority);
-                resourceEnforcer.attach(enforcementBundleId, execution.child.pid);
+                await resourceEnforcer.attach(enforcementBundleId, execution.child.pid, identity);
                 execution.resume?.();
             }
             catch (error)
             {
                 execution.terminate();
-                execution.resume?.();
                 await execution.promise;
                 await outputPipeline.close({ complete: false, truncationReason: 'cgroup-attach-failed' });
                 throw new Error(`cgroup attach failed for ${enforcementBundleId}: ${error.message}`, { cause: error });
             }
         }
-        const resourceCollector = execution.child
+        if (mysqlScope)
+        {
+            try
+            {
+                if (!mysqlRegistration || !execution.ownsProcessTree)
+                {
+                    throw new Error('MySQL fixture requires a registered pre-exec systemd service');
+                }
+                resourceEnforcer.bindManagedService(enforcementBundleId,
+                    mysqlRegistration.identity, mysqlRegistration.authority);
+                mysqlScope.service = await mysqlScope.lifecycle.prepareMySqlFixtureService(mysqlScope.context, {
+                    signal: execution.signal,
+                    assertResourcesHeld: async (context) => mysqlScope.lease.assertHeld(context),
+                    retainRecoveryBinding: async (binding) =>
+                    {
+                        if (mysqlScope.binding)
+                        {
+                            throw new Error('MySQL scheduler refuses a repeated recovery binding');
+                        }
+                        mysqlScope.binding = structuredClone(binding);
+                        checkpoint.mysqlFixtureServices ??= {};
+                        checkpoint.mysqlFixtureServices[tier.id] = {
+                            ...structuredClone(binding), status: 'creating'
+                        };
+                        writeCheckpoint(checkpointFile, checkpoint, {
+                            eventType: 'mysql-service-intent-retained', tier: tier.id, step: 'migration-services'
+                        });
+                    }
+                });
+                await mysqlScope.service.verify();
+                const admissionFile = mysqlScope.admission.publishMySqlFixtureAdmission({
+                    context: mysqlScope.context,
+                    stateFile: mysqlScope.service.stateFile,
+                    bindingDigest: mysqlScope.service.bindingDigest,
+                    envelope: mysqlScope.service.envelope,
+                    reservation: mysqlScope.lease.snapshot()
+                });
+                checkpoint.mysqlFixtureServices[tier.id].status = 'prepared';
+                checkpoint.mysqlFixtureServices[tier.id].admissionFile = admissionFile;
+                writeCheckpoint(checkpointFile, checkpoint, {
+                    eventType: 'mysql-service-prepared', tier: tier.id, step: 'migration-services'
+                });
+            }
+            catch (error)
+            {
+                execution.terminate(error);
+                await execution.promise;
+                startingExecutions.delete(execution);
+                let failure = error;
+                try
+                {
+                    await mysqlScope.cleanup();
+                }
+                catch (cleanupError)
+                {
+                    failure = new AggregateError([error, cleanupError],
+                        'MySQL preparation and exact scheduler cleanup failed', { cause: cleanupError });
+                }
+                await outputPipeline.close({ complete: false, truncationReason: 'mysql-preparation-failed' });
+                throw failure;
+            }
+        }
+        const resourceCollector = execution.child || execution.rootPid
             ? createLinuxProcessTreeCollector({
-          rootPid: execution.child.pid,
+          rootPid: execution.child?.pid ?? execution.rootPid,
           grantProvider: () => tierResourceUnits(tier),
           sampleIntervalMs: resolveResourceSampleIntervalMs({
             cpuUnits: tierResourceUnits(tier).cpuUnits,
@@ -5557,7 +6503,22 @@ async function runDagUnlocked(options)
         })
             : null;
 
-        options.onTierStart?.(tier, { startedAt, logFile });
+        try
+        {
+            options.onTierStart?.(tier, { startedAt, logFile });
+        }
+        catch (error)
+        {
+            if (execution.ownsProcessTree)
+            {
+                execution.terminate(error);
+                await execution.promise;
+                startingExecutions.delete(execution);
+                resourceCollector?.stop();
+                await outputPipeline.close({ complete: false, truncationReason: 'tier-start-callback-failed' });
+            }
+            throw error;
+        }
         const entry = {
             tier,
             currentRunPreexecuted: currentRunPreexecutedTierBinding !== null,
@@ -5575,7 +6536,7 @@ async function runDagUnlocked(options)
                 if (outcome.kind === 'log-failure')
                 {
                     execution.terminate();
-                    if (execution.child)
+                    if (execution.child || execution.ownsProcessTree)
                     {
                         await execution.promise;
                     }
@@ -5590,6 +6551,21 @@ async function runDagUnlocked(options)
                 else
                 {
                     executionResult = outcome.result;
+                }
+                if (mysqlScope)
+                {
+                    try
+                    {
+                        await mysqlScope.cleanup();
+                    }
+                    catch (error)
+                    {
+                        executionResult = { ...executionResult, code: 1,
+                            error: executionResult.error
+                                ? new AggregateError([executionResult.error, error],
+                                    'Migration execution and MySQL cleanup failed', { cause: error })
+                                : error };
+                    }
                 }
                 const logFinalization = await outputPipeline.close({
                     complete: executionResult.logComplete !== false,
@@ -5633,10 +6609,15 @@ async function runDagUnlocked(options)
             })
         };
         active.set(tier.id, entry);
+        startingExecutions.delete(execution);
         // Publish the admitted grant before an in-process executor or a very fast
         // child can read it. The later expansion pass may grow this grant, but the
         // startup grant and current resident deduction must already be authoritative.
         writeActiveResourceGrants();
+        if (execution.ownsProcessTree)
+        {
+            execution.resume();
+        }
         if (tier.resourceGrantDynamic === true)
         {
             entry.resourceGrantHistory = [{
@@ -5666,6 +6647,11 @@ async function runDagUnlocked(options)
             logEvidenceFile,
             logEvidence
         } = settled;
+        if (executionResult.physicalExecutionAuthority?.phase === 'resident-transferred'
+            && resourceServiceContainmentIsComplete(executionResult.physicalExecutionAuthority))
+        {
+            transferredServiceAuthorities.set(tier.id, executionResult.physicalExecutionAuthority);
+        }
         if (executionResult.code === 124)
         {
             const expectedTimeoutPhase = tier.producerTimeoutPhase ?? null;
@@ -5749,7 +6735,7 @@ async function runDagUnlocked(options)
             }
         }
 
-        if (tier.residentLeaseProducer === true)
+        if (tier.residentLeaseProducer === true && !entry.settlementFailure)
         {
             if (fs.existsSync(residentLeaseFile) || success)
             {
@@ -5757,7 +6743,8 @@ async function runDagUnlocked(options)
                 {
                     acquireResidentState(tier, tierEnvironment, {
                         publishHandoff: success,
-                        resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)]
+                        resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)],
+                        serviceAuthority: executionResult.physicalExecutionAuthority ?? null
                     });
                 }
                 catch (error)
@@ -5797,6 +6784,10 @@ async function runDagUnlocked(options)
             durationMs,
             timeoutPhase: executionResult.timeoutPhase ?? null,
             physicalExecutionTermination: executionResult.physicalExecutionTermination ?? null,
+            physicalExecutionAuthority: executionResult.physicalExecutionAuthority ?? null,
+            physicalExecutionNested: executionResult.physicalExecutionNested ?? null,
+            resourceExecutionAdmission: executionResult.resourceExecutionAdmission ?? null,
+            settlementFailure: entry.settlementFailure ?? null,
             exitCode: executionResult.code,
             signal: executionResult.signal,
             changedPaths,
@@ -5860,7 +6851,8 @@ async function runDagUnlocked(options)
                 }
             }
         }
-        if ((!firstFailure || collectFailures) && !deadlineExpired && !producerAdmissionClosed)
+        if ((!firstFailure || collectFailures) && !deadlineExpired
+            && !producerAdmissionClosed && !settlementAdmissionClosed)
         {
             const wave = admissionWave();
             const waveIds = new Set(wave.map((tier) => tier.id));
@@ -5949,6 +6941,19 @@ async function runDagUnlocked(options)
 
         if (active.size === 0)
         {
+            if (settlementAdmissionClosed)
+            {
+                for (const tier of pending.splice(0))
+                {
+                    checkpoint.tiers[tier.id] = {
+                        status: 'blocked',
+                        durationMs: 0,
+                        reason: `blocked by unsettled owner resources after settlement: ${[...retainedResourceGrants.keys()].join(', ')}`,
+                        reused: false
+                    };
+                }
+                break;
+            }
             if (producerAdmissionClosed)
             {
                 for (const tier of pending.splice(0))
@@ -6000,7 +7005,7 @@ async function runDagUnlocked(options)
             entry.promise.then((settled) => ({ tierId, settled }))
         ));
         const raceEntries = budgetPromise && (!firstFailure || collectFailures)
-            ? [...activePromises, budgetPromise]
+            ? [budgetPromise, ...activePromises]
             : activePromises;
         if (interruptPromise)
         {
@@ -6060,22 +7065,51 @@ async function runDagUnlocked(options)
         const { tierId } = outcome;
         let { settled } = outcome;
         const entry = active.get(tierId);
-        active.delete(tierId);
         try
         {
+            const termination = settled.executionResult.physicalExecutionTermination;
+            const transferAuthority = settled.executionResult.physicalExecutionAuthority;
+            const residentTransferred = entry.tier.residentLeaseProducer === true
+                && termination?.postObservation === 'resident-transferred'
+                && termination.terminated === false
+                && resourceServiceContainmentIsComplete(transferAuthority)
+                && transferAuthority.phase === 'resident-transferred';
+            if (termination !== undefined && termination !== null
+                && !residentTransferred
+                && (termination.terminated !== true || termination.postObservation !== 'zero-members'))
+            {
+                throw new Error(
+                    `physical execution termination incomplete: ${termination.reason ?? termination.postObservation ?? 'invalid-result'}`
+                );
+            }
             await options.afterTierSettled?.(entry.tier, settled);
         }
         catch (error)
         {
+            const reason = error instanceof Error ? error.message : String(error);
+            entry.settlementFailure = {
+                status: 'retained',
+                bundleId: entry.tier.physicalBundleId ?? tierId,
+                resourceGrant: tierResourceUnits(entry.tier),
+                reason
+            };
+            retainedResourceGrants.set(tierId, {
+                tier: { id: tierId, ...entry.settlementFailure.resourceGrant }
+            });
+            checkpoint.resourceUtilization.retainedResourceGrants[tierId] = entry.settlementFailure;
+            settlementAdmissionClosed = true;
+            const executionFailed = settled.executionResult.code !== 0
+                || settled.executionResult.signal || settled.executionResult.error;
             settled = {
                 ...settled,
-                executionResult: {
+                executionResult: executionFailed ? settled.executionResult : {
                     ...settled.executionResult,
                     code: 1,
-                    error
+                    error: error instanceof Error ? error : new Error(reason)
                 }
             };
         }
+        active.delete(tierId);
         const recorded = recordSettled(entry, settled);
         // A producer may have converted part of its released grant into resident
         // leases. Contract active elastic grants immediately, before another
@@ -6116,6 +7150,17 @@ async function runDagUnlocked(options)
             failed.add(tierId);
             checkpoint.failures.push(failure);
         }
+        if (settlementAdmissionClosed)
+        {
+            for (const sibling of active.values())
+            {
+                if (!sibling.cancelRequested)
+                {
+                    sibling.cancelRequested = true;
+                    sibling.terminate();
+                }
+            }
+        }
     }
 
     checkpoint.status = firstFailure ? 'failure' : 'success';
@@ -6128,6 +7173,40 @@ async function runDagUnlocked(options)
     }
     clearInterval(resourceTimer);
     sampleResourcePeaks();
+    for (const [tierId, authority] of transferredServiceAuthorities)
+    {
+        const residentReleased = residentState?.reconciliation?.fullyReleased === true;
+        try
+        {
+            if (typeof options.settleManagedResidentService !== 'function')
+            {
+                throw new Error('transferred resident service has no independent build-owner settlement');
+            }
+            const settled = options.settleManagedResidentService(authority, { reason: firstFailure
+                ? 'scheduler-failed-resident-cleanup' : 'resident-consumer-settled' });
+            if (settled?.termination?.postObservation !== 'zero-members'
+                || settled?.artifacts?.some((entry) => entry.status !== 'absent'))
+            {
+                throw new Error('transferred resident service settlement lacks exact zero-member artifact absence');
+            }
+            recordResidentEvent('resident-service-settled', { tierId, authorityId: authority.authorityId });
+            if (!residentReleased && !firstFailure)
+            {
+                throw new Error('resident consumer did not release its live process before service settlement');
+            }
+        }
+        catch (error)
+        {
+            const failure = { tierId, exitCode: 1, signal: null, reason: error.message, changedPaths: [] };
+            checkpoint.failures.push(failure);
+            checkpoint.failure ??= failure;
+            checkpoint.failurePoint ??= tierId;
+            checkpoint.status = 'failure';
+            checkpoint.resourceUtilization.status = 'partial';
+            firstFailure ??= failure;
+            recordResidentEvent('resident-service-settlement-failed', { tierId, reason: error.message });
+        }
+    }
     checkpoint.criticalPath = criticalPath(tiers, checkpoint.tiers);
     checkpoint.resourceUtilization.status = firstFailure ? 'partial' : 'complete';
     checkpoint.resourceUtilization.waits = schedulerWaitLedger.finish();
@@ -6157,7 +7236,27 @@ async function runDagUnlocked(options)
             checkpoint.executionReplay.error = error.message;
         }
     }
-    finalizeResourceEnforcer();
+    try
+    {
+        finalizeResourceEnforcer();
+    }
+    catch (error)
+    {
+        const cleanupFailure = {
+            tierId: checkpoint.targetTierId,
+            exitCode: 1,
+            signal: null,
+            reason: error.message,
+            changedPaths: []
+        };
+        checkpoint.resourceCleanupFailure = cleanupFailure;
+        checkpoint.failures.push(cleanupFailure);
+        checkpoint.failure ??= cleanupFailure;
+        checkpoint.failurePoint ??= cleanupFailure.tierId;
+        checkpoint.status = 'failure';
+        checkpoint.resourceUtilization.status = 'partial';
+        firstFailure ??= checkpoint.failure;
+    }
     checkpoint.resourceEnforcement = resourceEnforcer.evidence();
     removeInterruptHandlers();
     checkpoint.ungeneratedEvidence = firstFailure
@@ -6312,6 +7411,9 @@ export async function runDag(options)
     });
     const schedulerFinalizers = [];
     let schedulerOwnerTerminalState = 'failed';
+    let schedulerFailure = null;
+    let schedulerResult;
+    const finalizationFailures = [];
     try
     {
         releaseLock.markRunning();
@@ -6332,14 +7434,14 @@ export async function runDag(options)
             }
         });
         schedulerOwnerTerminalState = result.status === 'success' ? 'complete' : 'failed';
-        return result;
+        schedulerResult = result;
     }
     catch (error)
     {
+        schedulerFailure = { error };
         schedulerOwnerTerminalState = ['AbortError', 'CancellationError'].includes(error?.name)
             ? 'cancelled'
             : 'failed';
-        throw error;
     }
     finally
     {
@@ -6350,11 +7452,36 @@ export async function runDag(options)
             {
                 await finalizer();
             }
-            catch
+            catch (error)
             {
-                // Finalizers are best-effort; the scheduler owner state remains authoritative.
+                finalizationFailures.push(error);
+            }
+        }
+        if (finalizationFailures.length > 0)
+        {
+            schedulerOwnerTerminalState = 'failed';
+            if (schedulerFailure)
+            {
+                // Preserve the execution failure; cleanup failure is additional evidence, never a pass.
+                try
+                {
+                    schedulerFailure.error.schedulerFinalizationFailures = finalizationFailures;
+                }
+                catch
+                {
+                    // A frozen or primitive original failure must not be replaced by an attachment error.
+                }
             }
         }
         releaseLock(schedulerOwnerTerminalState);
     }
+    if (schedulerFailure)
+    {
+        throw schedulerFailure.error;
+    }
+    if (finalizationFailures.length > 0)
+    {
+        throw new AggregateError(finalizationFailures, 'scheduler finalization failed');
+    }
+    return schedulerResult;
 }

@@ -277,7 +277,24 @@ export function collectProcessGroupOrJobIdentity(
     {
         if (platform === 'linux')
         {
-            const stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
+            let stat;
+            try
+            {
+                stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
+            }
+            catch (error)
+            {
+                if (error.code === 'ENOENT' && Number.isInteger(pid) && pid > 0)
+                {
+                    const entries = fs.readdirSync(procRoot);
+                    const bootId = fs.readFileSync(path.join(procRoot, 'sys/kernel/random/boot_id'), 'utf8').trim();
+                    if (bootId && !entries.includes(String(pid)))
+                    {
+                        return { status: 'dead', reason: 'process exited while process-group identity was collected' };
+                    }
+                }
+                throw error;
+            }
             const close = stat.lastIndexOf(')');
             const fields = stat
                 .slice(close + 2)

@@ -30,6 +30,42 @@
             "image": null,
             "imageNotApplicableReason": "repository-build-artifact-process"
         },
+        "mysql": {
+            "kind": "container",
+            "imageReference": "mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d",
+            "version": "8.4.11",
+            "databaseIdentityAuthority": "mysql-server-uuid-exact",
+            "username": "fixture_user",
+            "clientOptionsFile": "/run/fsusblog-mysql/client.cnf",
+            "resourceGrant": {
+                "cpuUnits": 1,
+                "memoryHighBytes": 536870912,
+                "memoryMaxBytes": 1073741824,
+                "pidsMax": 128
+            },
+            "lifecycleBudgets": {
+                "startupMs": 120000,
+                "commandMs": 15000,
+                "cleanupMs": 60000
+            },
+            "versionCommand": [
+                "mysql",
+                "--version"
+            ],
+            "hostNativeAllowed": false,
+            "requiredIdentityFields": [
+                "containerId",
+                "imageReference",
+                "imageId",
+                "repositoryDigest",
+                "serviceVersion",
+                "networkMode",
+                "ports",
+                "resourceLimits",
+                "databaseIdentity",
+                "ownership"
+            ]
+        },
         "postgres": {
             "kind": "container",
             "imageReference": "postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",

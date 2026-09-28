@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/lib/openapi-observation.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs"
+            ],
+            "reason": "Preserve existing exported process environment and CLI spelling in the OpenAPI producer and minimal-host adapters; internal JavaScript identifiers follow repository naming and the internal receipt revision does not rename public AEDS fields."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission.mjs"
+            ],
+            "reason": "Preserve the existing BehaviorDoc CLI, extractor and source-identity field spelling while binding the same producer observation and projection to the canonical receipt; internal JavaScript identifiers remain repository-governed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-doc-static-admission-receipt.schema.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Keep schema, generated tooling and receipt JSON identifiers caller-visible. The nested OpenAPI artifact receipt explicitly moves to v2 projection binding; public AEDS wire fields and the top-level receipt schema are unchanged."
+        }
+    ]
+}

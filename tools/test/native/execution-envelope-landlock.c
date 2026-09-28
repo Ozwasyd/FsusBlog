@@ -12,6 +12,12 @@
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 
+/* Linux UAPI added this right in Landlock ABI 5; older headers may omit it. */
+#ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV
+#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)
+#endif
+_Static_assert(LANDLOCK_ACCESS_FS_IOCTL_DEV == (1ULL << 15), "Landlock ioctl right must match the Linux UAPI");
+
 typedef struct landlock_path_beneath_attr LandlockPathBeneathAttr;
 typedef struct landlock_ruleset_attr LandlockRulesetAttr;
 

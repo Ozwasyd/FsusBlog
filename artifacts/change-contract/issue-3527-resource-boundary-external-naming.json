@@ -1,0 +1,46 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/physical-execution-process-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the established resource-policy and generated execution-authority JSON field spellings consumed by existing verifiers."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/content-addressed-evidence-storage.md",
+                "docs/testing/issue-1069-run-bound-production-builds.md",
+                "docs/testing/issue-1072-production-resource-enforcement.md"
+            ],
+            "reason": "Preserve documented external selectors, paths and command spellings while describing the resource-bound runtime contract."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/content-addressed-evidence-store.mjs",
+                "tools/test-matrix/production-build-layout.mjs",
+                "tools/test-matrix/production-build-lifecycle.mjs",
+                "tools/test-matrix/production-capacity-reservation.mjs",
+                "tools/test-matrix/production-resource-enforcement.mjs",
+                "tools/test-matrix/production-systemd-resource-boundary.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/physical-execution-linux-systemd-adapter.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/physical-execution-systemd-sender.mjs"
+            ],
+            "reason": "Preserve the existing FSUSBLOG process-environment interface while internal resource and process owners bind exact live identities."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve the lane's established FSUSBLOG shell environment interface while registering additional resource-bound tests."
+        }
+    ]
+}

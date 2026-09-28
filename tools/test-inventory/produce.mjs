@@ -17,17 +17,17 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULT_ARTIFACT_PATH, isInventoryStale } from './api.mjs';
 import { canonicalStringify, discoverTestInventory } from './discovery.mjs';
 import { validateInventoryArtifact } from './schema.mjs';
+import { xunitProjects } from './xunit-projects.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
-const backendTestProject = 'tests/backend/FsusBlog.Server.Tests.csproj';
 
-function prepareXunitCompileContext()
+function prepareXunitCompileContext(testProject)
 {
     const result = spawnSync(
         'dotnet',
         [
             'build',
-            path.join(root, backendTestProject),
+            path.join(root, testProject),
             '--configuration',
             'Debug',
             '--nologo',
@@ -44,7 +44,7 @@ function prepareXunitCompileContext()
             .slice(-20)
             .join('\n');
         throw new Error(
-            `canonical xUnit compile context build failed (exit ${result.status ?? 'spawn'}): ${detail}`
+            `canonical xUnit compile context build failed for ${testProject} (exit ${result.status ?? 'spawn'}): ${detail}`
         );
     }
 }
@@ -86,7 +86,10 @@ function writeArtifact(artifact, out)
 function run()
 {
     const options = parseArgs(process.argv.slice(2));
-    prepareXunitCompileContext();
+    for (const owner of xunitProjects)
+    {
+        prepareXunitCompileContext(owner.project);
+    }
     const artifact = discoverTestInventory(root);
     validateInventoryArtifact(artifact);
 

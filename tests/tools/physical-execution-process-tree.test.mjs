@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash, generateKeyPairSync, sign } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -11,15 +11,24 @@ import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { createPhysicalExecutionLinuxSystemdAdapter } = await import(new URL("../../tools/test/physical-execution-linux-systemd-adapter.mjs", import.meta.url));
+const { captureResidentServiceOutput, createPhysicalExecutionLinuxSystemdAdapter,
+    prepareResidentServiceOutput } = await import(new URL("../../tools/test/physical-execution-linux-systemd-adapter.mjs", import.meta.url));
 const { createPhysicalExecutionWindowsJobAdapter } = await import(new URL("../../tools/test/physical-execution-windows-job-adapter.mjs", import.meta.url));
 const {
+    cleanupLivePhysicalExecutionResidentArtifacts,
+    createPhysicalExecutionOutputTracker,
+    loadPhysicalExecutionProcessPolicy,
     physicalExecutionProcessTreeSchema,
+    residentServiceTransferSchema,
+    resourceServiceContainmentIsComplete,
     runPhysicalExecution,
     terminatePhysicalExecutionAuthoritySync
 } = await import(new URL("../../tools/test/physical-execution-process-tree.mjs", import.meta.url));
 const { collectProcessGroupOrJobIdentity, collectProcessIdentity, processGroupMemberIdentities } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { runBoundExecution } = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
+const { createProductionResourceEnforcer } = await import(new URL('../../tools/test-matrix/production-resource-enforcement.mjs', import.meta.url));
+const { digestCanonical } = await import(new URL('../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url));
+const { writePrivateJson } = await import(new URL('../../tools/test-fixtures/receipt/private-io.mjs', import.meta.url));
 
 const quiet = { write()
 {} };
@@ -40,6 +49,535 @@ function temporaryRoot(name)
 {
     return fs.mkdtempSync(path.join(os.tmpdir(), `fsusblog-${name}-`));
 }
+
+test('resident service output carrier binds private files and rejects live inherited writers', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const root = temporaryRoot('resident-output');
+    let holder;
+    t.after(async () =>
+    {
+        if (holder && holder.exitCode === null && holder.signalCode === null)
+        {
+            holder.kill('SIGKILL');
+            await new Promise((resolve) => holder.once('exit', resolve));
+        }
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    const carriers = prepareResidentServiceOutput(root);
+    fs.appendFileSync(carriers.files.stdout.path, 'producer-stdout');
+    fs.appendFileSync(carriers.files.stderr.path, 'producer-stderr');
+    const captured = await captureResidentServiceOutput(carriers, {
+        readMembers: () => [process.pid], supervisorPid: process.pid,
+        outputTracker: createPhysicalExecutionOutputTracker({ policy: fastPolicy,
+            stdout: new PassThrough(), stderr: new PassThrough() })
+    });
+    assert.equal(captured.logComplete, true);
+    assert.equal(captured.stdout, 'producer-stdout');
+    assert.equal(captured.stderr, 'producer-stderr');
+    assert.equal(captured.outputFiles.stdout.byteCount, Buffer.byteLength('producer-stdout'));
+    assert.equal(captured.outputFiles.stdout.digest,
+        `sha256:${createHash('sha256').update('producer-stdout').digest('hex')}`);
+    await assert.rejects(() => captureResidentServiceOutput(carriers, {
+        readMembers: () => [process.pid], supervisorPid: process.pid,
+        outputTracker: {
+            attach()
+            {},
+            async close()
+            {
+                fs.appendFileSync(carriers.files.stderr.path, '-changed');
+                return { logComplete: true };
+            }
+        }
+    }), /stderr output changed during capture/u);
+    holder = spawn(process.execPath, ['-e', `const fs=require('node:fs');
+        fs.openSync(${JSON.stringify(carriers.files.stdout.path)}, 'r');
+        fs.writeFileSync(${JSON.stringify(path.join(root, 'holder-ready'))}, 'ready');
+        setInterval(() => {}, 1000);`], { stdio: 'ignore' });
+    const deadline = Date.now() + 2000;
+    while (!fs.existsSync(path.join(root, 'holder-ready')) && Date.now() < deadline)
+    {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(fs.existsSync(path.join(root, 'holder-ready')), true);
+    await assert.rejects(() => captureResidentServiceOutput(carriers, {
+        readMembers: () => [process.pid, holder.pid], supervisorPid: process.pid,
+        outputTracker: createPhysicalExecutionOutputTracker({ policy: fastPolicy,
+            stdout: new PassThrough(), stderr: new PassThrough() })
+    }), /retains the producer output descriptor/u);
+    holder.kill('SIGKILL');
+    await new Promise((resolve) => holder.once('exit', resolve));
+    fs.chmodSync(carriers.files.stdout.path, 0o644);
+    await assert.rejects(() => captureResidentServiceOutput(carriers, {
+        readMembers: () => [process.pid], supervisorPid: process.pid,
+        outputTracker: createPhysicalExecutionOutputTracker({ policy: fastPolicy,
+            stdout: new PassThrough(), stderr: new PassThrough() })
+    }), /output carrier identity changed/u);
+});
+
+test('hardened nonblocking systemd service keeps exact resident output carriers while active', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    if (spawnSync('systemctl', ['--user', 'show-environment'], { encoding: 'utf8' }).status !== 0)
+    {
+        t.skip('systemd user manager is unavailable');
+        return;
+    }
+    const root = temporaryRoot('resident-output-systemd');
+    const unit = `fsusblog-handoffprobe-${randomUUID().replaceAll('-', '')}.service`;
+    const carriers = prepareResidentServiceOutput(root);
+    const marker = path.join(root, 'resident.json');
+    const show = () => spawnSync('systemctl', ['--user', 'show', unit, '--property=LoadState',
+        '--property=ActiveState', '--property=ControlGroup', '--property=MainPID'], { encoding: 'utf8' });
+    t.after(() =>
+    {
+        spawnSync('systemctl', ['--user', 'stop', unit], { encoding: 'utf8', timeout: 5000 });
+        spawnSync('systemctl', ['--user', 'reset-failed', unit], { encoding: 'utf8', timeout: 5000 });
+        const deadline = Date.now() + 2000;
+        let absent;
+        do
+        {
+            absent = show().stdout.includes('LoadState=not-found');
+            if (absent)
+            {
+                break;
+            }
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+        } while (Date.now() < deadline);
+        assert.equal(absent, true, `preserving resident output probe root because ${unit} was not collected`);
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    const command = `const fs=require('node:fs'); const {spawn}=require('node:child_process');
+        const child=spawn('/bin/sleep',['5'],{detached:true,stdio:'ignore'});child.unref();
+        fs.writeFileSync(${JSON.stringify(marker)},JSON.stringify({pid:process.pid,childPid:child.pid}));
+        process.stdout.write('resident-producer-output');setInterval(()=>{},1000);`;
+    const submission = spawnSync('systemd-run', ['--user', '--quiet', '--no-block', '--collect',
+        '--service-type=exec', '--property=ExitType=cgroup', '--property=KillMode=control-group',
+        '--property=ProtectSystem=strict', '--property=ProtectHome=read-only', '--property=PrivateTmp=yes',
+        `--property=ReadWritePaths=${root}`, `--property=StandardOutput=append:${carriers.files.stdout.path}`,
+        `--property=StandardError=append:${carriers.files.stderr.path}`, `--unit=${unit}`,
+        process.execPath, '-e', command], { encoding: 'utf8', timeout: 5000 });
+    assert.equal(submission.status, 0, submission.stderr);
+    const deadline = Date.now() + 5000;
+    while ((!fs.existsSync(marker) || !fs.readFileSync(carriers.files.stdout.path, 'utf8').includes('resident-producer-output'))
+        && Date.now() < deadline)
+    {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(fs.existsSync(marker), true, 'the exact resident probe must become live');
+    const resident = JSON.parse(fs.readFileSync(marker, 'utf8'));
+    const properties = Object.fromEntries(show().stdout.trim().split('\n').map((line) => line.split(/=(.*)/su).slice(0, 2)));
+    assert.equal(properties.ActiveState, 'active');
+    assert.equal(Number(properties.MainPID), resident.pid);
+    const readMembers = () => fs.readFileSync(path.join('/sys/fs/cgroup', properties.ControlGroup, 'cgroup.procs'), 'utf8')
+        .trim().split(/\s+/u).filter(Boolean).map(Number).sort((left, right) => left - right);
+    assert.ok(readMembers().includes(resident.childPid));
+    const captured = await captureResidentServiceOutput(carriers, {
+        readMembers, supervisorPid: resident.pid,
+        outputTracker: createPhysicalExecutionOutputTracker({ policy: fastPolicy,
+            stdout: new PassThrough(), stderr: new PassThrough() })
+    });
+    assert.equal(captured.logComplete, true);
+    assert.equal(captured.stdout, 'resident-producer-output');
+    assert.equal(captured.outputFiles.stdout.byteCount, Buffer.byteLength('resident-producer-output'));
+});
+
+test('resource-bound adapter captures a nonblocking service after exact zero-member cleanup', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    if (spawnSync('systemctl', ['--user', 'show-environment'], { encoding: 'utf8' }).status !== 0)
+    {
+        t.skip('systemd user manager is unavailable');
+        return;
+    }
+    const root = temporaryRoot('resident-adapter-file');
+    const context = { root, runId: 'resident-adapter-file', namespace: 'component',
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        schedulerOwnerToken: randomUUID() };
+    const enforcer = await createProductionResourceEnforcer({
+        runId: context.runId, bundleIds: ['worker'], mode: 'strict', machine: { cpuUnits: 2, memoryGiB: 2 },
+        systemdBoundary: { context, commandBudgetMs: 5000, startupBudgetMs: 5000,
+            retainBinding(reference)
+            {
+                writePrivateJson(path.join(root, 'independent-reference.json'), reference);
+                return { bindingDigest: reference.bindingDigest };
+            } }
+    });
+    t.after(() =>
+    {
+        assert.equal(enforcer.cleanup().status, 'removed');
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    enforcer.update('worker', { cpuUnits: 1, memoryGiB: 0.25 });
+    const evidence = await runPhysicalExecution({ command: [process.execPath, '-e',
+        "process.stdout.write('file-mode-stdout');process.stderr.write('file-mode-stderr');"],
+    cwd: root, resourceBoundary: enforcer.executionBoundary('worker'),
+    resourceContext: { ...context, bundleId: 'worker' }, residentServiceOutput: true,
+    processOwner: { commandBudgetMs: 5000,
+        retain: async (authority) => ({ authorityDigest: digestCanonical(authority) }),
+        beforeCreation: async (authority, sender) => ({ authorityDigest: digestCanonical({ ...authority,
+            phase: 'create-attempted', creationSender: sender }) }),
+        register: async (_identity, authority) => ({ owner: { managedContainmentAuthorities: [authority] } }) },
+    residualRoot: path.join(root, 'residuals'), policy: loadPhysicalExecutionProcessPolicy(),
+    stdout: null, stderr: null });
+    assert.equal(evidence.postObservation, 'zero-members');
+    assert.equal(evidence.logComplete, true);
+    assert.equal(evidence.stdout, 'file-mode-stdout');
+    assert.equal(evidence.stderr, 'file-mode-stderr');
+    assert.ok(evidence.lifecycle.includes('bounded-file-output-capture'));
+    assert.ok(evidence.containmentAuthority.residentOutput);
+    assert.equal(evidence.outputFiles.stdout.byteCount, Buffer.byteLength('file-mode-stdout'));
+    const authority = evidence.containmentAuthority;
+    const supervisor = { ...authority.supervisorProcessIdentity,
+        pid: authority.supervisorProcessIdentity.pid + 1 };
+    const resident = { ...supervisor, pid: supervisor.pid + 1,
+        processStartIdentity: `${supervisor.processStartIdentity}-resident` };
+    const transfer = { schema: residentServiceTransferSchema,
+        serviceBindingDigest: digestCanonical(authority.serviceBinding),
+        inventoryDigest: `sha256:${'a'.repeat(64)}`,
+        memberIdentities: [supervisor, resident].sort((left, right) => left.pid - right.pid),
+        supervisorIdentity: supervisor,
+        outputFiles: evidence.outputFiles, transferredAt: new Date().toISOString() };
+    assert.equal(resourceServiceContainmentIsComplete({ ...authority, phase: 'resident-transferred',
+        residentTransfer: transfer }), true);
+    assert.equal(resourceServiceContainmentIsComplete({ ...authority, phase: 'resident-transferred',
+        residentTransfer: { ...transfer, inventoryDigest: `sha256:${'0'.repeat(64)}`,
+            serviceBindingDigest: `sha256:${'0'.repeat(64)}` } }), false);
+    assert.equal(resourceServiceContainmentIsComplete({ ...authority, phase: 'resident-transferred',
+        residentTransfer: { ...transfer, memberIdentities: [resident, supervisor] } }), false);
+    assert.equal(resourceServiceContainmentIsComplete({ ...authority, phase: 'resident-transferred',
+        residentTransfer: { ...transfer, outputFiles: { ...transfer.outputFiles,
+            stdout: { ...transfer.outputFiles.stdout, path: '/tmp/foreign-output' } } } }), false);
+});
+
+test('resource-bound adapter transfers a live service only after an exact owner acknowledgement', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    if (spawnSync('systemctl', ['--user', 'show-environment'], { encoding: 'utf8' }).status !== 0)
+    {
+        t.skip('systemd user manager is unavailable');
+        return;
+    }
+    const root = temporaryRoot('resident-adapter-transfer');
+    const context = { root, runId: 'resident-adapter-transfer', namespace: 'component',
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        schedulerOwnerToken: randomUUID() };
+    const enforcer = await createProductionResourceEnforcer({
+        runId: context.runId, bundleIds: ['worker'], mode: 'strict', machine: { cpuUnits: 2, memoryGiB: 2 },
+        systemdBoundary: { context, commandBudgetMs: 5000, startupBudgetMs: 5000,
+            retainBinding(reference)
+            {
+                writePrivateJson(path.join(root, 'independent-reference.json'), reference);
+                return { bindingDigest: reference.bindingDigest };
+            } }
+    });
+    let retained = null;
+    let controlRoot = null;
+    t.after(() =>
+    {
+        if (retained)
+        {
+            const termination = terminatePhysicalExecutionAuthoritySync({ authority: retained,
+                reason: 'test-owned-resident-transfer-cleanup' });
+            assert.equal(termination.postObservation, 'zero-members', termination.reason);
+        }
+        const carrier = controlRoot ?? retained?.controlRoot.path;
+        if (carrier)
+        {
+            assert.match(path.basename(carrier), /^fsusblog-physical-systemd-[A-Za-z0-9]{6}$/u);
+            if (retained?.phase === 'resident-transferred')
+            {
+                const artifacts = cleanupLivePhysicalExecutionResidentArtifacts([retained], {
+                    validateAuthority: () => ({ status: 'verified' })
+                });
+                assert.ok(artifacts.every((entry) => entry.status === 'absent'));
+            }
+            else
+            {
+                fs.rmSync(carrier, { recursive: true, force: true });
+            }
+        }
+        assert.equal(enforcer.cleanup().status, 'removed');
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    enforcer.update('worker', { cpuUnits: 1, memoryGiB: 0.25 });
+    const payload = path.join(root, 'producer.mjs');
+    fs.writeFileSync(payload, `import { spawn } from 'node:child_process';
+        const resident = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'],
+            { detached: true, stdio: 'ignore' });
+        resident.unref();
+        process.stdout.write('producer-transferred');`);
+    const evidence = await runPhysicalExecution({ command: [process.execPath, payload], cwd: root,
+        resourceBoundary: enforcer.executionBoundary('worker'),
+        resourceContext: { ...context, bundleId: 'worker' }, residentServiceOutput: true,
+        processOwner: { commandBudgetMs: 5000,
+            retain: async (authority) => ({ authorityDigest: digestCanonical(authority) }),
+            beforeCreation: async (authority, sender) =>
+            {
+                retained = { ...authority, phase: 'create-attempted', creationSender: sender };
+                return { authorityDigest: digestCanonical(retained) };
+            },
+            register: async (_identity, authority) =>
+            {
+                retained = authority;
+                return { owner: { managedContainmentAuthorities: [authority] } };
+            },
+            transfer: async (authority, captured) =>
+            {
+                const residentTransfer = { schema: residentServiceTransferSchema,
+                    serviceBindingDigest: digestCanonical(authority.serviceBinding),
+                    inventoryDigest: `sha256:${'a'.repeat(64)}`,
+                    memberIdentities: captured.memberIdentities,
+                    supervisorIdentity: captured.supervisorIdentity,
+                    outputFiles: captured.outputFiles, transferredAt: new Date().toISOString() };
+                retained = { ...authority, phase: 'resident-transferred', residentTransfer };
+                assert.equal(resourceServiceContainmentIsComplete(retained), true,
+                    JSON.stringify({ members: captured.memberIdentities.map((entry) => ({ pid: entry.pid,
+                        schema: entry.schema, status: entry.status, start: entry.processStartIdentity })),
+                    supervisor: authority.supervisorProcessIdentity.pid,
+                    output: captured.outputFiles }));
+                return { authorityDigest: digestCanonical(retained), residentTransfer };
+            } },
+        residualRoot: path.join(root, 'residuals'), policy: loadPhysicalExecutionProcessPolicy(),
+        stdout: null, stderr: null });
+    controlRoot = evidence.controlRoot;
+    assert.equal(evidence.postObservation, 'resident-transferred');
+    assert.equal(evidence.cleanup.status, 'transferred');
+    assert.equal(evidence.stdout, 'producer-transferred');
+    assert.equal(evidence.containmentAuthority.phase, 'resident-transferred');
+    assert.equal(evidence.containmentAuthority.residentTransfer.memberIdentities.length >= 2, true);
+    const termination = terminatePhysicalExecutionAuthoritySync({ authority: retained,
+        reason: 'test-owned-interrupted-resident-cleanup' });
+    assert.equal(termination.postObservation, 'zero-members', termination.reason);
+    const originalRename = fs.renameSync;
+    try
+    {
+        fs.renameSync = (source, target) =>
+        {
+            if (source === path.join(controlRoot, 'resident-cleanup-plan.json.pending'))
+            {
+                throw new Error('simulated resident cleanup plan interruption');
+            }
+            return originalRename(source, target);
+        };
+        assert.throws(() => cleanupLivePhysicalExecutionResidentArtifacts([retained], {
+            validateAuthority: () => ({ status: 'verified' })
+        }), /simulated resident cleanup plan interruption/u);
+    }
+    finally
+    {
+        fs.renameSync = originalRename;
+    }
+    assert.equal(fs.existsSync(path.join(controlRoot, 'resident-cleanup-plan.json.pending')), true);
+    assert.equal(fs.existsSync(path.join(controlRoot, 'stderr.log')), true);
+    const originalUnlink = fs.unlinkSync;
+    try
+    {
+        fs.unlinkSync = (file) =>
+        {
+            originalUnlink(file);
+            if (file === path.join(controlRoot, 'stderr.log'))
+            {
+                throw new Error('simulated resident cleanup interruption');
+            }
+        };
+        assert.throws(() => cleanupLivePhysicalExecutionResidentArtifacts([retained], {
+            validateAuthority: () => ({ status: 'verified' })
+        }), /simulated resident cleanup interruption/u);
+    }
+    finally
+    {
+        fs.unlinkSync = originalUnlink;
+    }
+    assert.equal(fs.existsSync(path.join(controlRoot, 'stderr.log')), false);
+    assert.equal(fs.existsSync(path.join(controlRoot, 'resident-cleanup-plan.json')), true);
+    const foreign = path.join(controlRoot, 'foreign.txt');
+    fs.writeFileSync(foreign, 'foreign', { mode: 0o600 });
+    assert.throws(() => cleanupLivePhysicalExecutionResidentArtifacts([retained], {
+        validateAuthority: () => ({ status: 'verified' })
+    }), /exact deletion prefix/u);
+    fs.unlinkSync(foreign);
+    const recovered = cleanupLivePhysicalExecutionResidentArtifacts([retained], {
+        validateAuthority: () => ({ status: 'verified' })
+    });
+    assert.ok(recovered.every((entry) => entry.status === 'absent'));
+});
+
+test('nested transport closes connected peers after owner EOF or shutdown', { skip: process.platform !== 'linux' }, async (t) =>
+{
+    for (const shutdown of [false, true])
+    {
+        await t.test(shutdown ? 'explicit shutdown' : 'owner EOF', async (subtest) =>
+        {
+            const root = temporaryRoot('nested-transport');
+            const socketPath = path.join(root, 'owner.sock');
+            const broker = spawn(process.env.FSUSBLOG_PYTHON ?? 'python3', ['-I', '-S',
+                fileURLToPath(new URL('../../tools/test/physical-execution-nested-socket.py', import.meta.url)), socketPath,
+                String(fastPolicy.maximumCapturedOutputBytesPerStream * 16), '10', String(fastPolicy.pipeCloseTimeoutMs / 1000)],
+            { stdio: ['pipe', 'pipe', 'pipe'] });
+            let diagnostics = '';
+            broker.stderr.on('data', (chunk) => diagnostics += chunk.toString());
+            const terminal = new Promise((resolve, reject) =>
+            {
+                broker.once('error', reject);
+                broker.once('close', (code, signal) => resolve({ code, signal }));
+            });
+            let peer;
+            subtest.after(async () =>
+            {
+                peer?.destroy();
+                if (broker.exitCode === null && broker.signalCode === null)
+                {
+                    broker.kill('SIGKILL');
+                }
+                await terminal;
+                fs.rmSync(root, { recursive: true, force: true });
+            });
+            let buffered = '';
+            const observed = new EventEmitter();
+            broker.stdout.on('data', (chunk) =>
+            {
+                buffered += chunk.toString();
+                for (let end = buffered.indexOf('\n'); end >= 0; end = buffered.indexOf('\n'))
+                {
+                    const message = JSON.parse(buffered.slice(0, end));
+                    buffered = buffered.slice(end + 1);
+                    observed.emit(message.kind, message);
+                }
+            });
+            const bounded = async (pending) =>
+            {
+                let timer;
+                try
+                {
+                    return await Promise.race([pending, new Promise((_resolve, reject) =>
+                    {
+                        timer = setTimeout(() => reject(new Error(`nested transport did not settle: ${diagnostics}`)),
+                            fastPolicy.forceTerminationMs + fastPolicy.pipeCloseTimeoutMs);
+                    })]);
+                }
+                finally
+                {
+                    clearTimeout(timer);
+                }
+            };
+            await bounded(new Promise((resolve) => observed.once('ready', resolve)));
+            const requested = new Promise((resolve) => observed.once('request', resolve));
+            peer = net.createConnection(socketPath);
+            peer.on('error', (error) => diagnostics += `peer: ${error.message}`);
+            peer.write(`${JSON.stringify({ kind: 'transport-fixture' })}\n`);
+            await bounded(requested);
+            broker.stdin.end(shutdown ? `${JSON.stringify({ kind: 'shutdown' })}\n` : '');
+            assert.deepEqual(await bounded(terminal), { code: 0, signal: null }, diagnostics);
+        });
+    }
+});
+
+test('resource-bound execution rejects reports and unsupported process-owner paths before spawn', async () =>
+{
+    let spawned = false;
+    const adapter = createPhysicalExecutionLinuxSystemdAdapter({
+        runSystemctl: () => ({ status: 0, stdout: '', stderr: '' }),
+        spawnProcess: () =>
+        {
+            spawned = true;
+        }
+    });
+    await assert.rejects(() => adapter.run({ resourceBoundary: {}, command: ['/usr/bin/true'] }), /live resource-owner capability/u);
+    assert.equal(spawned, false);
+    await assert.rejects(() => runPhysicalExecution({
+        command: ['/usr/bin/true'], resourceBoundary: {}, platform: 'darwin'
+    }), /canonical Linux process owner/u);
+});
+
+test('Linux physical pre-exec admission verifies the actual shared resource ancestor and honors revocation', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    for (const revoke of [false, true])
+    {
+        await t.test(revoke ? 'revoked before payload release' : 'actual service and payload ancestor', async (subtest) =>
+        {
+            const root = temporaryRoot('physical-resource-admission');
+            const context = { root, runId: 'service-admission', namespace: 'component',
+                sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+                schedulerOwnerToken: randomUUID() };
+            const enforcer = await createProductionResourceEnforcer({
+                runId: context.runId, bundleIds: ['worker'], mode: 'strict', machine: { cpuUnits: 2, memoryGiB: 2 },
+                systemdBoundary: { context, commandBudgetMs: 5000, startupBudgetMs: 5000,
+                    retainBinding(reference)
+                    {
+                        writePrivateJson(path.join(root, 'independent-reference.json'), reference);
+                        return { bindingDigest: reference.bindingDigest };
+                    } }
+            });
+            subtest.after(() =>
+            {
+                assert.equal(enforcer.cleanup().status, 'removed', 'real owned resources must be proven absent before deleting fixture records');
+                fs.rmSync(root, { recursive: true, force: true });
+            });
+            const limits = enforcer.update('worker', { cpuUnits: 1, memoryGiB: 0.25 });
+            const resourceBoundary = enforcer.executionBoundary('worker');
+            const marker = path.join(root, 'payload.json');
+            const command = [process.execPath, '-e', `const fs = require('node:fs');
+                const group = fs.readFileSync('/proc/self/cgroup', 'utf8').trim().slice(3);
+                const parent = require('node:path').dirname('/sys/fs/cgroup' + group);
+                const controls = Object.fromEntries(['cpu.max','cpu.weight','memory.high','memory.max','pids.max']
+                    .map(name => [name, fs.readFileSync(parent + '/' + name, 'utf8').trim()]));
+                fs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({pid:process.pid,group,controls}));`];
+            const options = { command, cwd: root, env: process.env, resourceBoundary, resourceContext: { ...context, bundleId: 'worker' },
+                policy: fastPolicy, stdout: quiet, stderr: quiet, schema: physicalExecutionProcessTreeSchema };
+            await assert.rejects(() => runPhysicalExecution({ ...options, cwd: path.dirname(root),
+                residualRoot: path.join(root, 'residuals') }), /escapes its bound repository/u);
+            const alias = path.join(root, 'cwd-alias');
+            fs.symlinkSync(root, alias);
+            await assert.rejects(() => runPhysicalExecution({ ...options, cwd: alias,
+                residualRoot: path.join(root, 'residuals') }), /literal working directory/u);
+            assert.equal(fs.existsSync(marker), false);
+            if (revoke)
+            {
+                let revocations = 0;
+                const adapter = createPhysicalExecutionLinuxSystemdAdapter({
+                    readProcessGroupIdentity(pid)
+                    {
+                        const identity = collectProcessGroupOrJobIdentity(pid, { platform: 'linux' });
+                        assert.equal(enforcer.cleanup().status, 'retained-resources');
+                        revocations += 1;
+                        return identity;
+                    }
+                });
+                await assert.rejects(() => adapter.run(options), (error) =>
+                {
+                    assert.match(error.message, /closed|finalizing/u);
+                    assert.equal(error.physicalExecution?.cleanup.status, 'verified');
+                    assert.equal(error.physicalExecution?.resourceExecutionAdmission, null);
+                    return true;
+                });
+                assert.equal(revocations, 1);
+                assert.equal(fs.existsSync(marker), false, 'a revoked admission must never sign payload release');
+            }
+            else
+            {
+                const evidence = await runPhysicalExecution({ ...options, residualRoot: path.join(root, 'residuals') });
+                const payload = JSON.parse(fs.readFileSync(marker, 'utf8'));
+                const admitted = evidence.resourceExecutionAdmission;
+                assert.equal(payload.pid, admitted.processIdentity.pid);
+                assert.equal(payload.group, admitted.service.controlGroup);
+                assert.equal(path.posix.dirname(payload.group), admitted.parent.controlGroup);
+                assert.equal(admitted.parent.path, limits.cgroupPath);
+                assert.deepEqual(payload.controls, admitted.parent.controls);
+                assert.equal(payload.controls['cpu.max'], limits.cpuMax);
+                assert.equal(payload.controls['memory.max'], String(limits.memoryMaxBytes));
+                assert.equal(evidence.cleanup.status, 'verified');
+                assert.equal(evidence.postObservation, 'zero-members');
+            }
+        });
+    }
+});
 
 function processExists(pid)
 {
@@ -130,12 +668,16 @@ function createStubSystemdExecution({
     cgroupReadErrorAt = null,
     removeRootError = null,
     onHandshake = null,
-    onCommandProcessGroupObserved = null
+    onCommandProcessGroupObserved = null,
+    callerCgroup = '0::/user.slice/parent.service\n',
+    unitControlGroup = '/user.slice/fsusblog-stub.scope',
+    unitSlice = 'user.slice'
 } = {})
 {
     const state = {
         controlRoot: null,
         unitName: null,
+        spawnArgs: null,
         members: [...initialMembers],
         loadState: 'loaded',
         showCount: 0,
@@ -160,6 +702,7 @@ function createStubSystemdExecution({
     const adapter = createPhysicalExecutionLinuxSystemdAdapter({
         spawnProcess(_executable, args)
         {
+            state.spawnArgs = [...args];
             state.controlRoot = args.at(-1);
             state.unitName = args.find((argument) => argument.startsWith('--unit='))
                 .slice('--unit='.length);
@@ -204,7 +747,7 @@ function createStubSystemdExecution({
                         executables: [],
                         startIdentity: 'stub-202',
                         processGroup: 202,
-                        cgroup: '0::/user.slice/fsusblog-stub.scope\n'
+                        cgroup: `0::${unitControlGroup}\n`
                     }));
                 }
                 if (handshake === 'result')
@@ -248,7 +791,8 @@ function createStubSystemdExecution({
                     stdout: [
                         `LoadState=${state.loadState}`,
                         `ActiveState=${state.loadState === 'not-found' ? 'inactive' : 'failed'}`,
-                        'ControlGroup=/user.slice/fsusblog-stub.scope',
+                        `ControlGroup=${unitControlGroup}`,
+                        `Slice=${typeof unitSlice === 'function' ? unitSlice(state) : unitSlice}`,
                         'MainPID=101'
                     ].join('\n'),
                     stderr: ''
@@ -320,6 +864,7 @@ function createStubSystemdExecution({
         },
         readExecutableSnapshot: () => [],
         resolvePython: () => process.execPath,
+        readCurrentCgroup: () => typeof callerCgroup === 'function' ? callerCgroup(state) : callerCgroup,
         readProcessIdentity(pid)
         {
             return {
@@ -408,6 +953,70 @@ test('parent exit with a live grandchild is terminated and cannot succeed', asyn
     {
         assert.equal(processExists(entry.pid), false);
     }
+});
+
+test('Linux resource-bound producer cannot report a resident setsid descendant as a completed tier', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const capability = spawnSync('systemctl', ['--user', 'show-environment'], {
+        encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+    });
+    if (capability.status !== 0)
+    {
+        t.skip(`systemd user cgroup authority unavailable: ${String(capability.stderr).trim()}`);
+        return;
+    }
+    const root = temporaryRoot('resident-producer-exit');
+    const context = { root, runId: 'resident-producer-exit', namespace: 'component',
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        schedulerOwnerToken: randomUUID() };
+    const enforcer = await createProductionResourceEnforcer({
+        runId: context.runId, bundleIds: ['worker'], mode: 'strict', machine: { cpuUnits: 2, memoryGiB: 2 },
+        systemdBoundary: { context, commandBudgetMs: 5000, startupBudgetMs: 5000,
+            retainBinding(reference)
+            {
+                writePrivateJson(path.join(root, 'independent-reference.json'), reference);
+                return { bindingDigest: reference.bindingDigest };
+            } }
+    });
+    t.after(() =>
+    {
+        assert.equal(enforcer.cleanup().status, 'removed', 'resident rejection must leave no task resource boundary');
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    const limits = enforcer.update('worker', { cpuUnits: 1, memoryGiB: 0.25 });
+    const marker = path.join(root, 'resident.json');
+    const residentSource = `const fs = require('node:fs');
+        const stat = fs.readFileSync('/proc/self/stat', 'utf8');
+        const sessionId = Number(stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\\s+/)[3]);
+        fs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({pid:process.pid,sessionId,
+            cgroup:fs.readFileSync('/proc/self/cgroup','utf8').trim().slice(3)}));
+        setInterval(() => {}, 1000);`;
+    const producerSource = `const fs = require('node:fs');
+        const child = require('node:child_process').spawn(process.execPath,
+            ['-e', ${JSON.stringify(residentSource)}], {detached:true,stdio:'ignore'});
+        child.unref();
+        const deadline = Date.now() + 2000;
+        const timer = setInterval(() => {
+            if (fs.existsSync(${JSON.stringify(marker)})) { clearInterval(timer); process.exit(0); }
+            if (Date.now() > deadline) { clearInterval(timer); process.exit(2); }
+        }, 5);`;
+    const error = await expectFailure({
+        command: [process.execPath, '-e', producerSource], cwd: root,
+        resourceBoundary: enforcer.executionBoundary('worker'),
+        resourceContext: { ...context, bundleId: 'worker' },
+        residualRoot: path.join(root, 'residuals'),
+        policy: { ...fastPolicy, gracefulTerminationMs: 250 }
+    });
+    const resident = JSON.parse(fs.readFileSync(marker, 'utf8'));
+    assert.equal(resident.sessionId, resident.pid, 'detached resident must be in its own session');
+    assert.match(resident.cgroup, /\/fsusblog-physical-[a-f0-9]{32}\.service$/u);
+    assert.ok(path.join('/sys/fs/cgroup', resident.cgroup).startsWith(`${limits.cgroupPath}/`));
+    assert.match(error.message, /parent exited before its process group became empty/u);
+    assert.equal(error.physicalExecution.postObservation, 'zero-members');
+    assert.ok(error.physicalExecution.processInventory.some((entry) => entry.pid === resident.pid));
+    assert.equal(await waitForProcessAbsence(resident.pid, 1500), true);
 });
 
 test('detached=false Unix bootstrap is rejected before business child spawn and cleaned', {
@@ -952,6 +1561,73 @@ test('Linux systemd adapter carries the complete child environment without expos
     });
     assert.equal(evidence.authority.kind, 'linux-cgroup-process-group');
     assert.equal(evidence.postObservation, 'zero-members');
+});
+
+test('nested Linux systemd execution requires the caller and unit to share the declared slice before target release', async (t) =>
+{
+    const cwd = temporaryRoot('systemd-owned-slice');
+    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    const options = {
+        command: [process.execPath, '-e', 'process.exit(0)'], cwd, env: {}, policy: fastPolicy,
+        stdout: quiet, stderr: quiet, schema: physicalExecutionProcessTreeSchema,
+        linuxExpectedCgroupAncestor: '/user.slice/owned.slice'
+    };
+    const fixtureOptions = {
+        callerCgroup: '0::/user.slice/owned.slice/parent.service\n',
+        unitControlGroup: '/user.slice/owned.slice/fsusblog-stub.scope',
+        unitSlice: 'owned.slice',
+        finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] }
+    };
+    const admitted = createStubSystemdExecution(fixtureOptions);
+    const evidence = await admitted.adapter.run(options);
+    assert.equal(evidence.postObservation, 'zero-members');
+    assert.equal(admitted.state.spawnArgs.includes('--slice-inherit'), true);
+
+    const foreignCaller = createStubSystemdExecution({ ...fixtureOptions,
+        callerCgroup: '0::/user.slice/foreign.slice/parent.service\n' });
+    await assert.rejects(foreignCaller.adapter.run(options), /caller is outside its declared slice ancestor/u);
+    assert.equal(foreignCaller.state.spawnArgs, null);
+
+    for (const changed of [
+        { unitControlGroup: '/user.slice/foreign.slice/fsusblog-stub.scope' },
+        { unitSlice: 'foreign.slice' }
+    ])
+    {
+        const foreignUnit = createStubSystemdExecution({ ...fixtureOptions, ...changed });
+        await assert.rejects(foreignUnit.adapter.run(options), /unit is outside its declared slice ancestor/u);
+        assert.equal(foreignUnit.state.spawnArgs.includes('--slice-inherit'), true);
+        if (foreignUnit.state.controlRoot && fs.existsSync(foreignUnit.state.controlRoot))
+        {
+            fs.rmSync(foreignUnit.state.controlRoot, { recursive: true, force: true });
+        }
+    }
+    let callerReads = 0;
+    const callerDrift = createStubSystemdExecution({ ...fixtureOptions,
+        callerCgroup: () => ++callerReads === 1
+            ? '0::/user.slice/owned.slice/parent.service\n'
+            : '0::/user.slice/foreign.slice/parent.service\n' });
+    await assert.rejects(callerDrift.adapter.run(options), /caller is outside its declared slice ancestor/u);
+    assert.equal(fs.existsSync(path.join(callerDrift.state.controlRoot, 'release.json')), false);
+    if (fs.existsSync(callerDrift.state.controlRoot))
+    {
+        fs.rmSync(callerDrift.state.controlRoot, { recursive: true, force: true });
+    }
+
+    const unitDrift = createStubSystemdExecution({ ...fixtureOptions,
+        unitSlice: (state) => state.showCount === 1 ? 'owned.slice' : 'foreign.slice' });
+    await assert.rejects(unitDrift.adapter.run(options), /slice or unit identity drifted before target release/u);
+    assert.equal(fs.existsSync(path.join(unitDrift.state.controlRoot, 'release.json')), false);
+    if (fs.existsSync(unitDrift.state.controlRoot))
+    {
+        fs.rmSync(unitDrift.state.controlRoot, { recursive: true, force: true });
+    }
+    for (const ancestor of ['/user.slice/../owned.slice', '/user.slice/owned.slice/', '/user.slice/owned.service'])
+    {
+        const invalid = createStubSystemdExecution(fixtureOptions);
+        await assert.rejects(invalid.adapter.run({ ...options, linuxExpectedCgroupAncestor: ancestor }),
+            /canonical task-owned slice ancestor/u);
+        assert.equal(invalid.state.spawnArgs, null);
+    }
 });
 
 test('Linux systemd adapter cleanup treats command results as evidence and final state as authority', async (t) =>

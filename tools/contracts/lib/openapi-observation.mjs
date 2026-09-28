@@ -387,9 +387,36 @@ export function produceOpenApiObservation({
         fail('observation host did not write observation and openapi artifacts');
     }
 
+    return sealProducedOpenApiObservation({
+        repositoryRoot,
+        configuration,
+        expectedArtifactDigest: sha256File(paths.observationPath),
+        expectedOpenApiDigest: sha256File(paths.observedOpenApiPath)
+    });
+}
+
+/** Seal only the exact observation/projection pair already bound by a producer. */
+export function sealProducedOpenApiObservation({
+    repositoryRoot = root,
+    configuration = 'Release',
+    expectedArtifactDigest,
+    expectedOpenApiDigest
+} = {})
+{
+    const paths = observationPaths(repositoryRoot);
+    if (![expectedArtifactDigest, expectedOpenApiDigest].every((digest) => /^[a-f0-9]{64}$/u.test(String(digest ?? '')))
+        || !['Debug', 'Release'].includes(configuration))
+    {
+        fail('OpenAPI receipt sealing requires exact producer artifact/projection digests and configuration');
+    }
+
     const observation = JSON.parse(readFileSync(paths.observationPath, 'utf8'));
     const artifactDigest = sha256File(paths.observationPath);
     const openapiDigest = sha256File(paths.observedOpenApiPath);
+    if (artifactDigest !== expectedArtifactDigest || openapiDigest !== expectedOpenApiDigest)
+    {
+        fail('OpenAPI receipt sealing artifact/projection differs from its producer binding');
+    }
     const sourceDigests = Object.fromEntries(observationBuildSourcePaths.map((relative) => [
         relative,
         sha256File(path.join(repositoryRoot, relative))

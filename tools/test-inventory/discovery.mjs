@@ -3,7 +3,7 @@
  * Canonical test-surface discovery for the repository test inventory.
  *
  * Membership is projected from four authorities:
- *   1. directory closure (tests/backend, tests/frontend, tests/tools,
+ *   1. directory closure (registered xUnit projects, tests/frontend, tests/tools,
  *      tests/native, tests/security);
  *   2. matrix tier commands, evidence and artifacts;
  *   3. the coverage registry evidence paths;
@@ -20,11 +20,12 @@ import path from 'node:path';
 
 import { ADAPTER_VERSION, SUPPORT_CLASSIFICATION, classifyFile } from './adapters.mjs';
 import { INVENTORY_SCHEMA, validateInventoryArtifact } from './schema.mjs';
+import { groupXunitSources, validateXunitProjectReport, xunitProjects } from './xunit-projects.mjs';
 
 const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 
 export const DIRECTORY_CLOSURE = [
-    'tests/backend',
+    ...xunitProjects.map((owner) => owner.sourceDirectory),
     'tests/frontend',
     'tests/tools',
     'tests/native',
@@ -359,28 +360,19 @@ export function collectClosureCandidates(root, matrix, coverageRegistry, require
  * Compute the canonical inventory artifact for a repository root.
  * Deterministic for identical source, matrix and catalog inputs.
  */
-const XUNIT_TEST_PROJECT = 'tests/backend/FsusBlog.Server.Tests.csproj';
 const XUNIT_ADAPTER_PROJECT = 'tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj';
 
-function runXunitRoslynAdapter(root, projectPath, sourceFiles)
+function runXunitRoslynAdapter(root, owner)
 {
-    const xunitFiles = sourceFiles.filter((file) => file.adapter === 'xunit');
-    if (xunitFiles.length === 0)
+    const projectPath = owner.project;
+    if (!existsSync(path.join(root, projectPath)))
     {
-        return { testCases: [], diagnostics: [] };
+        throw new Error(`xunit test project is missing: ${projectPath}`);
     }
     const adapterProject = path.join(root, XUNIT_ADAPTER_PROJECT);
     if (!existsSync(adapterProject))
     {
-        return {
-            testCases: [],
-            diagnostics: [{
-                severity: 'warning',
-                code: 'xunit-roslyn-adapter-unavailable',
-                file: null,
-                message: `xunit adapter project is not present at ${XUNIT_ADAPTER_PROJECT}; xunit cases were not extracted`
-            }]
-        };
+        throw new Error(`xunit adapter project is not present at ${XUNIT_ADAPTER_PROJECT}; xunit cases were not extracted`);
     }
     const build = spawnSync(
         'dotnet',
@@ -406,7 +398,9 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
             '--no-launch-profile',
             '--',
             root,
-            path.join(root, projectPath)
+            path.join(root, projectPath),
+            '--configuration',
+            'Debug'
         ],
         { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 }
     );
@@ -431,15 +425,7 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
             { cause: error }
         );
     }
-    const ownedFiles = new Set(xunitFiles.map((file) => file.path));
-    const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile));
-    const diagnostics = (report.diagnostics ?? []).map((diagnostic) => ({
-        severity: diagnostic.severity === 'error' ? 'error' : 'warning',
-        code: diagnostic.code,
-        file: diagnostic.file ?? null,
-        message: diagnostic.message
-    }));
-    return { testCases, diagnostics };
+    return validateXunitProjectReport(owner, report);
 }
 
 const TS_ADAPTER_ENTRY = 'tools/test-inventory/ts-ast-adapter/index.mjs';
@@ -683,9 +669,20 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
     let adapterDiagnostics = [];
     if (runAdapters)
     {
-        const xunitResult = runXunitRoslynAdapter(root, XUNIT_TEST_PROJECT, sourceFiles);
-        adapterCases = xunitResult.testCases;
-        adapterDiagnostics = xunitResult.diagnostics;
+        const owners = groupXunitSources(sourceFiles);
+        for (const owner of owners)
+        {
+            if (!existsSync(path.join(root, owner.project)))
+            {
+                throw new Error(`xunit test project is missing: ${owner.project}`);
+            }
+        }
+        for (const owner of owners)
+        {
+            const xunitResult = runXunitRoslynAdapter(root, owner);
+            adapterCases.push(...xunitResult.testCases);
+            adapterDiagnostics.push(...xunitResult.diagnostics);
+        }
         const tsResult = runTsAstAdapter(root, sourceFiles);
         adapterCases = [...adapterCases, ...tsResult.testCases];
         adapterSuiteRecords = tsResult.suiteRecords;

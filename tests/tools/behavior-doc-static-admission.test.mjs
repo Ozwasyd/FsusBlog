@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
-const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { behaviorDocAdmissionReceiptSchema, bindCanonicalOpenApiIdentity, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestPath, digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 const { establishBehaviorDocAdmission, runLocalProfile } = await import(new URL("../../tools/run-test-matrix.mjs", import.meta.url));
@@ -64,6 +64,74 @@ test('successful fact observations are materialized for canonical drift repair',
     }
 });
 
+test('BehaviorDoc binds the canonical OpenAPI receipt to the minimal artifact, projection and source', (t) =>
+{
+    const repositoryRoot = tempDirectory('behavior-doc-openapi-binding');
+    t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const relative = '.tmp/contracts/openapi/api-aeds-observation.json';
+    const absolute = path.join(repositoryRoot, relative);
+    const receiptPath = path.join(repositoryRoot, '.tmp/contracts/openapi/build-receipt.json');
+    const projectionRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
+    const projectionAbsolute = path.join(repositoryRoot, projectionRelative);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, '{"observation":"current"}\n');
+    fs.writeFileSync(projectionAbsolute, '{"projection":"current"}\n');
+    const artifactDigest = digestPath(repositoryRoot, relative);
+    const projectionDigest = digestPath(repositoryRoot, projectionRelative);
+    const sourceIdentity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    const minimalBuild = { receipt: { artifacts: {
+        'openapi-aeds-observation': { artifactPath: relative, artifactDigest, projectionDigest }
+    } } };
+    const currentSourceIdentity = () => sourceIdentity;
+    const produce = () => ({
+        observationPath: absolute,
+        receiptPath,
+        buildIdentity: {
+            artifactId: 'openapi-aeds-observation',
+            receiptDigest: 'c'.repeat(64),
+            artifactDigest
+        }
+    });
+    const options = { repositoryRoot, minimalBuild, sourceIdentity, sealOpenApi: produce, currentSourceIdentity };
+    assert.deepEqual(bindCanonicalOpenApiIdentity(options), produce().buildIdentity);
+    assert.throws(() => bindCanonicalOpenApiIdentity({
+        ...options,
+        minimalBuild: { receipt: { artifacts: {} } }
+    }), /lacks its exact artifact identity/u);
+    assert.throws(() => bindCanonicalOpenApiIdentity({
+        ...options,
+        currentSourceIdentity: () => ({ ...sourceIdentity, worktreeFingerprint: 'd'.repeat(64) })
+    }), /changed before canonical production/u);
+    assert.throws(() => bindCanonicalOpenApiIdentity({
+        ...options,
+        sealOpenApi: () => ({ ...produce(), buildIdentity: {
+            ...produce().buildIdentity, artifactDigest: 'd'.repeat(64)
+        } })
+    }), /did not match the minimal build/u);
+    assert.throws(() => bindCanonicalOpenApiIdentity({
+        ...options,
+        sealOpenApi: () => ({ ...produce(), receiptPath: `${receiptPath}.stale` })
+    }), /did not match the minimal build/u);
+    let sourceReads = 0;
+    assert.throws(() => bindCanonicalOpenApiIdentity({
+        ...options,
+        currentSourceIdentity: () => ++sourceReads === 1
+            ? sourceIdentity : { ...sourceIdentity, sourceCommit: 'e'.repeat(40) }
+    }), /did not match the minimal build/u);
+    fs.writeFileSync(projectionAbsolute, '{"projection":"tampered"}\n');
+    assert.throws(() => bindCanonicalOpenApiIdentity(options), /changed before canonical production/u);
+    fs.writeFileSync(projectionAbsolute, '{"projection":"current"}\n');
+    assert.throws(() => bindCanonicalOpenApiIdentity({
+        ...options,
+        sealOpenApi: () => {
+            fs.writeFileSync(absolute, '{"observation":"tampered"}\n');
+            return produce();
+        }
+    }), /did not match the minimal build/u);
+    fs.rmSync(absolute);
+    assert.throws(() => bindCanonicalOpenApiIdentity(options), /ENOENT/u);
+});
+
 function fakeMinimalReceipt(runId, source)
 {
     const buildRoot = `.tmp/behavior-doc-contract-builds/${'b'.repeat(64)}`;
@@ -105,6 +173,12 @@ function fakeMinimalReceipt(runId, source)
                 ),
                 artifactPath: declaration.output,
                 artifactDigest: 'd'.repeat(64),
+                ...(artifactId === 'openapi-aeds-observation'
+                    ? {
+                        projectionPath: path.posix.join(buildRoot, declaration.projectionCacheFile),
+                        projectionDigest: '7'.repeat(64)
+                    }
+                    : {}),
                 ...(artifactId === 'runtime-role-observation'
                     ? {
                         assemblyPath: runtimeAssemblyPath,
@@ -119,6 +193,12 @@ function fakeMinimalReceipt(runId, source)
                     artifactPath: declaration.output,
                     artifactDigest: 'd'.repeat(64),
                     configuration: 'Release',
+                    ...(artifactId === 'openapi-aeds-observation'
+                        ? {
+                            projectionPath: path.posix.join(buildRoot, declaration.projectionCacheFile),
+                            projectionDigest: '7'.repeat(64)
+                        }
+                        : {}),
                     ...(artifactId === 'runtime-role-observation'
                         ? {
                             sourceCommit: source.sourceCommit,
@@ -307,6 +387,7 @@ function copyMinimalBuildFixture(repositoryRoot)
     const copiedPaths = new Set([
         'config/contracts/behavior-fact-extractors.json',
         'tools/docs/behavior-doc-minimal-contract-build.mjs',
+        'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
         'tools/fact-extractors/identity.mjs',
         'Directory.Build.props',
         'Directory.Packages.props',
@@ -508,6 +589,10 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
         {
             value.minimalContractBuild.artifacts['runtime-role-observation']
                 .buildReceipt.reproducibleBuild.command[11] = '/p:PathMap=untrusted';
+        }],
+        ['missing OpenAPI projection binding', (value) =>
+        {
+            delete value.minimalContractBuild.artifacts['openapi-aeds-observation'].projectionDigest;
         }]
     ];
     for (const [label, mutate] of mutations)
@@ -580,6 +665,10 @@ test('minimal contract build uses only a content-addressed root and never ambien
                 }
             })}\n`
             : '{"schema":"fixture"}\n');
+        if (args.includes('tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj'))
+        {
+            fs.writeFileSync(path.join(path.dirname(args[outputIndex + 1]), 'fsusblog.openapi.observed.json'), '{"projection":"fixture"}\n');
+        }
         return { status: 0, stdout: '', stderr: '' };
     };
     const result = runMinimalContractBuild({
@@ -636,8 +725,14 @@ fi
 output=""
 deployment=""
 artifacts=""
+project=""
 runtime="0"
 while (( $# > 0 )); do
+  if [[ "$1" == "--project" ]]; then
+    project="$2"
+    shift 2
+    continue
+  fi
   if [[ "$1" == "--output" ]]; then
     output="$2"
     shift 2
@@ -680,6 +775,9 @@ if [[ "$runtime" == "1" ]]; then
   ' "$deployment" "$output"
 else
   printf '{"schema":"fixture"}\\n' > "$output"
+fi
+if [[ "$project" == "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj" ]]; then
+  printf '{"projection":"fixture"}\\n' > "$(dirname "$output")/fsusblog.openapi.observed.json"
 fi
 printf 'end %s\\n' "$$" >> "\${FSUSBLOG_FAKE_DOTNET_LOG}"
 `);

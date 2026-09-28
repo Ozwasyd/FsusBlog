@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
 const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox, projectPlannedEndpoints, validateExecutionNetworkPolicy} = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
@@ -153,6 +154,44 @@ test('empty observed network exact-matches a no-network correctness plan', (cont
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 
+test('Landlock helper accepts old and matching UAPI headers but rejects a conflicting right', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-uapi-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    for (const [variant, definition, expectedSuccess] of [
+        ['old-header', '', true],
+        ['matching-header', '#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)', true],
+        ['conflicting-header', '#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 14)', false]
+    ])
+    {
+        const includeRoot = path.join(directory, variant);
+        const headerDirectory = path.join(includeRoot, 'linux');
+        fs.mkdirSync(headerDirectory, { recursive: true });
+        fs.writeFileSync(path.join(headerDirectory, 'landlock.h'), [
+            '#include_next <linux/landlock.h>',
+            '#undef LANDLOCK_ACCESS_FS_IOCTL_DEV',
+            definition,
+            ''
+        ].join('\n'));
+        const compilation = spawnSync('cc', [
+            '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+            '-I', includeRoot, '-o', path.join(directory, `${variant}-helper`), source
+        ], { encoding: 'utf8' });
+        if (expectedSuccess)
+        {
+            assert.equal(compilation.status, 0, `${variant}: ${compilation.stderr}`);
+        }
+        else
+        {
+            assert.notEqual(compilation.status, 0, `${variant} unexpectedly compiled`);
+            assert.match(compilation.stderr, /Landlock ioctl right must match the Linux UAPI/u);
+        }
+    }
+});
+
 test('Landlock grants only the exact null device while retaining default-deny writes', {
     skip: process.platform !== 'linux'
 }, (context) =>
@@ -184,11 +223,12 @@ test('Landlock grants only the exact null device while retaining default-deny wr
         TMP: directories.temp,
         TEMP: directories.temp
     };
+    const allowedFile = path.join(directories.temp, 'allowed.txt');
     const prepared = prepareNetworkSandbox({
         command: [
             process.execPath,
             '-e',
-            `const fs = require('node:fs'); fs.writeFileSync('/dev/null', 'allowed'); try { fs.writeFileSync(${JSON.stringify(deniedFile)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`
+            `const fs = require('node:fs'); fs.writeFileSync('/dev/null', 'allowed'); fs.writeFileSync(${JSON.stringify(allowedFile)}, 'allowed'); try { fs.writeFileSync(${JSON.stringify(deniedFile)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`
         ],
         cwd: process.cwd(),
         directories,
@@ -207,8 +247,9 @@ test('Landlock grants only the exact null device while retaining default-deny wr
         return;
     }
     assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.readFileSync(allowedFile, 'utf8'), 'allowed');
     assert.equal(fs.readFileSync(deniedFile, 'utf8'), 'unchanged');
-    assert.deepEqual(prepared.linuxReadWritePaths.filter((entry) => entry.startsWith('/dev/')), ['/dev/null']);
+    assert.deepEqual(prepared.linuxReadWritePaths, ['/dev/null', ...Object.values(directories)].sort());
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 

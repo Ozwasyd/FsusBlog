@@ -76,6 +76,12 @@ export function createRuntimeRoleMinimalV3Fixture(runId, source)
                 ),
                 artifactPath: declaration.output,
                 artifactDigest: 'd'.repeat(64),
+                ...(artifactId === 'openapi-aeds-observation'
+                    ? {
+                        projectionPath: path.posix.join(buildRoot, declaration.projectionCacheFile),
+                        projectionDigest: '7'.repeat(64)
+                    }
+                    : {}),
                 ...(artifactId === 'runtime-role-observation'
                     ? {
                         assemblyPath: runtimeAssemblyPath,
@@ -90,6 +96,12 @@ export function createRuntimeRoleMinimalV3Fixture(runId, source)
                     artifactPath: declaration.output,
                     artifactDigest: 'd'.repeat(64),
                     configuration: 'Release',
+                    ...(artifactId === 'openapi-aeds-observation'
+                        ? {
+                            projectionPath: path.posix.join(buildRoot, declaration.projectionCacheFile),
+                            projectionDigest: '7'.repeat(64)
+                        }
+                        : {}),
                     ...(artifactId === 'runtime-role-observation'
                         ? {
                             sourceCommit: source.sourceCommit,

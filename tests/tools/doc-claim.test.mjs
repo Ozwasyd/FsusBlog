@@ -385,6 +385,44 @@ test('governance scan rejects a second protocol / compat parser surface', () =>
     }
 })
 
+test('governance scan exempts only the exact rejecting machine-field guard', () =>
+{
+    const directory = fixtureRoot()
+    const relative = 'tools/docs/behavior-document-consistency-final.mjs'
+    const rejection = `function isForbiddenMachineField(normalized, qualification)
+{
+    const canonical = forbiddenMachineFields.get(normalized)
+    if (!canonical) return null
+    if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
+    return canonical
+}`
+    const docClaimConsumer = "\nconst receipt = 'DocClaim parse receipt'\n"
+    try
+    {
+        write(directory, relative, rejection + docClaimConsumer)
+        assert.deepEqual(scanDocClaimGovernance(directory), [])
+        for (const source of [
+            rejection + docClaimConsumer + 'const expectedValue = receipt\n',
+            rejection.replace('!qualification', 'qualification') + docClaimConsumer,
+            rejection + '\n' + rejection + docClaimConsumer
+        ])
+        {
+            write(directory, relative, source)
+            assert.ok(scanDocClaimGovernance(directory).some((item) =>
+                item.code === DocClaimErrorCode.SELF_PROVING_SURFACE && item.documentPath === relative))
+        }
+        write(directory, relative, '')
+        write(directory, 'tools/foreign-doc-claim.mjs', rejection + docClaimConsumer)
+        assert.ok(scanDocClaimGovernance(directory).some((item) =>
+            item.code === DocClaimErrorCode.SELF_PROVING_SURFACE
+            && item.documentPath === 'tools/foreign-doc-claim.mjs'))
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
 test('generated-section uses generatedSectionId and does not require prose body', () =>
 {
     const markdown = `# Generated

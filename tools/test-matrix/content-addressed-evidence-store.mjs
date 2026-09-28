@@ -129,17 +129,20 @@ function sortedUnique(values, label, { allowEmpty = false } = {})
     return normalized;
 }
 
-function assertSafeDirectory(directory, label)
+function assertSafeDirectory(directory, label, { create = true } = {})
 {
-    try
+    if (create)
     {
-        fs.mkdirSync(directory, { recursive: false, mode: 0o700 });
-    }
-    catch (error)
-    {
-        if (error?.code !== 'EEXIST')
+        try
         {
-            throw error;
+            fs.mkdirSync(directory, { recursive: false, mode: 0o700 });
+        }
+        catch (error)
+        {
+            if (error?.code !== 'EEXIST')
+            {
+                throw error;
+            }
         }
     }
 
@@ -388,8 +391,15 @@ function lastJournalEvent(file)
 
 export class RunEvidenceObjectStore
 {
-    constructor({ root, runId, sourceState })
+    #readOnly;
+
+    constructor({ root, runId, sourceState, readOnly = false })
     {
+        if (typeof readOnly !== 'boolean')
+        {
+            throw new Error('evidence store read-only mode must be boolean');
+        }
+        this.#readOnly = readOnly;
         this.root = path.resolve(requiredText(root, 'root'));
         this.runId = validateRunIdentity(runId, 'runId');
         this.sourceState = normalizeSourceState(sourceState);
@@ -403,6 +413,7 @@ export class RunEvidenceObjectStore
         }
         else
         {
+            this.#assertWritable();
             fs.mkdirSync(this.root, { recursive: true, mode: 0o700 });
         }
         if (fs.realpathSync(this.root) !== this.root)
@@ -420,7 +431,7 @@ export class RunEvidenceObjectStore
             [this.checkpointsDirectory, 'checkpoints directory']
         ])
         {
-            assertSafeDirectory(directory, label);
+            assertSafeDirectory(directory, label, { create: !this.#readOnly });
         }
         this.statistics = {
             jsonBytesWritten: 0,
@@ -437,6 +448,14 @@ export class RunEvidenceObjectStore
         };
     }
 
+    #assertWritable()
+    {
+        if (this.#readOnly)
+        {
+            throw new Error('evidence store is read-only');
+        }
+    }
+
     objectFile(digest)
     {
         const normalized = validateDigest(digest, 'object digest');
@@ -445,6 +464,7 @@ export class RunEvidenceObjectStore
 
     publishObject(value, { references = [] } = {})
     {
+        this.#assertWritable();
         const normalized = normalizedReferences(references, this.runId, 'object references');
         const startedAt = process.cpuUsage();
         const envelope = {
@@ -547,6 +567,7 @@ export class RunEvidenceObjectStore
         retention = {}
     })
     {
+        this.#assertWritable();
         const owner = validateSemanticId(logicalOwner, 'logicalOwner');
         const nestedReferences = normalizedReferences(documentReferences, this.runId, 'documentReferences');
         this.validateReferences(nestedReferences);
@@ -631,6 +652,7 @@ export class RunEvidenceObjectStore
 
     appendJournalEvent({ eventType, tier = null, step = null, status, payload })
     {
+        this.#assertWritable();
         const journal = path.join(this.journalsDirectory, `${this.runId}.jsonl`);
         const lockFile = path.join(this.journalsDirectory, `${this.runId}.lock`);
         const descriptor = acquireLock(lockFile);
@@ -718,6 +740,7 @@ export class RunEvidenceObjectStore
 
     writeCompactCheckpoint({ stage, state, lastSequence = null, retention = {} })
     {
+        this.#assertWritable();
         const events = this.readJournal();
         const sequence = lastSequence ?? (events.at(-1)?.sequence ?? 0);
         if (!Number.isInteger(sequence) || sequence < 0 || sequence > (events.at(-1)?.sequence ?? 0))
@@ -796,6 +819,10 @@ export class RunEvidenceObjectStore
         let state = compact?.state ?? null;
         const sequence = compact?.checkpoint.lastSequence ?? 0;
         const events = this.readJournal();
+        if ((events.at(-1)?.sequence ?? 0) < sequence)
+        {
+            throw new Error('evidence journal is truncated before the compact checkpoint');
+        }
         for (const event of events)
         {
             if (event.sequence <= sequence)
@@ -819,6 +846,7 @@ export class RunEvidenceObjectStore
 
     garbageCollect({ activeRunIds = [], releaseBindings = [] } = {})
     {
+        this.#assertWritable();
         const active = new Set(activeRunIds.map((value) => validateRunIdentity(value, 'activeRunId')));
         const release = new Set(releaseBindings.map((value) => validateDigest(value, 'release binding digest')));
         const protectedDigests = new Set();

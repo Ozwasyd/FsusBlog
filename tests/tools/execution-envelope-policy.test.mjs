@@ -34,6 +34,17 @@ test('canonical execution envelope covers every correctness producer exactly onc
         entry.producerId === 'cross-stack-openapi-sync'), false);
 });
 
+test('Migration MySQL service is admitted only by the exact applicability vocabulary', () =>
+{
+    const mysql = catalog.producers.filter((entry) => entry.requiredServices?.includes('mysql'));
+    assert.equal(mysql.length, 1);
+    assert.equal(mysql[0].producerId, 'backend-unit');
+    assert.deepEqual(validateExecutionEnvelopeContracts({ matrix, policy, catalog }), []);
+    const crossed = valid();
+    crossed.catalog.producers.find((entry) => entry.producerId === 'backend-unit').requiredServices = ['mariadb'];
+    assert.match(validateExecutionEnvelopeContracts(crossed).join('\n'), /requiredServices|service applicability/u);
+});
+
 test('policy identity binds policy, catalog, and schema content independently', () =>
 {
     const identity = createExecutionEnvelopePolicyIdentity({ policy, catalog });

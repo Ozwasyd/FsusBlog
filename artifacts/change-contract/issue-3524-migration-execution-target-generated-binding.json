@@ -1,0 +1,45 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/run-test-matrix.mjs",
+        "tools/test-inventory/produce.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test-retention/audit.mjs",
+        "tools/test/build-migration-tests.mjs",
+        "tools/test/run-migration-tests.mjs",
+        "tools/test/generate-evidence-location-governance.mjs",
+        "tools/test/process-identity.mjs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/docs/doc-claim.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "f6362d494f030f2b5865cf63a88249cf7a31138466caac65b62952592249d6fe"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "1e852cf1bf328ffa88714c0f0cb02740aa1f5a1a38a1ad892b2f3332de110676"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "e8fc0ec4c2b3875eedc6eed09bfc71ca688f4b60545b1ddfb500b6ae9f803e7b"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "807cfcb5a801b0555c27dae2d794e7f9a0a1307ee6e3f12d5f0f1de794981365"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "651eab6493f2f4979384f4ac39346cb50ff52d1d7a1682380403b097064759b4"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "e3d2a11c65267768e7c58ca9f55b4158970585dfb89a6001a80f69e2c375409d"
+        }
+    ]
+}

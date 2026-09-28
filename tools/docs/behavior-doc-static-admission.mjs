@@ -14,6 +14,7 @@ const {digestPath, digestValue, sealSourceIdentity} = await import(new URL('../f
 const {semanticDigestFromReceipt} = await import(new URL('../fact-extractors/receipt.mjs', import.meta.url));
 const {loadRegistry, validateOwnershipAgainstBehaviorCatalog, validateRegistry} = await import(new URL('../fact-extractors/registry.mjs', import.meta.url));
 const {runExtractor} = await import(new URL('../fact-extractors/runner.mjs', import.meta.url));
+const {sealProducedOpenApiObservation} = await import(new URL('../contracts/lib/openapi-observation.mjs', import.meta.url));
 import {
     runMinimalContractBuild
 } from './behavior-doc-minimal-contract-build.mjs';
@@ -171,6 +172,56 @@ export function writeFactObservationReceipts(componentsDirectory, observationRec
     }
 }
 
+export function bindCanonicalOpenApiIdentity({
+    repositoryRoot,
+    minimalBuild,
+    sourceIdentity,
+    sealOpenApi = sealProducedOpenApiObservation,
+    currentSourceIdentity = sealSourceIdentity,
+    readDigest = digestPath
+})
+{
+    const artifact = minimalBuild.receipt.artifacts['openapi-aeds-observation'];
+    const expectedPath = '.tmp/contracts/openapi/api-aeds-observation.json';
+    const expectedProjectionPath = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
+    if (artifact?.artifactPath !== expectedPath
+        || !/^[a-f0-9]{64}$/u.test(String(artifact.artifactDigest ?? ''))
+        || !/^[a-f0-9]{64}$/u.test(String(artifact.projectionDigest ?? '')))
+    {
+        throw new Error('minimal OpenAPI observation lacks its exact artifact identity');
+    }
+    const before = currentSourceIdentity(repositoryRoot);
+    if (before.sourceCommit !== sourceIdentity.sourceCommit
+        || before.worktreeFingerprint !== sourceIdentity.worktreeFingerprint
+        || readDigest(repositoryRoot, expectedPath) !== artifact.artifactDigest
+        || readDigest(repositoryRoot, expectedProjectionPath) !== artifact.projectionDigest)
+    {
+        throw new Error('minimal OpenAPI observation changed before canonical production');
+    }
+    const produced = sealOpenApi({
+        repositoryRoot,
+        configuration: 'Release',
+        expectedArtifactDigest: artifact.artifactDigest,
+        expectedOpenApiDigest: artifact.projectionDigest
+    });
+    const expectedAbsolute = path.join(repositoryRoot, expectedPath);
+    const identity = produced.buildIdentity;
+    const after = currentSourceIdentity(repositoryRoot);
+    if (produced.observationPath !== expectedAbsolute
+        || produced.receiptPath !== path.join(repositoryRoot, '.tmp/contracts/openapi/build-receipt.json')
+        || identity?.artifactId !== 'openapi-aeds-observation'
+        || !/^[a-f0-9]{64}$/u.test(String(identity.receiptDigest ?? ''))
+        || identity.artifactDigest !== artifact.artifactDigest
+        || readDigest(repositoryRoot, expectedPath) !== artifact.artifactDigest
+        || readDigest(repositoryRoot, expectedProjectionPath) !== artifact.projectionDigest
+        || after.sourceCommit !== sourceIdentity.sourceCommit
+        || after.worktreeFingerprint !== sourceIdentity.worktreeFingerprint)
+    {
+        throw new Error('canonical OpenAPI receipt did not match the minimal build and source identity');
+    }
+    return identity;
+}
+
 export async function runBehaviorDocStaticAdmission({
     repositoryRoot = root,
     runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
@@ -277,18 +328,27 @@ export async function runBehaviorDocStaticAdmission({
         });
         base.minimalContractBuild = minimalBuild.receipt;
 
+        const canonicalOpenApiIdentity = bindCanonicalOpenApiIdentity({
+            repositoryRoot,
+            minimalBuild,
+            sourceIdentity
+        });
+
         const observationReceipts = [];
         for (const extractor of registry.extractors)
         {
-            const buildIdentity = extractor.requiredBuildArtifact === null
-                ? null
-                : minimalBuild.buildIdentities[extractor.requiredBuildArtifact];
+            const canonicalOpenApi = extractor.id === 'openapi-aeds-fact-extractor';
+            const buildIdentity = canonicalOpenApi
+                ? canonicalOpenApiIdentity
+                : extractor.requiredBuildArtifact === null
+                    ? null
+                    : minimalBuild.buildIdentities[extractor.requiredBuildArtifact];
             const result = await runExtractor({
                 extractorId: extractor.id,
                 repositoryRoot,
                 registry,
                 buildIdentity,
-                buildReceiptPath: extractor.requiredBuildArtifact === null
+                buildReceiptPath: canonicalOpenApi || extractor.requiredBuildArtifact === null
                     ? null
                     : minimalBuild.identityReceiptFile,
                 useCache: false

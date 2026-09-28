@@ -121,6 +121,39 @@ const nonEvidenceFindingOverrides = new Map([
         function: 'verifyCommentMatrix',
         excerpt: "const deletedChild = one('deleted-root-child')[0];",
         indirectVia: null
+    },
+    // Migration enumerates only its exclusively created run-bound output root.
+    // The first call rejects a second TRX; the second seals every produced
+    // artifact. Neither chooses a receipt from candidate evidence locations.
+    {
+        findingId: '14233adcdb585bae',
+        ruleId: 'evidence-selection.directory-scan',
+        file: 'tools/test/run-migration-tests.mjs',
+        line: 45,
+        column: 15,
+        function: 'evidenceFiles',
+        excerpt: 'return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>',
+        indirectVia: null
+    },
+    {
+        findingId: 'e348a49643b76b7d',
+        ruleId: 'evidence-selection.indirect-helper-call',
+        file: 'tools/test/run-migration-tests.mjs',
+        line: 239,
+        column: 24,
+        function: 'inspectExecution',
+        excerpt: "if (JSON.stringify(evidenceFiles(options.root, path.join(plan.directory, 'execution')).filter((file) => file.endsWith('.trx')))",
+        indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan'
+    },
+    {
+        findingId: 'bba2f770f61cce29',
+        ruleId: 'evidence-selection.indirect-helper-call',
+        file: 'tools/test/run-migration-tests.mjs',
+        line: 272,
+        column: 36,
+        function: 'receiptOptions',
+        excerpt: 'artifacts: [build.file, ...evidenceFiles(options.root, plan.directory).filter((file) => file !== plan.receiptFile)],',
+        indirectVia: 'tools/test/run-migration-tests.mjs:evidenceFiles:evidence-selection.directory-scan'
     }
 ].map((finding) => [finding.findingId, Object.freeze(finding)]));
 const nonEvidenceOverrideFiles = new Set([...nonEvidenceFindingOverrides.values()]
