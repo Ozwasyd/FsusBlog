@@ -72,11 +72,11 @@
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "0def0ce28903f41355789fd62d76b04fa7c2c4781d0576fe13ebf9616df7c7a6"
+            "sha256": "9f4825879324f0dda242a6d47cd96832ef35e6f6f66a7b33e1e2b19d6658d7b5"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "b2651735ef2cc7ca3babc8cdb8bb30827efcbf51a5d3c6c3935a7389b742f7ff"
+            "sha256": "1e37a8bbff270b76f876e46a155d22b2e65972baf1634737b9aafca80471cca7"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
