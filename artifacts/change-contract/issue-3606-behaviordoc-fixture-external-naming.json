@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing execution-authority JSON keys, target identities and schema; the original producer refreshes only the controlled CLI fixture source content/index digests after its canonical SDK environment declaration is restored."
+        }
+    ]
+}
