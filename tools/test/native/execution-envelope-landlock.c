@@ -50,11 +50,17 @@ static uint64_t HandledAccessForAbi(int abi)
                       | LANDLOCK_ACCESS_FS_MAKE_SOCK | LANDLOCK_ACCESS_FS_MAKE_FIFO | LANDLOCK_ACCESS_FS_MAKE_BLOCK
                       | LANDLOCK_ACCESS_FS_MAKE_SYM;
     if (abi >= 2)
+    {
         access |= LANDLOCK_ACCESS_FS_REFER;
+    }
     if (abi >= 3)
+    {
         access |= LANDLOCK_ACCESS_FS_TRUNCATE;
+    }
     if (abi >= 5)
+    {
         access |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+    }
     return access;
 }
 
@@ -62,15 +68,21 @@ static void AllowPath(int rulesetFd, const char* path, uint64_t access)
 {
     int pathFd = open(path, O_PATH | O_CLOEXEC);
     if (pathFd < 0)
+    {
         Fail("cannot open declared filesystem path");
+    }
     LandlockPathBeneathAttr rule = {
         .allowed_access = access,
         .parent_fd = pathFd,
     };
     if (AddRule(rulesetFd, &rule) < 0)
+    {
         Fail("cannot add filesystem rule");
+    }
     if (close(pathFd) < 0)
+    {
         Fail("cannot close filesystem rule path");
+    }
 }
 
 int main(int argc, char** argv)
@@ -109,18 +121,24 @@ int main(int argc, char** argv)
 
     int abi = CreateRuleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
     if (abi < 1)
+    {
         Fail("Landlock ABI is unavailable");
+    }
     uint64_t handledAccess = HandledAccessForAbi(abi);
     LandlockRulesetAttr ruleset = {
         .handled_access_fs = handledAccess,
     };
     int rulesetFd = CreateRuleset(&ruleset, sizeof(ruleset), 0);
     if (rulesetFd < 0)
+    {
         Fail("cannot create filesystem ruleset");
+    }
 
     uint64_t readAccess = LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR;
     if (abi >= 5)
+    {
         readAccess |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+    }
     AllowPath(rulesetFd, "/", readAccess);
     for (int index = 1; index < separator; index += 2)
     {
@@ -129,17 +147,25 @@ int main(int argc, char** argv)
         {
             allowedAccess = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_WRITE_FILE;
             if (abi >= 5)
+            {
                 allowedAccess |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+            }
         }
         AllowPath(rulesetFd, argv[index + 1], allowedAccess);
     }
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+    {
         Fail("cannot set no-new-privileges");
+    }
     if (RestrictSelf(rulesetFd) < 0)
+    {
         Fail("cannot apply filesystem ruleset");
+    }
     if (close(rulesetFd) < 0)
+    {
         Fail("cannot close filesystem ruleset");
+    }
 
     execv(argv[separator + 1], &argv[separator + 1]);
     Fail("cannot execute correctness command");
