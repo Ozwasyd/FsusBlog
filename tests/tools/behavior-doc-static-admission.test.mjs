@@ -1193,6 +1193,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         '--execution-class correctness',
         '--producer-id validate-matrix',
         '--consumer validate-matrix',
+        '--env FSUSBLOG_CONTENT_FIELD_DOTNET',
         `--cwd ${JSON.stringify(fixtureRoot)}`,
         '--projection-directory .tmp/physical-execution-projections',
         '--path tools/test/run-deterministic-command.mjs',
