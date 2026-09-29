@@ -1195,8 +1195,8 @@
         },
         {
             "path": "tests/tools/behavior-doc-static-admission.test.mjs",
-            "contentDigest": "sha256:75d08b2983067f11500bed0411b1075f8ac83bd745e28f6f6e633becd73c32f8",
-            "indexDigest": "sha256:75d08b2983067f11500bed0411b1075f8ac83bd745e28f6f6e633becd73c32f8"
+            "contentDigest": "sha256:2c805203eb65c6e2451cec83f18e4e15aa37399749b1ad73d2308f3da1c335fc",
+            "indexDigest": "sha256:2c805203eb65c6e2451cec83f18e4e15aa37399749b1ad73d2308f3da1c335fc"
         },
         {
             "path": "tests/tools/behavior-evidence-pre-runtime.test.mjs",
