@@ -7,8 +7,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { materializeEsmFixture } from './support/esm-fixture-materializer.mjs';
 import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-runner.mjs';
+import { materializeEsmFixture } from './support/esm-fixture-materializer.mjs';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
@@ -217,7 +217,8 @@ test('BehaviorDoc binds the canonical OpenAPI receipt to the minimal artifact, p
     fs.writeFileSync(projectionAbsolute, '{"projection":"current"}\n');
     assert.throws(() => bindCanonicalOpenApiIdentity({
         ...options,
-        sealOpenApi: () => {
+        sealOpenApi: () =>
+        {
             fs.writeFileSync(absolute, '{"observation":"tampered"}\n');
             return produce();
         }
@@ -739,7 +740,6 @@ test('minimal contract build uses only a content-addressed root and never ambien
             fs.writeFileSync(assembly, 'fixture-runtime-role-assembly');
             return { status: 0, stdout: '', stderr: '' };
         }
-        const separator = args.indexOf('--');
         const outputIndex = args.indexOf('--output');
         assert.ok(outputIndex > 0);
         fs.mkdirSync(path.dirname(args[outputIndex + 1]), { recursive: true });
