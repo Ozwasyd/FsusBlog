@@ -8,8 +8,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import * as scheduler from '../../tools/test-matrix/scheduler.mjs';
 
+const scheduler = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
 const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
@@ -33,6 +33,7 @@ import {
     assertTransitiveMaterialization,
     materializeTestMatrixRunner
 } from './support/esm-fixture-materializer-contracts.mjs';
+import { posixCancellationFailureSource } from './support/posix-cancellation-fixture.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -136,7 +137,8 @@ function createRunnerFixture(temp)
     return wrapper;
 }
 
-function createCanonicalCliFixture(temp, payloads, configureTier = () => {}, options = {})
+function createCanonicalCliFixture(temp, payloads, configureTier = () =>
+{}, options = {})
 {
     assert.deepEqual(fs.readdirSync(temp), [], 'scheduler CLI fixture must start isolated and empty');
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
@@ -2892,7 +2894,7 @@ test('runDag stops the whole POSIX process group on the first tier failure', { s
         `fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
         'setInterval(() => {}, 1000)'
     ].join('\n'));
-    fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 180)\n');
+    fs.writeFileSync(failFile, posixCancellationFailureSource({ pidFile }));
 
     const result = await runDag({
         tiers: [
@@ -4211,20 +4213,20 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
     });
     const run = (tierId, githubRunId) => spawnSync(process.execPath,
         [fixture.runner, 'run', tierId, '--no-deps', '--fresh'], {
-        cwd: temp,
-        env: {
-            ...process.env,
-            ...fixture.admissionEnvironment,
-            CI: 'true',
-            GITHUB_ACTIONS: 'true',
-            GITHUB_RUN_ID: githubRunId,
-            GITHUB_RUN_ATTEMPT: '1',
-            GITHUB_JOB: 'fixture-workflow-job',
-            FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
-            FSUSBLOG_TEST_RUN_ID: `${githubRunId}-${tierId}`
-        },
-        encoding: 'utf8'
-    });
+            cwd: temp,
+            env: {
+                ...process.env,
+                ...fixture.admissionEnvironment,
+                CI: 'true',
+                GITHUB_ACTIONS: 'true',
+                GITHUB_RUN_ID: githubRunId,
+                GITHUB_RUN_ATTEMPT: '1',
+                GITHUB_JOB: 'fixture-workflow-job',
+                FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
+                FSUSBLOG_TEST_RUN_ID: `${githubRunId}-${tierId}`
+            },
+            encoding: 'utf8'
+        });
     const firstRun = run(firstTierId, '100');
     assert.equal(firstRun.status, 0, firstRun.stderr);
     const secondRun = run(secondTierId, '100');
@@ -4995,3 +4997,145 @@ test('failed resident producer retains partial live-service evidence without pub
     assert.ok(result.checkpoint.residentResourceLeases.reservation.cpuUnits > 0);
     assert.equal(result.checkpoint.tiers.performance.status, 'blocked');
 });
+
+function fixtureRoot(context)
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-posix-readiness-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    return root;
+}
+
+test('POSIX cancellation fixture requires an absolute PID path and a finite bounded setup interval', () =>
+{
+    for (const startupTimeoutMs of [0, -1, 5001, Infinity, NaN, '5000'])
+    {
+        assert.throws(() => posixCancellationFailureSource({
+            pidFile: path.join(os.tmpdir(), 'grandchild.pid'), startupTimeoutMs
+        }), /requires an absolute PID path and finite setup bound/u);
+    }
+    for (const pidFile of [undefined, '', 'relative.pid'])
+    {
+        assert.throws(() => posixCancellationFailureSource({ pidFile }),
+            /requires an absolute PID path and finite setup bound/u);
+    }
+});
+
+test('POSIX cancellation fixture waits for a delayed real grandchild before injecting failure',
+    { skip: process.platform === 'win32' }, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-posix-readiness-'));
+        const pidFile = path.join(root, 'grandchild.pid');
+        const grandchildFile = path.join(root, 'grandchild.mjs');
+        const slowFile = path.join(root, 'slow.mjs');
+        const failFile = path.join(root, 'fail.mjs');
+        fs.writeFileSync(grandchildFile, 'setInterval(() => {}, 1000)\n');
+        fs.writeFileSync(slowFile, [
+            "import { spawn } from 'node:child_process'",
+            "import fs from 'node:fs'",
+            "import { setTimeout as delay } from 'node:timers/promises'",
+            'await delay(600)',
+            `const child = spawn(process.execPath, [${JSON.stringify(grandchildFile)}], { stdio: 'ignore' })`,
+            `fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
+            'setInterval(() => {}, 1000)'
+        ].join('\n'));
+        fs.writeFileSync(failFile, posixCancellationFailureSource({ pidFile }));
+        context.after(() =>
+        {
+            if (!fs.existsSync(pidFile))
+            {
+                fs.rmSync(root, { recursive: true, force: true });
+                return;
+            }
+            const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+            try
+            {
+                const command = execFileSync('ps', ['-p', String(pid), '-o', 'args='], { encoding: 'utf8' });
+                if (command.trim() === `${process.execPath} ${grandchildFile}`)
+                {
+                    process.kill(pid, 'SIGKILL');
+                }
+            }
+            catch (error)
+            {
+                if (error.code !== 'ESRCH' && error.status !== 1)
+                {
+                    throw error;
+                }
+            }
+            finally
+            {
+                fs.rmSync(root, { recursive: true, force: true });
+            }
+        });
+        const tier = (id, file) => ({ id, command: `${JSON.stringify(process.execPath)} ${JSON.stringify(file)}`,
+            executionDependsOn: [], services: [], parallelizable: true, exclusiveResources: [], phase: 0,
+            resourceClass: 'cpu', maxParallel: 2, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [],
+            executionKey: id, executionVariant: 'ordinary', coverage: ['ordinary-unit'] });
+        const result = await scheduler.runDag({
+            tiers: [tier('slow', slowFile), tier('fail', failFile)], root,
+            runsRoot: path.join(root, 'runs'), runId: 'stop', maxParallel: 2,
+            systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+            snapshotWorktree: async () => ({ fingerprint: 'stable', entries: {} }),
+            terminationGraceMs: 100
+        });
+        assert.equal(result.status, 'failure');
+        assert.equal(result.failure.tierId, 'fail');
+        assert.equal(result.failure.exitCode, 7);
+        assert.ok(fs.existsSync(pidFile), 'the delayed slow tier must start its real grandchild before sibling failure');
+        const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+        let alive = true;
+        for (let attempt = 0; attempt < 40 && alive; attempt += 1)
+        {
+            try
+            {
+                process.kill(pid, 0);
+                await delay(25);
+            }
+            catch (error)
+            {
+                if (error.code !== 'ESRCH')
+                {
+                    throw error;
+                }
+                alive = false;
+            }
+        }
+        assert.equal(alive, false, `grandchild ${pid} survived sibling failure`);
+    });
+
+test('POSIX cancellation fixture refuses absent, malformed and dead readiness instead of injecting exit 7',
+    { skip: process.platform === 'win32' }, async (context) =>
+    {
+        for (const value of [null, '', 'NaN', '-1', '0', '1.5', '123x'])
+        {
+            await context.test(`readiness ${JSON.stringify(value)}`, (childContext) =>
+            {
+                const root = fixtureRoot(childContext);
+                const pidFile = path.join(root, 'grandchild.pid');
+                if (value !== null)
+                {
+                    fs.writeFileSync(pidFile, value);
+                }
+                const file = path.join(root, 'fail.mjs');
+                fs.writeFileSync(file, posixCancellationFailureSource({ pidFile, startupTimeoutMs: 100 }));
+                const result = spawnSync(process.execPath, [file], { encoding: 'utf8', timeout: 2000 });
+                assert.equal(result.error, undefined);
+                assert.equal(result.status, 8, result.stderr);
+                assert.match(result.stderr, /fixture readiness refused/u);
+            });
+        }
+        await context.test('dead grandchild', (childContext) =>
+        {
+            const root = fixtureRoot(childContext);
+            const child = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+            assert.equal(child.status, 0);
+            const pidFile = path.join(root, 'grandchild.pid');
+            fs.writeFileSync(pidFile, String(child.pid));
+            const file = path.join(root, 'fail.mjs');
+            fs.writeFileSync(file, posixCancellationFailureSource({ pidFile, startupTimeoutMs: 100 }));
+            const result = spawnSync(process.execPath, [file], { encoding: 'utf8', timeout: 2000 });
+            assert.equal(result.error, undefined);
+            assert.equal(result.status, 8, result.stderr);
+            assert.match(result.stderr, /fixture readiness refused/u);
+        });
+    });

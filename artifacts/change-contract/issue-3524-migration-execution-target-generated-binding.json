@@ -15,6 +15,7 @@
         "tests/tools/support/esm-fixture-materializer-contracts.mjs",
         "tests/tools/support/esm-fixture-materializer-runner.mjs",
         "tests/tools/support/esm-fixture-materializer.mjs",
+        "tests/tools/support/posix-cancellation-fixture.mjs",
         "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
         "tests/tools/test-matrix-resource-boundary.test.mjs",
         "tests/tools/test-matrix-scheduler.test.mjs",
@@ -67,7 +68,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "3ab52ed28ad7bad210dd4e40709ce7f7e6401e9adf555f015e28a8e2e8c3e47f"
+            "sha256": "a4a0a65187bd94c46d34ec4d6046b84bac1c4358343b5efe170f16d17f4a4e1e"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",

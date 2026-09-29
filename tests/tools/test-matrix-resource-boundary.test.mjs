@@ -703,3 +703,188 @@ test('enforced resident scope verifies the real PID incarnation and cgroup befor
     assert.throws(() => verifyResidentProcessResourceScope(bind(scopePath, changed), scopePath),
         /identity changed before cgroup read-back/u);
 });
+
+test('ESM fixture parser batches a complete cyclic fanout without evaluating its source', (t) =>
+{
+    const source = createTempDir('parser-batch-source');
+    const fixture = createTempDir('parser-batch-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(source, 'tools'));
+    const leaves = Array.from({ length: 40 }, (_, index) => `leaf-${index}.mjs`);
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), leaves.map(name => `import './${name}';`).join('\n'));
+    for (const [index, name] of leaves.entries())
+    {
+        fs.writeFileSync(path.join(source, 'tools', name),
+            `import './entry.mjs';\nexport const value = ${index};\nthrow new Error('fixture source was evaluated');\n`);
+    }
+    const program = [
+        "import childProcess from 'node:child_process';",
+        "import { syncBuiltinESMExports } from 'node:module';",
+        'let workers = 0;',
+        'const original = childProcess.spawnSync;',
+        'childProcess.spawnSync = function (command, args, options) {',
+        "    if (args.includes('--experimental-vm-modules')) workers += 1;",
+        '    return original.call(this, command, args, options);',
+        '};',
+        'syncBuiltinESMExports();',
+        `const { materializeEsmFixture } = await import(${JSON.stringify(new URL('./support/esm-fixture-materializer.mjs', import.meta.url).href)});`,
+        `const result = materializeEsmFixture({ repositoryRoot: ${JSON.stringify(source)}, fixtureRoot: ${JSON.stringify(fixture)}, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] });`,
+        "process.stdout.write(String(workers) + '\\n' + String(result.files.length) + '\\n');"
+    ].join('\n');
+    const result = execFileSync(process.execPath, ['--input-type=module', '--eval', program], { encoding: 'utf8' });
+    assert.equal(result, '4\n41\n', 'one entry batch and three bounded leaf batches must retain every module');
+    for (const name of ['entry.mjs', ...leaves])
+    {
+        assert.deepEqual(fs.readFileSync(path.join(fixture, 'tools', name)), fs.readFileSync(path.join(source, 'tools', name)));
+    }
+});
+
+test('ESM fixture parser rejects syntax in a later batch before copying any module', (t) =>
+{
+    const source = createTempDir('parser-late-syntax-source');
+    const fixture = createTempDir('parser-late-syntax-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(source, 'tools'));
+    const leaves = Array.from({ length: 32 }, (_, index) => `leaf-${index}.mjs`);
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), leaves.map(name => `import './${name}';`).join('\n'));
+    for (const [index, name] of leaves.entries())
+    {
+        fs.writeFileSync(path.join(source, 'tools', name), index === 0 ? 'export const broken = ;\n' : `export const value = ${index};\n`);
+    }
+    const declaration = { repositoryRoot: source, fixtureRoot: fixture, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] };
+    assert.throws(() => materializeEsmFixture(declaration), /parser failed for .*leaf-0\.mjs.*SyntaxError/su);
+    assert.deepEqual(fs.readdirSync(fixture), [], 'a later failed parser batch must not leave a partial fixture');
+    fs.writeFileSync(path.join(source, 'tools/leaf-0.mjs'), 'export const value = 0;\n');
+    assert.equal(materializeEsmFixture(declaration).files.length, 33);
+});
+
+test('ESM fixture parser cache follows current source bytes rather than paths or buffer identity', async (t) =>
+{
+    const { parseStaticRelativeEsmSpecifiers } = await import('./support/esm-fixture-materializer.mjs');
+    const bytes = Buffer.from("import './a.mjs';");
+    assert.deepEqual(parseStaticRelativeEsmSpecifiers(bytes), ['./a.mjs']);
+    bytes[10] = 'b'.charCodeAt(0);
+    assert.deepEqual(parseStaticRelativeEsmSpecifiers(bytes), ['./b.mjs']);
+    assert.deepEqual(parseStaticRelativeEsmSpecifiers(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)), ['./b.mjs']);
+    assert.deepEqual(parseStaticRelativeEsmSpecifiers(`import './${String.fromCharCode(0xd800)}.mjs';`), ['./\ufffd.mjs']);
+    const source = createTempDir('parser-cache-source');
+    const fixture = createTempDir('parser-cache-target');
+    const refused = createTempDir('parser-cache-refused');
+    for (const location of [source, fixture, refused])
+    {
+        t.after(() => fs.rmSync(location, { recursive: true, force: true }));
+    }
+    fs.mkdirSync(path.join(source, 'tools'));
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), 'export const value = 12345;\n');
+    const declaration = { repositoryRoot: source, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] };
+    materializeEsmFixture({ ...declaration, fixtureRoot: fixture });
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "import './missing-after-edit.mjs';\n");
+    assert.throws(() => materializeEsmFixture({ ...declaration, fixtureRoot: refused }), /local dependency is missing/u);
+    assert.deepEqual(fs.readdirSync(refused), []);
+    assert.equal(fs.readFileSync(path.join(fixture, 'tools/entry.mjs'), 'utf8'), 'export const value = 12345;\n');
+});
+
+test('ESM fixture parser preserves the per-module output limit without truncating valid batch output', async (t) =>
+{
+    const { parseStaticRelativeEsmSpecifiers } = await import('./support/esm-fixture-materializer.mjs');
+    const oversized = `import './${'a'.repeat(600000)}';\nimport './${'b'.repeat(600000)}';\n`;
+    assert.throws(() => parseStaticRelativeEsmSpecifiers(oversized), /parser failed.*per-module parser output limit/su);
+    const source = createTempDir('parser-output-source');
+    const fixture = createTempDir('parser-output-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(source, 'tools'));
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "import './a.mjs';\nimport './b.mjs';\n");
+    for (const letter of ['a', 'b'])
+    {
+        fs.writeFileSync(path.join(source, 'tools', letter + '.mjs'), `import '${letter.repeat(600000)}';\n`);
+    }
+    assert.equal(materializeEsmFixture({ repositoryRoot: source, fixtureRoot: fixture,
+        entries: ['tools/entry.mjs'], allowedRoots: ['tools'] }).files.length, 3);
+    for (const letter of ['a', 'b'])
+    {
+        assert.deepEqual(fs.readFileSync(path.join(fixture, 'tools', letter + '.mjs')),
+            fs.readFileSync(path.join(source, 'tools', letter + '.mjs')));
+    }
+});
+
+test('ESM fixture parser refuses malformed worker rows without populating its cache', () =>
+{
+    const responses = [
+        "'{'", "'null'", "'[]'", "JSON.stringify([{ index: 1, requests: [] }])",
+        "JSON.stringify([{ index: 0 }])", "JSON.stringify([{ index: 0, requests: [null] }])",
+        "JSON.stringify([{ index: 0, requests: [], unknown: true }])",
+        "JSON.stringify([{ index: 0, requests: ['./' + 'x'.repeat(1048576)] }])"
+    ].map(stdout => `{ status: 0, stdout: ${stdout}, stderr: '' }`);
+    responses.push(
+        "{ status: 1, stdout: JSON.stringify([{ index: 0, requests: [] }]), stderr: 'controlled failed module' }",
+        "{ status: 0, stdout: JSON.stringify([{ index: 0, requests: [] }]), stderr: '', error: new Error('controlled worker failure') }"
+    );
+    for (const response of responses)
+    {
+        const program = [
+            "import assert from 'node:assert/strict';",
+            "import childProcess from 'node:child_process';",
+            "import { syncBuiltinESMExports } from 'node:module';",
+            'let refuse = true, realWorkers = 0;',
+            'const original = childProcess.spawnSync;',
+            'childProcess.spawnSync = function (command, args, options) {',
+            "    if (args.includes('--experimental-vm-modules')) {",
+            '        if (refuse) { refuse = false;',
+            `            return ${response};`,
+            '        }',
+            '        realWorkers += 1;',
+            '    }',
+            '    return original.call(this, command, args, options);',
+            '};',
+            'syncBuiltinESMExports();',
+            `const { parseStaticRelativeEsmSpecifiers } = await import(${JSON.stringify(new URL('./support/esm-fixture-materializer.mjs', import.meta.url).href)});`,
+            "const source = 'export const value = 48217;';",
+            'assert.throws(() => parseStaticRelativeEsmSpecifiers(source), /malformed|over-limit|parser failed/);',
+            'assert.deepEqual(parseStaticRelativeEsmSpecifiers(source), []);',
+            'assert.equal(realWorkers, 1);',
+            "process.stdout.write('verified\\n');"
+        ].join('\n');
+        assert.equal(execFileSync(process.execPath, ['--input-type=module', '--eval', program], { encoding: 'utf8' }), 'verified\n');
+    }
+});
+
+test('ESM fixture parser refuses a misbound batch before copying or caching an earlier row', (t) =>
+{
+    const source = createTempDir('parser-misbound-source');
+    const fixture = createTempDir('parser-misbound-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(source, 'tools'));
+    fs.writeFileSync(path.join(source, 'tools/entry.mjs'), "import './a.mjs';\nimport './b.mjs';\n");
+    fs.writeFileSync(path.join(source, 'tools/a.mjs'), 'export const value = 19;\n');
+    fs.writeFileSync(path.join(source, 'tools/b.mjs'), 'export const value = 29;\n');
+    const program = [
+        "import assert from 'node:assert/strict';",
+        "import fs from 'node:fs';",
+        "import childProcess from 'node:child_process';",
+        "import { syncBuiltinESMExports } from 'node:module';",
+        'let refuse = true, leafBatches = 0;',
+        'const original = childProcess.spawnSync;',
+        'childProcess.spawnSync = function (command, args, options) {',
+        "    if (args.includes('--experimental-vm-modules') && JSON.parse(options.input).length === 2) {",
+        '        leafBatches += 1;',
+        '        if (refuse) { refuse = false;',
+        "            return { status: 0, stdout: JSON.stringify([{ index: 0, requests: ['./poison-cache.mjs'] }, { index: 0, requests: [] }]), stderr: '' };",
+        '        }',
+        '    }',
+        '    return original.call(this, command, args, options);',
+        '};',
+        'syncBuiltinESMExports();',
+        `const { materializeEsmFixture } = await import(${JSON.stringify(new URL('./support/esm-fixture-materializer.mjs', import.meta.url).href)});`,
+        `const declaration = { repositoryRoot: ${JSON.stringify(source)}, fixtureRoot: ${JSON.stringify(fixture)}, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] };`,
+        'assert.throws(() => materializeEsmFixture(declaration), /malformed/);',
+        'assert.deepEqual(fs.readdirSync(declaration.fixtureRoot), []);',
+        'assert.equal(materializeEsmFixture(declaration).files.length, 3);',
+        'assert.equal(leafBatches, 2);',
+        "process.stdout.write('verified\\n');"
+    ].join('\n');
+    assert.equal(execFileSync(process.execPath, ['--input-type=module', '--eval', program], { encoding: 'utf8' }), 'verified\n');
+});
