@@ -1390,8 +1390,8 @@
         },
         {
             "path": "tests/tools/production-resource-enforcement.test.mjs",
-            "contentDigest": "sha256:f2d07da12ed028b0eed1eaeb6be4344cbfb70fe3d4de5c95d9d7ad69d4581c37",
-            "indexDigest": "sha256:f2d07da12ed028b0eed1eaeb6be4344cbfb70fe3d4de5c95d9d7ad69d4581c37"
+            "contentDigest": "sha256:a11fe3be325dc8a5728941350d97bcf71a4eda4afb6e2e36b6ae42bb98bf12ef",
+            "indexDigest": "sha256:a11fe3be325dc8a5728941350d97bcf71a4eda4afb6e2e36b6ae42bb98bf12ef"
         },
         {
             "path": "tests/tools/release-deployment-doc-exactness.test.mjs",

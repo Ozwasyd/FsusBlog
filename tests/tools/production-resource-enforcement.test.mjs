@@ -3855,29 +3855,105 @@ test('scheduler MySQL recovery proves both cleanup observations without qualifyi
     assert.equal(Object.isFrozen(result[0]), true);
 });
 
-for (const [name, mutate] of [
-    ['root', fixture => fixture.context.root = '/foreign'],
-    ['run', fixture => fixture.context.runId = 'foreign'],
-    ['namespace', fixture => fixture.context.namespace = 'foreign'],
-    ['source commit', fixture => fixture.context.sourceState.commit = '0'.repeat(40)],
-    ['source fingerprint', fixture => fixture.context.sourceState.worktreeFingerprint = 'sha256:' + '0'.repeat(64)],
-    ['bundle', fixture => fixture.context.bundleId = 'frontend'],
-    ['step', fixture => fixture.context.stepId = 'foreign'],
-    ['resource roster', fixture => fixture.binding.resourceBundleIds = []],
-    ['missing digest', fixture => delete fixture.record.bindingDigest],
-    ['unknown status', fixture => fixture.record.status = 'assumed'],
-    ['unknown field', fixture => fixture.record.approved = true]
-])
+
+test('scheduler MySQL recovery rejects root before touching a service', async () =>
 {
-    test(`scheduler MySQL recovery rejects ${name} before touching a service`, async () =>
-    {
-        const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
-        const fixture = retainedMySqlRecoveryFixture();
-        mutate(fixture);
-        await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
-        assert.equal(fixture.calls.includes('recover'), false);
-    });
-}
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.root = '/foreign';
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects run before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.runId = 'foreign';
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects namespace before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.namespace = 'foreign';
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects source commit before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.sourceState.commit = '0'.repeat(40);
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects source fingerprint before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.sourceState.worktreeFingerprint = 'sha256:' + '0'.repeat(64);
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects bundle before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.bundleId = 'frontend';
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects step before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.context.stepId = 'foreign';
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects resource roster before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.binding.resourceBundleIds = [];
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects missing digest before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    delete fixture.record.bindingDigest;
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects unknown status before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.record.status = 'assumed';
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
+
+test('scheduler MySQL recovery rejects unknown field before touching a service', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    fixture.record.approved = true;
+    await assert.rejects(() => reconcileRetainedMySqlFixtureServices(fixture), /original run\/source\/resource binding/u);
+    assert.equal(fixture.calls.includes('recover'), false);
+});
 
 test('scheduler MySQL recovery rejects a foreign retained controller and duplicate allocation before cleanup', async () =>
 {
@@ -4011,30 +4087,116 @@ test('scheduler MySQL recovery completion reobserves the exact state before gran
     assert.deepEqual(fixture.calls, ['verify'], 'durable replay validation must not claim a new live observation');
 });
 
-for (const [name, mutate] of [
-    ['absent proof', records => records.length = 0],
-    ['foreign tier', records => records[0].tierId = 'foreign'],
-    ['foreign path', records => records[0].stateFile = '/foreign/state.json'],
-    ['foreign digest', records => records[0].bindingDigest = 'sha256:' + '0'.repeat(64)],
-    ['missing state digest', records => delete records[0].stateDigest],
-    ['missing container absence', records => records[0].cleanup.containerAbsent = false],
-    ['missing credential removal', records => records[0].cleanup.credentialsRemoved = false],
-    ['forged qualification', records => records[0].qualificationEligible = true],
-    ['unknown proof field', records => records[0].approved = true],
-    ['unknown cleanup field', records => records[0].cleanup.approved = true]
-])
+
+test('scheduler MySQL recovery completion rejects absent proof before live verification', async () =>
 {
-    test(`scheduler MySQL recovery completion rejects ${name} before live verification`, async () =>
-    {
-        const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
-        const fixture = retainedMySqlRecoveryFixture();
-        const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
-        fixture.calls.length = 0;
-        mutate(records);
-        assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
-        assert.deepEqual(fixture.calls, []);
-    });
-}
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records.length = 0;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects foreign tier before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].tierId = 'foreign';
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects foreign path before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].stateFile = '/foreign/state.json';
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects foreign digest before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].bindingDigest = 'sha256:' + '0'.repeat(64);
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects missing state digest before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    delete records[0].stateDigest;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects missing container absence before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].cleanup.containerAbsent = false;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects missing credential removal before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].cleanup.credentialsRemoved = false;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects forged qualification before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].qualificationEligible = true;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects unknown proof field before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].approved = true;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
+
+test('scheduler MySQL recovery completion rejects unknown cleanup field before live verification', async () =>
+{
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const records = structuredClone(await reconcileRetainedMySqlFixtureServices(fixture));
+    fixture.calls.length = 0;
+    records[0].cleanup.approved = true;
+    assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ ...fixture, records }), /MySQL scheduler recovery completion/u);
+    assert.deepEqual(fixture.calls, []);
+});
 
 test('scheduler MySQL recovery completion rejects stale cleanup observations and preserves observer failures', async () =>
 {
@@ -4091,90 +4253,174 @@ test('scheduler MySQL recovery completion rejects incomplete durable cleanup and
     assertRetainedMySqlFixtureRecoveryComplete({ allocations: undefined, records: [] });
 });
 
-for (const drift of [false, true])
+test('scheduler MySQL recovery publication retry preserves its sealed proof', async () =>
 {
-    test(`scheduler MySQL recovery publication retry ${drift ? 'rejects rehashed cleanup' : 'preserves its sealed proof'}`, async () =>
+    const drift = false;
+    const { runInNewContext } = await import('node:vm');
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const sealed = await reconcileRetainedMySqlFixtureServices(fixture);
+    fixture.record.status = 'cleaned';
+    fixture.record.cleanup = structuredClone(sealed[0].cleanup);
+    const verify = fixture.lifecycle.verifyMySqlFixtureServiceCleanup;
+    fixture.lifecycle.verifyMySqlFixtureServiceCleanup = (...args) =>
     {
-        const { runInNewContext } = await import('node:vm');
-        const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
-        const fixture = retainedMySqlRecoveryFixture();
-        const sealed = await reconcileRetainedMySqlFixtureServices(fixture);
-        fixture.record.status = 'cleaned';
-        fixture.record.cleanup = structuredClone(sealed[0].cleanup);
-        const verify = fixture.lifecycle.verifyMySqlFixtureServiceCleanup;
-        fixture.lifecycle.verifyMySqlFixtureServiceCleanup = (...args) =>
-        {
-            const observed = verify(...args);
-            if (drift)
-            {
-                observed.stateDigest = 'sha256:' + '1'.repeat(64);
-            }
-            return observed;
-        };
-        const current = await reconcileRetainedMySqlFixtureServices(fixture);
-        const checkpoint = { mysqlFixtureServices: fixture.allocations,
-            resourceReconciliation: { mysqlFixtureReconciliation: structuredClone(sealed) },
-            resourceUtilization: { resourceGrants: { grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } } } };
-        const fingerprint = value => JSON.stringify(value);
-        const originalCheckpoint = fingerprint(checkpoint);
-        const journalBytes = 'original sealed resource-grants-reconciled event\n';
-        const views = { journal: journalBytes, compatibility: 'old compatibility bytes', grants: 'old grant bytes' };
-        const originalViews = structuredClone(views);
-        const writes = [];
-        const capability = {};
-        const recovery = { binding: fixture.binding, reference: { runId: fixture.binding.runId },
-            checkpointDigest: fingerprint(checkpoint), mysqlFixtureReconciliation: current,
-            mysqlFixtureLifecycle: fixture.lifecycle };
-        const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
-        const start = source.indexOf('export function completeSchedulerResourceRecovery(');
-        const end = source.indexOf('/** Reconcile only the original retained build', start);
-        assert.ok(start >= 0 && end > start);
-        // Execute the exact completion function with memory-only I/O and held-lease adapters.
-        // This is a publication component regression, not live Docker or recovery qualification.
-        const context = { fingerprint, path,
-            assertSchedulerResourceRecovery: () => ({ status: 'verified' }),
-            schedulerResourceRecoveries: new Map([[capability, recovery]]),
-            readOriginalSchedulerResourceCheckpoint: () => ({ checkpointFile: '/owned/runs/owned-run/checkpoint.json', checkpoint }),
-            assertMySqlFixtureRecoveryComplete: (value, records, lifecycle) =>
-                assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices, records, lifecycle }),
-            schedulerResourceReconciliationIsComplete: value =>
-            {
-                assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices,
-                    records: value.resourceReconciliation.mysqlFixtureReconciliation, requireCleaned: true });
-                return true;
-            },
-            checkpointPersistence: new Map(),
-            schedulerPersistence: () => ({ store: { readJournal: () => [{ sequence: 1 }] } }),
-            publishCheckpointBoundary: () =>
-            {
-                writes.push('compatibility');
-                views.compatibility = fingerprint(checkpoint);
-            },
-            fs: {
-                writeFileSync: (_file, bytes) =>
-                {
-                    writes.push('grant');
-                    views.grants = bytes;
-                },
-                renameSync: () => writes.push('grant-rename')
-            },
-            process: { pid: process.pid },
-            schedulerResourcesUnsettled: () => false };
-        runInNewContext(source.slice(start, end).replace('export function ', 'function ')
-            + '\nglobalThis.complete = completeSchedulerResourceRecovery;', context);
+        const observed = verify(...args);
         if (drift)
         {
-            assert.notEqual(current[0].stateDigest, sealed[0].stateDigest);
-            assert.throws(() => context.complete(capability, { reference: recovery.reference }), /changed before grant release/u);
-            assert.deepEqual(writes, []);
-            assert.deepEqual(views, originalViews, 'rejection preserves original journal, grant and compatibility bytes');
+            observed.stateDigest = 'sha256:' + '1'.repeat(64);
         }
-        else
+        return observed;
+    };
+    const current = await reconcileRetainedMySqlFixtureServices(fixture);
+    const checkpoint = { mysqlFixtureServices: fixture.allocations,
+        resourceReconciliation: { mysqlFixtureReconciliation: structuredClone(sealed) },
+        resourceUtilization: { resourceGrants: { grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } } } };
+    const fingerprint = value => JSON.stringify(value);
+    const originalCheckpoint = fingerprint(checkpoint);
+    const journalBytes = 'original sealed resource-grants-reconciled event\n';
+    const views = { journal: journalBytes, compatibility: 'old compatibility bytes', grants: 'old grant bytes' };
+    const originalViews = structuredClone(views);
+    const writes = [];
+    const capability = {};
+    const recovery = { binding: fixture.binding, reference: { runId: fixture.binding.runId },
+        checkpointDigest: fingerprint(checkpoint), mysqlFixtureReconciliation: current,
+        mysqlFixtureLifecycle: fixture.lifecycle };
+    const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf('export function completeSchedulerResourceRecovery(');
+    const end = source.indexOf('/** Reconcile only the original retained build', start);
+    assert.ok(start >= 0 && end > start);
+    // Execute the exact completion function with memory-only I/O and held-lease adapters.
+    // This is a publication component regression, not live Docker or recovery qualification.
+    const context = { fingerprint, path,
+        assertSchedulerResourceRecovery: () => ({ status: 'verified' }),
+        schedulerResourceRecoveries: new Map([[capability, recovery]]),
+        readOriginalSchedulerResourceCheckpoint: () => ({ checkpointFile: '/owned/runs/owned-run/checkpoint.json', checkpoint }),
+        assertMySqlFixtureRecoveryComplete: (value, records, lifecycle) =>
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices, records, lifecycle }),
+        schedulerResourceReconciliationIsComplete: value =>
         {
-            context.complete(capability, { reference: recovery.reference });
-            assert.deepEqual(writes, ['compatibility', 'grant', 'grant-rename']);
-            assert.equal(views.journal, journalBytes, 'normal publication retry cannot append a second release');
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices,
+                records: value.resourceReconciliation.mysqlFixtureReconciliation, requireCleaned: true });
+            return true;
+        },
+        checkpointPersistence: new Map(),
+        schedulerPersistence: () => ({ store: { readJournal: () => [{ sequence: 1 }] } }),
+        publishCheckpointBoundary: () =>
+        {
+            writes.push('compatibility');
+            views.compatibility = fingerprint(checkpoint);
+        },
+        fs: {
+            writeFileSync: (_file, bytes) =>
+            {
+                writes.push('grant');
+                views.grants = bytes;
+            },
+            renameSync: () => writes.push('grant-rename')
+        },
+        process: { pid: process.pid },
+        schedulerResourcesUnsettled: () => false };
+    runInNewContext(source.slice(start, end).replace('export function ', 'function ')
+        + '\nglobalThis.complete = completeSchedulerResourceRecovery;', context);
+    if (drift)
+    {
+        assert.notEqual(current[0].stateDigest, sealed[0].stateDigest);
+        assert.throws(() => context.complete(capability, { reference: recovery.reference }), /changed before grant release/u);
+        assert.deepEqual(writes, []);
+        assert.deepEqual(views, originalViews, 'rejection preserves original journal, grant and compatibility bytes');
+    }
+    else
+    {
+        context.complete(capability, { reference: recovery.reference });
+        assert.deepEqual(writes, ['compatibility', 'grant', 'grant-rename']);
+        assert.equal(views.journal, journalBytes, 'normal publication retry cannot append a second release');
+    }
+    assert.equal(fingerprint(checkpoint), originalCheckpoint, 'neither retry can replace the sealed cleanup proof');
+});
+
+test('scheduler MySQL recovery publication retry rejects rehashed cleanup', async () =>
+{
+    const drift = true;
+    const { runInNewContext } = await import('node:vm');
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const sealed = await reconcileRetainedMySqlFixtureServices(fixture);
+    fixture.record.status = 'cleaned';
+    fixture.record.cleanup = structuredClone(sealed[0].cleanup);
+    const verify = fixture.lifecycle.verifyMySqlFixtureServiceCleanup;
+    fixture.lifecycle.verifyMySqlFixtureServiceCleanup = (...args) =>
+    {
+        const observed = verify(...args);
+        if (drift)
+        {
+            observed.stateDigest = 'sha256:' + '1'.repeat(64);
         }
-        assert.equal(fingerprint(checkpoint), originalCheckpoint, 'neither retry can replace the sealed cleanup proof');
-    });
-}
+        return observed;
+    };
+    const current = await reconcileRetainedMySqlFixtureServices(fixture);
+    const checkpoint = { mysqlFixtureServices: fixture.allocations,
+        resourceReconciliation: { mysqlFixtureReconciliation: structuredClone(sealed) },
+        resourceUtilization: { resourceGrants: { grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } } } };
+    const fingerprint = value => JSON.stringify(value);
+    const originalCheckpoint = fingerprint(checkpoint);
+    const journalBytes = 'original sealed resource-grants-reconciled event\n';
+    const views = { journal: journalBytes, compatibility: 'old compatibility bytes', grants: 'old grant bytes' };
+    const originalViews = structuredClone(views);
+    const writes = [];
+    const capability = {};
+    const recovery = { binding: fixture.binding, reference: { runId: fixture.binding.runId },
+        checkpointDigest: fingerprint(checkpoint), mysqlFixtureReconciliation: current,
+        mysqlFixtureLifecycle: fixture.lifecycle };
+    const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf('export function completeSchedulerResourceRecovery(');
+    const end = source.indexOf('/** Reconcile only the original retained build', start);
+    assert.ok(start >= 0 && end > start);
+    // Execute the exact completion function with memory-only I/O and held-lease adapters.
+    // This is a publication component regression, not live Docker or recovery qualification.
+    const context = { fingerprint, path,
+        assertSchedulerResourceRecovery: () => ({ status: 'verified' }),
+        schedulerResourceRecoveries: new Map([[capability, recovery]]),
+        readOriginalSchedulerResourceCheckpoint: () => ({ checkpointFile: '/owned/runs/owned-run/checkpoint.json', checkpoint }),
+        assertMySqlFixtureRecoveryComplete: (value, records, lifecycle) =>
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices, records, lifecycle }),
+        schedulerResourceReconciliationIsComplete: value =>
+        {
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices,
+                records: value.resourceReconciliation.mysqlFixtureReconciliation, requireCleaned: true });
+            return true;
+        },
+        checkpointPersistence: new Map(),
+        schedulerPersistence: () => ({ store: { readJournal: () => [{ sequence: 1 }] } }),
+        publishCheckpointBoundary: () =>
+        {
+            writes.push('compatibility');
+            views.compatibility = fingerprint(checkpoint);
+        },
+        fs: {
+            writeFileSync: (_file, bytes) =>
+            {
+                writes.push('grant');
+                views.grants = bytes;
+            },
+            renameSync: () => writes.push('grant-rename')
+        },
+        process: { pid: process.pid },
+        schedulerResourcesUnsettled: () => false };
+    runInNewContext(source.slice(start, end).replace('export function ', 'function ')
+        + '\nglobalThis.complete = completeSchedulerResourceRecovery;', context);
+    if (drift)
+    {
+        assert.notEqual(current[0].stateDigest, sealed[0].stateDigest);
+        assert.throws(() => context.complete(capability, { reference: recovery.reference }), /changed before grant release/u);
+        assert.deepEqual(writes, []);
+        assert.deepEqual(views, originalViews, 'rejection preserves original journal, grant and compatibility bytes');
+    }
+    else
+    {
+        context.complete(capability, { reference: recovery.reference });
+        assert.deepEqual(writes, ['compatibility', 'grant', 'grant-rename']);
+        assert.equal(views.journal, journalBytes, 'normal publication retry cannot append a second release');
+    }
+    assert.equal(fingerprint(checkpoint), originalCheckpoint, 'neither retry can replace the sealed cleanup proof');
+});
