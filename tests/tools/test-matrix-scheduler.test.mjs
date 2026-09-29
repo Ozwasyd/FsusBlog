@@ -8,8 +8,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import * as scheduler from '../../tools/test-matrix/scheduler.mjs';
 
+const scheduler = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
@@ -136,7 +136,9 @@ function createRunnerFixture(temp)
     return wrapper;
 }
 
-function createCanonicalCliFixture(temp, payloads, configureTier = () => {}, options = {})
+function createCanonicalCliFixture(temp, payloads, configureTier = () =>
+{
+}, options = {})
 {
     assert.deepEqual(fs.readdirSync(temp), [], 'scheduler CLI fixture must start isolated and empty');
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
@@ -4211,20 +4213,20 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
     });
     const run = (tierId, githubRunId) => spawnSync(process.execPath,
         [fixture.runner, 'run', tierId, '--no-deps', '--fresh'], {
-        cwd: temp,
-        env: {
-            ...process.env,
-            ...fixture.admissionEnvironment,
-            CI: 'true',
-            GITHUB_ACTIONS: 'true',
-            GITHUB_RUN_ID: githubRunId,
-            GITHUB_RUN_ATTEMPT: '1',
-            GITHUB_JOB: 'fixture-workflow-job',
-            FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
-            FSUSBLOG_TEST_RUN_ID: `${githubRunId}-${tierId}`
-        },
-        encoding: 'utf8'
-    });
+            cwd: temp,
+            env: {
+                ...process.env,
+                ...fixture.admissionEnvironment,
+                CI: 'true',
+                GITHUB_ACTIONS: 'true',
+                GITHUB_RUN_ID: githubRunId,
+                GITHUB_RUN_ATTEMPT: '1',
+                GITHUB_JOB: 'fixture-workflow-job',
+                FSUSBLOG_MATRIX_FILE: fixture.matrixFile,
+                FSUSBLOG_TEST_RUN_ID: `${githubRunId}-${tierId}`
+            },
+            encoding: 'utf8'
+        });
     const firstRun = run(firstTierId, '100');
     assert.equal(firstRun.status, 0, firstRun.stderr);
     const secondRun = run(secondTierId, '100');
