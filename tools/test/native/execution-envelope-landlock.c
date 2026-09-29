@@ -26,14 +26,14 @@ static int CreateRuleset(const LandlockRulesetAttr* attr, size_t size, uint32_t 
     return (int)syscall(__NR_landlock_create_ruleset, attr, size, flags);
 }
 
-static int AddRule(int ruleset_fd, const LandlockPathBeneathAttr* attr)
+static int AddRule(int rulesetFd, const LandlockPathBeneathAttr* attr)
 {
-    return (int)syscall(__NR_landlock_add_rule, ruleset_fd, LANDLOCK_RULE_PATH_BENEATH, attr, 0);
+    return (int)syscall(__NR_landlock_add_rule, rulesetFd, LANDLOCK_RULE_PATH_BENEATH, attr, 0);
 }
 
-static int RestrictSelf(int ruleset_fd)
+static int RestrictSelf(int rulesetFd)
 {
-    return (int)syscall(__NR_landlock_restrict_self, ruleset_fd, 0);
+    return (int)syscall(__NR_landlock_restrict_self, rulesetFd, 0);
 }
 
 static void Fail(const char* message)
@@ -58,18 +58,18 @@ static uint64_t HandledAccessForAbi(int abi)
     return access;
 }
 
-static void AllowPath(int ruleset_fd, const char* path, uint64_t access)
+static void AllowPath(int rulesetFd, const char* path, uint64_t access)
 {
-    int path_fd = open(path, O_PATH | O_CLOEXEC);
-    if (path_fd < 0)
+    int pathFd = open(path, O_PATH | O_CLOEXEC);
+    if (pathFd < 0)
         Fail("cannot open declared filesystem path");
     LandlockPathBeneathAttr rule = {
         .allowed_access = access,
-        .parent_fd = path_fd,
+        .parent_fd = pathFd,
     };
-    if (AddRule(ruleset_fd, &rule) < 0)
+    if (AddRule(rulesetFd, &rule) < 0)
         Fail("cannot add filesystem rule");
-    if (close(path_fd) < 0)
+    if (close(pathFd) < 0)
         Fail("cannot close filesystem rule path");
 }
 
@@ -110,35 +110,35 @@ int main(int argc, char** argv)
     int abi = CreateRuleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
     if (abi < 1)
         Fail("Landlock ABI is unavailable");
-    uint64_t handled_access = HandledAccessForAbi(abi);
+    uint64_t handledAccess = HandledAccessForAbi(abi);
     LandlockRulesetAttr ruleset = {
-        .handled_access_fs = handled_access,
+        .handled_access_fs = handledAccess,
     };
-    int ruleset_fd = CreateRuleset(&ruleset, sizeof(ruleset), 0);
-    if (ruleset_fd < 0)
+    int rulesetFd = CreateRuleset(&ruleset, sizeof(ruleset), 0);
+    if (rulesetFd < 0)
         Fail("cannot create filesystem ruleset");
 
-    uint64_t read_access = LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR;
+    uint64_t readAccess = LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR;
     if (abi >= 5)
-        read_access |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
-    AllowPath(ruleset_fd, "/", read_access);
+        readAccess |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+    AllowPath(rulesetFd, "/", readAccess);
     for (int index = 1; index < separator; index += 2)
     {
-        uint64_t allowed_access = handled_access;
+        uint64_t allowedAccess = handledAccess;
         if (strcmp(argv[index], "--writable-file") == 0)
         {
-            allowed_access = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_WRITE_FILE;
+            allowedAccess = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_WRITE_FILE;
             if (abi >= 5)
-                allowed_access |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+                allowedAccess |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
         }
-        AllowPath(ruleset_fd, argv[index + 1], allowed_access);
+        AllowPath(rulesetFd, argv[index + 1], allowedAccess);
     }
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
         Fail("cannot set no-new-privileges");
-    if (RestrictSelf(ruleset_fd) < 0)
+    if (RestrictSelf(rulesetFd) < 0)
         Fail("cannot apply filesystem ruleset");
-    if (close(ruleset_fd) < 0)
+    if (close(rulesetFd) < 0)
         Fail("cannot close filesystem ruleset");
 
     execv(argv[separator + 1], &argv[separator + 1]);
