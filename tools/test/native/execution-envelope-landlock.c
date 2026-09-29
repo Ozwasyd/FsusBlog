@@ -38,8 +38,16 @@ static int RestrictSelf(int rulesetFd)
 
 static void Fail(const char* message)
 {
-    fprintf(stderr, "execution-envelope-landlock: %s: %s\n", message, strerror(errno));
-    exit(125);
+    /* Preserve the originating syscall error before diagnostic I/O changes errno. */
+    const int Error = errno;
+    char errorBuffer[1024];
+    const char* errorMessage = strerror_r(Error, errorBuffer, sizeof(errorBuffer));
+    fputs("execution-envelope-landlock: ", stderr);
+    fputs(message, stderr);
+    fputs(": ", stderr);
+    fputs(errorMessage, stderr);
+    fputc('\n', stderr);
+    _Exit(125);
 }
 
 static uint64_t HandledAccessForAbi(int abi)
@@ -103,19 +111,19 @@ int main(int argc, char** argv)
         if ((strcmp(argv[index], "--writable") != 0 && strcmp(argv[index], "--writable-file") != 0)
             || index + 1 >= argc)
         {
-            fprintf(stderr, "execution-envelope-landlock: invalid arguments\n");
+            fputs("execution-envelope-landlock: invalid arguments\n", stderr);
             return 125;
         }
         ++index;
     }
     if (separator < 0 || separator + 1 >= argc)
     {
-        fprintf(stderr, "execution-envelope-landlock: command is missing\n");
+        fputs("execution-envelope-landlock: command is missing\n", stderr);
         return 125;
     }
     if (argv[separator + 1][0] != '/')
     {
-        fprintf(stderr, "execution-envelope-landlock: command must be absolute\n");
+        fputs("execution-envelope-landlock: command must be absolute\n", stderr);
         return 125;
     }
 

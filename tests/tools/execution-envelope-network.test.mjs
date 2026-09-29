@@ -453,3 +453,149 @@ test('physical runner permits declared canonical outputs and denies undeclared/r
     assert.equal(finalizeRunOwnedDirectories(directoryEnvelope).cleanup.status, 'complete');
     directoryFinalized = true;
 });
+
+test('Landlock failures preserve exact diagnostics and exit 125 after diagnostic errno drift', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-errors-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    const wrapper = path.join(directory, 'syscall-errors.c');
+    const output = path.join(directory, 'landlock-errors-helper');
+    // These link-time fault adapters observe error branches, not actual confinement.
+    fs.writeFileSync(wrapper, [
+        '#define _GNU_SOURCE',
+        '#include <errno.h>',
+        '#include <stdarg.h>',
+        '#include <stdio.h>',
+        '#include <stdlib.h>',
+        '#include <string.h>',
+        '#include <linux/landlock.h>',
+        '#include <sys/prctl.h>',
+        '#include <sys/syscall.h>',
+        '',
+        'static int FailureAt(const char* stage, int error)',
+        '{',
+        '    if (strcmp(getenv("FSUSBLOG_LANDLOCK_FAULT"), stage) == 0)',
+        '    {',
+        '        errno = error;',
+        '        return 1;',
+        '    }',
+        '    return 0;',
+        '}',
+        '',
+        'long __wrap_syscall(long number, ...)',
+        '{',
+        '    if (number == __NR_landlock_create_ruleset)',
+        '    {',
+        '        va_list arguments;',
+        '        va_start(arguments, number);',
+        '        const struct landlock_ruleset_attr* attributes = va_arg(arguments, const struct landlock_ruleset_attr*);',
+        '        va_end(arguments);',
+        '        if (attributes == NULL)',
+        '        {',
+        '            return FailureAt("abi", EOPNOTSUPP) ? -1 : 5;',
+        '        }',
+        '        return FailureAt("create", EACCES) ? -1 : 10;',
+        '    }',
+        '    if (number == __NR_landlock_add_rule)',
+        '    {',
+        '        return FailureAt("add", EPERM) ? -1 : 0;',
+        '    }',
+        '    if (number == __NR_landlock_restrict_self)',
+        '    {',
+        '        return FailureAt("restrict", EPERM) ? -1 : 0;',
+        '    }',
+        '    errno = ENOSYS;',
+        '    return -1;',
+        '}',
+        '',
+        'int __wrap_open(const char* filename, int flags, ...)',
+        '{',
+        '    (void)filename;',
+        '    (void)flags;',
+        '    return FailureAt("open", ENOENT) ? -1 : 20;',
+        '}',
+        '',
+        'int __wrap_close(int descriptor)',
+        '{',
+        '    return FailureAt(descriptor == 10 ? "close-ruleset" : "close-path", EBADF) ? -1 : 0;',
+        '}',
+        '',
+        'int __wrap_prctl(int option, ...)',
+        '{',
+        '    if (option != PR_SET_NO_NEW_PRIVS)',
+        '    {',
+        '        errno = EINVAL;',
+        '        return -1;',
+        '    }',
+        '    return FailureAt("privileges", EPERM) ? -1 : 0;',
+        '}',
+        '',
+        'int __wrap_execv(const char* filename, char* const arguments[])',
+        '{',
+        '    if (strcmp(filename, "/declared-command") != 0',
+        '        || strcmp(arguments[0], filename) != 0',
+        '        || strcmp(arguments[1], "argument") != 0 || arguments[2] != NULL)',
+        '    {',
+        '        errno = EINVAL;',
+        '        return -1;',
+        '    }',
+        '    errno = ENOEXEC;',
+        '    return -1;',
+        '}',
+        '',
+        'int __real_fputs(const char* text, FILE* stream);',
+        'int __wrap_fputs(const char* text, FILE* stream)',
+        '{',
+        '    int result = __real_fputs(text, stream);',
+        '    errno = EIO;',
+        '    return result;',
+        '}',
+        ''
+    ].join('\n'));
+    const compilation = spawnSync('cc', [
+        '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+        '-o', output, source, wrapper,
+        '-Wl,--wrap=syscall,--wrap=open,--wrap=close,--wrap=prctl,--wrap=execv,--wrap=fputs'
+    ], { encoding: 'utf8', timeout: 30_000 });
+    assert.equal(compilation.status, 0, compilation.stderr);
+    const environment = {
+        PATH: process.env.PATH,
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        TZ: 'UTC'
+    };
+    const version = spawnSync(output, ['--version'], {
+        encoding: 'utf8', env: environment, timeout: 30_000
+    });
+    assert.equal(version.status, 0, version.stderr);
+    assert.equal(version.stdout, 'fsusblog-execution-envelope-landlock 2\n');
+    assert.equal(version.stderr, '');
+    const command = ['--writable', directory, '--', '/declared-command', 'argument'];
+    for (const [stage, argumentsList, diagnostic] of [
+        ['invalid', ['--unexpected'], 'invalid arguments'],
+        ['missing', ['--'], 'command is missing'],
+        ['relative', ['--', 'relative'], 'command must be absolute'],
+        ['abi', command, 'Landlock ABI is unavailable: Operation not supported'],
+        ['create', command, 'cannot create filesystem ruleset: Permission denied'],
+        ['open', command, 'cannot open declared filesystem path: No such file or directory'],
+        ['add', command, 'cannot add filesystem rule: Operation not permitted'],
+        ['close-path', command, 'cannot close filesystem rule path: Bad file descriptor'],
+        ['privileges', command, 'cannot set no-new-privileges: Operation not permitted'],
+        ['restrict', command, 'cannot apply filesystem ruleset: Operation not permitted'],
+        ['close-ruleset', command, 'cannot close filesystem ruleset: Bad file descriptor'],
+        ['exec', command, 'cannot execute correctness command: Exec format error']
+    ])
+    {
+        const result = spawnSync(output, argumentsList, {
+            encoding: 'utf8',
+            env: { ...environment, FSUSBLOG_LANDLOCK_FAULT: stage },
+            timeout: 30_000
+        });
+        assert.equal(result.status, 125, `${stage}: ${result.stderr}`);
+        assert.equal(result.stdout, '', stage);
+        assert.equal(result.stderr, `execution-envelope-landlock: ${diagnostic}\n`, stage);
+    }
+});
