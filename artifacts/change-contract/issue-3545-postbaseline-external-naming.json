@@ -22,6 +22,13 @@
         "tools/test-convergence/post-baseline-history.mjs"
       ],
       "reason": "Preserve Git command and process environment spellings at the historical-governance tool boundary."
+    },
+    {
+      "id": "shell-environment-variable",
+      "paths": [
+        "tools/test/lanes/static-governance.sh"
+      ],
+      "reason": "Preserve the existing static-governance lane's shell environment interface while adding the governed history test."
     }
   ]
 }
