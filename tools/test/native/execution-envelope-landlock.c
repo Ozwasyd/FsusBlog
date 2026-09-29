@@ -36,12 +36,26 @@ static int RestrictSelf(int rulesetFd)
     return (int)syscall(__NR_landlock_restrict_self, rulesetFd, 0);
 }
 
+static const char* ErrorTextForPointer(char* message, const char* buffer)
+{
+    (void)buffer;
+    return message == NULL ? "error description unavailable" : message;
+}
+
+static const char* ErrorTextForStatus(int status, const char* buffer)
+{
+    return status == 0 ? buffer : "error description unavailable";
+}
+
 static void Fail(const char* message)
 {
     /* Preserve the originating syscall error before diagnostic I/O changes errno. */
     const int Error = errno;
     char errorBuffer[1024];
-    const char* errorMessage = strerror_r(Error, errorBuffer, sizeof(errorBuffer));
+    /* GNU returns a pointer; POSIX returns a status. The type probe is unevaluated. */
+    const char* errorMessage = _Generic(strerror_r(Error, errorBuffer, sizeof(errorBuffer)),
+        char*: ErrorTextForPointer,
+        int: ErrorTextForStatus)(strerror_r(Error, errorBuffer, sizeof(errorBuffer)), errorBuffer);
     fputs("execution-envelope-landlock: ", stderr);
     fputs(message, stderr);
     fputs(": ", stderr);

@@ -599,3 +599,116 @@ test('Landlock failures preserve exact diagnostics and exit 125 after diagnostic
         assert.equal(result.stderr, `execution-envelope-landlock: ${diagnostic}\n`, stage);
     }
 });
+
+test('Landlock error text adapts GNU pointer and POSIX status results with one conversion', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-error-text-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    // Typed adapters cover both API signatures without claiming a different real libc.
+    const variants = [
+        {
+            name: 'pointer',
+            returnType: 'char*',
+            body: [
+                '    static char text[] = "pointer-owned diagnostic";',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "null") == 0)',
+                '    {',
+                '        return NULL;',
+                '    }',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "buffer") == 0)',
+                '    {',
+                '        memcpy(buffer, "buffer-owned diagnostic", sizeof("buffer-owned diagnostic"));',
+                '        return buffer;',
+                '    }',
+                '    return text;'
+            ],
+            cases: [
+                ['pointer', 'pointer-owned diagnostic'],
+                ['buffer', 'buffer-owned diagnostic'],
+                ['null', 'error description unavailable']
+            ]
+        },
+        {
+            name: 'status',
+            returnType: 'int',
+            body: [
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "success") == 0)',
+                '    {',
+                '        memcpy(buffer, "buffer-owned diagnostic", sizeof("buffer-owned diagnostic"));',
+                '        return 0;',
+                '    }',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "range") == 0)',
+                '    {',
+                '        return ERANGE;',
+                '    }',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "invalid") == 0)',
+                '    {',
+                '        return EINVAL;',
+                '    }',
+                '    return -1;'
+            ],
+            cases: [
+                ['success', 'buffer-owned diagnostic'],
+                ['range', 'error description unavailable'],
+                ['invalid', 'error description unavailable'],
+                ['negative', 'error description unavailable']
+            ]
+        }
+    ];
+    for (const variant of variants)
+    {
+        const fixture = path.join(directory, `${variant.name}.c`);
+        const output = path.join(directory, variant.name);
+        fs.writeFileSync(fixture, [
+            '#define _GNU_SOURCE',
+            '#include <errno.h>',
+            '#include <stdlib.h>',
+            '#include <string.h>',
+            '',
+            'static int calls;',
+            `static ${variant.returnType} ErrorTextAdapter(int error, char* buffer, size_t length)`,
+            '{',
+            '    if (error != ENOENT || ++calls != 1 || length < 64)',
+            '    {',
+            '        _Exit(77);',
+            '    }',
+            '    errno = EIO;',
+            ...variant.body,
+            '}',
+            '',
+            '#define strerror_r ErrorTextAdapter',
+            '#define main LandlockProgramMain',
+            `#include ${JSON.stringify(source)}`,
+            '#undef main',
+            '',
+            'int main(void)',
+            '{',
+            '    errno = ENOENT;',
+            '    Fail("adapter probe");',
+            '    return 125;',
+            '}',
+            ''
+        ].join('\n'));
+        const compilation = spawnSync('cc', [
+            '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o', output, fixture
+        ], { encoding: 'utf8', timeout: 30_000 });
+        assert.equal(compilation.status, 0, compilation.stderr);
+        for (const [resultType, diagnostic] of variant.cases)
+        {
+            const result = spawnSync(output, [], {
+                encoding: 'utf8',
+                env: {
+                    PATH: process.env.PATH, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
+                    FSUSBLOG_ERROR_TEXT_RESULT: resultType
+                },
+                timeout: 30_000
+            });
+            assert.equal(result.status, 125, `${variant.name}/${resultType}: ${result.stderr}`);
+            assert.equal(result.stdout, '', resultType);
+            assert.equal(result.stderr, `execution-envelope-landlock: adapter probe: ${diagnostic}\n`, resultType);
+        }
+    }
+});
