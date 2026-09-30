@@ -7,6 +7,13 @@
                 "tools/frontend/check-frontend-style.mjs"
             ],
             "reason": "Preserve the existing FSUSBLOG_STYLE_ROOT process environment key consumed by the ESLint source-root adapter while adding only issue-scoped full-scan binding diagnostics."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve the existing caller-visible CSS class, kebab-case custom-property and token examples in the current style owner document while defining tooling-only baseline scan diagnostics."
         }
     ]
 }
