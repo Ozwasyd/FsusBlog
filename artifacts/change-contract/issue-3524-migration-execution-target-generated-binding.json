@@ -3,16 +3,23 @@
     "sources": [
         "artifacts/change-contract/issue-3524-canonical-external-naming.json",
         "tests/matrix.yml",
+        "tests/tools/authoritative-development-docs.test.mjs",
         "tests/tools/behavior-doc-static-admission.test.mjs",
         "tests/tools/content-addressed-evidence-store.test.mjs",
+        "tests/tools/content-shape-catalog.test.mjs",
+        "tests/tools/doc-claim.test.mjs",
         "tests/tools/evidence-location-governance.test.mjs",
+        "tests/tools/execution-envelope-services.test.mjs",
         "tests/tools/migration-execution-evidence.test.mjs",
         "tests/tools/migration-fast-lane.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/physical-execution-private-dotnet-scratch.test.mjs",
         "tests/tools/physical-execution-process-tree.test.mjs",
         "tests/tools/physical-execution-systemd-sender.test.mjs",
         "tests/tools/production-capacity-preflight-order.test.mjs",
         "tests/tools/production-capacity-reservation.test.mjs",
         "tests/tools/production-resource-enforcement.test.mjs",
+        "tests/tools/runtime-role-minimal-v3-contract.test.mjs",
         "tests/tools/scheduler-owner-identity.test.mjs",
         "tests/tools/support/esm-fixture-materializer-contracts.mjs",
         "tests/tools/support/esm-fixture-materializer-runner.mjs",
@@ -70,15 +77,15 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "818ce50cf9e255f6c068c6fce5e9bd67e9329a1fb2d3afe10c0e2d16e8c49cd1"
+            "sha256": "1754444d16ee194e63a99cc91d4d786468a96775e628de6affafc76fb3cd8872"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "959c1dd9c5d00534c122bf118433f93c62b8fc0267a56b354c0c4919f0aa9d8d"
+            "sha256": "58e72c15f46aa5b7b177ee2caa8d0fc68fc4537868ead60372a2d53b9266d5f8"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "38269c1b9e96e619f5f80af4c5c6c0517ae49df13b9eb4167ec6d77cc66c5af3"
+            "sha256": "be6baf56084e6124131e02b13c8913b4e59f4a2604e5a89bb353d1a560a14c3f"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",

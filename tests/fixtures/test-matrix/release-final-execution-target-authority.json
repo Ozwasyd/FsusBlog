@@ -1485,8 +1485,8 @@
         },
         {
             "path": "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
-            "contentDigest": "sha256:5675eeed48a116698db5f91665d42b25671885cc81e932ed9c169305cc920857",
-            "indexDigest": "sha256:5675eeed48a116698db5f91665d42b25671885cc81e932ed9c169305cc920857"
+            "contentDigest": "sha256:fbd4a0d1ee3b5c2126d09451c1aaf9e86fca00cdcbd24e8fba143b3979bcf2f4",
+            "indexDigest": "sha256:fbd4a0d1ee3b5c2126d09451c1aaf9e86fca00cdcbd24e8fba143b3979bcf2f4"
         },
         {
             "path": "tests/tools/support/timing-policy.mjs",
@@ -1790,8 +1790,8 @@
         },
         {
             "path": "tools/contracts/lib/openapi-observation.mjs",
-            "contentDigest": "sha256:a8b6c51b47acca9b14c7ba467c8f1e8e4dc70cdc502d9fb2afa5f5cc0b38ca17",
-            "indexDigest": "sha256:a8b6c51b47acca9b14c7ba467c8f1e8e4dc70cdc502d9fb2afa5f5cc0b38ca17"
+            "contentDigest": "sha256:ec42b394b4f987a6ea7d3aad3ed006f33893a087b7ccd2d5fd8814622a3bddba",
+            "indexDigest": "sha256:ec42b394b4f987a6ea7d3aad3ed006f33893a087b7ccd2d5fd8814622a3bddba"
         },
         {
             "path": "tools/contracts/run-endpoint-depth-runtime.mjs",
@@ -2070,13 +2070,13 @@
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
-            "contentDigest": "sha256:4673abf84b1e1677508623182fdd1fc63c56d665df844e0a2f05cab7f9285c22",
-            "indexDigest": "sha256:4673abf84b1e1677508623182fdd1fc63c56d665df844e0a2f05cab7f9285c22"
+            "contentDigest": "sha256:5557b713dd61c2faf339c7593e0131e564b080227792f0214e665ababfeb1738",
+            "indexDigest": "sha256:5557b713dd61c2faf339c7593e0131e564b080227792f0214e665ababfeb1738"
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
-            "contentDigest": "sha256:4ff823be0ad0c3ce12e3ef55fe545947ba00ec9effcd751a107007942871fc34",
-            "indexDigest": "sha256:4ff823be0ad0c3ce12e3ef55fe545947ba00ec9effcd751a107007942871fc34"
+            "contentDigest": "sha256:ca009925d56ebde9db831277d96e47670ae1b254f5f65ba905ddb399cae2220d",
+            "indexDigest": "sha256:ca009925d56ebde9db831277d96e47670ae1b254f5f65ba905ddb399cae2220d"
         },
         {
             "path": "tools/docs/behavior-doc-static-admission-contract.mjs",
@@ -2085,8 +2085,8 @@
         },
         {
             "path": "tools/docs/behavior-doc-static-admission.mjs",
-            "contentDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93",
-            "indexDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93"
+            "contentDigest": "sha256:511648f5064a2c4e28c45ed3a0c66ffe196524b13aa31947ed881d0395a7dbf7",
+            "indexDigest": "sha256:511648f5064a2c4e28c45ed3a0c66ffe196524b13aa31947ed881d0395a7dbf7"
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
@@ -2140,8 +2140,8 @@
         },
         {
             "path": "tools/docs/doc-claim.mjs",
-            "contentDigest": "sha256:30e0b1bbcfecb761d0321f26513efcfa5aaae0e3f5ef5bdc323c079b90c54c25",
-            "indexDigest": "sha256:30e0b1bbcfecb761d0321f26513efcfa5aaae0e3f5ef5bdc323c079b90c54c25"
+            "contentDigest": "sha256:7dbe6ea0c943071f7994fa190a6f00f14b001f61adabdbd70306ca64ce34069b",
+            "indexDigest": "sha256:7dbe6ea0c943071f7994fa190a6f00f14b001f61adabdbd70306ca64ce34069b"
         },
         {
             "path": "tools/docs/document-lifecycle.mjs",
@@ -4215,8 +4215,8 @@
         },
         {
             "path": "tools/test/mysql-fixture-admission.mjs",
-            "contentDigest": "sha256:a327219e555735bbfeee00cf6ec473d75e14d320c1b374eb86d561e60f6e4b39",
-            "indexDigest": "sha256:a327219e555735bbfeee00cf6ec473d75e14d320c1b374eb86d561e60f6e4b39"
+            "contentDigest": "sha256:01859c7c6b758fac0773af2c4f5fc9c029d5f6f974b4d39bc359b96f92ece159",
+            "indexDigest": "sha256:01859c7c6b758fac0773af2c4f5fc9c029d5f6f974b4d39bc359b96f92ece159"
         },
         {
             "path": "tools/test/native-p99-producer-contract.mjs",
@@ -4265,8 +4265,8 @@
         },
         {
             "path": "tools/test/physical-execution-linux-systemd-adapter.mjs",
-            "contentDigest": "sha256:74629274cbc99741286ff93cc5ccda68bd067024f84e45fce36d64c033cd6010",
-            "indexDigest": "sha256:74629274cbc99741286ff93cc5ccda68bd067024f84e45fce36d64c033cd6010"
+            "contentDigest": "sha256:fa3a94224bf88ef4a99f3b46d9c86afe8e5a3e9ba3a715b867282c1246c370e4",
+            "indexDigest": "sha256:fa3a94224bf88ef4a99f3b46d9c86afe8e5a3e9ba3a715b867282c1246c370e4"
         },
         {
             "path": "tools/test/physical-execution-nested-channel.mjs",
@@ -4305,8 +4305,8 @@
         },
         {
             "path": "tools/test/process-identity.mjs",
-            "contentDigest": "sha256:eb856862b4d25ee89283c532e9dbe7864af8b576fff4fd2e35b755d74979348d",
-            "indexDigest": "sha256:eb856862b4d25ee89283c532e9dbe7864af8b576fff4fd2e35b755d74979348d"
+            "contentDigest": "sha256:721580934ddb68ed5622db7d68d21512ca923ce46d8fb55e693113049517b3cd",
+            "indexDigest": "sha256:721580934ddb68ed5622db7d68d21512ca923ce46d8fb55e693113049517b3cd"
         },
         {
             "path": "tools/test/produce-integrity-proof-evidence.mjs",
@@ -4415,8 +4415,8 @@
         },
         {
             "path": "tools/test/run-migration-tests.mjs",
-            "contentDigest": "sha256:5a9da80ff14ce6264c44a4dbad6c1a10d2268e0937c6028650ea4d7480ae4a33",
-            "indexDigest": "sha256:5a9da80ff14ce6264c44a4dbad6c1a10d2268e0937c6028650ea4d7480ae4a33"
+            "contentDigest": "sha256:dc6de0d70ba2293ef99a20dbe4cf6b033dc0707d43a31c660f7b4e1fc7803603",
+            "indexDigest": "sha256:dc6de0d70ba2293ef99a20dbe4cf6b033dc0707d43a31c660f7b4e1fc7803603"
         },
         {
             "path": "tools/test/run-once.mjs",
@@ -4655,8 +4655,8 @@
         },
         {
             "path": "tools/testing/content-shape-catalog.mjs",
-            "contentDigest": "sha256:c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d",
-            "indexDigest": "sha256:c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d"
+            "contentDigest": "sha256:dbe842e35f2314beabd71a7cbbe080e7bd3a95c1142e8371d1f84a8d42e1c553",
+            "indexDigest": "sha256:dbe842e35f2314beabd71a7cbbe080e7bd3a95c1142e8371d1f84a8d42e1c553"
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
@@ -5499,8 +5499,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93",
-            "indexDigest": "sha256:f63c45e76d2788da61670b5583829908bba8f1d4e192f9c60038924db8a80a93",
+            "contentDigest": "sha256:511648f5064a2c4e28c45ed3a0c66ffe196524b13aa31947ed881d0395a7dbf7",
+            "indexDigest": "sha256:511648f5064a2c4e28c45ed3a0c66ffe196524b13aa31947ed881d0395a7dbf7",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",

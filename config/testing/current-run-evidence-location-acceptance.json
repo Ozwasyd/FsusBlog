@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:0b1bba1f3bf253b8e49b535c88f9ab3ff3c43f371d9e0debf55be85b67e8d364",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:959c1dd9c5d00534c122bf118433f93c62b8fc0267a56b354c0c4919f0aa9d8d",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:58e72c15f46aa5b7b177ee2caa8d0fc68fc4537868ead60372a2d53b9266d5f8",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:6a498701ad81685929290c9e8c277d8d7d4dd8ebfa14c2a7222a971d934f9393"
     },
     "registryDigest": "sha256:4675927bb6e875636d8e93cc60799ae579e73f5cc065542608bbd353c6ed528f",
-    "ledgerDigest": "sha256:233b58abfd7d39ad6d1fe9d89a7a03c8d4ad161e508d1ebf84c60501330120d1",
-    "scannerDigest": "sha256:b76a85d319a025322c30afa9c4e1fbe5b902116c5a144703914c538313f5c440",
+    "ledgerDigest": "sha256:d94b42eeb6e762831111d1da496257795a10eae9dca8998c19c7d495f7c1f6f6",
+    "scannerDigest": "sha256:340a5b1d82ed6e45f6f4711fbf0223b1d9b1fae64ec99e3ceb01b5d4689c0a1e",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
     "consumerInventory": [
@@ -641,5 +641,5 @@
     "consumerCount": 89,
     "findingCount": 512,
     "warnings": [],
-    "contentDigest": "sha256:d8ebfee0b694d5df99d6adfb50b71289ee6c4c2db9d7f06835861449d8e5c17f"
+    "contentDigest": "sha256:77b0aecd02ecb600d1dfb8d46fe98abede1f298b96eabc4048ee563ee0e43f87"
 }
