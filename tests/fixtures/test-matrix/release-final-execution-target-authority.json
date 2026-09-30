@@ -4120,8 +4120,8 @@
         },
         {
             "path": "tools/test/lanes/_suite-support.sh",
-            "contentDigest": "sha256:b178c2324c49a8f02f07c3bdf371bc1b1563620434a93bad7258a74e2d072751",
-            "indexDigest": "sha256:b178c2324c49a8f02f07c3bdf371bc1b1563620434a93bad7258a74e2d072751"
+            "contentDigest": "sha256:af2824f49f301cac839d1d1a4efd6a86fed5e117a8c61d52f670083dcbd2743d",
+            "indexDigest": "sha256:af2824f49f301cac839d1d1a4efd6a86fed5e117a8c61d52f670083dcbd2743d"
         },
         {
             "path": "tools/test/lanes/browser-contract.sh",
@@ -4200,8 +4200,8 @@
         },
         {
             "path": "tools/test/migration-build-binding.mjs",
-            "contentDigest": "sha256:7faaa9a3b62ff355ee61a3d7d6de81aa4088001b1c2e768cc6cdc3e07b204364",
-            "indexDigest": "sha256:7faaa9a3b62ff355ee61a3d7d6de81aa4088001b1c2e768cc6cdc3e07b204364"
+            "contentDigest": "sha256:d8583ce19d1701de033cc2d8a69af1dc8189ca225c56c2d044482f9af3064035",
+            "indexDigest": "sha256:d8583ce19d1701de033cc2d8a69af1dc8189ca225c56c2d044482f9af3064035"
         },
         {
             "path": "tools/test/migration-execution-evidence.mjs",
@@ -4415,8 +4415,8 @@
         },
         {
             "path": "tools/test/run-migration-tests.mjs",
-            "contentDigest": "sha256:4e7c452ac8d946efc7983126604566bdb4c30f1aded6921fc1fc4543044dcfc9",
-            "indexDigest": "sha256:4e7c452ac8d946efc7983126604566bdb4c30f1aded6921fc1fc4543044dcfc9"
+            "contentDigest": "sha256:5a9da80ff14ce6264c44a4dbad6c1a10d2268e0937c6028650ea4d7480ae4a33",
+            "indexDigest": "sha256:5a9da80ff14ce6264c44a4dbad6c1a10d2268e0937c6028650ea4d7480ae4a33"
         },
         {
             "path": "tools/test/run-once.mjs",

@@ -9,8 +9,8 @@ const { discoverTestInventory } = await import(new URL('../test-inventory/discov
 const { groupXunitSources, validateXunitProjectReport } = await import(new URL('../test-inventory/xunit-projects.mjs', import.meta.url));
 const { productionDotnetArtifacts, resolveProductionBuildLayout } = await import(new URL('../test-matrix/production-build-layout.mjs', import.meta.url));
 const { publishRunBoundMarker, readRunBoundMarker } = await import(new URL('../test-matrix/run-bound-marker.mjs', import.meta.url));
-const { migrationProducerIdentity, readMigrationBuildReady } = await import(new URL('./migration-build-binding.mjs', import.meta.url));
-const { readMySqlFixtureAdmissionForRun } = await import(new URL('./mysql-fixture-admission.mjs', import.meta.url));
+const { migrationProducerIdentity, readMigrationBuildDependency, readMigrationBuildReady } = await import(new URL('./migration-build-binding.mjs', import.meta.url));
+const { mysqlFixtureAdmissionFile, readMySqlFixtureAdmissionForRun } = await import(new URL('./mysql-fixture-admission.mjs', import.meta.url));
 const { observeExecutableIdentity, resolveExecutablePath } = await import(new URL('./execution-envelope-environment.mjs', import.meta.url));
 const { reconcileMigrationDiscovery, reconcileMigrationTrx } = await import(new URL('./migration-execution-evidence.mjs', import.meta.url));
 const { readVstestDiscoveryDiagnostic } = await import(new URL('./vstest-discovery-diagnostic.mjs', import.meta.url));
@@ -343,6 +343,7 @@ function receiptOptions(options, plan, build, admission)
             project,
             assembly: plan.assemblyFile,
             ...(admission ? {
+                fixtureAdmissionFile: path.relative(options.root, mysqlFixtureAdmissionFile(admission.record.context)).replaceAll(path.sep, '/'),
                 fixtureAdmissionDigest: admission.contentDigest,
                 fixtureBindingDigest: admission.record.bindingDigest
             } : {})
@@ -365,6 +366,45 @@ export async function readMigrationExecution(options, env = process.env)
     }
     await readMigrationBuildReady(options);
     return { summary, receipt, ...plan };
+}
+
+/** Read the unit dependency in its original namespace without borrowing its live environment. */
+export async function readMigrationExecutionDependency(options, env = process.env)
+{
+    if (env.CURRENT_TIER !== 'backend-fast' || options.producer !== 'backend-unit'
+        || !String(options.namespace ?? '').trim()
+        || env.FSUSBLOG_TEST_NAMESPACE !== options.namespace || env.FSUSBLOG_TEST_RUN_ID !== options.runId
+        || env.FSUSBLOG_TEST_SOURCE_COMMIT !== options.sourceState?.commit
+        || env.FSUSBLOG_TEST_SOURCE_FINGERPRINT !== options.sourceState?.worktreeFingerprint
+        || String(env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE ?? '').trim())
+    {
+        throw new Error('Migration dependency requires its own fast consumer and exact scheduler identity');
+    }
+    const { producerOptions } = await readMigrationBuildDependency(options);
+    const plan = executionPlan(producerOptions, env);
+    requireOwnedPath(options.root, plan.receiptFile);
+    const reference = JSON.parse(fs.readFileSync(plan.receiptFile, 'utf8'));
+    const admissionFile = reference.bindings?.fixtureAdmissionFile;
+    if (admissionFile !== undefined && (typeof admissionFile !== 'string'
+        || !admissionFile.startsWith(`.tmp/test-runs/${options.runId}/mysql-admission/`)
+        || path.posix.normalize(admissionFile) !== admissionFile || admissionFile.includes('\\')))
+    {
+        throw new Error('Migration dependency has a noncanonical admission reference');
+    }
+    const engineFile = path.join(plan.directory, 'engine.json');
+    requireOwnedPath(options.root, engineFile);
+    const engine = JSON.parse(fs.readFileSync(engineFile, 'utf8'));
+    if (typeof engine.dotnet?.absolutePath !== 'string' || !path.isAbsolute(engine.dotnet.absolutePath))
+    {
+        throw new Error('Migration dependency has no original engine reference');
+    }
+    // The ordinary reader seals these references before reobserving the engine,
+    // source, raw TRX and exact live-or-cleaned admission. No child is spawned.
+    return readMigrationExecution(producerOptions, {
+        ...env,
+        PATH: path.dirname(engine.dotnet.absolutePath),
+        FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE: admissionFile ? path.join(options.root, admissionFile) : ''
+    });
 }
 
 /**

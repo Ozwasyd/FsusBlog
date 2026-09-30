@@ -6,6 +6,8 @@
         "tests/tools/behavior-doc-static-admission.test.mjs",
         "tests/tools/content-addressed-evidence-store.test.mjs",
         "tests/tools/evidence-location-governance.test.mjs",
+        "tests/tools/migration-execution-evidence.test.mjs",
+        "tests/tools/migration-fast-lane.test.mjs",
         "tests/tools/physical-execution-process-tree.test.mjs",
         "tests/tools/physical-execution-systemd-sender.test.mjs",
         "tests/tools/production-capacity-preflight-order.test.mjs",
@@ -68,15 +70,15 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "94752385ba19b37bcd925b53179e95fca13ff62812c4772a6c441caf94949c6b"
+            "sha256": "818ce50cf9e255f6c068c6fce5e9bd67e9329a1fb2d3afe10c0e2d16e8c49cd1"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "9f4825879324f0dda242a6d47cd96832ef35e6f6f66a7b33e1e2b19d6658d7b5"
+            "sha256": "959c1dd9c5d00534c122bf118433f93c62b8fc0267a56b354c0c4919f0aa9d8d"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "1e37a8bbff270b76f876e46a155d22b2e65972baf1634737b9aafca80471cca7"
+            "sha256": "38269c1b9e96e619f5f80af4c5c6c0517ae49df13b9eb4167ec6d77cc66c5af3"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",

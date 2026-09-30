@@ -251,3 +251,19 @@ export async function readMigrationBuildReady(options)
     await requireCurrentSource(options);
     return { file, marker };
 }
+
+/** Resolve only the current unit's canonical marker, then verify its original owner. */
+export async function readMigrationBuildDependency(options)
+{
+    if (options.producer !== 'backend-unit')
+    {
+        throw new Error('Migration dependency requires the independent matrix unit producer');
+    }
+    const layout = resolveProductionBuildLayout(options);
+    const file = path.join(layout.repositoryRoot, '.tmp/test-runs', options.runId, `${markerId}.json`);
+    requireOwnedPath(layout.repositoryRoot, file);
+    const reference = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const producerOptions = { ...options, namespace: reference.bindings?.namespace };
+    const build = await readMigrationBuildReady(producerOptions);
+    return { ...build, producerOptions };
+}

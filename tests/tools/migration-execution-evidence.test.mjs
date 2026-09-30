@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,10 +12,13 @@ const { migrationBuildMarkerContext, migrationProducerIdentity, publishMigration
 const { buildMigrationUnitTests } = await import(new URL('../../tools/test/build-migration-tests.mjs', import.meta.url));
 const { publishRunBoundMarker } = await import(new URL('../../tools/test-matrix/run-bound-marker.mjs', import.meta.url));
 const { snapshotSourceState } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
-const { migrationExecutionPaths, migrationFixtureRequirements, readMigrationExecution, runMigrationTests } =
+const { migrationExecutionPaths, migrationFixtureRequirements, readMigrationExecution, readMigrationExecutionDependency, runMigrationTests } =
     await import(new URL('../../tools/test/run-migration-tests.mjs', import.meta.url));
 const { assertProductionFreshBundleProducerWiring, productionFreshProducerInventory } =
     await import(new URL('../../tools/test-matrix/production-fresh-run-bound-outputs.mjs', import.meta.url));
+const { prepareMySqlFixtureService } = await import(new URL('../../tools/test-fixtures/services/mysql.mjs', import.meta.url));
+const { loadExecutionServiceCatalog } = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
+const { publishMySqlFixtureAdmission } = await import(new URL('../../tools/test/mysql-fixture-admission.mjs', import.meta.url));
 
 test('Migration production build has a separate run-owned project layout and assembly', (t) =>
 {
@@ -78,6 +81,9 @@ async function buildBindingFixture(t, { execution = false, mysqlSource = false }
     }
     if (execution)
     {
+        fs.mkdirSync(path.join(root, 'tools/test'), { recursive: true });
+        fs.writeFileSync(path.join(root, 'tools/test/run-migration-tests.mjs'),
+            `export { readMigrationExecution, readMigrationExecutionDependency } from ${JSON.stringify(new URL('../../tools/test/run-migration-tests.mjs', import.meta.url).href)};\n`);
         fs.mkdirSync(path.join(root, 'tests/backend/Fixtures'), { recursive: true });
         fs.writeFileSync(path.join(root, 'tests/matrix.yml'), 'tiers: []\n');
         fs.writeFileSync(path.join(root, 'tests/coverage-registry.json'), '{"entries":[]}');
@@ -624,9 +630,9 @@ test('Migration entry point refuses crossed environment, unsafe paths and preexi
 });
 
 
-async function unitBuildFixture(t)
+async function unitBuildFixture(t, fixtureOptions = {})
 {
-    const subject = await executionFixture(t);
+    const subject = await executionFixture(t, undefined, fixtureOptions);
     const marker = await readMigrationBuildReady(subject.options);
     fs.unlinkSync(marker.file);
     subject.options.producer = 'backend-unit';
@@ -675,6 +681,205 @@ test('matrix Migration build and execution retain their own producer instead of 
     const commandsFile = path.join(subject.layout.runRoot, 'migration-unit-build/commands.json');
     fs.appendFileSync(commandsFile, 'tampered');
     await assert.rejects(readMigrationBuildReady(subject.options), /artifact/u);
+});
+
+function fastConsumer(subject)
+{
+    const options = { ...subject.options, namespace: 'independent-fast-namespace' };
+    const env = { ...subject.env, CURRENT_TIER: 'backend-fast',
+        FSUSBLOG_TEST_NAMESPACE: options.namespace, PATH: '/absent-consumer-sdk',
+        FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE: '' };
+    return { options, env };
+}
+
+test('real fast dependency reader uses the unit namespace and sealed engine without another testhost', async (t) =>
+{
+    const subject = await unitBuildFixture(t);
+    await buildMigrationUnitTests(subject.options, { env: subject.env, execute: subject.buildExecute });
+    const executed = await runMigrationTests(subject.options, subject);
+    const consumer = fastConsumer(subject);
+    await assert.rejects(readMigrationExecution(consumer.options, consumer.env), /namespace/u);
+    const result = await readMigrationExecutionDependency(consumer.options, consumer.env);
+    assert.deepEqual(result.summary, executed.summary);
+    assert.equal(result.summary.namespace, subject.options.namespace);
+    const support = new URL('../../tools/test/lanes/_suite-support.sh', import.meta.url);
+    const shell = spawnSync('bash', ['-c', 'source "$1"; ROOT_DIR="$2"; WriteBackendSplitSummary backend-fast dependency-summary',
+        'migration-dependency-fixture', support.pathname, subject.options.root], {
+        encoding: 'utf8', env: { ...process.env, ...consumer.env, PATH: process.env.PATH }
+    });
+    assert.equal(shell.status, 0, shell.stderr);
+    const summary = JSON.parse(fs.readFileSync(path.join(subject.options.root, '.tmp/backend-fast/summary.json')));
+    assert.equal(summary.migrationExecution.receiptDigest, executed.receipt.digest);
+    assert.deepEqual(summary.migrationExecution.executedCaseIds, executed.summary.executedCaseIds);
+    assert.equal(subject.calls.filter(call => call.name === 'execution').length, 1);
+});
+
+test('real fast dependency reader rejects crossed owners, source, run, namespace and changed references', async (t) =>
+{
+    const subject = await unitBuildFixture(t);
+    const built = await buildMigrationUnitTests(subject.options, { env: subject.env, execute: subject.buildExecute });
+    const executed = await runMigrationTests(subject.options, subject);
+    const consumer = fastConsumer(subject);
+    for (const patch of [
+        { producer: 'backend-tests' }, { runId: 'foreign-run' }, { namespace: 'foreign-consumer' },
+        { sourceState: { ...subject.options.sourceState, commit: 'f'.repeat(40) } },
+        { sourceState: { ...subject.options.sourceState, worktreeFingerprint: 'e'.repeat(64) } }
+    ])
+    {
+        await assert.rejects(readMigrationExecutionDependency({ ...consumer.options, ...patch }, consumer.env));
+    }
+    await assert.rejects(readMigrationExecutionDependency(consumer.options,
+        { ...consumer.env, FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE: '/foreign-admission' }), /own fast consumer/u);
+    for (const [file, mutate] of [
+        [built.file, marker =>
+        {
+            marker.bindings.namespace = consumer.options.namespace;
+        }],
+        [executed.receiptFile, marker =>
+        {
+            marker.bindings.namespace = consumer.options.namespace;
+        }],
+        [executed.receiptFile, marker =>
+        {
+            marker.producer.bundleId = 'backend-tests';
+        }],
+        [executed.receiptFile, marker =>
+        {
+            marker.bindings.fixtureAdmissionFile = '.tmp/test-runs/foreign/mysql-admission/file.json';
+        }],
+        [path.join(executed.directory, 'engine.json'), engine =>
+        {
+            engine.dotnet.sha256 = '0'.repeat(64);
+        }]
+    ])
+    {
+        const original = fs.readFileSync(file);
+        const document = JSON.parse(original);
+        mutate(document);
+        fs.writeFileSync(file, JSON.stringify(document));
+        await assert.rejects(readMigrationExecutionDependency(consumer.options, consumer.env));
+        fs.writeFileSync(file, original);
+    }
+    for (const file of [built.file, executed.receiptFile, executed.trxFile])
+    {
+        fs.renameSync(file, file + '.retained');
+        await assert.rejects(readMigrationExecutionDependency(consumer.options, consumer.env));
+        fs.renameSync(file + '.retained', file);
+    }
+    assert.equal((await readMigrationExecutionDependency(consumer.options, consumer.env)).receipt.digest, executed.receipt.digest);
+});
+
+function controlledDockerForMigration(subject)
+{
+    // A local CLI simulation exercises the real lifecycle/admission/readers.
+    // It never addresses Docker or a database and cannot qualify a live engine.
+    const directory = path.join(subject.options.root, '.tmp/controlled-docker');
+    fs.mkdirSync(directory);
+    const catalog = loadExecutionServiceCatalog();
+    fs.writeFileSync(path.join(directory, 'state.json'), JSON.stringify({
+        imageReference: catalog.services.mysql.imageReference, container: null, remaining: false
+    }));
+    fs.writeFileSync(path.join(directory, 'docker'), `#!${process.execPath}\n` + [
+        'const fs = require("node:fs"); const path = require("node:path");',
+        'const file = path.join(__dirname, "state.json"); const state = JSON.parse(fs.readFileSync(file));',
+        'const args = process.argv.slice(2); const value = key => args[args.indexOf(key) + 1];',
+        'const id = "d".repeat(64), image = "sha256:" + "c".repeat(64);',
+        'const output = value => process.stdout.write(typeof value === "string" ? value : JSON.stringify(value));',
+        'if (args[0] === "version") output({Version:"29.5.3",Os:"linux",Arch:"x86_64"});',
+        'else if (args[0] === "info") output({ID:"controlled-engine",OperatingSystem:"Linux",Architecture:"x86_64",CgroupDriver:"systemd"});',
+        'else if (args[0] === "image") output([{Id:image,RepoDigests:[state.imageReference]}]);',
+        'else if (args[0] === "container") output(state.container || state.remaining ? id : "");',
+        'else if (args[0] === "inspect") { if (!state.container) process.exit(1); output([state.container]); }',
+        'else if (args[0] === "run") {',
+        ' const labels = {}; args.forEach((arg,i) => { if(arg === "--label") { const text=args[i+1], n=text.indexOf("="); labels[text.slice(0,n)]=text.slice(n+1); }});',
+        ' state.container={Id:id,Name:value("--name"),Created:"2026-09-24T00:00:00.000Z",Config:{Image:args.at(-1),Labels:labels},Image:image,State:{Running:true},',
+        ' HostConfig:{NetworkMode:"bridge",NanoCpus:Number(value("--cpus"))*1e9,Memory:Number(value("--memory")),MemoryReservation:Number(value("--memory-reservation")),PidsLimit:Number(value("--pids-limit"))},',
+        ' NetworkSettings:{SandboxKey:"/run/netns/controlled-mysql",Ports:{"3306/tcp":[{HostIp:"127.0.0.1",HostPort:"23306"}],"33060/tcp":null}}};',
+        ' fs.writeFileSync(value("--cidfile"),id,{flag:"wx",mode:0o600}); fs.writeFileSync(file,JSON.stringify(state)); output(id);',
+        '} else if (args[0] === "rm") { state.container=null; fs.writeFileSync(file,JSON.stringify(state)); output(id); }',
+        'else if (args[0] === "cp") {}',
+        'else if (args[0] === "exec") {',
+        ' if(args.includes("--version")) output("mysql  Ver 8.4.11 for Linux on x86_64 (MySQL Community Server - GPL)");',
+        ' else if(args.includes("--execute")) output({serverUuid:"12345678-1234-1234-1234-123456789abc",serverVersion:"8.4.11",currentUser:"fixture_user@%",database:null,port:3306});',
+        ' else { fs.readFileSync(0); output("1"); }',
+        '} else { process.stderr.write("unsupported controlled Docker command"); process.exit(1); }',
+        ''
+    ].join('\n'), { mode: 0o755 });
+    return { directory, catalog };
+}
+
+test('real fast dependency consumes sealed MySQL admission after exact cleanup with no service environment', async (t) =>
+{
+    const subject = await unitBuildFixture(t, { mysqlSource: true });
+    const mysql = { ...subject.report.testCases[0],
+        id: 'xunit:tests/migration/MySqlDdlExecutionTests.cs#FsusBlog.Migration.Tests.MySqlDdlExecutionTests.Fact#case-0000',
+        ownerFile: 'tests/migration/MySqlDdlExecutionTests.cs', ownerClass: 'MySqlDdlExecutionTests',
+        ownerSuite: 'FsusBlog.Migration.Tests.MySqlDdlExecutionTests', fixture: 'FsusBlog.Migration.Tests.MySqlDdlFixture' };
+    subject.report.testCases[0] = mysql;
+    subject.input.inventoryCases[0] = mysql;
+    Object.assign(subject.input.discoveredCases[0], { fullyQualifiedName: mysql.ownerSuite + '.Fact',
+        displayName: mysql.ownerSuite + '.Fact' });
+    const { directory, catalog } = controlledDockerForMigration(subject);
+    const originalPath = process.env.PATH;
+    process.env.PATH = directory + path.delimiter + originalPath;
+    try
+    {
+        const context = { ...subject.options, bundleId: 'matrix:backend-unit', stepId: 'migration-services',
+            resourceGrant: catalog.services.mysql.resourceGrant,
+            startupBudgetMs: catalog.services.mysql.lifecycleBudgets.startupMs,
+            commandBudgetMs: catalog.services.mysql.lifecycleBudgets.commandMs,
+            cleanupBudgetMs: catalog.services.mysql.lifecycleBudgets.cleanupMs };
+        delete context.producer;
+        const service = await prepareMySqlFixtureService(context, {
+            observeSource: async () => subject.options.sourceState,
+            retainRecoveryBinding: async () =>
+            {}, assertResourcesHeld: async () =>
+            {}
+        });
+        const identity = Object.fromEntries(['root', 'runId', 'namespace', 'bundleId', 'stepId', 'sourceState']
+            .map(key => [key, context[key]]));
+        const admission = publishMySqlFixtureAdmission({ context, stateFile: service.stateFile,
+            bindingDigest: service.bindingDigest, envelope: service.envelope,
+            reservation: { runId: context.runId, bundleId: 'backend-unit', id: 'mysql-migration',
+                identity, limits: context.resourceGrant, held: true } });
+        subject.env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE = admission;
+        await buildMigrationUnitTests(subject.options, { env: subject.env, execute: subject.buildExecute });
+        const executed = await runMigrationTests(subject.options, subject);
+        assert.equal(executed.summary.fixture.profile, 'mysql');
+        await service.cleanup();
+        const consumer = fastConsumer(subject);
+        await assert.rejects(readMigrationExecution(subject.options, consumer.env), /bindings mismatch/u);
+        const result = await readMigrationExecutionDependency(consumer.options, consumer.env);
+        assert.equal(result.receipt.digest, executed.receipt.digest);
+        assert.deepEqual(result.summary, executed.summary);
+        const shell = spawnSync('bash', ['-c', 'source "$1"; ROOT_DIR="$2"; WriteBackendSplitSummary backend-fast dependency-summary',
+            'migration-mysql-dependency-fixture', new URL('../../tools/test/lanes/_suite-support.sh', import.meta.url).pathname,
+            subject.options.root], { encoding: 'utf8', env: { ...process.env, ...consumer.env, PATH: process.env.PATH } });
+        assert.equal(shell.status, 0, shell.stderr);
+        assert.equal(JSON.parse(fs.readFileSync(path.join(subject.options.root, '.tmp/backend-fast/summary.json')))
+            .migrationExecution.receiptDigest, executed.receipt.digest);
+        fs.renameSync(service.stateFile, service.stateFile + '.retained');
+        await assert.rejects(readMigrationExecutionDependency(consumer.options, consumer.env));
+        fs.renameSync(service.stateFile + '.retained', service.stateFile);
+        const stateFile = path.join(directory, 'state.json');
+        const state = JSON.parse(fs.readFileSync(stateFile));
+        fs.writeFileSync(stateFile, JSON.stringify({ ...state, remaining: true }));
+        await assert.rejects(readMigrationExecutionDependency(consumer.options, consumer.env), /remaining or conflicting container/u);
+        fs.writeFileSync(stateFile, JSON.stringify(state));
+        const original = fs.readFileSync(admission);
+        fs.writeFileSync(admission, original.toString().replace('mysql-migration', 'tampered-admission'));
+        await assert.rejects(readMigrationExecutionDependency(consumer.options, consumer.env));
+        fs.writeFileSync(admission, original);
+        fs.writeFileSync(service.clientOptionsFile, '[client]\npassword=retained\n', { mode: 0o600 });
+        await assert.rejects(readMigrationExecutionDependency(consumer.options, consumer.env), /retained credential/u);
+        fs.unlinkSync(service.clientOptionsFile);
+        assert.equal((await readMigrationExecutionDependency(consumer.options, consumer.env)).receipt.digest, result.receipt.digest);
+        assert.equal(subject.calls.filter(call => call.name === 'execution').length, 1);
+    }
+    finally
+    {
+        process.env.PATH = originalPath;
+    }
 });
 
 test('matrix Migration build rejects failed restore/build without publishing or retrying its first attempt', async (t) =>

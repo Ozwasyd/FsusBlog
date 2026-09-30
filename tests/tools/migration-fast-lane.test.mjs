@@ -177,6 +177,7 @@ function summaryFixture(t, { failing = false } = {})
             '      sourceCaseIds: ["source-case"], executedCaseIds: ["runtime-case"] } };'
         ]),
         '}',
+        'export const readMigrationExecutionDependency = readMigrationExecution;',
         ''
     ].join('\n'));
     const env = {

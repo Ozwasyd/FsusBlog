@@ -1318,8 +1318,9 @@ const selection = process.argv[4]
 const root = process.argv[5]
 let migrationExecution = null
 if (['backend-unit', 'backend-fast'].includes(lane)) {
-  const { readMigrationExecution } = await import(pathToFileURL(path.join(root, 'tools/test/run-migration-tests.mjs')))
-  const result = await readMigrationExecution({
+  const { readMigrationExecution, readMigrationExecutionDependency } = await import(pathToFileURL(path.join(root, 'tools/test/run-migration-tests.mjs')))
+  const read = lane === 'backend-fast' ? readMigrationExecutionDependency : readMigrationExecution
+  const result = await read({
     root,
     producer: 'backend-unit',
     runId: process.env.FSUSBLOG_TEST_RUN_ID,
