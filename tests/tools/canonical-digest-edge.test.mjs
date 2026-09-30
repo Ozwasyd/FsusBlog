@@ -159,6 +159,74 @@ for (const relative of [caller, owner])
     });
 }
 
+test('actual caller and owner reads reject replacement, alias and in-place drift', (context) =>
+{
+    for (const relative of [caller, owner])
+    {
+        for (const mutation of ['symlink', 'replacement', 'hardlink', 'mode', 'content', 'parent'])
+        {
+            fixture((root) =>
+            {
+                const absolute = path.join(root, relative);
+                const expected = fs.lstatSync(absolute, { bigint: true });
+                const originalRead = fs.readFileSync;
+                let mutated = false;
+                context.mock.method(fs, 'readFileSync', (descriptor, ...args) =>
+                {
+                    const bytes = originalRead.call(fs, descriptor, ...args);
+                    if (typeof descriptor === 'number' && !mutated)
+                    {
+                        const actual = fs.fstatSync(descriptor, { bigint: true });
+                        if (actual.dev === expected.dev && actual.ino === expected.ino)
+                        {
+                            mutated = true;
+                            const copy = `${absolute}.copy`;
+                            if (mutation === 'symlink')
+                            {
+                                fs.renameSync(absolute, copy);
+                                fs.symlinkSync(copy, absolute);
+                            }
+                            else if (mutation === 'replacement')
+                            {
+                                fs.copyFileSync(absolute, copy);
+                                fs.renameSync(copy, absolute);
+                            }
+                            else if (mutation === 'hardlink')
+                            {
+                                fs.linkSync(absolute, copy);
+                            }
+                            else if (mutation === 'mode')
+                            {
+                                fs.chmodSync(absolute, 0o755);
+                            }
+                            else if (mutation === 'content')
+                            {
+                                fs.appendFileSync(absolute, '\n ');
+                            }
+                            else
+                            {
+                                const parent = path.dirname(absolute);
+                                fs.renameSync(parent, `${parent}.copy`);
+                                fs.symlinkSync(`${parent}.copy`, parent);
+                            }
+                        }
+                    }
+                    return bytes;
+                });
+                try
+                {
+                    assert.throws(() => admits(root), undefined, `${relative}: ${mutation}`);
+                    assert.equal(mutated, true, `${relative}: ${mutation} must change the actual read window`);
+                }
+                finally
+                {
+                    context.mock.restoreAll();
+                }
+            });
+        }
+    }
+});
+
 test('candidate policy and candidate registry cannot make their own decision', () =>
 {
     fixture((root) =>

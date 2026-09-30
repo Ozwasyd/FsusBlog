@@ -50,7 +50,7 @@ function authorityDigest()
         {
             const absolute = path.join(directory, entry);
             const relative = path.relative(dependencyRoot, absolute);
-            const info = fs.lstatSync(absolute);
+            const info = fs.lstatSync(absolute, { bigint: true });
             digest.update(`${relative}\0${info.mode}\0`);
             if (info.isDirectory())
             {
@@ -58,11 +58,11 @@ function authorityDigest()
             }
             else if (info.isFile())
             {
-                if (info.nlink !== 1)
+                if (info.nlink !== 1n)
                 {
                     throw new Error('authority toolchain input must be a single-link regular file');
                 }
-                digest.update(fs.readFileSync(absolute));
+                digest.update(stableFileBytes(absolute, info));
             }
             else if (info.isSymbolicLink() && path.basename(path.dirname(relative)) === '.bin')
             {
@@ -209,16 +209,64 @@ export function regularSource(root, relative)
             throw new Error('closed edge path is redirected or nonregular');
         }
     }
-    const stat = fs.lstatSync(current);
-    if (stat.nlink !== 1)
+    const stat = fs.lstatSync(current, { bigint: true });
+    if (stat.nlink !== 1n)
     {
         throw new Error('closed edge source must be a single-link regular file');
     }
-    if (!stat.isFile() || (stat.mode & 0o111) !== 0 || stat.size > 1024 * 1024)
+    if (!stat.isFile() || (stat.mode & 0o111n) !== 0n || stat.size > 1024n * 1024n)
     {
         throw new Error('closed edge source is nonregular or has executable mode');
     }
-    return fs.readFileSync(current, 'utf8');
+    return stableFileBytes(current, stat).toString('utf8');
+}
+
+function stableFileBytes(absolute, expected)
+{
+    // Bind actual reads like the original canonical authority reader, not just path metadata.
+    const descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        const before = fs.fstatSync(descriptor, { bigint: true });
+        if (!before.isFile() || before.nlink !== 1n)
+        {
+            throw new Error('closed edge input must be a single-link regular file');
+        }
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor, { bigint: true });
+        const verificationDescriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+        let verificationBefore;
+        let verificationAfter;
+        let verificationBytes;
+        try
+        {
+            verificationBefore = fs.fstatSync(verificationDescriptor, { bigint: true });
+            verificationBytes = fs.readFileSync(verificationDescriptor);
+            verificationAfter = fs.fstatSync(verificationDescriptor, { bigint: true });
+        }
+        finally
+        {
+            fs.closeSync(verificationDescriptor);
+        }
+        const current = fs.lstatSync(absolute, { bigint: true });
+        if (!current.isFile() || current.isSymbolicLink() || current.nlink !== 1n
+            || fs.realpathSync(absolute) !== absolute || BigInt(bytes.length) !== before.size
+            || !verificationBefore.isFile() || verificationBefore.nlink !== 1n
+            || !bytes.equals(verificationBytes)
+            || ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'].some((field) =>
+                expected[field] !== before[field] || before[field] !== after[field]
+                || after[field] !== verificationBefore[field]
+                || verificationBefore[field] !== verificationAfter[field]
+                || verificationAfter[field] !== current[field]))
+        {
+            throw new Error('closed edge source changed while reading');
+        }
+        return bytes;
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
 }
 
 function walk(node, visit)

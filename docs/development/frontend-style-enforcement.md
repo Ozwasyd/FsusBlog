@@ -133,6 +133,11 @@ single-link regular non-executable files without symlink parents. The executing
 classifier and installed parser/toolchain regular inputs also reject hardlink
 aliases, before loading authority and after a prior decision; locked internal
 `.bin` symlinks remain executable interfaces, not source-owner aliases.
+Regular input reads bind no-follow file descriptors, compare before/after and
+final path inode/type/mode/link/size/time metadata, and verify the bytes on a
+second descriptor. Read-time replacement, parent redirection, mode changes or
+in-place writes refuse admission, including an alias with identical approved
+bytes. This bounded read contract does not claim whole-filesystem atomicity.
 Registry, parser/toolchain and source bindings are
 recomputed for decisions; the owner edge does not use ESLint's content cache.
 Registry members must be unique in the raw JSON at every nesting level, including
