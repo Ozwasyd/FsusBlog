@@ -77,13 +77,44 @@ function exactKeys(value, keys, name)
     assert.deepEqual(Object.keys(value).sort(), [...keys].sort(), `${name} has unknown or missing fields`);
 }
 
-function regularFile(file)
+function boundedSourceBytes(file)
+{
+    const maximumBytes = 64 * 1024;
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        const stat = fs.fstatSync(descriptor);
+        assert.ok(stat.isFile() && stat.size <= maximumBytes, 'registered wrapper source exceeds the supported bounded query size');
+        const bytes = Buffer.alloc(maximumBytes + 1);
+        let length = 0;
+        while (length < bytes.length)
+        {
+            const read = fs.readSync(descriptor, bytes, length, bytes.length - length, null);
+            if (read === 0)
+            {
+                break;
+            }
+            length += read;
+        }
+        assert.ok(length <= maximumBytes, 'registered wrapper source grew beyond the bounded query size');
+        assert.equal(fs.fstatSync(descriptor).size, length, 'source changed size during bounded read');
+        return bytes.subarray(0, length);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
+function regularFile(file, boundedSource = false)
 {
     assert.ok(path.isAbsolute(file) && safePath(file), 'unsupported absolute file path');
     const resolved = fs.realpathSync(file);
     const stat = fs.statSync(resolved);
     assert.ok(stat.isFile(), `not a regular file: ${file}`);
-    return { path: file, realPath: resolved, sha256: digest(fs.readFileSync(resolved)), bytes: stat.size };
+    const bytes = boundedSource ? boundedSourceBytes(resolved) : fs.readFileSync(resolved);
+    assert.equal(bytes.length, stat.size, 'file changed size during identity observation');
+    return { path: file, realPath: resolved, sha256: digest(bytes), bytes: stat.size };
 }
 
 function safePath(file)
@@ -277,7 +308,7 @@ function dependencyFiles(output, root, source)
     assert.ok(normalized.startsWith('binding: '), 'unsupported dependency rule');
     const paths = normalized.slice('binding: '.length).trim().split(/\s+/u);
     assert.ok(paths.length > 1 && paths.every(file => !/[\\:$#]/u.test(file)), 'unsupported dependency filename');
-    const result = [...new Set(paths.map(file => path.resolve(root, file)))].sort().map(regularFile);
+    const result = [...new Set(paths.map(file => path.resolve(root, file)))].sort().map(file => regularFile(file, file === source));
     assert.ok(result.some(file => file.path === source), 'dependency closure omits source');
     for (const file of result)
     {
@@ -339,7 +370,7 @@ export function observeCommandWrapperCompileBinding({ root, file, entry, policy,
     assert.equal(fs.realpathSync(root), root, 'root must be its realpath');
     const source = path.join(root, sourceOwner);
     assert.equal(path.resolve(root, file), source, 'file is not the registered source');
-    const sourceIdentity = regularFile(source);
+    const sourceIdentity = regularFile(source, true);
     assert.equal(sourceIdentity.realPath, source, 'source symlink refused');
     exactKeys(entry, ['directory', 'file', 'arguments'], 'compile database entry');
     assert.equal(entry.directory, root, 'compile working directory mismatch');
@@ -353,8 +384,7 @@ export function observeCommandWrapperCompileBinding({ root, file, entry, policy,
     assert.deepEqual(entry.arguments, [policy.compiler.path, ...strictFlags, '-o', output, source],
         'compile entry flags, ordering, compiler, or source mismatch');
     ownedOutput(output, root);
-    const bytes = fs.readFileSync(source);
-    assert.ok(bytes.length <= 64 * 1024, 'registered wrapper source exceeds the supported bounded query size');
+    const bytes = boundedSourceBytes(source);
     assert.ok(!bytes.includes(0), 'source contains NUL');
     const sourceText = bytes.toString('utf8');
     assert.ok(Buffer.from(sourceText).equals(bytes), 'source is not UTF-8');
@@ -405,7 +435,7 @@ export function observeCommandWrapperCompileBinding({ root, file, entry, policy,
             }
             assert.deepEqual(observeCanonicalCompilerToolchain({ compiler: compiler.path, root, environment: compileEnvironment }),
                 canonicalToolchain, 'compiler subprogram or specs drift during binding');
-            assert.deepEqual(regularFile(source), sourceIdentity, 'source drift during binding');
+            assert.deepEqual(regularFile(source, true), sourceIdentity, 'source drift during binding');
             assert.equal(fs.realpathSync(root), root, 'root physical path drift during binding');
             ownedOutput(output, root);
         };
