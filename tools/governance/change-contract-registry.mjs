@@ -379,7 +379,18 @@ export const trustedPolicyFiles = Object.freeze([
     'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
     'tools/governance/javascript-format-equivalence.mjs',
     'tools/governance/javascript-format-parser/package.json',
-    'tools/governance/javascript-format-parser/package-lock.json'
+    'tools/governance/javascript-format-parser/package-lock.json',
+    'config/development/canonical-digest-edge.json',
+    'config/development/frontend-style-policy.json',
+    'config/development/frontend-style-rule-registry.json',
+    'eslint.config.mjs',
+    'stylelint.config.mjs',
+    'tools/frontend/check-frontend-style.mjs',
+    'tools/frontend/style-toolchain/closed-canonical-edge.mjs',
+    'tools/frontend/style-toolchain/eslint.config.mjs',
+    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'tools/frontend/style-toolchain/package.json',
+    'tools/frontend/style-toolchain/package-lock.json'
 ]);
 
 export const changeContract = Object.freeze({

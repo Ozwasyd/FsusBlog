@@ -103,6 +103,42 @@ The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run for
 
 ## Governance preservation
 
+### Closed canonical digest ownership edge
+
+The current parent-import rule has one finite governance decision in
+`config/development/canonical-digest-edge.json`: the static named `digestValue`
+import from `tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs` to
+`../fact-extractors/lib/canonicalize.mjs`. This is not a whole-file exemption,
+residual allowance, or permission to disable the rule. The AST wrapper delegates
+every other import, export and dynamic-import visitor to the original import-x
+rule and retains all other ESLint rules and diagnostics.
+
+The decision binds two caller semantic trees (the master value contract and its
+OpenAPI projection obligation) and the canonical owner's semantic tree, ignoring
+source locations and literal spelling only. The owner must also satisfy a finite
+AST language: only the existing value operations and the named `createHash`
+import from `node:crypto` are accepted. Arbitrary JavaScript purity is not claimed.
+Additional dependency imports, ambient identifiers, dynamic code and computed
+ambient lookup fail closed before admission. The semantic seals cannot alone
+authorize a new capability, serializer or transitive dependency. Original pure
+closure, materializer refusal and canonical golden tests remain mandatory.
+
+The executing checker's checkout is `authorityRoot`; `--root` selects only
+read-only candidate source. Configuration, registry, parser, locked toolchain and
+classification come from the authority checkout, not the candidate. An external
+`--policy`, cross-checkout `--fix` or baseline update, candidate configuration
+outside the exact previous/current identities, and candidate-authored edge
+registry are refused. Source paths must be canonical regular non-executable files
+without symlink parents. Registry, parser/toolchain and source bindings are
+recomputed for decisions; the owner edge does not use ESLint's content cache.
+
+Changes to this authority require independent frozen-policy review and the
+owner-controlled bootstrap in [Change contract](change-contract.md). Candidate
+tests prove implementation behavior only; they do not promote trust, waive the
+old trusted rejection, or authorize merge. A semantic caller or owner change
+requires a new reviewed decision. Rollback removes only this edge decision and
+restores the original parent-import refusal, retaining source and past evidence.
+
 The policy pins the count, ID digest and definition digest of all existing `check:*` scripts. Generic lint is additive: a change that removes or rewrites an AEDS, security, privacy, accessibility, UI or performance command fails before linting. Every new generic rule has an owner, source scope and fixability in the rule registry.
 
 External JSON keys, browser events, storage keys, Wasm exports, HTML attributes and CSS contracts are preserved as literals or mapping metadata while internal identifiers follow the language mapping. A formatter commit must never rename these surfaces.

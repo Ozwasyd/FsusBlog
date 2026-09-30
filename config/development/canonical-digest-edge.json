@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.canonical-digest-edge.v1",
+    "edge": {
+        "caller": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "owner": "tools/fact-extractors/lib/canonicalize.mjs",
+        "specifier": "../fact-extractors/lib/canonicalize.mjs",
+        "symbol": "digestValue"
+    },
+    "ownerSemanticSha256": "8ee2fa8bb4808b7fb9b7f54bdef5c25ad49edbbd17a94a4b11709a1a2adbe7f1",
+    "callerSemanticSha256": [
+        "f35916e31531fc77af12e9510a6f3c2d55fb2e157804f92a3fcba1bc2f13d4b4",
+        "f0877220ccd59b74fd40c740c49ef58ca4a8569593ee5eb3f6a7c180276c327e"
+    ],
+    "previousPolicySha256": {
+        "config/development/frontend-style-policy.json": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+        "eslint.config.mjs": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+        "stylelint.config.mjs": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
+        "tools/frontend/style-toolchain/eslint.config.mjs": "91c30fbf1b0357cb29733902d5bef60d882e304522e15e062f8df3480995d9e0"
+    }
+}
