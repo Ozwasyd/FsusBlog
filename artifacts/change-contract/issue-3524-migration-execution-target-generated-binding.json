@@ -16,6 +16,7 @@
         "tests/tools/physical-execution-private-dotnet-scratch.test.mjs",
         "tests/tools/physical-execution-process-tree.test.mjs",
         "tests/tools/physical-execution-systemd-sender.test.mjs",
+        "tests/tools/post-runtime-producer-registry.test.mjs",
         "tests/tools/production-capacity-preflight-order.test.mjs",
         "tests/tools/production-capacity-reservation.test.mjs",
         "tests/tools/production-resource-enforcement.test.mjs",
@@ -81,11 +82,11 @@
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "58e72c15f46aa5b7b177ee2caa8d0fc68fc4537868ead60372a2d53b9266d5f8"
+            "sha256": "915558ef54ae1750337519cc0afa8643469c2c7730b2573cc158585dc5d86133"
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "be6baf56084e6124131e02b13c8913b4e59f4a2604e5a89bb353d1a560a14c3f"
+            "sha256": "7bda6280a738977437f05756201a77dd32efb4c241de6502a622902cb843c065"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
