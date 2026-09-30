@@ -188,25 +188,13 @@ public sealed class DocumentExportSystemdCgroupAuthority
         };
         arguments.AddRange(workload.ArgumentList);
 
-        bool unitMayExist = false;
-        try
+        async Task<Execution> AdmitAsync(CancellationToken admissionToken)
         {
-            unitMayExist = true;
-            ControlResult launch = await RunControlAsync(
-                Contract.SystemdRunPath,
-                arguments,
-                cancellationToken);
-            if (launch.ExitCode != 0)
-            {
-                throw new PlatformNotSupportedException(
-                    $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
-            }
-
             for (int admissionAttempt = 0; admissionAttempt < 3; admissionAttempt++)
             {
                 IReadOnlyDictionary<string, string> properties = await WaitForAdmissionPropertiesAsync(
                     unitName,
-                    cancellationToken,
+                    admissionToken,
                     "LoadState",
                     "ActiveState",
                     "SubState",
@@ -238,7 +226,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     ValidateTerminalAdmissionProperties(properties);
                     if (string.IsNullOrEmpty(controlGroup))
                     {
-                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, accountingSlice, cancellationToken);
+                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, accountingSlice, admissionToken);
                     }
                 }
                 string cgroupPath = ResolveCgroupPath(
@@ -246,7 +234,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     controlGroup,
                     requireExisting: false);
                 ValidateAccountingIdentity(runId, unitName, accountingSlice, controlGroup, accountingControlGroup);
-                await ValidateAccountingOwnerAsync(accountingSlice, accountingControlGroup, unitName, cancellationToken);
+                await ValidateAccountingOwnerAsync(accountingSlice, accountingControlGroup, unitName, admissionToken);
                 int rootProcessId = ParsePositiveInt(
                     FirstNonZeroProperty(properties, "MainPID", "ExecMainPID"),
                     "document export root process ID");
@@ -296,8 +284,45 @@ public sealed class DocumentExportSystemdCgroupAuthority
             throw new InvalidDataException(
                 "Document export cgroup retired repeatedly before admission accounting could be qualified.");
         }
+
+        bool unitMayExist = false;
+        try
+        {
+            unitMayExist = true;
+            ControlResult launch = await RunControlAsync(
+                Contract.SystemdRunPath,
+                arguments,
+                cancellationToken);
+            if (launch.ExitCode != 0)
+            {
+                throw new PlatformNotSupportedException(
+                    $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
+            }
+
+            return await AdmitAsync(cancellationToken);
+        }
         catch (Exception exception)
         {
+            if (ShouldRecoverCancelledAdmission(unitMayExist, exception, cancellationToken.IsCancellationRequested))
+            {
+                // Dispatch cancellation can follow actual ExecStart. Stop the owned
+                // service first, then retain its native identity through bounded
+                // admission recovery rather than claiming it never started.
+                using var recoveryDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                try
+                {
+                    await RunSystemctlAllowFailureAsync(
+                        ["--user", "kill", "--kill-whom=all", "--signal=KILL", unitName],
+                        recoveryDeadline.Token);
+                    return await AdmitAsync(recoveryDeadline.Token);
+                }
+                catch (Exception recoveryException)
+                {
+                    _ = await TryTerminateAndRemoveUnitAsync(unitName, accountingSlice, accountingCgroupPath);
+                    throw new DocumentExportCgroupAdmissionCleanupException(
+                        new AggregateException(exception, recoveryException));
+                }
+            }
             if (unitMayExist)
             {
                 bool cleanupQualified = await TryTerminateAndRemoveUnitAsync(unitName, accountingSlice, accountingCgroupPath);
@@ -380,15 +405,26 @@ public sealed class DocumentExportSystemdCgroupAuthority
         string accountingSlice,
         CancellationToken cancellationToken)
     {
-        if (!await IsUnitRemovedAsync(unitName, cancellationToken))
+        string[] names = [unitName, accountingSlice, DocumentExportSlice];
+        string[] propertyNames = ["Id", "LoadState", "ActiveState", "ControlGroup", "Slice", "FragmentPath", "SourcePath", "DropInPaths"];
+        var arguments = new List<string> { "--user", "show" };
+        arguments.AddRange(names);
+        arguments.Add("--no-pager");
+        arguments.AddRange(propertyNames.Select(name => $"--property={name}"));
+        ControlResult result = await RunControlAsync(Contract.SystemctlPath, arguments, cancellationToken);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidDataException($"Document export could not inspect accounting identities: {BoundedDiagnostic(result)}");
+        }
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> units = ParseUnitPropertyBlocks(
+            result.StandardOutput,
+            names,
+            propertyNames);
+        if (RequireProperty(units[unitName], "LoadState") != "not-found")
         {
             throw new InvalidDataException("Document export service identity was already in use.");
         }
-        IReadOnlyDictionary<string, string> parent = await QueryUnitAsync(
-            DocumentExportSlice,
-            cancellationToken,
-            "LoadState",
-            "ControlGroup");
+        IReadOnlyDictionary<string, string> parent = units[DocumentExportSlice];
         string parentControlGroup = RequireProperty(parent, "ControlGroup");
         if (RequireProperty(parent, "LoadState") != "loaded"
             || !parentControlGroup.EndsWith($"/{DocumentExportSlice}", StringComparison.Ordinal))
@@ -397,14 +433,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
         string controlGroup = $"{parentControlGroup}/{accountingSlice}";
         string path = ResolveCgroupPath(accountingSlice, controlGroup, requireExisting: false);
-        IReadOnlyDictionary<string, string> candidate = await QueryUnitAsync(
-            accountingSlice,
-            cancellationToken,
-            "ActiveState",
-            "ControlGroup",
-            "FragmentPath",
-            "SourcePath",
-            "DropInPaths");
+        IReadOnlyDictionary<string, string> candidate = units[accountingSlice];
         if (Directory.Exists(path)
             || RequireProperty(candidate, "ActiveState") != "inactive"
             || new[] { "ControlGroup", "FragmentPath", "SourcePath", "DropInPaths" }.Any(
@@ -414,6 +443,38 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
         return controlGroup;
     }
+
+    internal static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ParseUnitPropertyBlocks(
+        string value,
+        IReadOnlyCollection<string> expectedUnits,
+        IReadOnlyCollection<string> propertyNames)
+    {
+        if (expectedUnits.Count == 0 || expectedUnits.Distinct(StringComparer.Ordinal).Count() != expectedUnits.Count)
+        {
+            throw new InvalidDataException("Document export accounting inspection identities were empty or duplicated.");
+        }
+        var result = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        foreach (string block in value.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            IReadOnlyDictionary<string, string> properties = ParseProperties(block, propertyNames);
+            string unit = RequireProperty(properties, "Id");
+            if (!expectedUnits.Contains(unit, StringComparer.Ordinal) || !result.TryAdd(unit, properties))
+            {
+                throw new InvalidDataException("Document export accounting inspection returned a foreign or duplicated unit.");
+            }
+        }
+        if (result.Count != expectedUnits.Count)
+        {
+            throw new InvalidDataException("Document export accounting inspection omitted an exact unit.");
+        }
+        return result;
+    }
+
+    internal static bool ShouldRecoverCancelledAdmission(
+        bool unitMayExist,
+        Exception exception,
+        bool callerCancellationRequested)
+        => unitMayExist && exception is OperationCanceledException && callerCancellationRequested;
 
     private async Task ValidateAccountingOwnerAsync(
         string accountingSlice,

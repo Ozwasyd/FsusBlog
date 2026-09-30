@@ -23,6 +23,68 @@ public sealed class DocumentExportRetainedPidsTests
         Assert.NotEqual(SliceName, DocumentExportSystemdCgroupAuthority.AccountingSliceName(OtherRunId));
     }
 
+    [Fact]
+    public void BatchedInspectionBindsEveryExactUnitWithoutDependingOnOutputOrder()
+    {
+        string service = $"Id={UnitName}\nLoadState=not-found\n";
+        string slice = $"Id={SliceName}\nLoadState=loaded\n";
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> result =
+            DocumentExportSystemdCgroupAuthority.ParseUnitPropertyBlocks(
+                slice + "\n" + service,
+                [UnitName, SliceName],
+                ["Id", "LoadState"]);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("not-found", result[UnitName]["LoadState"]);
+        Assert.Equal("loaded", result[SliceName]["LoadState"]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void BatchedInspectionRefusesMissingDuplicateForeignOrMalformedUnits(int mutation)
+    {
+        string service = $"Id={UnitName}\nLoadState=not-found\n";
+        string slice = $"Id={SliceName}\nLoadState=loaded\n";
+        string output = mutation switch
+        {
+            0 => service,
+            1 => service + "\n" + service,
+            2 => service + "\nId=foreign.slice\nLoadState=loaded\n",
+            3 => service + "Unknown=value\n\n" + slice,
+            4 => service + $"Id={UnitName}\n\n" + slice,
+            _ => $"Id={UnitName}\n\n" + slice
+        };
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ParseUnitPropertyBlocks(
+            output,
+            [UnitName, SliceName],
+            ["Id", "LoadState"]));
+    }
+
+    [Theory]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, false, false)]
+    public void AdmissionRecoveryRequiresOwnedDispatchAndActualCallerCancellation(
+        bool unitMayExist,
+        bool cancellationException,
+        bool callerRequested,
+        bool expected)
+    {
+        Exception failure = cancellationException ? new TaskCanceledException() : new InvalidDataException();
+
+        Assert.Equal(expected, DocumentExportSystemdCgroupAuthority.ShouldRecoverCancelledAdmission(
+            unitMayExist,
+            failure,
+            callerRequested));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
