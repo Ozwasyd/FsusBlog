@@ -84,6 +84,83 @@ function keys(value, expected)
         && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort());
 }
 
+function parseUniqueRegistry(source)
+{
+    // Validate JSON grammar, then scan retained raw tokens before any object-schema admission.
+    const value = JSON.parse(source);
+    const tokens = source.match(/"(?:\\.|[^"\\])*"|[{}[\],:]|true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/gu) ?? [];
+    let position = 0;
+    function visitValue()
+    {
+        const token = tokens[position++];
+        if (token === '{')
+        {
+            const members = new Set();
+            if (tokens[position] === '}')
+            {
+                position += 1;
+                return;
+            }
+            while (position < tokens.length)
+            {
+                const member = JSON.parse(tokens[position++]);
+                if (typeof member !== 'string' || members.has(member))
+                {
+                    throw new Error('duplicate raw registry member');
+                }
+                members.add(member);
+                if (tokens[position++] !== ':')
+                {
+                    throw new Error('invalid raw registry member');
+                }
+                visitValue();
+                const separator = tokens[position++];
+                if (separator === '}')
+                {
+                    return;
+                }
+                if (separator !== ',')
+                {
+                    throw new Error('invalid raw registry object');
+                }
+            }
+            throw new Error('incomplete raw registry object');
+        }
+        if (token === '[')
+        {
+            if (tokens[position] === ']')
+            {
+                position += 1;
+                return;
+            }
+            while (position < tokens.length)
+            {
+                visitValue();
+                const separator = tokens[position++];
+                if (separator === ']')
+                {
+                    return;
+                }
+                if (separator !== ',')
+                {
+                    throw new Error('invalid raw registry array');
+                }
+            }
+            throw new Error('incomplete raw registry array');
+        }
+        if (token === undefined)
+        {
+            throw new Error('incomplete raw registry value');
+        }
+    }
+    visitValue();
+    if (position !== tokens.length)
+    {
+        throw new Error('extra raw registry tokens');
+    }
+    return value;
+}
+
 export function semanticTree(value)
 {
     if (Array.isArray(value))
@@ -211,7 +288,7 @@ function readRegistry()
     {
         throw new Error('cached edge registry authority drift');
     }
-    const registry = JSON.parse(registryBytes);
+    const registry = parseUniqueRegistry(registryBytes);
     if (!keys(registry, ['schema', 'edge', 'ownerSemanticSha256', 'callerSemanticSha256', 'previousPolicySha256'])
         || registry.schema !== 'fsusblog.canonical-digest-edge.v1'
         || !keys(registry.edge, ['caller', 'owner', 'specifier', 'symbol'])

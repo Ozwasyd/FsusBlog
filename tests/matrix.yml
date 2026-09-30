@@ -116,18 +116,25 @@ commandGroups:
               stage: "concurrent"
               reason: "Exercises original AST style fixtures and closed canonical digest edge authority, ownership, capability and drift refusals in isolated temporary repositories."
               consumedInputs:
+                  - ".editorconfig"
                   - "config/development/frontend-style-*.json"
                   - "config/development/canonical-digest-edge.json"
                   - "config/schemas/frontend-style-reviewed-residual.schema.json"
                   - "eslint.config.mjs"
                   - "stylelint.config.mjs"
                   - "src/frontend/package.json"
+                  - "src/frontend/eslint.config.mjs"
+                  - "src/frontend/stylelint.config.mjs"
                   - "tests/tools/frontend-style.test.mjs"
                   - "tests/tools/canonical-digest-edge.test.mjs"
                   - "tests/tools/fixtures/canonical-digest-edge/v3-contract.mjs"
                   - "tools/frontend/check-frontend-style.mjs"
                   - "tools/frontend/reviewed-residual-classification.mjs"
                   - "tools/frontend/style-toolchain"
+                  - "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs"
+                  - "tools/fact-extractors/lib/canonicalize.mjs"
+                  - "tools/test-matrix/schema-validator"
+                  - "tools/governance/change-contract-registry.mjs"
               ownedOutputs: ["os-temp://fsusblog-frontend-style-unique", "os-temp://fsusblog-canonical-edge-unique", "os-temp://fsusblog-edge-authority-unique"]
               dependsOn: ["frontend-style-full"]
               resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}

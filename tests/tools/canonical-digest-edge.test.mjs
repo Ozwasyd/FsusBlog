@@ -15,6 +15,7 @@ const {
     validateSelectedCanonicalSource,
     wrapParentImportRule
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/frontend/style-toolchain/closed-canonical-edge.mjs')).href);
+const { trustedPolicyFiles } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/governance/change-contract-registry.mjs')).href);
 
 const caller = 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
 const owner = 'tools/fact-extractors/lib/canonicalize.mjs';
@@ -168,6 +169,25 @@ test('candidate policy and candidate registry cannot make their own decision', (
     });
 });
 
+test('every actual style authority input is protected and refuses candidate byte changes', () =>
+{
+    const registry = JSON.parse(fs.readFileSync(path.join(authorityRoot, edgeRegistryPath), 'utf8'));
+    for (const relative of [...Object.keys(registry.previousPolicySha256), edgeRegistryPath,
+        'tools/frontend/style-toolchain/closed-canonical-edge.mjs'])
+    {
+        assert.equal(trustedPolicyFiles.includes(relative), true, `unprotected actual authority: ${relative}`);
+    }
+    for (const relative of Object.keys(registry.previousPolicySha256))
+    {
+        fixture((root) =>
+        {
+            fs.appendFileSync(path.join(root, relative), '\n ');
+            assert.throws(() => validateCandidatePolicy(root),
+                (error) => error.message.includes(`candidate policy drift: ${relative}`));
+        });
+    }
+});
+
 test('ordinary caller is not an admitted edge and all original visitors survive', () =>
 {
     fixture((root) =>
@@ -252,6 +272,30 @@ test('closed authority rejects malformed registration and cached authority chang
                 import { pathToFileURL } from 'node:url';
                 const module = await import(pathToFileURL(process.argv[1] + '/tools/frontend/style-toolchain/closed-canonical-edge.mjs'));
                 assert.throws(() => module.validateCandidatePolicy(process.argv[1]), /exact finite decision/);
+            `, clone]);
+        }
+        const raw = JSON.stringify(registry);
+        const schema = JSON.stringify(registry.schema);
+        const callerValue = JSON.stringify(registry.edge.caller);
+        const editorValue = JSON.stringify(registry.previousPolicySha256['.editorconfig']);
+        const duplicateDocuments = [
+            raw.replace(`"schema":${schema}`, `"schema":"invalid-duplicate-decision","schema":${schema}`),
+            raw.replace(`"schema":${schema}`, `"schema":${schema},"schema":${schema}`),
+            raw.replace(`"schema":${schema}`, `"schema":"invalid","\\u0073chema":${schema}`),
+            raw.replace(`"caller":${callerValue}`, `"caller":"wrong","caller":${callerValue}`),
+            raw.replace(`"caller":${callerValue}`, `"caller":"wrong","\\u0063aller":${callerValue}`),
+            raw.replace(`".editorconfig":${editorValue}`, `".editorconfig":"wrong",".editorconfig":${editorValue}`),
+            raw.replace(`".editorconfig":${editorValue}`, `".editorconfig":"wrong","\\u002eeditorconfig":${editorValue}`)
+        ];
+        for (const duplicateDocument of duplicateDocuments)
+        {
+            assert.notEqual(duplicateDocument, raw);
+            write(clone, edgeRegistryPath, duplicateDocument);
+            execFileSync(process.execPath, ['--input-type=module', '-e', `
+                import assert from 'node:assert/strict';
+                import { pathToFileURL } from 'node:url';
+                const module = await import(pathToFileURL(process.argv[1] + '/tools/frontend/style-toolchain/closed-canonical-edge.mjs'));
+                assert.throws(() => module.validateCandidatePolicy(process.argv[1]), /duplicate raw registry member/);
             `, clone]);
         }
     }

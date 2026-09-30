@@ -392,7 +392,10 @@ export const trustedPolicyFiles = Object.freeze([
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs',
     'tools/frontend/style-toolchain/package.json',
-    'tools/frontend/style-toolchain/package-lock.json'
+    'tools/frontend/style-toolchain/package-lock.json',
+    '.editorconfig',
+    'src/frontend/eslint.config.mjs',
+    'src/frontend/stylelint.config.mjs'
 ]);
 
 export const changeContract = Object.freeze({

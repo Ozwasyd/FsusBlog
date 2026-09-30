@@ -131,9 +131,14 @@ outside the exact previous/current identities, and candidate-authored edge
 registry are refused. Source paths must be canonical regular non-executable files
 without symlink parents. Registry, parser/toolchain and source bindings are
 recomputed for decisions; the owner edge does not use ESLint's content cache.
+Registry members must be unique in the raw JSON at every nesting level, including
+escaped spellings of the same key; object construction cannot hide duplicates.
 The executor validates the selected caller and actual owner before invoking
 ESLint, rejecting inline enable/disable directives; a candidate cannot suppress
 the edge refusal by disabling the rule's own diagnostic.
+The fixture command declares its own caller, canonical owner, configuration and
+parser inputs; a containing lane's broad source identity is not a substitute for
+the command's actual input ownership.
 
 Changes to this authority require independent frozen-policy review and the
 owner-controlled bootstrap in [Change contract](change-contract.md). Candidate
