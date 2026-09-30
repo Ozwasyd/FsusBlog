@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Canonical Migration value source formatting for #3524 and #3631.
+e2f58910547659af49dda9ac2513ad21e5585b11

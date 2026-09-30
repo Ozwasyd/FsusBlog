@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "e2f58910547659af49dda9ac2513ad21e5585b11",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "env FSUSBLOG_STYLE_ROOT=. node tools/frontend/style-toolchain/node_modules/.bin/eslint --config eslint.config.mjs --fix --fix-type layout --format json tests/tools/content-shape-catalog.test.mjs tests/tools/doc-claim.test.mjs tests/tools/execution-envelope-services.test.mjs tests/tools/openapi-aeds-observation.test.mjs tests/tools/physical-execution-private-dotnet-scratch.test.mjs tests/tools/runtime-role-minimal-v3-contract.test.mjs tools/contracts/lib/openapi-observation.mjs tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs tools/docs/behavior-doc-minimal-contract-build.mjs tools/testing/content-shape-catalog.mjs"
+    },
+    "paths": [
+        "tests/tools/content-shape-catalog.test.mjs",
+        "tests/tools/doc-claim.test.mjs",
+        "tests/tools/execution-envelope-services.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/physical-execution-private-dotnet-scratch.test.mjs",
+        "tests/tools/runtime-role-minimal-v3-contract.test.mjs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/testing/content-shape-catalog.mjs"
+    ],
+    "firstPassTreeSha256": "8aa74b1076fc46b0690bc8d89ab877251eb2b059af13d1d2e5ba4fecd6d86a84",
+    "secondPassTreeSha256": "8aa74b1076fc46b0690bc8d89ab877251eb2b059af13d1d2e5ba4fecd6d86a84",
+    "idempotent": true
+}
