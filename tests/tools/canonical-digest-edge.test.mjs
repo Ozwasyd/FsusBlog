@@ -140,7 +140,7 @@ test('canonical binding rechecks source after a previous successful decision', (
 
 for (const relative of [caller, owner])
 {
-    test(`canonical path refuses symlink and mode drift: ${relative}`, () =>
+    test(`canonical path refuses hardlink, symlink and mode drift: ${relative}`, () =>
     {
         fixture((root) =>
         {
@@ -149,6 +149,9 @@ for (const relative of [caller, owner])
             assert.throws(() => admits(root), /executable mode/u);
             fs.chmodSync(absolute, 0o644);
             const copy = `${absolute}.copy`;
+            fs.linkSync(absolute, copy);
+            assert.throws(() => admits(root), /single-link/u);
+            fs.unlinkSync(copy);
             fs.renameSync(absolute, copy);
             fs.symlinkSync(copy, absolute);
             assert.throws(() => admits(root), /redirected/u);
@@ -245,6 +248,10 @@ test('closed authority rejects malformed registration and cached authority chang
             const original = fs.readFileSync(target, 'utf8');
             const module = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/closed-canonical-edge.mjs')));
             module.validateCandidatePolicy(root);
+            const alias = target + '.hardlink';
+            fs.linkSync(target, alias);
+            assert.throws(() => module.validateCandidatePolicy(root), /single-link/);
+            fs.unlinkSync(alias);
             fs.appendFileSync(target, '\\n ');
             assert.throws(() => module.validateCandidatePolicy(root), /authority drift/);
             fs.writeFileSync(target, original);
@@ -257,6 +264,24 @@ test('closed authority rejects malformed registration and cached authority chang
         ])
         {
             execFileSync(process.execPath, ['--input-type=module', '-e', script, clone, relative]);
+            execFileSync(process.execPath, ['--input-type=module', '-e', `
+                import assert from 'node:assert/strict';
+                import fs from 'node:fs';
+                import path from 'node:path';
+                import { pathToFileURL } from 'node:url';
+                const target = path.join(process.argv[1], process.argv[2]);
+                const alias = target + '.hardlink';
+                fs.linkSync(target, alias);
+                try
+                {
+                    await assert.rejects(import(pathToFileURL(path.join(process.argv[1],
+                        'tools/frontend/style-toolchain/closed-canonical-edge.mjs'))), /single-link/);
+                }
+                finally
+                {
+                    fs.unlinkSync(alias);
+                }
+            `, clone, relative]);
         }
         const registry = JSON.parse(fs.readFileSync(path.join(clone, edgeRegistryPath), 'utf8'));
         for (const mutated of [

@@ -11,7 +11,8 @@ const caller = 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
 const owner = 'tools/fact-extractors/lib/canonicalize.mjs';
 const specifier = '../fact-extractors/lib/canonicalize.mjs';
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
-const initialModuleDigest = sha256(fs.readFileSync(fileURLToPath(import.meta.url)));
+const classifierPath = 'tools/frontend/style-toolchain/closed-canonical-edge.mjs';
+const initialModuleDigest = sha256(regularSource(authorityRoot, classifierPath));
 const initialRegistryBytes = regularSource(authorityRoot, edgeRegistryPath);
 const ignoredAstKeys = new Set(['start', 'end', 'loc', 'range', 'raw', 'parent']);
 const authorityFiles = [
@@ -57,6 +58,10 @@ function authorityDigest()
             }
             else if (info.isFile())
             {
+                if (info.nlink !== 1)
+                {
+                    throw new Error('authority toolchain input must be a single-link regular file');
+                }
                 digest.update(fs.readFileSync(absolute));
             }
             else if (info.isSymbolicLink() && path.basename(path.dirname(relative)) === '.bin')
@@ -205,6 +210,10 @@ export function regularSource(root, relative)
         }
     }
     const stat = fs.lstatSync(current);
+    if (stat.nlink !== 1)
+    {
+        throw new Error('closed edge source must be a single-link regular file');
+    }
     if (!stat.isFile() || (stat.mode & 0o111) !== 0 || stat.size > 1024 * 1024)
     {
         throw new Error('closed edge source is nonregular or has executable mode');
@@ -275,7 +284,7 @@ export function assertCanonicalLanguage(ast)
 
 function readRegistry()
 {
-    if (initialModuleDigest !== sha256(fs.readFileSync(fileURLToPath(import.meta.url))))
+    if (initialModuleDigest !== sha256(regularSource(authorityRoot, classifierPath)))
     {
         throw new Error('cached classifier authority drift');
     }

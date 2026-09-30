@@ -128,8 +128,12 @@ read-only candidate source. Configuration, registry, parser, locked toolchain an
 classification come from the authority checkout, not the candidate. An external
 `--policy`, cross-checkout `--fix` or baseline update, candidate configuration
 outside the exact previous/current identities, and candidate-authored edge
-registry are refused. Source paths must be canonical regular non-executable files
-without symlink parents. Registry, parser/toolchain and source bindings are
+registry are refused. Caller, owner and authority source paths must be canonical
+single-link regular non-executable files without symlink parents. The executing
+classifier and installed parser/toolchain regular inputs also reject hardlink
+aliases, before loading authority and after a prior decision; locked internal
+`.bin` symlinks remain executable interfaces, not source-owner aliases.
+Registry, parser/toolchain and source bindings are
 recomputed for decisions; the owner edge does not use ESLint's content cache.
 Registry members must be unique in the raw JSON at every nesting level, including
 escaped spellings of the same key; object construction cannot hide duplicates.
