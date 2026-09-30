@@ -44,6 +44,7 @@ function fixture(callback)
         }
         write(root, caller, originalCaller);
         write(root, owner, originalOwner);
+        write(root, 'src/frontend/package.json', fs.readFileSync(path.join(authorityRoot, 'src/frontend/package.json')));
         callback(root);
     }
     finally
@@ -62,9 +63,8 @@ test('canonical edge accepts only the two bound source value versions', () =>
     fixture((root) =>
     {
         assert.equal(admits(root), true);
-        const source = execFileSync('git', ['show', `fc308b553a7e4872ed015a6b70a9fc834ee6a4d9:${caller}`], {
-            cwd: authorityRoot, encoding: 'utf8'
-        });
+        // Frozen fc308 caller source is read as text, never executed as a parallel value owner.
+        const source = fs.readFileSync(path.join(repositoryRoot, 'tests/tools/fixtures/canonical-digest-edge/v3-contract.mjs'), 'utf8');
         write(root, caller, source);
         assert.equal(admits(root), true);
     });
