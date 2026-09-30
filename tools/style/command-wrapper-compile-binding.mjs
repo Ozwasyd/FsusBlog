@@ -80,7 +80,7 @@ function exactKeys(value, keys, name)
 function boundedSourceBytes(file)
 {
     const maximumBytes = 64 * 1024;
-    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     try
     {
         const stat = fs.fstatSync(descriptor);
