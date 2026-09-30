@@ -1,5 +1,6 @@
 import path from 'node:path';
-const { digestValue } = await import('../fact-extractors/lib/canonicalize.mjs');
+
+import { digestValue } from '../fact-extractors/lib/canonicalize.mjs';
 
 // Pure value validator for the canonical BehaviorDoc minimal-contract producer.
 // The caller owns pinned artifact reads; this value contract never builds or discovers evidence.
