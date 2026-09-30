@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/releases/release-identity.md"
+            ],
+            "reason": "Preserve the existing caller-visible generated fact markers and release aggregate contract keys while the canonical producer synchronizes exactly two authoritative source digests."
+        }
+    ]
+}
