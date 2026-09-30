@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve the current standalone document-export provider, renderer and contract identifiers while documenting first-failure precedence; no generated dependency or external protocol identifier is renamed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs"
+            ],
+            "reason": "Preserve the existing closed tool-environment HOME, TMPDIR, LANG and PWD spellings and process/cgroup identities; this change affects only post-cleanup cancellation precedence and adds no environment access."
+        }
+    ]
+}
