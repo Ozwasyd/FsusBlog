@@ -86,6 +86,221 @@ public sealed class DocumentExportRetainedPidsTests
     }
 
     [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, false)]
+    public void UnknownDispatchReplyCannotQualifyEvenAnOtherwiseEmptyCleanup(
+        bool dispatchAcknowledged, bool cleanupQualified, bool expected)
+        => Assert.Equal(expected, DocumentExportSystemdCgroupAuthority.CanQualifyAdmissionFailureCleanup(
+            dispatchAcknowledged, cleanupQualified));
+
+    [Theory]
+    [InlineData("waiting")]
+    [InlineData("running")]
+    public void CancelsOnlyTheExactNonzeroOwnedStartJob(string state)
+        => DocumentExportSystemdCgroupAuthority.ValidateOwnedStartJob(
+            new Dictionary<string, string>
+            {
+                ["Id"] = "42",
+                ["Unit"] = UnitName,
+                ["JobType"] = "start",
+                ["State"] = state
+            },
+            "42",
+            UnitName);
+
+    [Theory]
+    [InlineData("Id", "43")]
+    [InlineData("Unit", "foreign.service")]
+    [InlineData("JobType", "stop")]
+    [InlineData("State", "done")]
+    [InlineData("Id", "")]
+    public void RefusesForeignOrUnqualifiedCancellationJobs(string field, string value)
+    {
+        var job = new Dictionary<string, string>
+        {
+            ["Id"] = "42",
+            ["Unit"] = UnitName,
+            ["JobType"] = "start",
+            ["State"] = "waiting"
+        };
+        job[field] = value;
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateOwnedStartJob(
+            job, "42", UnitName));
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateOwnedStartJob(
+            job, "", UnitName));
+    }
+
+    [Fact]
+    public void CancellationJobUsesTheNativeUnsignedIdRange()
+        => DocumentExportSystemdCgroupAuthority.ValidateOwnedStartJob(
+            new Dictionary<string, string>
+            {
+                ["Id"] = "4294967295",
+                ["Unit"] = UnitName,
+                ["JobType"] = "start",
+                ["State"] = "waiting"
+            },
+            "4294967295",
+            UnitName);
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("0")]
+    [InlineData("042")]
+    [InlineData("-42")]
+    [InlineData(" 42")]
+    [InlineData("4294967296")]
+    public void CancellationJobRefusesEmptyNoncanonicalOrOutOfRangeIds(string jobId)
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateOwnedStartJob(
+            new Dictionary<string, string>
+            {
+                ["Id"] = jobId,
+                ["Unit"] = UnitName,
+                ["JobType"] = "start",
+                ["State"] = "waiting"
+            },
+            jobId,
+            UnitName));
+
+    [Theory]
+    [InlineData("inactive")]
+    [InlineData("failed")]
+    public void NativeZeroStartRequiresQuiescentLoadedMetadataAndNoPendingJob(string activeState)
+    {
+        Dictionary<string, string> properties = CreateUnstartedProperties();
+        properties["ActiveState"] = activeState;
+
+        Assert.True(DocumentExportSystemdCgroupAuthority.HasNoNativeStart(properties));
+    }
+
+    [Theory]
+    [InlineData("LoadState", "not-found")]
+    [InlineData("ActiveState", "activating")]
+    [InlineData("ActiveState", "active")]
+    [InlineData("Job", "42")]
+    [InlineData("MainPID", "1")]
+    [InlineData("ExecMainPID", "1")]
+    [InlineData("ExecMainStartTimestampMonotonic", "1")]
+    [InlineData("ExecMainExitTimestampMonotonic", "1")]
+    [InlineData("ExecMainCode", "1")]
+    [InlineData("ExecMainStatus", "1")]
+    public void NativeZeroStartRefusesPendingStartedOrGarbageCollectedSnapshots(string field, string value)
+    {
+        Dictionary<string, string> properties = CreateUnstartedProperties();
+        properties[field] = value;
+
+        Assert.False(DocumentExportSystemdCgroupAuthority.HasNoNativeStart(properties));
+    }
+
+    [Fact]
+    public void NativeZeroStartRefusesMissingOrMalformedProcessIdentity()
+    {
+        Dictionary<string, string> properties = CreateUnstartedProperties();
+        properties.Remove("ExecMainPID");
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasNoNativeStart(properties));
+        properties["ExecMainPID"] = "-1";
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasNoNativeStart(properties));
+    }
+
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    public void LaterZeroMetadataCannotEraseEarlierExecutionOrRawAccountingEvidence(
+        bool previouslyStarted, bool previousActivity, bool expected)
+        => Assert.Equal(expected, DocumentExportSystemdCgroupAuthority.HasNoNativeStart(
+            CreateUnstartedProperties(), previouslyStarted, previousActivity));
+
+    [Theory]
+    [InlineData("MainPID")]
+    [InlineData("ExecMainPID")]
+    [InlineData("ExecMainStartTimestampMonotonic")]
+    [InlineData("ExecMainExitTimestampMonotonic")]
+    [InlineData("ExecMainCode")]
+    [InlineData("ExecMainStatus")]
+    public void EveryNativeExecutionFieldMakesEarlierStartEvidenceSticky(string field)
+    {
+        Dictionary<string, string> properties = CreateUnstartedProperties();
+        Assert.False(DocumentExportSystemdCgroupAuthority.HasNativeExecutionEvidence(properties));
+        properties[field] = "1";
+        bool startedSeen = DocumentExportSystemdCgroupAuthority.HasNativeExecutionEvidence(properties);
+        startedSeen |= DocumentExportSystemdCgroupAuthority.HasNativeExecutionEvidence(CreateUnstartedProperties());
+
+        Assert.True(startedSeen);
+        Assert.False(DocumentExportSystemdCgroupAuthority.HasNoNativeStart(CreateUnstartedProperties(), startedSeen));
+    }
+
+    [Fact]
+    public void NativeExecutionEvidenceRefusesMissingOrMalformedFields()
+    {
+        Dictionary<string, string> properties = CreateUnstartedProperties();
+        properties.Remove("ExecMainPID");
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasNativeExecutionEvidence(properties));
+        properties["ExecMainPID"] = "-1";
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasNativeExecutionEvidence(properties));
+    }
+
+    [Fact]
+    public void AbsentParentNeedsAnExactUnconfiguredInactiveSliceAlongsideRetainedServiceEvidence()
+        => Assert.True(DocumentExportSystemdCgroupAuthority.HasUnactivatedAccountingSlice(
+            CreateInactiveSliceProperties(), SliceName));
+
+    [Theory]
+    [InlineData("Id", "foreign.slice")]
+    [InlineData("LoadState", "not-found")]
+    [InlineData("ActiveState", "active")]
+    [InlineData("Slice", "foreign.slice")]
+    [InlineData("ControlGroup", "/foreign")]
+    [InlineData("FragmentPath", "/configured")]
+    [InlineData("SourcePath", "/configured")]
+    [InlineData("DropInPaths", "/configured")]
+    [InlineData("Job", "42")]
+    [InlineData("ActiveEnterTimestampMonotonic", "1")]
+    [InlineData("InactiveExitTimestampMonotonic", "1")]
+    public void AbsentParentRefusesForeignConfiguredPendingOrActivatedSliceMetadata(string field, string value)
+    {
+        Dictionary<string, string> properties = CreateInactiveSliceProperties();
+        properties[field] = value;
+
+        Assert.False(DocumentExportSystemdCgroupAuthority.HasUnactivatedAccountingSlice(properties, SliceName));
+    }
+
+    [Fact]
+    public void AbsentParentRefusesMissingOrMalformedActivationMetadata()
+    {
+        Dictionary<string, string> properties = CreateInactiveSliceProperties();
+        properties.Remove("ActiveEnterTimestampMonotonic");
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasUnactivatedAccountingSlice(
+            properties, SliceName));
+        properties["ActiveEnterTimestampMonotonic"] = "-1";
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasUnactivatedAccountingSlice(
+            properties, SliceName));
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0, false, true)]
+    [InlineData(1, 1, 0, false, false)]
+    [InlineData(0, 1, 0, false, false)]
+    [InlineData(0, 0, 1, false, false)]
+    [InlineData(0, 0, 0, true, false)]
+    public void ZeroStartAccountingDoesNotSubtractTheBrokerOrForgetEarlierActivity(
+        long current, long peak, long maxEvents, bool populated, bool expected)
+        => Assert.Equal(expected, DocumentExportSystemdCgroupAuthority.HasNoNativeAccountingActivity(
+            current, peak, maxEvents, populated));
+
+    [Theory]
+    [InlineData(-1, 0, 0)]
+    [InlineData(0, -1, 0)]
+    [InlineData(0, 0, -1)]
+    public void ZeroStartAccountingRefusesMalformedNegativeNativeCounters(long current, long peak, long maxEvents)
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.HasNoNativeAccountingActivity(
+            current, peak, maxEvents, false));
+
+    [Theory]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
@@ -200,4 +415,34 @@ public sealed class DocumentExportRetainedPidsTests
 
     private static DocumentExportCgroupObservation CreateTerminal()
         => new(42_000, 0, 2_048, 1, 1, 0, 0, 0, false);
+
+    private static Dictionary<string, string> CreateUnstartedProperties()
+        => new()
+        {
+            ["LoadState"] = "loaded",
+            ["ActiveState"] = "inactive",
+            ["Job"] = string.Empty,
+            ["MainPID"] = "0",
+            ["ExecMainPID"] = "0",
+            ["ExecMainStartTimestampMonotonic"] = "0",
+            ["ExecMainExitTimestampMonotonic"] = "0",
+            ["ExecMainCode"] = "0",
+            ["ExecMainStatus"] = "0"
+        };
+
+    private static Dictionary<string, string> CreateInactiveSliceProperties()
+        => new()
+        {
+            ["Id"] = SliceName,
+            ["LoadState"] = "loaded",
+            ["ActiveState"] = "inactive",
+            ["Slice"] = "app.slice",
+            ["ControlGroup"] = string.Empty,
+            ["FragmentPath"] = string.Empty,
+            ["SourcePath"] = string.Empty,
+            ["DropInPaths"] = string.Empty,
+            ["Job"] = string.Empty,
+            ["ActiveEnterTimestampMonotonic"] = "0",
+            ["InactiveExitTimestampMonotonic"] = "0"
+        };
 }

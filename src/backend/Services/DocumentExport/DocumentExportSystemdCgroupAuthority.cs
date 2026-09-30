@@ -286,18 +286,24 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
 
         bool unitMayExist = false;
+        bool dispatchAcknowledged = false;
+        using var dispatchDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task<ControlResult>? dispatch = null;
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             unitMayExist = true;
-            ControlResult launch = await RunControlAsync(
+            dispatch = RunControlAsync(
                 Contract.SystemdRunPath,
                 arguments,
-                cancellationToken);
+                dispatchDeadline.Token);
+            ControlResult launch = await dispatch.WaitAsync(cancellationToken);
             if (launch.ExitCode != 0)
             {
                 throw new PlatformNotSupportedException(
                     $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
             }
+            dispatchAcknowledged = true;
 
             return await AdmitAsync(cancellationToken);
         }
@@ -305,16 +311,88 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             if (ShouldRecoverCancelledAdmission(unitMayExist, exception, cancellationToken.IsCancellationRequested))
             {
-                // Dispatch cancellation can follow actual ExecStart. Stop the owned
-                // service first, then retain its native identity through bounded
-                // admission recovery rather than claiming it never started.
+                // Keep the original dispatch alive until its manager reply. Killing
+                // the CLI on caller cancellation does not fence a late accepted RPC.
                 using var recoveryDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                Execution? recovered = null;
+                bool neverStartedAndCleaned = false;
                 try
                 {
+                    ControlResult acknowledged = await dispatch!.WaitAsync(recoveryDeadline.Token);
+                    if (acknowledged.ExitCode != 0)
+                    {
+                        throw new InvalidDataException(
+                            $"Document export cancelled dispatch was not acknowledged: {BoundedDiagnostic(acknowledged)}");
+                    }
+                    dispatchAcknowledged = true;
+                    IReadOnlyDictionary<string, string> before = await QueryCancelledAdmissionAsync(
+                        unitName,
+                        recoveryDeadline.Token);
+                    ValidateCancelledAdmissionOwner(before, unitName, accountingSlice, budgets, runtimeMaxMicroseconds);
+                    bool startedSeen = HasNativeExecutionEvidence(before);
+                    bool accountingActivitySeen = Directory.Exists(accountingCgroupPath)
+                        && !ReadNoAccountingActivity(accountingCgroupPath);
+                    string jobId = RequireProperty(before, "Job");
+                    if (!string.IsNullOrEmpty(jobId))
+                    {
+                        _ = ParseStartJobId(jobId);
+                        string[] jobProperties = ["Id", "Unit", "JobType", "State"];
+                        ControlResult jobResult = await RunUnitQueryAsync(
+                            jobId,
+                            recoveryDeadline.Token,
+                            jobProperties);
+                        if (jobResult.ExitCode == 0)
+                        {
+                            ValidateOwnedStartJob(ParseProperties(jobResult.StandardOutput, jobProperties), jobId, unitName);
+                            await RunSystemctlAllowFailureAsync(
+                                ["--user", "cancel", jobId],
+                                recoveryDeadline.Token);
+                        }
+                        else
+                        {
+                            IReadOnlyDictionary<string, string> retired = await QueryCancelledAdmissionAsync(
+                                unitName,
+                                recoveryDeadline.Token);
+                            ValidateCancelledAdmissionOwner(retired, unitName, accountingSlice, budgets, runtimeMaxMicroseconds);
+                            startedSeen |= HasNativeExecutionEvidence(retired);
+                            if (!string.IsNullOrEmpty(RequireProperty(retired, "Job")))
+                            {
+                                throw new InvalidDataException("Document export start job inspection failed without exact retirement.");
+                            }
+                        }
+                    }
                     await RunSystemctlAllowFailureAsync(
                         ["--user", "kill", "--kill-whom=all", "--signal=KILL", unitName],
                         recoveryDeadline.Token);
-                    return await AdmitAsync(recoveryDeadline.Token);
+                    IReadOnlyDictionary<string, string> after = await QueryCancelledAdmissionAsync(
+                        unitName,
+                        recoveryDeadline.Token);
+                    ValidateCancelledAdmissionOwner(after, unitName, accountingSlice, budgets, runtimeMaxMicroseconds);
+                    if (HasNoNativeStart(after, startedSeen, accountingActivitySeen)
+                        && await HasNoAccountingActivityAsync(
+                            accountingSlice,
+                            accountingControlGroup,
+                            accountingCgroupPath,
+                            unitName,
+                            RequireProperty(after, "ControlGroup"),
+                            recoveryDeadline.Token))
+                    {
+                        neverStartedAndCleaned = await TryTerminateAndRemoveUnitAsync(
+                            unitName, accountingSlice, accountingCgroupPath);
+                        if (!neverStartedAndCleaned)
+                        {
+                            throw new InvalidDataException("Document export unstarted cancellation cleanup was not qualified.");
+                        }
+                    }
+                    else
+                    {
+                        recovered = await AdmitAsync(recoveryDeadline.Token);
+                        // CancelJob cannot abort a running start job. Kill again
+                        // after its native process identity becomes observable.
+                        await RunSystemctlAllowFailureAsync(
+                            ["--user", "kill", "--kill-whom=all", "--signal=KILL", unitName],
+                            recoveryDeadline.Token);
+                    }
                 }
                 catch (Exception recoveryException)
                 {
@@ -322,17 +400,156 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     throw new DocumentExportCgroupAdmissionCleanupException(
                         new AggregateException(exception, recoveryException));
                 }
+                if (neverStartedAndCleaned)
+                {
+                    throw;
+                }
+                return recovered!;
             }
             if (unitMayExist)
             {
                 bool cleanupQualified = await TryTerminateAndRemoveUnitAsync(unitName, accountingSlice, accountingCgroupPath);
-                if (!cleanupQualified)
+                if (!CanQualifyAdmissionFailureCleanup(dispatchAcknowledged, cleanupQualified))
                 {
                     throw new DocumentExportCgroupAdmissionCleanupException(exception);
                 }
             }
             throw;
         }
+    }
+
+    internal static bool CanQualifyAdmissionFailureCleanup(bool dispatchAcknowledged, bool cleanupQualified)
+        => dispatchAcknowledged && cleanupQualified;
+
+    private Task<IReadOnlyDictionary<string, string>> QueryCancelledAdmissionAsync(
+        string unitName,
+        CancellationToken cancellationToken)
+        => QueryUnitAsync(
+            unitName,
+            cancellationToken,
+            "Id", "Transient", "LoadState", "ActiveState", "Type", "Slice", "Job", "ControlGroup",
+            "MainPID", "ExecMainPID", "ExecMainStartTimestampMonotonic", "ExecMainExitTimestampMonotonic",
+            "ExecMainCode", "ExecMainStatus", "MemoryAccounting", "TasksAccounting", "MemoryMax",
+            "MemorySwapMax", "TasksMax", "RuntimeMaxUSec", "KillMode", "RemainAfterExit");
+
+    private static void ValidateCancelledAdmissionOwner(
+        IReadOnlyDictionary<string, string> properties,
+        string unitName,
+        string accountingSlice,
+        DocumentExportResourceBudgets budgets,
+        long runtimeMaxMicroseconds)
+    {
+        if (RequireProperty(properties, "Id") != unitName
+            || RequireProperty(properties, "Transient") != "yes")
+        {
+            throw new InvalidDataException("Document export cancelled service identity was not exact.");
+        }
+        ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds, accountingSlice, allowInactive: true);
+    }
+
+    internal static void ValidateOwnedStartJob(
+        IReadOnlyDictionary<string, string> properties,
+        string jobId,
+        string unitName)
+    {
+        _ = ParseStartJobId(jobId);
+        if (RequireProperty(properties, "Id") != jobId
+            || RequireProperty(properties, "Unit") != unitName
+            || RequireProperty(properties, "JobType") != "start"
+            || RequireProperty(properties, "State") is not ("waiting" or "running"))
+        {
+            throw new InvalidDataException("Document export cancelled job was not its exact start job.");
+        }
+    }
+
+    private static uint ParseStartJobId(string jobId)
+    {
+        if (!uint.TryParse(jobId, NumberStyles.None, CultureInfo.InvariantCulture, out uint numericId)
+            || numericId == 0
+            || jobId != numericId.ToString(CultureInfo.InvariantCulture))
+        {
+            throw new InvalidDataException("Document export start job ID was not canonical and nonzero.");
+        }
+        return numericId;
+    }
+
+    internal static bool HasNoNativeStart(
+        IReadOnlyDictionary<string, string> properties,
+        bool previouslyStarted = false,
+        bool previousAccountingActivity = false)
+        => !previouslyStarted
+            && !previousAccountingActivity
+            && RequireProperty(properties, "LoadState") == "loaded"
+            && RequireProperty(properties, "ActiveState") is "inactive" or "failed"
+            && string.IsNullOrEmpty(RequireProperty(properties, "Job"))
+            && new[]
+            {
+                "MainPID", "ExecMainPID", "ExecMainStartTimestampMonotonic",
+                "ExecMainExitTimestampMonotonic", "ExecMainCode", "ExecMainStatus"
+            }.All(name => ParseNonNegativeLong(RequireProperty(properties, name), name) == 0);
+
+    internal static bool HasNativeExecutionEvidence(IReadOnlyDictionary<string, string> properties)
+        => new[]
+        {
+            "MainPID", "ExecMainPID", "ExecMainStartTimestampMonotonic",
+            "ExecMainExitTimestampMonotonic", "ExecMainCode", "ExecMainStatus"
+        }.Any(name => ParseNonNegativeLong(RequireProperty(properties, name), name) > 0);
+
+    private async Task<bool> HasNoAccountingActivityAsync(
+        string accountingSlice,
+        string accountingControlGroup,
+        string accountingCgroupPath,
+        string unitName,
+        string serviceControlGroup,
+        CancellationToken cancellationToken)
+    {
+        // Missing counters are not zero counters. An inactive implicit slice
+        // only supplements the still-retained service's complete zero identity.
+        if (!Directory.Exists(accountingCgroupPath))
+        {
+            IReadOnlyDictionary<string, string> slice = await QueryUnitAsync(
+                accountingSlice,
+                cancellationToken,
+                "Id", "LoadState", "ActiveState", "ControlGroup", "Slice", "FragmentPath", "SourcePath", "DropInPaths",
+                "ActiveEnterTimestampMonotonic", "InactiveExitTimestampMonotonic", "Job");
+            return string.IsNullOrEmpty(serviceControlGroup) && HasUnactivatedAccountingSlice(slice, accountingSlice);
+        }
+        await ValidateAccountingOwnerAsync(accountingSlice, accountingControlGroup, unitName, cancellationToken);
+        return ReadNoAccountingActivity(accountingCgroupPath);
+    }
+
+    private static bool ReadNoAccountingActivity(string accountingCgroupPath)
+    {
+        if (new DirectoryInfo(accountingCgroupPath).LinkTarget is not null)
+        {
+            throw new InvalidDataException("Document export cancellation accounting path was linked.");
+        }
+        return HasNoNativeAccountingActivity(
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.current"),
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.peak"),
+            RequireCounter(ParseCounterFile(Path.Combine(accountingCgroupPath, "pids.events")), "max"),
+            RequireCounter(ParseCounterFile(Path.Combine(accountingCgroupPath, "cgroup.events")), "populated") != 0);
+    }
+
+    internal static bool HasUnactivatedAccountingSlice(
+        IReadOnlyDictionary<string, string> properties,
+        string accountingSlice)
+        => RequireProperty(properties, "Id") == accountingSlice
+            && RequireProperty(properties, "LoadState") == "loaded"
+            && RequireProperty(properties, "ActiveState") == "inactive"
+            && RequireProperty(properties, "Slice") == DocumentExportSlice
+            && new[] { "ControlGroup", "FragmentPath", "SourcePath", "DropInPaths", "Job" }.All(
+                name => string.IsNullOrEmpty(RequireProperty(properties, name)))
+            && ParseNonNegativeLong(RequireProperty(properties, "ActiveEnterTimestampMonotonic"), "slice activation") == 0
+            && ParseNonNegativeLong(RequireProperty(properties, "InactiveExitTimestampMonotonic"), "slice activation") == 0;
+
+    internal static bool HasNoNativeAccountingActivity(long current, long peak, long maxEvents, bool populated)
+    {
+        if (current < 0 || peak < 0 || maxEvents < 0)
+        {
+            throw new InvalidDataException("Document export native cancellation counters must be nonnegative.");
+        }
+        return current == 0 && peak == 0 && maxEvents == 0 && !populated;
     }
 
     private async Task<IReadOnlyDictionary<string, string>> WaitForAdmissionPropertiesAsync(
@@ -352,7 +569,11 @@ public sealed class DocumentExportSystemdCgroupAuthority
             {
                 return properties;
             }
-            if (loadState == "loaded" && !string.IsNullOrEmpty(controlGroup))
+            if (loadState == "loaded"
+                && !string.IsNullOrEmpty(controlGroup)
+                && (RequireProperty(properties, "MainPID") != "0"
+                    || RequireProperty(properties, "ExecMainPID") != "0")
+                && RequireProperty(properties, "ExecMainStartTimestampMonotonic") != "0")
             {
                 string cgroupPath = ResolveCgroupPath(unitName, controlGroup, requireExisting: false);
                 if (Directory.Exists(cgroupPath))
@@ -605,6 +826,20 @@ public sealed class DocumentExportSystemdCgroupAuthority
         CancellationToken cancellationToken,
         params string[] propertyNames)
     {
+        ControlResult result = await RunUnitQueryAsync(unitName, cancellationToken, propertyNames);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidDataException(
+                $"Document export authority could not inspect {unitName}: {BoundedDiagnostic(result)}");
+        }
+        return ParseProperties(result.StandardOutput, propertyNames);
+    }
+
+    private async Task<ControlResult> RunUnitQueryAsync(
+        string unitName,
+        CancellationToken cancellationToken,
+        params string[] propertyNames)
+    {
         var arguments = new List<string>
         {
             "--user",
@@ -616,16 +851,10 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             arguments.Add($"--property={propertyName}");
         }
-        ControlResult result = await RunControlAsync(
+        return await RunControlAsync(
             Contract.SystemctlPath,
             arguments,
             cancellationToken);
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidDataException(
-                $"Document export authority could not inspect {unitName}: {BoundedDiagnostic(result)}");
-        }
-        return ParseProperties(result.StandardOutput, propertyNames);
     }
 
     private async Task<ControlResult> RunControlAsync(
@@ -920,12 +1149,14 @@ public sealed class DocumentExportSystemdCgroupAuthority
         IReadOnlyDictionary<string, string> properties,
         DocumentExportResourceBudgets budgets,
         long expectedRuntimeMaxMicroseconds,
-        string accountingSlice)
+        string accountingSlice,
+        bool allowInactive = false)
     {
         string loadState = RequireProperty(properties, "LoadState");
         string activeState = RequireProperty(properties, "ActiveState");
         if (loadState != "loaded"
-            || activeState is not ("active" or "activating" or "deactivating" or "failed")
+            || (activeState is not ("active" or "activating" or "deactivating" or "failed")
+                && !(allowInactive && activeState == "inactive"))
             || RequireProperty(properties, "Type") != "exec"
             || RequireProperty(properties, "Slice") != accountingSlice
             || RequireProperty(properties, "MemoryAccounting") != "yes"
