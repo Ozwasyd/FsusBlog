@@ -790,6 +790,76 @@ test('diff checker binds multiline JS case identities without relying on removed
     }
 });
 
+test('diff checker binds exact NUL-delimited Git paths without quoted-display false removals', () =>
+{
+    for (const name of ['中文', 'tab\tname', 'quote"name', 'line\nname', '[ab]', '*'])
+    {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-exact-path-git-'));
+        const file = `tests/tools/${name}.test.mjs`;
+        try
+        {
+            execFileSync('git', ['init', '-q'], { cwd: root });
+            execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+            execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+            mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+            writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+            execFileSync('git', ['add', '.'], { cwd: root });
+            execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+            writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\ntest('second', () =>\n{\n});\n");
+            execFileSync('git', ['commit', '-qam', 'format'], { cwd: root });
+            assert.deepEqual(verifyDiffHasTransaction({ root, base: 'HEAD^' }), [], name);
+            writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\n");
+            execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+            assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u, name);
+        }
+        finally
+        {
+            rmSync(root, { recursive: true, force: true });
+        }
+    }
+});
+
+test('diff checker rejects dynamic case placeholders that can conceal changed runtime cases', () =>
+{
+    const pairs = [
+        [
+            "import test from 'node:test'; const name = 'old'; test(name, () => {});\n",
+            "import test from 'node:test'; const name = 'new'; test(name, () => {});\n"
+        ],
+        [
+            "import { test } from 'vitest'; for (const name of ['first', 'second']) test(name, () => {});\n",
+            "import { test } from 'vitest'; for (const name of ['first']) test(name, () => {});\n"
+        ],
+        [
+            "import { test } from 'vitest'; const rows = [[1], [2]]; test.each(rows)('row %i', () => {});\n",
+            "import { test } from 'vitest'; const rows = [[1]]; test.each(rows)('row %i', () => {});\n"
+        ]
+    ];
+    for (const [before, after] of pairs)
+    {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-dynamic-git-'));
+        const file = path.join(root, 'tests/tools/Dynamic.test.mjs');
+        try
+        {
+            execFileSync('git', ['init', '-q'], { cwd: root });
+            execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+            execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+            mkdirSync(path.dirname(file), { recursive: true });
+            writeFileSync(file, before);
+            execFileSync('git', ['add', '.'], { cwd: root });
+            execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+            writeFileSync(file, after);
+            execFileSync('git', ['commit', '-qam', 'change runtime cases'], { cwd: root });
+            assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+            assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+        }
+        finally
+        {
+            rmSync(root, { recursive: true, force: true });
+        }
+    }
+});
+
 test('tool-owned JS test cases require the same exact replacement transaction', () =>
 {
     const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-tool-owner-git-'));

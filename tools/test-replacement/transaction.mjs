@@ -933,7 +933,7 @@ export function applyReplacementTransaction({
 
 function isTestSource(file)
 {
-    return /(?:^|\/)(?:tests\/.*(?:Tests?\.cs|\.(?:test|spec)\.[cm]?[jt]sx?|\.cpp)$|tools\/.*\.(?:test|spec)\.[cm]?[jt]sx?|tools\/test\/.*\.(?:sh|mjs|js))$/u.test(file);
+    return /(?:^|\/)(?:tests\/.*(?:Tests?\.cs|\.(?:test|spec)\.[cm]?[jt]sx?|\.cpp)$|tools\/.*\.(?:test|spec)\.[cm]?[jt]sx?|tools\/test\/.*\.(?:sh|mjs|js))$/su.test(file);
 }
 
 const JS_TEST_SOURCE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
@@ -941,12 +941,14 @@ const AST_ADAPTER_ENTRY = path.join(path.dirname(fileURLToPath(import.meta.url))
 
 function revisionFile(root, revision, file)
 {
-    const entry = execFileSync('git', ['ls-tree', revision, '--', file], {
+    const entries = execFileSync('git', ['ls-tree', '-z', revision, '--', file], {
         cwd: root,
         encoding: 'utf8',
         env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
-    }).trimEnd();
-    if (!/^100(?:644|755) blob [a-f0-9]{40}\t/u.test(entry)
+    }).split('\0');
+    const entry = entries[0];
+    if (entries.length !== 2 || entries[1] !== ''
+        || !/^100(?:644|755) blob [a-f0-9]{40}\t/u.test(entry)
         || entry.slice(entry.indexOf('\t') + 1) !== file)
     {
         fail(`test identity source is not an exact regular Git blob: ${revision}:${file}`);
@@ -992,7 +994,8 @@ function astCaseIds(file, source, adapter)
         }
         if (!Array.isArray(report.testCases) || !Array.isArray(report.diagnostics)
             || report.diagnostics.length > 0
-            || report.testCases.some((testCase) => testCase.ownerFile !== file || typeof testCase.id !== 'string'))
+            || report.testCases.some((testCase) => testCase.ownerFile !== file
+                || typeof testCase.id !== 'string' || testCase.identity !== 'static'))
         {
             fail(`AST identity extraction is incomplete for ${file}`);
         }
