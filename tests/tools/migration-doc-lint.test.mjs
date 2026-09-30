@@ -42,7 +42,8 @@ function mutateDocument(root, transform)
 function check(root)
 {
     return spawnSync(process.execPath, [join(root, 'tools/db/migration-doc-lint.mjs')], {
-        encoding: 'utf8'
+        encoding: 'utf8',
+        env: { ...process.env, FSUSBLOG_REPO_ROOT: root }
     });
 }
 
@@ -91,4 +92,22 @@ test('a final-state value drift still fails closed', (t) =>
     const result = check(root);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /sys_user\.username 的 physical 不一致/u);
+});
+
+test('workflow root inheritance cannot redirect a refusal fixture', () =>
+{
+    const environment = { ...process.env, FSUSBLOG_REPO_ROOT: repositoryRoot };
+    delete environment.NODE_TEST_CONTEXT;
+    const result = spawnSync(process.execPath, [
+        '--test',
+        '--test-reporter=spec',
+        '--test-name-pattern=^a missing final-state row still fails closed$',
+        fileURLToPath(import.meta.url)
+    ], {
+        encoding: 'utf8',
+        env: environment
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /pass 1\b/u);
+    assert.match(result.stdout, /fail 0\b/u);
 });
