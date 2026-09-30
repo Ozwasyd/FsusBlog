@@ -613,9 +613,9 @@ public sealed class DocumentExportSystemdCgroupAuthority
             cgroupPath,
             lastObservation,
             cancellationToken);
-        if (final.Populated)
+        if (!IsDrained(final))
         {
-            throw new InvalidDataException("Document export cgroup remained populated before unit cleanup.");
+            throw new InvalidDataException("Document export cgroup did not reach an empty process count and population state before unit cleanup.");
         }
 
         await RunSystemctlAllowFailureAsync(["--user", "stop", unitName], cancellationToken);
@@ -639,6 +639,9 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
         return new DocumentExportCgroupCleanup(false, unitRemoved, cgroupRemoved);
     }
+
+    internal static bool IsDrained(DocumentExportCgroupObservation observation)
+        => !observation.Populated && observation.PidsCurrent == 0;
 
     private async Task<bool> IsUnitRemovedAsync(string unitName, CancellationToken cancellationToken)
     {

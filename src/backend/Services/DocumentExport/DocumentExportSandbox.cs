@@ -547,11 +547,13 @@ public sealed class DocumentExportSandboxRuntime
                     if (observation.Populated)
                     {
                         cgroupKillIssued |= await execution.KillAsync(CancellationToken.None);
-                        for (int attempt = 0; attempt < 100 && observation.Populated; attempt++)
-                        {
-                            await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
-                            observation = await execution.ObserveAsync(CancellationToken.None);
-                        }
+                    }
+                    for (int attempt = 0;
+                        attempt < 100 && !DocumentExportSystemdCgroupAuthority.IsDrained(observation);
+                        attempt++)
+                    {
+                        await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
+                        observation = await execution.ObserveAsync(CancellationToken.None);
                     }
                     finalCgroupPopulated = observation.Populated;
                     finalProcessesRemaining = observation.PidsCurrent;
