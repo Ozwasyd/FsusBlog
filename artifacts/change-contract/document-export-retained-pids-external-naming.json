@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve existing standalone export contract identifiers while documenting exact run-private retained process accounting."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs"
+            ],
+            "reason": "Preserve existing fixed systemd control-environment spellings; retained accounting uses the same installed tools and introduces no environment access."
+        }
+    ]
+}

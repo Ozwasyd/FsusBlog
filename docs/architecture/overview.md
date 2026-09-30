@@ -88,6 +88,8 @@ Sandbox finalization preserves the first observed budget or execution failure if
 
 Cgroup drain requires both an observed zero business-process count and an unpopulated cgroup. Finalization reobserves a still-positive count within the existing bounded cleanup polling schedule even when population is already empty; authority cleanup refuses either nonempty signal and never substitutes a synthetic zero count.
 
+Each export transient service belongs to one exact run-private accounting slice under `app.slice`. The same authority binds the service, run and slice before accepting any counters, refuses direct parent processes or foreign child cgroups, and reads the parent's retained native pids peak/events after the service cgroup retires. Service hard limits still apply before `ExecStart`; no keeper process or larger budget is introduced. Physical cleanup removes both the service and its private accounting cgroup. A terminal service without its exact retained accounting owner cannot qualify process accounting.
+
 This boundary does not register an endpoint, admin workflow, storage implementation, or production renderer deployment. The local test executable is an explicit deterministic simulation of the unavailable canonical renderer boundary and proves sandbox/protocol/package behavior only. Production activation must supply the exact registered canonical tool and must not reinterpret this test fixture as renderer integration evidence.
 
 ## Standard Protocol Exemptions

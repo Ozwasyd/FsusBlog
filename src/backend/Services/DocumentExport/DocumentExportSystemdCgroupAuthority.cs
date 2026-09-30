@@ -54,6 +54,9 @@ public sealed class DocumentExportCgroupAdmissionCleanupException : Exception
 /// before ExecStart. CPU is intentionally different: cgroup v2 exposes cumulative
 /// descendant usage but no total-CPU hard limit, so the host samples cpu.stat and
 /// kills the cgroup after observing an overrun. Receipts must retain that overshoot.
+/// A run-private parent slice retains native pids peak/events after the service
+/// cgroup retires. It contains no accounting helper or unrelated workload; the
+/// authority validates its exact binding and removes it with the service.
 /// </summary>
 public sealed class DocumentExportSystemdCgroupAuthority
 {
@@ -145,6 +148,12 @@ public sealed class DocumentExportSystemdCgroupAuthority
         await ValidateInstalledIdentityAsync(cancellationToken);
 
         string unitName = $"fsusblog-document-export-{runId}.service";
+        string accountingSlice = AccountingSliceName(runId);
+        string accountingControlGroup = await PrepareAccountingIdentityAsync(
+            unitName,
+            accountingSlice,
+            cancellationToken);
+        string accountingCgroupPath = ResolveCgroupPath(accountingSlice, accountingControlGroup, requireExisting: false);
         long cpuBudgetMicroseconds = ToPositiveMicroseconds(budgets.CpuTime, nameof(budgets.CpuTime));
         long runtimeMaxMicroseconds = ToPositiveMicroseconds(budgets.WallTime, nameof(budgets.WallTime));
         Directory.CreateDirectory(Path.GetDirectoryName(standardOutputPath)!);
@@ -159,7 +168,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
             "--quiet",
             "--no-block",
             $"--unit={unitName}",
-            $"--slice={DocumentExportSlice}",
+            $"--slice={accountingSlice}",
             "--service-type=exec",
             $"--working-directory={workload.WorkingDirectory}",
             "--property=CPUAccounting=yes",
@@ -221,7 +230,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     "RuntimeMaxUSec",
                     "KillMode",
                     "RemainAfterExit");
-                ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds);
+                ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds, accountingSlice);
                 string controlGroup = RequireProperty(properties, "ControlGroup");
                 bool terminalAdmission = IsTerminalAdmission(properties);
                 if (terminalAdmission)
@@ -229,13 +238,15 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     ValidateTerminalAdmissionProperties(properties);
                     if (string.IsNullOrEmpty(controlGroup))
                     {
-                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, cancellationToken);
+                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, accountingSlice, cancellationToken);
                     }
                 }
                 string cgroupPath = ResolveCgroupPath(
                     unitName,
                     controlGroup,
                     requireExisting: false);
+                ValidateAccountingIdentity(runId, unitName, accountingSlice, controlGroup, accountingControlGroup);
+                await ValidateAccountingOwnerAsync(accountingSlice, accountingControlGroup, unitName, cancellationToken);
                 int rootProcessId = ParsePositiveInt(
                     FirstNonZeroProperty(properties, "MainPID", "ExecMainPID"),
                     "document export root process ID");
@@ -244,7 +255,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 DocumentExportCgroupObservation initial;
                 if (terminalAdmission)
                 {
-                    initial = CreateTerminalObservation(properties);
+                    initial = ReadRetainedPids(CreateTerminalObservation(properties), accountingCgroupPath);
                 }
                 else
                 {
@@ -269,6 +280,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 return new Execution(
                     this,
                     unitName,
+                    accountingSlice,
+                    accountingCgroupPath,
                     controlGroup,
                     cgroupPath,
                     rootProcessId,
@@ -287,7 +300,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             if (unitMayExist)
             {
-                bool cleanupQualified = await TryTerminateAndRemoveUnitAsync(unitName);
+                bool cleanupQualified = await TryTerminateAndRemoveUnitAsync(unitName, accountingSlice, accountingCgroupPath);
                 if (!cleanupQualified)
                 {
                     throw new DocumentExportCgroupAdmissionCleanupException(exception);
@@ -335,10 +348,11 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
     private async Task<string> ResolveTerminalControlGroupAsync(
         string unitName,
+        string accountingSlice,
         CancellationToken cancellationToken)
     {
         IReadOnlyDictionary<string, string> slice = await QueryUnitAsync(
-            DocumentExportSlice,
+            accountingSlice,
             cancellationToken,
             "LoadState",
             "ControlGroup");
@@ -359,6 +373,124 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 "Document export terminal service retained an unqualified cgroup path.");
         }
         return controlGroup;
+    }
+
+    private async Task<string> PrepareAccountingIdentityAsync(
+        string unitName,
+        string accountingSlice,
+        CancellationToken cancellationToken)
+    {
+        if (!await IsUnitRemovedAsync(unitName, cancellationToken))
+        {
+            throw new InvalidDataException("Document export service identity was already in use.");
+        }
+        IReadOnlyDictionary<string, string> parent = await QueryUnitAsync(
+            DocumentExportSlice,
+            cancellationToken,
+            "LoadState",
+            "ControlGroup");
+        string parentControlGroup = RequireProperty(parent, "ControlGroup");
+        if (RequireProperty(parent, "LoadState") != "loaded"
+            || !parentControlGroup.EndsWith($"/{DocumentExportSlice}", StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("Document export accounting parent slice was not exact.");
+        }
+        string controlGroup = $"{parentControlGroup}/{accountingSlice}";
+        string path = ResolveCgroupPath(accountingSlice, controlGroup, requireExisting: false);
+        IReadOnlyDictionary<string, string> candidate = await QueryUnitAsync(
+            accountingSlice,
+            cancellationToken,
+            "ActiveState",
+            "ControlGroup",
+            "FragmentPath",
+            "SourcePath",
+            "DropInPaths");
+        if (Directory.Exists(path)
+            || RequireProperty(candidate, "ActiveState") != "inactive"
+            || new[] { "ControlGroup", "FragmentPath", "SourcePath", "DropInPaths" }.Any(
+                name => !string.IsNullOrEmpty(RequireProperty(candidate, name))))
+        {
+            throw new InvalidDataException("Document export accounting slice identity was already owned or configured.");
+        }
+        return controlGroup;
+    }
+
+    private async Task ValidateAccountingOwnerAsync(
+        string accountingSlice,
+        string expectedControlGroup,
+        string unitName,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<string, string> properties = await QueryUnitAsync(
+            accountingSlice,
+            cancellationToken,
+            "LoadState",
+            "ActiveState",
+            "ControlGroup",
+            "Slice",
+            "FragmentPath",
+            "SourcePath",
+            "DropInPaths");
+        if (RequireProperty(properties, "LoadState") != "loaded"
+            || RequireProperty(properties, "ActiveState") != "active"
+            || RequireProperty(properties, "ControlGroup") != expectedControlGroup
+            || RequireProperty(properties, "Slice") != DocumentExportSlice
+            || new[] { "FragmentPath", "SourcePath", "DropInPaths" }.Any(
+                name => !string.IsNullOrEmpty(RequireProperty(properties, name))))
+        {
+            throw new InvalidDataException("Document export retained accounting owner did not match its exact run.");
+        }
+        ValidateAccountingMembers(ResolveCgroupPath(accountingSlice, expectedControlGroup), unitName);
+    }
+
+    private static void ValidateAccountingMembers(string accountingCgroupPath, string unitName)
+    {
+        string[] children = Directory.GetDirectories(accountingCgroupPath);
+        ValidateAccountingMemberNames(
+            unitName,
+            File.ReadAllText(Path.Combine(accountingCgroupPath, "cgroup.procs"), Encoding.ASCII),
+            children.Select(Path.GetFileName));
+        if (children.Any(path => new DirectoryInfo(path).LinkTarget is not null))
+        {
+            throw new InvalidDataException("Document export accounting slice contained a redirected child cgroup.");
+        }
+    }
+
+    internal static void ValidateAccountingMemberNames(
+        string unitName,
+        string directMembers,
+        IEnumerable<string?> childNames)
+    {
+        if (!string.IsNullOrWhiteSpace(directMembers)
+            || childNames.Any(name => name != unitName))
+        {
+            throw new InvalidDataException("Document export accounting slice contained a foreign process or child cgroup.");
+        }
+    }
+
+    internal static string AccountingSliceName(string runId)
+    {
+        ValidateRunId(runId);
+        return $"app-fsusblogdocumentexport{runId}.slice";
+    }
+
+    internal static void ValidateAccountingIdentity(
+        string runId,
+        string unitName,
+        string accountingSlice,
+        string serviceControlGroup,
+        string accountingControlGroup)
+    {
+        if (unitName != $"fsusblog-document-export-{runId}.service"
+            || accountingSlice != AccountingSliceName(runId)
+            || !accountingControlGroup.StartsWith("/", StringComparison.Ordinal)
+            || !accountingControlGroup.EndsWith($"/{DocumentExportSlice}/{accountingSlice}", StringComparison.Ordinal)
+            || accountingControlGroup.Split('/').Any(segment => segment is "." or "..")
+            || accountingControlGroup.Contains("//", StringComparison.Ordinal)
+            || serviceControlGroup != $"{accountingControlGroup}/{unitName}")
+        {
+            throw new InvalidDataException("Document export service and retained accounting identities did not bind to one exact run.");
+        }
     }
 
     private async Task ValidateInstalledIdentityAsync(CancellationToken cancellationToken)
@@ -541,17 +673,22 @@ public sealed class DocumentExportSystemdCgroupAuthority
     private async Task<DocumentExportCgroupObservation> ObserveAsync(
         string unitName,
         string cgroupPath,
+        string accountingSlice,
+        string accountingCgroupPath,
         DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
         try
         {
+            ValidateAccountingMembers(accountingCgroupPath, unitName);
             return ReadObservation(cgroupPath);
         }
         catch (IOException)
         {
             return await ReadTerminalObservationAsync(
                 unitName,
+                accountingSlice,
+                accountingCgroupPath,
                 lastObservation,
                 cancellationToken);
         }
@@ -559,6 +696,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
     private async Task<DocumentExportCgroupObservation> ReadTerminalObservationAsync(
         string unitName,
+        string accountingSlice,
+        string accountingCgroupPath,
         DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
@@ -583,7 +722,14 @@ public sealed class DocumentExportSystemdCgroupAuthority
             }
             if (IsTerminalAdmission(properties))
             {
-                DocumentExportCgroupObservation terminal = CreateTerminalObservation(properties);
+                await ValidateAccountingOwnerAsync(
+                    accountingSlice,
+                    accountingCgroupPath[CgroupRoot.Length..],
+                    unitName,
+                    cancellationToken);
+                DocumentExportCgroupObservation terminal = ReadRetainedPids(
+                    CreateTerminalObservation(properties),
+                    accountingCgroupPath);
                 return terminal with
                 {
                     CpuUsageMicroseconds = Math.Max(
@@ -592,8 +738,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     MemoryPeakBytes = Math.Max(lastObservation.MemoryPeakBytes, terminal.MemoryPeakBytes),
                     MemoryMaxEvents = Math.Max(lastObservation.MemoryMaxEvents, terminal.MemoryMaxEvents),
                     MemoryOomEvents = Math.Max(lastObservation.MemoryOomEvents, terminal.MemoryOomEvents),
-                    PidsPeak = lastObservation.PidsPeak,
-                    PidsMaxEvents = lastObservation.PidsMaxEvents
+                    PidsPeak = Math.Max(lastObservation.PidsPeak, terminal.PidsPeak),
+                    PidsMaxEvents = Math.Max(lastObservation.PidsMaxEvents, terminal.PidsMaxEvents)
                 };
             }
             await Task.Delay(10, cancellationToken);
@@ -605,12 +751,16 @@ public sealed class DocumentExportSystemdCgroupAuthority
     private async Task<DocumentExportCgroupCleanup> CleanupAsync(
         string unitName,
         string cgroupPath,
+        string accountingSlice,
+        string accountingCgroupPath,
         DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
         DocumentExportCgroupObservation final = await ObserveAsync(
             unitName,
             cgroupPath,
+            accountingSlice,
+            accountingCgroupPath,
             lastObservation,
             cancellationToken);
         if (!IsDrained(final))
@@ -620,13 +770,15 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
         await RunSystemctlAllowFailureAsync(["--user", "stop", unitName], cancellationToken);
         await RunSystemctlAllowFailureAsync(["--user", "reset-failed", unitName], cancellationToken);
+        ValidateAccountingMembers(accountingCgroupPath, unitName);
+        await RunSystemctlAllowFailureAsync(["--user", "stop", accountingSlice], cancellationToken);
 
         bool unitRemoved = false;
         bool cgroupRemoved = false;
         for (int attempt = 0; attempt < 50; attempt++)
         {
             unitRemoved = await IsUnitRemovedAsync(unitName, cancellationToken);
-            cgroupRemoved = !Directory.Exists(cgroupPath);
+            cgroupRemoved = !Directory.Exists(cgroupPath) && !Directory.Exists(accountingCgroupPath);
             if (unitRemoved && cgroupRemoved)
             {
                 break;
@@ -663,7 +815,10 @@ public sealed class DocumentExportSystemdCgroupAuthority
         CancellationToken cancellationToken)
         => _ = await RunControlAsync(Contract.SystemctlPath, arguments, cancellationToken);
 
-    private async Task<bool> TryTerminateAndRemoveUnitAsync(string unitName)
+    private async Task<bool> TryTerminateAndRemoveUnitAsync(
+        string unitName,
+        string accountingSlice,
+        string accountingCgroupPath)
     {
         try
         {
@@ -676,9 +831,17 @@ public sealed class DocumentExportSystemdCgroupAuthority
             await RunSystemctlAllowFailureAsync(
                 ["--user", "reset-failed", unitName],
                 CancellationToken.None);
+            if (Directory.Exists(accountingCgroupPath))
+            {
+                ValidateAccountingMembers(accountingCgroupPath, unitName);
+            }
+            await RunSystemctlAllowFailureAsync(
+                ["--user", "stop", accountingSlice],
+                CancellationToken.None);
             for (int attempt = 0; attempt < 50; attempt++)
             {
-                if (await IsUnitRemovedAsync(unitName, CancellationToken.None))
+                if (await IsUnitRemovedAsync(unitName, CancellationToken.None)
+                    && !Directory.Exists(accountingCgroupPath))
                 {
                     return true;
                 }
@@ -695,14 +858,15 @@ public sealed class DocumentExportSystemdCgroupAuthority
     private static void ValidateAdmissionProperties(
         IReadOnlyDictionary<string, string> properties,
         DocumentExportResourceBudgets budgets,
-        long expectedRuntimeMaxMicroseconds)
+        long expectedRuntimeMaxMicroseconds,
+        string accountingSlice)
     {
         string loadState = RequireProperty(properties, "LoadState");
         string activeState = RequireProperty(properties, "ActiveState");
         if (loadState != "loaded"
             || activeState is not ("active" or "activating" or "deactivating" or "failed")
             || RequireProperty(properties, "Type") != "exec"
-            || RequireProperty(properties, "Slice") != DocumentExportSlice
+            || RequireProperty(properties, "Slice") != accountingSlice
             || RequireProperty(properties, "MemoryAccounting") != "yes"
             || RequireProperty(properties, "TasksAccounting") != "yes"
             || RequireProperty(properties, "KillMode") != "control-group"
@@ -775,6 +939,36 @@ public sealed class DocumentExportSystemdCgroupAuthority
             false);
     }
 
+    private static DocumentExportCgroupObservation ReadRetainedPids(
+        DocumentExportCgroupObservation terminal,
+        string accountingCgroupPath)
+        => RetainPids(
+            terminal,
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.current"),
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.peak"),
+            RequireCounter(ParseCounterFile(Path.Combine(accountingCgroupPath, "pids.events")), "max"),
+            ParsePopulated(ParseCounterFile(Path.Combine(accountingCgroupPath, "cgroup.events"))));
+
+    internal static DocumentExportCgroupObservation RetainPids(
+        DocumentExportCgroupObservation terminal,
+        long hostCurrent,
+        long hostPeak,
+        long maxEvents,
+        bool populated)
+    {
+        if (hostCurrent < 0 || hostPeak < 0 || maxEvents < 0)
+        {
+            throw new InvalidDataException("Document export retained process accounting was negative.");
+        }
+        return terminal with
+        {
+            PidsCurrent = BusinessProcessCount(hostCurrent),
+            PidsPeak = BusinessProcessCount(hostPeak),
+            PidsMaxEvents = maxEvents,
+            Populated = populated
+        };
+    }
+
     private static void ValidateCgroupFilesAndLimits(
         string cgroupPath,
         DocumentExportResourceBudgets budgets)
@@ -836,6 +1030,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
         internal Execution(
             DocumentExportSystemdCgroupAuthority authority,
             string unitName,
+            string accountingSlice,
+            string accountingCgroupPath,
             string controlGroup,
             string cgroupPath,
             int rootProcessId,
@@ -849,6 +1045,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             _authority = authority;
             UnitName = unitName;
+            AccountingSlice = accountingSlice;
+            AccountingCgroupPath = accountingCgroupPath;
             ControlGroup = controlGroup;
             CgroupPath = cgroupPath;
             RootProcessId = rootProcessId;
@@ -873,6 +1071,16 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
 
         public string CgroupPath
+        {
+            get;
+        }
+
+        internal string AccountingSlice
+        {
+            get;
+        }
+
+        internal string AccountingCgroupPath
         {
             get;
         }
@@ -923,6 +1131,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
             _lastObservation = await _authority.ObserveAsync(
                 UnitName,
                 CgroupPath,
+                AccountingSlice,
+                AccountingCgroupPath,
                 _lastObservation,
                 cancellationToken);
             return _lastObservation;
@@ -940,6 +1150,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
             => _authority.CleanupAsync(
                 UnitName,
                 CgroupPath,
+                AccountingSlice,
+                AccountingCgroupPath,
                 _lastObservation,
                 cancellationToken);
     }
