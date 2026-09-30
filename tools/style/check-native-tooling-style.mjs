@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { prepareCommandWrapperInputModel } from './command-wrapper-input-model.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '../..');
 const defaultPolicy = 'config/development/native-tooling-style-policy.json';
@@ -208,7 +210,7 @@ function Run(command, argumentsList, options = {})
     return spawnSync(command, argumentsList, {
         cwd: options.cwd ?? root,
         encoding: options.encoding ?? 'utf8',
-        env: { ...process.env, ...(options.env ?? {}) },
+        env: options.exactEnvironment ?? { ...process.env, ...(options.env ?? {}) },
         maxBuffer: 32 * 1024 * 1024,
         timeout: options.timeout ?? 120_000
     });
@@ -1005,13 +1007,49 @@ function CheckCpp(file, content, argumentsValue)
         }
         return;
     }
-    const tidyResult = Run(clangTidy, [
+    let inputModel;
+    try
+    {
+        inputModel = prepareCommandWrapperInputModel({
+            root, file, databases: LoadCompileCommandDatabases(),
+            cppLintPolicy: policy.standardTools.cppLint, environment: process.env
+        });
+    }
+    catch (error)
+    {
+        AddDiagnostic(file, 1, 'command-input-admission', error.message);
+        return;
+    }
+    const tidyResult = Run(inputModel?.analyzerPath ?? clangTidy, [
         '--quiet',
         '-p',
-        compileDatabase.directory,
+        inputModel?.compileDirectory ?? compileDatabase.directory,
         file,
-        ...ClangTidyDriverArguments(compileDatabase)
-    ]);
+        ...ClangTidyDriverArguments(compileDatabase),
+        ...(inputModel?.extraArguments ?? [])
+    ], { exactEnvironment: inputModel?.analyzerEnvironment });
+    if (inputModel)
+    {
+        try
+        {
+            inputModel.revalidate();
+        }
+        catch (error)
+        {
+            AddDiagnostic(file, 1, 'command-input-admission', error.message);
+        }
+        finally
+        {
+            try
+            {
+                inputModel.cleanup();
+            }
+            catch (error)
+            {
+                AddDiagnostic(file, 1, 'command-input-admission', `private analyzer input cleanup failed: ${error.message}`);
+            }
+        }
+    }
     if (tidyResult.status !== 0 || /(?:warning|error):/u.test(`${tidyResult.stdout}\n${tidyResult.stderr}`))
     {
         ToolFailure(file, 'clang-tidy', tidyResult);
