@@ -131,6 +131,9 @@ outside the exact previous/current identities, and candidate-authored edge
 registry are refused. Source paths must be canonical regular non-executable files
 without symlink parents. Registry, parser/toolchain and source bindings are
 recomputed for decisions; the owner edge does not use ESLint's content cache.
+The executor validates the selected caller and actual owner before invoking
+ESLint, rejecting inline enable/disable directives; a candidate cannot suppress
+the edge refusal by disabling the rule's own diagnostic.
 
 Changes to this authority require independent frozen-policy review and the
 owner-controlled bootstrap in [Change contract](change-contract.md). Candidate

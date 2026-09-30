@@ -12,8 +12,7 @@ import {
     validateReviewedResidualConsumption,
     validateReviewedResidualDocument
 } from './reviewed-residual-classification.mjs';
-
-import { validateCandidatePolicy } from './style-toolchain/closed-canonical-edge.mjs';
+import { validateCandidatePolicy, validateSelectedCanonicalSource } from './style-toolchain/closed-canonical-edge.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
@@ -1118,14 +1117,14 @@ function validateConfiguration()
             }
         }
     }
-    const residualAuthority = path.join(root, reviewedResidualAuthorityPath);
+    const residualAuthority = path.join(authorityRoot, reviewedResidualAuthorityPath);
     if (fs.existsSync(residualAuthority))
     {
         const bytes = fs.readFileSync(residualAuthority, 'utf8');
         const document = readJson(residualAuthority, reviewedResidualAuthorityPath);
         if (document)
         {
-            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root }))
+            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root: authorityRoot }))
             {
                 fail(residualFailure);
             }
@@ -1187,6 +1186,7 @@ function main()
     }
 
     const files = selectFiles(args);
+    validateSelectedCanonicalSource(root, files);
     const eslintFiles = files.filter((file) => toolKinds(file).includes('eslint'));
     const stylelintFiles = files.filter((file) => toolKinds(file).includes('stylelint'));
     const violations = [

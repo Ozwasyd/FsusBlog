@@ -22,7 +22,11 @@ const authorityFiles = [
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs',
     'tools/frontend/style-toolchain/package.json',
-    'tools/frontend/style-toolchain/package-lock.json'
+    'tools/frontend/style-toolchain/package-lock.json',
+    '.editorconfig',
+    'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
+    'tools/frontend/check-frontend-style.mjs',
+    'tools/frontend/reviewed-residual-classification.mjs'
 ];
 const initialAuthorityDigest = authorityDigest();
 
@@ -55,7 +59,7 @@ function authorityDigest()
             {
                 digest.update(fs.readFileSync(absolute));
             }
-            else if (info.isSymbolicLink() && path.dirname(relative) === '.bin')
+            else if (info.isSymbolicLink() && path.basename(path.dirname(relative)) === '.bin')
             {
                 const target = fs.realpathSync(absolute);
                 if (!target.startsWith(`${dependencyRoot}${path.sep}`) || !fs.statSync(target).isFile())
@@ -219,8 +223,14 @@ function readRegistry()
         || registry.callerSemanticSha256.some((digest) => !/^[a-f0-9]{64}$/u.test(digest))
         || !keys(registry.previousPolicySha256, [
             'config/development/frontend-style-policy.json', 'eslint.config.mjs', 'stylelint.config.mjs',
-            'tools/frontend/style-toolchain/eslint.config.mjs'
-        ]))
+            'tools/frontend/style-toolchain/eslint.config.mjs',
+            '.editorconfig', 'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
+            'tools/frontend/check-frontend-style.mjs', 'tools/frontend/reviewed-residual-classification.mjs',
+            'config/development/frontend-style-rule-registry.json',
+            'tools/frontend/style-toolchain/stylelint.config.mjs',
+            'tools/frontend/style-toolchain/package.json', 'tools/frontend/style-toolchain/package-lock.json'
+        ])
+        || Object.values(registry.previousPolicySha256).some((digest) => !/^[a-f0-9]{64}$/u.test(digest)))
     {
         throw new Error('closed canonical edge registry is not the exact finite decision');
     }
@@ -238,11 +248,37 @@ export function validateCandidatePolicy(candidateRoot)
             throw new Error(`candidate policy drift: ${relative}`);
         }
     }
-    const candidateRegistry = path.join(candidateRoot, edgeRegistryPath);
-    if (fs.existsSync(candidateRegistry)
-        && regularSource(candidateRoot, edgeRegistryPath) !== regularSource(authorityRoot, edgeRegistryPath))
+    for (const relative of [edgeRegistryPath, 'tools/frontend/style-toolchain/closed-canonical-edge.mjs'])
     {
-        throw new Error('candidate edge registry cannot author its own decision');
+        if (fs.lstatSync(path.join(candidateRoot, relative), { throwIfNoEntry: false })
+            && regularSource(candidateRoot, relative) !== regularSource(authorityRoot, relative))
+        {
+            throw new Error('candidate edge registry or classifier cannot author its own decision');
+        }
+    }
+}
+
+function refuseInlineDirectives(source)
+{
+    const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module', comment: true });
+    if (ast.comments.some((comment) => /\beslint-(?:disable|enable)\b/u.test(comment.value)))
+    {
+        throw new Error('closed edge cannot use inline rule directives');
+    }
+}
+
+export function validateSelectedCanonicalSource(candidateRoot, files)
+{
+    if (!files.includes(caller))
+    {
+        return;
+    }
+    const source = regularSource(candidateRoot, caller);
+    const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
+    const imports = ast.body.filter((node) => node.type === 'ImportDeclaration' && node.source.value === specifier);
+    if (imports.length !== 1 || !admitCanonicalEdge(candidateRoot, path.join(candidateRoot, caller), imports[0], source))
+    {
+        throw new Error('missing or duplicate closed canonical source edge');
     }
 }
 
@@ -260,6 +296,7 @@ export function admitCanonicalEdge(candidateRoot, filename, importNode, sourceTe
     validateCandidatePolicy(candidateRoot);
     const registry = readRegistry();
     const callerSource = regularSource(candidateRoot, caller);
+    refuseInlineDirectives(callerSource);
     if (callerSource !== sourceText || importNode.type !== 'ImportDeclaration'
         || importNode.source.value !== specifier || importNode.specifiers.length !== 1
         || importNode.specifiers[0].type !== 'ImportSpecifier'
@@ -274,6 +311,7 @@ export function admitCanonicalEdge(candidateRoot, filename, importNode, sourceTe
         throw new Error('canonical owner resolution drift');
     }
     const ownerSource = regularSource(candidateRoot, owner);
+    refuseInlineDirectives(ownerSource);
     const ast = parse(ownerSource, { ecmaVersion: 'latest', sourceType: 'module' });
     assertCanonicalLanguage(ast);
     if (semanticDigest(ownerSource) !== registry.ownerSemanticSha256)

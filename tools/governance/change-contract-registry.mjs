@@ -386,6 +386,8 @@ export const trustedPolicyFiles = Object.freeze([
     'eslint.config.mjs',
     'stylelint.config.mjs',
     'tools/frontend/check-frontend-style.mjs',
+    'tools/frontend/reviewed-residual-classification.mjs',
+    'config/development/frontend-style-reviewed-residual.json',
     'tools/frontend/style-toolchain/closed-canonical-edge.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs',
