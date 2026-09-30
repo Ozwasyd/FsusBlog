@@ -53,6 +53,8 @@ const ownedCliVariants = [
     ['header-variable-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-stream.h"\nstatic int CreateRuleset'), false],
     ['header-variable-definition', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-stream-definition.h"\nstatic int CreateRuleset'), false],
     ['header-function-definition-redeclaration-chain', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-function-chain.h"\nstatic int CreateRuleset'), false],
+    ['late-header-function-definition', `${ownedCliOriginal}\n#include "foreign-function-chain.h"\n`, false],
+    ['late-header-variable-definition', `${ownedCliOriginal}\n#include "foreign-stream-definition.h"\n`, false],
     ['data-reading-open', ownedCliOriginal.replace('O_PATH | O_CLOEXEC', 'O_RDONLY | O_CLOEXEC'), false],
     ['stderr-data', inject('if (stderr->_IO_read_ptr) return 125;'), false],
     ['foreign-command-sink', ownedCliOriginal.replace('execv(argv[separator + 1]', 'execv("/foreign-command"'), false],

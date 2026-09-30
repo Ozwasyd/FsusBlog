@@ -128,6 +128,31 @@ function references(node, id)
     return found;
 }
 
+function declarationFamilies(declarations)
+{
+    const roots = new Map();
+    const families = new Map();
+    for (const declaration of declarations.values())
+    {
+        let current = declaration;
+        const seen = new Set();
+        while (current.previousDecl)
+        {
+            assert.ok(!seen.has(current.id), 'cyclic canonical declaration family');
+            seen.add(current.id);
+            current = declarations.get(current.previousDecl);
+            assert.ok(current, 'unresolved canonical declaration family');
+        }
+        roots.set(declaration.id, current.id);
+        if (!families.has(current.id))
+        {
+            families.set(current.id, []);
+        }
+        families.get(current.id).push(declaration);
+    }
+    return new Map([...roots].map(([id, root]) => [id, families.get(root)]));
+}
+
 function argvSlice(node, argvId, separatorId)
 {
     node = unwrap(node);
@@ -184,6 +209,8 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
             functionDeclarations.set(node.id, node);
         }
     });
+    const globalFamilies = declarationFamilies(globalIds);
+    const functionFamilies = declarationFamilies(functionDeclarations);
     let execCalls = 0;
     const admittedCalls = [];
     for (const definition of owned)
@@ -257,6 +284,12 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
                 assert.ok(allowedGlobalOutputs.has(name), `undeclared ambient input ${name}`);
                 assert.ok(declaration?.storageClass === 'extern' && declaration.type?.qualType === 'FILE *',
                     'global diagnostic output declaration drift');
+                for (const member of globalFamilies.get(declaration.id) ?? [])
+                {
+                    assert.ok(member.storageClass === 'extern' && member.type?.qualType === 'FILE *' && !member.init
+                        && !member.inner?.some(child => ['AsmLabelAttr', 'AliasAttr', 'IFuncAttr'].includes(child.kind)),
+                    'global diagnostic output canonical family drift');
+                }
                 let globalDeclaration = declaration;
                 const seenDeclarations = new Set();
                 while (globalDeclaration)
@@ -294,6 +327,12 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
                         {
                             const declaration = functionDeclarations.get(reference.referencedDecl.id);
                             assert.ok(declaration, 'unresolved external call declaration');
+                            for (const member of functionFamilies.get(declaration.id) ?? [])
+                            {
+                                assert.ok(!member.inner?.some(child => child.kind === 'CompoundStmt'
+                                    || ['AsmLabelAttr', 'AliasAttr', 'IFuncAttr'].includes(child.kind)),
+                                'external call canonical family redirected');
+                            }
                             let externalDeclaration = declaration;
                             const seenDeclarations = new Set();
                             while (externalDeclaration)
