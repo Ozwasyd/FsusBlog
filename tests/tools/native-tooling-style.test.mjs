@@ -12,6 +12,84 @@ const checker = path.join(root, 'tools/style/check-native-tooling-style.mjs');
 const sourcePolicy = JSON.parse(fs.readFileSync(path.join(root, 'config/development/native-tooling-style-policy.json'), 'utf8'));
 const fixtureSource = path.join(root, 'tests/fixtures/native-tooling-style');
 
+// AST input admission is a separate semantic query, not a production compile or trusted lint pass.
+const ownedCliOriginal = fs.readFileSync(path.join(root, 'tools/test/native/execution-envelope-landlock.c'), 'utf8');
+const signature = 'int main(int argc, char** argv)';
+const anchor = `${signature}\n{`;
+const inject = text => ownedCliOriginal.replace(anchor, `${anchor}\n    ${text}`);
+const ownedCliVariants = [
+    ['ownedCliOriginal', ownedCliOriginal, true],
+    ['different-bytes-same-semantics', '/* Semantic admission does not waive by source hash. */\n' + ownedCliOriginal.replace(/\bargc\b/gu, 'argumentCount').replace(/\bargv\b/gu, 'argumentVector'), true],
+    ['envp', ownedCliOriginal.replace(signature, 'int main(int argc, char** argv, char** envp)'), false],
+    ['environ', inject('extern char** environ; if (environ[0]) return 125;'), false],
+    ['getenv', inject('if (getenv("FSUSBLOG_COMMAND")) return 125;'), false],
+    ['secure-getenv', inject('if (secure_getenv("FSUSBLOG_COMMAND")) return 125;'), false],
+    ['stdin-fgets', inject('char input[1024]; if (fgets(input, sizeof(input), stdin)) return 125;'), false],
+    ['file-open-read', inject('char input[1024]; int fd = open("/owned-input", O_RDONLY); if (read(fd, input, sizeof(input))) return 125;'), false],
+    ['raw-stdin-read', inject('char input[1024]; if (read(0, input, sizeof(input))) return 125;'), false],
+    ['ipc-pipe-read', inject('int fds[2]; char input[1024]; if (pipe(fds) || read(fds[0], input, sizeof(input))) return 125;'), false],
+    ['inet-recv', inject('char input[1024]; int fd = socket(AF_INET, SOCK_STREAM, 0); if (recv(fd, input, sizeof(input), 0)) return 125;').replace('#include <unistd.h>', '#include <unistd.h>\n#include <sys/socket.h>'), false],
+    ['unix-recv', inject('char input[1024]; int fd = socket(AF_UNIX, SOCK_STREAM, 0); if (recv(fd, input, sizeof(input), 0)) return 125;').replace('#include <unistd.h>', '#include <unistd.h>\n#include <sys/socket.h>'), false],
+    ['opaque-input', inject('extern char* ReceiveExternalCommand(void); if (ReceiveExternalCommand()) return 125;'), false],
+    ['indirect-input', inject('extern char* ReceiveExternalCommand(void); char* (*callback)(void) = ReceiveExternalCommand; if (callback()) return 125;'), false],
+    ['wrong-syscall', ownedCliOriginal.replace('__NR_landlock_create_ruleset, attr', '__NR_read, attr'), false],
+    ['syscall-macro-redefinition', ownedCliOriginal.replace('static int CreateRuleset', '#undef __NR_landlock_create_ruleset\n#define __NR_landlock_create_ruleset __NR_read\nstatic int CreateRuleset'), false],
+    ['open-macro-redefinition', ownedCliOriginal.replace('static void AllowPath', '#undef O_PATH\n#define O_PATH O_RDONLY\nstatic void AllowPath'), false],
+    ['stream-to-argv-write', ownedCliOriginal.replace('    execv(', '    fputs(argv[separator + 1] = stderr->_IO_read_ptr, stderr);\n    execv('), false],
+    ['argv-alias', inject('char** argumentAlias = argv; (void)argumentAlias;'), false],
+    ['private-parameter-argv-write', ownedCliOriginal.replace('    int pathFd = open', '    ((char*)path)[0] = 47;\n    int pathFd = open').replace('    execv(', '    AllowPath(rulesetFd, argv[separator + 1], readAccess);\n    execv('), false],
+    ['private-parameter-argv-alias', ownedCliOriginal.replace('    int pathFd = open', '    char* writablePath = (char*)path;\n    writablePath[0] = 47;\n    int pathFd = open').replace('    execv(', '    AllowPath(rulesetFd, argv[separator + 1], readAccess);\n    execv('), false],
+    ['global-stderr-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', 'extern FILE* stderr __asm__("stdin");\nstatic int CreateRuleset'), false],
+    ['prctl-get-name-argv-write', ownedCliOriginal.replace('prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)', 'prctl(PR_GET_NAME, argv[separator + 1], 0, 0, 0)'), false],
+    ['prctl-get-seccomp-ambient-input', inject('if (prctl(PR_GET_SECCOMP, 0, 0, 0, 0)) return 125;'), false],
+    ['numeric-pointer-ambient-input', inject('char* ambient = (char*)0x12345678; if (strcmp(ambient, "blocked")) return 125;'), false],
+    ['argv-literal-write', ownedCliOriginal.replace('    execv(', '    argv[separator + 1] = "/foreign-command";\n    execv('), false],
+    ['argv-advance-write', ownedCliOriginal.replace('    execv(', '    argv += 1;\n    execv('), false],
+    ['function-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', 'extern long syscall(long number, ...) __asm__("read");\nstatic int CreateRuleset'), false],
+    ['header-function-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-input.h"\nstatic int CreateRuleset'), false],
+    ['data-reading-open', ownedCliOriginal.replace('O_PATH | O_CLOEXEC', 'O_RDONLY | O_CLOEXEC'), false],
+    ['stderr-data', inject('if (stderr->_IO_read_ptr) return 125;'), false],
+    ['foreign-command-sink', ownedCliOriginal.replace('execv(argv[separator + 1]', 'execv("/foreign-command"'), false],
+    ['new-private-function', ownedCliOriginal.replace(signature, 'static char* NewExternalInput(void) { return getenv("INPUT"); }\n' + signature), false]
+];
+
+for (const [name, source, expectedAdmission] of ownedCliVariants)
+{
+    test(`closed command-wrapper AST input admission: ${name}`, () =>
+    {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-owned-cli-ast-'));
+        try
+        {
+            const sourceFile = path.join(directory, 'command-wrapper.c');
+            fs.writeFileSync(sourceFile, source);
+            fs.writeFileSync(path.join(directory, 'foreign-input.h'), 'extern int strcmp(const char*, const char*) __asm__("getenv");\n');
+            const queried = spawnSync('clang', ['-std=c11', '-O2', '-fsyntax-only', '-Xclang', '-ast-dump=json', sourceFile], {
+                encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30_000
+            });
+            assert.equal(queried.status, 0, `syntax-valid fixture required: ${Output(queried)}`);
+            const evaluated = spawnSync(process.execPath, [path.join(root, 'tools/style/command-wrapper-input-ast.mjs'), '--source', sourceFile], {
+                input: queried.stdout, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30_000
+            });
+            if (expectedAdmission)
+            {
+                assert.equal(evaluated.status, 0, Output(evaluated));
+                const admitted = JSON.parse(evaluated.stdout);
+                assert.deepEqual(admitted.ownedInputClasses, ['main.argc', 'main.argv']);
+                assert.equal(admitted.qualificationEligible, false);
+            }
+            else
+            {
+                assert.equal(evaluated.status, 1, Output(evaluated));
+                assert.match(evaluated.stderr, /AST diagnostic refused:/u);
+            }
+        }
+        finally
+        {
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+}
+
 function WriteFile(fixtureRoot, relativePath, content)
 {
     const target = path.join(fixtureRoot, relativePath);
