@@ -50,6 +50,9 @@ const ownedCliVariants = [
     ['argv-advance-write', ownedCliOriginal.replace('    execv(', '    argv += 1;\n    execv('), false],
     ['function-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', 'extern long syscall(long number, ...) __asm__("read");\nstatic int CreateRuleset'), false],
     ['header-function-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-input.h"\nstatic int CreateRuleset'), false],
+    ['header-variable-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-stream.h"\nstatic int CreateRuleset'), false],
+    ['header-variable-definition', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-stream-definition.h"\nstatic int CreateRuleset'), false],
+    ['header-function-definition-redeclaration-chain', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-function-chain.h"\nstatic int CreateRuleset'), false],
     ['data-reading-open', ownedCliOriginal.replace('O_PATH | O_CLOEXEC', 'O_RDONLY | O_CLOEXEC'), false],
     ['stderr-data', inject('if (stderr->_IO_read_ptr) return 125;'), false],
     ['foreign-command-sink', ownedCliOriginal.replace('execv(argv[separator + 1]', 'execv("/foreign-command"'), false],
@@ -66,6 +69,9 @@ for (const [name, source, expectedAdmission] of ownedCliVariants)
             const sourceFile = path.join(directory, 'command-wrapper.c');
             fs.writeFileSync(sourceFile, source);
             fs.writeFileSync(path.join(directory, 'foreign-input.h'), 'extern int strcmp(const char*, const char*) __asm__("getenv");\n');
+            fs.writeFileSync(path.join(directory, 'foreign-stream.h'), 'extern FILE* stderr __asm__("stdin");\n');
+            fs.writeFileSync(path.join(directory, 'foreign-stream-definition.h'), 'FILE* stderr = 0;\n');
+            fs.writeFileSync(path.join(directory, 'foreign-function-chain.h'), 'int strcmp(const char* left, const char* right) { (void)right; return getenv(left) ? 1 : 0; }\nextern int strcmp(const char*, const char*);\n');
             const queried = spawnSync('clang', ['-std=c11', '-O2', '-fsyntax-only', '-Xclang', '-ast-dump=json', sourceFile], {
                 encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30_000
             });

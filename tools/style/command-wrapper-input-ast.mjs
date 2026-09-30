@@ -168,7 +168,14 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
     assert.equal(parameters[0].type.qualType, 'int', 'argc input type drift');
     assert.equal(parameters[1].type.qualType, 'char **', 'argv input type drift');
     const argvId = parameters[1].id;
-    const globalIds = new Map((ast.inner ?? []).filter(node => node.kind === 'VarDecl').map(node => [node.id, node.name]));
+    const globalIds = new Map();
+    walk(ast, node =>
+    {
+        if (node.kind === 'VarDecl')
+        {
+            globalIds.set(node.id, node);
+        }
+    });
     const functionDeclarations = new Map();
     walk(ast, node =>
     {
@@ -245,8 +252,26 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
             if (node.kind === 'DeclRefExpr' && node.referencedDecl?.kind === 'VarDecl'
                 && !localIds.has(node.referencedDecl.id))
             {
-                const name = globalIds.get(node.referencedDecl.id) ?? node.referencedDecl.name;
+                const declaration = globalIds.get(node.referencedDecl.id);
+                const name = declaration?.name ?? node.referencedDecl.name;
                 assert.ok(allowedGlobalOutputs.has(name), `undeclared ambient input ${name}`);
+                assert.ok(declaration?.storageClass === 'extern' && declaration.type?.qualType === 'FILE *',
+                    'global diagnostic output declaration drift');
+                let globalDeclaration = declaration;
+                const seenDeclarations = new Set();
+                while (globalDeclaration)
+                {
+                    assert.ok(!seenDeclarations.has(globalDeclaration.id), 'cyclic output declaration chain');
+                    seenDeclarations.add(globalDeclaration.id);
+                    assert.ok(!globalDeclaration.init && !globalDeclaration.inner?.some(child => ['AsmLabelAttr', 'AliasAttr', 'IFuncAttr'].includes(child.kind)),
+                        'global diagnostic output redirected by declaration');
+                    if (!globalDeclaration.previousDecl)
+                    {
+                        break;
+                    }
+                    globalDeclaration = globalIds.get(globalDeclaration.previousDecl);
+                    assert.ok(globalDeclaration, 'unresolved output declaration chain');
+                }
                 const call = parents.find(parent => parent.kind === 'CallExpr');
                 assert.ok(call && calleeNames(call.inner[0]).every(callee => ['fputs', 'fputc'].includes(callee)),
                     'global stream reference outside diagnostic output');
@@ -268,10 +293,24 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
                         if (reference.kind === 'DeclRefExpr' && reference.referencedDecl?.kind === 'FunctionDecl')
                         {
                             const declaration = functionDeclarations.get(reference.referencedDecl.id);
-                            assert.ok(declaration && !declaration.inner?.some(child => child.kind === 'CompoundStmt'),
-                                'external call redirected to an unreviewed definition');
-                            assert.ok(!declaration.inner?.some(child => ['AsmLabelAttr', 'AliasAttr', 'IFuncAttr'].includes(child.kind)),
-                                'external call redirected by declaration alias');
+                            assert.ok(declaration, 'unresolved external call declaration');
+                            let externalDeclaration = declaration;
+                            const seenDeclarations = new Set();
+                            while (externalDeclaration)
+                            {
+                                assert.ok(!seenDeclarations.has(externalDeclaration.id), 'cyclic external declaration chain');
+                                seenDeclarations.add(externalDeclaration.id);
+                                assert.ok(!externalDeclaration.inner?.some(child => child.kind === 'CompoundStmt'),
+                                    'external call redirected to an unreviewed definition');
+                                assert.ok(!externalDeclaration.inner?.some(child => ['AsmLabelAttr', 'AliasAttr', 'IFuncAttr'].includes(child.kind)),
+                                    'external call redirected by declaration alias');
+                                if (!externalDeclaration.previousDecl)
+                                {
+                                    break;
+                                }
+                                externalDeclaration = functionDeclarations.get(externalDeclaration.previousDecl);
+                                assert.ok(externalDeclaration, 'unresolved external declaration chain');
+                            }
                         }
                     });
                 }
