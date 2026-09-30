@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
-import { readPrivateFile, readPrivateJson, writePrivateJson } from '../test-fixtures/receipt/private-io.mjs';
-import { readRetainedMySqlFixtureLifecycle, verifyMySqlFixtureServiceCleanup } from '../test-fixtures/services/mysql.mjs';
+const { readPrivateFile, readPrivateJson, writePrivateJson } = await import(new URL('../test-fixtures/receipt/private-io.mjs', import.meta.url));
+const { readRetainedMySqlFixtureLifecycle, verifyMySqlFixtureServiceCleanup } = await import(new URL('../test-fixtures/services/mysql.mjs', import.meta.url));
 import { loadExecutionServiceCatalog, validateExecutionServiceCatalog,
     validateExecutionServiceEnvelopeShape, verifyLiveServiceEnvelope } from './execution-envelope-services.mjs';
 

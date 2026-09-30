@@ -399,7 +399,8 @@ export async function readMigrationExecutionDependency(options, env = process.en
         throw new Error('Migration dependency has no original engine reference');
     }
     // The ordinary reader seals these references before reobserving the engine,
-    // source, raw TRX and exact live-or-cleaned admission. No child is spawned.
+    // source, raw TRX and exact live-or-cleaned admission. No SDK probe or testhost
+    // is spawned; cleanup revalidation may invoke the read-only Docker CLI.
     return readMigrationExecution(producerOptions, {
         ...env,
         PATH: path.dirname(engine.dotnet.absolutePath),

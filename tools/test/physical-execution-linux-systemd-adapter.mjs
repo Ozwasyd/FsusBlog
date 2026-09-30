@@ -10,14 +10,14 @@ const { prepareProductionSystemdServiceAdmission } = await import(new URL('../te
 const { digestCanonical, freezeDeep } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
-import { createPhysicalExecutionOutputTracker, residentServiceOutputSchema,
-    resourceServiceContainmentIsComplete, resourceServiceContainmentSchema } from './physical-execution-process-tree.mjs';
-import { systemdSenderReadyIsComplete, verifySystemdSenderTerminal } from './physical-execution-systemd-sender.mjs';
 import {
     tmpIdentity,
     verifyPrivateDotnetScratchBinding,
     verifyPrivateTmpNamespace
 } from './physical-execution-private-dotnet-scratch.mjs';
+import { createPhysicalExecutionOutputTracker, residentServiceOutputSchema,
+    resourceServiceContainmentIsComplete, resourceServiceContainmentSchema } from './physical-execution-process-tree.mjs';
+import { systemdSenderReadyIsComplete, verifySystemdSenderTerminal } from './physical-execution-systemd-sender.mjs';
 import {
     collectProcessGroupOrJobIdentity,
     collectProcessIdentity,

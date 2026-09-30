@@ -130,7 +130,8 @@ function rewriteReceipt(repositoryRoot, mutate)
     const absolute = path.join(repositoryRoot, buildReceiptRelative);
     const receipt = JSON.parse(readFileSync(absolute, 'utf8'));
     mutate(receipt);
-    const { buildIdentity: _oldIdentity, ...body } = receipt;
+    const body = { ...receipt };
+    delete body.buildIdentity;
     receipt.buildIdentity = {
         artifactId: body.artifactId,
         receiptDigest: digestValue(body),

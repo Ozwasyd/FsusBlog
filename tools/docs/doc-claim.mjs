@@ -1,16 +1,16 @@
-import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { digestCatalog, loadCatalog } from '../contracts/behavior-contract-catalog.mjs'
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const { digestCatalog, loadCatalog } = await import(new URL('../contracts/behavior-contract-catalog.mjs', import.meta.url));
 
-export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-export const schemaRelative = 'config/schemas/doc-claim.schema.json'
-export const claimMarker = 'fsus-doc-claim'
-export const claimSchemaId = 'fsusblog.doc-claim.v1'
-export const parseReceiptSchemaId = 'fsusblog.doc-claim-parse-receipt.v1'
-export const digestAlgorithm = 'sha256'
-export const canonicalSerialization = 'json-utf8-v1'
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const schemaRelative = 'config/schemas/doc-claim.schema.json';
+export const claimMarker = 'fsus-doc-claim';
+export const claimSchemaId = 'fsusblog.doc-claim.v1';
+export const parseReceiptSchemaId = 'fsusblog.doc-claim-parse-receipt.v1';
+export const digestAlgorithm = 'sha256';
+export const canonicalSerialization = 'json-utf8-v1';
 
 export const allowedClaimTypes = Object.freeze([
     'scalar',
@@ -25,16 +25,16 @@ export const allowedClaimTypes = Object.freeze([
     'preservation-rule',
     'generated-section',
     'rationale'
-])
+]);
 
-export const requiredFields = Object.freeze(['claimId', 'behaviorId', 'claimType', 'render'])
-export const optionalFields = Object.freeze(['anchor', 'projection', 'orderPolicy', 'emptyPolicy'])
-export const payloadFields = Object.freeze(['factPath', 'generatedSectionId'])
+export const requiredFields = Object.freeze(['claimId', 'behaviorId', 'claimType', 'render']);
+export const optionalFields = Object.freeze(['anchor', 'projection', 'orderPolicy', 'emptyPolicy']);
+export const payloadFields = Object.freeze(['factPath', 'generatedSectionId']);
 export const allowedFields = Object.freeze([
     ...requiredFields,
     ...payloadFields,
     ...optionalFields
-])
+]);
 
 export const forbiddenFields = Object.freeze([
     'verified',
@@ -45,7 +45,7 @@ export const forbiddenFields = Object.freeze([
     'ignoreDifference',
     'waiver',
     'allowStaleUntil'
-])
+]);
 
 /** Stable machine error codes. Messages may change; codes must not. */
 export const DocClaimErrorCode = Object.freeze({
@@ -73,24 +73,24 @@ export const DocClaimErrorCode = Object.freeze({
     COMPAT_PARSER: 'DOC_CLAIM_COMPAT_PARSER',
     SCHEMA_DRIFT: 'DOC_CLAIM_SCHEMA_DRIFT',
     PASS_EVIDENCE_FORBIDDEN: 'DOC_CLAIM_PASS_EVIDENCE_FORBIDDEN'
-})
+});
 
-const claimIdPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u
-const behaviorIdPattern = /^[a-z][a-z0-9-]*$/u
-const factPathPattern = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)*$/u
-const renderPattern = /^[a-z][a-z0-9-]*$/u
-const anchorPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
-const fieldLinePattern = /^([A-Za-z][A-Za-z0-9]*)\s*:\s*(.*?)\s*$/u
-const claimOpenPattern = new RegExp(`^<!--\\s*${claimMarker}\\s*$`, 'u')
-const claimClosePattern = /^-->\s*$/u
-const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u
-const listPattern = /^\s*(?:[-*+]|\d+[.)])\s+\S/u
-const tablePattern = /^\s*\|.+\|\s*$/u
-const fencePattern = /^\s*(```+|~~~+)/u
-const htmlCommentOpenPattern = /^<!--/u
-const preciseQuantityPattern = /(?<![A-Za-z0-9_])\d+(?:[.,]\d+)?\s*(?:分钟|秒钟|秒|小时|天|毫秒|字节|位|层|次|个|项|minutes?|seconds?|hours?|days?|ms|bytes?|bits?)/iu
-const precisePathPattern = /(?:^|[\s`])((?:src|tools|config|tests|ops|docs)\/[A-Za-z0-9_./-]+)/u
-const absoluteCommitmentPattern = /(?:总是|永不|永远|仅|必须|禁止|始终|不得|always|never|must\b|only\b|forbidden|required\b)/iu
+const claimIdPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u;
+const behaviorIdPattern = /^[a-z][a-z0-9-]*$/u;
+const factPathPattern = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)*$/u;
+const renderPattern = /^[a-z][a-z0-9-]*$/u;
+const anchorPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const fieldLinePattern = /^([A-Za-z][A-Za-z0-9]*)\s*:\s*(.*?)\s*$/u;
+const claimOpenPattern = new RegExp(`^<!--\\s*${claimMarker}\\s*$`, 'u');
+const claimClosePattern = /^-->\s*$/u;
+const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u;
+const listPattern = /^\s*(?:[-*+]|\d+[.)])\s+\S/u;
+const tablePattern = /^\s*\|.+\|\s*$/u;
+const fencePattern = /^\s*(```+|~~~+)/u;
+const htmlCommentOpenPattern = /^<!--/u;
+const preciseQuantityPattern = /(?<![A-Za-z0-9_])\d+(?:[.,]\d+)?\s*(?:分钟|秒钟|秒|小时|天|毫秒|字节|位|层|次|个|项|minutes?|seconds?|hours?|days?|ms|bytes?|bits?)/iu;
+const precisePathPattern = /(?:^|[\s`])((?:src|tools|config|tests|ops|docs)\/[A-Za-z0-9_./-]+)/u;
+const absoluteCommitmentPattern = /(?:总是|永不|永远|仅|必须|禁止|始终|不得|always|never|must\b|only\b|forbidden|required\b)/iu;
 
 const receiptForbiddenKeys = new Set([
     ...forbiddenFields,
@@ -107,68 +107,68 @@ const receiptForbiddenKeys = new Set([
     'baseline',
     'approvedBy',
     'allowlist'
-])
+]);
 
-const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const stable = (value) =>
 {
     if (Array.isArray(value))
     {
-        return value.map(stable)
+        return value.map(stable);
     }
     if (isPlainObject(value))
     {
-        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
+        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
     }
-    return value
-}
+    return value;
+};
 
-export const canonicalize = (value) => JSON.stringify(stable(value))
-export const digestValue = (value) => createHash('sha256').update(canonicalize(value), 'utf8').digest('hex')
+export const canonicalize = (value) => JSON.stringify(stable(value));
+export const digestValue = (value) => createHash('sha256').update(canonicalize(value), 'utf8').digest('hex');
 
 export function loadDocClaimSchema(schemaPath = path.join(root, schemaRelative))
 {
-    return JSON.parse(readFileSync(schemaPath, 'utf8'))
+    return JSON.parse(readFileSync(schemaPath, 'utf8'));
 }
 
 export function validateDocClaimSchemaContract(schema = loadDocClaimSchema())
 {
     if (schema?.$id !== claimSchemaId || schema?.additionalProperties !== false)
     {
-        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'schema identity or fail-closed root shape drifted')
+        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'schema identity or fail-closed root shape drifted');
     }
-    const properties = schema.properties ?? {}
+    const properties = schema.properties ?? {};
     for (const field of forbiddenFields)
     {
         if (Object.hasOwn(properties, field))
         {
-            throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, `schema must not declare forbidden field ${field}`)
+            throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, `schema must not declare forbidden field ${field}`);
         }
     }
     if (schema.additionalProperties !== false)
     {
-        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'schema must reject unknown fields')
+        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'schema must reject unknown fields');
     }
-    const claimTypeEnum = properties.claimType?.enum ?? []
+    const claimTypeEnum = properties.claimType?.enum ?? [];
     if ([...claimTypeEnum].sort().join('\0') !== [...allowedClaimTypes].sort().join('\0'))
     {
-        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'claimType enum drifted from loader contract')
+        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'claimType enum drifted from loader contract');
     }
-    const forbiddenEnum = schema.$defs?.forbiddenFields?.enum ?? []
+    const forbiddenEnum = schema.$defs?.forbiddenFields?.enum ?? [];
     if ([...forbiddenEnum].sort().join('\0') !== [...forbiddenFields].sort().join('\0'))
     {
-        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'forbiddenFields enum drifted from loader contract')
+        throw makeError(DocClaimErrorCode.SCHEMA_DRIFT, 'forbiddenFields enum drifted from loader contract');
     }
-    return true
+    return true;
 }
 
 export function makeError(code, message, details = {})
 {
-    const error = new Error(`[doc-claim] ${code}: ${message}`)
-    error.code = code
-    error.details = details
-    return error
+    const error = new Error(`[doc-claim] ${code}: ${message}`);
+    error.code = code;
+    error.details = details;
+    return error;
 }
 
 export function formatDocClaimError(error)
@@ -177,39 +177,39 @@ export function formatDocClaimError(error)
         error.details?.documentPath,
         error.details?.line != null ? `:${error.details.line}` : '',
         error.details?.claimId ? ` claimId=${error.details.claimId}` : ''
-    ].join('')
-    return `${error.code}${location ? ` (${location})` : ''}: ${error.message.replace(/^\[doc-claim\]\s+[A-Z0-9_]+:\s*/u, '')}`
+    ].join('');
+    return `${error.code}${location ? ` (${location})` : ''}: ${error.message.replace(/^\[doc-claim\]\s+[A-Z0-9_]+:\s*/u, '')}`;
 }
 
 function validateFieldValue(field, value, details)
 {
     if (typeof value !== 'string' || value.length === 0)
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `${field} must be a non-empty string`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `${field} must be a non-empty string`, details);
     }
     if (field === 'claimId' && !claimIdPattern.test(value))
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid claimId ${value}`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid claimId ${value}`, details);
     }
     if (field === 'behaviorId' && !behaviorIdPattern.test(value))
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid behaviorId ${value}`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid behaviorId ${value}`, details);
     }
     if (field === 'factPath' && !factPathPattern.test(value))
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid factPath ${value}`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid factPath ${value}`, details);
     }
     if (field === 'generatedSectionId' && !claimIdPattern.test(value))
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid generatedSectionId ${value}`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid generatedSectionId ${value}`, details);
     }
     if (field === 'render' && !renderPattern.test(value))
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid render ${value}`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid render ${value}`, details);
     }
     if (field === 'anchor' && !anchorPattern.test(value))
     {
-        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid anchor ${value}`, details)
+        throw makeError(DocClaimErrorCode.INVALID_FIELD_VALUE, `invalid anchor ${value}`, details);
     }
 }
 
@@ -221,33 +221,33 @@ export function validateClaimDeclaration(raw, details = {})
 {
     if (!isPlainObject(raw))
     {
-        throw makeError(DocClaimErrorCode.INVALID_MARKER, 'claim declaration must be an object', details)
+        throw makeError(DocClaimErrorCode.INVALID_MARKER, 'claim declaration must be an object', details);
     }
     for (const key of Object.keys(raw))
     {
         if (forbiddenFields.includes(key))
         {
-            throw makeError(DocClaimErrorCode.FORBIDDEN_FIELD, `forbidden field ${key}`, { ...details, field: key })
+            throw makeError(DocClaimErrorCode.FORBIDDEN_FIELD, `forbidden field ${key}`, { ...details, field: key });
         }
         if (!allowedFields.includes(key))
         {
-            throw makeError(DocClaimErrorCode.UNKNOWN_FIELD, `unknown field ${key}`, { ...details, field: key })
+            throw makeError(DocClaimErrorCode.UNKNOWN_FIELD, `unknown field ${key}`, { ...details, field: key });
         }
     }
     for (const field of requiredFields)
     {
         if (!Object.hasOwn(raw, field))
         {
-            throw makeError(DocClaimErrorCode.MISSING_FIELD, `missing required field ${field}`, { ...details, field })
+            throw makeError(DocClaimErrorCode.MISSING_FIELD, `missing required field ${field}`, { ...details, field });
         }
-        validateFieldValue(field, raw[field], { ...details, field })
+        validateFieldValue(field, raw[field], { ...details, field });
     }
     if (!allowedClaimTypes.includes(raw.claimType))
     {
-        throw makeError(DocClaimErrorCode.UNKNOWN_CLAIM_TYPE, `unknown claimType ${raw.claimType}`, details)
+        throw makeError(DocClaimErrorCode.UNKNOWN_CLAIM_TYPE, `unknown claimType ${raw.claimType}`, details);
     }
-    const hasFactPath = Object.hasOwn(raw, 'factPath')
-    const hasGeneratedSectionId = Object.hasOwn(raw, 'generatedSectionId')
+    const hasFactPath = Object.hasOwn(raw, 'factPath');
+    const hasGeneratedSectionId = Object.hasOwn(raw, 'generatedSectionId');
     if (raw.claimType === 'generated-section')
     {
         if (!hasGeneratedSectionId || hasFactPath)
@@ -256,9 +256,9 @@ export function validateClaimDeclaration(raw, details = {})
                 DocClaimErrorCode.FACT_PATH_CONFLICT,
                 'generated-section claims require generatedSectionId and forbid factPath',
                 details
-            )
+            );
         }
-        validateFieldValue('generatedSectionId', raw.generatedSectionId, { ...details, field: 'generatedSectionId' })
+        validateFieldValue('generatedSectionId', raw.generatedSectionId, { ...details, field: 'generatedSectionId' });
     }
     else if (!hasFactPath || hasGeneratedSectionId)
     {
@@ -266,17 +266,17 @@ export function validateClaimDeclaration(raw, details = {})
             DocClaimErrorCode.FACT_PATH_CONFLICT,
             'non-generated claims require factPath and forbid generatedSectionId',
             details
-        )
+        );
     }
     else
     {
-        validateFieldValue('factPath', raw.factPath, { ...details, field: 'factPath' })
+        validateFieldValue('factPath', raw.factPath, { ...details, field: 'factPath' });
     }
     for (const field of optionalFields)
     {
         if (Object.hasOwn(raw, field))
         {
-            validateFieldValue(field, raw[field], { ...details, field })
+            validateFieldValue(field, raw[field], { ...details, field });
         }
     }
     const declaration = {
@@ -284,29 +284,29 @@ export function validateClaimDeclaration(raw, details = {})
         behaviorId: raw.behaviorId,
         claimType: raw.claimType,
         render: raw.render
-    }
+    };
     if (hasFactPath)
     {
-        declaration.factPath = raw.factPath
+        declaration.factPath = raw.factPath;
     }
     if (hasGeneratedSectionId)
     {
-        declaration.generatedSectionId = raw.generatedSectionId
+        declaration.generatedSectionId = raw.generatedSectionId;
     }
     for (const field of optionalFields)
     {
         if (Object.hasOwn(raw, field))
         {
-            declaration[field] = raw[field]
+            declaration[field] = raw[field];
         }
     }
-    return declaration
+    return declaration;
 }
 
 /** Canonical HTML comment serializer. One format only; field order is fixed. */
 export function serializeClaimDeclaration(raw)
 {
-    const declaration = validateClaimDeclaration(raw)
+    const declaration = validateClaimDeclaration(raw);
     const order = [
         'claimId',
         'behaviorId',
@@ -318,46 +318,46 @@ export function serializeClaimDeclaration(raw)
         'projection',
         'orderPolicy',
         'emptyPolicy'
-    ]
-    const lines = [`<!-- ${claimMarker}`]
+    ];
+    const lines = [`<!-- ${claimMarker}`];
     for (const field of order)
     {
         if (Object.hasOwn(declaration, field))
         {
-            lines.push(`${field}: ${declaration[field]}`)
+            lines.push(`${field}: ${declaration[field]}`);
         }
     }
-    lines.push('-->')
-    return `${lines.join('\n')}\n`
+    lines.push('-->');
+    return `${lines.join('\n')}\n`;
 }
 
 function parseClaimBodyLines(lines, startLine, details)
 {
-    const raw = {}
+    const raw = {};
     for (let index = 0; index < lines.length; index += 1)
     {
-        const line = lines[index]
+        const line = lines[index];
         if (!line.trim())
         {
-            continue
+            continue;
         }
-        const match = line.match(fieldLinePattern)
+        const match = line.match(fieldLinePattern);
         if (!match)
         {
             throw makeError(
                 DocClaimErrorCode.INVALID_MARKER,
                 `claim field line must be 'key: value' (line ${startLine + index})`,
                 { ...details, line: startLine + index }
-            )
+            );
         }
-        const [, key, value] = match
+        const [, key, value] = match;
         if (Object.hasOwn(raw, key))
         {
-            throw makeError(DocClaimErrorCode.INVALID_MARKER, `duplicate field ${key}`, { ...details, line: startLine + index, field: key })
+            throw makeError(DocClaimErrorCode.INVALID_MARKER, `duplicate field ${key}`, { ...details, line: startLine + index, field: key });
         }
-        raw[key] = value
+        raw[key] = value;
     }
-    return raw
+    return raw;
 }
 
 export function headingAnchor(title)
@@ -368,127 +368,127 @@ export function headingAnchor(title)
         .replace(/[^\p{L}\p{N}\s-]/gu, '')
         .replace(/\s+/gu, '-')
         .replace(/-+/gu, '-')
-        .replace(/^-|-$/gu, '')
+        .replace(/^-|-$/gu, '');
 }
 
 function classifyBodyLine(line)
 {
     if (listPattern.test(line))
     {
-        return 'list'
+        return 'list';
     }
     if (tablePattern.test(line))
     {
-        return 'table'
+        return 'table';
     }
     if (line.trim().length > 0)
     {
-        return 'paragraph'
+        return 'paragraph';
     }
-    return null
+    return null;
 }
 
 function isBodyTerminator(line, inFence)
 {
     if (inFence)
     {
-        return false
+        return false;
     }
     if (headingPattern.test(line) || claimOpenPattern.test(line.trim()))
     {
-        return true
+        return true;
     }
-    return false
+    return false;
 }
 
 function skipNonClaimHtmlComment(lines, startIndex)
 {
-    let index = startIndex
-    const line = lines[index] ?? ''
+    let index = startIndex;
+    const line = lines[index] ?? '';
     if (!htmlCommentOpenPattern.test(line.trim()) || claimOpenPattern.test(line.trim()))
     {
-        return startIndex
+        return startIndex;
     }
     if (line.includes('-->'))
     {
-        return index + 1
+        return index + 1;
     }
-    index += 1
+    index += 1;
     while (index < lines.length)
     {
         if (lines[index].includes('-->'))
         {
-            return index + 1
+            return index + 1;
         }
-        index += 1
+        index += 1;
     }
-    return index
+    return index;
 }
 
 function extractBody(lines, startIndex)
 {
-    let index = startIndex
+    let index = startIndex;
     while (index < lines.length)
     {
-        const line = lines[index]
+        const line = lines[index];
         if (!line.trim())
         {
-            index += 1
-            continue
+            index += 1;
+            continue;
         }
         if (htmlCommentOpenPattern.test(line.trim()) && !claimOpenPattern.test(line.trim()))
         {
-            index = skipNonClaimHtmlComment(lines, index)
-            continue
+            index = skipNonClaimHtmlComment(lines, index);
+            continue;
         }
-        break
+        break;
     }
     if (index >= lines.length)
     {
-        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: false }
+        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: false };
     }
     if (headingPattern.test(lines[index]))
     {
-        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: true, hitClaim: false }
+        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: true, hitClaim: false };
     }
     if (claimOpenPattern.test(lines[index].trim()))
     {
-        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: true }
+        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: true };
     }
     if (fencePattern.test(lines[index]))
     {
-        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: false }
+        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: false };
     }
-    const kind = classifyBodyLine(lines[index])
+    const kind = classifyBodyLine(lines[index]);
     if (!kind)
     {
-        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: false }
+        return { kind: null, start: null, end: null, text: '', nextIndex: index, crossHeading: false, hitClaim: false };
     }
-    const bodyLines = []
-    const start = index
-    let end = index
+    const bodyLines = [];
+    const start = index;
+    let end = index;
     while (index < lines.length)
     {
-        const line = lines[index]
+        const line = lines[index];
         if (fencePattern.test(line) || !line.trim() || isBodyTerminator(line, false))
         {
-            break
+            break;
         }
         if (kind === 'paragraph' && (listPattern.test(line) || tablePattern.test(line)))
         {
-            break
+            break;
         }
         if (kind === 'list' && line.trim() && !listPattern.test(line) && !/^\s+\S/u.test(line))
         {
-            break
+            break;
         }
         if (kind === 'table' && line.trim() && !tablePattern.test(line))
         {
-            break
+            break;
         }
-        bodyLines.push(line)
-        end = index
-        index += 1
+        bodyLines.push(line);
+        end = index;
+        index += 1;
     }
     return {
         kind,
@@ -498,14 +498,14 @@ function extractBody(lines, startIndex)
         nextIndex: index,
         crossHeading: false,
         hitClaim: false
-    }
+    };
 }
 
 function assertRationaleBody(bodyText, details)
 {
     if (!bodyText)
     {
-        return
+        return;
     }
     if (preciseQuantityPattern.test(bodyText) || precisePathPattern.test(bodyText))
     {
@@ -513,7 +513,7 @@ function assertRationaleBody(bodyText, details)
             DocClaimErrorCode.RATIONALE_PRECISE_FACT,
             'rationale body contains an unregistered precise quantity, path, or absolute fact',
             details
-        )
+        );
     }
     if (absoluteCommitmentPattern.test(bodyText) && /(?:redis|postgres|jwt|cookie|permission|session|endpoint|route|api)/iu.test(bodyText))
     {
@@ -521,7 +521,7 @@ function assertRationaleBody(bodyText, details)
             DocClaimErrorCode.RATIONALE_PRECISE_FACT,
             'rationale body contains an absolute behavior commitment without an executable claim',
             details
-        )
+        );
     }
 }
 
@@ -534,103 +534,103 @@ export function parseDocumentClaims(markdown, {
     documentStatus = 'current'
 } = {})
 {
-    const lines = String(markdown).split(/\r?\n/u)
-    const claims = []
-    const headingStack = []
-    const seenAnchors = new Map()
-    const bodyOwners = new Map()
-    let inFence = false
-    let index = 0
+    const lines = String(markdown).split(/\r?\n/u);
+    const claims = [];
+    const headingStack = [];
+    const seenAnchors = new Map();
+    const bodyOwners = new Map();
+    let inFence = false;
+    let index = 0;
 
     while (index < lines.length)
     {
-        const line = lines[index]
-        const lineNumber = index + 1
+        const line = lines[index];
+        const lineNumber = index + 1;
         if (fencePattern.test(line))
         {
-            inFence = !inFence
-            index += 1
-            continue
+            inFence = !inFence;
+            index += 1;
+            continue;
         }
         if (inFence)
         {
-            index += 1
-            continue
+            index += 1;
+            continue;
         }
-        const heading = line.match(headingPattern)
+        const heading = line.match(headingPattern);
         if (heading)
         {
-            const level = heading[1].length
-            const title = heading[2].trim()
-            const anchor = headingAnchor(title)
+            const level = heading[1].length;
+            const title = heading[2].trim();
+            const anchor = headingAnchor(title);
             while (headingStack.length > 0 && headingStack[headingStack.length - 1].level >= level)
             {
-                headingStack.pop()
+                headingStack.pop();
             }
             if (seenAnchors.has(anchor))
             {
                 // Only fail when claims are present in the document; checked after if any claim uses anchors or later.
-                seenAnchors.set(anchor, (seenAnchors.get(anchor) ?? 0) + 1)
+                seenAnchors.set(anchor, (seenAnchors.get(anchor) ?? 0) + 1);
             }
             else
             {
-                seenAnchors.set(anchor, 1)
+                seenAnchors.set(anchor, 1);
             }
-            headingStack.push({ level, title, anchor, line: lineNumber })
-            index += 1
-            continue
+            headingStack.push({ level, title, anchor, line: lineNumber });
+            index += 1;
+            continue;
         }
         if (!claimOpenPattern.test(line.trim()))
         {
-            index += 1
-            continue
+            index += 1;
+            continue;
         }
-        const claimStartLine = lineNumber
-        index += 1
-        const fieldLines = []
-        let closed = false
+        const claimStartLine = lineNumber;
+        index += 1;
+        const fieldLines = [];
+        let closed = false;
         while (index < lines.length)
         {
             if (claimClosePattern.test(lines[index].trim()))
             {
-                closed = true
-                index += 1
-                break
+                closed = true;
+                index += 1;
+                break;
             }
             if (claimOpenPattern.test(lines[index].trim()) || headingPattern.test(lines[index]))
             {
-                break
+                break;
             }
-            fieldLines.push(lines[index])
-            index += 1
+            fieldLines.push(lines[index]);
+            index += 1;
         }
-        const details = { documentPath, line: claimStartLine }
+        const details = { documentPath, line: claimStartLine };
         if (!closed)
         {
-            throw makeError(DocClaimErrorCode.INVALID_MARKER, 'unclosed doc claim block', details)
+            throw makeError(DocClaimErrorCode.INVALID_MARKER, 'unclosed doc claim block', details);
         }
-        const raw = parseClaimBodyLines(fieldLines, claimStartLine + 1, details)
-        const declaration = validateClaimDeclaration(raw, { ...details, claimId: raw.claimId })
-        details.claimId = declaration.claimId
+        const raw = parseClaimBodyLines(fieldLines, claimStartLine + 1, details);
+        const declaration = validateClaimDeclaration(raw, { ...details, claimId: raw.claimId });
+        details.claimId = declaration.claimId;
 
-        let bodyKind = 'none'
-        let bodyStartLine = null
-        let bodyEndLine = null
-        let bodyText = ''
+        let bodyKind = 'none';
+        let bodyStartLine = null;
+        let bodyEndLine = null;
+        let bodyText = '';
         if (declaration.claimType === 'generated-section')
         {
             // generated-section only declares an ID; no prose body binding.
         }
         else
         {
-            const body = extractBody(lines, index)
+            const body = extractBody(lines, index);
             if (body.crossHeading)
             {
                 throw makeError(
                     DocClaimErrorCode.CROSS_HEADING_DRIFT,
                     'claim body cannot cross a heading boundary',
                     details
-                )
+                );
             }
             if (body.hitClaim || !body.kind)
             {
@@ -638,39 +638,39 @@ export function parseDocumentClaims(markdown, {
                     DocClaimErrorCode.MISSING_BODY,
                     'non-generated claim must bind the next non-empty paragraph, list, or table',
                     details
-                )
+                );
             }
-            bodyKind = body.kind
-            bodyStartLine = body.start + 1
-            bodyEndLine = body.end + 1
-            bodyText = body.text
-            const bodyKey = `${documentPath}:${bodyStartLine}:${bodyEndLine}`
-            const previous = bodyOwners.get(bodyKey)
+            bodyKind = body.kind;
+            bodyStartLine = body.start + 1;
+            bodyEndLine = body.end + 1;
+            bodyText = body.text;
+            const bodyKey = `${documentPath}:${bodyStartLine}:${bodyEndLine}`;
+            const previous = bodyOwners.get(bodyKey);
             if (previous && previous.behaviorId !== declaration.behaviorId)
             {
                 throw makeError(
                     DocClaimErrorCode.BODY_SHARED,
                     `body block is already bound to behavior ${previous.behaviorId}`,
                     details
-                )
+                );
             }
-            bodyOwners.set(bodyKey, declaration)
+            bodyOwners.set(bodyKey, declaration);
             if (declaration.claimType === 'rationale')
             {
-                assertRationaleBody(bodyText, details)
+                assertRationaleBody(bodyText, details);
             }
         }
 
         if (declaration.anchor)
         {
-            const count = seenAnchors.get(declaration.anchor) ?? 0
+            const count = seenAnchors.get(declaration.anchor) ?? 0;
             if (count === 0)
             {
                 throw makeError(
                     DocClaimErrorCode.UNSTABLE_OR_MISSING_ANCHOR,
                     `claim anchor ${declaration.anchor} does not match a heading in the document`,
                     details
-                )
+                );
             }
             if (count > 1)
             {
@@ -678,7 +678,7 @@ export function parseDocumentClaims(markdown, {
                     DocClaimErrorCode.DUPLICATE_ANCHOR,
                     `claim anchor ${declaration.anchor} is not unique in the document`,
                     details
-                )
+                );
             }
         }
 
@@ -695,7 +695,7 @@ export function parseDocumentClaims(markdown, {
                 bodyEndLine,
                 bodyText
             }
-        })
+        });
     }
 
     // Duplicate heading anchors only matter when a claim references anchors or any claim exists.
@@ -709,49 +709,49 @@ export function parseDocumentClaims(markdown, {
                     DocClaimErrorCode.DUPLICATE_ANCHOR,
                     `heading anchor ${anchor} is duplicated`,
                     { documentPath }
-                )
+                );
             }
         }
     }
 
-    return claims
+    return claims;
 }
 
 function loadLifecycleStatusMap(repositoryRoot)
 {
-    const lifecyclePath = path.join(repositoryRoot, 'config/development/document-lifecycle.json')
+    const lifecyclePath = path.join(repositoryRoot, 'config/development/document-lifecycle.json');
     if (!existsSync(lifecyclePath))
     {
-        return new Map()
+        return new Map();
     }
-    const policy = JSON.parse(readFileSync(lifecyclePath, 'utf8'))
-    return new Map((policy.documents ?? []).map((document) => [document.path, document.status]))
+    const policy = JSON.parse(readFileSync(lifecyclePath, 'utf8'));
+    return new Map((policy.documents ?? []).map((document) => [document.path, document.status]));
 }
 
 function walkMarkdown(directory, out = [])
 {
     if (!existsSync(directory))
     {
-        return out
+        return out;
     }
     for (const entry of readdirSync(directory))
     {
         if (entry === 'node_modules' || entry === '.git' || entry === '.tmp')
         {
-            continue
+            continue;
         }
-        const target = path.join(directory, entry)
-        const stat = statSync(target)
+        const target = path.join(directory, entry);
+        const stat = statSync(target);
         if (stat.isDirectory())
         {
-            walkMarkdown(target, out)
+            walkMarkdown(target, out);
         }
         else if (entry.endsWith('.md'))
         {
-            out.push(target)
+            out.push(target);
         }
     }
-    return out
+    return out;
 }
 
 /**
@@ -776,13 +776,13 @@ export function buildParseReceipt(locatedClaims, { behaviorCatalogDigest })
         }))
         .sort((left, right) =>
         {
-            const byId = left.declaration.claimId.localeCompare(right.declaration.claimId)
+            const byId = left.declaration.claimId.localeCompare(right.declaration.claimId);
             if (byId !== 0)
             {
-                return byId
+                return byId;
             }
-            return left.location.documentPath.localeCompare(right.location.documentPath)
-        })
+            return left.location.documentPath.localeCompare(right.location.documentPath);
+        });
 
     const receipt = {
         schema: parseReceiptSchemaId,
@@ -790,29 +790,29 @@ export function buildParseReceipt(locatedClaims, { behaviorCatalogDigest })
         canonicalSerialization,
         behaviorCatalogDigest,
         claims
-    }
-    assertReceiptHasNoPassEvidence(receipt)
+    };
+    assertReceiptHasNoPassEvidence(receipt);
     return {
         ...receipt,
         contentDigest: digestValue(receipt)
-    }
+    };
 }
 
 export function receiptProducesPassEvidence(receipt)
 {
     if (!isPlainObject(receipt))
     {
-        return false
+        return false;
     }
     for (const key of Object.keys(receipt))
     {
         if (receiptForbiddenKeys.has(key))
         {
-            return true
+            return true;
         }
     }
     // Parse receipts only declare shape; they never encode pass.
-    return false
+    return false;
 }
 
 export function assertReceiptHasNoPassEvidence(receipt)
@@ -822,9 +822,9 @@ export function assertReceiptHasNoPassEvidence(receipt)
         throw makeError(
             DocClaimErrorCode.PASS_EVIDENCE_FORBIDDEN,
             'DocClaim parse receipt must not contain pass/fail, verification, observation, or lastVerifiedCommit inputs'
-        )
+        );
     }
-    const serialized = canonicalize(receipt)
+    const serialized = canonicalize(receipt);
     for (const field of forbiddenFields)
     {
         if (new RegExp(`"${field}"\\s*:`, 'u').test(serialized))
@@ -832,7 +832,7 @@ export function assertReceiptHasNoPassEvidence(receipt)
             throw makeError(
                 DocClaimErrorCode.PASS_EVIDENCE_FORBIDDEN,
                 `DocClaim receipt digest input contains forbidden field ${field}`
-            )
+            );
         }
     }
     if (/"lastVerifiedCommit"\s*:/u.test(serialized))
@@ -840,22 +840,22 @@ export function assertReceiptHasNoPassEvidence(receipt)
         throw makeError(
             DocClaimErrorCode.PASS_EVIDENCE_FORBIDDEN,
             'lastVerifiedCommit must not enter DocClaim receipt or digest inputs'
-        )
+        );
     }
 }
 
 function validateClaimAgainstBehavior(declaration, location, contracts)
 {
-    const contract = contracts.get(declaration.behaviorId)
+    const contract = contracts.get(declaration.behaviorId);
     if (!contract)
     {
         throw makeError(
             DocClaimErrorCode.UNKNOWN_BEHAVIOR,
             `claimId ${declaration.claimId} binds unknown behaviorId ${declaration.behaviorId}`,
             { documentPath: location.documentPath, line: location.claimStartLine, claimId: declaration.claimId }
-        )
+        );
     }
-    const status = location.documentStatus
+    const status = location.documentStatus;
     if (contract.status === 'active')
     {
         if (status !== 'current')
@@ -866,9 +866,9 @@ function validateClaimAgainstBehavior(declaration, location, contracts)
                     : DocClaimErrorCode.ACTIVE_IN_NON_CURRENT,
                 `active behavior ${declaration.behaviorId} may only be claimed from current documentation`,
                 { documentPath: location.documentPath, line: location.claimStartLine, claimId: declaration.claimId }
-            )
+            );
         }
-        return
+        return;
     }
     if (status === 'current')
     {
@@ -876,7 +876,7 @@ function validateClaimAgainstBehavior(declaration, location, contracts)
             DocClaimErrorCode.NON_CURRENT_ACTIVE_BEHAVIOR,
             `current documentation cannot claim ${contract.status} behavior ${declaration.behaviorId}`,
             { documentPath: location.documentPath, line: location.claimStartLine, claimId: declaration.claimId }
-        )
+        );
     }
     if (status === 'historical')
     {
@@ -886,16 +886,16 @@ function validateClaimAgainstBehavior(declaration, location, contracts)
                 DocClaimErrorCode.HISTORICAL_ACTIVE_BEHAVIOR,
                 'historical documentation may only reference migration-only or retired behaviors',
                 { documentPath: location.documentPath, line: location.claimStartLine, claimId: declaration.claimId }
-            )
+            );
         }
         // Historical migration/retired claims parse, but parse receipts never produce qualification evidence.
-        return
+        return;
     }
     throw makeError(
         DocClaimErrorCode.ACTIVE_IN_NON_CURRENT,
         `document status ${status} cannot host DocClaim declarations`,
         { documentPath: location.documentPath, line: location.claimStartLine, claimId: declaration.claimId }
-    )
+    );
 }
 
 /**
@@ -904,30 +904,30 @@ function validateClaimAgainstBehavior(declaration, location, contracts)
  */
 export function parseRepositoryClaims(repositoryRoot = root, options = {})
 {
-    validateDocClaimSchemaContract(loadDocClaimSchema(path.join(repositoryRoot, schemaRelative)))
-    const catalog = options.catalog ?? loadCatalog(path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'))
-    const contracts = new Map(catalog.contracts.map((contract) => [contract.id, contract]))
-    const behaviorCatalogDigest = options.behaviorCatalogDigest ?? digestCatalog(catalog)
-    const statusMap = options.statusMap ?? loadLifecycleStatusMap(repositoryRoot)
-    const docsRoot = path.join(repositoryRoot, 'docs')
-    const located = []
-    const claimIds = new Map()
+    validateDocClaimSchemaContract(loadDocClaimSchema(path.join(repositoryRoot, schemaRelative)));
+    const catalog = options.catalog ?? loadCatalog(path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'));
+    const contracts = new Map(catalog.contracts.map((contract) => [contract.id, contract]));
+    const behaviorCatalogDigest = options.behaviorCatalogDigest ?? digestCatalog(catalog);
+    const statusMap = options.statusMap ?? loadLifecycleStatusMap(repositoryRoot);
+    const docsRoot = path.join(repositoryRoot, 'docs');
+    const located = [];
+    const claimIds = new Map();
 
     for (const absolute of walkMarkdown(docsRoot).sort())
     {
-        const documentPath = path.relative(repositoryRoot, absolute).split(path.sep).join('/')
-        const source = readFileSync(absolute, 'utf8')
+        const documentPath = path.relative(repositoryRoot, absolute).split(path.sep).join('/');
+        const source = readFileSync(absolute, 'utf8');
         if (!source.includes(claimMarker) && !/fsus[-_]doc[-_]claim/i.test(source) && !/<!--\s*fsus-claim/i.test(source))
         {
-            continue
+            continue;
         }
         // Legacy/second-protocol markers fail closed even inside non-current docs.
-        assertNoLegacyClaimSurfaces(source, documentPath)
+        assertNoLegacyClaimSurfaces(source, documentPath);
         if (!source.includes(`<!-- ${claimMarker}`) && !source.includes(`<!--${claimMarker}`))
         {
-            continue
+            continue;
         }
-        const documentStatus = statusMap.get(documentPath)
+        const documentStatus = statusMap.get(documentPath);
         if (!documentStatus)
         {
             // Unclassified docs under docs/ cannot host claims.
@@ -937,9 +937,9 @@ export function parseRepositoryClaims(repositoryRoot = root, options = {})
                     DocClaimErrorCode.NON_CURRENT_ACTIVE_BEHAVIOR,
                     `${documentPath} is not registered in document lifecycle and cannot host DocClaim`,
                     { documentPath }
-                )
+                );
             }
-            continue
+            continue;
         }
         // Parser only accepts claims from current docs for active pipeline, and historical for migration/retired.
         if (documentStatus !== 'current' && documentStatus !== 'historical')
@@ -950,29 +950,29 @@ export function parseRepositoryClaims(repositoryRoot = root, options = {})
                     DocClaimErrorCode.NON_CURRENT_ACTIVE_BEHAVIOR,
                     `${documentPath} status ${documentStatus} cannot host DocClaim declarations`,
                     { documentPath }
-                )
+                );
             }
-            continue
+            continue;
         }
-        const parsed = parseDocumentClaims(source, { documentPath, documentStatus })
+        const parsed = parseDocumentClaims(source, { documentPath, documentStatus });
         for (const entry of parsed)
         {
-            const previous = claimIds.get(entry.declaration.claimId)
+            const previous = claimIds.get(entry.declaration.claimId);
             if (previous)
             {
                 throw makeError(
                     DocClaimErrorCode.DUPLICATE_CLAIM_ID,
                     `claimId ${entry.declaration.claimId} is duplicated in ${previous} and ${documentPath}`,
                     { documentPath, line: entry.location.claimStartLine, claimId: entry.declaration.claimId }
-                )
+                );
             }
-            claimIds.set(entry.declaration.claimId, documentPath)
-            validateClaimAgainstBehavior(entry.declaration, entry.location, contracts)
-            located.push(entry)
+            claimIds.set(entry.declaration.claimId, documentPath);
+            validateClaimAgainstBehavior(entry.declaration, entry.location, contracts);
+            located.push(entry);
         }
     }
 
-    return buildParseReceipt(located, { behaviorCatalogDigest })
+    return buildParseReceipt(located, { behaviorCatalogDigest });
 }
 
 export function assertNoLegacyClaimSurfaces(source, documentPath = '<input>')
@@ -987,17 +987,17 @@ export function assertNoLegacyClaimSurfaces(source, documentPath = '<input>')
             regex: /<!--\s*fsus-doc-claim[\s\S]*?\b(?:verified|approved|lastVerifiedCommit|expectedValue|baselineValue|ignoreDifference|waiver|allowStaleUntil)\s*:/u,
             message: 'self-proving field inside claim block is forbidden'
         }
-    ]
+    ];
     for (const pattern of patterns)
     {
         if (pattern.regex.test(source))
         {
-            throw makeError(pattern.code, pattern.message, { documentPath })
+            throw makeError(pattern.code, pattern.message, { documentPath });
         }
     }
 }
 
-const governanceScanRoots = ['tools', 'tests', 'config', 'docs', 'src']
+const governanceScanRoots = ['tools', 'tests', 'config', 'docs', 'src'];
 const governanceAllowRelative = new Set([
     'config/schemas/doc-claim.schema.json',
     'tools/contracts/behavior-graph-join.mjs',
@@ -1012,7 +1012,7 @@ const governanceAllowRelative = new Set([
     'tools/docs/doc-claim-staleness-mutation/governance.mjs',
     'tools/docs/doc-claim-staleness-mutation/index.mjs',
     'docs/development/doc-claim-protocol.md'
-])
+]);
 
 // The final consistency owner names these fields only to reject them outside
 // qualification paths. Exempt that one exact rejecting implementation block,
@@ -1023,7 +1023,7 @@ const rejectionOnlyMachineFields = `function isForbiddenMachineField(normalized,
     if (!canonical) return null
     if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
     return canonical
-}`
+}`;
 
 function withoutExactRejectionOnlyMachineFields(relative, source)
 {
@@ -1031,9 +1031,9 @@ function withoutExactRejectionOnlyMachineFields(relative, source)
         || source.indexOf(rejectionOnlyMachineFields) < 0
         || source.indexOf(rejectionOnlyMachineFields) !== source.lastIndexOf(rejectionOnlyMachineFields))
     {
-        return source
+        return source;
     }
-    return source.replace(rejectionOnlyMachineFields, '')
+    return source.replace(rejectionOnlyMachineFields, '');
 }
 
 /**
@@ -1041,11 +1041,11 @@ function withoutExactRejectionOnlyMachineFields(relative, source)
  */
 export function scanDocClaimGovernance(repositoryRoot = root)
 {
-    const violations = []
-    const forbiddenSurface = /\b(?:compat(?:ibility)?|legacy|deprecated)[_-]?doc[_-]?claim[_-]?(?:parser|reader|format)?\b/iu
-    const secondProtocol = /fsusblog\.doc-claim\.v0\b|<!--\s*fsus-claim(?:-v\d+)?\b|<!--\s*fsus-doc-claim-legacy\b/iu
-    const selfProvingInClaimTools = /\bexpectedValue\b|\bbaselineValue\b|\ballowStaleUntil\b|\bignoreDifference\b/
-    const passEvidenceHook = /lastVerifiedCommit.*(?:pass|qualify|digest)|(?:pass|qualify|digest).*lastVerifiedCommit/iu
+    const violations = [];
+    const forbiddenSurface = /\b(?:compat(?:ibility)?|legacy|deprecated)[_-]?doc[_-]?claim[_-]?(?:parser|reader|format)?\b/iu;
+    const secondProtocol = /fsusblog\.doc-claim\.v0\b|<!--\s*fsus-claim(?:-v\d+)?\b|<!--\s*fsus-doc-claim-legacy\b/iu;
+    const selfProvingInClaimTools = /\bexpectedValue\b|\bbaselineValue\b|\ballowStaleUntil\b|\bignoreDifference\b/;
+    const passEvidenceHook = /lastVerifiedCommit.*(?:pass|qualify|digest)|(?:pass|qualify|digest).*lastVerifiedCommit/iu;
 
     const walk = (directory) =>
     {
@@ -1053,61 +1053,61 @@ export function scanDocClaimGovernance(repositoryRoot = root)
         {
             if (entry === 'node_modules' || entry === '.git' || entry === '.tmp' || entry === 'bin' || entry === 'obj')
             {
-                continue
+                continue;
             }
-            const absolute = path.join(directory, entry)
-            const stat = statSync(absolute)
+            const absolute = path.join(directory, entry);
+            const stat = statSync(absolute);
             if (stat.isDirectory())
             {
-                walk(absolute)
-                continue
+                walk(absolute);
+                continue;
             }
             if (!/\.(?:mjs|js|ts|tsx|json|md|cs|yml|yaml)$/u.test(entry))
             {
-                continue
+                continue;
             }
-            const relative = path.relative(repositoryRoot, absolute).split(path.sep).join('/')
+            const relative = path.relative(repositoryRoot, absolute).split(path.sep).join('/');
             if (governanceAllowRelative.has(relative))
             {
                 // Allowed owners may document ban lists. Only real compatibility entrypoints fail.
-                const source = readFileSync(absolute, 'utf8')
+                const source = readFileSync(absolute, 'utf8');
                 if (/(?:export\s+)?(?:async\s+)?function\s+parseLegacyDocClaim\b|export\s+const\s+legacyDocClaimParser\b/u.test(source))
                 {
-                    violations.push({ code: DocClaimErrorCode.COMPAT_PARSER, documentPath: relative, message: 'compatibility parser implementation is forbidden' })
+                    violations.push({ code: DocClaimErrorCode.COMPAT_PARSER, documentPath: relative, message: 'compatibility parser implementation is forbidden' });
                 }
-                continue
+                continue;
             }
-            const source = readFileSync(absolute, 'utf8')
+            const source = readFileSync(absolute, 'utf8');
             if (forbiddenSurface.test(source))
             {
-                violations.push({ code: DocClaimErrorCode.COMPAT_PARSER, documentPath: relative, message: 'compatibility DocClaim surface detected' })
+                violations.push({ code: DocClaimErrorCode.COMPAT_PARSER, documentPath: relative, message: 'compatibility DocClaim surface detected' });
             }
             if (secondProtocol.test(source))
             {
-                violations.push({ code: DocClaimErrorCode.SECOND_PROTOCOL, documentPath: relative, message: 'second/legacy DocClaim protocol marker detected' })
+                violations.push({ code: DocClaimErrorCode.SECOND_PROTOCOL, documentPath: relative, message: 'second/legacy DocClaim protocol marker detected' });
             }
-            const selfProvingSource = withoutExactRejectionOnlyMachineFields(relative, source)
+            const selfProvingSource = withoutExactRejectionOnlyMachineFields(relative, source);
             if (relative.startsWith('tools/') && selfProvingInClaimTools.test(selfProvingSource)
                 && /doc-claim|DocClaim/u.test(source))
             {
-                violations.push({ code: DocClaimErrorCode.SELF_PROVING_SURFACE, documentPath: relative, message: 'self-proving claim field surface detected' })
+                violations.push({ code: DocClaimErrorCode.SELF_PROVING_SURFACE, documentPath: relative, message: 'self-proving claim field surface detected' });
             }
             if (relative.startsWith('tools/docs/') && passEvidenceHook.test(source))
             {
-                violations.push({ code: DocClaimErrorCode.PASS_EVIDENCE_FORBIDDEN, documentPath: relative, message: 'lastVerifiedCommit must not participate in DocClaim pass/fail' })
+                violations.push({ code: DocClaimErrorCode.PASS_EVIDENCE_FORBIDDEN, documentPath: relative, message: 'lastVerifiedCommit must not participate in DocClaim pass/fail' });
             }
         }
-    }
+    };
 
     for (const relativeRoot of governanceScanRoots)
     {
-        const absolute = path.join(repositoryRoot, relativeRoot)
+        const absolute = path.join(repositoryRoot, relativeRoot);
         if (existsSync(absolute))
         {
-            walk(absolute)
+            walk(absolute);
         }
     }
-    return violations
+    return violations;
 }
 
 /**
@@ -1120,21 +1120,21 @@ export function assertNoClaimSchemaDuplication(repositoryRoot = root)
         'tools/docs/generate-document-lifecycle.mjs',
         'tools/docs/check-authoritative-development-docs.mjs',
         '.markdownlint-cli2.jsonc'
-    ]
+    ];
     for (const relative of suspects)
     {
-        const absolute = path.join(repositoryRoot, relative)
+        const absolute = path.join(repositoryRoot, relative);
         if (!existsSync(absolute))
         {
-            continue
+            continue;
         }
-        const source = readFileSync(absolute, 'utf8')
+        const source = readFileSync(absolute, 'utf8');
         if (source.includes(claimSchemaId) || source.includes('allowedClaimTypes =') || /factPath.*generatedSectionId/u.test(source))
         {
             throw makeError(
                 DocClaimErrorCode.SECOND_PROTOCOL,
                 `${relative} must not copy DocClaim schema authority`
-            )
+            );
         }
     }
 }

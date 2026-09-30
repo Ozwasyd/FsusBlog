@@ -14,10 +14,10 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
-import {
+const {
     FSUSUI_PUBLIC_NPM_MIGRATION_PATCH,
     FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256
-} from '../../tools/dependencies/migrate-fsusui-public-npm.mjs';
+} = await import(new URL('../../tools/dependencies/migrate-fsusui-public-npm.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const checker = path.join(root, 'tools/docs/check-authoritative-development-docs.mjs');

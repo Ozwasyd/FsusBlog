@@ -5,17 +5,17 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { createPhysicalExecutionLinuxSystemdAdapter } from '../../tools/test/physical-execution-linux-systemd-adapter.mjs';
-import { physicalExecutionProcessTreeSchema } from '../../tools/test/physical-execution-process-tree.mjs';
+const { createPhysicalExecutionLinuxSystemdAdapter } = await import(new URL('../../tools/test/physical-execution-linux-systemd-adapter.mjs', import.meta.url));
+const { physicalExecutionProcessTreeSchema } = await import(new URL('../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
 
-import {
+const {
     admitsPrivateDotnetScratch,
     finalizePrivateDotnetScratch,
     preparePrivateDotnetScratch,
     privateDotnetScratchPath,
     verifyPrivateDotnetScratchBinding,
     verifyPrivateTmpNamespace
-} from '../../tools/test/physical-execution-private-dotnet-scratch.mjs';
+} = await import(new URL('../../tools/test/physical-execution-private-dotnet-scratch.mjs', import.meta.url));
 
 function fixture(t, base = os.tmpdir())
 {

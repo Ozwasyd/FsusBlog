@@ -107,7 +107,7 @@ function assertProductionMutationPreserves(t, relative, replacements)
 function assertProductionMutationsInvalidate(t, relative, replacements)
 {
     const temporary = mutateProductionSources(t, relative, replacements);
-    let changed = false;
+    let changed;
     try
     {
         changed = stableStringify(projectContentFieldContracts({ root: temporary }))
@@ -123,7 +123,7 @@ function assertProductionMutationsInvalidate(t, relative, replacements)
 function assertProductionMutationInvalidates(t, relative, before, after, options)
 {
     const temporary = mutateProductionSource(t, relative, before, after, options);
-    let projectionChanged = false;
+    let projectionChanged;
     try
     {
         projectionChanged = stableStringify(projectContentFieldContracts({ root: temporary }))
@@ -248,7 +248,7 @@ test('field projection binds contract fragments instead of unrelated owner file 
         ['TRUSTED_PLATFORM_ASSEMBLIES', '/definitely-not-a-tpa-list']
     ]);
     const originalEnvironment = new Map([...ambientOverrides.keys()].map((name) => [name, process.env[name]]));
-    for (const [name, value] of ambientOverrides) process.env[name] = value;
+    for (const [name, value] of ambientOverrides) {process.env[name] = value;}
     try
     {
         assert.deepEqual(projectContentFieldContracts({ root: temporary }), projectContentFieldContracts());
@@ -257,8 +257,8 @@ test('field projection binds contract fragments instead of unrelated owner file 
     {
         for (const [name, value] of originalEnvironment)
         {
-            if (value === undefined) delete process.env[name];
-            else process.env[name] = value;
+            if (value === undefined) {delete process.env[name];}
+            else {process.env[name] = value;}
         }
     }
 

@@ -170,7 +170,7 @@ function commandIdentity(pid, platform, execute)
 {
     const script =
         platform === 'win32'
-            ? `Get-CimInstance Win32_Process -Filter \"ProcessId=${pid}\" | Select-Object ProcessId,CreationDate,ExecutablePath,CommandLine | ConvertTo-Json -Compress`
+            ? `Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object ProcessId,CreationDate,ExecutablePath,CommandLine | ConvertTo-Json -Compress`
             : '';
     if (platform === 'win32')
     {
