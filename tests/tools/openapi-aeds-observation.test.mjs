@@ -801,51 +801,187 @@ test('observationDigest is recomputed from sealed content, not trusted from arti
 test('typed request, response, protocol, and error authority counterexamples fail closed', () =>
 {
     const cases = [
-        ['missing request', (value) => { delete value.operations[0].request; }, /request contract/iu],
-        ['request direction drift', (value) => { value.operations[0].request.direction = 'response'; }, /request direction|request contract/iu],
-        ['incorrect request required', (value) => { value.operations[0].request.required = true; }, /request direction|request contract/iu],
-        ['incorrect request nullable', (value) => { value.operations[1].request.nullable = true; }, /request contract/iu],
-        ['property nullable drift', (value) => { value.operations[1].request.properties.title.nullable = true; }, /request contract/iu],
-        ['missing nested definition', (value) => { delete value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata']; }, /request contract/iu],
-        ['nested required drift', (value) => { value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'].requiredFields = []; }, /request contract/iu],
-        ['missing required field', (value) => { value.operations[1].request.requiredFields = []; }, /request contract/iu],
-        ['schema digest stale', (value) => { value.operations[1].request.schemaDigest = '0'.repeat(64); }, /request contract/iu],
-        ['invented request field bounds', (value) => { value.operations[1].request.boundsState = 'frame-contract'; }, /request contract/iu],
-        ['bounds loss', (value) => { value.operations[1].request.properties.title.bounds.maxLength = null; }, /request contract/iu],
-        ['bounds projection drift', (value) => { value.operations[1].request.bounds = {}; }, /request contract/iu],
-        ['invented request union', (value) => { value.operations[1].request.unionState = 'one-of'; value.operations[1].request.oneOf = ['Missing']; }, /request contract/iu],
-        ['discriminator without union', (value) => { value.operations[1].request.discriminator = '$type'; }, /request contract/iu],
-        ['invented request required field', (value) => { value.operations[1].request.requiredFields.push('frame'); }, /request contract/iu],
-        ['request direction swap', (value) => { value.operations[1].request.source = 'none'; }, /request contract/iu],
-        ['parameter direction swap', (value) => { value.operations[1].request.parameters[0].direction = 'response'; }, /request contract/iu],
-        ['parameter source conflict', (value) => { value.operations[1].request.parameters[0].source = 'query'; }, /request contract/iu],
-        ['missing query parameter', (value) => { value.operations[1].request.parameters.pop(); }, /request contract/iu],
-        ['duplicate request parameter', (value) => { value.operations[1].request.parameters.push({ ...value.operations[1].request.parameters[0] }); }, /request contract/iu],
-        ['parameter bounds missing', (value) => { delete value.operations[1].request.parameters[0].bounds; }, /request contract/iu],
-        ['parameter bounds invalid', (value) => { value.operations[1].request.parameters[0].bounds.minLength = -1; }, /request contract/iu],
-        ['parameter evidence missing', (value) => { value.operations[1].request.parameters[0].evidence = []; }, /request contract/iu],
-        ['duplicate source type', (value) => { value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]); }, /request contract/iu],
-        ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
-        ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response contracts/iu],
-        ['content type drift', (value) => { value.operations[0].responses[0].contentType = 'application/json'; }, /response contracts/iu],
-        ['response schema drift', (value) => { value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError'; }, /response contracts/iu],
-        ['result placement drift', (value) => { value.operations[0].responses[0].resultPlacement = 'json.body'; }, /response contracts/iu],
-        ['duplicate response', (value) => { value.operations[0].responses.push({ ...value.operations[0].responses[0] }); }, /response contracts/iu],
-        ['extra public status', (value) => { value.operations[0].publicErrorStatuses.push(503); }, /response contracts/iu],
-        ['missing status evidence', (value) => { delete value.operations[0].publicErrorStatusEvidence['404']; }, /response contracts/iu],
-        ['unmapped status ref', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:999'; }, /response contracts/iu],
-        ['generic error placeholder', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:ApiError'; }, /response contracts/iu],
-        ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states/iu],
-        ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states/iu],
-        ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states/iu],
-        ['duplicate retired protocol value', (value) => { value.protocolStates.retiredFrameValues.push(40); }, /protocol states/iu],
-        ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states/iu],
-        ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
-        ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
-        ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /response contracts/iu],
-        ['premature enumerable status authority', (value) => { value.errorAuthority.statusMappingKeys = [400, 500]; }, /error authority binding/iu],
-        ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu],
-        ['endpoint contract authority drift', (value) => { value.endpointContractAuthority.schema = 'fsusblog.aeds-endpoint-contracts.v1'; }, /endpoint contract authority/iu]
+        ['missing request', (value) =>
+        {
+            delete value.operations[0].request;
+        }, /request contract/iu],
+        ['request direction drift', (value) =>
+        {
+            value.operations[0].request.direction = 'response';
+        }, /request direction|request contract/iu],
+        ['incorrect request required', (value) =>
+        {
+            value.operations[0].request.required = true;
+        }, /request direction|request contract/iu],
+        ['incorrect request nullable', (value) =>
+        {
+            value.operations[1].request.nullable = true;
+        }, /request contract/iu],
+        ['property nullable drift', (value) =>
+        {
+            value.operations[1].request.properties.title.nullable = true;
+        }, /request contract/iu],
+        ['missing nested definition', (value) =>
+        {
+            delete value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'];
+        }, /request contract/iu],
+        ['nested required drift', (value) =>
+        {
+            value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'].requiredFields = [];
+        }, /request contract/iu],
+        ['missing required field', (value) =>
+        {
+            value.operations[1].request.requiredFields = [];
+        }, /request contract/iu],
+        ['schema digest stale', (value) =>
+        {
+            value.operations[1].request.schemaDigest = '0'.repeat(64);
+        }, /request contract/iu],
+        ['invented request field bounds', (value) =>
+        {
+            value.operations[1].request.boundsState = 'frame-contract';
+        }, /request contract/iu],
+        ['bounds loss', (value) =>
+        {
+            value.operations[1].request.properties.title.bounds.maxLength = null;
+        }, /request contract/iu],
+        ['bounds projection drift', (value) =>
+        {
+            value.operations[1].request.bounds = {};
+        }, /request contract/iu],
+        ['invented request union', (value) =>
+        {
+            value.operations[1].request.unionState = 'one-of';
+            value.operations[1].request.oneOf = ['Missing'];
+        }, /request contract/iu],
+        ['discriminator without union', (value) =>
+        {
+            value.operations[1].request.discriminator = '$type';
+        }, /request contract/iu],
+        ['invented request required field', (value) =>
+        {
+            value.operations[1].request.requiredFields.push('frame');
+        }, /request contract/iu],
+        ['request direction swap', (value) =>
+        {
+            value.operations[1].request.source = 'none';
+        }, /request contract/iu],
+        ['parameter direction swap', (value) =>
+        {
+            value.operations[1].request.parameters[0].direction = 'response';
+        }, /request contract/iu],
+        ['parameter source conflict', (value) =>
+        {
+            value.operations[1].request.parameters[0].source = 'query';
+        }, /request contract/iu],
+        ['missing query parameter', (value) =>
+        {
+            value.operations[1].request.parameters.pop();
+        }, /request contract/iu],
+        ['duplicate request parameter', (value) =>
+        {
+            value.operations[1].request.parameters.push({ ...value.operations[1].request.parameters[0] });
+        }, /request contract/iu],
+        ['parameter bounds missing', (value) =>
+        {
+            delete value.operations[1].request.parameters[0].bounds;
+        }, /request contract/iu],
+        ['parameter bounds invalid', (value) =>
+        {
+            value.operations[1].request.parameters[0].bounds.minLength = -1;
+        }, /request contract/iu],
+        ['parameter evidence missing', (value) =>
+        {
+            value.operations[1].request.parameters[0].evidence = [];
+        }, /request contract/iu],
+        ['duplicate source type', (value) =>
+        {
+            value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]);
+        }, /request contract/iu],
+        ['missing error response', (value) =>
+        {
+            value.operations[0].responses.pop();
+        }, /response contracts/iu],
+        ['success status drift', (value) =>
+        {
+            value.operations[0].responses[0].status = 201;
+        }, /response contracts/iu],
+        ['content type drift', (value) =>
+        {
+            value.operations[0].responses[0].contentType = 'application/json';
+        }, /response contracts/iu],
+        ['response schema drift', (value) =>
+        {
+            value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError';
+        }, /response contracts/iu],
+        ['result placement drift', (value) =>
+        {
+            value.operations[0].responses[0].resultPlacement = 'json.body';
+        }, /response contracts/iu],
+        ['duplicate response', (value) =>
+        {
+            value.operations[0].responses.push({ ...value.operations[0].responses[0] });
+        }, /response contracts/iu],
+        ['extra public status', (value) =>
+        {
+            value.operations[0].publicErrorStatuses.push(503);
+        }, /response contracts/iu],
+        ['missing status evidence', (value) =>
+        {
+            delete value.operations[0].publicErrorStatusEvidence['404'];
+        }, /response contracts/iu],
+        ['unmapped status ref', (value) =>
+        {
+            value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:999';
+        }, /response contracts/iu],
+        ['generic error placeholder', (value) =>
+        {
+            value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:ApiError';
+        }, /response contracts/iu],
+        ['active migration overlap', (value) =>
+        {
+            value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail');
+        }, /protocol states/iu],
+        ['reserved frame in active partition', (value) =>
+        {
+            value.protocolStates.activeFrameIds.push('Reserved178');
+        }, /protocol states/iu],
+        ['non-reserved migration frame', (value) =>
+        {
+            value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame');
+        }, /protocol states/iu],
+        ['duplicate retired protocol value', (value) =>
+        {
+            value.protocolStates.retiredFrameValues.push(40);
+        }, /protocol states/iu],
+        ['missing migration partition', (value) =>
+        {
+            delete value.protocolStates.migrationOnlyFrameIds;
+        }, /protocol states/iu],
+        ['error behavior drift', (value) =>
+        {
+            value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract';
+        }, /public errors/iu],
+        ['invented operation error allow-list', (value) =>
+        {
+            value.operations[0].publicErrorRefState = 'operation-allow-list';
+        }, /public errors/iu],
+        ['duplicate public error ref', (value) =>
+        {
+            value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]);
+        }, /response contracts/iu],
+        ['premature enumerable status authority', (value) =>
+        {
+            value.errorAuthority.statusMappingKeys = [400, 500];
+        }, /error authority binding/iu],
+        ['duplicate authority fact', (value) =>
+        {
+            value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]);
+        }, /error authority binding/iu],
+        ['endpoint contract authority drift', (value) =>
+        {
+            value.endpointContractAuthority.schema = 'fsusblog.aeds-endpoint-contracts.v1';
+        }, /endpoint contract authority/iu]
     ];
 
     for (const [name, mutate, expected] of cases)

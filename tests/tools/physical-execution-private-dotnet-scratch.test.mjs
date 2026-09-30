@@ -211,8 +211,10 @@ test('real systemd unit proves private /tmp or refuses before host scratch is to
             linuxReadWritePaths: [toolCache, options.root],
             privateDotnetScratch: binding,
             policy,
-            stdout: { write() {} },
-            stderr: { write() {} },
+            stdout: { write()
+            {} },
+            stderr: { write()
+            {} },
             schema: physicalExecutionProcessTreeSchema
         });
     }

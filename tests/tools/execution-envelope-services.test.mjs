@@ -223,10 +223,22 @@ test('MySQL private admission binds one held grant, live SQL service and exact c
     /stale or repeated/u);
     const original = fs.readFileSync(file);
     for (const mutate of [
-        (record) => { record.reservation.bundleId = 'matrix:backend-unit'; },
-        (record) => { record.reservation.identity.stepId = 'foreign'; },
-        (record) => { record.envelope.catalogDigest = `sha256:${'0'.repeat(64)}`; },
-        (record) => { record.envelope.actual.services[0].ports[0].hostPort = '23307'; }
+        (record) =>
+        {
+            record.reservation.bundleId = 'matrix:backend-unit';
+        },
+        (record) =>
+        {
+            record.reservation.identity.stepId = 'foreign';
+        },
+        (record) =>
+        {
+            record.envelope.catalogDigest = `sha256:${'0'.repeat(64)}`;
+        },
+        (record) =>
+        {
+            record.envelope.actual.services[0].ports[0].hostPort = '23307';
+        }
     ])
     {
         const record = JSON.parse(original);

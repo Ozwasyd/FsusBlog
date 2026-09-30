@@ -75,7 +75,10 @@ const boundedProperties = (properties) => Object.fromEntries(Object.entries(prop
 
 function validateProperties(properties, definitions)
 {
-    if (!isObject(properties)) {return false;}
+    if (!isObject(properties))
+    {
+        return false;
+    }
     for (const [name, property] of Object.entries(properties))
     {
         if (!exactKeys(property, propertyKeys) || property.name !== name
@@ -88,10 +91,16 @@ function validateProperties(properties, definitions)
             || (property.type === 'array' && property.itemType == null)
             || !Array.isArray(property.enumValues)
             || (property.type === 'enum') !== (property.enumValues.length > 0)
-            || !isSortedUnique(property.enumValues) || !validateBound(property.bounds)) {return false;}
+            || !isSortedUnique(property.enumValues) || !validateBound(property.bounds))
+        {
+            return false;
+        }
         for (const ref of [property.schemaRef, property.itemSchemaRef].filter((value) => value != null))
         {
-            if (!String(ref).startsWith('clr://') || !Object.hasOwn(definitions, String(ref).slice('clr://'.length))) {return false;}
+            if (!String(ref).startsWith('clr://') || !Object.hasOwn(definitions, String(ref).slice('clr://'.length)))
+            {
+                return false;
+            }
         }
     }
     return true;
@@ -104,7 +113,10 @@ function validateRequestContract(op)
         || !Array.isArray(request.parameters) || !isObject(request.properties)
         || !isObject(request.definitions) || !Array.isArray(request.oneOf)
         || !isObject(request.bounds) || !Array.isArray(request.sourceTypes)
-        || !Array.isArray(request.readerIdentities) || request.nullable !== false) {return false;}
+        || !Array.isArray(request.readerIdentities) || request.nullable !== false)
+    {
+        return false;
+    }
     if (!request.parameters.every((parameter) => exactKeys(parameter, parameterKeys)
         && typeof parameter.name === 'string' && parameter.name.length > 0
         && parameter.direction === 'request' && ['path', 'query', 'header'].includes(parameter.source)
@@ -115,7 +127,10 @@ function validateRequestContract(op)
         && Array.isArray(parameter.evidence) && parameter.evidence.length > 0
         && isSortedUnique(parameter.evidence))
         || new Set(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)).size !== request.parameters.length
-        || !isSortedUnique(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`))) {return false;}
+        || !isSortedUnique(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)))
+    {
+        return false;
+    }
 
     if (op.requestFrame == null)
     {
@@ -139,12 +154,18 @@ function validateRequestContract(op)
         || !isSortedUnique(request.requiredFields) || !isSortedUnique(request.oneOf)
         || !isSortedUnique(request.sourceTypes) || !isSortedUnique(request.readerIdentities)
         || !request.sourceTypes.every((identity) => typeof identity === 'string' && identity.length > 0)
-        || !request.readerIdentities.every((identity) => typeof identity === 'string' && identity.length > 0)) {return false;}
+        || !request.readerIdentities.every((identity) => typeof identity === 'string' && identity.length > 0))
+    {
+        return false;
+    }
     const requiredFromProperties = Object.values(request.properties)
         .filter((property) => property.required === true).map((property) => property.name).sort();
     if (JSON.stringify(requiredFromProperties) !== JSON.stringify(request.requiredFields)
         || !validateProperties(request.properties, request.definitions)
-        || JSON.stringify(boundedProperties(request.properties)) !== JSON.stringify(request.bounds)) {return false;}
+        || JSON.stringify(boundedProperties(request.properties)) !== JSON.stringify(request.bounds))
+    {
+        return false;
+    }
     for (const [identity, definition] of Object.entries(request.definitions))
     {
         if (!exactKeys(definition, definitionKeys) || definition.typeIdentity !== identity
@@ -157,7 +178,10 @@ function validateRequestContract(op)
                 ? definition.discriminator !== null
                 : typeof definition.discriminator !== 'string' || definition.discriminator.length === 0)
             || JSON.stringify(Object.values(definition.properties).filter((property) => property.required)
-                .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields)) {return false;}
+                .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields))
+        {
+            return false;
+        }
     }
     const digest = sha256Text(JSON.stringify({
         direction: request.direction,
@@ -185,20 +209,32 @@ function validateRequestContract(op)
 function validateResponseContracts(op)
 {
     if (!isSortedUnique(op.publicErrorStatuses) || op.publicErrorStatuses.length === 0
-        || !isObject(op.publicErrorStatusEvidence)) {return false;}
+        || !isObject(op.publicErrorStatusEvidence))
+    {
+        return false;
+    }
     const expectedRefs = op.publicErrorStatuses.map((status) =>
         `configuration-error-security-policy:error-transport-mappings:${status}`);
     if (JSON.stringify(op.publicErrorRefs) !== JSON.stringify(expectedRefs)
         || op.publicErrorRefState !== 'operation-status-authority-bound'
         || JSON.stringify(Object.keys(op.publicErrorStatusEvidence).sort((a, b) => Number(a) - Number(b)))
-            !== JSON.stringify(op.publicErrorStatuses.map(String))) {return false;}
+            !== JSON.stringify(op.publicErrorStatuses.map(String)))
+    {
+        return false;
+    }
     if (!op.publicErrorStatuses.every((status) => status >= 400 && status <= 599
         && Array.isArray(op.publicErrorStatusEvidence[String(status)])
         && op.publicErrorStatusEvidence[String(status)].length > 0
         && isSortedUnique(op.publicErrorStatusEvidence[String(status)])
         && op.publicErrorStatusEvidence[String(status)]
-            .every((source) => typeof source === 'string' && source.length > 0))) {return false;}
-    if (!Array.isArray(op.responses) || op.responses.length !== op.publicErrorStatuses.length + 1) {return false;}
+            .every((source) => typeof source === 'string' && source.length > 0)))
+    {
+        return false;
+    }
+    if (!Array.isArray(op.responses) || op.responses.length !== op.publicErrorStatuses.length + 1)
+    {
+        return false;
+    }
     const success = op.responses.filter((response) => response.kind === 'success');
     const errors = op.responses.filter((response) => response.kind === 'error');
     return success.length === 1 && success[0].status === Number(op.successStatus)

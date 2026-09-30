@@ -191,11 +191,11 @@ test('rejects rationale precise unregistered quantity', () =>
     const markdown = `# Why
 
 ${claimBlock(validScalarFields({
-        claimId: 'document-lifecycle-governance.rationale.timing',
-        claimType: 'rationale',
-        factPath: 'documentationRationale',
-        render: 'rationale-prose'
-    }))}
+    claimId: 'document-lifecycle-governance.rationale.timing',
+    claimType: 'rationale',
+    factPath: 'documentationRationale',
+    render: 'rationale-prose'
+}))}
 
 该窗口固定为 10分钟，实现不得缩短。
 `;
@@ -428,12 +428,12 @@ test('generated-section uses generatedSectionId and does not require prose body'
     const markdown = `# Generated
 
 ${claimBlock({
-        claimId: 'document-lifecycle-governance.section.index',
-        behaviorId: activeBehaviorId,
-        claimType: 'generated-section',
-        generatedSectionId: 'document-lifecycle-index',
-        render: 'generated-markdown-section'
-    })}
+    claimId: 'document-lifecycle-governance.section.index',
+    behaviorId: activeBehaviorId,
+    claimType: 'generated-section',
+    generatedSectionId: 'document-lifecycle-index',
+    render: 'generated-markdown-section'
+})}
 `;
     const parsed = parseDocumentClaims(markdown, {
         documentPath: 'docs/development/document-lifecycle.md',

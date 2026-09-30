@@ -9,7 +9,8 @@ const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL('../.
 const { root, validatePostRuntimeReaderFirewall } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
 
 const identity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
-const seal = (value) => {
+const seal = (value) =>
+{
     const receipt = { ...structuredClone(value), contentDigest: null };
     receipt.contentDigest = digestValue(receipt);
     return receipt;
@@ -23,12 +24,28 @@ test('canonical static admission validates the current runtime-role v3 build aut
     const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'] };
     assert.equal(validateBehaviorDocStaticAdmissionReceipt(admission, expected), admission);
     for (const mutate of [
-        (value) => { value.candidateSpawnCountBeforeReceipt = 1; },
-        (value) => { value.status = 'failed'; },
-        (value) => { value.source.commit = 'f'.repeat(40); },
-        (value) => { value.mutationFixtures.caseCount = 0; },
-        (value) => { value.unknown = true; },
-        (value) => {
+        (value) =>
+        {
+            value.candidateSpawnCountBeforeReceipt = 1;
+        },
+        (value) =>
+        {
+            value.status = 'failed';
+        },
+        (value) =>
+        {
+            value.source.commit = 'f'.repeat(40);
+        },
+        (value) =>
+        {
+            value.mutationFixtures.caseCount = 0;
+        },
+        (value) =>
+        {
+            value.unknown = true;
+        },
+        (value) =>
+        {
             value.minimalContractBuild.artifacts['runtime-role-observation'].buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2';
             value.minimalContractBuild = seal(value.minimalContractBuild);
         }
@@ -71,24 +88,78 @@ test('shared static v3 fixture preserves explicit run, source, extractor and min
 test('canonical runtime-role v3 rejects re-sealed legacy, partial and coordinated identity drift', () =>
 {
     for (const mutate of [
-        (receipt, artifact) => { artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2'; },
-        (receipt, artifact) => { artifact.buildReceipt.producer = 'synthetic-test-builder'; },
-        (receipt, artifact) => { artifact.buildReceipt.externalOracle = 'internal-yaml-parser'; },
-        (receipt, artifact) => { artifact.buildReceipt.externalOracleVersion = ''; },
-        (receipt, artifact) => { artifact.buildReceipt.sourceCommit = 'f'.repeat(40); },
-        (receipt, artifact) => { artifact.buildReceipt.projectDigest = 'f'.repeat(64); },
-        (receipt, artifact) => { artifact.buildReceipt.assemblyDigest = 'f'.repeat(64); },
-        (receipt, artifact) => { artifact.buildReceipt.deploymentArtifactDigest = 'f'.repeat(64); },
-        (receipt, artifact) => { artifact.buildReceipt.reproducibleBuild.sourceClosureDigest = 'f'.repeat(64); },
-        (receipt, artifact) => { artifact.buildReceipt.reproducibleBuild.command[11] = '/p:PathMap=untrusted'; },
-        (receipt, artifact) => { artifact.buildReceipt.dockerExecutable.canonicalPath = 'docker'; },
-        (receipt, artifact) => { artifact.buildReceipt.composeImplementation.digest = 'invalid'; },
-        (receipt, artifact) => { delete artifact.deploymentArtifactPath; },
-        (receipt, artifact) => { artifact.buildReceipt.unknown = true; },
-        (receipt) => { delete receipt.artifacts['content-lifecycle-observation']; },
-        (receipt) => { receipt.sourceClosureDigests.push(receipt.sourceClosureDigests[0]); },
-        (receipt) => { receipt.runId = 'another-run'; },
-        (receipt) => { receipt.status = 'failed'; }
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.producer = 'synthetic-test-builder';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.externalOracle = 'internal-yaml-parser';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.externalOracleVersion = '';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.sourceCommit = 'f'.repeat(40);
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.projectDigest = 'f'.repeat(64);
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.assemblyDigest = 'f'.repeat(64);
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.deploymentArtifactDigest = 'f'.repeat(64);
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.reproducibleBuild.sourceClosureDigest = 'f'.repeat(64);
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.reproducibleBuild.command[11] = '/p:PathMap=untrusted';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.dockerExecutable.canonicalPath = 'docker';
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.composeImplementation.digest = 'invalid';
+        },
+        (receipt, artifact) =>
+        {
+            delete artifact.deploymentArtifactPath;
+        },
+        (receipt, artifact) =>
+        {
+            artifact.buildReceipt.unknown = true;
+        },
+        (receipt) =>
+        {
+            delete receipt.artifacts['content-lifecycle-observation'];
+        },
+        (receipt) =>
+        {
+            receipt.sourceClosureDigests.push(receipt.sourceClosureDigests[0]);
+        },
+        (receipt) =>
+        {
+            receipt.runId = 'another-run';
+        },
+        (receipt) =>
+        {
+            receipt.status = 'failed';
+        }
     ])
     {
         const receipt = fixture();
@@ -106,12 +177,22 @@ test('canonical runtime-role v3 independently checks every project, observation,
     {
         digests.set(artifact.project, artifact.projectDigest);
         digests.set(artifact.path, artifact.artifactDigest);
-        if (artifact.projectionPath) {digests.set(artifact.projectionPath, artifact.projectionDigest);}
-        if (artifact.assemblyPath) {digests.set(artifact.assemblyPath, artifact.assemblyDigest);}
-        if (artifact.deploymentArtifactPath) {digests.set(artifact.deploymentArtifactPath, artifact.deploymentArtifactDigest);}
+        if (artifact.projectionPath)
+        {
+            digests.set(artifact.projectionPath, artifact.projectionDigest);
+        }
+        if (artifact.assemblyPath)
+        {
+            digests.set(artifact.assemblyPath, artifact.assemblyDigest);
+        }
+        if (artifact.deploymentArtifactPath)
+        {
+            digests.set(artifact.deploymentArtifactPath, artifact.deploymentArtifactDigest);
+        }
     }
     const seen = [];
-    const withReader = { ...options, repositoryRoot: root, readArtifactDigest: (repositoryRoot, file) => {
+    const withReader = { ...options, repositoryRoot: root, readArtifactDigest: (repositoryRoot, file) =>
+    {
         assert.equal(repositoryRoot, root);
         seen.push(file);
         return digests.get(file);
@@ -121,7 +202,9 @@ test('canonical runtime-role v3 independently checks every project, observation,
     assert.throws(() => validateMinimalContractBuildReceipt(receipt, { ...options, repositoryRoot: root }),
         /independent artifact reader/u);
     for (const file of digests.keys())
-        {assert.throws(() => validateMinimalContractBuildReceipt(receipt, {
+    {
+        assert.throws(() => validateMinimalContractBuildReceipt(receipt, {
             ...withReader, readArtifactDigest: (repositoryRoot, candidate) => candidate === file ? '0'.repeat(64) : digests.get(candidate)
-        }), /digest mismatch/u);}
+        }), /digest mismatch/u);
+    }
 });
