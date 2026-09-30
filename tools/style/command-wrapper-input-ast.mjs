@@ -189,6 +189,20 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
             if (node.kind === 'VarDecl')
             {
                 assert.notEqual(node.storageClass, 'extern', 'undeclared block extern input');
+                const localType = node.type?.desugaredQualType ?? node.type?.qualType ?? '';
+                if (localType.includes('*'))
+                {
+                    assert.ok(definition.name === 'Fail' && node.name === 'errorMessage'
+                        && localType === 'const char *' && node.inner?.at(-1)?.kind === 'CallExpr',
+                    'undeclared local pointer input or alias');
+                    assert.deepEqual(calleeNames(node.inner.at(-1).inner[0]).sort(), ['ErrorTextForPointer', 'ErrorTextForStatus'],
+                        'diagnostic pointer input owner drift');
+                }
+                if (localType.includes('['))
+                {
+                    assert.ok(definition.name === 'Fail' && node.name === 'errorBuffer'
+                        && localType === 'char[1024]' && !node.inner?.length, 'undeclared local memory input');
+                }
                 localIds.add(node.id);
                 if (definition.name === 'main' && node.name === 'separator')
                 {
@@ -200,6 +214,13 @@ export function validateClosedOwnedCliAst(ast, { sourceBytes, sourceFile })
         {
             assert.ok(!['GCCAsmStmt', 'MSAsmStmt', 'BlockExpr'].includes(node.kind), 'undeclared opaque execution surface');
             assert.ok(!node.kind?.endsWith('Attr'), 'undeclared declaration execution attribute');
+            assert.notEqual(node.kind, 'MemberExpr', 'undeclared member memory input');
+            if (node.kind === 'UnaryOperator' && node.opcode === '*')
+            {
+                const target = unwrap(node.inner[0]);
+                assert.ok(definition.name === 'Fail' && target?.kind === 'CallExpr'
+                    && calleeNames(target.inner[0]).every(callee => callee === '__errno_location'), 'undeclared indirect memory input');
+            }
             assert.ok(node.kind !== 'CStyleCastExpr' || !node.type?.qualType?.includes('*')
                 || (node.castKind === 'NullToPointer' && constantValue(node.inner[0]) === 0n), 'undeclared pointer reinterpretation');
             if (definition.name === 'main' && node.kind === 'VarDecl')
