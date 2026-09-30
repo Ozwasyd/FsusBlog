@@ -47,7 +47,7 @@ function loadRegistry()
     assert.equal(registry.issue, 3638, 'foreign command input governance owner');
     assert.equal(registry.models?.length, 1, 'missing, duplicate or widened command input model');
     const model = registry.models[0];
-    exactKeys(model, ['id', 'file', 'ownedInputClasses', 'compileBinding', 'callerOwnerBinding', 'analyzer', 'components', 'compileDatabaseCandidates'], 'command input model');
+    exactKeys(model, ['id', 'file', 'ownedInputClasses', 'selectionPolicy', 'compileBinding', 'callerOwnerBinding', 'analyzer', 'components', 'compileDatabaseCandidates'], 'command input model');
     assert.equal(model.id, 'correctness-landlock-cli', 'unknown command input model');
     assert.equal(model.file, registeredFile, 'foreign translation unit input model');
     assert.deepEqual(model.ownedInputClasses, ['main.argc', 'main.argv'], 'widened controlled input classes');
@@ -67,6 +67,41 @@ function loadRegistry()
         assert.equal(sha256(regularBytes(authorityRoot, component.path)), component.sha256, 'input authority component drift');
     }
     return model;
+}
+
+function validateSelectionPolicy(root, model, policyFile)
+{
+    exactKeys(model.selectionPolicy, ['path', 'sha256'], 'command input selection policy');
+    assert.equal(model.selectionPolicy.path, 'config/development/native-tooling-style-policy.json', 'foreign command input selection policy');
+    assert.equal(policyFile, path.join(root, model.selectionPolicy.path), 'redirected command input selection policy');
+    for (const owner of [authorityRoot, root])
+    {
+        assert.equal(sha256(regularBytes(owner, model.selectionPolicy.path)), model.selectionPolicy.sha256, 'command input selection policy drift');
+    }
+}
+
+export function isMandatoryCommandWrapperInput(file, argumentsValue)
+{
+    return file === registeredFile && argumentsValue.requireTools === true && argumentsValue.operation === 'lint';
+}
+
+/** Required-tools admission must not be erased by candidate exclusions, domains, or hash debt. */
+export function validateCommandWrapperInputSelection({ root, argumentsValue, selected, policyPath })
+{
+    if (!argumentsValue.requireTools || argumentsValue.operation !== 'lint'
+        || !['native', 'all'].includes(argumentsValue.domain))
+    {
+        return;
+    }
+    const requested = argumentsValue.files.map(file => path.relative(root, path.resolve(root, file)).split(path.sep).join('/'));
+    const fullRegisteredRoot = argumentsValue.mode === 'full' && argumentsValue.files.length === 0 && fs.existsSync(path.join(root, registeredFile));
+    if (!requested.includes(registeredFile) && !selected.includes(registeredFile) && !fullRegisteredRoot)
+    {
+        return;
+    }
+    const model = loadRegistry();
+    validateSelectionPolicy(root, model, policyPath);
+    assert.ok(selected.includes(registeredFile), 'canonical registered TU was excluded before required input admission');
 }
 
 function observeAnalyzer(model)
@@ -99,6 +134,7 @@ export function prepareCommandWrapperInputModel({ root, file, databases, cppLint
         return null;
     }
     const model = loadRegistry();
+    validateSelectionPolicy(root, model, path.join(root, model.selectionPolicy.path));
     assert.equal(cppLintPolicy.command, 'clang-tidy', 'registered analyzer command drift');
     assert.equal(cppLintPolicy.configuration, '.clang-tidy', 'registered analyzer configuration drift');
     assert.deepEqual(cppLintPolicy.compileDatabaseCandidates, model.compileDatabaseCandidates, 'registered compile database selection drift');
@@ -158,6 +194,7 @@ export function prepareCommandWrapperInputModel({ root, file, databases, cppLint
         revalidate()
         {
             loadRegistry();
+            validateSelectionPolicy(root, model, path.join(root, model.selectionPolicy.path));
             observeAnalyzer(model.analyzer);
             assert.ok(typeof compiled.revalidate === 'function', 'compile binding lacks post-analysis revalidation');
             compiled.revalidate();

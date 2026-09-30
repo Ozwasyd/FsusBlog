@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { prepareCommandWrapperInputModel } from './command-wrapper-input-model.mjs';
+import { isMandatoryCommandWrapperInput, prepareCommandWrapperInputModel, validateCommandWrapperInputSelection } from './command-wrapper-input-model.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '../..');
@@ -2190,13 +2190,24 @@ function Main()
     LoadBaseline();
 
     const selected = SelectFiles(argumentsValue, exclusions);
+    try
+    {
+        validateCommandWrapperInputSelection({ root, argumentsValue, selected, policyPath });
+    }
+    catch (error)
+    {
+        AddDiagnostic(path.relative(root, policyPath), 1, 'command-input-admission', error.message);
+        PrintDiagnostics();
+        process.exitCode = 1;
+        return;
+    }
     let checked = 0;
     let baselineExempt = 0;
     const checkedMarkdown = [];
     for (const file of selected)
     {
         const absolute = path.resolve(root, file);
-        if (argumentsValue.mode === 'full' && fs.existsSync(absolute))
+        if (argumentsValue.mode === 'full' && fs.existsSync(absolute) && !isMandatoryCommandWrapperInput(file, argumentsValue))
         {
             const expectedDigest = baseline.get(file);
             if (expectedDigest && expectedDigest === Sha256(fs.readFileSync(absolute)))

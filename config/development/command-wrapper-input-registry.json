@@ -9,6 +9,10 @@
                 "main.argc",
                 "main.argv"
             ],
+            "selectionPolicy": {
+                "path": "config/development/native-tooling-style-policy.json",
+                "sha256": "98ff88b56520873835016ef0bf02a09ebad73f2baa881cdddd8e6339b7d98d91"
+            },
             "compileBinding": {
                 "schema": "fsusblog.command-wrapper-compile-binding.v1",
                 "source": "tools/test/native/execution-envelope-landlock.c",
@@ -1675,11 +1679,11 @@
                 },
                 {
                     "path": "tools/style/command-wrapper-input-model.mjs",
-                    "sha256": "266ba002db3f43d06b3c4c4a20517e9d5822661c82c367a1edad15a049b2fe47"
+                    "sha256": "19a0a9fe4ac7d881ff871048afa78ba23bde3ec3239a455a6452e3beec22d0b8"
                 },
                 {
                     "path": "tools/style/check-native-tooling-style.mjs",
-                    "sha256": "668e17098a9727b6d78cb86dcab32f426e09eb287050c22b82d5cf9b8fa7e50a"
+                    "sha256": "ca7ddc235953a1cc1dc6fe48b929db1d175861feb71b2913c6786dd7542f8b1e"
                 }
             ],
             "compileDatabaseCandidates": [
