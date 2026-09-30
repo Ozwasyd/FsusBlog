@@ -1194,3 +1194,72 @@ for (const [name, mutate, expected] of [
         });
     });
 }
+
+for (const [name, mutate] of [
+    ['excluded-registered-helper', policy => policy.excludedPaths.push(commandInputSource)],
+    ['native-c-extension-removed', policy =>
+    {
+        policy.domains.native.extensions = policy.domains.native.extensions.filter(extension => extension !== '.c');
+    }],
+    ['excluded-helper-and-native-c-with-fake-analyzer', policy =>
+    {
+        policy.excludedPaths.push(commandInputSource);
+        policy.domains.native.extensions = policy.domains.native.extensions.filter(extension => extension !== '.c');
+        policy.standardTools.cppLint.command = 'true';
+    }],
+    ['selected-helper-with-fake-analyzer', policy =>
+    {
+        policy.standardTools.cppLint.command = 'true';
+    }]
+])
+{
+    test(`command wrapper input selection integration: refuse ${name}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            const policyFile = path.join(fixture.fixtureRoot,
+                'config/development/native-tooling-style-policy.json');
+            const policy = JSON.parse(fs.readFileSync(policyFile, 'utf8'));
+            mutate(policy);
+            fs.writeFileSync(policyFile, `${JSON.stringify(policy, null, 4)}\n`);
+            const result = RunCommandInputChecker(fixture);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(Output(result), /command-input-admission/u);
+            assert.match(Output(result), /selection policy|canonical registered TU was excluded/u);
+        });
+    });
+}
+
+test('command wrapper input selection integration: full-mode exact hash baseline cannot skip required input admission', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const helperBytes = fs.readFileSync(path.join(fixture.fixtureRoot, commandInputSource));
+        WriteFile(fixture.fixtureRoot, sourcePolicy.baseline, `${JSON.stringify({
+            schema: 'fsusblog.native-tooling-style-baseline.v1',
+            sourceCommit: 'private-fixture',
+            semantics: 'private exact-content baseline must not exempt mandatory registered input admission',
+            files: [{
+                path: commandInputSource,
+                sha256: crypto.createHash('sha256').update(helperBytes).digest('hex')
+            }]
+        }, null, 4)}\n`);
+        fs.appendFileSync(path.join(fixture.fixtureRoot,
+            'tools/test/execution-envelope-environment.mjs'), '\n');
+        const result = spawnSync(process.execPath, [checker,
+            '--root', fixture.fixtureRoot,
+            '--policy', 'config/development/native-tooling-style-policy.json',
+            '--mode', 'full', '--operation', 'lint', '--require-tools',
+            '--file', commandInputSource
+        ], {
+            cwd: fixture.fixtureRoot, env: CommandInputEnvironment(fixture),
+            encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024
+        });
+        assert.equal(result.status, 1, Output(result));
+        assert.equal(result.signal, null, Output(result));
+        assert.match(Output(result), /command-input-admission/u);
+        assert.match(Output(result), /source or policy digest drift/u);
+        assert.match(Output(result), /selected=1 checked=1 baseline=0/u);
+    });
+});
