@@ -14,13 +14,12 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
-import {
-    FSUSUI_PUBLIC_NPM_MIGRATION_PATCH,
-    FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256
-} from '../../tools/dependencies/migrate-fsusui-public-npm.mjs';
-
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const checker = path.join(root, 'tools/docs/check-authoritative-development-docs.mjs');
+const dependencyOverlayArchive = {
+    path: 'config/dependencies/fsusui-public-npm-migration.patch.gz',
+    sha256: '7cc634569551a238c331469bd042ee1aab964b8a4c794503a3e56fb80c05956c'
+};
 const manifestPath = path.join(root, 'config/development/authoritative-development-docs.json');
 
 function read(relativePath)
@@ -93,14 +92,17 @@ test('authoritative development documentation authoritative development document
 test('authoritative development documentation preserves the exact dependency overlay archive owner and original bytes', () =>
 {
     const manifest = readManifest();
-    const archivePath = FSUSUI_PUBLIC_NPM_MIGRATION_PATCH;
+    const archivePath = dependencyOverlayArchive.path;
+    const consumerLines = readFileSync(path.join(root, 'tools/dependencies/migrate-fsusui-public-npm.mjs'), 'utf8').split('\n');
+    assert.ok(consumerLines.includes(`export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH = '${archivePath}';`));
+    assert.ok(consumerLines.includes(`export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256 = '${dependencyOverlayArchive.sha256}';`));
     const owners = manifest.pathClassifications
         .filter((entry) => entry.patterns.includes(archivePath))
         .map((entry) => ({ id: entry.id, owner: entry.owner }));
     assert.deepEqual(owners, [{ id: 'vendor', owner: 'DependencyOwner' }]);
     assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
     const archive = readFileSync(path.join(root, archivePath));
-    assert.equal(createHash('sha256').update(archive).digest('hex'), FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256);
+    assert.equal(createHash('sha256').update(archive).digest('hex'), dependencyOverlayArchive.sha256);
     assert.match(gunzipSync(archive).toString('utf8'), /^diff --git a\//m);
 
     withOverlay((overlay) =>
@@ -117,11 +119,11 @@ test('authoritative development documentation rejects the dependency overlay arc
     {
         const manifest = readManifest();
         const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
-        vendor.patterns = vendor.patterns.filter((entry) => entry !== FSUSUI_PUBLIC_NPM_MIGRATION_PATCH);
+        vendor.patterns = vendor.patterns.filter((entry) => entry !== dependencyOverlayArchive.path);
         writeManifest(overlay, manifest);
         const result = runChecker(overlay);
         assert.notEqual(result.status, 0);
-        assert.ok(output(result).includes(`${FSUSUI_PUBLIC_NPM_MIGRATION_PATCH} has no style owner or non-source classification`));
+        assert.ok(output(result).includes(`${dependencyOverlayArchive.path} has no style owner or non-source classification`));
     });
 });
 
@@ -134,7 +136,7 @@ test('authoritative development documentation rejects neighboring unowned archiv
             'config/dependencies/overlays/fsusui-public-npm-migration.patch.gz',
             'config/dependencies/unregistered-migration.tar.gz'
         ];
-        const archive = readFileSync(path.join(root, FSUSUI_PUBLIC_NPM_MIGRATION_PATCH));
+        const archive = readFileSync(path.join(root, dependencyOverlayArchive.path));
         for (const relativePath of neighboringPaths)
         {
             const target = path.join(overlay, relativePath);
@@ -148,7 +150,7 @@ test('authoritative development documentation rejects neighboring unowned archiv
         {
             assert.ok(combined.includes(`${relativePath} has no style owner or non-source classification`));
         }
-        assert.ok(!combined.includes(`${FSUSUI_PUBLIC_NPM_MIGRATION_PATCH} has no style owner or non-source classification`));
+        assert.ok(!combined.includes(`${dependencyOverlayArchive.path} has no style owner or non-source classification`));
     });
 });
 
