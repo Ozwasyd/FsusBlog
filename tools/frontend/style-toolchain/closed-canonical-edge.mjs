@@ -224,6 +224,7 @@ export function regularSource(root, relative)
 function stableFileBytes(absolute, expected)
 {
     // Bind actual reads like the original canonical authority reader, not just path metadata.
+    const fields = ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'];
     const descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     try
     {
@@ -231,6 +232,10 @@ function stableFileBytes(absolute, expected)
         if (!before.isFile() || before.nlink !== 1n)
         {
             throw new Error('closed edge input must be a single-link regular file');
+        }
+        if (fields.some((field) => expected[field] !== before[field]))
+        {
+            throw new Error('closed edge source changed while opening');
         }
         const bytes = fs.readFileSync(descriptor);
         const after = fs.fstatSync(descriptor, { bigint: true });
@@ -241,6 +246,11 @@ function stableFileBytes(absolute, expected)
         try
         {
             verificationBefore = fs.fstatSync(verificationDescriptor, { bigint: true });
+            if (!verificationBefore.isFile() || verificationBefore.nlink !== 1n
+                || fields.some((field) => after[field] !== verificationBefore[field]))
+            {
+                throw new Error('closed edge source changed before read verification');
+            }
             verificationBytes = fs.readFileSync(verificationDescriptor);
             verificationAfter = fs.fstatSync(verificationDescriptor, { bigint: true });
         }
@@ -253,7 +263,7 @@ function stableFileBytes(absolute, expected)
             || fs.realpathSync(absolute) !== absolute || BigInt(bytes.length) !== before.size
             || !verificationBefore.isFile() || verificationBefore.nlink !== 1n
             || !bytes.equals(verificationBytes)
-            || ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'].some((field) =>
+            || fields.some((field) =>
                 expected[field] !== before[field] || before[field] !== after[field]
                 || after[field] !== verificationBefore[field]
                 || verificationBefore[field] !== verificationAfter[field]
