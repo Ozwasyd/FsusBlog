@@ -882,3 +882,315 @@ test('native tooling style governance unified wrappers preserve the checker resu
         }
     });
 });
+
+// These integration cases deliberately use actual required tools. The ordinary
+// fallback fixtures above retain their original purpose and remain unchanged.
+const commandInputRegistryPath = 'config/development/command-wrapper-input-registry.json';
+const commandInputSource = 'tools/test/native/execution-envelope-landlock.c';
+
+function CreateCommandInputFixture()
+{
+    const temporaryRoot = path.join(root, '.tmp');
+    fs.mkdirSync(temporaryRoot, { recursive: true });
+    const fixtureRoot = fs.mkdtempSync(path.join(temporaryRoot, 'native-command-input-integration-'));
+    const registry = JSON.parse(fs.readFileSync(path.join(root, commandInputRegistryPath), 'utf8'));
+    const model = registry.models[0];
+    const files = [...new Set([
+        ...model.callerOwnerBinding.files.map(entry => entry.path),
+        commandInputRegistryPath,
+        '.clang-format', '.clang-tidy',
+        'config/development/command-wrapper-taint-sources.yml',
+        'config/development/native-tooling-style-policy.json',
+        'config/development/native-tooling-style-exceptions.json',
+        'config/development/authoritative-development-docs.json'
+    ])];
+    for (const file of files)
+    {
+        const source = path.join(root, file);
+        const target = path.join(fixtureRoot, file);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(source, target);
+        fs.chmodSync(target, fs.statSync(source).mode & 0o111 ? 0o755 : 0o644);
+    }
+    fs.mkdirSync(path.join(fixtureRoot, '.tmp/owned'), { recursive: true });
+    const entry = {
+        directory: fixtureRoot,
+        file: path.join(fixtureRoot, commandInputSource),
+        arguments: [model.compileBinding.compiler.path,
+            '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o',
+            path.join(fixtureRoot, '.tmp/owned/helper'),
+            path.join(fixtureRoot, commandInputSource)]
+    };
+    const databaseDirectory = path.join(fixtureRoot, '.tmp/cmake/native-basic');
+    const databaseFile = path.join(databaseDirectory, 'compile_commands.json');
+    WriteFile(fixtureRoot, path.relative(fixtureRoot, databaseFile), `${JSON.stringify([entry], null, 4)}\n`);
+    return { fixtureRoot, registry, model, entry, databaseDirectory, databaseFile };
+}
+
+function WithCommandInputFixture(callback)
+{
+    const fixture = CreateCommandInputFixture();
+    try
+    {
+        callback(fixture);
+    }
+    finally
+    {
+        // This exact directory was created solely for this individual test.
+        fs.rmSync(fixture.fixtureRoot, { recursive: true, force: true });
+    }
+}
+
+function CommandInputEnvironment(fixture, additions = {})
+{
+    // Isolation applies only to our positive diagnostic child. Separate cases
+    // explicitly add contamination and require admission to reject it.
+    return {
+        PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
+        TMPDIR: path.join(fixture.fixtureRoot, '.tmp'),
+        ...additions
+    };
+}
+
+function RunCommandInputChecker(fixture, file = commandInputSource, additions = {})
+{
+    return spawnSync(process.execPath, [checker,
+        '--root', fixture.fixtureRoot,
+        '--policy', 'config/development/native-tooling-style-policy.json',
+        '--mode', 'changed', '--operation', 'lint', '--require-tools', '--file', file
+    ], {
+        cwd: fixture.fixtureRoot,
+        env: CommandInputEnvironment(fixture, additions),
+        encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024
+    });
+}
+
+function RunCommandInputApi(fixture, mode, authority = root)
+{
+    const moduleUrl = JSON.stringify(new URL(
+        `file://${path.join(authority, 'tools/style/command-wrapper-input-model.mjs')}`
+    ).href);
+    const program = `
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { prepareCommandWrapperInputModel } from ${moduleUrl};
+const root = process.argv[1];
+const mode = process.argv[2];
+const directory = path.join(root, '.tmp/cmake/native-basic');
+const databaseFile = path.join(directory, 'compile_commands.json');
+const entries = JSON.parse(fs.readFileSync(databaseFile, 'utf8'));
+const cppLintPolicy = JSON.parse(fs.readFileSync(path.join(root,
+    'config/development/native-tooling-style-policy.json'), 'utf8')).standardTools.cppLint;
+if (mode === 'cached-selection-drift') {
+    const replacement = structuredClone(entries);
+    replacement[0].arguments.splice(6, 0, '-DFOREIGN_INPUT=1');
+    fs.writeFileSync(databaseFile, JSON.stringify(replacement, null, 4) + '\\n');
+}
+let admitted;
+try {
+    admitted = prepareCommandWrapperInputModel({root,
+        file: 'tools/test/native/execution-envelope-landlock.c',
+        databases: [{directory, entries}], cppLintPolicy, environment: process.env});
+    assert.ok(admitted);
+    assert.equal(admitted.evidence.qualificationEligible, false);
+    if (mode === 'canonical-post-drift') fs.appendFileSync(databaseFile, '\\n');
+    if (mode === 'private-post-drift') {
+        const privateFile = path.join(admitted.compileDirectory, 'compile_commands.json');
+        fs.chmodSync(privateFile, 0o600);
+        fs.appendFileSync(privateFile, '\\n');
+        fs.chmodSync(privateFile, 0o400);
+    }
+    if (mode === 'private-post-mode-drift') {
+        fs.chmodSync(path.join(admitted.compileDirectory, 'compile_commands.json'), 0o600);
+    }
+    admitted.revalidate();
+    console.log(JSON.stringify({admitted: true, qualificationEligible: false}));
+} catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+} finally { admitted?.cleanup(); }
+`;
+    return spawnSync(process.execPath, ['--input-type=module', '--eval', program,
+        fixture.fixtureRoot, mode], {
+        cwd: fixture.fixtureRoot, env: CommandInputEnvironment(fixture),
+        encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024
+    });
+}
+
+test('command wrapper input model integration: actual registered canonical required-tools admission', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const result = RunCommandInputChecker(fixture);
+        assert.equal(result.status, 0, Output(result));
+        assert.equal(result.signal, null, Output(result));
+        assert.match(result.stdout, /violations=0/u);
+    });
+});
+
+test('command wrapper input model integration: unregistered argv command retains GenericTaint', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const foreign = 'tools/test/native/unregistered-command-wrapper.c';
+        WriteFile(fixture.fixtureRoot, foreign, ownedCliOriginal);
+        const entry = structuredClone(fixture.entry);
+        entry.file = path.join(fixture.fixtureRoot, foreign);
+        entry.arguments[entry.arguments.length - 1] = entry.file;
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+        const result = RunCommandInputChecker(fixture, foreign);
+        assert.equal(result.status, 1, Output(result));
+        assert.match(Output(result), /clang-analyzer-optin\.taint\.GenericTaint/u);
+    });
+});
+
+for (const [name, mutate, expected, additions] of [
+    ['ambient-CPATH', () =>
+    {
+        // Deliberately preserve the contamination until the actual admission.
+    }, /compile environment contamination: CPATH/u, { CPATH: '/foreign-input' }],
+    ['ambient-PATH-drift', () =>
+    {
+        // Required tools remain discoverable, but this is not the bound PATH.
+    }, /effective environment drift: PATH/u, { PATH: '/bin:/usr/bin' }],
+    ['missing-database', fixture => fs.unlinkSync(fixture.databaseFile), /missing-compile-command/u],
+    ['duplicate-entry', fixture => fs.writeFileSync(fixture.databaseFile,
+        `${JSON.stringify([fixture.entry, fixture.entry], null, 4)}\n`), /exactly one canonical compile entry/u],
+    ['foreign-working-directory', fixture =>
+    {
+        const entry = structuredClone(fixture.entry);
+        entry.directory = path.join(fixture.fixtureRoot, 'foreign');
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+    }, /compile working directory mismatch/u],
+    ['extra-compile-flag', fixture =>
+    {
+        const entry = structuredClone(fixture.entry);
+        entry.arguments.splice(6, 0, '-DFOREIGN_INPUT=1');
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+    }, /compile entry flags|compile output must/u],
+    ['caller-owner-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        'tools/test/execution-envelope-environment.mjs'), '\n'), /source or policy digest drift/u],
+    ['translation-unit-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        commandInputSource), '\n'), /source or policy digest drift/u],
+    ['candidate-analyzer-config-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        '.clang-tidy'), '\n'), /candidate analyzer model source drift/u],
+    ['candidate-taint-model-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        'config/development/command-wrapper-taint-sources.yml'), '\n'), /candidate analyzer model source drift/u],
+    ['forged-candidate-registry-cannot-authorize-owner-drift', fixture =>
+    {
+        const owner = 'tools/test/execution-envelope-environment.mjs';
+        const ownerFile = path.join(fixture.fixtureRoot, owner);
+        fs.appendFileSync(ownerFile, '\n');
+        const proposed = structuredClone(fixture.registry);
+        proposed.models[0].callerOwnerBinding.files.find(entry => entry.path === owner).sha256 =
+            crypto.createHash('sha256').update(fs.readFileSync(ownerFile)).digest('hex');
+        fs.writeFileSync(path.join(fixture.fixtureRoot, commandInputRegistryPath),
+            `${JSON.stringify(proposed, null, 4)}\n`);
+    }, /source or policy digest drift/u]
+])
+{
+    test(`command wrapper input model integration: refuse ${name}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            mutate(fixture);
+            const result = RunCommandInputChecker(fixture, commandInputSource, additions);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(Output(result), expected);
+        });
+    });
+}
+
+for (const [mode, expected] of [
+    ['cached-selection-drift', /canonical compile database must not contain duplicate JSON keys|compile database changed after selection/u],
+    ['canonical-post-drift', /canonical compile database changed during analyzer execution/u],
+    ['private-post-drift', /private admitted compile database changed during analyzer execution/u],
+    ['private-post-mode-drift', /private compile database mode or type drift/u]
+])
+{
+    test(`command wrapper input model integration: refuse ${mode}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            const result = RunCommandInputApi(fixture, mode);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(result.stderr, expected);
+        });
+    });
+}
+
+test('command wrapper input model integration: additive environment source retains real GenericTaint', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const source = path.join(fixture.fixtureRoot, '.tmp/owned/environment-input.c');
+        fs.writeFileSync(source, `#include <stdlib.h>
+#include <unistd.h>
+int main(void)
+{
+    char* target = getenv("FSUSBLOG_UNTRUSTED_COMMAND");
+    if (target != NULL)
+    {
+        char* arguments[] = { target, NULL };
+        execv(target, arguments);
+    }
+    return 0;
+}
+`);
+        const entry = structuredClone(fixture.entry);
+        entry.file = source;
+        entry.arguments[entry.arguments.length - 1] = source;
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+        const result = spawnSync(fixture.model.analyzer.path, [
+            '--quiet', '-p', fixture.databaseDirectory, source,
+            `--config-file=${path.join(root, fixture.model.analyzer.configuration.path)}`,
+            '--extra-arg=-Xclang', '--extra-arg=-analyzer-config', '--extra-arg=-Xclang',
+            '--extra-arg=assume-controlled-environment=true',
+            '--extra-arg=-Xclang', '--extra-arg=-analyzer-config', '--extra-arg=-Xclang',
+            `--extra-arg=optin.taint.TaintPropagation:Config=${path.join(root, fixture.model.analyzer.taintSources.path)}`
+        ], {
+            cwd: fixture.fixtureRoot, env: CommandInputEnvironment(fixture),
+            encoding: 'utf8', timeout: 60_000, maxBuffer: 16 * 1024 * 1024
+        });
+        assert.equal(result.error, undefined, Output(result));
+        assert.equal(result.signal, null, Output(result));
+        assert.equal(result.status, 0, Output(result));
+        assert.match(Output(result), /warning: Untrusted data is passed to a system call/u);
+        assert.match(Output(result), /clang-analyzer-optin\.taint\.GenericTaint/u);
+        // Clang-tidy warning exit codes alone do not represent checker success.
+        // This configuration self-test proves a real external source still
+        // reaches the unchanged command sink; it is not input qualification.
+    });
+});
+
+for (const [name, mutate, expected] of [
+    ['authority-component-drift', (authority) => fs.appendFileSync(path.join(authority,
+        'tools/style/check-native-tooling-style.mjs'), '\n'), /input authority component drift/u],
+    ['authority-owned-input-widening', (authority, registry) =>
+    {
+        registry.models[0].ownedInputClasses.push('main.envp');
+        fs.writeFileSync(path.join(authority, commandInputRegistryPath), `${JSON.stringify(registry, null, 4)}\n`);
+    }, /widened controlled input classes/u]
+])
+{
+    test(`command wrapper input model integration: refuse isolated ${name}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            const authority = path.join(fixture.fixtureRoot, '.tmp/isolated-authority');
+            const files = [...fixture.model.components.map(entry => entry.path), commandInputRegistryPath];
+            for (const file of files)
+            {
+                WriteFile(authority, file, fs.readFileSync(path.join(root, file)));
+            }
+            mutate(authority, structuredClone(fixture.registry));
+            const result = RunCommandInputApi(fixture, 'authority-refusal', authority);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(result.stderr, expected);
+        });
+    });
+}
