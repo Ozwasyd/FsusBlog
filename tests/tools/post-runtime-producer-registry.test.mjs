@@ -12,6 +12,7 @@ const { sealBrowserContractReceipt } = await import(new URL('../../tools/release
 const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
 const { selectBrowserContractScenarios } = await import(new URL('../browser-contract/contract-core.mjs', import.meta.url));
 const { createRuntimeRoleStaticV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { validateMinimalContractBuildReceipt } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
 const {
     createCanonicalAotSourceFixture,
     createCanonicalHydrationFixtureObservation,
@@ -126,6 +127,17 @@ function createRuntimeRoleAdmission(sourceState)
         const output = writeJson(artifact.path, value);
         artifact.artifactDigest = fileDigestHex(output);
         artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+        if (artifactId === 'openapi-aeds-observation')
+        {
+            // Synthetic value-contract fixture, not a compiled OpenAPI observation.
+            const projection = writeJson(artifact.projectionPath, {
+                openapi: '3.0.1',
+                info: { title: 'Synthetic admission fixture', version: 'fixture' },
+                paths: {}
+            });
+            artifact.projectionDigest = fileDigestHex(projection);
+            artifact.buildReceipt.projectionDigest = artifact.projectionDigest;
+        }
     }
     const assembly = path.join(receiptRepositoryRoot, runtimeArtifact.assemblyPath);
     fs.mkdirSync(path.dirname(assembly), { recursive: true });
@@ -208,7 +220,10 @@ function producerReceipt(classId = 'route-response-error')
     };
     const embeddedDocument = (contract) =>
     {
-        if (contract.schema === 'fsusblog.fixture-prepare-state.v1') return createCanonicalPreparedFixture(sourceState)
+        if (contract.schema === 'fsusblog.fixture-prepare-state.v1')
+        {
+            return createCanonicalPreparedFixture(sourceState);
+        }
         const source = {
             commit: sourceState.sourceCommit,
             worktreeFingerprint: sourceState.worktreeFingerprint
@@ -249,13 +264,13 @@ function producerReceipt(classId = 'route-response-error')
             'fsusblog.behavior-doc-static-admission-receipt.v1':
                 createRuntimeRoleAdmission(sourceState),
             'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
-        }
-        const document = { schema: contract.schema, ...bySchema[contract.schema] }
+        };
+        const document = { schema: contract.schema, ...bySchema[contract.schema] };
         return [
             'fsusblog.public-preview-screenshot-verification.v1',
             'fsusblog.behavior-doc-static-admission-receipt.v1'
-        ].includes(contract.schema) ? document : seal(document)
-    }
+        ].includes(contract.schema) ? document : seal(document);
+    };
     const embeddedReference = (field, contract) =>
     {
         const receiptPaths = {
@@ -274,10 +289,10 @@ function producerReceipt(classId = 'route-response-error')
             receiptPaths[contract.schema]
                 ?? `.tmp/post-runtime-dependencies/${classId}-${field.replaceAll('.', '-')}.json`,
             embeddedDocument(contract),
-            contract.role)
-    }
-    let canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
-    let independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
+            contract.role);
+    };
+    let canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route';
+    let independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify';
     const upstreamBody = {
         schema: definition.sourceReceipt.schema,
         producerId: producer.producerId,
@@ -359,12 +374,12 @@ function producerReceipt(classId = 'route-response-error')
     }
     if (definition.sourceReceipt.role === 'probe')
     {
-        const canonicalSource = { commit: sourceState.sourceCommit, worktreeFingerprint: sourceState.worktreeFingerprint }
-        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource })
-        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt, 'production-build')
-        sourceState.buildIdentity = buildReceipt.contentDigest
-        const prepared = createCanonicalPreparedFixture(sourceState)
-        const fixtureRef = writeDependency('.tmp/fixtures/run-1/prepare-state.json', prepared, 'fixture')
+        const canonicalSource = { commit: sourceState.sourceCommit, worktreeFingerprint: sourceState.worktreeFingerprint };
+        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource });
+        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt, 'production-build');
+        sourceState.buildIdentity = buildReceipt.contentDigest;
+        const prepared = createCanonicalPreparedFixture(sourceState);
+        const fixtureRef = writeDependency('.tmp/fixtures/run-1/prepare-state.json', prepared, 'fixture');
         const plan = seal({
             schema: 'fsusblog.post-runtime-candidate-plan.v1', producerId: producer.producerId,
             status: 'planned', sourceState: canonicalSource,
@@ -373,39 +388,41 @@ function producerReceipt(classId = 'route-response-error')
             observations: [{ classId, receiptPath: `.tmp/current-run/${classId}.json` }],
             identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
                 fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
-        })
-        const planRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json', plan, 'candidate-plan')
+        });
+        const planRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json', plan, 'candidate-plan');
         const { upstream: probe, sourceState: probeIdentity } = createCanonicalProbeSourceFixture(classId, {
             candidatePlan: { relative: planRef.path, fileDigest: planRef.fileDigest, value: plan },
             build: { ref: { path: buildRef.path, contentDigest: buildRef.fileDigest }, value: buildReceipt },
             fixture: { ref: { path: fixtureRef.path, contentDigest: fixtureRef.fileDigest }, value: prepared },
             output: upstreamRelative
-        }, { producer, sourceState })
-        Object.assign(sourceState, probeIdentity)
-        canonicalRerunCommand = probe.canonicalRerunCommand
-        independentVerifyCommand = probe.independentVerifyCommand
+        }, { producer, sourceState });
+        Object.assign(sourceState, probeIdentity);
+        canonicalRerunCommand = probe.canonicalRerunCommand;
+        independentVerifyCommand = probe.independentVerifyCommand;
         for (const field of definition.requiredSemanticFactFields)
+        {
             semanticFacts[field] = field.endsWith('Digest')
-                ? authorityDigest(probe.rawFacts[rawFieldFor(field)]) : probe.rawFacts[field]
-        Object.assign(upstreamRef, writeDependency(upstreamRelative, probe, 'probe'))
+                ? authorityDigest(probe.rawFacts[rawFieldFor(field)]) : probe.rawFacts[field];
+        }
+        Object.assign(upstreamRef, writeDependency(upstreamRelative, probe, 'probe'));
     }
     if (['browser-behavior-contract', 'aot-spa-hydration'].includes(classId))
     {
         const canonicalSource = {
             commit: sourceState.sourceCommit,
             worktreeFingerprint: sourceState.worktreeFingerprint
-        }
-        const assetRoot = path.join(receiptRepositoryRoot, '.tmp/retained-assets', allSourceState.releaseId)
-        const manifestRelative = path.relative(receiptRepositoryRoot, path.join(assetRoot, '.vite/manifest.json'))
-        const manifestRef = writeDependency(manifestRelative, { 'src/main.ts': { file: 'assets/main.js', isEntry: true } })
+        };
+        const assetRoot = path.join(receiptRepositoryRoot, '.tmp/retained-assets', allSourceState.releaseId);
+        const manifestRelative = path.relative(receiptRepositoryRoot, path.join(assetRoot, '.vite/manifest.json'));
+        const manifestRef = writeDependency(manifestRelative, { 'src/main.ts': { file: 'assets/main.js', isEntry: true } });
         const inventoryRef = writeDependency(path.relative(receiptRepositoryRoot, path.join(assetRoot, 'asset-manifest.json')),
-            { schema: 'fsusblog.release-assets.v1', releaseId: allSourceState.releaseId, files: [] })
+            { schema: 'fsusblog.release-assets.v1', releaseId: allSourceState.releaseId, files: [] });
         const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource,
-            artifacts: [{ path: 'frontend-dist/.vite/manifest.json', sha256: manifestRef.fileDigest }] })
-        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt)
-        sourceState.buildIdentity = buildReceipt.contentDigest
+            artifacts: [{ path: 'frontend-dist/.vite/manifest.json', sha256: manifestRef.fileDigest }] });
+        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt);
+        sourceState.buildIdentity = buildReceipt.contentDigest;
         const build = { receipt: buildRef.path, receiptContentDigest: buildReceipt.contentDigest,
-            sourceState: canonicalSource, profile: 'production' }
+            sourceState: canonicalSource, profile: 'production' };
         const candidatePlan = seal({
             schema: 'fsusblog.post-runtime-candidate-plan.v1',
             producerId: producer.producerId,
@@ -421,9 +438,9 @@ function producerReceipt(classId = 'route-response-error')
             observations: [{ classId, receiptPath: `.tmp/current-run/${classId}.json` }],
             identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
                 fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
-        })
+        });
         const candidatePlanRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
-            candidatePlan, 'candidate-plan')
+            candidatePlan, 'candidate-plan');
         const browserPlan = seal({
             schema: 'fsusblog.playwright-browser-identity.v1', executionClass: 'correctness',
             evidenceClass: 'browser-contract', qualificationEligible: true, managedExecutable: true,
@@ -434,15 +451,15 @@ function producerReceipt(classId = 'route-response-error')
                 fontSetDigest: digest('1'), localeDataDigest: digest('2'), locale: 'zh-CN',
                 deviceScaleFactor: 1, renderingMode: 'headless', colorScheme: 'light', gpuMode: 'software'
             }
-        })
+        });
         const browserActual = seal({ ...browserPlan, schema: 'fsusblog.playwright-browser-actual.v1',
             planDigest: browserPlan.contentDigest, renderingObservation: {
                 locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light', renderer: 'SwiftShader fixture renderer'
-            } })
+            } });
         const publicPreviewRef = upstreamBody.publicPreviewRef ?? embeddedReference('publicPreviewRef', {
             schema: 'fsusblog.public-preview-screenshot-verification.v1', role: 'public-preview'
-        })
-        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, publicPreviewRef.path), 'utf8'))
+        });
+        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, publicPreviewRef.path), 'utf8'));
         let browser = sealBrowserContractReceipt({
             ...upstreamBody,
             sourceState: canonicalSource,
@@ -467,38 +484,42 @@ function producerReceipt(classId = 'route-response-error')
                 evidenceFileDigest: publicPreviewRef.fileDigest },
             publicPreviewRef,
             candidatePlanRef
-        })
-        browser = sealBrowserContractReceipt({ ...browser, rawFacts: deriveBrowserObservedRawFacts(browser, preview) })
+        });
+        browser = sealBrowserContractReceipt({ ...browser, rawFacts: deriveBrowserObservedRawFacts(browser, preview) });
         if (classId === 'aot-spa-hydration')
         {
             const descriptor = seal({ schema: 'fsusblog.spa-manifest-descriptor.v1',
                 releaseId: allSourceState.releaseId, sourceCommit: sourceState.sourceCommit,
                 worktreeFingerprint: sourceState.worktreeFingerprint, buildReceiptDigest: buildReceipt.contentDigest,
                 assetRoot, manifestPath: path.join(assetRoot, '.vite/manifest.json'),
-                manifestDigest: manifestRef.fileDigest, assetInventoryDigest: inventoryRef.fileDigest })
+                manifestDigest: manifestRef.fileDigest, assetInventoryDigest: inventoryRef.fileDigest });
             const inputs = {
                 manifest: { value: descriptor, ref: writeDependency('.tmp/aot-manifest/spa-manifest-descriptor.json', descriptor, 'spa-manifest') },
                 browserContract: { value: browser, ref: writeDependency('.tmp/browser-contract/receipt.json', browser, 'browser-contract') }
-            }
-            const readBytes = (file) => fs.readFileSync(file)
+            };
+            const readBytes = (file) => fs.readFileSync(file);
             const { upstream: aot } = createCanonicalAotSourceFixture({ candidate: { ref: candidatePlanRef },
-                plan: candidatePlan, inputs, producer, readBytes }, buildReceipt)
+                plan: candidatePlan, inputs, producer, readBytes }, buildReceipt);
             for (const field of definition.requiredSemanticFactFields)
+            {
                 semanticFacts[field] = field.endsWith('Digest')
-                    ? authorityDigest(aot.rawFacts[rawFieldFor(field)]) : aot.rawFacts[field]
-            canonicalRerunCommand = aot.canonicalRerunCommand
-            independentVerifyCommand = aot.independentVerifyCommand
-            Object.assign(upstreamRef, writeDependency(upstreamRelative, aot, 'aot'))
-            sourceState.artifactDigest = manifestRef.fileDigest
+                    ? authorityDigest(aot.rawFacts[rawFieldFor(field)]) : aot.rawFacts[field];
+            }
+            canonicalRerunCommand = aot.canonicalRerunCommand;
+            independentVerifyCommand = aot.independentVerifyCommand;
+            Object.assign(upstreamRef, writeDependency(upstreamRelative, aot, 'aot'));
+            sourceState.artifactDigest = manifestRef.fileDigest;
         }
         else
         {
-        for (const field of definition.requiredSemanticFactFields)
-            semanticFacts[field] = field.endsWith('Digest')
-                ? authorityDigest(browser.rawFacts[rawFieldFor(field)]) : browser.rawFacts[field]
-        const browserRef = writeDependency(upstreamRelative, browser, 'browser')
-        Object.assign(upstreamRef, browserRef)
-        sourceState.artifactDigest = browserRef.fileDigest
+            for (const field of definition.requiredSemanticFactFields)
+            {
+                semanticFacts[field] = field.endsWith('Digest')
+                    ? authorityDigest(browser.rawFacts[rawFieldFor(field)]) : browser.rawFacts[field];
+            }
+            const browserRef = writeDependency(upstreamRelative, browser, 'browser');
+            Object.assign(upstreamRef, browserRef);
+            sourceState.artifactDigest = browserRef.fileDigest;
         }
     }
     const sourceReceipt = seal({
@@ -559,6 +580,56 @@ function tampered(modifier)
     modifier(clone);
     return clone;
 }
+
+test('synthetic runtime-role admission binds the canonical OpenAPI projection bytes', () =>
+{
+    const admission = createRuntimeRoleAdmission({
+        runId: 'projection-fixture-positive',
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: digest('b')
+    });
+    const minimal = admission.minimalContractBuild;
+    const artifact = minimal.artifacts['openapi-aeds-observation'];
+    assert.equal(artifact.projectionDigest,
+        fileDigestHex(path.join(receiptRepositoryRoot, artifact.projectionPath)));
+    assert.equal(artifact.buildReceipt.projectionPath, artifact.projectionPath);
+    assert.equal(artifact.buildReceipt.projectionDigest, artifact.projectionDigest);
+    assert.equal(validateMinimalContractBuildReceipt(minimal, {
+        repositoryRoot: receiptRepositoryRoot,
+        readArtifactDigest: (repositoryRoot, relative) =>
+            fileDigestHex(path.join(repositoryRoot, relative))
+    }), minimal);
+});
+
+test('synthetic runtime-role admission rejects a missing or changed OpenAPI projection', () =>
+{
+    for (const mutation of ['missing', 'changed'])
+    {
+        const admission = createRuntimeRoleAdmission({
+            runId: `projection-fixture-${mutation}`,
+            sourceCommit: 'a'.repeat(40),
+            worktreeFingerprint: digest('b')
+        });
+        const minimal = admission.minimalContractBuild;
+        const artifact = minimal.artifacts['openapi-aeds-observation'];
+        const projection = path.join(receiptRepositoryRoot, artifact.projectionPath);
+        if (mutation === 'missing')
+        {
+            fs.unlinkSync(projection);
+        }
+        else
+        {
+            fs.appendFileSync(projection, 'drift\n');
+        }
+        assert.throws(() => validateMinimalContractBuildReceipt(minimal, {
+            repositoryRoot: receiptRepositoryRoot,
+            readArtifactDigest: (repositoryRoot, relative) =>
+                fileDigestHex(path.join(repositoryRoot, relative))
+        }), mutation === 'missing'
+            ? /ENOENT/u
+            : /artifact openapi-aeds-observation digest mismatch/u);
+    }
+});
 
 test('registry derives required behaviors from the BehaviorCatalog and validates exact-one', () =>
 {
@@ -898,38 +969,60 @@ test('canonical Browser source preserves its sealer fields and rejects re-sealed
         upstream.publicPreview.evidenceFileDigest = fileDigest;
     };
     for (const [mutate, expected] of [
-        [(value) => { value.unregistered = true; }, /missing or unknown fields/u],
-        [(value) => { delete value.diagnostics; }, /missing or unknown fields/u],
-        [(value) => {
+        [(value) =>
+        {
+            value.unregistered = true;
+        }, /missing or unknown fields/u],
+        [(value) =>
+        {
+            delete value.diagnostics;
+        }, /missing or unknown fields/u],
+        [(value) =>
+        {
             value.sourceState.sourceCommit = value.sourceState.commit;
         }, /sourceState has missing or unknown fields/u],
-        [(value) => { value.runIdentity.runId = 'other-run'; }, /runId mismatch/u],
-        [(value) => {
+        [(value) =>
+        {
+            value.runIdentity.runId = 'other-run';
+        }, /runId mismatch/u],
+        [(value) =>
+        {
             value.buildBinding.receiptContentDigest = digest('f');
         }, /canonical Browser contract.*build.*digest mismatch/u],
-        [(value) => {
+        [(value) =>
+        {
             value.publicPreview.evidenceFileDigest = digest('f');
         }, /canonical source\/build\/run\/preview binding mismatch/u],
-        [(value) => {
+        [(value) =>
+        {
             value.candidatePlanRef.fileDigest = digest('f');
         }, /candidatePlanRef file digest mismatch/u],
-        [(value) => { value.status = 'failure'; }, /canonical Browser contract/u],
-        [(value) => {
+        [(value) =>
+        {
+            value.status = 'failure';
+        }, /canonical Browser contract/u],
+        [(value) =>
+        {
             value.rawFacts.network.requestFailureCount = 3;
         }, /raw semantic facts do not replay/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.captureContextCount = 9;
         }), /canonical preview has missing or unknown fields/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             delete value.qualityAudit;
         }), /canonical preview has missing or unknown fields/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.qualityAudit = false;
         }), /canonical preview quality mismatch/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.qualityPolicyDigest = 'f'.repeat(64);
         }), /canonical preview quality mismatch/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.quality.matrix.reports = [];
         }), /canonical preview quality mismatch/u]
     ])
@@ -982,16 +1075,20 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
     const classId = 'release-identity-readiness';
     const producerId = registry.producers[0].producerId;
     for (const [mutate, expected] of [
-        [({ admission }) => {
+        [({ admission }) =>
+        {
             delete admission.minimalContractBuild;
         }, /minimalContractBuild|fields are not sealed/u],
-        [({ admission }) => {
+        [({ admission }) =>
+        {
             admission.unknown = true;
         }, /fields are not sealed/u],
-        [({ upstream }) => {
+        [({ upstream }) =>
+        {
             upstream.runtimeRoleAdmissionRef.contentDigest = digest('f');
         }, /runtime-role admission content seal mismatch/u],
-        [({ admission, observationFile }) => {
+        [({ observationFile }) =>
+        {
             const observation = JSON.parse(fs.readFileSync(observationFile, 'utf8'));
             observation.ownership.claimEligible = false;
             fs.writeFileSync(
@@ -999,7 +1096,8 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(observation, null, 2)}\n`
             );
         }, /artifact runtime-role-observation digest mismatch/u],
-        [({ admission, observationFile, resealMinimal }) => {
+        [({ admission, observationFile, resealMinimal }) =>
+        {
             const observation = JSON.parse(fs.readFileSync(observationFile, 'utf8'));
             observation.schema = 'fsusblog.runtime-role-observation.v1';
             fs.writeFileSync(
@@ -1008,7 +1106,8 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
             );
             resealMinimal(admission, observationFile, 'artifact');
         }, /runtime-role v2 observation authority/u],
-        [({ admission, deploymentFile, resealMinimal }) => {
+        [({ admission, deploymentFile, resealMinimal }) =>
+        {
             const deployment = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
             deployment.ownership.claimEligible = false;
             fs.writeFileSync(
