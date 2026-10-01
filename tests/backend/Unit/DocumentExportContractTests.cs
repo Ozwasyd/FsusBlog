@@ -494,7 +494,7 @@ public sealed class DocumentExportContractTests
     [InlineData(typeof(StaticExecutionFixture), "ProcessStartInfo")]
     [InlineData(typeof(UncalledNestedExecutionFixture), "HttpClient")]
     [InlineData(typeof(ParserExecutionFixture), "HtmlToMarkdown")]
-    [InlineData(typeof(UncalledNestedScreenshotFixture), "Screenshot")]
+    [InlineData(typeof(UncalledNestedCaptureFixture), "Screenshot")]
     public void StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(
         Type type,
         string forbidden)
@@ -660,7 +660,7 @@ public sealed class DocumentExportContractTests
         public static string Convert() => "HtmlToMarkdown";
     }
 
-    private static class UncalledNestedScreenshotFixture
+    private static class UncalledNestedCaptureFixture
     {
         private static class Nested
         {
