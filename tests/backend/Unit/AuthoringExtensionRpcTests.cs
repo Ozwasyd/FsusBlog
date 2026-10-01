@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.Unit;
@@ -277,19 +278,51 @@ public sealed class AuthoringExtensionRpcTests
             typeof(AuthoringCapabilityGrantAuthority),
             typeof(AuthoringExtensionRpcAuthority)
         ];
-        Assert.All(rpcTypes, type =>
-        {
-            string compiled = string.Join('\n',
-                RuntimeMetadataInspection.DescribeType(type),
-                RuntimeMetadataInspection.DescribeConstructors(type));
-            Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("innerHTML", compiled, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("splice", compiled, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Callback", compiled, StringComparison.Ordinal);
-        });
+        Assert.All(rpcTypes, AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority);
+    }
+
+    [Fact]
+    public void CompiledRpcBoundary_RejectsUncalledNestedMethodBody()
+    {
+        Type type = typeof(UncalledNestedFixture);
+        Type nested = Assert.Single(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic));
+        MethodInfo method = Assert.Single(nested.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+            | BindingFlags.Instance | BindingFlags.DeclaredOnly));
+        Assert.Equal("Read", method.Name);
+        Assert.NotNull(method.GetMethodBody());
+
+        string rootOnly = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("splice", rootOnly, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("splice", RuntimeMetadataInspection.DescribeMethods(nested, method.Name),
+            StringComparison.Ordinal);
+
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(type));
+        Assert.Contains("splice", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CompiledRpcBoundary_AcceptsAndDescribesBenignUncalledNestedMethodBody()
+    {
+        Type type = typeof(ContractOnlyFixture);
+        Type nested = Assert.Single(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic));
+        MethodInfo method = Assert.Single(nested.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+            | BindingFlags.Instance | BindingFlags.DeclaredOnly));
+        Assert.Equal("Read", method.Name);
+        Assert.NotNull(method.GetMethodBody());
+
+        string rootOnly = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("rpc-contract-safe", rootOnly, StringComparison.Ordinal);
+        Assert.Contains("rpc-contract-safe", RuntimeMetadataInspection.DescribeMethods(nested, method.Name),
+            StringComparison.Ordinal);
+        Assert.Contains("rpc-contract-safe", DescribeRpcTypeTree(type), StringComparison.Ordinal);
+        AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(type);
     }
 
     private static async ValueTask<RpcFixture> CreateFixtureAsync(
@@ -449,5 +482,52 @@ public sealed class AuthoringExtensionRpcTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private static void AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(Type type)
+    {
+        string compiled = DescribeRpcTypeTree(type);
+        Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("innerHTML", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("splice", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Callback", compiled, StringComparison.Ordinal);
+    }
+
+    private static string DescribeRpcTypeTree(Type type) => string.Join('\n',
+        EnumerateRpcTypeTree(type).SelectMany(candidate => new[]
+        {
+            RuntimeMetadataInspection.DescribeType(candidate),
+            RuntimeMetadataInspection.DescribeConstructors(candidate)
+        }));
+
+    private static IEnumerable<Type> EnumerateRpcTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateRpcTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static class UncalledNestedFixture
+    {
+        private static class Entry
+        {
+            public static void Read() => GC.KeepAlive("splice");
+        }
+    }
+
+    private static class ContractOnlyFixture
+    {
+        private static class Entry
+        {
+            public static string Read() => "rpc-contract-safe";
+        }
     }
 }
