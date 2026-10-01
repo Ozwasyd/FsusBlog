@@ -227,6 +227,69 @@ test('actual caller and owner reads reject replacement, alias and in-place drift
     }
 });
 
+for (const relative of [caller, owner])
+{
+    for (const [stage, openOrdinal, expectedReads, diagnostic] of [
+        ['first-open', 1, 0, /changed while opening/u],
+        ['verification-open', 2, 1, /changed before read verification/u]
+    ])
+    {
+        test(`canonical source refuses replacement before ${stage} read: ${relative}`, (context) =>
+        {
+            fixture((root) =>
+            {
+                const absolute = path.join(root, relative);
+                const originalOpen = fs.openSync;
+                const originalRead = fs.readFileSync;
+                const originalClose = fs.closeSync;
+                const descriptors = new Set();
+                let targetOpens = 0;
+                let targetReads = 0;
+                let replaced = false;
+                context.mock.method(fs, 'openSync', (filename, ...args) =>
+                {
+                    if (filename === absolute && ++targetOpens === openOrdinal)
+                    {
+                        const replacement = `${absolute}.replacement`;
+                        fs.copyFileSync(absolute, replacement);
+                        fs.renameSync(replacement, absolute);
+                        replaced = true;
+                    }
+                    const descriptor = originalOpen.call(fs, filename, ...args);
+                    if (filename === absolute)
+                    {
+                        descriptors.add(descriptor);
+                    }
+                    return descriptor;
+                });
+                context.mock.method(fs, 'readFileSync', (descriptor, ...args) =>
+                {
+                    if (descriptors.has(descriptor))
+                    {
+                        targetReads += 1;
+                    }
+                    return originalRead.call(fs, descriptor, ...args);
+                });
+                context.mock.method(fs, 'closeSync', (descriptor) =>
+                {
+                    descriptors.delete(descriptor);
+                    return originalClose.call(fs, descriptor);
+                });
+                try
+                {
+                    assert.throws(() => admits(root), diagnostic);
+                    assert.equal(replaced, true, 'replace the inode at the actual descriptor open');
+                    assert.equal(targetReads, expectedReads, 'never read the replacement descriptor');
+                }
+                finally
+                {
+                    context.mock.restoreAll();
+                }
+            });
+        });
+    }
+}
+
 test('candidate policy and candidate registry cannot make their own decision', () =>
 {
     fixture((root) =>
