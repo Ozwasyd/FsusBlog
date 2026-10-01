@@ -367,6 +367,10 @@ public sealed class AuthoringCommandContributionTests
     [Fact]
     public void CompiledCommandBoundary_RejectsNestedDynamicReturnMetadata()
     {
+        Type nested = Assert.Single(typeof(NestedDynamicFixture).GetNestedTypes(BindingFlags.NonPublic));
+        MethodInfo method = Assert.Single(nested.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Static));
+        Assert.Contains(method.ReturnParameter.CustomAttributes, attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
         Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedCommandType(typeof(NestedDynamicFixture)));
     }
 
