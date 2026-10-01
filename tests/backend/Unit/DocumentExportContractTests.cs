@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -458,28 +459,62 @@ public sealed class DocumentExportContractTests
 
         Type[] contractTypes =
         [
+            typeof(DocumentExportCoordinateKind),
+            typeof(DocumentExportTaskStatus),
+            typeof(DocumentExportFeatureDisposition),
+            typeof(DocumentExportProviderResultStatus),
+            typeof(DocumentExportArticleCoordinate),
+            typeof(DocumentExportAsset),
+            typeof(DocumentExportFrozenInput),
+            typeof(DocumentExportTask),
+            typeof(DocumentExportFeatureSupport),
+            typeof(DocumentExportResourceBudgets),
+            typeof(DocumentExportDeliveryPolicy),
+            typeof(DocumentExportProviderContract),
+            typeof(DocumentExportProviderExecutionBinding),
+            typeof(DocumentExportNormalizationContract),
+            typeof(DocumentExportStaticGovernance),
+            typeof(DocumentExportProviderReceipt),
             catalog,
             typeof(DocumentExportContractValidator),
             typeof(DocumentExportDigest)
         ];
-        Assert.All(contractTypes, type =>
-        {
-            string compiled = string.Join('\n',
-                RuntimeMetadataInspection.DescribeType(type),
-                RuntimeMetadataInspection.DescribeConstructors(type));
-            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("ProcessStartInfo", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("GetLatest", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("HtmlToMarkdown", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
-        });
+        Assert.All(contractTypes, AssertContractTypeHasNoExecutionOrAlternateParserAuthority);
         Assert.All(DocumentExportContractCatalog.ExecutionBindings, binding =>
         {
             Assert.Equal("exact-argv-v1", binding.InvocationPolicy);
             Assert.Equal(["render"], binding.ExactArguments);
             Assert.Equal("prohibited", binding.ShellPolicy);
         });
+    }
+
+    [Theory]
+    [InlineData(typeof(NonCatalogContractFixture), "GetLatest")]
+    [InlineData(typeof(InstanceExecutionFixture), "Process.Start")]
+    [InlineData(typeof(StaticExecutionFixture), "ProcessStartInfo")]
+    [InlineData(typeof(UncalledNestedExecutionFixture), "HttpClient")]
+    [InlineData(typeof(ParserExecutionFixture), "HtmlToMarkdown")]
+    [InlineData(typeof(UncalledNestedScreenshotFixture), "Screenshot")]
+    public void StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(
+        Type type,
+        string forbidden)
+    {
+        string compiled = string.Join('\n', EnumerateContractTypeTree(type).SelectMany(candidate => new[]
+        {
+            RuntimeMetadataInspection.DescribeType(candidate),
+            RuntimeMetadataInspection.DescribeConstructors(candidate)
+        }));
+        Assert.Contains(forbidden, compiled, StringComparison.Ordinal);
+
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertContractTypeHasNoExecutionOrAlternateParserAuthority(type));
+        Assert.Contains(forbidden, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers()
+    {
+        AssertContractTypeHasNoExecutionOrAlternateParserAuthority(typeof(BenignContractFixture));
     }
 
     [Fact]
@@ -557,6 +592,88 @@ public sealed class DocumentExportContractTests
             task,
             input,
             provider));
+    }
+
+    private static void AssertContractTypeHasNoExecutionOrAlternateParserAuthority(Type type)
+    {
+        foreach (Type candidate in EnumerateContractTypeTree(type))
+        {
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(candidate),
+                RuntimeMetadataInspection.DescribeConstructors(candidate));
+            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("ProcessStartInfo", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("GetLatest", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HtmlToMarkdown", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
+        }
+    }
+
+    // Each existing contract type owns all declared roots, including methods that no parent calls.
+    private static IEnumerable<Type> EnumerateContractTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateContractTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private sealed record NonCatalogContractFixture(string Id)
+    {
+        public static string GetLatest() => "not-executed";
+    }
+
+    private sealed class InstanceExecutionFixture
+    {
+        public InstanceExecutionFixture()
+        {
+            using System.Diagnostics.Process? process = System.Diagnostics.Process.Start("not-executed");
+            GC.KeepAlive(process);
+        }
+    }
+
+    private static class StaticExecutionFixture
+    {
+        static StaticExecutionFixture()
+            => GC.KeepAlive(new System.Diagnostics.ProcessStartInfo("not-executed"));
+    }
+
+    private static class UncalledNestedExecutionFixture
+    {
+        private static class Nested
+        {
+            public static void Send()
+            {
+                using var client = new System.Net.Http.HttpClient();
+                GC.KeepAlive(client);
+            }
+        }
+    }
+
+    private static class ParserExecutionFixture
+    {
+        public static string Convert() => "HtmlToMarkdown";
+    }
+
+    private static class UncalledNestedScreenshotFixture
+    {
+        private static class Nested
+        {
+            public static void Capture() => GC.KeepAlive("Screenshot");
+        }
+    }
+
+    private sealed record BenignContractFixture(string Id)
+    {
+        private static class Nested
+        {
+            public static string Describe() => "contract-only";
+        }
     }
 
     internal static DocumentExportFrozenInput ValidInput(string markdown = "# 标题\n\nHello 🌍")
