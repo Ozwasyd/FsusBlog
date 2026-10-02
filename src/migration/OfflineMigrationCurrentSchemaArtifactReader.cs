@@ -50,8 +50,14 @@ internal sealed class OfflineMigrationCurrentSchemaArtifactReader : IOfflineMigr
         return bytes;
     }
 
-    private static SafeFileHandle OpenOriginalRegularFile(string path, CancellationToken cancellationToken)
+    // The original producer may reuse this FD admission, but owns its distinct
+    // input byte budget/hash; this port does not enlarge the receipt reader cap.
+    internal static SafeFileHandle OpenOriginalRegularFile(string path, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)
+            || path != Path.GetFullPath(path) || path.Any(char.IsControl))
+            throw new InvalidOperationException("current_verify_original_artifact_path_required");
         // Linux UAPI flags/layout below are explicit. No generic synchronous-open
         // fallback is accepted on an unowned platform or architecture.
         if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
