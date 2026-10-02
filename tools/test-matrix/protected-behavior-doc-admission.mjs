@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn as spawnChild } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { readBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission.mjs';
@@ -14,11 +14,62 @@ export const behaviorDocProtectedOutputRoots = Object.freeze([
     ...Object.values(hostDeclarations).map((declaration) => path.posix.dirname(declaration.output))
 ].sort());
 
+export function readProtectedBehaviorDocAdmissionReceipt({ receiptFile, runId, source, repositoryRoot })
+{
+    return readBehaviorDocStaticAdmissionReceipt(receiptFile, {
+        expectedRunId: runId, expectedSourceIdentity: source, expectedWorktree: repositoryRoot
+    });
+}
+
+/** Forward cancellation to the original runner and wait for its terminal close, not just exit. */
+export async function waitProtectedBehaviorDocRunner(command, args, options, { signal, spawn = spawnChild } = {})
+{
+    if (signal?.aborted) throw signal.reason;
+    const child = spawn(command, args, options);
+    let firstFailure = null;
+    const cancel = (value) =>
+    {
+        firstFailure ??= Object.assign(new Error(`Protected admission cancelled: ${value}`), { signal: value });
+        child.kill(value);
+    };
+    const onSigint = () => cancel('SIGINT');
+    const onSigterm = () => cancel('SIGTERM');
+    const onAbort = () => cancel('SIGTERM');
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try
+    {
+        if (signal?.aborted) onAbort();
+        await new Promise((resolve, reject) =>
+        {
+            child.once('error', (error) => { firstFailure ??= error; });
+            child.once('close', (code, terminationSignal) =>
+            {
+                if (firstFailure) reject(firstFailure);
+                else if (code !== 0 || terminationSignal)
+                {
+                    reject(Object.assign(new Error('Protected BehaviorDoc admission failed'), {
+                        exitCode: code, signal: terminationSignal
+                    }));
+                }
+                else resolve();
+            });
+        });
+    }
+    finally
+    {
+        process.removeListener('SIGINT', onSigint);
+        process.removeListener('SIGTERM', onSigterm);
+        signal?.removeEventListener('abort', onAbort);
+    }
+}
+
 /** The matrix stays on the host; only the complete original admission CLI is protected. */
 export async function runProtectedBehaviorDocAdmission({
     repositoryRoot, runId, outputFile, candidateSpawnCountBeforeReceipt = 0,
     preparationFile = process.env.FSUSBLOG_BEHAVIOR_DOC_NUGET_PREPARATION,
-    sourceState = null, spawn = spawnSync
+    sourceState = null, signal, spawn = spawnChild
 })
 {
     const root = fs.realpathSync(repositoryRoot);
@@ -50,23 +101,15 @@ export async function runProtectedBehaviorDocAdmission({
         ...behaviorDocProtectedOutputRoots.flatMap((directory) => ['--output', directory]),
         '--', 'node', 'tools/docs/behavior-doc-static-admission.mjs',
         '--run-id', runId, '--out', receiptFile];
-    const result = spawn(process.execPath, args, {
+    await waitProtectedBehaviorDocRunner(process.execPath, args, {
         cwd: root, stdio: 'inherit', env: { ...process.env,
             FSUSBLOG_TEST_RUN_ID: runId,
             FSUSBLOG_TEST_SOURCE_COMMIT: sourceState?.commit ?? source.sourceCommit,
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState?.worktreeFingerprint ?? source.worktreeFingerprint }
-    });
-    if (result.error || result.signal || result.status !== 0)
-    {
-        const error = result.error ?? new Error('Protected BehaviorDoc admission failed');
-        error.exitCode = result.status;
-        error.signal = result.signal;
-        throw error;
-    }
+    }, { signal, spawn });
     // No receipt is read after a physical, preseed or postflight failure.
-    const receipt = readBehaviorDocStaticAdmissionReceipt({
-        repositoryRoot: root, file: receiptFile, expectedRunId: runId,
-        expectedSourceCommit: source.sourceCommit, expectedWorktreeFingerprint: source.worktreeFingerprint
+    const receipt = readProtectedBehaviorDocAdmissionReceipt({
+        repositoryRoot: root, receiptFile, runId, source
     });
     if (JSON.stringify(sealSourceIdentity(root)) !== JSON.stringify(source))
     {
