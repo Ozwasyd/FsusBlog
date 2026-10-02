@@ -342,6 +342,12 @@ checkpoint against its native entry, and authenticates the first attempt's UTC
 admission time before revalidating the original backup/registry/DAG bindings.
 The owned artifact reader opens each explicit absolute published path and reads
 its bounded original bytes, checking the whole-file SHA before returning them.
+The Linux x64/arm64 file owner walks non-link directories, rejects non-regular
+leaves and uses nonblocking, non-following open followed by same-descriptor
+regular-file/device/inode validation. FIFO, device, directory or link paths cannot
+reach the ordinary synchronous stream open. An unowned native file platform
+refuses instead of falling back to generic open. This does not establish an
+outer physical deadline for stalled filesystems or replace native terminal proof.
 Relative paths, `latest` discovery, empty or oversized files, cancellation and
 changed bytes cannot substitute reconstructed records for original artifacts.
 
