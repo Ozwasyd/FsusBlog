@@ -197,6 +197,9 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
         const mayCleanup = !physicalStarted || terminalEvidence?.postObservation === 'zero-members';
         if (!mayCleanup && firstFailure)
             firstFailure.recoveryObligation = { attemptRoot, ownedRoot: directories?.fragment.ownedRoot,
+                capacityReservationFile: reservation?.activeFile,
+                capacityReservationId: reservation?.receipt.reservationId,
+                repositoryLeasePath: lease?.leasePath,
                 reason: 'physical terminal does not verify zero residue; active resources preserved' };
         if (mayCleanup && directories && !directories.fragment.cleanup.removedOwnedRoot)
             cleanup(() => finalizeRunOwnedDirectories(directories));
@@ -218,8 +221,13 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 fs.rmSync(attemptRoot, { recursive: true });
             });
         }
-        cleanup(() => reservation?.release(complete ? 'released' : 'recovery-required'));
-        cleanup(() => lease?.release(complete ? 'complete' : controller.signal.aborted ? 'cancelled' : 'failed'));
+        // recovery-required is only an original release label; it does not hold capacity.
+        // Unknown residue must retain both existing authorities, not release quota underneath live children.
+        if (mayCleanup)
+        {
+            cleanup(() => reservation?.release(complete ? 'released' : 'recovery-required'));
+            cleanup(() => lease?.release(complete ? 'complete' : controller.signal.aborted ? 'cancelled' : 'failed'));
+        }
         process.removeListener('SIGINT', onSigint);
         process.removeListener('SIGTERM', onSigterm);
         if (cleanupFailure)
