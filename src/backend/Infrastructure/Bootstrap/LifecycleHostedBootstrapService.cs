@@ -66,7 +66,7 @@ public sealed class LifecycleHostedBootstrapService(
             runtimeState.ReportStartupTask(BootstrapTask, "failed", ex.GetType().Name);
             deploymentRuntimeState?.MarkStartupFailed("bootstrap", "deployment_bootstrap_failed");
             logger.LogCritical(ex, "System Halt.");
-            if (ex is CurrentSchemaMismatchException || !environment.IsDevelopment())
+            if (ex is CurrentSchemaMismatchException or CurrentSchemaAdmissionException || !environment.IsDevelopment())
             {
                 throw;
             }

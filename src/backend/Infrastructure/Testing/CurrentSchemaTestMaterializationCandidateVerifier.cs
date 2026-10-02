@@ -130,8 +130,8 @@ public static class CurrentSchemaTestMaterializationCandidateVerifier
         IReadOnlyList<Type> entityTypes = inspector.GetManagedEntityTypes();
         CurrentSchemaCanonicalModel canonical = inspector.BuildCanonicalModel(entityTypes);
         _ = CurrentSchemaCanonicalAuthority.Generate(canonical);
-        var startupVerifier = new CurrentSchemaStartupVerifier(db, inspector);
-        await startupVerifier.RunAsync(cancellationToken).ConfigureAwait(false);
+        var observer = new CurrentSchemaReadObserver(db, inspector);
+        _ = await observer.ReadAsync(cancellationToken).ConfigureAwait(false);
         SchemaModelSnapshot actual = await inspector.ReadActualModelAsync(db, cancellationToken)
             .ConfigureAwait(false);
         string observedDatabaseDigest =

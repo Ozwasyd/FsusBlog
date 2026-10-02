@@ -114,6 +114,76 @@ destructive work unguarded. `backfill-resume` executes resumable handlers
 declared in the migration assembly (for example
 `AccountSubjectHashOnlineBackfillHandler`).
 
+### Immutable offline planning boundary
+
+The separate `plan` command parses an explicit provider, observed instance/database
+identity to match, source and isolated restore environment files, original backup
+package/manifest/restore-drill references, and a new output path. It does not invoke
+legacy phases, apply SQL, write a migration journal, or start the Server. Release,
+slot, latest-backup, manual-step and legacy-phase selectors are rejected.
+
+Migration-owned `OfflineMigrationPlanContracts` owns the immutable execution payload;
+historical source, backup, step and reader contracts never enter Shared or Server.
+Shared `CurrentSchemaMigrationIdentityContracts` contains only opaque current
+database/provider/artifact/target/verifier identities needed by the current receipt.
+Server consumes that formal receipt and fresh current-schema proof, not executable
+plans or migration assemblies. The migration-owned planner matches complete
+schema/history/business-shape observations
+against a closed, versioned registry with owner, proof tests and entry step. Unknown,
+partial and ambiguous observations are rejected with exact differences, not a nearest
+baseline. The provider-neutral semantic DAG freezes dependencies, step order, idempotency,
+destructiveness, checkpoint policy and all three provider operation references.
+Operation semantic digests identify definitions, not actual row-data verification.
+The independent plan verifier rebuilds that closure from owner inputs and fresh
+observations; merely resealing a modified payload does not authorize it.
+
+Backup admission distinguishes the original database at capture from the isolated
+restore database. The original authenticated backup owner must bind package,
+manifest and drill bytes to the captured source and independently observed restore;
+their complete shapes must match the fresh source. All six original site-package
+artifact digests remain required. Shape alone cannot prove current data: the native
+source observer must also hash every registered source row and column under the
+capture snapshot and independently at fresh plan/restore observation. Equal-length
+content changes must invalidate the backup even when schema, counts and business
+shape predicates do not change. The actual exported capture snapshot, independently
+hashed dump bytes and dump bytes consumed during restore are bound to the original
+database artifact; a new session's exported snapshot ID is not compared as if it were
+the old session's content identity. Freshness is checked at admission using owner
+policy; invocation clock, release, slot, PID and random values do not enter plan
+bytes. Receipt capture/restore times are immutable input evidence, not a newly
+generated plan timestamp. The migration-owned codec verifies integrity only, not backup,
+registry or execution authority. Apply must still revalidate under its exclusive
+database lock and use exact journal progress rather than rediscovering steps.
+
+An artifact reference's `Sha256` hashes the complete original file bytes, including
+the plan's own digest field. `Plan.ContentDigest` instead hashes the canonical
+payload with that self-referential field empty. These identities are distinct;
+journal and current-receipt artifact references must not substitute the semantic
+seal for the actual file hash or hash normalized bytes as if they were the original.
+
+The same host parses `observe-source --provider <provider> --env-file <path>`.
+PostgreSQL capture additionally requires `--capture-session --dump-output <new
+absolute path>`. The observer announces its actual source/exported snapshot before
+the original backup owner runs `pg_dump --snapshot`. Only the exact stdin line
+`DUMP_COMPLETED`, after the dump child is truly terminal, releases the callback;
+stdin cannot select a path, source observation, snapshot or hash. The native observer
+independently hashes the pre-bound dump, closes its read-only transaction, and only
+then the host emits completed capture evidence. EOF, unknown control or cancellation
+produces no completed evidence. MySQL/SQLite snapshot capture is explicitly unsupported
+until their actual owner capability exists. Stdio contract fixtures are not native
+database or backup proof, and the source-observer factory currently also refuses
+unconfigured owners rather than interpreting empty input as an empty database.
+
+The current `CreateOwnedReader` fails with
+`schema_offline_plan_evidence_owner_not_configured`: the existing backup manifest
+and drill do not yet prove source instance/fingerprint binding, and the current-only
+schema observer cannot register historical source shapes. Contract-test observations
+are not production registry entries. Until those actual owner capabilities are
+integrated and independently verified, no CLI plan is admitted; the existing
+`schema_offline_contract_not_supported` guard remains unchanged. The typed contract,
+planner and source regressions alone are not three-provider or whole migration
+acceptance, and do not authorize applying a deserialized plan.
+
 `artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
 project, assembly and namespace identities, every old/new source path and declared
 symbol, old/new SHA-256 digests, deleted Server paths, the aggregate content digest
@@ -142,6 +212,40 @@ fixture inserts a `sys_user` row after the second run while omitting these colum
 and requires `anonymous_account|basic|active`.
 
 ## Canonical Current Schema
+
+### Explicit production current receipt admission
+
+Production startup requires an explicit absolute `SchemaMigration:CurrentReceipt:Path`,
+its complete file-byte SHA-256 in `SchemaMigration:CurrentReceipt:Sha256`, and the
+candidate assembly's exact nonzero `FsusBlog.SourceCommit` in
+`SchemaMigration:CurrentReceipt:CandidateSourceRevision`. These are not `latest`
+selectors. The receipt's payload self-digest is separate from its artifact-byte hash;
+its verifier source revision is the offline producer identity, not necessarily the
+later Server candidate revision.
+
+`CurrentSchemaReceiptCodec` owns the closed `fsusblog.current-schema-receipt.v1`
+current-only envelope. Its opaque plan, apply, checkpoint, backup and recovery
+references do not load migration histories into the Server. Structural validity,
+a self-digest, or a `verified-current` string alone is not fresh database evidence.
+`CurrentSchemaReceiptAdmission.VerifyAsync` re-reads the explicitly bound artifact
+and the current schema through the original canonical authority, checking the
+five-field target identity, actual physical schema digest and native PostgreSQL
+`system_identifier` plus database OID/name. Unsupported native observers fail
+closed. This route performs no DDL, backfill, journal or migration-history writes.
+Only successful startup admission publishes `CurrentSchemaAdmissionState.Current`;
+an absent state is never readiness. The same read-only verification API does not
+publish readiness when used by an operational consumer.
+The receipt JSON must explicitly contain its closed `status`; omission cannot
+default to success. Receipt admission failures stop hosted business-service startup
+in Development as well as Production, using the fatal admission category rather
+than the ordinary development-only bootstrap logging fallback.
+
+The test-only materialization receipt remains a separate isolated-run artifact.
+Its schema check uses `CurrentSchemaReadObserver`, not an optional production
+receipt bypass. Offline receipt issuance additionally requires the original sealed
+plan/backup authorities, durable native journal and independent compiled-operation
+postcondition observations. Missing providers or operation owners must refuse
+issuance; the current-only codec and startup consumer cannot supply those facts.
 
 `CurrentSchemaCanonicalAuthority` in `src/shared/Contracts/Schema/` is the only
 neutral current-schema generator, identity hasher, provider projection and
@@ -246,7 +350,7 @@ five-field identity through the sole
 `CurrentSchemaCanonicalAuthority`, materializes those entity types once, applies
 the PostCodeFirst visit-log and author-analytics rollup `EnsureTable` SQL from
 `CurrentSchemaRuntimeRollupTables` (without referencing the migration assembly),
-then runs `CurrentSchemaStartupVerifier`. Missing rollup tables fail closed instead
+then runs the read-only `CurrentSchemaReadObserver`. Missing rollup tables fail closed instead
 of remaining optional extras. A partial or stale schema fails before any write.
 DDL and verification remain inside one PostgreSQL transaction. Before commit the
 producer atomically publishes only a `prepared`, qualification-ineligible staging

@@ -2,6 +2,8 @@ using System.Text.Json;
 
 using SqlSugar;
 
+using FsusBlog.Contracts.Migration;
+
 namespace FsusBlog.Migration;
 
 /// <summary>
@@ -16,6 +18,48 @@ public static class OfflineMigrationHost
 
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "observe-source")
+        {
+            try
+            {
+                OfflineMigrationSourceCommandOptions options = OfflineMigrationCommandLine.ParseSourceObservation(args);
+                string? connectionString = ReadEnvironmentFile(options.EnvironmentFilePath)
+                    .GetValueOrDefault("ConnectionStrings__DefaultConnection");
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException("schema_connection_string_missing");
+                }
+
+                await ObserveSourceAsync(options, connectionString, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver(),
+                    Console.In, Console.Out, CancellationToken.None).ConfigureAwait(false);
+                return 0;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Provider faults must not publish credentials or raw historical row values.
+                string code = exception is InvalidOperationException
+                    ? exception.Message.Split(':', 2)[0]
+                    : "schema_offline_source_observation_failed";
+                WriteJson(new { status = "failed", code });
+                return 1;
+            }
+        }
+
+        if (args.Length > 0 && args[0] == "plan")
+        {
+            try
+            {
+                OfflineMigrationPlanCommandOptions options = OfflineMigrationCommandLine.ParsePlan(args);
+                await WritePlanAsync(options, OfflineMigrationPlanEvidence.CreateOwnedReader(), CancellationToken.None).ConfigureAwait(false);
+                return 0;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                WriteJson(new { status = "failed", code = exception.Message });
+                return 1;
+            }
+        }
+
         OfflineMigrationCommandOptions parsed;
         try
         {
@@ -64,6 +108,123 @@ public static class OfflineMigrationHost
                 detail = exception.Message
             });
             return 1;
+        }
+    }
+
+    internal static async Task ObserveSourceAsync(
+        OfflineMigrationSourceCommandOptions options,
+        string connectionString,
+        IOfflineMigrationSnapshotSourceObserver observer,
+        TextReader control,
+        TextWriter output,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!options.CaptureSession)
+        {
+            OfflineMigrationSourceObservation observed = await observer.ObserveAsync(
+                options.Provider, connectionString, cancellationToken).ConfigureAwait(false);
+            OfflineMigrationPlanValidation.ValidateObservation(observed);
+            if (observed.Database.Provider != options.Provider)
+            {
+                throw new InvalidOperationException("schema_source_observation_provider_mismatch");
+            }
+
+            await output.WriteLineAsync(JsonSerializer.Serialize(observed).AsMemory(), cancellationToken).ConfigureAwait(false);
+            await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (options.Provider != CurrentSchemaProviderKind.PostgreSql || options.DumpOutputPath is null
+            || !Path.IsPathFullyQualified(options.DumpOutputPath) || File.Exists(options.DumpOutputPath)
+            || Directory.Exists(options.DumpOutputPath))
+        {
+            throw new InvalidOperationException("schema_source_capture_dump_path_not_new");
+        }
+
+        OfflineMigrationSourceObservation? announcedSource = null;
+        string? announcedSnapshot = null;
+        DateTimeOffset capturedAt = default;
+        var captured = await observer.CapturePostgreSqlSnapshotAsync(connectionString, async (source, snapshotId, token) =>
+        {
+            OfflineMigrationPlanValidation.ValidateObservation(source);
+            if (source.Database.Provider != CurrentSchemaProviderKind.PostgreSql || announcedSource is not null)
+            {
+                throw new InvalidOperationException("schema_source_capture_observation_invalid");
+            }
+
+            OfflineMigrationPlanValidation.RequireText(snapshotId, "schema_source_capture_snapshot_invalid");
+            announcedSource = source;
+            announcedSnapshot = snapshotId;
+            capturedAt = DateTimeOffset.UtcNow;
+            await output.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                Source = source,
+                SnapshotId = snapshotId,
+                CapturedAt = capturedAt,
+                ObserverId = source.ExtractorId,
+                ObserverVersion = source.ExtractorVersion
+            }).AsMemory(), token).ConfigureAwait(false);
+            await output.FlushAsync(token).ConfigureAwait(false);
+            string? terminal = await control.ReadLineAsync(token).ConfigureAwait(false);
+            if (terminal != "DUMP_COMPLETED")
+            {
+                throw new InvalidOperationException("schema_source_capture_dump_terminal_required");
+            }
+
+            // The original dump owner owns actual child drain. This closed handshake selects
+            // neither a path nor a digest; the observer hashes the path bound before capture.
+            return options.DumpOutputPath;
+        }, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (announcedSource is null || captured.SnapshotId != announcedSnapshot
+            || !OfflineMigrationPlanValidation.Equal(captured.Source, announcedSource))
+        {
+            throw new InvalidOperationException("schema_source_capture_identity_changed");
+        }
+
+        OfflineMigrationPlanValidation.RequireDigest(captured.DumpSha256, "schema_source_capture_dump_digest_invalid");
+        var evidence = new OfflineMigrationBackupCaptureEvidence(captured.Source, captured.SnapshotId,
+            capturedAt, captured.Source.ExtractorId, captured.Source.ExtractorVersion, captured.DumpSha256);
+        await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "ok", capture = evidence })
+            .AsMemory(), cancellationToken).ConfigureAwait(false);
+        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task WritePlanAsync(
+        OfflineMigrationPlanCommandOptions options,
+        IOfflineMigrationPlanningEvidence evidence,
+        CancellationToken cancellationToken)
+    {
+        VerifiedOfflineMigrationPlan verified = await OfflineMigrationPlanEvidence.ReadAndVerifyAsync(
+            options, evidence, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Never overwrite an earlier immutable plan. Publication is after all read-only
+        // admission, outside any database transaction and without invoking legacy phases.
+        string target = Path.GetFullPath(options.PlanOutputPath);
+        string staging = target + "." + Guid.NewGuid().ToString("N") + ".staging";
+        try
+        {
+            await using (var output = new FileStream(staging, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                Options = FileOptions.Asynchronous,
+                UnixCreateMode = OperatingSystem.IsWindows() ? null : UnixFileMode.UserRead | UnixFileMode.UserWrite
+            }))
+            {
+                await output.WriteAsync(OfflineMigrationPlanCodec.Serialize(verified.Plan), cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+                output.Flush(flushToDisk: true);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(staging, target, overwrite: false);
+        }
+        finally
+        {
+            File.Delete(staging);
         }
     }
 

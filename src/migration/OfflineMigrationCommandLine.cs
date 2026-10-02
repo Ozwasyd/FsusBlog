@@ -1,3 +1,5 @@
+using FsusBlog.Contracts.Migration;
+
 namespace FsusBlog.Migration;
 
 internal sealed record OfflineMigrationCommandOptions(
@@ -9,8 +11,131 @@ internal sealed record OfflineMigrationCommandOptions(
     bool ConfirmDestructive,
     bool DryRun);
 
+internal sealed record OfflineMigrationPlanCommandOptions(
+    CurrentSchemaDatabaseIdentity ExpectedDatabase,
+    string EnvironmentFilePath,
+    string BackupPackagePath,
+    string BackupManifestPath,
+    string RestoreDrillPath,
+    string RestoreEnvironmentFilePath,
+    string PlanOutputPath);
+
+internal sealed record OfflineMigrationSourceCommandOptions(
+    CurrentSchemaProviderKind Provider,
+    string EnvironmentFilePath,
+    bool CaptureSession,
+    string? DumpOutputPath);
+
 internal static class OfflineMigrationCommandLine
 {
+    internal static OfflineMigrationSourceCommandOptions ParseSourceObservation(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "observe-source")
+        {
+            throw new InvalidOperationException("schema_source_observation_command_required");
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        bool captureSession = false;
+        for (int index = 1; index < args.Count; index++)
+        {
+            string argument = args[index];
+            if (argument == "--capture-session")
+            {
+                if (captureSession)
+                {
+                    throw new InvalidOperationException("schema_source_capture_duplicate");
+                }
+
+                captureSession = true;
+                continue;
+            }
+
+            if (argument is not ("--provider" or "--env-file" or "--dump-output"))
+            {
+                throw new InvalidOperationException($"schema_source_observation_argument_unknown:{argument}");
+            }
+
+            string value = ReadValue(args, ref index, argument);
+            if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
+            {
+                throw new InvalidOperationException($"schema_source_observation_argument_invalid_or_duplicate:{argument}");
+            }
+        }
+
+        if (!values.TryGetValue("--provider", out string? providerValue)
+            || !values.TryGetValue("--env-file", out string? environmentFile))
+        {
+            throw new InvalidOperationException("schema_source_observation_provider_and_environment_required");
+        }
+
+        CurrentSchemaProviderKind provider = providerValue switch
+        {
+            "postgresql" => CurrentSchemaProviderKind.PostgreSql,
+            "mysql" => CurrentSchemaProviderKind.MySql,
+            "sqlite" => CurrentSchemaProviderKind.Sqlite,
+            _ => throw new InvalidOperationException("schema_source_observation_provider_unknown")
+        };
+        values.TryGetValue("--dump-output", out string? dumpOutput);
+        if (captureSession && (provider != CurrentSchemaProviderKind.PostgreSql
+            || dumpOutput is null || !Path.IsPathFullyQualified(dumpOutput)))
+        {
+            throw new InvalidOperationException("schema_source_capture_provider_or_dump_path_invalid");
+        }
+
+        if (!captureSession && dumpOutput is not null)
+        {
+            throw new InvalidOperationException("schema_source_dump_path_only_for_capture");
+        }
+
+        return new(provider, environmentFile, captureSession, dumpOutput);
+    }
+
+    internal static OfflineMigrationPlanCommandOptions ParsePlan(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "plan")
+        {
+            throw new InvalidOperationException("schema_plan_command_required");
+        }
+
+        string[] allowed = ["--provider", "--instance-id", "--database-id", "--env-file", "--backup-package",
+            "--backup-manifest", "--restore-drill", "--restore-env-file", "--output"];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int index = 1; index < args.Count; index++)
+        {
+            string argument = args[index];
+            if (!allowed.Contains(argument, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException($"schema_plan_argument_unknown:{argument}");
+            }
+
+            string value = ReadValue(args, ref index, argument);
+            if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
+            {
+                throw new InvalidOperationException($"schema_plan_argument_invalid_or_duplicate:{argument}");
+            }
+        }
+
+        foreach (string argument in allowed)
+        {
+            if (!values.ContainsKey(argument))
+            {
+                throw new InvalidOperationException($"schema_plan_argument_required:{argument}");
+            }
+        }
+
+        CurrentSchemaProviderKind provider = values["--provider"] switch
+        {
+            "postgresql" => CurrentSchemaProviderKind.PostgreSql,
+            "mysql" => CurrentSchemaProviderKind.MySql,
+            "sqlite" => CurrentSchemaProviderKind.Sqlite,
+            _ => throw new InvalidOperationException("schema_plan_provider_unknown")
+        };
+        return new(new(provider, values["--instance-id"], values["--database-id"]), values["--env-file"],
+            values["--backup-package"], values["--backup-manifest"], values["--restore-drill"],
+            values["--restore-env-file"], values["--output"]);
+    }
+
     public static OfflineMigrationCommandOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0
