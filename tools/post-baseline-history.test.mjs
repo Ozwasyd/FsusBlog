@@ -523,14 +523,14 @@ test('real immutable source refuses cross-file Fact and Theory type shadows but 
                 readCurrent: () => JSON.stringify({ ...baseline, sourceCommit, deletionCommit,
                     records: [{ ...baseline.records[0], sourceBlobOid }] })
             });
-        if (accepted)
-        {
-            assert.deepEqual(result.errors, [], attribute);
-        }
-        else
-        {
-            assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)), attribute);
-        }
+            if (accepted)
+            {
+                assert.deepEqual(result.errors, [], attribute);
+            }
+            else
+            {
+                assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)), attribute);
+            }
         }
         finally
         {
