@@ -126,6 +126,32 @@ provider copies of the current schema model, shared legacy-only fields, web-host
 migration tests, graph cycles, dual registration, Server publish leakage, missing
 provider/build evidence and receipt or binding tampering.
 
+`tools/db/check-migration-terminal-governance.mjs` is the existing canonical
+static-governance observation, not terminal release acceptance. It records the
+declared transitive project graph (including literal repository imports and
+conditional edges), full source digests, observed generated sources and NuGet
+compile/runtime assets. It rejects migration imports, linked sources, registry DI,
+known reflection/loading aliases, shared legacy fields and observed publish
+residue. Declaration scanning does not replace MSBuild evaluation, compiled
+assembly/DI inspection, or runtime execution; unresolved declarations fail rather
+than silently removing an edge. Safe reflection and unrelated database packages
+are not globally forbidden.
+
+Its optional `--write` preserves the existing receipt path but produces an explicit
+`fsusblog.migration-terminal-static-observation.v1` report, including failures.
+`qualificationEligible` is always false. Missing publish output is `not-observed`
+with a null residue observation, never zero; observed publish file bytes are
+content-bound but do not attest a current AOT/trim invocation. The ordinary static
+lane may pass without forcing every PR to publish or start database providers.
+Closing the migration-boundary work still requires current-source evaluated
+build/assembly and publish evidence, PostgreSQL/MySQL/SQLite executable provider
+tests, the ten independent mutation classes, and symmetric cold-readiness/startup
+warmup and samples with source/build/toolchain/envelope/projection identities.
+Startup median must not worsen by more than 2%, allocations must not increase and
+publish size must not increase. Missing or incomparable performance is
+`not-evaluable` and blocks terminal acceptance; checker fixtures, unexecuted labels,
+historical receipts and warnings=0 do not substitute for these outcomes.
+
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
 indexes, and constraints after the first run must exactly match the second run. It
