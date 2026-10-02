@@ -499,12 +499,18 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
             return Process.Start(startInfo);
         }
 
-        public static ProcessStartInfo Closed() => new() { UseShellExecute = false };
+        public static ProcessStartInfo Closed() => new()
+        {
+            UseShellExecute = false
+        };
     }
 
     private static class ShellAssignmentFixture
     {
-        public static ProcessStartInfo Open() => new() { UseShellExecute = true };
+        public static ProcessStartInfo Open() => new()
+        {
+            UseShellExecute = true
+        };
 
         public static string Literal() => "System.Diagnostics.ProcessStartInfo.set_UseShellExecute";
     }

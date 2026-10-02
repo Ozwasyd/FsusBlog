@@ -734,7 +734,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class BenignSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
     }
 
     private static class MemberLiteralSandboxMetadataFixture
@@ -768,7 +771,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class ExtraConstructorSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -778,7 +784,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class ExtraSetterSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -788,7 +797,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class NestedStartSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -802,7 +814,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
         private static class Unused
         {
-            public static ProcessStartInfo Build() => new("broker") { UseShellExecute = false };
+            public static ProcessStartInfo Build() => new("broker")
+            {
+                UseShellExecute = false
+            };
         }
     }
 
@@ -823,7 +838,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class NestedHttpClientSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -833,7 +851,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class NestedEnvironmentSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -843,7 +864,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class NestedShellSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -853,7 +877,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class NestedPathSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
@@ -863,7 +890,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
 
     private static class NestedLatestSandboxMetadataFixture
     {
-        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+        public static ProcessStartInfo BuildStartInfo() => new("broker")
+        {
+            UseShellExecute = false
+        };
 
         private static class Unused
         {
