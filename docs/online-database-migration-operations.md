@@ -99,6 +99,20 @@ the manifest, rollout-stage and health integration is not completed merely by
 adding the command. Missing original source/backup/native-operation capabilities
 remain blockers to genuine production receipt issuance and acceptance.
 
+## Current-schema health consumer
+
+Production protected readiness detail uses `currentSchema`, not an online
+compatibility coordinate/window. It first requires the actually published startup
+`CurrentSchemaAdmissionState` and exact configuration/deployment candidate and
+artifact bindings. It then uses the same read-only admission API in a fresh scope
+to re-observe the current database and target; old online reports, empty state,
+matching hash strings without the original observer, and observation drift cannot
+grant readiness. Public `/health/ready` continues to expose only status, checkedAt
+and the stable `schema_incompatible` failure code, never receipt paths, database
+identity, candidate or target digests. This new observation cost still requires
+the original real-provider and performance gates; source coverage is not a budget
+or runtime acceptance result.
+
 ## Recovery constraints
 
 Permitted recovery is an unactivated candidate fallback, restoration of a verified
