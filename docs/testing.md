@@ -447,15 +447,15 @@ The lane is written to `.tmp/release-evidence/rights-v3-test-matrix.json` after 
 
 Normal correctness uses a completely different topology than browser execution. `production-correctness` does not contain any real browser; `browser-contract` is the release-final only irreplaceable browser release contract. The old Acceptance, vision, UX, engine differences, geometry/motion/focus, rendering performance, browser runtime resilience, and the migrated PoW/search/permission/zero-auth probe are executed serially by the independent diagnostics entrance. The outer workers `1` and retry `0` are fixed, and the machine load is not read and the inner layer is expanded.
 
-| Lane                                     | Scale mode                                       | Current policy                                                                                                                                                                                                              | Artifact isolation                                                                            | Worker policy                                                                               |
+| Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 | ---------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `browser-contract`                       | one Playwright Library process                   | Router, auth, user/admin state machine and CRUD correctness by Vitest/API/PostgreSQL tests; release-final runs 5 baseline browser scenarios, step-up-ready fixture adds a 6th WebAuthn scenario                             | `.tmp/browser-contract/receipt.json`                                                          | Fixed 1 managed Chromium launch, 5–6 serial BrowserContext, 0 worker pool, 0 shard, 0 retry |
-| `browser-diagnostics`                    | migrated runtime group + serial category catalog | scheduled/manual First retain PoW/search/permission/zero-auth browser risk, and then run 7 categories of 14 probes; each probe retains its certificate independently, and finally all of them fail to be aggregated at once | `.tmp/browser-diagnostics-runtime/**` and `.tmp/browser-diagnostics/<run>/<category>/<probe>` | Fixed outer lane `1`, worker `1`, retry `0`                                                 |
-| diagnostics `visual`                     | public + console + aggregate                     | directly aggregates the two sets of summaries of the current run, and does not depend on the retired CI shard job                                                                                                           | public/console directory and aggregate summary                                                | fixed worker `1`; missing/skipped/stale fail closed                                         |
-| diagnostics `ux`                         | smoke + visual + boundaries + risk               | Full planner/progress reserved; risk runner only diagnostics allowed                                                                                                                                                        | Each mode/risk independent summary                                                            | Fixed worker `1`, no persistent/elastic pool                                                |
-| diagnostics `cross-browser`              | engine smoke                                     | Chromium/Firefox/WebKit only verifies engine differences and does not repeat back-end business rules                                                                                                                        | probe log + Playwright output snapshot                                                        | Three engines run serially in the same diagnostics outer layer                              |
-| diagnostics `geometry-motion-focus`      | isolated harness + archive integration           | mobile motion/focus gives priority to backend-free harness; archive sticky/hash retains real application geometry                                                                                                           | harness is separated from archive evidence                                                    | fixed worker `1`                                                                            |
-| diagnostics `performance` / `resilience` | renderer/AEDS/browser runtime                    | browser performance and correctness performance summary are separated; browser recovery does not block HTTP/state-machine correctness                                                                                       | Each probe is independent summary                                                             | Fixed worker `1`                                                                            |
+| `browser-contract` | one Playwright Library process | Router, auth, user/admin state machine and CRUD correctness by Vitest/API/PostgreSQL tests; release-final runs 5 baseline browser scenarios, step-up-ready fixture adds a 6th WebAuthn scenario | `.tmp/browser-contract/receipt.json` | Fixed 1 managed Chromium launch, 5–6 serial BrowserContext, 0 worker pool, 0 shard, 0 retry |
+| `browser-diagnostics` | migrated runtime group + serial category catalog | scheduled/manual First retain PoW/search/permission/zero-auth browser risk, and then run 7 categories of 14 probes; each probe retains its certificate independently, and finally all of them fail to be aggregated at once | `.tmp/browser-diagnostics-runtime/**` and `.tmp/browser-diagnostics/<run>/<category>/<probe>` | Fixed outer lane `1`, worker `1`, retry `0` |
+| diagnostics `visual` | public + console + aggregate | directly aggregates the two sets of summaries of the current run, and does not depend on the retired CI shard job | public/console directory and aggregate summary | fixed worker `1`; missing/skipped/stale fail closed |
+| diagnostics `ux` | smoke + visual + boundaries + risk | Full planner/progress reserved; risk runner only diagnostics allowed | Each mode/risk independent summary | Fixed worker `1`, no persistent/elastic pool |
+| diagnostics `cross-browser` | engine smoke | Chromium/Firefox/WebKit only verifies engine differences and does not repeat back-end business rules | probe log + Playwright output snapshot | Three engines run serially in the same diagnostics outer layer |
+| diagnostics `geometry-motion-focus` | isolated harness + archive integration | mobile motion/focus gives priority to backend-free harness; archive sticky/hash retains real application geometry | harness is separated from archive evidence | fixed worker `1` |
+| diagnostics `performance` / `resilience` | renderer/AEDS/browser runtime | browser performance and correctness performance summary are separated; browser recovery does not block HTTP/state-machine correctness | Each probe is independent summary | Fixed worker `1` |
 
 Acceptance parallelism decision (updated 2026-07-16): `auth-flows.spec.ts`, `user-console.spec.ts`, `admin-console.spec.ts` have exited the browser layer; corresponding correctness is assumed in parallel by the memory-history Router, mounted component, production API adapter, and isolated PostgreSQL integration tests. #1146 The four remaining real public browser risks have been closed to a hydration/history/reload scenario of [`testing/browser-contract.md`](testing/browser-contract.md), and composed of five baseline release contracts with account/admin deep link, an article publish and Service Worker; the sixth WebAuthn success scenario is added only when the immutable fixture declaration has step-up registration prerequisites. The entry point directly uses Playwright Library, does not read CPU/memory/load, and does not create worker pool or shard. See [`testing/issue-1146-lightweight-acceptance.md`](testing/issue-1146-lightweight-acceptance.md) for the first 35 scenes and 31 lightweight mappings.
 
@@ -708,20 +708,20 @@ When you really need to update the snapshot, you should explicitly run the updat
 
 **Covered Scenario**:
 
-| Scenario                          | Test content                                                                                         |
+| Scenario | Test content |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Anonymous request                 | Public endpoint accessible; private endpoint returns 401                                             |
-| Login request                     | Valid JWT authorization is successful; expired Token returns 401                                     |
-| Admin request                     | The admin role can access the management terminal; ordinary users return 403                         |
-| PoW verification                  | Registration/login request without PoW header rejected                                               |
-| MFA process                       | Login triggers challenge after enabling MFA; recovery code is valid for one time                     |
-| Passkey process                   | Registration limit (5 pieces), assertion failure handling                                            |
-| Ban user                          | `BannedUserMiddleware` intercept write operations                                                    |
-| Session revocation                | The revoked Refresh Token cannot be renewed                                                          |
-| Binary Authentication Consistency | The `/api/binary/**` endpoint itself declares and verifies public/login/admin/PoW boundaries         |
-| Notification Authentication       | WebSocket private events are only received by authenticated connections                              |
-| CORS                              | Request from non-whitelisted origin rejected                                                         |
-| Security Header/Cookie            | CSP, XFO, XCTO, Referrer-Policy, Permissions-Policy, auth/PoW no-store, `__Host-*` Cookie Attributes |
+| Anonymous request | Public endpoint accessible; private endpoint returns 401 |
+| Login request | Valid JWT authorization is successful; expired Token returns 401 |
+| Admin request | The admin role can access the management terminal; ordinary users return 403 |
+| PoW verification | Registration/login request without PoW header rejected |
+| MFA process | Login triggers challenge after enabling MFA; recovery code is valid for one time |
+| Passkey process | Registration limit (5 pieces), assertion failure handling |
+| Ban user | `BannedUserMiddleware` intercept write operations |
+| Session revocation | The revoked Refresh Token cannot be renewed |
+| Binary Authentication Consistency | The `/api/binary/**` endpoint itself declares and verifies public/login/admin/PoW boundaries |
+| Notification Authentication | WebSocket private events are only received by authenticated connections |
+| CORS | Request from non-whitelisted origin rejected |
+| Security Header/Cookie | CSP, XFO, XCTO, Referrer-Policy, Permissions-Policy, auth/PoW no-store, `__Host-*` Cookie Attributes |
 
 The focused gate of CSP style-attribute hardening includes `check:security-consistency`, `cspStyleRuntime` unit, `WebApplicationCompositionExtensionsTests`, `PublicHotReadFastPathTests` and `CspReportEndpointsTests`. Static checking recursively rejects HTML/Vue style attributes, render-function style props and direct `element.style` mutations in the application source code, and only allows `services/cspStyleRuntime.ts` declarations to be written at the `CSSStyleRule.style` boundary of the nonce stylesheet. The HTTP inspection must prove that the HTML policy contains nonce, `'wasm-unsafe-eval'`, `style-src-attr 'none'`, and report URI, while the binary/auth policy does not contain nonce or Wasm compilation permissions.
 
@@ -865,13 +865,13 @@ The resource qualifications for true zero-downtime rehearsal are fixed at 4 CPUs
 
 The rehearsal plan must provide two mutually non-reusable mode-0400/0600, 32..4096-byte keys: `evidenceInputs.trafficBindingKey` and `evidenceInputs.assetBrowserBindingKey`. They verify the traffic final binding and the real Chromium/SW/GC binding respectively; the verification only accepts the key path and does not write the secret into the artifact. Migration eligibility must also provide `target.migrationServerDll` and `migrationQualification.{scenarioTemplate,timeoutSeconds,expandMigrationId,backfillMigrationId,contractMigrationId}`.
 
-| #1031 Scenery       | Must have realistic coverage                                                                                        |
+| #1031 Scenery | Must have realistic coverage |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Anonymous           | Home, archives, articles, search, static and public AEDS binary; deployment connection errors and unmarked 5xx as 0 |
-| login               | login, refresh, protected read, representative write and upload; Cookie jar does not write credentials evidence     |
-| admin               | health/control; migration bridge/readiness Only used under Test + explicit enable `system.config`                   |
-| notification stream | guest/auth 1012, cursor replay, replay miss full resync, business event ID deduplication, slow-client drain         |
-| binary              | AEDS magic/v2/header/flags/frame type/payload length/CRC16/byte budget with optional payload SHA-256                |
+| Anonymous | Home, archives, articles, search, static and public AEDS binary; deployment connection errors and unmarked 5xx as 0 |
+| login | login, refresh, protected read, representative write and upload; Cookie jar does not write credentials evidence |
+| admin | health/control; migration bridge/readiness Only used under Test + explicit enable `system.config` |
+| notification stream | guest/auth 1012, cursor replay, replay miss full resync, business event ID deduplication, slow-client drain |
+| binary | AEDS magic/v2/header/flags/frame type/payload length/CRC16/byte budget with optional payload SHA-256 |
 
 The above is the acceptance contract to be run, not the current pass statement.
 
@@ -952,10 +952,10 @@ Benchmark recording caliber: Run `FSUSBLOG_DOTNET_BUILD_PARALLELISM=safe ./tools
 
 Current local single-round build benchmark (2026-06-15, same checkout, warmed NuGet cache after first run):
 
-| Mode   | MSBuild arg | Wall-clock | Exit | Flake signal             |
+| Mode | MSBuild arg | Wall-clock | Exit | Flake signal |
 | ------ | ----------: | ---------: | ---: | ------------------------ |
-| `safe` |      `/m:1` |        53s |    0 | none observed in one run |
-| `auto` |        `/m` |        12s |    0 | none observed in one run |
+| `safe` | `/m:1` | 53s | 0 | none observed in one run |
+| `auto` | `/m` | 12s | 0 | none observed in one run |
 
 This set of data only proves that parallel builds are available on the current machine; it is not a basis for improving the default value. The CI default is still `safe` until PR fast-backend accumulates at least two rounds of `safe`/`auto` comparison and flake records on GitHub runner.
 
@@ -1016,7 +1016,7 @@ This two-tier execution controls cost with 66 `AedsEncoder` planned mutants and 
 
 ## Behavior-test evidence producer
 
-#2186 Establish a unique behavior-test evidence producer: `tools/test-matrix/produce-behavior-test-evidence.mjs` only consumes backend/frontend raw result observation artifacts explicitly passed in this round (`fsusblog.test-observation-artifact.v1`), explicit current-run test plan receipt (`--plan <path>`, `fsusblog.release-evidence.test-plan.v1`, at least supports `.tmp/release-evidence/test-plan.json` produced by `node tools/run-test-matrix.mjs evidence-plan`), #2185 formal source bindings and #1752 static admission identity, reuse For the `joinBehaviorTestEvidence` / `validateExactBehaviorCoverage` / `--mode exact --out` authority of #1748, archive behavior evidence into `fsusblog.behavior-test-evidence-receipt.v1`. The producer does not scan the historical TRX/latest directory, and does not only look at job success; the receipt records required/observed kinds, test IDs/status/outcome/raw result refs, plan/binding/static/catalog digests and contentDigest behavior by behavior, and fixes `runtimeCandidateSpawnCountBeforeReceipt: 0` (the producer does not execute, rerun, or fill in missing evidence, and only reports the exact local producer command).
+[#2186](https://github.com/Ozwasyd/FsusBlog/issues/2186) Establish a unique behavior-test evidence producer: `tools/test-matrix/produce-behavior-test-evidence.mjs` only consumes backend/frontend raw result observation artifacts explicitly passed in this round (`fsusblog.test-observation-artifact.v1`), explicit current-run test plan receipt (`--plan <path>`, `fsusblog.release-evidence.test-plan.v1`, at least supports `.tmp/release-evidence/test-plan.json` produced by `node tools/run-test-matrix.mjs evidence-plan`), #2185 formal source bindings and #1752 static admission identity, reuse For the `joinBehaviorTestEvidence` / `validateExactBehaviorCoverage` / `--mode exact --out` authority of #1748, archive behavior evidence into `fsusblog.behavior-test-evidence-receipt.v1`. The producer does not scan the historical TRX/latest directory, and does not only look at job success; the receipt records required/observed kinds, test IDs/status/outcome/raw result refs, plan/binding/static/catalog digests and contentDigest behavior by behavior, and fixes `runtimeCandidateSpawnCountBeforeReceipt: 0` (the producer does not execute, rerun, or fill in missing evidence, and only reports the exact local producer command).
 
 ### Explicit test plan receipt and executed-set exact-match
 
@@ -1075,23 +1075,23 @@ Core Agreement:
 
 All API changes must cover the following scenarios:
 
-| Scenario                                                                                                                                                                                                                                     | Corresponding test layer                              |
+| Scenario | Corresponding test layer |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Anonymous public reading (Binary / Wasm)                                                                                                                                                                                                     | release, resilience                                   |
-| Author asset library admin-only boundary, reconstruction, reuse, orphan cleanup                                                                                                                                                              | fast, acceptance, resilience                          |
-| Author analysis dashboard, search keywords/source path/404 aggregation, RUM ingestion/dashboard/privacy boundary                                                                                                                             | unit, acceptance, telemetry privacy                   |
-| Login user write operation                                                                                                                                                                                                                   | integration, acceptance, security                     |
-| Admin management operations                                                                                                                                                                                                                  | acceptance, security                                  |
-| Admin-only private preview, SEO/quality pre-release check, warning override audit, anonymous rejection, feed/sitemap not exposed                                                                                                             | unit, acceptance, security attack matrix              |
-| Comment pending queue, batch review, misjudgment recovery, ban linkage, public read-only approved                                                                                                                                            | unit, acceptance, security attack matrix              |
-| Markdown/frontmatter single article export, full site content package, import restore revisions                                                                                                                                              | unit, authoring restore smoke                         |
-| OpenTelemetry trace/metrics/log correlation, OTLP switch, no PII tag whitelist                                                                                                                                                               | unit, readiness smoke                                 |
-| WebSocket real-time push                                                                                                                                                                                                                     | integration, resilience                               |
-| AOT first screen hydration                                                                                                                                                                                                                   | release, acceptance                                   |
-| Binary error frame/decoding failure                                                                                                                                                                                                          | resilience                                            |
-| AEDS v1 reject / v2 CRC16 / compact payload                                                                                                                                                                                                  | fast, resilience                                      |
-| PoW pre-verification                                                                                                                                                                                                                         | security                                              |
-| Session concurrent revocation                                                                                                                                                                                                                | security                                              |
+| Anonymous public reading (Binary / Wasm) | release, resilience |
+| Author asset library admin-only boundary, reconstruction, reuse, orphan cleanup | fast, acceptance, resilience |
+| Author analysis dashboard, search keywords/source path/404 aggregation, RUM ingestion/dashboard/privacy boundary | unit, acceptance, telemetry privacy |
+| Login user write operation | integration, acceptance, security |
+| Admin management operations | acceptance, security |
+| Admin-only private preview, SEO/quality pre-release check, warning override audit, anonymous rejection, feed/sitemap not exposed | unit, acceptance, security attack matrix |
+| Comment pending queue, batch review, misjudgment recovery, ban linkage, public read-only approved | unit, acceptance, security attack matrix |
+| Markdown/frontmatter single article export, full site content package, import restore revisions | unit, authoring restore smoke |
+| OpenTelemetry trace/metrics/log correlation, OTLP switch, no PII tag whitelist | unit, readiness smoke |
+| WebSocket real-time push | integration, resilience |
+| AOT first screen hydration | release, acceptance |
+| Binary error frame/decoding failure | resilience |
+| AEDS v1 reject / v2 CRC16 / compact payload | fast, resilience |
+| PoW pre-verification | security |
+| Session concurrent revocation | security |
 | Zero downtime rollout: anonymous home page /archives/articles/search/static/Binary, login/refresh/protected write, admin health/control, notification 1012/replay/full-resync/slow drain, upload, N/N-1 asset/SW, normal worker exactly-once | static-governance, acceptance, resilience, production |
 
 ## Added access control to single author blog
