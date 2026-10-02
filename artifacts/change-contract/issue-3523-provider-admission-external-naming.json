@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tools/test/generate-retry-disposition-registry.mjs",
+                "tools/test/retry-disposition-seeds.mjs"
+            ],
+            "reason": "Preserve existing provider/tool process environment spellings and the exact raw fixture source used to bind its startup-health disposition; internal typed provider and seed adapters retain existing language naming."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve the original physical producer's caller-visible FSUSBLOG environment and CLI contract while adding only two exact declared source input paths."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/retry-disposition-registry.json",
+                "tests/migration/schema-ddl-provider-snapshots.json"
+            ],
+            "reason": "The existing registry schema and provider snapshot producer own serialized field names; preserve those keys while generating the exact new finding disposition and provider SQL preview."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/database-migration.md",
+                "docs/testing.md"
+            ],
+            "reason": "Preserve existing current-document headings, external command/path and contract spellings while documenting original typed provider semantics and source-owned startup-health admission."
+        }
+    ]
+}
