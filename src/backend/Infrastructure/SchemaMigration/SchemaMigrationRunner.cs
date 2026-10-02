@@ -1,5 +1,6 @@
 using SqlSugar;
 
+using FsusBlog.Contracts.Schema;
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
 public interface ISchemaMigrationRunner

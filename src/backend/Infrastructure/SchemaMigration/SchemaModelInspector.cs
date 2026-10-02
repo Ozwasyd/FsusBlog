@@ -3,6 +3,7 @@ using System.Data;
 using System.Reflection;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Schema;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -36,7 +37,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
     public CurrentSchemaCanonicalModel BuildCanonicalModel(IReadOnlyList<Type> entityTypes)
         => s_canonicalModelCache.GetOrAdd(
             BuildEntityTypeCacheKey(entityTypes),
-            _ => CurrentSchemaCanonicalAuthority.Extract(entityTypes));
+            _ => CurrentSchemaEntityExtractor.Extract(entityTypes));
 
     public SchemaModelSnapshot BuildExpectedModel(IReadOnlyList<Type> entityTypes)
         => CurrentSchemaCanonicalAuthority.ProjectProvider(

@@ -5,7 +5,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const canonicalRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs';
+const canonicalRelative = 'src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs';
+const extractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs';
+const modelRelative = 'src/shared/Contracts/Schema/CurrentSchemaModel.cs';
 const inspectorRelative = 'src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs';
 
 function sourceFiles(directory)
@@ -35,13 +37,15 @@ export function validateCurrentSchemaAuthority(root)
 {
     const errors = [];
     const backendRoot = path.join(root, 'src/backend');
-    const files = sourceFiles(backendRoot);
+    const files = [...sourceFiles(backendRoot), ...sourceFiles(path.join(root, 'src/shared/Contracts/Schema'))];
     const sources = files.map((absolute) => ({
         absolute,
         relative: path.relative(root, absolute).replaceAll(path.sep, '/'),
         source: fs.readFileSync(absolute, 'utf8')
     }));
     const canonical = sources.find((entry) => entry.relative === canonicalRelative);
+    const extractor = sources.find((entry) => entry.relative === extractorRelative);
+    const model = sources.find((entry) => entry.relative === modelRelative);
     const inspector = sources.find((entry) => entry.relative === inspectorRelative);
     if (!canonical)
     {
@@ -51,7 +55,15 @@ export function validateCurrentSchemaAuthority(root)
     {
         errors.push(`missing runtime current schema adapter: ${inspectorRelative}`);
     }
-    if (!canonical || !inspector)
+    if (!extractor)
+    {
+        errors.push(`missing entity current schema extractor: ${extractorRelative}`);
+    }
+    if (!model)
+    {
+        errors.push(`missing neutral current schema contract: ${modelRelative}`);
+    }
+    if (!canonical || !inspector || !extractor || !model)
     {
         return errors;
     }
@@ -59,6 +71,7 @@ export function validateCurrentSchemaAuthority(root)
     const combined = sources.map((entry) => entry.source).join('\n');
     for (const [label, pattern] of [
         ['CurrentSchemaCanonicalAuthority', /\b(?:static\s+)?class\s+CurrentSchemaCanonicalAuthority\b/gu],
+        ['CurrentSchemaEntityExtractor', /\b(?:static\s+)?class\s+CurrentSchemaEntityExtractor\b/gu],
         ['CurrentSchemaProjection', /\brecord\s+CurrentSchemaProjection\b/gu],
         ['RuntimeEntitySchemaAdapter', /\bclass\s+RuntimeEntitySchemaAdapter\b/gu],
         ['GeneratedCurrentSchemaProjectionAdapter', /\bclass\s+GeneratedCurrentSchemaProjectionAdapter\b/gu],
@@ -77,27 +90,28 @@ export function validateCurrentSchemaAuthority(root)
     {
         errors.push('canonical current schema authority must expose exactly one projection generator');
     }
-    if (/SchemaMigration(?:Registry|Manifest|Descriptor)|GetDescriptors\s*\(/u.test(canonical.source))
+    const producer = `${canonical.source}\n${extractor.source}\n${model.source}`;
+    if (/SchemaMigration(?:Registry|Manifest|Descriptor)|GetDescriptors\s*\(/u.test(producer))
     {
         errors.push('migration catalog or descriptor cannot define current schema authority');
     }
-    if (/\b(?:File|Directory)\.|tests\/|Fixtures\/|docs\//u.test(canonical.source))
+    if (/\b(?:File|Directory)\.|tests\/|Fixtures\/|docs\//u.test(producer))
     {
         errors.push('current schema authority cannot be reconstructed from files, docs or test fixtures');
     }
 
     for (const entry of sources)
     {
-        if (entry.relative === canonicalRelative || entry.relative === inspectorRelative)
+        if (entry.relative === canonicalRelative || entry.relative === extractorRelative || entry.relative === inspectorRelative)
         {
             continue;
         }
-        if (/new\s+SchemaTableModel\s*\(|CurrentSchemaCanonicalAuthority\.Extract\s*\(/u.test(entry.source))
+        if (/new\s+SchemaTableModel\s*\(|CurrentSchema(?:CanonicalAuthority|EntityExtractor)\.Extract\s*\(/u.test(entry.source))
         {
             errors.push(`hand-written or second current schema producer is forbidden: ${entry.relative}`);
         }
     }
-    if (!/CurrentSchemaCanonicalAuthority\.Extract\s*\(entityTypes\)/u.test(inspector.source))
+    if (!/CurrentSchemaEntityExtractor\.Extract\s*\(entityTypes\)/u.test(inspector.source))
     {
         errors.push('runtime inspector must consume the canonical current schema extractor');
     }

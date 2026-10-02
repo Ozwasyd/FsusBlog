@@ -143,8 +143,10 @@ and requires `anonymous_account|basic|active`.
 
 ## Canonical Current Schema
 
-`CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
-extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
+`CurrentSchemaCanonicalAuthority` in `src/shared/Contracts/Schema/` is the only
+neutral current-schema generator, identity hasher, provider projection and
+comparer. The Server-owned `CurrentSchemaEntityExtractor` extracts the current
+`SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
 public properties, nullability metadata, defaults, conversions and explicit
 current constraints into a provider-neutral semantic model. Duplicate owners,
 unknown property types, unsupported converters and incomplete constraints fail
@@ -168,7 +170,32 @@ The independent verifier and cold-readiness comparison reject stale identities,
 content tampering and exact table, column, physical type, nullability, default,
 constraint or index drift.
 
-`tools/db/check-current-schema-authority.mjs` prevents a second production
+The read-only `CurrentSchemaOwnedProjectionExporter` uses those same mappings,
+binds the compiled source commit and actual Server/Shared assembly bytes, and
+references every original current-owned PostgreSQL rollup recipe by its complete
+create/additional-SQL digest. SQL remains with `CurrentSchemaRuntimeRollupTables`;
+it is not copied into Shared or reconstructed from migration descriptors. A
+recipe reference is not its neutral semantic description: missing descriptions
+remain explicit and refuse complete bootstrap before commands can be returned.
+The exporter payload is neither an apply grant nor a self-reported current target;
+the offline evidence owner must independently bind its original producer, bytes
+and complete source closure before consumption. No owned target artifact has
+been produced by this source-only change.
+
+`CurrentSchemaBootstrapCompiler` owns concrete PostgreSQL entity-subset DDL
+compilation from the neutral facts and executes those frozen commands only on
+the caller's existing native connection/transaction. It does not open or commit
+transactions, write a journal, or replace plan/source/backup admission. Missing
+recipe semantics, unsupported defaults/computed capabilities, native provider
+capabilities and command drift refuse explicitly. The full current bootstrap
+operation is not registered or runnable yet: complete rollup semantic/source
+binding, original apply predicate/journal integration, MySQL/SQLite execution
+owners and real three-provider qualification remain pending. Entity-subset unit
+or PostgreSQL fixture cases cannot qualify an empty production database upgrade
+or a supported historical database conversion.
+
+`tools/db/check-current-schema-authority.mjs` checks both the neutral contract
+and original Server extractor, and prevents a second production
 extractor, hand-written table inventory, fixture reconstruction or migration
 descriptor from becoming current authority. This boundary does not move migration
 descriptor SQL or make provider DDL a second current-schema mapping. The migration

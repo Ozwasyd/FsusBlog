@@ -2,10 +2,13 @@ using System.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Npgsql;
 
 using SqlSugar;
 
@@ -166,6 +169,90 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Fact]
+    public async Task CompiledEntitySubset_MaterializesExactOriginalExtractorFactsOnRealPostgres()
+    {
+        string database = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(database);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(CompiledBootstrapProbe)]);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            CurrentSchemaCanonicalAuthority.Generate(canonical), SchemaProviderKind.PostgreSql);
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
+            await CurrentSchemaBootstrapCompiler.ExecuteAsync(compiled, connection, transaction, CancellationToken.None);
+            await transaction.CommitAsync();
+        }
+        using var db = new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true
+        });
+        SchemaModelSnapshot actual = await new SchemaModelInspector().ReadActualModelAsync(db, CancellationToken.None);
+        SchemaModelSnapshot expected = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, SchemaProviderKind.PostgreSql);
+        Assert.Empty(SchemaModelComparer.Compare(expected, actual));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ix_compiled_bootstrap_probe_name"));
+    }
+
+    [Fact]
+    public async Task CompiledEntitySubset_DriftRefusesBeforeAnyRealPostgresWrite()
+    {
+        string database = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(database);
+        IReadOnlyList<string> before = await fixture.CaptureSchemaSnapshotAsync(connectionString);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(CompiledBootstrapProbe)]);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            CurrentSchemaCanonicalAuthority.Generate(canonical), SchemaProviderKind.PostgreSql);
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.ExecuteAsync(
+                compiled with { CommandDigest = new string('d', 64) }, connection, transaction, CancellationToken.None));
+            await transaction.RollbackAsync();
+        }
+        Assert.Equal(before, await fixture.CaptureSchemaSnapshotAsync(connectionString));
+    }
+
+    [Fact]
+    public async Task CompiledEntitySubset_LeavesRollbackOwnedByOriginalCallerTransaction()
+    {
+        string database = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(database);
+        IReadOnlyList<string> before = await fixture.CaptureSchemaSnapshotAsync(connectionString);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(CompiledBootstrapProbe)]);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            CurrentSchemaCanonicalAuthority.Generate(canonical), SchemaProviderKind.PostgreSql);
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
+            await CurrentSchemaBootstrapCompiler.ExecuteAsync(compiled, connection, transaction, CancellationToken.None);
+            await using NpgsqlCommand observation = connection.CreateCommand();
+            observation.Transaction = transaction;
+            observation.CommandText = "SELECT COUNT(*) FROM pg_catalog.pg_class relation JOIN pg_catalog.pg_namespace ns ON ns.oid=relation.relnamespace WHERE ns.nspname='public' AND relation.relname='compiled_bootstrap_probe'";
+            Assert.Equal(1L, Convert.ToInt64(await observation.ExecuteScalarAsync()));
+            await transaction.RollbackAsync();
+        }
+        Assert.Equal(before, await fixture.CaptureSchemaSnapshotAsync(connectionString));
+    }
+
+    [SugarTable("compiled_bootstrap_probe")]
+    [SugarIndex("ix_compiled_bootstrap_probe_name", nameof(Name), OrderByType.Asc)]
+    private sealed class CompiledBootstrapProbe
+    {
+        [SugarColumn(ColumnName = "id", IsPrimaryKey = true, IsIdentity = true)]
+        public long Id { get; set; }
+
+        [SugarColumn(ColumnName = "name", Length = 64, IsNullable = true)]
+        public string? Name { get; set; }
+
+        [SugarColumn(ColumnName = "counter", DefaultValue = "0")]
+        public int Counter { get; set; }
+    }
+
     [Fact]
     public async Task ApplyEnsureTableSteps_CreatesStatsRollupTablesQueryableAsEmpty()
     {

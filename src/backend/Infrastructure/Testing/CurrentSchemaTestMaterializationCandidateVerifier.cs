@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 using SqlSugar;
