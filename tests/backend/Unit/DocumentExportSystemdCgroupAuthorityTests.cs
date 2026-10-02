@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
@@ -224,28 +227,124 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
     }
 
     [Fact]
-    public void StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu()
+    public async Task StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu()
     {
-        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "DocumentExportSystemdCgroupAuthority.cs");
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(DocumentExportSystemdCgroupAuthority)),
+            RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(typeof(DocumentExportSystemdCgroupAuthority)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(DocumentExportSystemdCgroupAuthority)));
 
-        Assert.Contains("--service-type=exec", source, StringComparison.Ordinal);
-        Assert.Contains("--no-block", source, StringComparison.Ordinal);
-        Assert.Contains("MemoryMax=", source, StringComparison.Ordinal);
-        Assert.Contains("MemorySwapMax=0", source, StringComparison.Ordinal);
-        Assert.Contains("TasksMax=", source, StringComparison.Ordinal);
-        Assert.Contains("RuntimeMaxSec=", source, StringComparison.Ordinal);
-        Assert.Contains("KillMode=control-group", source, StringComparison.Ordinal);
-        Assert.Contains("cgroup.kill", source, StringComparison.Ordinal);
-        Assert.Contains("cgroup.events", source, StringComparison.Ordinal);
-        Assert.Contains("usage_usec.sampled-kill", source, StringComparison.Ordinal);
-        Assert.Equal(1, source.Split("Process.Start(", StringSplitOptions.None).Length - 1);
-        Assert.DoesNotContain("UseShellExecute = true", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("/bin/sh", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Environment.GetEnvironment", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CPUQuota", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("cpu.max", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("--scope", source, StringComparison.Ordinal);
+        Assert.Contains("--service-type=exec", compiled, StringComparison.Ordinal);
+        Assert.Contains("--no-block", compiled, StringComparison.Ordinal);
+        Assert.Contains("MemoryMax=", compiled, StringComparison.Ordinal);
+        Assert.Contains("MemorySwapMax=0", compiled, StringComparison.Ordinal);
+        Assert.Contains("TasksMax=", compiled, StringComparison.Ordinal);
+        Assert.Contains("RuntimeMaxSec=", compiled, StringComparison.Ordinal);
+        Assert.Contains("KillMode=control-group", compiled, StringComparison.Ordinal);
+        Assert.Contains("cgroup.kill", compiled, StringComparison.Ordinal);
+        Assert.Contains("cgroup.events", compiled, StringComparison.Ordinal);
+        Assert.Contains("usage_usec.sampled-kill", compiled, StringComparison.Ordinal);
+        Type authorityType = typeof(DocumentExportSystemdCgroupAuthority);
+        MethodInfo processOwner = RequireDeclaredMethod(authorityType, "StartClosedProcess");
+        AssertProcessStartOwner(authorityType, processOwner);
+        MethodInfo runControlMethod = RequireDeclaredMethod(authorityType, "RunControlAsync");
+        Type controlStateMachine = Assert.IsAssignableFrom<AsyncStateMachineAttribute>(
+            runControlMethod.GetCustomAttribute<AsyncStateMachineAttribute>()).StateMachineType;
+        MethodInfo controlBody = RequireDeclaredMethod(controlStateMachine, "MoveNext");
+        MethodInfo versionBody = RequireDeclaredMethod(authorityType, "ReadVersion");
+        MethodInfo shellSetter = Assert.IsAssignableFrom<MethodInfo>(
+            typeof(ProcessStartInfo).GetProperty(nameof(ProcessStartInfo.UseShellExecute))?.SetMethod);
+        Assert.Equal(2, EnumerateDeclaredBodies(authorityType)
+            .Sum(method => ReadInstructions(method).Count(instruction => IsCallTo(instruction, shellSetter))));
+        AssertClosedShellAssignment(controlBody);
+        AssertClosedShellAssignment(versionBody);
+        Assert.DoesNotContain("/bin/sh", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Environment.GetEnvironment", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("CPUQuota", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("cpu.max", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("--scope", compiled, StringComparison.Ordinal);
+
+        DocumentExportSystemdCgroupAuthorityContract contract =
+            DocumentExportSystemdCgroupAuthority.DiscoverInstalledContract();
+        var authority = new DocumentExportSystemdCgroupAuthority(contract);
+        MethodInfo runControl = Assert.IsAssignableFrom<MethodInfo>(typeof(DocumentExportSystemdCgroupAuthority).GetMethod(
+            "RunControlAsync", BindingFlags.Instance | BindingFlags.NonPublic));
+        Task command = Assert.IsAssignableFrom<Task>(runControl.Invoke(authority,
+            ["/bin/true", Array.Empty<string>(), CancellationToken.None]));
+        await command;
+        object result = Assert.IsAssignableFrom<object>(command.GetType().GetProperty("Result")?.GetValue(command));
+        int exitCode = Assert.IsType<int>(result.GetType().GetProperty("ExitCode")?.GetValue(result));
+        Assert.Equal(0, exitCode);
+    }
+
+    [Fact]
+    public void ProcessStartEvidenceRejectsLiteralDecoysAndUncalledNestedStarts()
+    {
+        Type literalType = typeof(LiteralProcessFixture);
+        string literalFacts = RuntimeMetadataInspection.DescribeType(literalType);
+        Assert.Equal(1, literalFacts.Split("System.Diagnostics.Process.Start", StringSplitOptions.None).Length - 1);
+        Assert.Empty(ProcessStartCalls(literalType));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertProcessStartOwner(literalType, RequireDeclaredMethod(literalType, "StartClosedProcess")));
+
+        Type nestedType = typeof(NestedProcessFixture);
+        Assert.Equal(2, ProcessStartCalls(nestedType).Count);
+        MethodInfo nestedStart = RequireDeclaredMethod(typeof(NestedProcessFixture.Uncalled), "Start");
+        Assert.Contains(ProcessStartCalls(nestedType), call => call.Owner == nestedStart);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertProcessStartOwner(nestedType, RequireDeclaredMethod(nestedType, "StartClosedProcess")));
+    }
+
+    [Fact]
+    public void ProcessStartEvidenceAcceptsActualOwnerWithBenignLiteralDecoys()
+    {
+        Type type = typeof(BenignProcessFixture);
+        Assert.Single(ProcessStartCalls(type));
+        Assert.Contains("System.Diagnostics.Process.Start", RuntimeMetadataInspection.DescribeType(type), StringComparison.Ordinal);
+        AssertProcessStartOwner(type, RequireDeclaredMethod(type, "StartClosedProcess"));
+    }
+
+    [Fact]
+    public void ClosedShellEvidenceRejectsTrueAndLiteralOnlyAssignments()
+    {
+        MethodInfo open = RequireDeclaredMethod(typeof(ShellAssignmentFixture), "Open");
+        IReadOnlyList<Instruction> openInstructions = ReadInstructions(open);
+        int openSetter = Assert.Single(Enumerable.Range(0, openInstructions.Count)
+            .Where(index => openInstructions[index].Member?.DeclaringType == typeof(ProcessStartInfo)
+                && openInstructions[index].Member?.Name == "set_UseShellExecute"));
+        Assert.True(openSetter > 0);
+        Assert.Equal(OpCodes.Ldc_I4_1, openInstructions[openSetter - 1].OpCode);
+        Assert.Single(RuntimeMetadataInspection.FindMethodsCallingMember(
+            typeof(ShellAssignmentFixture),
+            member => member.DeclaringType == typeof(ProcessStartInfo)
+                && member.Name == "set_UseShellExecute"));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedShellAssignment(open));
+
+        MethodInfo literal = RequireDeclaredMethod(typeof(ShellAssignmentFixture), "Literal");
+        Assert.Contains("System.Diagnostics.ProcessStartInfo.set_UseShellExecute",
+            RuntimeMetadataInspection.DescribeMethods(typeof(ShellAssignmentFixture), "Literal"), StringComparison.Ordinal);
+        Assert.DoesNotContain(ReadInstructions(literal), instruction => instruction.Member?.DeclaringType == typeof(ProcessStartInfo));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedShellAssignment(literal));
+
+        MethodInfo closed = RequireDeclaredMethod(typeof(BenignProcessFixture), "Closed");
+        AssertClosedShellAssignment(closed);
+    }
+
+    [Fact]
+    public void RefusalEvidenceIncludesUncalledNestedMethodBodies()
+    {
+        Type type = typeof(NestedRefusalFixture);
+        string previous = RuntimeMetadataInspection.DescribeType(type);
+        MethodInfo nested = RequireDeclaredMethod(typeof(NestedRefusalFixture.Uncalled), "Read");
+        Assert.Contains(ReadInstructions(nested), instruction => instruction.Member?.DeclaringType == typeof(Environment)
+            && instruction.Member.Name == nameof(Environment.GetEnvironmentVariable));
+        string compiled = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(type);
+        foreach (string forbidden in new[] { "/bin/sh", "System.Environment.GetEnvironment", "CPUQuota", "cpu.max", "--scope" })
+        {
+            Assert.DoesNotContain(forbidden, previous, StringComparison.Ordinal);
+            Assert.Contains(forbidden, compiled, StringComparison.Ordinal);
+            Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Assert.DoesNotContain(forbidden, compiled, StringComparison.Ordinal));
+        }
     }
 
     public void Dispose()
@@ -265,5 +364,162 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
         };
         workload.ArgumentList.Add("--version");
         return workload;
+    }
+
+    private const BindingFlags DeclaredMembers = BindingFlags.Instance | BindingFlags.Static
+        | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+    private static MethodInfo RequireDeclaredMethod(Type type, string name)
+        => Assert.IsAssignableFrom<MethodInfo>(type.GetMethod(name, DeclaredMembers));
+
+    private static IEnumerable<MethodBase> EnumerateDeclaredBodies(Type type)
+    {
+        foreach (MethodBase method in type.GetMethods(DeclaredMembers).Cast<MethodBase>()
+                     .Concat(type.GetConstructors(DeclaredMembers)))
+        {
+            yield return method;
+        }
+        if (type.TypeInitializer is { } initializer)
+        {
+            yield return initializer;
+        }
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (MethodBase method in EnumerateDeclaredBodies(nested))
+            {
+                yield return method;
+            }
+        }
+    }
+
+    private static IReadOnlyList<(MethodBase Owner, MethodBase Target)> ProcessStartCalls(Type type)
+        => EnumerateDeclaredBodies(type)
+            .SelectMany(method => ReadInstructions(method)
+                .Where(instruction => (instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt)
+                    && instruction.Member?.DeclaringType == typeof(Process)
+                    && instruction.Member.Name == nameof(Process.Start))
+                .Select(instruction => (method, instruction.Member!)))
+            .ToArray();
+
+    private static void AssertProcessStartOwner(Type type, MethodInfo expectedOwner)
+    {
+        (MethodBase owner, MethodBase target) = Assert.Single(ProcessStartCalls(type));
+        Assert.Equal(expectedOwner, owner);
+        Assert.Equal(typeof(Process).GetMethod(nameof(Process.Start), [typeof(ProcessStartInfo)]), target);
+    }
+
+    private static bool IsCallTo(Instruction instruction, MethodInfo target)
+        => (instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt)
+            && instruction.Member == target;
+
+    private static void AssertClosedShellAssignment(MethodInfo method)
+    {
+        MethodInfo setter = Assert.IsAssignableFrom<MethodInfo>(
+            typeof(ProcessStartInfo).GetProperty(nameof(ProcessStartInfo.UseShellExecute))?.SetMethod);
+        IReadOnlyList<Instruction> instructions = ReadInstructions(method);
+        int index = Assert.Single(Enumerable.Range(0, instructions.Count)
+            .Where(index => IsCallTo(instructions[index], setter)));
+        Assert.True(index > 0);
+        // This binds the fixed literal at this callsite, not control-flow or general dataflow.
+        Assert.Equal(OpCodes.Ldc_I4_0, instructions[index - 1].OpCode);
+    }
+
+    private static IReadOnlyList<Instruction> ReadInstructions(MethodBase method)
+    {
+        byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            return [];
+        }
+        IReadOnlyDictionary<ushort, OpCode> opCodes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.FieldType == typeof(OpCode))
+            .Select(field => (OpCode)field.GetValue(null)!)
+            .GroupBy(opCode => unchecked((ushort)opCode.Value))
+            .ToDictionary(group => group.Key, group => group.First());
+        var instructions = new List<Instruction>();
+        for (int offset = 0; offset < il.Length;)
+        {
+            ushort value = il[offset++];
+            if (value == 0xfe)
+            {
+                Assert.True(offset < il.Length);
+                value = (ushort)(0xfe00 | il[offset++]);
+            }
+            Assert.True(opCodes.TryGetValue(value, out OpCode opCode));
+            if (opCode.OperandType == OperandType.InlineSwitch)
+            {
+                Assert.True(offset + 4 <= il.Length);
+            }
+            int size = opCode.OperandType switch
+            {
+                OperandType.InlineNone => 0,
+                OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                OperandType.InlineVar => 2,
+                OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineMethod
+                    or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType
+                    or OperandType.ShortInlineR => 4,
+                OperandType.InlineI8 or OperandType.InlineR => 8,
+                OperandType.InlineSwitch => checked(4 + BitConverter.ToInt32(il, offset) * 4),
+                _ => -1
+            };
+            Assert.True(size >= 0 && offset + size <= il.Length);
+            MethodBase? member = opCode.OperandType == OperandType.InlineMethod
+                ? method.Module.ResolveMethod(BitConverter.ToInt32(il, offset),
+                    method.DeclaringType?.IsGenericType == true ? method.DeclaringType.GetGenericArguments() : Type.EmptyTypes,
+                    method.IsGenericMethod ? method.GetGenericArguments() : Type.EmptyTypes)
+                : null;
+            instructions.Add(new Instruction(opCode, member));
+            offset += size;
+        }
+        return instructions;
+    }
+
+    private sealed record Instruction(OpCode OpCode, MethodBase? Member);
+
+    private static class LiteralProcessFixture
+    {
+        public static string StartClosedProcess() => "System.Diagnostics.Process.Start";
+    }
+
+    private static class NestedProcessFixture
+    {
+        public static Process? StartClosedProcess(ProcessStartInfo startInfo) => Process.Start(startInfo);
+
+        public static class Uncalled
+        {
+            public static Process? Start(ProcessStartInfo startInfo) => Process.Start(startInfo);
+        }
+    }
+
+    private static class BenignProcessFixture
+    {
+        public static Process? StartClosedProcess(ProcessStartInfo startInfo)
+        {
+            GC.KeepAlive("System.Diagnostics.Process.Start");
+            return Process.Start(startInfo);
+        }
+
+        public static ProcessStartInfo Closed() => new() { UseShellExecute = false };
+    }
+
+    private static class ShellAssignmentFixture
+    {
+        public static ProcessStartInfo Open() => new() { UseShellExecute = true };
+
+        public static string Literal() => "System.Diagnostics.ProcessStartInfo.set_UseShellExecute";
+    }
+
+    private static class NestedRefusalFixture
+    {
+        public static string Benign() => "benign";
+
+        public static class Uncalled
+        {
+            public static string Read()
+            {
+                GC.KeepAlive("CPUQuota cpu.max --scope");
+                return Environment.GetEnvironmentVariable("PATH") ?? "/bin/sh";
+            }
+        }
     }
 }
