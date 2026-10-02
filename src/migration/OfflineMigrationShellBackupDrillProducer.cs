@@ -161,26 +161,32 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             if (started)
             {
                 identity ??= producer.HasExited ? null : ReadIdentity(producer.Id);
-                bool terminal = await StopOwnedAsync(producer, identity).ConfigureAwait(false);
+                CleanupOutcome cleanup = await StopOwnedAndDrainAsync(producer, identity,
+                    stdoutPipe, stderrPipe, stdoutOwner, stderrOwner, firstCause).ConfigureAwait(false);
                 // No native read is pending: nonblocking Read returned before every await,
                 // and the only raw write task has actually completed/faulted before catch.
                 // Close each existing pipe independently, including partial setup. Closing
                 // local FDs is NOT child/container release proof; unknown cleanup stays RED.
                 stdoutPipe?.Dispose();
                 stderrPipe?.Dispose();
-                try
+                bool rawComplete = cleanup.RawComplete;
+                foreach (RawFileOwner rawOwner in new[] { stdoutOwner, stderrOwner })
                 {
-                    if (!stdoutOwner.Closed) stdout.Flush(flushToDisk: true);
-                    if (!stderrOwner.Closed) stderr.Flush(flushToDisk: true);
+                    try
+                    {
+                        if (!rawOwner.Closed) rawOwner.Stream.Flush(flushToDisk: true);
+                    }
+                    catch (IOException)
+                    {
+                        rawComplete = false;
+                    }
                 }
-                catch (IOException)
+                if (!cleanup.Terminal)
                 {
-                    throw Failure(firstCause + ":raw_retention_failed");
+                    throw Failure("cleanup_unverified:" + firstCause
+                        + (rawComplete ? string.Empty : ":raw_retention_failed"));
                 }
-                if (!terminal)
-                {
-                    throw Failure("cleanup_unverified:" + firstCause);
-                }
+                if (!rawComplete) throw Failure(firstCause + ":raw_retention_failed");
             }
             // Cancellation/timeout cannot turn a partially cleaned original restore into
             // ExitCode zero, and private values from process failures are not public errors.
@@ -234,43 +240,85 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
         return start;
     }
 
-    private async Task<bool> StopOwnedAsync(Process producer, string? registeredIdentity)
+    private readonly record struct CleanupOutcome(bool Terminal, bool RawComplete);
+
+    private async Task<CleanupOutcome> StopOwnedAndDrainAsync(Process producer, string? registeredIdentity,
+        InvocationPipe? stdoutPipe, InvocationPipe? stderrPipe, RawFileOwner stdoutOwner,
+        RawFileOwner stderrOwner, string firstCause)
     {
+        bool captureStdout = firstCause != "stdout_pipe_failed" && !stdoutOwner.Closed;
+        bool captureStderr = firstCause != "stderr_pipe_failed" && !stderrOwner.Closed;
+        bool rawComplete = stdoutPipe is not null && stderrPipe is not null && captureStdout && captureStderr
+            && !stdoutPipe.CaptureIncomplete && !stderrPipe.CaptureIncomplete;
+        bool ownershipVerified = true;
+        bool killed = false;
+        long cleanupStarted = Stopwatch.GetTimestamp();
+        // One finite failure-cleanup ledger covers TERM grace, KILL/reap and both pipes.
+        // It is the original explicit Ops selection, not a restarted operation/test budget.
+        using var cleanupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(
+            (long)_configuration.TerminateGraceSeconds + _configuration.KillReapSeconds));
         try
         {
             if (!producer.HasExited || !GroupEmpty(producer.Id))
             {
-                if (!SignalOwned(producer.Id, registeredIdentity, 15)) return false;
-                if (!await AwaitTerminalAsync(producer, _configuration.TerminateGraceSeconds).ConfigureAwait(false))
+                ownershipVerified = SignalOwned(producer.Id, registeredIdentity, 15);
+            }
+            while (!cleanupDeadline.IsCancellationRequested)
+            {
+                bool progressed = false;
+                if (stdoutPipe is not null && !stdoutPipe.ReadFailed)
                 {
-                    if (!SignalOwned(producer.Id, registeredIdentity, 9)) return false;
-                    if (!await AwaitTerminalAsync(producer, _configuration.KillReapSeconds).ConfigureAwait(false)) return false;
+                    try
+                    {
+                        progressed = await stdoutPipe.TransferNextAsync(captureStdout ? stdoutOwner.Stream : null,
+                            "stdout_pipe_failed", cleanupDeadline.Token).ConfigureAwait(false);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        captureStdout = false;
+                        rawComplete = false;
+                    }
+                }
+                if (stderrPipe is not null && !stderrPipe.ReadFailed)
+                {
+                    try
+                    {
+                        progressed |= await stderrPipe.TransferNextAsync(captureStderr ? stderrOwner.Stream : null,
+                            "stderr_pipe_failed", cleanupDeadline.Token).ConfigureAwait(false);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        captureStderr = false;
+                        rawComplete = false;
+                    }
+                }
+                bool groupTerminal = producer.HasExited && GroupEmpty(producer.Id);
+                bool pipesTerminal = stdoutPipe?.EndOfStream == true && stderrPipe?.EndOfStream == true;
+                if (groupTerminal && pipesTerminal)
+                {
+                    await producer.WaitForExitAsync(cleanupDeadline.Token).ConfigureAwait(false);
+                    return new(ownershipVerified, rawComplete);
+                }
+                if (!killed && Stopwatch.GetElapsedTime(cleanupStarted)
+                    >= TimeSpan.FromSeconds(_configuration.TerminateGraceSeconds))
+                {
+                    killed = true;
+                    if (!groupTerminal && !SignalOwned(producer.Id, registeredIdentity, 9))
+                    {
+                        ownershipVerified = false;
+                    }
+                }
+                if (!progressed)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(10), cleanupDeadline.Token).ConfigureAwait(false);
                 }
             }
-            await producer.WaitForExitAsync().ConfigureAwait(false);
-            return GroupEmpty(producer.Id);
+            return new(false, false);
         }
-        catch (Exception error) when (error is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        catch (Exception error) when (error is IOException or InvalidOperationException
+            or OperationCanceledException or System.ComponentModel.Win32Exception)
         {
-            return false;
-        }
-    }
-
-    private static async Task<bool> AwaitTerminalAsync(Process producer, int seconds)
-    {
-        using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
-        try
-        {
-            await producer.WaitForExitAsync(wait.Token).ConfigureAwait(false);
-            while (!GroupEmpty(producer.Id))
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(10), wait.Token).ConfigureAwait(false);
-            }
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            return false;
+            return new(false, false);
         }
     }
 
@@ -361,6 +409,8 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
         private readonly SafeHandle _handle;
         private readonly byte[] _buffer = new byte[64 * 1024];
         internal bool EndOfStream { get; private set; }
+        internal bool ReadFailed { get; private set; }
+        internal bool CaptureIncomplete { get; private set; }
 
         internal InvocationPipe(Stream stream)
         {
@@ -386,7 +436,7 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             }
         }
 
-        internal async Task<bool> TransferNextAsync(FileStream destination, string failureCode,
+        internal async Task<bool> TransferNextAsync(FileStream? destination, string failureCode,
             CancellationToken cancellationToken)
         {
             if (EndOfStream) return false;
@@ -413,8 +463,12 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             if (read < 0)
             {
                 if (error is 4 or 11) return false; // EINTR or EAGAIN; retry under original token/deadline.
+                ReadFailed = true;
                 throw Failure(failureCode);
             }
+            // A failed raw writer remains an explicit incomplete-evidence refusal. Consume
+            // its pipe only to unblock the owned child, while still retaining the healthy pipe.
+            if (destination is null) return true;
             try
             {
                 // This task is never raced against a timeout wrapper or left in background.
@@ -423,7 +477,16 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             }
             catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ObjectDisposedException)
             {
+                CaptureIncomplete = true;
                 throw Failure(failureCode);
+            }
+            catch (OperationCanceledException)
+            {
+                // A read chunk whose write was cancelled has no proven complete retention.
+                // Cleanup may keep writing later bytes with its own finite failure token,
+                // but cannot invent the lost chunk or call the overall raw complete.
+                CaptureIncomplete = true;
+                throw;
             }
             return true;
         }
