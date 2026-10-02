@@ -15,6 +15,77 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
     private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
     private static readonly string s_digest = new('a', 64);
 
+    [Theory]
+    [InlineData("original-bytes")]
+    [InlineData("semantic-seal-is-not-file-sha")]
+    [InlineData("mutated-file")]
+    [InlineData("empty-file")]
+    [InlineData("oversized-file")]
+    public async Task OwnedArtifactReader_ReadsOriginalFileAndBindsWholeBytes(string variant)
+    {
+        Fixture fixture = CreateFixture();
+        byte[] original = OfflineMigrationPlanCodec.Serialize(fixture.Plan);
+        string sha256 = Convert.ToHexStringLower(SHA256.HashData(original));
+        Assert.NotEqual(fixture.Plan.ContentDigest, sha256);
+        string directory = Path.Combine(Path.GetTempPath(), $"fsusblog-current-artifact-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "sealed-plan.json");
+        try
+        {
+            await File.WriteAllBytesAsync(path, original);
+            var reference = new CurrentSchemaArtifactReference(path, sha256);
+            IOfflineMigrationVerificationArtifactReader reader = OfflineMigrationCurrentSchemaVerificationOwners.CreateOwnedArtifactReader();
+            ReadOnlyMemory<byte> observed = await reader.ReadAsync(reference, CancellationToken.None);
+            Assert.Equal(original, observed.ToArray());
+            if (variant == "original-bytes")
+            {
+                return;
+            }
+            if (variant == "semantic-seal-is-not-file-sha")
+            {
+                reference = reference with { Sha256 = fixture.Plan.ContentDigest };
+            }
+            else
+            {
+                byte[] changed = variant switch
+                {
+                    "mutated-file" => [.. original, (byte)' '],
+                    "empty-file" => [],
+                    "oversized-file" => new byte[CurrentSchemaReceiptCodec.MaximumEncodedBytes + 1],
+                    _ => throw new InvalidOperationException("Unknown file mutation.")
+                };
+                await File.WriteAllBytesAsync(path, changed);
+            }
+            await Assert.ThrowsAsync<InvalidOperationException>(() => reader.ReadAsync(reference, CancellationToken.None));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("relative")]
+    [InlineData("latest")]
+    [InlineData("cancelled")]
+    public async Task OwnedArtifactReader_RefusesDiscoveryAndCancellationBeforeFileAccess(string variant)
+    {
+        IOfflineMigrationVerificationArtifactReader reader = OfflineMigrationCurrentSchemaVerificationOwners.CreateOwnedArtifactReader();
+        using var cancellation = new CancellationTokenSource();
+        if (variant == "cancelled")
+        {
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.ReadAsync(
+                new("relative-plan.json", s_digest), cancellation.Token));
+            return;
+        }
+        string path = variant == "relative" ? "relative-plan.json"
+            : Path.Combine(Path.GetTempPath(), "latest", "sealed-plan.json");
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => reader.ReadAsync(
+            new(path, s_digest), CancellationToken.None));
+        Assert.Equal("current_verify_original_artifact_path_required", error.Message);
+    }
+
     [Fact]
     public async Task NormalIssuer_RefusesMissingOwnersBeforeNativeAccessOrArtifactPublication()
     {

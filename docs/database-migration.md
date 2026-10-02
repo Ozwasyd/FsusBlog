@@ -296,6 +296,10 @@ entry payload's separate semantic seal. The verifier streams the entire original
 invocation (not a prefix ending at a requested checkpoint), validates every explicit
 checkpoint against its native entry, and authenticates the first attempt's UTC
 admission time before revalidating the original backup/registry/DAG bindings.
+The owned artifact reader opens each explicit absolute published path and reads
+its bounded original bytes, checking the whole-file SHA before returning them.
+Relative paths, `latest` discovery, empty or oversized files, cancellation and
+changed bytes cannot substitute reconstructed records for original artifacts.
 
 Native current schema, instance/database identity, required target postconditions
 and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
@@ -313,7 +317,7 @@ that native verification before comparing the complete recomputed receipt seal;
 it does not accept a caller's success status or re-use its claimed verifier identity.
 
 The normal issuer factory remains deliberately unavailable until original native
-current-schema, compiled-operation, artifact and authenticated-backup owners are
+current-schema, compiled-operation and authenticated-backup owners are
 configured. Missing owners return `current_verify_native_owners_not_configured`
 before native access or publication. Validator unit fixtures exercise structural
 refusal rules only; they neither issue receipts through fake providers nor replace

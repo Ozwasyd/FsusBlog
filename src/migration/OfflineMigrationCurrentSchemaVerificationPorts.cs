@@ -52,6 +52,9 @@ internal sealed record OfflineMigrationCurrentSchemaVerificationCapabilities(
 
 internal static class OfflineMigrationCurrentSchemaVerificationOwners
 {
+    internal static IOfflineMigrationVerificationArtifactReader CreateOwnedArtifactReader()
+        => new OfflineMigrationCurrentSchemaArtifactReader();
+
     internal static OfflineMigrationCurrentSchemaVerificationCapabilities CreateOwned()
     {
         // Native current-schema and operation observers plus an authenticated backup
