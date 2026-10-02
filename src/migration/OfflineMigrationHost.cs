@@ -48,6 +48,11 @@ public static class OfflineMigrationHost
                     configuration?.Clock)).ConfigureAwait(false);
                 return 0;
             }
+            catch (OfflineMigrationSourceFingerprintException fingerprint)
+            {
+                WriteFingerprintFailure(fingerprint, Console.Out);
+                return 1;
+            }
             catch (OperationCanceledException)
             {
                 WriteJson(new { status = "failed", code = "schema_offline_source_operation_cancelled" });
@@ -73,6 +78,11 @@ public static class OfflineMigrationHost
                         : configuration.CreatePlanningEvidence(), callerToken, configuration?.Clock)).ConfigureAwait(false);
                 return 0;
             }
+            catch (OfflineMigrationSourceFingerprintException fingerprint)
+            {
+                WriteFingerprintFailure(fingerprint, Console.Out);
+                return 1;
+            }
             catch (OperationCanceledException)
             {
                 WriteJson(new { status = "failed", code = "schema_offline_plan_operation_cancelled" });
@@ -97,6 +107,11 @@ public static class OfflineMigrationHost
                         : configuration.CreateApplyProducer(), Console.Out, callerToken, configuration?.Clock).ConfigureAwait(false);
                 }).ConfigureAwait(false);
                 return completed ? 0 : 1;
+            }
+            catch (OfflineMigrationSourceFingerprintException fingerprint)
+            {
+                WriteFingerprintFailure(fingerprint, Console.Out);
+                return 1;
             }
             catch (OperationCanceledException)
             {
@@ -124,6 +139,11 @@ public static class OfflineMigrationHost
                     options, () => configuration is null ? OfflineMigrationVerifyEvidence.CreateOwned()
                         : configuration.CreateVerifyProducer(), Console.Out, callerToken, configuration?.Clock)).ConfigureAwait(false);
                 return 0;
+            }
+            catch (OfflineMigrationSourceFingerprintException fingerprint)
+            {
+                WriteFingerprintFailure(fingerprint, Console.Out);
+                return 1;
             }
             catch (OperationCanceledException)
             {
@@ -613,6 +633,21 @@ public static class OfflineMigrationHost
         }
 
         return values;
+    }
+
+    internal static void WriteFingerprintFailure(OfflineMigrationSourceFingerprintException failure, TextWriter output)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        ArgumentNullException.ThrowIfNull(output);
+        // Serialize only the owner's closed redacted fields, never the exception object,
+        // message text, inner exception or arbitrary historical/catalog observations.
+        output.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "failed",
+            code = failure.Code,
+            differences = failure.Differences,
+            ambiguousBaselineIdSha256s = failure.AmbiguousBaselineIdSha256s
+        }));
     }
 
     private static void WriteJson(object payload)

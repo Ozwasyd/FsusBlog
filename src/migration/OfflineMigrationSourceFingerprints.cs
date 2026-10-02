@@ -121,10 +121,8 @@ internal static class OfflineMigrationSourceFingerprints
             }
         }
         var observed = new OfflineMigrationSourceShape(provider, ExtractorId, ExtractorVersion, actual, [], []);
-        string differences = string.Join(';', new[] { false, true }.SelectMany(legacy =>
-            OfflineMigrationPlanValidation.Differences(Shape(provider, legacy) with { History = [], BusinessShape = [] }, observed)
-                .Select(value => $"{(legacy ? LegacyId : EmptyId)}:{value}")));
-        throw new InvalidOperationException($"source_fingerprint_unknown:{differences}");
+        throw OfflineMigrationSourceFingerprintException.Unknown(new[] { false, true }.Select(legacy =>
+            (legacy ? LegacyId : EmptyId, Shape(provider, legacy) with { History = [], BusinessShape = [] })), observed);
     }
 
     internal static string SqliteTableSql(LegacyTable table)

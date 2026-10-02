@@ -145,6 +145,16 @@ Operation semantic digests identify definitions, not actual row-data verificatio
 The independent plan verifier rebuilds that closure from owner inputs and fresh
 observations; merely resealing a modified payload does not authorize it.
 
+Unknown and ambiguous fingerprints cross the Host boundary through the migration-owned
+closed exception type, not parsed exception text. Structured failures retain exact
+Schema/History/Business/Extractor categories, Missing/Extra/Changed kinds and category
+counts; baseline IDs, fact names and values are hashes of their exact UTF-16 code units.
+No raw historical/catalog names, values or inner exceptions are serialized. The native
+PostgreSQL owner propagates that payload only after its actual cleanup awaits return;
+unverified cleanup remains a separate higher-priority failure, not a release proof.
+Non-PostgreSQL error transport and actual provider execution remain separate pending
+capabilities; these source controls do not qualify a database, dump or migration.
+
 Backup admission distinguishes the original database at capture from the isolated
 restore database. The original authenticated backup owner must bind package,
 manifest and drill bytes to the captured source and independently observed restore;

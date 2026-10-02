@@ -53,8 +53,9 @@ public sealed class OfflineMigrationSourceObserverTests
 
         void AssertUnknown(OfflineMigrationSourceObservation changed)
         {
-            InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() => registry.Match(changed));
-            Assert.StartsWith("source_fingerprint_unknown:", refusal.Message, StringComparison.Ordinal);
+            OfflineMigrationSourceFingerprintException refusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(changed));
+            Assert.Equal("source_fingerprint_unknown", refusal.Code);
+            Assert.NotEmpty(refusal.Differences);
         }
     }
 
@@ -67,9 +68,9 @@ public sealed class OfflineMigrationSourceObserverTests
         OfflineMigrationSourceRegistry registry = OfflineMigrationSourceFingerprints.CreateRegistry();
         OfflineMigrationSourceObservation empty = Observation(provider, false);
         OfflineMigrationSourceObservation old = Observation(provider, true);
-        Assert.Throws<InvalidOperationException>(() => registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
-        Assert.Throws<InvalidOperationException>(() => registry.Match(old with { History = [new("history.state", "partial")] }));
-        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceFingerprints.RequireKnownSchema(provider,
+        Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
+        Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(old with { History = [new("history.state", "partial")] }));
+        Assert.Throws<OfflineMigrationSourceFingerprintException>(() => OfflineMigrationSourceFingerprints.RequireKnownSchema(provider,
             old.Schema.Add(new("table/schema_migration", "base"))));
         Assert.False(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, empty.Schema));
         Assert.True(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema));

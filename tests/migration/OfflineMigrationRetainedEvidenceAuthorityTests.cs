@@ -1,6 +1,6 @@
-using FsusBlog.Contracts.Migration;
-
 using Xunit;
+
+using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration.Tests;
 
