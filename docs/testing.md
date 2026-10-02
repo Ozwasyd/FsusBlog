@@ -21,7 +21,7 @@ The release drain wrapper and `ProductionHealth` both consume the aggregate; hea
 
 `tests/backend/Unit/BoundedQueueDrainAggregatorTests.cs` enumerates `BoundedQueueDeliveryCatalog.Embedded.DrainParticipants` and executes the deterministic ten-case matrix for each queue: `exact-drain`, `queued-pending`, `in-flight-pending`, `durable-pending`, `terminal-failure`, `commit-postcondition-unknown`, `drop-proof-mutation`, `worker-crash`, `cancel-timeout`, and `restart-generation-regression`. The test asserts `catalog participant count × 10` fixtures, keeps peer receipts unchanged when one queue fails, and requires identical health/readiness/qualification status from the aggregate. Per-queue failure semantics, proof references, qualification impact, and recovery disposition remain in the catalog and are the queue-specific runbook; no universal delivery policy is inferred.
 
-Run the static gate and current-source terminal receipt with:
+Run the static gate and current-source static receipt with:
 
 ```bash
 node tools/governance/bounded-channel-contracts.mjs
@@ -31,6 +31,18 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "Fu
 ```
 
 The receipt schema is `fsusblog.bounded-queue-acceptance.v1`. It binds the catalog digest, every participant and adapter source, the ten scenarios, the aggregate source/schema, all mutation results, and `warnings: []`; a verifier must rebuild it from the current source before accepting it. A changed catalog or source requires the catalog gate, matrix, and receipt to be rerun. This lane does not change individual queue delivery implementations, add a runner/catalog, or alter the PublicHot authoritative contract.
+
+The required audit owner's focused execution additionally covers real protected
+files, process kill/restart, and PostgreSQL commit-acknowledgement loss. Run it in an
+isolated backend test environment with enough build space:
+
+```bash
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~AuditDurableAdmissionIssue2040Tests|FullyQualifiedName~AuditDurableAdmissionProcessIssue2040Tests|FullyQualifiedName~AuditDurableReplayIssue2040IntegrationTests|FullyQualifiedName~RequiredQueueDeliveryContractTests.AuditLog|FullyQualifiedName~AuditLogChannelTests|FullyQualifiedName~AuditFallbackWriterBehaviorTests|FullyQualifiedName~AuditLogStoreTests|FullyQualifiedName~AuditLogWriterWorkerTests|FullyQualifiedName~AuditRetentionPolicyTests|FullyQualifiedName~DeferredAuditSerilogSinkTests"
+```
+
+Static source-bound receipt output does not establish that these runtime tests,
+the catalog drain matrix, or independent acceptance ran. See the current
+[audit admission/recovery contract](security/audit-retention-cryptographic-erasure.md#required-channel-admission-and-recovery).
 
 ## Media shape authority
 

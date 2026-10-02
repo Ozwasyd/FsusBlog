@@ -194,10 +194,18 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
     public const string EncryptedEventInfo = "retention-encrypted";
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async ValueTask<AuditRecord> ProtectAsync(AuditRecord record, CancellationToken cancellationToken)
+    public async ValueTask<AuditRecord> ProtectAsync(
+        AuditRecord record,
+        CancellationToken cancellationToken,
+        bool forceEnvelope = false)
     {
         AuditRetentionPolicy policy = AuditRetentionCatalog.GetRequired(record.Action);
-        if (!ContainsSensitivePayload(record))
+        if (record.DurableDeliveryId is not null)
+        {
+            AuditDurableDelivery.Validate(record);
+            return record;
+        }
+        if (!forceEnvelope && !ContainsSensitivePayload(record))
         {
             return record;
         }

@@ -23,55 +23,44 @@ public sealed class RequiredQueueDeliveryContractTests
     [Fact]
     public void AuditLog_QueueFullClosedAndCancelLeaveDurableOrTerminalDisposition()
     {
-        var fallback = new RecordingAuditFallbackWriter();
-        using ServiceProvider provider = CreateAuditServices(fallback);
-        var channel = new AuditLogChannel(
-            new BoundedChannelOptions(1)
-            {
-                SingleReader = true,
-                SingleWriter = false,
-                FullMode = BoundedChannelFullMode.Wait
-            },
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<AuditLogChannel>.Instance);
+        using var owner = new AuditDurableTestOwner();
+        AuditLogChannel channel = owner.Channel;
 
         Assert.True(channel.TryWrite(LowValue("queued")));
-        Assert.False(channel.TryWrite(LowValue("overflow")));
+        Assert.True(channel.TryWrite(LowValue("overflow")));
         AuditLogChannelSnapshot full = channel.Snapshot();
-        Assert.Equal(1, full.QueuedCount);
-        Assert.Equal(1, full.DurableAcceptedCount);
-        Assert.Equal("durable-accepted", full.LastDisposition);
-        Assert.Equal(["overflow"], fallback.Records.Select(static item => item.EventInfo).ToArray());
+        Assert.Equal(0, full.QueuedCount);
+        Assert.Equal(2, full.DurableAcceptedCount);
+        Assert.Equal(2, full.DurablePendingCount);
+        Assert.Equal("durable-pending", full.LastDisposition);
 
         channel.Complete();
         Assert.False(channel.TryWrite(LowValue("closed")));
         AuditLogChannelSnapshot closed = channel.Snapshot();
-        Assert.Equal(2, closed.DurableAcceptedCount);
+        Assert.Equal(3, closed.DurableAcceptedCount);
+        Assert.Equal(3, closed.DurablePendingCount);
         Assert.Equal(0, closed.TerminalFailureCount);
-        Assert.Equal(["overflow", "closed"], fallback.Records.Select(static item => item.EventInfo).ToArray());
+        Assert.Equal(1, closed.RejectedCount);
+        Assert.Equal("closed:durable-accepted", closed.LastFailureReason);
+        Assert.Equal(owner.Journal.Snapshot().LastItemReference, closed.LastItemReference);
+        Assert.Equal("pending", new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot().Status);
+        Assert.Equal(3, Directory.GetFiles(Path.Combine(owner.Root, "audit-fallback"), "critical-audit-*.jsonl").Length);
     }
 
     [Fact]
     public async Task AuditLog_DequeueKeepsInFlightUntilCommitOrFallback()
     {
-        var store = new RecordingAuditLogStore();
-        var fallback = new RecordingAuditFallbackWriter();
-        using ServiceProvider provider = CreateAuditServices(fallback, store);
-        var channel = new AuditLogChannel(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<AuditLogChannel>.Instance);
-        var worker = new AuditLogWriterWorker(
-            channel,
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new AuditLogRuntimeState(channel),
-            fallback,
-            NullLogger<AuditLogWriterWorker>.Instance);
+        using var owner = new AuditDurableTestOwner(store: new RecordingAuditLogStore());
+        AuditLogChannel channel = owner.Channel;
         Assert.True(channel.TryWrite(LowValue("in-flight")));
-        AuditRecord record = await channel.ReadAsync(CancellationToken.None);
-        AuditLogChannelSnapshot inFlight = channel.Snapshot();
-        Assert.Equal(0, inFlight.QueuedCount);
-        Assert.Equal(1, inFlight.InFlightCount);
-        Assert.Equal("in-flight", inFlight.LastDisposition);
-
-        await worker.WriteBatchOnceAsync([record], CancellationToken.None);
+        await owner.Journal.ReplayAsync(async (records, token) =>
+        {
+            AuditLogChannelSnapshot inFlight = channel.Snapshot();
+            Assert.Equal(0, inFlight.QueuedCount);
+            Assert.Equal(1, inFlight.InFlightCount);
+            Assert.Equal("in-flight", inFlight.LastDisposition);
+            await owner.Worker.WriteBatchOnceAsync(records, token);
+        }, CancellationToken.None);
         AuditLogChannelSnapshot committed = channel.Snapshot();
         Assert.Equal(0, committed.OutstandingCount);
         Assert.Equal(1, committed.CommittedCount);
@@ -81,25 +70,21 @@ public sealed class RequiredQueueDeliveryContractTests
     [Fact]
     public async Task AuditLog_WorkerFailureReplaysThroughDurableFallbackAndHealth()
     {
-        var fallback = new RecordingAuditFallbackWriter();
-        using ServiceProvider provider = CreateAuditServices(fallback, new ThrowingAuditLogStore());
-        var channel = new AuditLogChannel(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<AuditLogChannel>.Instance);
-        var worker = new AuditLogWriterWorker(
-            channel,
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new AuditLogRuntimeState(channel),
-            fallback,
-            NullLogger<AuditLogWriterWorker>.Instance);
+        using var owner = new AuditDurableTestOwner(store: new ThrowingAuditLogStore());
+        AuditLogChannel channel = owner.Channel;
         Assert.True(channel.TryWrite(LowValue("persist-fail")));
-        AuditRecord record = await channel.ReadAsync(CancellationToken.None);
-        await worker.PersistSafelyAsync([record], CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => owner.Worker.ReplayPendingOnceAsync(CancellationToken.None));
 
         AuditLogChannelSnapshot snapshot = channel.Snapshot();
-        Assert.Equal(0, snapshot.OutstandingCount);
+        Assert.Equal(1, snapshot.OutstandingCount);
         Assert.Equal(1, snapshot.DurableAcceptedCount);
-        Assert.Equal("durable-accepted", snapshot.LastDisposition);
-        Assert.Equal("persist-fail", Assert.Single(fallback.Records).EventInfo);
-        Assert.Equal("drained", new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot().Status);
+        Assert.Equal("durable-pending", snapshot.LastDisposition);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Equal(0, snapshot.CommittedCount);
+        Assert.Equal("pending", new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot().Status);
+        using var restarted = new AuditDurableTestOwner(owner.Root, deleteRoot: false, store: new RecordingAuditLogStore());
+        await restarted.Worker.ReplayPendingOnceAsync(CancellationToken.None);
+        Assert.Equal("drained", new AuditLogReleaseDrainParticipant(restarted.Channel, TimeProvider.System).Snapshot().Status);
     }
 
     [Fact]
@@ -154,22 +139,20 @@ public sealed class RequiredQueueDeliveryContractTests
     [Fact]
     public void AuditLog_UnknownDispositionAndTerminalFailureBlockHealth()
     {
-        using ServiceProvider provider = CreateAuditServices(new ThrowingAuditFallbackWriter());
-        var channel = new AuditLogChannel(
-            new BoundedChannelOptions(1)
-            {
-                SingleReader = true,
-                SingleWriter = false,
-                FullMode = BoundedChannelFullMode.Wait
-            },
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<AuditLogChannel>.Instance);
+        using var owner = new AuditDurableTestOwner();
+        AuditLogChannel channel = owner.Channel;
         Assert.True(channel.TryWrite(LowValue("first")));
-        Assert.False(channel.TryWrite(LowValue("terminal")));
+        string? previousAcceptedReference = owner.Journal.Snapshot().LastItemReference;
+        Assert.False(channel.TryWrite(LowValue("terminal") with
+        {
+            Action = "unknown.audit.action"
+        }));
         AuditLogChannelSnapshot snapshot = channel.Snapshot();
         Assert.Equal(1, snapshot.TerminalFailureCount);
         Assert.Equal("terminal-failed", snapshot.LastDisposition);
-        Assert.Contains("fallback-failed", snapshot.LastFailureReason, StringComparison.Ordinal);
+        Assert.Contains("admission-failed", snapshot.LastFailureReason, StringComparison.Ordinal);
+        Assert.NotNull(snapshot.LastItemReference);
+        Assert.NotEqual(previousAcceptedReference, snapshot.LastItemReference);
         ReleaseDrainParticipantSnapshot drain = new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot();
         Assert.Equal("terminal-failed", drain.Status);
         Assert.Equal("audit_log_terminal_failure", drain.ErrorCode);

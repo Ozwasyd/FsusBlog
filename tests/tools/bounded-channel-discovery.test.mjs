@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
@@ -126,21 +127,48 @@ test('masked comments and strings do not create cross-file factory owners', () =
 test('real source unbounded discovery is enforced without caller-supplied fixtures', () =>
 {
     const forbidden = discoverUnboundedChannels();
-    assert.deepEqual(forbidden, [{ file: 'src/backend/Infrastructure/Audit/AuditLogChannel.cs', line: 60 }]);
-    assert.deepEqual(validateBoundedChannelCatalog(), [
-        'unbounded channel is forbidden: src/backend/Infrastructure/Audit/AuditLogChannel.cs:60'
-    ]);
+    assert.deepEqual(validateBoundedChannelCatalog(), forbidden.map(({ file, line }) => `unbounded channel is forbidden: ${file}:${line}`));
 });
 
 for (const receipt of [false, true])
 {
-    test(`default CLI rejects real unbounded source${receipt ? ' before producing a receipt' : ''}`, () =>
+    test(`default CLI follows live unbounded source${receipt ? ' before producing a receipt' : ''}`, () =>
     {
         const args = ['tools/governance/bounded-channel-contracts.mjs', ...(receipt ? ['--receipt'] : [])];
         const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8' });
         assert.equal(result.error, undefined);
+        const forbidden = discoverUnboundedChannels();
+        assert.equal(result.status, forbidden.length > 0 ? 1 : 0);
+        if (forbidden.length > 0)
+        {
+            assert.equal(result.stdout, '');
+            assert.equal(result.stderr.trim(), forbidden.map(({ file, line }) => `unbounded channel is forbidden: ${file}:${line}`).join('\n'));
+        }
+        else
+        {
+            assert.equal(result.stderr, '');
+            assert.ok(result.stdout.length > 0);
+        }
+    });
+
+    test(`default CLI rejects a deterministic unbounded source mutation${receipt ? ' without a receipt' : ''}`, () =>
+    {
+        const sourceFile = path.join(root, 'src/backend/Infrastructure/Audit/AuditLogChannel.cs');
+        const original = fs.readFileSync(sourceFile, 'utf8');
+        const mutation = '\nclass ForbiddenAuditFixture { Channel<int> _forbidden = Channel.CreateUnbounded<int>(); }\n';
+        const checker = path.join(root, 'tools/governance/bounded-channel-contracts.mjs');
+        const script = `import fs from 'node:fs';
+            import { pathToFileURL } from 'node:url';
+            const read = fs.readFileSync;
+            fs.readFileSync = function(file, ...args) {
+                return String(file) === ${JSON.stringify(sourceFile)} ? ${JSON.stringify(original + mutation)} : read.call(this, file, ...args);
+            };
+            process.argv = [process.execPath, ${JSON.stringify(checker)}, ...${JSON.stringify(receipt ? ['--receipt'] : [])}];
+            await import(pathToFileURL(${JSON.stringify(checker)}));`;
+        const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, encoding: 'utf8' });
+        assert.equal(result.error, undefined);
         assert.equal(result.status, 1);
         assert.equal(result.stdout, '');
-        assert.equal(result.stderr.trim(), 'unbounded channel is forbidden: src/backend/Infrastructure/Audit/AuditLogChannel.cs:60');
+        assert.match(result.stderr, /unbounded channel is forbidden: src\/backend\/Infrastructure\/Audit\/AuditLogChannel.cs:\d+/u);
     });
 }

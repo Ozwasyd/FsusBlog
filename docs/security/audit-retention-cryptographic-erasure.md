@@ -31,6 +31,52 @@ Legal hold is an exception to deletion timing, not a bypass of encryption, query
 
 Critical local fallback JSONL uses the same protected record and retention DEK. It does not write raw identity or request context. Expired fallback files are parsed fail closed, partitioned by action, anchored through the same identity-free checkpoint path, have their DEKs destroyed, and are then deleted.
 
+### Required channel admission and recovery
+
+The catalog classifies the production `AuditLogChannel` owner as required, including
+ordinary records. `TryWrite=true` means a protected record has been published to
+`FSUSBLOG_DATA_ROOT/audit-fallback`, not that a volatile channel accepted it. There is
+no unbounded required lane. The bounded lane remains only for ownerless best-effort
+fixtures; a missing durable owner rejects security/audit/high-value records. Closed
+production admission persists first and returns false; persistence failure returns
+false and records a terminal item/category that blocks qualification.
+
+Each new JSONL file is immutable and contains at most 256 records. A single-owner
+publication timestamp retains admission order even if the wall clock moves backwards.
+Writes use owner-only CreateNew temporary files, WriteThrough, FlushAsync and
+`Flush(true)`, followed by a non-overwriting rename. Retention DEKs are already
+flushed before publication. Process termination after successful admission leaves
+the exact encrypted record available to a fresh owner. This is not a claim of
+host-loss recovery, directory-entry durability after power failure, or external
+custody. Unpublished `.tmp` files are not accepted records and are never replayed;
+operators must quarantine crash residue and apply the retention-key lifecycle,
+not promote a partial file as a successful admission.
+
+The worker replays on startup and every 500 ms, using batches of at most 256 records
+and bounded-memory filename selection. Failure or cancellation retains the source;
+successful database confirmation removes it without an indefinite ciphertext
+archive. Existing protected daily fallback files remain replayable without
+re-encrypting their envelope. New pending files stay in the same finite fallback
+retention/anchor/key-destruction path.
+
+The owner-local delivery identity is the SHA-256 of the unique retention envelope;
+it does not replace an action, actor, business identity, or audit chain hash. The
+store uses existing ciphertext rows as commit postconditions, with delivery and
+daily-chain PostgreSQL transaction fences. An existing envelope counts as committed
+only when both the intended record and the actual row reproduce its stored signed
+hash/MAC. Missing rows are committed; duplicate, changed-classification, or mutated
+rows fail closed. This covers commit acknowledgement loss without another schema
+or ledger. UTC timestamps are projected to PostgreSQL microsecond precision before
+signing; opaque ciphertext and delivery identity remain stable on replay.
+
+Disk pending and active replay counts feed the existing channel snapshot and
+catalog drain/health adapters. `QueuedCount=0` alone is not drained. Unreadable
+journal state, malformed records and failed commit postconditions block
+qualification. Admission success is not a claim that the database already committed.
+The synchronous protected-file write adds admission latency and disk dependence;
+full or unavailable storage must fail closed, never fall back to successful RAM-only
+audit. Other queue owners and the PublicHot core are outside this change.
+
 `AuditRetentionStorageContract` applies the same finite ciphertext maximum to database, local fallback, backup, WAL, and replica surfaces. The application directly controls only database and local fallback cleanup. Backup, WAL, and replica deletion require operator/platform attestation; this implementation does not call or claim control over any external backup provider, object lock, TSA, public chain, replica manager, or WAL archive.
 
 Local checkpoints and destruction evidence are append-only ordinary files, not WORM. The #1111 limitation remains: privileged same-host deletion requires custody outside the host to resist, but external custody is intentionally omitted from this local-only issue scope.

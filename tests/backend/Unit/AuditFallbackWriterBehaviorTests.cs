@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuditFallbackWriterBehaviorTests
 {
     [Fact]
-    public async Task WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState()
+    public async Task WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState()
     {
         string root = Path.Combine(Path.GetTempPath(), "fsusblog-audit-fallback-" + Guid.NewGuid().ToString("N"));
         try
@@ -37,7 +37,8 @@ public sealed class AuditFallbackWriterBehaviorTests
             using JsonDocument second = JsonDocument.Parse(lines[1]);
             Assert.Equal(AuditActionCatalog.SecurityPolicyActivated, first.RootElement.GetProperty("Action").GetString());
             Assert.Equal("first", first.RootElement.GetProperty("EventInfo").GetString());
-            Assert.Equal("database unavailable", first.RootElement.GetProperty("Message").GetString());
+            Assert.Equal("audit-durable-delivery", first.RootElement.GetProperty("Message").GetString());
+            Assert.DoesNotContain("database unavailable", await File.ReadAllTextAsync(path), StringComparison.Ordinal);
             Assert.Equal(AuditActionCatalog.SecurityPolicyRolledBack, second.RootElement.GetProperty("Action").GetString());
             Assert.Equal("second", second.RootElement.GetProperty("EventInfo").GetString());
             Assert.Equal(2, runtimeState.Snapshot().FallbackWriteCount);
