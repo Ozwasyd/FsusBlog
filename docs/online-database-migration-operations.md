@@ -99,6 +99,35 @@ the manifest, rollout-stage and health integration is not completed merely by
 adding the command. Missing original source/backup/native-operation capabilities
 remain blockers to genuine production receipt issuance and acceptance.
 
+## Current-only release manifest
+
+`fsusblog.release-manifest.v3` replaces the compatibility-window manifest. Its
+`currentSchema` contains only the original receipt artifact `reference` and raw
+whole-file `sha256`, the shared current five-field `target`, three-field `database`,
+and independent physical `actualSchemaDigest`. Target `contentDigest` is semantic
+and must not be substituted for the physical schema observation. The candidate
+build remains bound by the original manifest `commitSha`, immutable image and
+toolchain/runtime profile fields. The receipt verifier's historical producer
+revision need not equal the deployment candidate revision.
+
+The original creator uses explicit `--current-receipt-reference`,
+`--current-receipt-sha256`, `--current-model-version`, `--current-extractor-version`,
+`--current-generator-version`, `--current-source-digest`, `--current-content-digest`,
+`--current-provider`, `--current-instance-id`, `--current-database-id`, and
+`--current-actual-schema-digest` arguments. Provider values follow the shared closed
+numeric enum; structural recognition of MySQL or SQLite does not supply a missing
+native observer. The old min/max coordinate arguments and legacy rollback reader
+are retired. v1/v2 manifests must be rebuilt from the original exact current receipt
+and candidate inputs, not silently converted or accepted through fallback.
+
+Manifest validation and its v2 deploy-input output are reference/identity checks,
+not actual database admission (`admissionVerified` is false). They neither issue
+a receipt nor parse a sealed migration plan. The original rollout still requires
+integration of candidate-pinned fresh Server verification before deployment; the
+retired Expand entry remains a failure, not a skipped or fabricated successful stage.
+Previous frontend/static-asset retention remains separately governed and cannot
+authorize image rollback on a migrated database.
+
 ## Current-schema health consumer
 
 Production protected readiness detail uses `currentSchema`, not an online

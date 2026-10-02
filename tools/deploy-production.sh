@@ -435,7 +435,7 @@ LoadReleaseManifest() {
     fi
     local -a fields=()
     mapfile -t fields <<<"$output"
-    [[ "${#fields[@]}" -eq 8 ]] || Fail "release manifest validator returned incomplete deployment fields"
+    [[ "${#fields[@]}" -eq 7 ]] || Fail "release manifest validator returned incomplete deployment fields"
     export FSUSBLOG_RELEASE_ID="${fields[0]}"
     export FSUSBLOG_RELEASE_CREATED_AT_UTC="${fields[1]}"
     export FSUSBLOG_COMMIT_SHA="${fields[2]}"
@@ -443,7 +443,6 @@ LoadReleaseManifest() {
     export FSUSBLOG_IMAGE_REF="${fields[4]}"
     export FSUSBLOG_IMAGE_TAG="${fields[5]}"
     export FSUSBLOG_IMAGE_DIGEST="${fields[6]}"
-    export FSUSBLOG_ROLLBACK_TARGET="${fields[7]}"
     export FSUSBLOG_RELEASE_MANIFEST_HOST_PATH="$RELEASE_MANIFEST"
     [[ -n "${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:-}" ]] ||
         Fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE must be derived from the durable active slot before deploy"
@@ -452,7 +451,7 @@ LoadReleaseManifest() {
     [[ "$FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE" != "$FSUSBLOG_RELEASE_ID" ]] ||
         Fail "previous rollback release must differ from the candidate release"
     export FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE
-    Log "release=$FSUSBLOG_RELEASE_ID slot=$FSUSBLOG_RELEASE_SLOT digest=$FSUSBLOG_IMAGE_DIGEST rollbackTarget=$FSUSBLOG_ROLLBACK_TARGET"
+    Log "release=$FSUSBLOG_RELEASE_ID slot=$FSUSBLOG_RELEASE_SLOT digest=$FSUSBLOG_IMAGE_DIGEST"
 }
 
 ValidateSpaAuthority() {
