@@ -135,6 +135,16 @@ public sealed class PgLegacyNonArticlePreparationTests
         => await Assert.ThrowsAsync<ApplicationException>(() =>
             PgLegacyNonArticlePreparation.WithResourceAsync<FailingResource, bool>(new(), _ => Task.FromResult(true)));
 
+    [Fact]
+    public async Task StreamingTextFailureIsNotReplacedByTextReaderDisposeFailure()
+    {
+        var original = new InvalidOperationException("original-text-read");
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            PgLegacyNonArticlePreparation.WithTextReaderAsync(new FailingTextReader(), _ => Task.FromException<bool>(original)));
+        Assert.Same(original, actual);
+        Assert.Equal("ApplicationException", actual.Data["legacy_nonarticle_cleanup_types"]);
+    }
+
     private static PgLegacyNonArticlePreparation.LegacyTableProgram Bind(SchemaTableModel table, IReadOnlyDictionary<string, string> expressions)
         => PgLegacyNonArticlePreparation.BindTable(table, Owner, "SELECT * FROM original", expressions, null, [], false, Input());
 
@@ -156,5 +166,11 @@ public sealed class PgLegacyNonArticlePreparationTests
             Disposed = true;
             return ValueTask.FromException(new ApplicationException("cleanup contains no authority"));
         }
+    }
+
+    private sealed class FailingTextReader : StringReader
+    {
+        internal FailingTextReader() : base("content") { }
+        protected override void Dispose(bool disposing) => throw new ApplicationException("text-cleanup");
     }
 }

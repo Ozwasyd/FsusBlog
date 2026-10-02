@@ -215,8 +215,11 @@ internal sealed class PgLegacyNonArticlePreparation
                 string type = columns[index].DataType;
                 if (type == "string")
                 {
-                    using TextReader text = await ((NpgsqlDataReader)reader).GetTextReaderAsync(index, cancellationToken).ConfigureAwait(false);
-                    await OfflineMigrationSourceObserver.AppendTextAsync(hash, text, cancellationToken).ConfigureAwait(false);
+                    await WithTextReaderAsync(await ((NpgsqlDataReader)reader).GetTextReaderAsync(index, cancellationToken).ConfigureAwait(false), async text =>
+                    {
+                        await OfflineMigrationSourceObserver.AppendTextAsync(hash, text, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }).ConfigureAwait(false);
                 }
                 else if (type is "datetime" or "timestamp" or "date")
                 {
@@ -508,6 +511,19 @@ internal sealed class PgLegacyNonArticlePreparation
     }
     private static Task<object?> ScalarAsync(DbConnection connection, DbTransaction transaction, string sql, CancellationToken cancellationToken)
         => WithResourceAsync(Command(connection, transaction, sql), command => command.ExecuteScalarAsync(cancellationToken));
+
+    internal static Task<TResult> WithTextReaderAsync<TResult>(TextReader reader, Func<TextReader, Task<TResult>> operation)
+        => WithResourceAsync(new TextReaderResource(reader), resource => operation(resource.Reader));
+
+    private sealed class TextReaderResource(TextReader reader) : IAsyncDisposable
+    {
+        internal TextReader Reader { get; } = reader;
+        public ValueTask DisposeAsync()
+        {
+            Reader.Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
 
     // The operation error (including cancellation) remains the first cause;
     // cleanup errors are bounded type-only secondary diagnostics, not SQL/argv.
