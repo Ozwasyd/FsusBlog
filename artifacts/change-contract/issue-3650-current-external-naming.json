@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/csharp-style-baseline.json",
+                "config/development/csharp-style-policy.json"
+            ],
+            "reason": "Preserve canonical JSON contract and catalog key spellings consumed by the existing producers and checkers; regenerated bindings do not authorize alternate wire keys or widen the contract."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Preserve repository style-contract terminology and CSS-like names in the maintained documentation; the issue does not rename public tokens or introduce a compatibility naming layer."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs"
+            ],
+            "reason": "Preserve existing runtime and process-environment naming at the registered source/tooling boundaries; these issue-scoped changes do not introduce, normalize, or rename external environment contracts."
+        }
+    ]
+}
