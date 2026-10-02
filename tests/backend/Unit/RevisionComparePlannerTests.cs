@@ -577,8 +577,8 @@ public sealed partial class RevisionComparePlannerTests
             1_000,
             1_000,
             10,
-            "2a4892568519c297252096fa72b70f1567169f69a31b6b8b928643b22b84a186");
-        const string PlanDigest = "9b375f0bada07c54ae71dabf4edb9e7c99681911d5bf40d69673d7636d8f2a51";
+            "4d284bd38b09c8c67a9b8a1d7c351807e8cc50cfe477507840b13e2901e1e55d");
+        const string PlanDigest = "6468350288dc0d73a3bd50cf8794aa0beae4386f6ee0ba49972c0aa190275aed";
         var plan = new RevisionComparePlan(
             1,
             "revision-compare-plan-v1",
@@ -610,7 +610,7 @@ public sealed partial class RevisionComparePlannerTests
             "1b4ac8c8b4bc4e2186830ef85915218e4f9c6d4653a8bba4c1fb3bd5fc1e8637",
             admission.ContentDigest,
             request.CancellationIdentity,
-            "9861809fde91068672c7c5499651310754de87329650d3950f732f9883aa1672");
+            "15b1904bda3e77ec9e51d7d486fcf42019a7be9ecb4658a2c3310b0be414f1d5");
         return new RevisionComparePlanBundle(plan, baseline, current, receipt);
     }
 
