@@ -168,6 +168,165 @@ public sealed class OfflineMigrationApplyJournalTests
         Assert.Null(verifier.PendingUnit);
     }
 
+    [Theory]
+    [InlineData("unrelated-predicate")]
+    [InlineData("changed-before-facts")]
+    public void Resealed_step_proof_cannot_replace_the_committed_unit_before(string changed)
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, Unit(plan, verifier, complete: true));
+        OfflineMigrationApplyJournalEntry proof = Proof(verifier);
+        OfflineMigrationPredicateObservation before = changed == "unrelated-predicate"
+            ? proof.Before! with { PredicateReference = "unrelated-owner-predicate" }
+            : proof.Before! with { ExpectedFacts = [new("rows", "999")], ActualFacts = [new("rows", "999")] };
+        before = before with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before) };
+        Assert.True(before.ExpectedFacts.SequenceEqual(before.ActualFacts));
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier, proof with { Before = before }));
+        Assert.Empty(verifier.StepProofs);
+        Assert.Equal(2, verifier.Last!.Sequence);
+    }
+
+    [Fact]
+    public void Crash_recovery_proof_may_use_the_exact_reobserved_committed_target()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, Unit(plan, verifier, complete: true));
+        OfflineMigrationPredicateObservation target = verifier.PendingUnit!.After!;
+        Assert.Equal(plan.OrderedSteps[0].TargetPostcondition, target.PredicateReference);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.RecoveryRequired,
+            failure: "offline_apply_prior_attempt_interrupted"));
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2));
+        Accept(verifier, Proof(verifier) with { Attempt = 2, Before = target });
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
+        Assert.True(verifier.Completed);
+        Assert.Single(verifier.StepProofs);
+        Assert.Equal(target.ContentDigest, verifier.StepProofs[0].Before!.ContentDigest);
+        Assert.Equal(verifier.Last!.ContentDigest, Checkpoint(verifier).JournalHead.EntryDigest);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("zero")]
+    [InlineData("infinite")]
+    [InlineData("unsupported-timer-range")]
+    public async Task Missing_or_invalid_cleanup_budget_rejects_before_native_lock_or_write(string invalid)
+    {
+        TimeSpan? budget = invalid switch
+        {
+            "missing" => null,
+            "zero" => TimeSpan.Zero,
+            "infinite" => Timeout.InfiniteTimeSpan,
+            "unsupported-timer-range" => TimeSpan.MaxValue,
+            _ => throw new InvalidOperationException()
+        };
+        OfflineMigrationPlan plan = Plan();
+        using var connection = new LockOnlyConnection();
+        var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
+        var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
+        OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: budget),
+            connection, admission, registry, CancellationToken.None);
+        Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
+        Assert.Contains(invalid == "unsupported-timer-range" ? "offline_apply_cleanup_budget_invalid"
+            : "offline_apply_cleanup_budget_required", result.Codes);
+        Assert.Empty(connection.Commands);
+        Assert.Equal(0, connection.WriteAttempts);
+        Assert.Equal(0, connection.TransactionAttempts);
+        Assert.Empty(admission.ReceivedCalls());
+        Assert.Empty(registry.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task Unlock_failure_preserves_first_apply_failure_and_records_cleanup_failure_separately()
+    {
+        OfflineMigrationPlan plan = Plan();
+        using var connection = new LockOnlyConnection(failUnlock: true);
+        OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan),
+            new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)), connection,
+            Substitute.For<IOfflineMigrationPlanAdmission>(), new MissingOfflineMigrationApplyOperationRegistry(), CancellationToken.None);
+        Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
+        Assert.Equal("offline_apply_rejected", result.Codes[0]);
+        Assert.Contains("offline_apply_session_cleanup_required", result.Codes);
+        Assert.DoesNotContain("fixture_private_unlock_detail", string.Join(';', result.Codes));
+        Assert.Equal(0, connection.CloseAttempts);
+        Assert.Equal(0, connection.WriteAttempts);
+    }
+
+    [Fact]
+    public async Task Native_cleanup_await_uses_independent_finite_budget_and_does_not_claim_disposal()
+    {
+        OfflineMigrationPlan plan = Plan();
+        using var connection = new LockOnlyConnection(awaitUnlockCancellation: true);
+        Task<OfflineMigrationApplyResult> pending = OfflineMigrationExecutor.ApplyAsync(
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan),
+            new("invocation", 1, true, CleanupBudget: TimeSpan.FromMilliseconds(20)), connection,
+            Substitute.For<IOfflineMigrationPlanAdmission>(), new MissingOfflineMigrationApplyOperationRegistry(), CancellationToken.None);
+        OfflineMigrationApplyResult result = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
+        Assert.Equal("offline_apply_rejected", result.Codes[0]);
+        Assert.Contains("offline_apply_cleanup_budget_exhausted", result.Codes);
+        Assert.Contains("offline_apply_session_cleanup_required", result.Codes);
+        Assert.True(connection.UnlockAwaitEnded);
+        Assert.Equal(0, connection.CloseAttempts);
+        Assert.Equal(0, connection.WriteAttempts);
+    }
+
+    [Theory]
+    [InlineData("main-cancel")]
+    [InlineData("operation-fault")]
+    public async Task Transaction_disposal_fault_does_not_replace_the_first_in_flight_failure(string first)
+    {
+        OfflineMigrationPlan plan = Plan();
+        using var connection = new LockOnlyConnection(allowReadOnlyAdmission: true, failTransactionDisposal: true);
+        using var cancellation = new CancellationTokenSource();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
+        admission.RevalidateAsync(Arg.Any<VerifiedOfflineMigrationPlan>(), Arg.Any<CurrentSchemaArtifactReference>(),
+            Arg.Any<OfflineMigrationApplyJournalVerifier>(), Arg.Any<DbConnection>(), Arg.Any<DbTransaction>(),
+            Arg.Any<CancellationToken>()).Returns(async call =>
+            {
+                Assert.Same(connection, call.Arg<DbConnection>());
+                Assert.Equal(IsolationLevel.RepeatableRead, call.Arg<DbTransaction>().IsolationLevel);
+                entered.TrySetResult();
+                await release.Task;
+                if (first == "main-cancel") { call.Arg<CancellationToken>().ThrowIfCancellationRequested(); }
+                throw new InvalidOperationException("fixture_private_operation_fault");
+            });
+        Task<OfflineMigrationApplyResult> pending = OfflineMigrationExecutor.ApplyAsync(
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan),
+            new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)), connection,
+            admission, new FixtureOperationRegistry(), cancellation.Token);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(pending.IsCompleted);
+            Assert.Equal(0, connection.WriteAttempts);
+            if (first == "main-cancel") { cancellation.Cancel(); }
+            release.TrySetResult();
+            OfflineMigrationApplyResult result = await pending;
+            Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
+            Assert.Equal(first == "main-cancel" ? "offline_apply_cancelled" : "offline_apply_rejected", result.Codes[0]);
+            Assert.Contains("offline_apply_disposal_terminal_unknown", result.Codes);
+            Assert.DoesNotContain("fixture_private_operation_fault", string.Join(';', result.Codes));
+            Assert.DoesNotContain("fixture_private_disposal_fault", string.Join(';', result.Codes));
+            Assert.Equal(1, connection.TransactionDisposals);
+            Assert.Equal(0, connection.WriteAttempts);
+            Assert.Null(result.Checkpoint);
+            Assert.Equal("SELECT pg_advisory_unlock(hashtext(@name))", connection.Commands[^1]);
+        }
+        finally
+        {
+            release.TrySetResult();
+            await pending;
+        }
+    }
+
     [Fact]
     public async Task Unsupported_native_provider_is_rejected_before_connection_or_admission_use()
     {
@@ -176,7 +335,7 @@ public sealed class OfflineMigrationApplyJournalTests
         var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
         var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true),
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, registry, CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
         Assert.Contains("offline_apply_native_provider_not_supported", result.Codes);
@@ -196,7 +355,7 @@ public sealed class OfflineMigrationApplyJournalTests
         var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
         var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, false),
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, false, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, registry, CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
         Assert.Contains("offline_apply_admission_options_invalid", result.Codes);
@@ -213,7 +372,7 @@ public sealed class OfflineMigrationApplyJournalTests
         Assert.Equal(ConnectionState.Open, connection.State);
         Assert.Equal(plan.ContentDigest, OfflineMigrationPlanCodec.ComputeContentDigest(plan));
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true),
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, new MissingOfflineMigrationApplyOperationRegistry(), CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
         Assert.Contains("offline_apply_rejected", result.Codes);
@@ -236,7 +395,7 @@ public sealed class OfflineMigrationApplyJournalTests
         var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
         var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true),
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, registry, cancellation.Token);
         Assert.Equal(OfflineMigrationApplyStatus.Cancelled, result.Status);
         Assert.Contains("offline_apply_cancelled", result.Codes);
@@ -256,7 +415,7 @@ public sealed class OfflineMigrationApplyJournalTests
         var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
             new VerifiedOfflineMigrationPlan(plan), Artifact(plan) with { Sha256 = new('b', 64) },
-            new("invocation", 1, true), connection, admission, registry, CancellationToken.None);
+            new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)), connection, admission, registry, CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
         Assert.Contains("offline_apply_plan_binding_invalid", result.Codes);
         Assert.Empty(connection.Commands);
@@ -280,7 +439,7 @@ public sealed class OfflineMigrationApplyJournalTests
                 throw new InvalidOperationException("fixture_source_database_drift_private_detail");
             });
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true),
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, new FixtureOperationRegistry(), CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
         Assert.Equal(new[] { "offline_apply_rejected" }, result.Codes);
@@ -313,7 +472,7 @@ public sealed class OfflineMigrationApplyJournalTests
                 call.Arg<CancellationToken>().ThrowIfCancellationRequested();
             });
         Task<OfflineMigrationApplyResult> pending = OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true),
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, new FixtureOperationRegistry(), cancellation.Token);
         try
         {
@@ -417,12 +576,18 @@ public sealed class OfflineMigrationApplyJournalTests
     // A lock-only native command stub establishes the production executor's pre-write
     // refusal boundary. It cannot execute DDL, transactions, or semantic operations and
     // is not evidence of PostgreSQL/provider correctness or successful migration.
-    private sealed class LockOnlyConnection(bool allowReadOnlyAdmission = false) : DbConnection
+    private sealed class LockOnlyConnection(bool allowReadOnlyAdmission = false, bool failUnlock = false,
+        bool awaitUnlockCancellation = false, bool failTransactionDisposal = false) : DbConnection
     {
         internal List<string> Commands { get; } = [];
         internal int TransactionAttempts { get; private set; }
         internal int TransactionDisposals { get; set; }
         internal int WriteAttempts { get; set; }
+        internal int CloseAttempts { get; private set; }
+        internal bool UnlockAwaitEnded { get; set; }
+        internal bool FailUnlock => failUnlock;
+        internal bool AwaitUnlockCancellation => awaitUnlockCancellation;
+        internal bool FailTransactionDisposal => failTransactionDisposal;
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
         public override string Database => "fixture-database";
@@ -430,7 +595,7 @@ public sealed class OfflineMigrationApplyJournalTests
         public override string ServerVersion => "fixture";
         public override ConnectionState State => ConnectionState.Open;
         public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
-        public override void Close() { }
+        public override void Close() { CloseAttempts++; }
         public override void Open() { }
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
         {
@@ -479,7 +644,29 @@ public sealed class OfflineMigrationApplyJournalTests
             Assert.Single(_parameters.Values);
             Assert.Equal(OfflineMigrationHost.StateLockConstant, _parameters.Values[0].Value);
             owner.Commands.Add(CommandText);
+            if (owner.FailUnlock && CommandText.StartsWith("SELECT pg_advisory_unlock", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("fixture_private_unlock_detail");
+            }
             return true;
+        }
+        public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
+        {
+            if (owner.AwaitUnlockCancellation && CommandText.StartsWith("SELECT pg_advisory_unlock", StringComparison.Ordinal))
+            {
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                    throw new InvalidOperationException("fixture_cleanup_should_cancel");
+                }
+                finally
+                {
+                    owner.UnlockAwaitEnded = true;
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return ExecuteScalar();
         }
         protected override DbParameter CreateDbParameter() => Substitute.For<DbParameter>();
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
@@ -494,7 +681,14 @@ public sealed class OfflineMigrationApplyJournalTests
         public override void Rollback() { }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { owner.TransactionDisposals++; }
+            if (disposing)
+            {
+                owner.TransactionDisposals++;
+                if (owner.FailTransactionDisposal)
+                {
+                    throw new InvalidOperationException("fixture_private_disposal_fault");
+                }
+            }
             base.Dispose(disposing);
         }
     }

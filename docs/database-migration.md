@@ -161,10 +161,27 @@ payload with that self-referential field empty. These identities are distinct;
 journal and current-receipt artifact references must not substitute the semantic
 seal for the actual file hash or hash normalized bytes as if they were the original.
 
-The same host parses `observe-source --provider <provider> --env-file <path>`.
+The same host parses `observe-source --provider <provider> --env-file <path>
+--timeout-seconds <canonical-positive-seconds>`. Every new source/capture operation
+requires an explicit finite budget before reading credentials or constructing its
+native capability. ASCII digits without signs, whitespace or leading zeros are
+required; `1..2147483` is the Int32-millisecond representation range, not a business
+budget default or a universal verification ceiling. One linked deadline/token
+covers environment reading, native observation, dump handshake and output. The
+original backup owner keeps its earlier outer deadline and passes its remaining
+budget at each launch; `TimeoutSeconds` records that launch's actual budget, not a
+renewed outer allowance. Existing v2 disaster-recovery backups do not acquire this
+new capture requirement. Console cancellation, SIGTERM/SIGHUP, EOF, faults and
+deadline expiry cannot emit completed capture evidence. The awaited native owner
+must reach actual transaction/command/connection terminal; a timed wait or a
+disposed token alone is not proof of release. Backup child cleanup remains the
+original operation owner's bounded lifecycle, not a borrowed test-policy timeout.
 PostgreSQL capture additionally requires `--capture-session --dump-output <new
 absolute path>`. The observer announces its actual source/exported snapshot before
-the original backup owner runs `pg_dump --snapshot`. Only the exact stdin line
+the dump; `CapturedAt` comes from the native snapshot establishment, not the later
+completion of the source scan. First and final evidence bind the same timestamp,
+snapshot, full source and launch budget. The original backup owner then runs
+`pg_dump --snapshot`. Only the exact stdin line
 `DUMP_COMPLETED`, after the dump child is truly terminal, releases the callback;
 stdin cannot select a path, source observation, snapshot or hash. The native observer
 independently hashes the pre-bound dump, closes its read-only transaction, and only
@@ -173,6 +190,38 @@ produces no completed evidence. MySQL/SQLite snapshot capture is explicitly unsu
 until their actual owner capability exists. Stdio contract fixtures are not native
 database or backup proof, and the source-observer factory currently also refuses
 unconfigured owners rather than interpreting empty input as an empty database.
+
+The migration-owned source-observation component registers the checked-in
+`2026-05-17` representative legacy shape, not an already qualified production dump.
+Its PostgreSQL path closes the actual catalog, all 49 registered columns and every
+row, history and five sequence states under one native read-only snapshot with a
+streamed, bounded content encoder. Three-provider shape registration is not proof
+of three native implementations: missing MySQL/SQLite full-content/snapshot
+capabilities fail closed. The component still needs its unique native-session
+owner and genuine producer/provider execution before operational qualification.
+
+Sealed Apply consumes the exact verified artifact and revalidates source (or
+exact journal progress), backup, target, tool and DAG after its exclusive lock,
+on the same native transaction/session. Control journal entries are insert-only;
+each business unit and its journal append share a database transaction, and forked
+state is published only after commit. Resume reads the exact checkpoint's whole
+chain, not a latest-row shortcut. Bounded step proofs use O(step-count) memory and
+are not a current-schema receipt. Unknown commit or rollback outcomes require
+recovery rather than blind replay. The invocation supplies its explicit finite
+cleanup budget; primary failure and
+cleanup failure are recorded separately, and actual native disposal remains a
+separate integration/terminal proof, not a declaration inferred from a token.
+Current native Apply is PostgreSQL-only; missing compiled bootstrap/legacy
+operations, production admission or non-PG
+capabilities refuse before the first write. Legacy Contract guards are unchanged.
+
+Completed-Apply plan-binding verification independently hashes the original raw
+artifact bytes and rechecks closure against authenticated capture/restore evidence
+at the original journal's first admission time. It must not backfill those inputs
+from the plan or demand that the now-migrated live database still has its old
+shape. Fresh current schema and actual operation postconditions are independently
+verified by the current-receipt owner; the pure binding helper is not a receipt
+issuer or an execution grant.
 
 The current `CreateOwnedReader` fails with
 `schema_offline_plan_evidence_owner_not_configured`: the existing backup manifest
@@ -239,6 +288,36 @@ The receipt JSON must explicitly contain its closed `status`; omission cannot
 default to success. Receipt admission failures stop hosted business-service startup
 in Development as well as Production, using the fatal admission category rather
 than the ordinary development-only bootstrap logging fallback.
+
+The Migration-owned `OfflineMigrationCurrentSchemaIssuer` requires explicit original
+plan/apply/checkpoint artifacts and a completed exact native journal. Artifact SHA-256
+binds all actual file bytes; `OfflineMigrationJournalAnchor.EntryDigest` binds the
+entry payload's separate semantic seal. The verifier streams the entire original
+invocation (not a prefix ending at a requested checkpoint), validates every explicit
+checkpoint against its native entry, and authenticates the first attempt's UTC
+admission time before revalidating the original backup/registry/DAG bindings.
+
+Native current schema, instance/database identity, required target postconditions
+and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
+read-only transaction. The issuer passes its actual native instance/database identity to the current-schema
+observer with that exact connection/transaction; an adapter cannot substitute plan
+identity or establish a second capture. Its returned identity must match that observation.
+Expected/actual fact vectors must close in both directions and agree with the original
+committed step proofs; an empty observation, partial
+apply, warning, unknown operation or provider cannot produce `verified-current`.
+The current target is independently derived from its original owner, never the plan
+payload. Only after successful observation and snapshot cleanup does the issuer
+return canonical current-receipt bytes with their separate whole-file SHA-256.
+`VerifyExistingAsync` consumes an explicit original receipt artifact and re-runs
+that native verification before comparing the complete recomputed receipt seal;
+it does not accept a caller's success status or re-use its claimed verifier identity.
+
+The normal issuer factory remains deliberately unavailable until original native
+current-schema, compiled-operation, artifact and authenticated-backup owners are
+configured. Missing owners return `current_verify_native_owners_not_configured`
+before native access or publication. Validator unit fixtures exercise structural
+refusal rules only; they neither issue receipts through fake providers nor replace
+the required empty/old database, independent verifier and startup runtime gates.
 
 The test-only materialization receipt remains a separate isolated-run artifact.
 Its schema check uses `CurrentSchemaReadObserver`, not an optional production

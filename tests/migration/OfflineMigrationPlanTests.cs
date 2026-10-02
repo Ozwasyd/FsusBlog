@@ -48,6 +48,30 @@ public sealed class OfflineMigrationPlanTests
     }
 
     [Fact]
+    public void CompletedApply_UsesAuthenticatedCaptureAndOriginalAdmissionWithActualArtifactBytes()
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        OfflineMigrationPlan plan = fixture.Build();
+        byte[] bytes = OfflineMigrationPlanCodec.Serialize(plan);
+        var artifact = new CurrentSchemaArtifactReference("contract-plan", Convert.ToHexStringLower(SHA256.HashData(bytes)));
+        Assert.NotEqual(plan.ContentDigest, artifact.Sha256);
+        Assert.Equal(plan, OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, bytes, artifact,
+            fixture.Backup, fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)).Plan);
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
+            bytes.Concat(new byte[] { 10 }).ToArray(), artifact, fixture.Backup, fixture.Target, fixture.Tool,
+            fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
+            bytes, artifact with { Sha256 = plan.ContentDigest }, fixture.Backup, fixture.Target, fixture.Tool,
+            fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
+            bytes, artifact, fixture.Backup with { SourceAtCapture = fixture.Source with { ContentDigest = DigestB } },
+            fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
+            bytes, artifact, fixture.Backup, fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag,
+            AdmissionTime.AddDays(2), TimeSpan.FromHours(24)));
+    }
+
+    [Fact]
     public void Plan_RegistryInputOrderDoesNotAlterRegistryOrContentDigest()
     {
         Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);

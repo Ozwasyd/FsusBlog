@@ -46,16 +46,29 @@ public sealed record OfflineMigrationPredicateObservation(
 /// selector; the invocation and sequence must agree with its verified parent chain.
 /// </summary>
 public sealed record OfflineMigrationApplyCheckpoint(
-    CurrentSchemaArtifactReference JournalHead,
+    OfflineMigrationJournalAnchor JournalHead,
     string InvocationId,
     long Sequence);
 
-/// <summary>Apply admission options; operations and their order come only from the sealed plan.</summary>
+/// <summary>
+/// A content-addressed journal entry's semantic seal, excluding its self-digest field.
+/// This is not an artifact-byte SHA. An exported checkpoint artifact must separately bind
+/// the SHA of all actual file bytes using the current artifact reference contract.
+/// </summary>
+public sealed record OfflineMigrationJournalAnchor(string Reference, string EntryDigest);
+
+/// <summary>
+/// Apply admission options; operations and their order come only from the sealed plan.
+/// CleanupBudget must be explicitly positive and supported by the runtime timer before
+/// any write. Cleanup receives its own token/deadline after main-request cancellation;
+/// a budget does not prove the native session or transaction has actually terminated.
+/// </summary>
 public sealed record OfflineMigrationApplyRequest(
     string InvocationId,
     int Attempt,
     bool ConfirmDestructive,
-    OfflineMigrationApplyCheckpoint? Checkpoint = null);
+    OfflineMigrationApplyCheckpoint? Checkpoint = null,
+    TimeSpan? CleanupBudget = null);
 
 /// <summary>
 /// Immutable evidence of an attempt, committed unit, or terminal boundary. Commit events must

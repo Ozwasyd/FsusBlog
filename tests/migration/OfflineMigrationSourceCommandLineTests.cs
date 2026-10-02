@@ -16,11 +16,12 @@ public sealed class OfflineMigrationSourceCommandLineTests
     {
         string dump = Path.GetFullPath("contract-test-dump");
         OfflineMigrationSourceCommandOptions options = OfflineMigrationCommandLine.ParseSourceObservation(
-            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--capture-session", "--dump-output", dump]);
+            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--timeout-seconds", "30", "--capture-session", "--dump-output", dump]);
         Assert.Equal(CurrentSchemaProviderKind.PostgreSql, options.Provider);
         Assert.Equal("source.env", options.EnvironmentFilePath);
         Assert.True(options.CaptureSession);
         Assert.Equal(dump, options.DumpOutputPath);
+        Assert.Equal(30, options.TimeoutSeconds);
     }
 
     [Theory]
@@ -31,7 +32,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
     public void Parse_CallerCannotSupplySourceSnapshotOrHash(string argument)
     {
         Assert.StartsWith("schema_source_observation_argument_unknown:", Assert.Throws<InvalidOperationException>(() =>
-            OfflineMigrationCommandLine.ParseSourceObservation(["observe-source", "--provider", "postgresql", "--env-file", "source.env", argument, "value"])).Message);
+            OfflineMigrationCommandLine.ParseSourceObservation(["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--timeout-seconds", "30", argument, "value"])).Message);
     }
 
     [Theory]
@@ -41,18 +42,18 @@ public sealed class OfflineMigrationSourceCommandLineTests
     {
         Assert.Equal("schema_source_capture_provider_or_dump_path_invalid", Assert.Throws<InvalidOperationException>(() =>
             OfflineMigrationCommandLine.ParseSourceObservation(["observe-source", "--provider", provider,
-                "--env-file", "source.env", "--capture-session", "--dump-output", Path.GetFullPath("contract-test-dump")])).Message);
+                "--env-file", "source.env", "--timeout-seconds", "30", "--capture-session", "--dump-output", Path.GetFullPath("contract-test-dump")])).Message);
     }
 
     [Fact]
     public void Parse_RejectsRelativeDumpPathDuplicateCaptureAndDumpWithoutCapture()
     {
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationCommandLine.ParseSourceObservation(
-            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--capture-session", "--dump-output", "relative.dump"]));
+            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--timeout-seconds", "30", "--capture-session", "--dump-output", "relative.dump"]));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationCommandLine.ParseSourceObservation(
-            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--capture-session", "--capture-session"]));
+            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--timeout-seconds", "30", "--capture-session", "--capture-session"]));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationCommandLine.ParseSourceObservation(
-            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--dump-output", Path.GetFullPath("contract-test-dump")]));
+            ["observe-source", "--provider", "postgresql", "--env-file", "source.env", "--timeout-seconds", "30", "--dump-output", Path.GetFullPath("contract-test-dump")]));
     }
 
     [Fact]
@@ -61,7 +62,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
         var observer = new ContractObserver();
         using var output = new StringWriter();
         using var control = new StringReader(string.Empty);
-        await OfflineMigrationHost.ObserveSourceAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", false, null),
+        await OfflineMigrationHost.ObserveSourceAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", false, null, 30),
             "contract-only-connection", observer, control, output, CancellationToken.None);
         using JsonDocument source = JsonDocument.Parse(output.ToString());
         Assert.Equal(Digest, source.RootElement.GetProperty("ContentDigest").GetString());
@@ -76,7 +77,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
         using var control = new ControlledReader();
         using var output = new StringWriter();
         string dump = Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}");
-        Task operation = OfflineMigrationHost.ObserveSourceAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", true, dump),
+        Task operation = OfflineMigrationHost.ObserveSourceAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", true, dump, 30),
             "contract-only-connection", observer, control, output, CancellationToken.None);
         try
         {
@@ -99,6 +100,8 @@ public sealed class OfflineMigrationSourceCommandLineTests
             Assert.Equal(first.RootElement.GetProperty("Source").GetRawText(), evidence.GetProperty("Source").GetRawText());
             Assert.Equal(first.RootElement.GetProperty("SnapshotId").GetString(), evidence.GetProperty("SnapshotId").GetString());
             Assert.Equal(first.RootElement.GetProperty("CapturedAt").GetString(), evidence.GetProperty("CapturedAt").GetString());
+            Assert.Equal(ContractObserver.SnapshotTime, evidence.GetProperty("CapturedAt").GetDateTimeOffset());
+            Assert.Equal(30, evidence.GetProperty("TimeoutSeconds").GetInt32());
             Assert.Equal(Digest, evidence.GetProperty("DatabaseDumpSha256").GetString());
         }
         finally
@@ -122,7 +125,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
         observer.Terminal.TrySetResult();
         Assert.Equal("schema_source_capture_dump_terminal_required", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
             OfflineMigrationHost.ObserveSourceAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", true,
-                Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}")), "contract-only-connection", observer, control, output, CancellationToken.None))).Message);
+                Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}"), 30), "contract-only-connection", observer, control, output, CancellationToken.None))).Message);
         Assert.DoesNotContain("\"status\":\"ok\"", output.ToString());
         Assert.True(observer.ScopeClosed);
     }
@@ -135,7 +138,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
         using var control = new ControlledReader();
         using var output = new StringWriter();
         Task operation = OfflineMigrationHost.ObserveSourceAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", true,
-            Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}")), "contract-only-connection", observer, control, output, cancellation.Token);
+            Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}"), 30), "contract-only-connection", observer, control, output, cancellation.Token);
         try
         {
             await control.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -159,9 +162,137 @@ public sealed class OfflineMigrationSourceCommandLineTests
         }
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("+1")]
+    [InlineData("01")]
+    [InlineData(" 1")]
+    [InlineData("1 ")]
+    [InlineData("1.0")]
+    [InlineData("1e2")]
+    [InlineData("2147484")]
+    [InlineData("99999999")]
+    public void Parse_RejectsNonCanonicalOrUnrepresentableTimeout(string timeout)
+    {
+        Assert.Equal("schema_source_observation_timeout_invalid", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParseSourceObservation(["observe-source", "--provider", "postgresql",
+                "--env-file", "source.env", "--timeout-seconds", timeout])).Message);
+    }
+
+    [Fact]
+    public void Parse_RequiresExplicitTimeoutAndAcceptsRepresentationBoundary()
+    {
+        Assert.Equal("schema_source_observation_timeout_required", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParseSourceObservation(["observe-source", "--provider", "postgresql",
+                "--env-file", "source.env"])).Message);
+        Assert.Equal(2147483, OfflineMigrationCommandLine.ParseSourceObservation(["observe-source", "--provider",
+            "postgresql", "--env-file", "source.env", "--timeout-seconds", "2147483"]).TimeoutSeconds);
+    }
+
+    [Fact]
+    public async Task Observe_InvalidBudgetRefusesBeforeEnvironmentOrCapabilityConstruction()
+    {
+        int reads = 0;
+        int capabilities = 0;
+        using var control = new StringReader(string.Empty);
+        using var output = new StringWriter();
+        Assert.Equal("schema_source_observation_timeout_invalid", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationHost.ObserveSourceWithinBudgetAsync(new(CurrentSchemaProviderKind.PostgreSql, "source.env", false, null, 0),
+                _ => { reads++; return Task.FromResult("contract-only"); },
+                () => { capabilities++; return new ContractObserver(); }, control, output, CancellationToken.None))).Message);
+        Assert.Equal(0, reads);
+        Assert.Equal(0, capabilities);
+        Assert.Equal(string.Empty, output.ToString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Observe_ActualOwnedDeadlineCancelsEnvironmentOrCaptureAndAwaitsScope(bool inCapture)
+    {
+        var clock = new DeadlineTimeProvider();
+        var observer = new ContractObserver();
+        using var control = new ControlledReader();
+        using var output = new StringWriter();
+        var environmentEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var environmentRelease = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool environmentClosed = false;
+        Task operation = OfflineMigrationHost.ObserveSourceWithinBudgetAsync(
+            new(CurrentSchemaProviderKind.PostgreSql, "source.env", inCapture,
+                inCapture ? Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}") : null, 30), async token =>
+            {
+                environmentEntered.TrySetResult();
+                try
+                {
+                    return inCapture ? "contract-only" : await environmentRelease.Task.WaitAsync(token);
+                }
+                finally
+                {
+                    environmentClosed = true;
+                }
+            }, () => observer, control, output, CancellationToken.None, clock);
+        try
+        {
+            await (inCapture ? control.Entered.Task : environmentEntered.Task).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(TimeSpan.FromSeconds(30), clock.DueTime);
+            Assert.False(operation.IsCompleted);
+            clock.Fire();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
+            Assert.True(environmentClosed);
+            Assert.Equal(inCapture, observer.ScopeClosed);
+            Assert.DoesNotContain("\"status\":\"ok\"", output.ToString());
+        }
+        finally
+        {
+            clock.Fire();
+            environmentRelease.TrySetResult("contract-only");
+            control.Release(null);
+            observer.Terminal.TrySetResult();
+            try
+            {
+                await operation;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+    }
+
+    // Fires the real CancellationTokenSource timer callback without wall-clock sleeps.
+    private sealed class DeadlineTimeProvider : TimeProvider
+    {
+        private DeadlineTimer? _timer;
+        internal TimeSpan DueTime { get; private set; }
+        internal void Fire() => _timer?.Fire();
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            DueTime = dueTime;
+            return _timer = new DeadlineTimer(callback, state);
+        }
+
+        private sealed class DeadlineTimer(TimerCallback callback, object? state) : ITimer
+        {
+            private bool _disposed;
+            internal void Fire()
+            {
+                if (!_disposed)
+                {
+                    callback(state);
+                }
+            }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period) => !_disposed;
+            public void Dispose() => _disposed = true;
+            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+        }
+    }
+
     // A pure stdio protocol fixture. It is not a native transaction, dump, or backup proof.
     private sealed class ContractObserver : IOfflineMigrationSnapshotSourceObserver
     {
+        internal static readonly DateTimeOffset SnapshotTime = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
         private static readonly OfflineMigrationSourceObservation Source = new(
             new(CurrentSchemaProviderKind.PostgreSql, "contract-source", "contract-database"),
             "contract-observer", "v1", ImmutableArray<OfflineMigrationFact>.Empty,
@@ -180,17 +311,17 @@ public sealed class OfflineMigrationSourceCommandLineTests
             return Task.FromResult(Source);
         }
 
-        public async Task<(OfflineMigrationSourceObservation Source, string SnapshotId, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
-            string connectionString, Func<OfflineMigrationSourceObservation, string, CancellationToken, Task<string>> awaitCompletedDumpPath,
+        public async Task<(OfflineMigrationSourceObservation Source, string SnapshotId, DateTimeOffset CapturedAt, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
+            string connectionString, Func<OfflineMigrationSourceObservation, string, DateTimeOffset, CancellationToken, Task<string>> awaitCompletedDumpPath,
             CancellationToken cancellationToken)
         {
             CaptureCalls++;
             try
             {
-                DumpPath = await awaitCompletedDumpPath(Source, "contract-snapshot", cancellationToken);
+                DumpPath = await awaitCompletedDumpPath(Source, "contract-snapshot", SnapshotTime, cancellationToken);
                 DumpHandshake.TrySetResult();
                 await Terminal.Task.WaitAsync(cancellationToken);
-                return (Source, "contract-snapshot", Digest);
+                return (Source, "contract-snapshot", SnapshotTime, Digest);
             }
             finally
             {

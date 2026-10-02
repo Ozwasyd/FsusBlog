@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 using SqlSugar;
@@ -20,19 +21,51 @@ public static class OfflineMigrationHost
     {
         if (args.Length > 0 && args[0] == "observe-source")
         {
+            using var callerCancellation = new CancellationTokenSource();
+            ConsoleCancelEventHandler cancelHandler = (_, signal) =>
+            {
+                signal.Cancel = true;
+                CancelSourceOperation();
+            };
+            Console.CancelKeyPress += cancelHandler;
+            PosixSignalRegistration? terminate = null;
+            PosixSignalRegistration? hangup = null;
             try
             {
+                terminate = OperatingSystem.IsWindows() ? null
+                    : PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
+                    {
+                        signal.Cancel = true;
+                        CancelSourceOperation();
+                    });
+                hangup = OperatingSystem.IsWindows() ? null
+                    : PosixSignalRegistration.Create(PosixSignal.SIGHUP, signal =>
+                    {
+                        signal.Cancel = true;
+                        CancelSourceOperation();
+                    });
                 OfflineMigrationSourceCommandOptions options = OfflineMigrationCommandLine.ParseSourceObservation(args);
-                string? connectionString = ReadEnvironmentFile(options.EnvironmentFilePath)
-                    .GetValueOrDefault("ConnectionStrings__DefaultConnection");
-                if (string.IsNullOrWhiteSpace(connectionString))
+                await ObserveSourceWithinBudgetAsync(options, async token =>
                 {
-                    throw new InvalidOperationException("schema_connection_string_missing");
-                }
+                    token.ThrowIfCancellationRequested();
+                    string[] lines = await File.ReadAllLinesAsync(options.EnvironmentFilePath, token).ConfigureAwait(false);
+                    // Reuse the original env grammar. A task-owned temporary env path is
+                    // not an observation or credential copied into a plan or log.
+                    string? connectionString = ParseEnvironmentLines(lines).GetValueOrDefault("ConnectionStrings__DefaultConnection");
+                    if (string.IsNullOrWhiteSpace(connectionString))
+                    {
+                        throw new InvalidOperationException("schema_connection_string_missing");
+                    }
 
-                await ObserveSourceAsync(options, connectionString, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver(),
-                    Console.In, Console.Out, CancellationToken.None).ConfigureAwait(false);
+                    return connectionString;
+                }, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver, Console.In, Console.Out,
+                    callerCancellation.Token).ConfigureAwait(false);
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteJson(new { status = "failed", code = "schema_offline_source_operation_cancelled" });
+                return 1;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -42,6 +75,24 @@ public static class OfflineMigrationHost
                     : "schema_offline_source_observation_failed";
                 WriteJson(new { status = "failed", code });
                 return 1;
+            }
+            finally
+            {
+                hangup?.Dispose();
+                terminate?.Dispose();
+                Console.CancelKeyPress -= cancelHandler;
+            }
+
+            void CancelSourceOperation()
+            {
+                try
+                {
+                    callerCancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // A queued console notification after terminal cannot reopen admission.
+                }
             }
         }
 
@@ -111,6 +162,36 @@ public static class OfflineMigrationHost
         }
     }
 
+    internal static async Task ObserveSourceWithinBudgetAsync(
+        OfflineMigrationSourceCommandOptions options,
+        Func<CancellationToken, Task<string>> readConnectionString,
+        Func<IOfflineMigrationSnapshotSourceObserver> createObserver,
+        TextReader control,
+        TextWriter output,
+        CancellationToken callerToken,
+        TimeProvider? timeProvider = null)
+    {
+        if (options.TimeoutSeconds is <= 0 or > (int.MaxValue / 1000))
+        {
+            throw new InvalidOperationException("schema_source_observation_timeout_invalid");
+        }
+
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
+            timeProvider ?? TimeProvider.System);
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
+        operation.Token.ThrowIfCancellationRequested();
+        string connectionString = await readConnectionString(operation.Token).ConfigureAwait(false);
+        operation.Token.ThrowIfCancellationRequested();
+        // Construct the capability only after budget admission. Its native work must take
+        // this token; a capability constructor is not a place to connect to a database.
+        IOfflineMigrationSnapshotSourceObserver observer = createObserver();
+        operation.Token.ThrowIfCancellationRequested();
+        await ObserveSourceAsync(options, connectionString, observer, control, output, operation.Token).ConfigureAwait(false);
+        operation.Token.ThrowIfCancellationRequested();
+        // Actual native/session drain belongs to the awaited observer, not a timed wait
+        // followed by disposing still-active commands. Missing cleanup proof is failure.
+    }
+
     internal static async Task ObserveSourceAsync(
         OfflineMigrationSourceCommandOptions options,
         string connectionString,
@@ -145,7 +226,7 @@ public static class OfflineMigrationHost
         OfflineMigrationSourceObservation? announcedSource = null;
         string? announcedSnapshot = null;
         DateTimeOffset capturedAt = default;
-        var captured = await observer.CapturePostgreSqlSnapshotAsync(connectionString, async (source, snapshotId, token) =>
+        var captured = await observer.CapturePostgreSqlSnapshotAsync(connectionString, async (source, snapshotId, snapshotTime, token) =>
         {
             OfflineMigrationPlanValidation.ValidateObservation(source);
             if (source.Database.Provider != CurrentSchemaProviderKind.PostgreSql || announcedSource is not null)
@@ -154,16 +235,21 @@ public static class OfflineMigrationHost
             }
 
             OfflineMigrationPlanValidation.RequireText(snapshotId, "schema_source_capture_snapshot_invalid");
+            if (snapshotTime == default || snapshotTime.Offset != TimeSpan.Zero)
+            {
+                throw new InvalidOperationException("schema_source_capture_time_invalid");
+            }
             announcedSource = source;
             announcedSnapshot = snapshotId;
-            capturedAt = DateTimeOffset.UtcNow;
+            capturedAt = snapshotTime;
             await output.WriteLineAsync(JsonSerializer.Serialize(new
             {
                 Source = source,
                 SnapshotId = snapshotId,
                 CapturedAt = capturedAt,
                 ObserverId = source.ExtractorId,
-                ObserverVersion = source.ExtractorVersion
+                ObserverVersion = source.ExtractorVersion,
+                TimeoutSeconds = options.TimeoutSeconds
             }).AsMemory(), token).ConfigureAwait(false);
             await output.FlushAsync(token).ConfigureAwait(false);
             string? terminal = await control.ReadLineAsync(token).ConfigureAwait(false);
@@ -177,7 +263,7 @@ public static class OfflineMigrationHost
             return options.DumpOutputPath;
         }, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (announcedSource is null || captured.SnapshotId != announcedSnapshot
+        if (announcedSource is null || captured.SnapshotId != announcedSnapshot || captured.CapturedAt != capturedAt
             || !OfflineMigrationPlanValidation.Equal(captured.Source, announcedSource))
         {
             throw new InvalidOperationException("schema_source_capture_identity_changed");
@@ -185,7 +271,7 @@ public static class OfflineMigrationHost
 
         OfflineMigrationPlanValidation.RequireDigest(captured.DumpSha256, "schema_source_capture_dump_digest_invalid");
         var evidence = new OfflineMigrationBackupCaptureEvidence(captured.Source, captured.SnapshotId,
-            capturedAt, captured.Source.ExtractorId, captured.Source.ExtractorVersion, captured.DumpSha256);
+            capturedAt, captured.Source.ExtractorId, captured.Source.ExtractorVersion, captured.DumpSha256, options.TimeoutSeconds);
         await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "ok", capture = evidence })
             .AsMemory(), cancellationToken).ConfigureAwait(false);
         await output.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -258,9 +344,12 @@ public static class OfflineMigrationHost
     }
 
     private static Dictionary<string, string> ReadEnvironmentFile(string path)
+        => ParseEnvironmentLines(File.ReadAllLines(path));
+
+    private static Dictionary<string, string> ParseEnvironmentLines(IEnumerable<string> lines)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (string rawLine in File.ReadAllLines(path))
+        foreach (string rawLine in lines)
         {
             string line = rawLine.Trim();
             if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
