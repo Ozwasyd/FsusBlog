@@ -13,7 +13,7 @@ namespace FsusBlog.Migration;
 // a known-legacy target-preparation operation, or permission to bypass core admission.
 internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyOperation
 {
-    internal const string StepReference = "bootstrap-current-owned-empty.v1";
+    internal const string StepReference = "bootstrap-current-schema";
     internal const string EmptyPredicate = "current-owned-empty-source.v1";
     internal const string TargetPredicate = "current-owned-bootstrap-target.v1";
     private readonly OwnedCurrentSchemaTarget _owned;

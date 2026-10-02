@@ -436,6 +436,9 @@ mutable bootstrap values as permanent runtime facts. The original journal owner
 alone validates its control table on that same transaction before separation from
 the current business comparison domain; no journal mapping is copied here.
 The core retains commit, rollback, journal and original plan/source/backup admission.
+The actual empty-source component retains the original empty source profile's
+`bootstrap-current-schema` entrypoint; naming it does not admit absent provider
+owners, and the historical profile cannot enter this empty-source operation.
 This single-provider step is not a complete admissible DAG. Known-legacy target
 preparation, MySQL/SQLite execution owners, runtime composite alignment and real
 three-provider qualification remain pending. No original producer/native operation
