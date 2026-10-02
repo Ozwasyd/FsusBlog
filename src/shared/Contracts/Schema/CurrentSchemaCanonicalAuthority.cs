@@ -52,6 +52,7 @@ public static class CurrentSchemaCanonicalAuthority
                     static column => column.Key,
                     column => column.Value with
                     {
+                        Conversion = ProjectStorageConversion(column.Value),
                         PhysicalType = SchemaPhysicalTypeProjection.ToPhysical(
                             provider,
                             column.Value.DataType,
@@ -152,7 +153,13 @@ public static class CurrentSchemaCanonicalAuthority
                     }
                     break;
                 case CurrentSchemaRecipeOperationKind.AddColumnIfAbsent:
-                    SchemaColumnModel column = operation.Column ?? throw new InvalidOperationException("current_schema_complete_target_effect_column_missing");
+                    SchemaColumnModel logicalColumn = operation.Column ?? throw new InvalidOperationException("current_schema_complete_target_effect_column_missing");
+                    SchemaColumnModel column = logicalColumn with
+                    {
+                        Conversion = ProjectStorageConversion(logicalColumn),
+                        PhysicalType = SchemaPhysicalTypeProjection.ToPhysical(provider, logicalColumn.DataType, logicalColumn.MaxLength, logicalColumn.PhysicalType),
+                        Collation = SchemaPhysicalTypeProjection.ToCollation(provider, logicalColumn.DataType)
+                    };
                     if (column.Name != operation.Name || column.IsIdentity)
                     {
                         throw new InvalidOperationException("current_schema_complete_target_effect_column_invalid");
@@ -188,6 +195,20 @@ public static class CurrentSchemaCanonicalAuthority
     private static SchemaIndexModel ConstraintIndex(string name, IReadOnlyList<string> columns)
         => new(name, true, columns.Select(static column => new SchemaIndexKeyModel(column, "asc", "last", "default", "default")).ToArray(),
             [], "btree", null, false);
+
+    private static string ProjectStorageConversion(SchemaColumnModel column)
+    {
+        // Conversion is the compiled CLR/ORM converter, not a database catalog
+        // property. Its original value remains in the semantic model, owner input
+        // digest and target identity. Physical JSON storage remains independently
+        // projected and compared through DataType/PhysicalType and all other facts.
+        // An unsupported converter cannot be silently erased by this projection.
+        if (column.Conversion is not (null or "none" or "json"))
+        {
+            throw new InvalidOperationException("current_schema_storage_conversion_unavailable");
+        }
+        return "none";
+    }
 
     public static void VerifyIdentity(SchemaModelSnapshot snapshot, CurrentSchemaIdentity identity)
     {

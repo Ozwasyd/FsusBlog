@@ -60,6 +60,26 @@ internal sealed class OwnedCurrentSchemaTarget
         return JsonSerializer.Deserialize<CurrentSchemaBootstrapInput>(JsonSerializer.SerializeToUtf8Bytes(_artifact.Input), s_json)!;
     }
 
+    internal async Task RevalidateRetainedArtifactAsync(CancellationToken cancellationToken)
+    {
+        if (await HashFileAsync(Execution.AssemblyPath, cancellationToken).ConfigureAwait(false) != _artifact.Input.Producer.ProducerAssemblySha256
+            || await HashFileAsync(typeof(CurrentSchemaCanonicalAuthority).Assembly.Location, cancellationToken).ConfigureAwait(false) != _artifact.Input.Producer.ContractAssemblySha256)
+        {
+            throw new InvalidOperationException("current_schema_owned_retained_compiled_input_changed");
+        }
+        byte[] bytes = await ReadOriginalBytesAsync(Execution.ArtifactPath, cancellationToken).ConfigureAwait(false);
+        if (Convert.ToHexStringLower(SHA256.HashData(bytes)) != Execution.ArtifactSha256)
+        {
+            throw new InvalidOperationException("current_schema_owned_retained_artifact_changed");
+        }
+        CurrentSchemaOwnedTargetArtifact retained = ReadArtifact(bytes, _artifact.Input.Producer);
+        ValidateArtifact(retained, _artifact.Input.Producer);
+        if (retained.InputSha256 != _artifact.InputSha256 || retained.Target != _artifact.Target)
+        {
+            throw new InvalidOperationException("current_schema_owned_retained_input_changed");
+        }
+    }
+
     internal static async Task<OwnedCurrentSchemaTarget> InvokeOriginalOwnerAsync(
         string producerAssemblyPath, string expectedSourceRevision, string taskOutputRoot,
         CancellationToken cancellationToken)
@@ -315,8 +335,8 @@ internal sealed class OwnedCurrentSchemaTarget
 
     private static string ReadOriginalOwnerSourceRevision(string assemblyPath, CancellationToken cancellationToken)
     {
-        using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(assemblyPath, cancellationToken);
-        using var stream = new FileStream(handle, FileAccess.Read, 4096);
+        using var originalHandle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(assemblyPath, cancellationToken);
+        using var stream = new FileStream(originalHandle, FileAccess.Read, 4096);
         using var pe = new PEReader(stream);
         MetadataReader reader = pe.GetMetadataReader();
         AssemblyDefinition assembly = reader.GetAssemblyDefinition();

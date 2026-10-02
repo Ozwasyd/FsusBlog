@@ -359,6 +359,13 @@ NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions
 PostgreSQL's explicit `timestamp(6)` is normalized only to its equivalent
 unspecified default precision; `timestamp(0)` and every other explicit precision
 remain distinct and fail exact comparison.
+Compiled CLR/ORM `Conversion` remains in the complete logical input and its
+source/content identities; it is not inferred from a native database catalog.
+The single provider/storage projection admits only the current known converter
+vocabulary and compares its physical domain separately. JSON storage type,
+nullability, defaults, indexes and constraints remain exact physical facts; a
+catalog conversion of `none` is not evidence that the compiled JSON conversion
+was absent or replaced. Unknown logical converters refuse projection.
 The independent verifier and cold-readiness comparison reject stale identities,
 content tampering and exact table, column, physical type, nullability, default,
 constraint or index drift.
@@ -399,9 +406,15 @@ added columns/constraints and indexes into the provider target. It retains the
 nonrelational sequence/function/trigger effects and bootstrap seed effects
 separately: relational comparison alone does not prove those effects. Seed data
 postconditions belong to apply, not to permanent runtime schema identity. Native
-expression normalization/effect observation and the composite target's runtime
-consumer alignment are still pending; this projection is not an apply grant or
-a verified physical schema.
+expression/effect measurement now has a Migration-owned PostgreSQL component:
+complete `pg_get_expr` defaults/checks/index predicates, their bound dependencies,
+unowned sequences and function/trigger semantics are observed on the same native
+RepeatableRead transaction. Typed expression comparison retains literal bytes,
+casts and exact decimal identity; unsupported syntax refuses rather than dropping
+checks/defaults. Shared owns only neutral AST/identity and exact decimal syntax,
+not PostgreSQL parsing or SQL. The actual physical digest still uses the original
+unmodified native snapshot. Composite target alignment with the original runtime
+consumer remains pending; this projection is not a verified physical schema.
 
 `CurrentSchemaBootstrapCompiler` owns PostgreSQL entity and complete-recipe DDL
 compilation from the neutral facts and executes those frozen commands only on
@@ -412,10 +425,21 @@ capabilities and command drift refuse explicitly. Recipe compilation additionall
 requires the exact input digest from an independently verified owned artifact;
 producer strings or caller-supplied facts cannot substitute for that evidence.
 The original owner ordering (all tables before additional effects) is preserved.
-The full current bootstrap operation is not registered or runnable yet: actual
-owned export/source proof, same-transaction native observation, original apply
-predicate/journal integration, MySQL/SQLite execution owners and real three-provider
-qualification remain pending. Source cases include original-vs-compiled PostgreSQL
+`PgCurrentSchemaBootstrapOperation` and its exact compiled-owner registry provide
+a PostgreSQL empty-source component. They consume only an actually invoked owned
+target, bind the current Migration assembly bytes, revalidate retained original
+input/artifact bytes and execute the full original command closure on the caller
+transaction. Native empty-source and complete target/effect predicates, initial
+seed values and unique seed-key cardinalities are independently read before a
+complete unit is returned. Replay checks the target and stable seed keys, not
+mutable bootstrap values as permanent runtime facts. The original journal owner
+alone validates its control table on that same transaction before separation from
+the current business comparison domain; no journal mapping is copied here.
+The core retains commit, rollback, journal and original plan/source/backup admission.
+This single-provider step is not a complete admissible DAG. Known-legacy target
+preparation, MySQL/SQLite execution owners, runtime composite alignment and real
+three-provider qualification remain pending. No original producer/native operation
+has been executed for this source component. Source cases include original-vs-compiled PostgreSQL
 schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.

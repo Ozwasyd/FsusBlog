@@ -4,6 +4,7 @@ using System.Text;
 using SqlSugar;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
@@ -350,7 +351,7 @@ public sealed class CurrentSchemaReceiptTests
     {
         public ReceiptSchemaInspector()
         {
-            Canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(ReceiptSchemaEntity)]);
+            Canonical = CurrentSchemaEntityExtractor.Extract([typeof(ReceiptSchemaEntity)]);
             SchemaModelSnapshot current = CurrentSchemaCanonicalAuthority.ProjectProvider(
                 Canonical,
                 SchemaProviderKind.PostgreSql);
