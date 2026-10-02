@@ -77,6 +77,25 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
 
     public async Task<OfflineMigrationBackupObservation> ReadAndVerifyAsync(
         OfflineMigrationPlanCommandOptions options, CancellationToken cancellationToken)
+        => (await ReadAndVerifyInvocationAsync(options, cancellationToken).ConfigureAwait(false)).Observation;
+
+    internal Task<OfflineMigrationRetainedOwnedBackup> ReadAndRetainAsync(
+        OfflineMigrationPlanCommandOptions options, CancellationToken cancellationToken)
+        => OfflineMigrationRetainedOwnedBackup.CaptureAsync(this, options, cancellationToken);
+
+    internal async Task<OfflineMigrationOwnedBackupInvocation> ReadRetainedInvocationAsync(
+        OfflineMigrationPlanCommandOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (producer is not OfflineMigrationShellBackupDrillProducer original || original.OwnedInputs is null)
+        {
+            throw Failure("retained_original_bound_producer_required");
+        }
+        return await ReadAndVerifyInvocationAsync(options, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<OfflineMigrationOwnedBackupInvocation> ReadAndVerifyInvocationAsync(
+        OfflineMigrationPlanCommandOptions options, CancellationToken cancellationToken)
     {
         try
         {
@@ -91,7 +110,7 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         }
     }
 
-    private async Task<OfflineMigrationBackupObservation> ReadOwnedAsync(
+    private async Task<OfflineMigrationOwnedBackupInvocation> ReadOwnedAsync(
         OfflineMigrationPlanCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -209,7 +228,47 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         // relaxed fixture predicates. Current-source freshness is checked by the plan reader.
         OfflineMigrationPlanValidation.ValidateBackup(capture.Source, backup, verifiedAt, TimeSpan.MaxValue);
         cancellationToken.ThrowIfCancellationRequested();
-        return backup;
+        // These exact references have already passed this actual owned invocation's
+        // complete byte and semantic checks. Retention never discovers a latest report
+        // or reconstructs successful invocation provenance from a plan observation.
+        ImmutableArray<CurrentSchemaArtifactReference> retained =
+        [
+            backup.Package,
+            backup.Manifest,
+            backup.RestoreDrill,
+            new(Text(output, "nativeRestoredSourceReference"), Digest(output, "nativeRestoredSourceSha256")),
+            new(Text(output, "drillManifestReference"), Digest(output, "drillManifestSha256")),
+            new(Text(output, "stdoutReference"), Digest(output, "stdoutSha256")),
+            new(Text(output, "stderrReference"), Digest(output, "stderrSha256")),
+            new(Text(output, "nativeStderrReference"), Digest(output, "nativeStderrSha256"))
+        ];
+        return new(backup, retained);
+    }
+
+    internal static async Task ValidateRetainedArtifactsAsync(
+        ImmutableArray<CurrentSchemaArtifactReference> artifacts, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (artifacts.IsDefaultOrEmpty || artifacts.Length != 8
+            || artifacts.Any(artifact => artifact is null)
+            || artifacts.Select(artifact => artifact.Reference).Distinct(StringComparer.Ordinal).Count() != artifacts.Length)
+        {
+            throw Failure("retained_artifact_closure_changed");
+        }
+        try
+        {
+            foreach (CurrentSchemaArtifactReference artifact in artifacts)
+            {
+                OfflineMigrationPlanValidation.RequireDigest(artifact.Sha256, "offline_backup_owned_retained_digest_invalid");
+                string actual = await HashRegularFileAsync(Canonical(artifact.Reference), cancellationToken).ConfigureAwait(false);
+                Require(actual == artifact.Sha256, "retained_artifact_bytes_changed");
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            throw Failure("retained_artifact_read_failed");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static async Task<JsonDocument> ReadJsonArtifactAsync(JsonElement output, string prefix, string expectedPath,
@@ -362,4 +421,65 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
     }
 
     private static InvalidOperationException Failure(string code) => new("offline_backup_owned_" + code);
+}
+
+// Invocation-owned retained bytes, not a serializable receipt or a second producer.
+internal sealed record OfflineMigrationOwnedBackupInvocation(
+    OfflineMigrationBackupObservation Observation,
+    ImmutableArray<CurrentSchemaArtifactReference> Artifacts);
+
+/// <summary>
+/// Retain an actual successful original invocation in this process. The private
+/// constructor cannot import a plan's backup or an unsigned report. Revalidation
+/// proves the retained byte bindings, not a permanent inode lease or a new restore.
+/// </summary>
+internal sealed class OfflineMigrationRetainedOwnedBackup
+{
+    private readonly OfflineMigrationOwnedBackupInvocation _invocation;
+
+    private OfflineMigrationRetainedOwnedBackup(OfflineMigrationOwnedBackupInvocation invocation)
+    {
+        _invocation = invocation;
+    }
+
+    internal OfflineMigrationBackupObservation Observation => _invocation.Observation;
+
+    internal static async Task<OfflineMigrationRetainedOwnedBackup> CaptureAsync(
+        OfflineMigrationBackupAdmission admission, OfflineMigrationPlanCommandOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        OfflineMigrationOwnedBackupInvocation invocation = await admission.ReadRetainedInvocationAsync(
+            options, cancellationToken).ConfigureAwait(false);
+        // Reject drift between the original independent reads and retaining the
+        // complete closure; no observation is recreated from those bytes here.
+        await OfflineMigrationBackupAdmission.ValidateRetainedArtifactsAsync(invocation.Artifacts,
+            cancellationToken).ConfigureAwait(false);
+        return new(invocation);
+    }
+
+    internal async Task<OfflineMigrationBackupObservation> RevalidateAsync(CancellationToken cancellationToken)
+    {
+        await OfflineMigrationBackupAdmission.ValidateRetainedArtifactsAsync(_invocation.Artifacts,
+            cancellationToken).ConfigureAwait(false);
+        OfflineMigrationBackupObservation backup = _invocation.Observation;
+        OfflineMigrationPlanValidation.ValidateBackup(backup.SourceAtCapture, backup,
+            backup.RestoreVerifiedAt, TimeSpan.MaxValue);
+        cancellationToken.ThrowIfCancellationRequested();
+        return backup;
+    }
+
+    internal async Task<OfflineMigrationBackupObservation> RevalidateForSourceAsync(
+        OfflineMigrationSourceObservation actualSource, DateTimeOffset admissionTime, TimeSpan maximumBackupAge,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actualSource);
+        OfflineMigrationBackupObservation backup = await RevalidateAsync(cancellationToken).ConfigureAwait(false);
+        // The authority owner must obtain actualSource from the original native
+        // observer on its real session, not from the plan. Reuse the production
+        // database/content/freshness predicate without moving its age policy.
+        OfflineMigrationPlanValidation.ValidateBackup(actualSource, backup, admissionTime, maximumBackupAge);
+        cancellationToken.ThrowIfCancellationRequested();
+        return backup;
+    }
 }
