@@ -7,27 +7,44 @@ using System.Text;
 using Npgsql;
 
 using FsusBlog.Contracts.Schema;
+using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
 
 // Native historical value transforms, not a second current schema descriptor.
 // Entity property owners and all physical names/types/defaults come from the
 // actual current owner artifact retained by the structural-stage capability.
-internal sealed class PgLegacyNonArticlePreparation
+internal sealed partial class PgLegacyNonArticlePreparation
 {
-    private readonly PgLegacyCurrentSchemaPreparation _stage;
+    private readonly PgLegacyCurrentSchemaPreparation? _stage;
+    private readonly OwnedCurrentSchemaTarget _owned;
+    private readonly OfflineMigrationSourceObservation _source;
+    private readonly string _schemaName;
     private readonly IReadOnlyList<LegacyTableProgram> _programs;
     private readonly LegacyTableProgram _users;
     private readonly Dictionary<string, string> _currentDigests = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _currentCounts = new(StringComparer.Ordinal);
     private bool _removed;
     private long? _userMinimumNext;
 
     private PgLegacyNonArticlePreparation(PgLegacyCurrentSchemaPreparation stage, IReadOnlyList<LegacyTableProgram> programs)
+        : this(stage, stage.OwnedTarget, stage.OriginalSource, stage.RequireRetainedSchemaName(), programs)
+    {
+    }
+
+    private PgLegacyNonArticlePreparation(PgLegacyCurrentSchemaPreparation? stage, OwnedCurrentSchemaTarget owned,
+        OfflineMigrationSourceObservation source, string schemaName, IReadOnlyList<LegacyTableProgram> programs)
     {
         _stage = stage;
+        _owned = owned;
+        _source = source;
+        _schemaName = schemaName;
         _programs = programs;
         _users = programs.Single(static program => program.Owner == EntityOwner("User"));
     }
+
+    private PgLegacyCurrentSchemaPreparation Stage => _stage
+        ?? throw new InvalidOperationException("legacy_nonarticle_recovered_capability_is_read_only");
 
     internal static async Task<PgLegacyNonArticlePreparation> MigrateAsync(
         PgLegacyCurrentSchemaPreparation stage, DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
@@ -49,16 +66,17 @@ internal sealed class PgLegacyNonArticlePreparation
         await result.RestartUserSequenceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await result.RevalidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         foreach (LegacyTableProgram program in programs)
-            result._currentDigests.Add(program.Owner, await ReadCurrentDataDigestAsync(program, connection, transaction, cancellationToken).ConfigureAwait(false));
+            result._currentDigests.Add(program.Owner, await ReadCurrentDataDigestAsync(program, connection, transaction, cancellationToken,
+                rows => result._currentCounts.Add(program.Owner, rows)).ConfigureAwait(false));
         return result;
     }
 
     internal async Task RevalidateAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         if (_removed) throw new InvalidOperationException("legacy_nonarticle_domain_already_removed");
-        _ = _stage.RequireOriginalSession(connection, transaction);
-        await _stage.OwnedTarget.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
-        await _stage.RevalidateSourceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        _ = Stage.RequireOriginalSession(connection, transaction);
+        await _owned.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
+        await Stage.RevalidateSourceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         foreach (LegacyTableProgram program in _programs)
         {
             object? value = await ScalarAsync(connection, transaction, program.VerifySql, cancellationToken).ConfigureAwait(false);
@@ -67,7 +85,7 @@ internal sealed class PgLegacyNonArticlePreparation
         }
         await VerifyAccountSubjectsAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await VerifyUserSequenceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        await _stage.ReadStagedCurrentTargetAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await Stage.ReadStagedCurrentTargetAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
     }
 
     // Cleanup requires the original article/media owner's privately produced
@@ -77,13 +95,13 @@ internal sealed class PgLegacyNonArticlePreparation
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(actualArticleStage);
-        if (!ReferenceEquals(actualArticleStage.OriginalStage, _stage) || actualArticleStage.Database != _stage.OriginalSource.Database)
+        if (!ReferenceEquals(actualArticleStage.OriginalStage, _stage) || actualArticleStage.Database != _source.Database)
             throw new InvalidOperationException("legacy_cleanup_article_stage_binding_changed");
         await actualArticleStage.RevalidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await RevalidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await VerifyCurrentDigestsAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await VerifyUserSequenceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        string schema = _stage.RequireOriginalSession(connection, transaction);
+        string schema = Stage.RequireOriginalSession(connection, transaction);
         foreach (OfflineMigrationSourceFingerprints.LegacyTable table in OfflineMigrationSourceFingerprints.LegacyTables
                      .OrderBy(static table => table.Name, StringComparer.Ordinal))
             await ExecuteAsync(connection, transaction, "DROP TABLE " + schema + "." + Quote(table.Name), cancellationToken).ConfigureAwait(false);
@@ -96,18 +114,19 @@ internal sealed class PgLegacyNonArticlePreparation
 
     // The expected digests were captured by this private capability only after
     // complete original-source/target readback on the original transaction, not
-    // loaded from a caller JSON. Durable cross-process reconstruction still
-    // needs the original retained-source/restore owner; this is an in-process
-    // native capability, not a replacement durable receipt format.
+    // loaded from a caller JSON. Cross-process reconstruction additionally needs
+    // the actual committed journal and retained original producer/input bytes;
+    // publication alone never creates a durable recovery grant.
     internal async Task RevalidateCurrentAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         if (!_removed) throw new InvalidOperationException("legacy_current_cleanup_not_completed");
         OfflineMigrationSourceObserver.RequirePostgreSqlStageSession(connection, transaction);
         var database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        if (database != _stage.OriginalSource.Database) throw new InvalidOperationException("legacy_current_database_changed");
-        await _stage.OwnedTarget.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
-        await new PgCurrentSchemaOwnedTargetObserver(_stage.OwnedTarget).ObserveAsync(connection, transaction, database, cancellationToken).ConfigureAwait(false);
-        string schema = _stage.RequireRetainedSchemaName();
+        if (database != _source.Database) throw new InvalidOperationException("legacy_current_database_changed");
+        await _owned.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
+        await RevalidateRecoveryPublicationAsync(cancellationToken).ConfigureAwait(false);
+        await new PgCurrentSchemaOwnedTargetObserver(_owned).ObserveAsync(connection, transaction, database, cancellationToken).ConfigureAwait(false);
+        string schema = _schemaName;
         object? absent = await WithResourceAsync(Command(connection, transaction,
             "SELECT NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname=@schema)"), async command =>
         {
@@ -122,22 +141,24 @@ internal sealed class PgLegacyNonArticlePreparation
 
     private async Task VerifyCurrentDigestsAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        if (_currentDigests.Count != _programs.Count) throw new InvalidOperationException("legacy_current_target_capture_missing");
+        if (_currentDigests.Count != _programs.Count || _currentCounts.Count != _programs.Count)
+            throw new InvalidOperationException("legacy_current_target_capture_missing");
         foreach (LegacyTableProgram program in _programs)
             if (!_currentDigests.TryGetValue(program.Owner, out string? expected)
-                || expected != await ReadCurrentDataDigestAsync(program, connection, transaction, cancellationToken).ConfigureAwait(false))
+                || expected != await ReadCurrentDataDigestAsync(program, connection, transaction, cancellationToken,
+                    rows => { if (rows != _currentCounts[program.Owner]) throw new InvalidOperationException("legacy_current_row_count_changed"); }).ConfigureAwait(false))
                 throw new InvalidOperationException("legacy_current_data_changed:" + program.Owner);
     }
 
     private async Task RestartUserSequenceAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        SchemaTableModel physical = _stage.OwnedTarget.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql).Tables.Tables[_users.Table.Name];
+        SchemaTableModel physical = _owned.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql).Tables.Tables[_users.Table.Name];
         SchemaColumnModel id = physical.Columns[_users.Properties["Id"].Name];
         SchemaOwnedSequenceModel sequence = id.OwnedSequence ?? throw new InvalidOperationException("legacy_current_account_sequence_unowned");
         if (!id.IsIdentity || sequence.Schema != "public" || sequence.OwnedTable != physical.Name
             || sequence.OwnedColumn != id.Name || sequence.IncrementBy != 1 || sequence.IsCyclic)
             throw new InvalidOperationException("legacy_current_account_sequence_changed");
-        string schema = _stage.RequireOriginalSession(connection, transaction);
+        string schema = Stage.RequireOriginalSession(connection, transaction);
         long legacyNext = await WithResourceAsync(Command(connection, transaction,
             "SELECT last_value,is_called FROM " + schema + ".sys_user_id_seq"), async command =>
         {
@@ -162,7 +183,7 @@ internal sealed class PgLegacyNonArticlePreparation
     private async Task VerifyUserSequenceAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         if (_userMinimumNext is null) throw new InvalidOperationException("legacy_account_sequence_capture_missing");
-        SchemaOwnedSequenceModel sequence = _stage.OwnedTarget.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql)
+        SchemaOwnedSequenceModel sequence = _owned.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql)
             .Tables.Tables[_users.Table.Name].Columns[_users.Properties["Id"].Name].OwnedSequence
             ?? throw new InvalidOperationException("legacy_current_account_sequence_unowned");
         await WithResourceAsync(Command(connection, transaction, "SELECT last_value,is_called FROM public." + Quote(sequence.Name)), async command =>
@@ -179,7 +200,7 @@ internal sealed class PgLegacyNonArticlePreparation
     }
 
     private static async Task<string> ReadCurrentDataDigestAsync(LegacyTableProgram program,
-        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken, Action<long>? captureRows = null)
     {
         SchemaColumnModel[] columns = program.Table.Columns.Values.OrderBy(static column => column.Name, StringComparer.Ordinal).ToArray();
         string projection = string.Join(',', columns.Select(static column => column.DataType is "timestamp" or "datetime"
@@ -246,6 +267,7 @@ internal sealed class PgLegacyNonArticlePreparation
         System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(count, rows);
         hash.AppendData([255]);
         hash.AppendData(count);
+        captureRows?.Invoke(rows);
         return Convert.ToHexStringLower(hash.GetHashAndReset());
         }).ConfigureAwait(false);
         }).ConfigureAwait(false);
@@ -253,7 +275,7 @@ internal sealed class PgLegacyNonArticlePreparation
 
     private async Task RequireLosslessInputsAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        string schema = _stage.RequireOriginalSession(connection, transaction);
+        string schema = Stage.RequireOriginalSession(connection, transaction);
         LegacyTableProgram conversation = _programs.Single(static item => item.Owner == EntityOwner("MessageConversation"));
         SchemaColumnModel subject = conversation.Properties["Subject"];
         if (subject.MaxLength is null) throw new InvalidOperationException("legacy_message_subject_bound_missing");
@@ -276,7 +298,7 @@ internal sealed class PgLegacyNonArticlePreparation
 
     private async Task PopulateAccountSubjectsAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        string schema = _stage.RequireOriginalSession(connection, transaction);
+        string schema = Stage.RequireOriginalSession(connection, transaction);
         int? previous = null;
         while (true)
         {
@@ -315,7 +337,7 @@ internal sealed class PgLegacyNonArticlePreparation
 
     private async Task VerifyAccountSubjectsAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        string schema = _stage.RequireOriginalSession(connection, transaction);
+        string schema = Stage.RequireOriginalSession(connection, transaction);
         await WithResourceAsync(Command(connection, transaction,
             "SELECT source.id,target." + Quote(_users.Properties["AccountSubjectHash"].Name)
             + " FROM " + schema + ".sys_user source LEFT JOIN public." + Quote(_users.Table.Name)
