@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
@@ -24,7 +26,8 @@ internal sealed record OfflineMigrationSourceCommandOptions(
     CurrentSchemaProviderKind Provider,
     string EnvironmentFilePath,
     bool CaptureSession,
-    string? DumpOutputPath);
+    string? DumpOutputPath,
+    int TimeoutSeconds);
 
 internal static class OfflineMigrationCommandLine
 {
@@ -51,12 +54,17 @@ internal static class OfflineMigrationCommandLine
                 continue;
             }
 
-            if (argument is not ("--provider" or "--env-file" or "--dump-output"))
+            if (argument is not ("--provider" or "--env-file" or "--dump-output" or "--timeout-seconds"))
             {
                 throw new InvalidOperationException($"schema_source_observation_argument_unknown:{argument}");
             }
 
             string value = ReadValue(args, ref index, argument);
+            if (argument == "--timeout-seconds" && value != args[index])
+            {
+                throw new InvalidOperationException("schema_source_observation_timeout_invalid");
+            }
+
             if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
             {
                 throw new InvalidOperationException($"schema_source_observation_argument_invalid_or_duplicate:{argument}");
@@ -67,6 +75,21 @@ internal static class OfflineMigrationCommandLine
             || !values.TryGetValue("--env-file", out string? environmentFile))
         {
             throw new InvalidOperationException("schema_source_observation_provider_and_environment_required");
+        }
+
+        if (!values.TryGetValue("--timeout-seconds", out string? timeoutValue))
+        {
+            throw new InvalidOperationException("schema_source_observation_timeout_required");
+        }
+
+        // This is the Int32 millisecond timer representation, not a migration budget default
+        // or a new universal test ceiling. The original invocation owns the finite budget.
+        if (timeoutValue.Length is 0 or > 7 || timeoutValue[0] == '0'
+            || timeoutValue.Any(character => character is < '0' or > '9')
+            || !int.TryParse(timeoutValue, NumberStyles.None, CultureInfo.InvariantCulture, out int timeoutSeconds)
+            || timeoutSeconds > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_source_observation_timeout_invalid");
         }
 
         CurrentSchemaProviderKind provider = providerValue switch
@@ -88,7 +111,7 @@ internal static class OfflineMigrationCommandLine
             throw new InvalidOperationException("schema_source_dump_path_only_for_capture");
         }
 
-        return new(provider, environmentFile, captureSession, dumpOutput);
+        return new(provider, environmentFile, captureSession, dumpOutput, timeoutSeconds);
     }
 
     internal static OfflineMigrationPlanCommandOptions ParsePlan(IReadOnlyList<string> args)

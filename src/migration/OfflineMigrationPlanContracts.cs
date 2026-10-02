@@ -49,7 +49,8 @@ public sealed record OfflineMigrationBackupCaptureEvidence(
     DateTimeOffset CapturedAt,
     string ObserverId,
     string ObserverVersion,
-    string DatabaseDumpSha256);
+    string DatabaseDumpSha256,
+    int TimeoutSeconds);
 
 /// <summary>How a step's provider operation preserves failure and replay boundaries.</summary>
 public enum OfflineMigrationExecutionMode
@@ -126,10 +127,12 @@ public interface IOfflineMigrationSnapshotSourceObserver : IOfflineMigrationSour
     /// Hold the native snapshot while the callback waits for the dump owner's actual terminal
     /// boundary, then independently hash that callback's pre-bound dump path before disposing
     /// the transaction. Callback errors, EOF, or cancellation must not produce capture evidence.
+    /// CapturedAt is the UTC timestamp observed when that native snapshot is established,
+    /// before the source scan, and must be identical in callback and terminal evidence.
     /// </summary>
-    Task<(OfflineMigrationSourceObservation Source, string SnapshotId, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
+    Task<(OfflineMigrationSourceObservation Source, string SnapshotId, DateTimeOffset CapturedAt, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
         string connectionString,
-        Func<OfflineMigrationSourceObservation, string, CancellationToken, Task<string>> awaitCompletedDumpPath,
+        Func<OfflineMigrationSourceObservation, string, DateTimeOffset, CancellationToken, Task<string>> awaitCompletedDumpPath,
         CancellationToken cancellationToken);
 }
 
