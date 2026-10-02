@@ -17,6 +17,10 @@
       "sha256": "db817a13cae81139ae77915c4e7bb82f158749bfc6ec9c252993bb5d72dd5c90"
     },
     {
+      "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+      "sha256": "d01b14acd70d9e5e713bca7922a3987edb860ab521bd4ce3506904f2c4e8486b"
+    },
+    {
       "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
       "sha256": "9378f7569625ff014145992332d43c8989e0f02f6695bb4c893ca376f703796e"
     }
