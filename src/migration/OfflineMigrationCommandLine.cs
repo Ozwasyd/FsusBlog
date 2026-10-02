@@ -20,7 +20,8 @@ internal sealed record OfflineMigrationPlanCommandOptions(
     string BackupManifestPath,
     string RestoreDrillPath,
     string RestoreEnvironmentFilePath,
-    string PlanOutputPath);
+    string PlanOutputPath,
+    int TimeoutSeconds);
 
 internal sealed record OfflineMigrationSourceCommandOptions(
     CurrentSchemaProviderKind Provider,
@@ -122,7 +123,7 @@ internal static class OfflineMigrationCommandLine
         }
 
         string[] allowed = ["--provider", "--instance-id", "--database-id", "--env-file", "--backup-package",
-            "--backup-manifest", "--restore-drill", "--restore-env-file", "--output"];
+            "--backup-manifest", "--restore-drill", "--restore-env-file", "--output", "--timeout-seconds"];
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 1; index < args.Count; index++)
         {
@@ -133,6 +134,10 @@ internal static class OfflineMigrationCommandLine
             }
 
             string value = ReadValue(args, ref index, argument);
+            if (argument == "--timeout-seconds" && value != args[index])
+            {
+                throw new InvalidOperationException("schema_plan_timeout_invalid");
+            }
             if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
             {
                 throw new InvalidOperationException($"schema_plan_argument_invalid_or_duplicate:{argument}");
@@ -154,9 +159,17 @@ internal static class OfflineMigrationCommandLine
             "sqlite" => CurrentSchemaProviderKind.Sqlite,
             _ => throw new InvalidOperationException("schema_plan_provider_unknown")
         };
+        string timeoutValue = values["--timeout-seconds"];
+        if (timeoutValue.Length is 0 or > 7 || timeoutValue[0] == '0'
+            || timeoutValue.Any(character => character is < '0' or > '9')
+            || !int.TryParse(timeoutValue, NumberStyles.None, CultureInfo.InvariantCulture, out int timeoutSeconds)
+            || timeoutSeconds > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_plan_timeout_invalid");
+        }
         return new(new(provider, values["--instance-id"], values["--database-id"]), values["--env-file"],
             values["--backup-package"], values["--backup-manifest"], values["--restore-drill"],
-            values["--restore-env-file"], values["--output"]);
+            values["--restore-env-file"], values["--output"], timeoutSeconds);
     }
 
     public static OfflineMigrationCommandOptions Parse(IReadOnlyList<string> args)

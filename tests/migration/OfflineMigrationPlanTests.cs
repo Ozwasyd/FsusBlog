@@ -386,7 +386,7 @@ public sealed class OfflineMigrationPlanTests
             _fixture = fixture;
             Options = new(fixture.Source.Database, "source.env", Path.GetFullPath("contract-package"),
                 Path.GetFullPath("contract-manifest"), Path.GetFullPath("contract-drill"), "restore.env",
-                Path.GetFullPath("contract-plan"));
+                Path.GetFullPath("contract-plan"), 30);
             Backup = fixture.Backup with
             {
                 Package = new(Options.BackupPackagePath, DigestA),

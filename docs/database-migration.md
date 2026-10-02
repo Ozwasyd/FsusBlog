@@ -118,8 +118,16 @@ declared in the migration assembly (for example
 
 The separate `plan` command parses an explicit provider, observed instance/database
 identity to match, source and isolated restore environment files, original backup
-package/manifest/restore-drill references, and a new output path. It does not invoke
-legacy phases, apply SQL, write a migration journal, or start the Server. Release,
+package/manifest/restore-drill references, a new output path, and explicit
+`--timeout-seconds` using the same finite source-operation grammar below. One
+linked deadline covers evidence resolution, native observation and artifact
+publication; production does not pass `CancellationToken.None` to its native
+reader. Source and plan commands share cancellation-signal ownership. The budget
+is invocation context, never an added plan payload timestamp or business ceiling.
+It does not invoke legacy phases, apply SQL, write a migration journal, or start
+the production Server. The original owned restore-drill admission may run its
+isolated target/backend smoke under that producer's own resource/lifecycle
+contracts; this is not permission to alter the source database. Release,
 slot, latest-backup, manual-step and legacy-phase selectors are rejected.
 
 Migration-owned `OfflineMigrationPlanContracts` owns the immutable execution payload;

@@ -299,6 +299,70 @@ public sealed class OfflineMigrationSourceCommandLineTests
         }
     }
 
+    [Fact]
+    public async Task Plan_InvalidBudgetRejectsBeforeEvidenceConstructionOrPublication()
+    {
+        int constructed = 0;
+        OfflineMigrationPlanCommandOptions options = PlanOptions(0);
+        Assert.Equal("schema_plan_timeout_invalid", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationHost.WritePlanWithinBudgetAsync(options,
+                () => { constructed++; return new DeadlinePlanningEvidence(); }, CancellationToken.None))).Message);
+        Assert.Equal(0, constructed);
+        Assert.False(File.Exists(options.PlanOutputPath));
+    }
+
+    [Fact]
+    public async Task Plan_ActualDeadlineReachesEvidenceAndAwaitsTerminalWithoutPublishingArtifact()
+    {
+        var clock = new DeadlineTimeProvider();
+        var evidence = new DeadlinePlanningEvidence();
+        OfflineMigrationPlanCommandOptions options = PlanOptions(30);
+        Task operation = OfflineMigrationHost.WritePlanWithinBudgetAsync(options, () => evidence, CancellationToken.None, clock);
+        try
+        {
+            await evidence.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(TimeSpan.FromSeconds(30), clock.DueTime);
+            clock.Fire();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
+            Assert.True(evidence.ScopeTerminal);
+            Assert.False(File.Exists(options.PlanOutputPath));
+        }
+        finally
+        {
+            clock.Fire();
+            evidence.Release.TrySetResult();
+            try { await operation; }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    private static OfflineMigrationPlanCommandOptions PlanOptions(int seconds)
+        => new(new(CurrentSchemaProviderKind.PostgreSql, "contract-source", "contract-database"),
+            "source.env", "package", "manifest", "drill", "restore.env",
+            Path.GetFullPath($"contract-plan-{Guid.NewGuid():N}"), seconds);
+
+    private sealed class DeadlinePlanningEvidence : IOfflineMigrationPlanningEvidence
+    {
+        internal TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal bool ScopeTerminal { get; private set; }
+
+        public async Task<OfflineMigrationPlanningSnapshot> ReadAsync(OfflineMigrationPlanCommandOptions options, CancellationToken token)
+        {
+            Assert.True(token.CanBeCanceled);
+            Entered.TrySetResult();
+            try
+            {
+                await Release.Task.WaitAsync(token);
+                throw new InvalidOperationException("contract_evidence_must_not_authorize_plan");
+            }
+            finally
+            {
+                ScopeTerminal = true;
+            }
+        }
+    }
+
     // Fires the real CancellationTokenSource timer callback without wall-clock sleeps.
     private sealed class DeadlineTimeProvider : TimeProvider
     {

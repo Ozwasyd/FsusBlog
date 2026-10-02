@@ -15,6 +15,7 @@ public sealed class OfflineMigrationCommandLineTests
         Assert.Equal("drill.json", options.RestoreDrillPath);
         Assert.Equal("restore.env", options.RestoreEnvironmentFilePath);
         Assert.Equal("plan.json", options.PlanOutputPath);
+        Assert.Equal(30, options.TimeoutSeconds);
     }
 
     [Theory]
@@ -42,10 +43,40 @@ public sealed class OfflineMigrationCommandLineTests
             OfflineMigrationCommandLine.ParsePlan(unknown)).Message);
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("+1")]
+    [InlineData("01")]
+    [InlineData(" 1")]
+    [InlineData("1 ")]
+    [InlineData("1.0")]
+    [InlineData("1e2")]
+    [InlineData("2147484")]
+    [InlineData("99999999")]
+    public void ParsePlan_RejectsNonCanonicalOrUnrepresentableSourceOperationBudget(string value)
+    {
+        string[] args = PlanArguments();
+        args[^1] = value;
+        Assert.Equal("schema_plan_timeout_invalid", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParsePlan(args)).Message);
+    }
+
+    [Fact]
+    public void ParsePlan_RequiresExplicitBudgetAndAcceptsRepresentationBoundary()
+    {
+        Assert.Equal("schema_plan_argument_required:--timeout-seconds", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParsePlan(PlanArguments()[..^2])).Message);
+        string[] args = PlanArguments();
+        args[^1] = "2147483";
+        Assert.Equal(2147483, OfflineMigrationCommandLine.ParsePlan(args).TimeoutSeconds);
+    }
+
     private static string[] PlanArguments()
         => ["plan", "--provider", "postgresql", "--instance-id", "instance", "--database-id", "database",
             "--env-file", "source.env", "--backup-package", "backup.fsbenc", "--backup-manifest", "manifest.json",
-            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json"];
+            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json",
+            "--timeout-seconds", "30"];
 
     [Fact]
     public void Parse_Expand()

@@ -21,45 +21,20 @@ public static class OfflineMigrationHost
     {
         if (args.Length > 0 && args[0] == "observe-source")
         {
-            using var callerCancellation = new CancellationTokenSource();
-            ConsoleCancelEventHandler cancelHandler = (_, signal) =>
-            {
-                signal.Cancel = true;
-                CancelSourceOperation();
-            };
-            Console.CancelKeyPress += cancelHandler;
-            PosixSignalRegistration? terminate = null;
-            PosixSignalRegistration? hangup = null;
             try
             {
-                terminate = OperatingSystem.IsWindows() ? null
-                    : PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
-                    {
-                        signal.Cancel = true;
-                        CancelSourceOperation();
-                    });
-                hangup = OperatingSystem.IsWindows() ? null
-                    : PosixSignalRegistration.Create(PosixSignal.SIGHUP, signal =>
-                    {
-                        signal.Cancel = true;
-                        CancelSourceOperation();
-                    });
                 OfflineMigrationSourceCommandOptions options = OfflineMigrationCommandLine.ParseSourceObservation(args);
-                await ObserveSourceWithinBudgetAsync(options, async token =>
+                await RunReadOnlyCommandWithSignalsAsync(callerToken => ObserveSourceWithinBudgetAsync(options, async token =>
                 {
                     token.ThrowIfCancellationRequested();
                     string[] lines = await File.ReadAllLinesAsync(options.EnvironmentFilePath, token).ConfigureAwait(false);
-                    // Reuse the original env grammar. A task-owned temporary env path is
-                    // not an observation or credential copied into a plan or log.
                     string? connectionString = ParseEnvironmentLines(lines).GetValueOrDefault("ConnectionStrings__DefaultConnection");
                     if (string.IsNullOrWhiteSpace(connectionString))
                     {
                         throw new InvalidOperationException("schema_connection_string_missing");
                     }
-
                     return connectionString;
-                }, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver, Console.In, Console.Out,
-                    callerCancellation.Token).ConfigureAwait(false);
+                }, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver, Console.In, Console.Out, callerToken)).ConfigureAwait(false);
                 return 0;
             }
             catch (OperationCanceledException)
@@ -67,32 +42,13 @@ public static class OfflineMigrationHost
                 WriteJson(new { status = "failed", code = "schema_offline_source_operation_cancelled" });
                 return 1;
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+            catch (Exception exception)
             {
                 // Provider faults must not publish credentials or raw historical row values.
                 string code = exception is InvalidOperationException
-                    ? exception.Message.Split(':', 2)[0]
-                    : "schema_offline_source_observation_failed";
+                    ? exception.Message.Split(':', 2)[0] : "schema_offline_source_observation_failed";
                 WriteJson(new { status = "failed", code });
                 return 1;
-            }
-            finally
-            {
-                hangup?.Dispose();
-                terminate?.Dispose();
-                Console.CancelKeyPress -= cancelHandler;
-            }
-
-            void CancelSourceOperation()
-            {
-                try
-                {
-                    callerCancellation.Cancel();
-                }
-                catch (ObjectDisposedException)
-                {
-                    // A queued console notification after terminal cannot reopen admission.
-                }
             }
         }
 
@@ -101,8 +57,14 @@ public static class OfflineMigrationHost
             try
             {
                 OfflineMigrationPlanCommandOptions options = OfflineMigrationCommandLine.ParsePlan(args);
-                await WritePlanAsync(options, OfflineMigrationPlanEvidence.CreateOwnedReader(), CancellationToken.None).ConfigureAwait(false);
+                await RunReadOnlyCommandWithSignalsAsync(callerToken => WritePlanWithinBudgetAsync(options,
+                    OfflineMigrationPlanEvidence.CreateOwnedReader, callerToken)).ConfigureAwait(false);
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteJson(new { status = "failed", code = "schema_offline_plan_operation_cancelled" });
+                return 1;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -160,6 +122,84 @@ public static class OfflineMigrationHost
             });
             return 1;
         }
+    }
+
+    private static async Task RunReadOnlyCommandWithSignalsAsync(Func<CancellationToken, Task> operation)
+    {
+        using var callerCancellation = new CancellationTokenSource();
+        ConsoleCancelEventHandler cancelHandler = (_, signal) =>
+        {
+            signal.Cancel = true;
+            CancelOperation();
+        };
+        Console.CancelKeyPress += cancelHandler;
+        PosixSignalRegistration? terminate = null;
+        PosixSignalRegistration? hangup = null;
+        try
+        {
+            terminate = OperatingSystem.IsWindows() ? null : PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
+            {
+                signal.Cancel = true;
+                CancelOperation();
+            });
+            hangup = OperatingSystem.IsWindows() ? null : PosixSignalRegistration.Create(PosixSignal.SIGHUP, signal =>
+            {
+                signal.Cancel = true;
+                CancelOperation();
+            });
+            await operation(callerCancellation.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                hangup?.Dispose();
+            }
+            finally
+            {
+                try
+                {
+                    terminate?.Dispose();
+                }
+                finally
+                {
+                    Console.CancelKeyPress -= cancelHandler;
+                }
+            }
+        }
+
+        void CancelOperation()
+        {
+            try
+            {
+                callerCancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // An already queued notification cannot reopen a terminal command.
+            }
+        }
+    }
+
+    internal static async Task WritePlanWithinBudgetAsync(
+        OfflineMigrationPlanCommandOptions options,
+        Func<IOfflineMigrationPlanningEvidence> createEvidence,
+        CancellationToken callerToken,
+        TimeProvider? timeProvider = null)
+    {
+        if (options.TimeoutSeconds is <= 0 or > (int.MaxValue / 1000))
+        {
+            throw new InvalidOperationException("schema_plan_timeout_invalid");
+        }
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
+            timeProvider ?? TimeProvider.System);
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
+        operation.Token.ThrowIfCancellationRequested();
+        IOfflineMigrationPlanningEvidence evidence = createEvidence();
+        operation.Token.ThrowIfCancellationRequested();
+        await WritePlanAsync(options, evidence, operation.Token).ConfigureAwait(false);
+        // WritePlanAsync checks the same token before atomic publication. Do not turn an
+        // already published immutable artifact into a later cancellation outcome.
     }
 
     internal static async Task ObserveSourceWithinBudgetAsync(
