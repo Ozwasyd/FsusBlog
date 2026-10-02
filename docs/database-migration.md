@@ -469,6 +469,16 @@ raw shell-fixture configurations without that owner binding are rejected. The ow
 rehashes its seven original tools and checks the operation's explicit scope again
 at producer entry and immediately before launch. This byte binding is not a source,
 toolchain, target or retained-backup authority and cannot fill those missing ports.
+
+`OfflineMigrationHostOwnedConfiguration.CreateRetainedAsync` composes the original
+owned input resolver and original same-process retained evidence authority. After
+actual tool/input byte verification, one authority instance serves both planning
+backup admission and locked apply/independent verify reads; no external plan or
+backup record can replace it. Missing current observer, compiled operation, artifact
+or planning owners and pre-cancellation refuse before tool observations. This is
+an executable composition path once those actual owners are configured, not proof
+that the default toolchain/DAG, three-provider operations or cross-process retention
+have been qualified.
 `RunOwnedAsync` uses the same dispatcher and clock as the default entry, without a
 CLI plugin/registration API. This is a real composition path, not an authorization
 record. Actual original target/operation factories and retained-backup/tool provenance

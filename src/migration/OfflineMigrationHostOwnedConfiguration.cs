@@ -57,6 +57,33 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         return new(planning, backup, verification, timeProvider, retainedBackupAdmission);
     }
 
+    internal static async Task<OfflineMigrationHostOwnedConfiguration> CreateRetainedAsync(
+        IOfflineMigrationPlanningAuthorityReader planning,
+        OfflineMigrationShellBackupDrillOwnedInputs backupInputs,
+        IOfflineMigrationVerificationArtifactReader artifacts,
+        IOfflineMigrationCurrentSchemaObserver currentSchema,
+        IOfflineMigrationApplyOperationRegistry operations,
+        CancellationToken cancellationToken,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(planning);
+        ArgumentNullException.ThrowIfNull(backupInputs);
+        ArgumentNullException.ThrowIfNull(artifacts);
+        ArgumentNullException.ThrowIfNull(currentSchema);
+        ArgumentNullException.ThrowIfNull(operations);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Resolve the original process-owned tool/input bytes before constructing the
+        // retained authority. That authority captures exactly one actual backup invocation;
+        // the very same instance then serves planning and locked apply/verify reads.
+        OfflineMigrationShellBackupDrillConfiguration backup = await backupInputs.CreateConfigurationAsync(
+            cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var retained = new OfflineMigrationRetainedEvidenceAuthority(planning, backup);
+        var verification = new OfflineMigrationCurrentSchemaVerificationCapabilities(
+            artifacts, currentSchema, retained, operations);
+        return new(planning, backup, verification, timeProvider, retained);
+    }
+
     internal TimeProvider Clock { get; }
     internal OfflineMigrationShellBackupDrillConfiguration ShellBackupConfiguration => _backup;
     internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()
