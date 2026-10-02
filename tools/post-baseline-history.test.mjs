@@ -479,6 +479,51 @@ test('real immutable source history refuses local and global Fact aliases for a 
     }
 });
 
+test('real immutable source refuses cross-file Fact and Theory type shadows but retains Attribute identities', () =>
+{
+    for (const [attribute, declaredName, accepted] of [
+        ['DifferentNamespace.Fact', 'Fact', false],
+        ['global::DifferentNamespace.Fact', 'Fact', false],
+        ['DifferentNamespace.Theory', 'Theory', false],
+        ['DifferentNamespace.Fact', 'F\\u0061ct', false],
+        ['DifferentNamespace.Fact', 'FactAttribute', true],
+        ['DifferentNamespace.TheoryAttribute', 'TheoryAttribute', true]
+    ])
+    {
+        const { repository, runGit, baseline } = createGraftHistoryFixture();
+        try
+        {
+            const oldPath = baseline.records[0].path;
+            const declarationPath = 'tests/backend/Unit/SeparateAttribute.cs';
+            writeFileSync(resolve(repository, declarationPath),
+                `namespace DifferentNamespace\n{\npublic sealed class ${declaredName} : System.Attribute {}\n}\n`);
+            writeFileSync(resolve(repository, oldPath),
+                `namespace Consumer\n{\npublic class OldTests\n{\n[${attribute}]\npublic void Removed() {}\n}\n}\n`);
+            runGit(['add', oldPath, declarationPath]);
+            const sourceTree = runGit(['write-tree']);
+            const sourceBlobOid = runGit(['rev-parse', `:${oldPath}`]);
+            const beforeCommit = runGit(['rev-parse', `${baseline.sourceCommit}^`]);
+            const sourceCommit = runGit(['commit-tree', sourceTree, '-p', beforeCommit, '-m', 'cross-file attribute identity']);
+            const emptyTree = runGit(['rev-parse', `${baseline.deletionCommit}^{tree}`]);
+            const deletionCommit = runGit(['commit-tree', emptyTree, '-p', sourceCommit, '-m', 'delete historical member']);
+            const anchorCommit = runGit(['commit-tree', emptyTree, '-p', deletionCommit, '-m', 'immutable anchor']);
+            const result = validateHistory({
+                root: repository, paths: ['tests/type-shadow-baseline.json'],
+                replacements: [{ id: baseline.records[0].id, path: oldPath }],
+                anchorCommit, beforeCommit,
+                readCurrent: () => JSON.stringify({ ...baseline, sourceCommit, deletionCommit,
+                    records: [{ ...baseline.records[0], sourceBlobOid }] })
+            });
+            if (accepted) assert.deepEqual(result.errors, [], attribute);
+            else assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)), attribute);
+        }
+        finally
+        {
+            rmSync(repository, { recursive: true, force: true });
+        }
+    }
+});
+
 test('deletion evidence is independent of test attribution and refuses unresolved identifiers', () =>
 {
     const mayBePresent = (source) => historicalMethodMayBePresent(source, 'OldTests', 'Removed', maskCSharpTrivia);

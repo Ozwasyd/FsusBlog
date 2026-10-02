@@ -123,7 +123,8 @@ function unambiguousTestAttribute(masked, name, attributeContext)
     if (alias.test(masked) || alias.test(attributeContext)) return false;
     // A type literally named Fact/Theory is not the owner's FactAttribute/TheoryAttribute identity.
     if (!simpleName.endsWith('Attribute')
-        && new RegExp(`\\b(?:class|struct|record)\\s+@?${simpleName}\\b`, 'u').test(masked)) return false;
+        && new RegExp(`\\b(?:class|struct|record(?:\\s+(?:class|struct))?)\\s+@?${simpleName}\\b`, 'u')
+            .test(masked + '\n' + attributeContext)) return false;
     return true;
 }
 
@@ -247,28 +248,37 @@ export function historicalMethodMayBePresent(source, className, methodName, mask
     return historicalMethodPresent(source, className, methodName, maskCSharpTrivia, false);
 }
 
-function historicalGlobalAttributeAliases(root, commit, maskCSharpTrivia)
+function historicalAttributeContext(root, commit, maskCSharpTrivia)
 {
-    const result = git(root, ['grep', '--no-textconv', '-l', '-z', '-F', '-w', 'global', commit, '--', 'tests/backend']);
+    const result = git(root, ['grep', '--no-textconv', '-l', '-z', '-E',
+        '-e', '\\b(global|Fact|Theory)\\b', '-e', '\\\\(u[[:xdigit:]]{4}|U[[:xdigit:]]{8})',
+        commit, '--', 'tests/backend']);
     if (result.status === 1) return '';
-    if (result.status !== 0) throw new Error(`historical global aliases unavailable: ${String(result.stderr).trim()}`);
-    const aliases = [];
+    if (result.status !== 0) throw new Error(`historical attribute context unavailable: ${String(result.stderr).trim()}`);
+    const context = [];
     for (const entry of result.stdout.split('\0').filter(Boolean))
     {
         const prefix = `${commit}:`;
-        if (!entry.startsWith(prefix)) throw new Error('historical global alias path is unbound');
+        if (!entry.startsWith(prefix)) throw new Error('historical attribute context path is unbound');
         const path = entry.slice(prefix.length);
         if (!path.endsWith('.cs')) continue;
-        historicalRegularBlobOid(root, commit, path, 'historical global alias source', true);
-        const source = gitText(root, ['show', `${commit}:${path}`], 'historical global alias source');
+        historicalRegularBlobOid(root, commit, path, 'historical attribute context source', true);
+        const source = gitText(root, ['show', `${commit}:${path}`], 'historical attribute context source');
         const masked = maskCSharpTrivia(source);
-        aliases.push(...[...masked.matchAll(/\bglobal\s+using\s+[^;]+;/gu)]
+        context.push(...[...masked.matchAll(/\bglobal\s+using\s+[^;]+;/gu)]
             .filter((match) => match[0].includes('=')).map((match) => match[0]));
+        // Namespace/compilation lookup is not reconstructed here. Any immutable
+        // backend declaration of these suffix-less names makes short attribution
+        // ambiguous, even when the declaration is in another source file.
+        context.push(...[...masked.matchAll(/\b(?:class|struct|record(?:\s+(?:class|struct))?)\s+@?(?:Fact|Theory)\b/gu)]
+            .map((match) => match[0]));
+        context.push(...[...masked.matchAll(/\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/gu)]
+            .map((match) => match[0]));
     }
-    return aliases.join('\n');
+    return context.join('\n');
 }
 
-function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia })
+function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia, readAttributeContext })
 {
     const errors = [];
     const match = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(record?.id ?? ''));
@@ -287,7 +297,7 @@ function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTriv
     {
         sourceOid = historicalRegularBlobOid(root, baseline.sourceCommit, path, `${record.id} source`, true);
         source = gitText(root, ['show', `${baseline.sourceCommit}:${path}`], `${record.id} source`);
-        attributeContext = historicalGlobalAttributeAliases(root, baseline.sourceCommit, maskCSharpTrivia);
+        attributeContext = readAttributeContext(baseline.sourceCommit);
         resultOid = historicalRegularBlobOid(root, baseline.deletionCommit, path, `${record.id} deletion result`);
         if (resultOid)
         {
@@ -370,6 +380,15 @@ export function validatePostBaselineHistory({
         return { ids, sources, errors: [`trusted post-baseline matrix unavailable: ${error.message}`] };
     }
     const currentPaths = new Set(paths);
+    // This invocation is bound to one repository and immutable commit objects.
+    // Read each source context once, never reuse ambient or cross-invocation state.
+    const attributeContexts = new Map();
+    const readAttributeContext = (commit) =>
+    {
+        if (!attributeContexts.has(commit))
+            attributeContexts.set(commit, historicalAttributeContext(root, commit, maskCSharpTrivia));
+        return attributeContexts.get(commit);
+    };
     if (currentPaths.size !== paths.length)
     {
         errors.push('post-baseline paths contain duplicates');
@@ -497,7 +516,7 @@ export function validatePostBaselineHistory({
             observedIds.add(record.id);
             if (!legacy)
             {
-                errors.push(...validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia }));
+                errors.push(...validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia, readAttributeContext }));
             }
             ids.push(record.id);
             accepted += 1;
