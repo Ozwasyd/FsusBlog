@@ -77,6 +77,48 @@ The synchronous protected-file write adds admission latency and disk dependence;
 full or unavailable storage must fail closed, never fall back to successful RAM-only
 audit. Other queue owners and the PublicHot core are outside this change.
 
+### Administrative audit admission and recovery
+
+`AdminAuditLogChannel` owns a separate encrypted journal at
+`FSUSBLOG_DATA_ROOT/admin-audit-fallback`, using per-event keys in the existing
+retention key store under the `admin-audit-delivery` domain. Every admission creates
+an independent opaque event identity and an immutable copy of the full payload.
+Successful admission completes the protected-file flush and atomic publication
+before returning from bounded admission. Full, closed or cancelled single-record
+admission uses the same durable event for direct fallback; a failed fallback keeps
+that event pending and propagates the failure. This does not change administrative
+event authorization, payload fields or the existing database representation.
+
+The administrative worker replays this journal on startup and polls disk-pending
+events every 250 ms, independently of volatile wake hints. Filename selection is
+bounded to 128 entries and follows the single owner's publication order. Before an
+insert, the store reserves an existing PostgreSQL serial identity and publishes
+that reservation in the journal. Retry verifies that same identity and every
+stored payload column under an owned transaction, including PostgreSQL timestamp
+precision, before acknowledging the journal. Commit-before-acknowledgement loss
+must not create another row. Legitimate events with identical content remain two
+distinct admissions; content equality is not a deduplication identity. Transactions
+are per event, not an all-or-nothing batch contract.
+
+The recovery boundary is process crash/restart with the same preserved data root,
+journal and key store. It is not a guarantee for power failure or directory-entry
+durability, host/disk loss, or admission order across nodes with independent data
+roots. Do not delete or replace pending journals or their keys during restart or
+rollback. Returning to a RAM-only owner is not a safe rollback while admissions
+continue or durable work remains pending.
+
+The existing admin drain participant forwards only opaque item references and
+classified failure reasons as blockers when the current terminal-failure count is
+positive. Queued, in-flight and durable-pending work still participates in the
+aggregate. Health, readiness and qualification consume that same aggregate;
+historical reasons alone must not keep a recovered, committed owner blocked.
+Payload, exception messages and absolute journal paths are not diagnostic blockers.
+The focused administrative unit and real PostgreSQL/process tests are
+`AdminAuditDurableAdmissionIssue2040Tests` and
+`AdminAuditDurableReplayIssue2040IntegrationTests`; fixture/aggregate checks are not
+substitutes for the real owner crash and commit windows, nor for other required
+queue owners' independent acceptance.
+
 `AuditRetentionStorageContract` applies the same finite ciphertext maximum to database, local fallback, backup, WAL, and replica surfaces. The application directly controls only database and local fallback cleanup. Backup, WAL, and replica deletion require operator/platform attestation; this implementation does not call or claim control over any external backup provider, object lock, TSA, public chain, replica manager, or WAL archive.
 
 Local checkpoints and destruction evidence are append-only ordinary files, not WORM. The #1111 limitation remains: privileged same-host deletion requires custody outside the host to resist, but external custody is intentionally omitted from this local-only issue scope.

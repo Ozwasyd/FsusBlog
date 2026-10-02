@@ -59,6 +59,19 @@ public sealed class AdminAuditBoundedQueueDrainParticipant(
     public BoundedQueueParticipantReceipt Observe(string runId)
     {
         AdminAuditLogChannelSnapshot snapshot = channel.Snapshot();
+        IReadOnlyList<string>? blockers = null;
+        if (snapshot.TerminalFailureCount > 0)
+        {
+            // Diagnostics carry owner-generated opaque identities and categories,
+            // never payload, exception messages or absolute journal paths.
+            string itemReference = IsDiagnosticToken(snapshot.LastItemReference,
+                @"\A(?:[a-f0-9]{32}|admin-audit-[0-9]{19}-[a-f0-9]{32}\.json)\z")
+                ? snapshot.LastItemReference! : "unknown";
+            string reason = IsDiagnosticToken(snapshot.LastFailureReason,
+                @"\Aadmin-audit:(?:admission-failed|replay-failed|journal-state-unavailable):[A-Za-z][A-Za-z0-9]*Exception\z")
+                ? snapshot.LastFailureReason! : "admin-audit:terminal-failed";
+            blockers = [$"item={itemReference};reason={reason}"];
+        }
         return BoundedQueueParticipantReceipts.Counts(
             catalog,
             QueueId,
@@ -72,8 +85,14 @@ public sealed class AdminAuditBoundedQueueDrainParticipant(
                 ? BoundedQueueCommitPostcondition.Failed
                 : BoundedQueueCommitPostcondition.Success,
             snapshot.Sequence,
-            snapshot.Sequence);
+            snapshot.Sequence,
+            blockers: blockers);
     }
+
+    private static bool IsDiagnosticToken(string? value, string pattern)
+        => value is { Length: <= 128 }
+            && System.Text.RegularExpressions.Regex.IsMatch(value, pattern,
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 }
 
 public sealed class AdminSessionTouchBoundedQueueDrainParticipant(
