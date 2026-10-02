@@ -1,13 +1,21 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/matrix.yml",
         "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-        "tools/docs/behavior-document-consistency-final.mjs"
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tests/tools/behavior-doc-static-admission.test.mjs",
+        "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "11353de437fdea9ae7b45a6ac50e418641528b4d03b966befb8f863d76f1e79d"
+            "sha256": "c57bd346ee23717ff2c12d0566f3c584fe29f2954408940ea766bff49cc64a49"
         }
     ]
 }

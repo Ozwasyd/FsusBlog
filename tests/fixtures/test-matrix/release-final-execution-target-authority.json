@@ -1195,8 +1195,8 @@
         },
         {
             "path": "tests/tools/behavior-doc-static-admission.test.mjs",
-            "contentDigest": "sha256:701d58d06337179766513b171569f20b235c3428c587b040c0a8acc3bb11d1ac",
-            "indexDigest": "sha256:701d58d06337179766513b171569f20b235c3428c587b040c0a8acc3bb11d1ac"
+            "contentDigest": "sha256:9515000e56b598551875f26df40c71924abbcfae52cde5f165fd7e5b179ab0a9",
+            "indexDigest": "sha256:9515000e56b598551875f26df40c71924abbcfae52cde5f165fd7e5b179ab0a9"
         },
         {
             "path": "tests/tools/behavior-evidence-pre-runtime.test.mjs",
@@ -1450,8 +1450,8 @@
         },
         {
             "path": "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
-            "contentDigest": "sha256:d6b8fafc56880791c4d5acbef5ac972a1dc65f6a32709816a8d5620fde2ab3f2",
-            "indexDigest": "sha256:d6b8fafc56880791c4d5acbef5ac972a1dc65f6a32709816a8d5620fde2ab3f2"
+            "contentDigest": "sha256:2a84f71c98443340ab856b0ecf16c3edccef85d3439d07cc9835bb12b53158e3",
+            "indexDigest": "sha256:2a84f71c98443340ab856b0ecf16c3edccef85d3439d07cc9835bb12b53158e3"
         },
         {
             "path": "tests/tools/support/timing-policy.mjs",
@@ -2030,13 +2030,13 @@
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
-            "contentDigest": "sha256:2bd37d44ea6f8c348daa6ce9afe397b0f25c38488101d5893512592b567455a1",
-            "indexDigest": "sha256:2bd37d44ea6f8c348daa6ce9afe397b0f25c38488101d5893512592b567455a1"
+            "contentDigest": "sha256:560672eea01be1beaba6e5d84ba7413575ee583fd8d646590391ad035ba01622",
+            "indexDigest": "sha256:560672eea01be1beaba6e5d84ba7413575ee583fd8d646590391ad035ba01622"
         },
         {
             "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
-            "contentDigest": "sha256:729b7e9c70348a089bd05d09cb87a55d205e22912a9c3c87ea6f3b8717de2a8a",
-            "indexDigest": "sha256:729b7e9c70348a089bd05d09cb87a55d205e22912a9c3c87ea6f3b8717de2a8a"
+            "contentDigest": "sha256:061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45",
+            "indexDigest": "sha256:061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45"
         },
         {
             "path": "tools/docs/behavior-doc-static-admission-contract.mjs",

@@ -1,6 +1,7 @@
-import path from 'node:path'
-import { digestValue } from '../../../tools/fact-extractors/lib/canonicalize.mjs'
-import { hostDeclarations, runtimeReproduciblePathMapArgument } from '../../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
+import path from 'node:path';
+
+const { hostDeclarations, runtimeReproduciblePathMapArgument } = await import(new URL('../../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
+const { digestValue } = await import(new URL('../../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 
 // Exact canonical test fixture body from c1cf3c7abc; synthetic, never runtime evidence.
 function seal(value)
@@ -33,7 +34,7 @@ export function createRuntimeRoleStaticV3Fixture(runId, source, {
         prose: { status: 'ok', verifiedClaimCount: 0, contentDigest: '8'.repeat(64) },
         mutationFixtures: { status: 'ok', caseCount: 9, contentDigest: '9'.repeat(64) },
         candidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: [], durationMs: 1
-    })
+    });
 }
 
 export function createRuntimeRoleMinimalV3Fixture(runId, source)
@@ -90,6 +91,13 @@ export function createRuntimeRoleMinimalV3Fixture(runId, source)
                     artifactPath: declaration.output,
                     artifactDigest: 'd'.repeat(64),
                     configuration: 'Release',
+                    ...(artifactId === 'openapi-aeds-observation'
+                        ? {
+                            openapiPath: `${buildRoot}/observations/fsusblog.openapi.observed.json`,
+                            openapiArtifactPath: '.tmp/contracts/openapi/fsusblog.openapi.observed.json',
+                            openapiDigest: '8'.repeat(64)
+                        }
+                        : {}),
                     ...(artifactId === 'runtime-role-observation'
                         ? {
                             sourceCommit: source.sourceCommit,

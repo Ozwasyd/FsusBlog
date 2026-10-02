@@ -441,7 +441,7 @@
                             "$ref": "#/$defs/runtimeRoleMinimalArtifact"
                         },
                         "openapi-aeds-observation": {
-                            "$ref": "#/$defs/genericMinimalArtifact"
+                            "$ref": "#/$defs/openApiMinimalArtifact"
                         },
                         "auth-session-permission-observation": {
                             "$ref": "#/$defs/genericMinimalArtifact"
@@ -498,6 +498,39 @@
                 },
                 "buildReceipt": {
                     "$ref": "#/$defs/genericMinimalBuildReceipt"
+                }
+            }
+        },
+        "openApiMinimalArtifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "project",
+                "projectDigest",
+                "path",
+                "artifactPath",
+                "artifactDigest",
+                "buildReceipt"
+            ],
+            "properties": {
+                "project": {
+                    "const": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj"
+                },
+                "projectDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "path": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/observations/openapi-aeds-observation\\.json$"
+                },
+                "artifactPath": {
+                    "const": ".tmp/contracts/openapi/api-aeds-observation.json"
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildReceipt": {
+                    "$ref": "#/$defs/openApiMinimalBuildReceipt"
                 }
             }
         },
@@ -580,6 +613,47 @@
                 },
                 "configuration": {
                     "const": "Release"
+                }
+            }
+        },
+        "openApiMinimalBuildReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "artifactId",
+                "artifactPath",
+                "artifactDigest",
+                "configuration",
+                "openapiPath",
+                "openapiArtifactPath",
+                "openapiDigest"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.openapi-aeds-observation-build-receipt.v1"
+                },
+                "artifactId": {
+                    "const": "openapi-aeds-observation"
+                },
+                "artifactPath": {
+                    "const": ".tmp/contracts/openapi/api-aeds-observation.json"
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "configuration": {
+                    "const": "Release"
+                },
+                "openapiPath": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}/observations/fsusblog\\.openapi\\.observed\\.json$"
+                },
+                "openapiArtifactPath": {
+                    "const": ".tmp/contracts/openapi/fsusblog.openapi.observed.json"
+                },
+                "openapiDigest": {
+                    "$ref": "#/$defs/digest"
                 }
             }
         },

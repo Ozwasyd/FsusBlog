@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -12,6 +12,9 @@ const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, rea
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
+const { digestPath, sealSourceIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+const { runExtractor } = await import(new URL('../../tools/fact-extractors/runner.mjs', import.meta.url));
+const { createRuntimeRoleMinimalV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
@@ -125,12 +128,291 @@ function identityFor(_observation, artifactDigest, overrides = {})
     };
 }
 
+// Synthetic bytes exercise the real receipt reader and runner, not compiled-host qualification.
+function writeCanonicalObservation(repositoryRoot, observation)
+{
+    const legacy = writeObservation(repositoryRoot, observation);
+    for (const relative of [
+        'tools/fact-extractors/openapi-aeds/extract.mjs',
+        'tools/fact-extractors/identity.mjs',
+        'tools/fact-extractors/lib/canonicalize.mjs',
+        'tools/contracts/behavior-contract-catalog.mjs',
+        'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
+        'config/schemas/behavior-fact-extractor-registry.schema.json',
+        'config/schemas/fact-observation-receipt.schema.json'
+    ])
+    {
+        const target = path.join(repositoryRoot, relative);
+        mkdirSync(path.dirname(target), { recursive: true });
+        cpSync(path.join(root, relative), target);
+    }
+    writeFileSync(path.join(repositoryRoot, '.gitignore'), '.tmp/\n');
+    const git = (...args) =>
+    {
+        const result = spawnSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+    };
+    git('init', '--quiet');
+    git('add', '.');
+    git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'isolated receipt unit fixture');
+    const source = sealSourceIdentity(repositoryRoot);
+    const receipt = createRuntimeRoleMinimalV3Fixture('canonical-openapi-unit', source);
+    for (const artifact of Object.values(receipt.artifacts))
+    {
+        const project = path.join(repositoryRoot, artifact.project);
+        mkdirSync(path.dirname(project), { recursive: true });
+        writeFileSync(project, '<Project />\n');
+    }
+    const sourcePaths = [...new Set([
+        ...observationBuildSourcePaths,
+        ...Object.values(receipt.artifacts).map((artifact) => artifact.project),
+        'tools/fact-extractors/identity.mjs',
+        'tools/fact-extractors/lib/canonicalize.mjs',
+        'tools/contracts/behavior-contract-catalog.mjs',
+        'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
+    ])].sort();
+    Object.assign(source, sealSourceIdentity(repositoryRoot));
+    receipt.sourceCommit = source.sourceCommit;
+    receipt.worktreeFingerprint = source.worktreeFingerprint;
+    receipt.sourceClosureDigests = sourcePaths.map((relative) => ({ path: relative, digest: digestPath(repositoryRoot, relative) }));
+    receipt.sourceDigest = digestValue(receipt.sourceClosureDigests);
+    const oldKey = receipt.buildKey;
+    receipt.buildKey = digestValue({ sourceIdentity: source, toolchain: receipt.toolchain, sourceClosureDigests: receipt.sourceClosureDigests });
+    const replaceRoot = (value) => JSON.parse(JSON.stringify(value).replaceAll(oldKey, receipt.buildKey));
+    receipt.buildRoot = replaceRoot(receipt.buildRoot);
+    receipt.artifacts = replaceRoot(receipt.artifacts);
+    const writeBytes = (relative, bytes) =>
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, bytes);
+        return sha256(Buffer.from(bytes));
+    };
+    for (const [artifactId, artifact] of Object.entries(receipt.artifacts))
+    {
+        artifact.projectDigest = digestPath(repositoryRoot, artifact.project);
+        const bytes = artifactId === 'openapi-aeds-observation' ? legacy.text : '{"schema":"unit-fixture"}\n';
+        artifact.artifactDigest = writeBytes(artifact.path, bytes);
+        writeBytes(artifact.artifactPath, bytes);
+        artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+        if (artifact.assemblyPath)
+        {
+            artifact.assemblyDigest = writeBytes(artifact.assemblyPath, 'unit-fixture-assembly');
+            artifact.deploymentArtifactDigest = writeBytes(artifact.deploymentArtifactPath, 'unit-fixture-deployment');
+            Object.assign(artifact.buildReceipt, {
+                sourceCommit: source.sourceCommit,
+                worktreeFingerprint: source.worktreeFingerprint,
+                projectDigest: artifact.projectDigest,
+                assemblyDigest: artifact.assemblyDigest,
+                deploymentArtifactDigest: artifact.deploymentArtifactDigest
+            });
+            artifact.buildReceipt.reproducibleBuild.assemblyDigest = artifact.assemblyDigest;
+            artifact.buildReceipt.reproducibleBuild.sourceClosureDigest = digestValue(receipt.sourceClosureDigests);
+        }
+    }
+    const artifact = receipt.artifacts['openapi-aeds-observation'];
+    const projectionBytes = readFileSync(path.join(repositoryRoot, observedOpenApiRelative));
+    Object.assign(artifact.buildReceipt, {
+        openapiPath: `${receipt.buildRoot}/observations/fsusblog.openapi.observed.json`,
+        openapiArtifactPath: observedOpenApiRelative,
+        openapiDigest: writeBytes(`${receipt.buildRoot}/observations/fsusblog.openapi.observed.json`, projectionBytes)
+    });
+    receipt.contentDigest = null;
+    receipt.contentDigest = digestValue(receipt);
+    const receiptPath = `${receipt.buildRoot}/receipts/${receipt.runId}.json`;
+    writeBytes(receiptPath, `${JSON.stringify(receipt)}\n`);
+    const legacyReceipt = JSON.parse(readFileSync(path.join(repositoryRoot, buildReceiptRelative), 'utf8'));
+    delete legacyReceipt.buildIdentity;
+    legacyReceipt.sourceDigests = Object.fromEntries(observationBuildSourcePaths.map((relative) => [relative, digestPath(repositoryRoot, relative)]));
+    legacyReceipt.sourceDigest = digestValue(legacyReceipt.sourceDigests);
+    legacyReceipt.generatorDigest = legacyReceipt.sourceDigests['tools/contracts/lib/openapi-observation.mjs'];
+    const legacyIdentity = {
+        artifactId: legacyReceipt.artifactId,
+        receiptDigest: digestValue(legacyReceipt),
+        artifactDigest: legacyReceipt.artifactDigest,
+        sourceDigest: legacyReceipt.sourceDigest,
+        contractDigest: legacyReceipt.contractDigest,
+        errorCatalogDigest: legacyReceipt.errorCatalogDigest,
+        generatorDigest: legacyReceipt.generatorDigest,
+        protocolDigest: legacyReceipt.protocolDigest
+    };
+    legacy.receipt = { ...legacyReceipt, buildIdentity: legacyIdentity };
+    legacy.buildIdentity = { artifactId: legacyIdentity.artifactId, receiptDigest: legacyIdentity.receiptDigest, artifactDigest: legacyIdentity.artifactDigest };
+    rmSync(path.join(repositoryRoot, buildReceiptRelative));
+    return {
+        receipt,
+        legacy,
+        context: {
+            repositoryRoot,
+            ...source,
+            buildReceiptPath: receiptPath,
+            buildIdentity: {
+                schema: 'fsusblog.build-identity.v1',
+                artifactId: 'openapi-aeds-observation',
+                receiptDigest: receipt.contentDigest,
+                artifactDigest: artifact.artifactDigest,
+                sourceDigests: receipt.sourceClosureDigests,
+                sourceDigest: receipt.sourceDigest
+            }
+        }
+    };
+}
+
+test('canonical OpenAPI runner consumes the run-relative minimal receipt without a fixed sidecar', async (t) =>
+{
+    const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-runner-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const { context } = writeCanonicalObservation(directory, sampleObservation());
+    const registry = structuredClone(loadRegistry());
+    registry.extractors = registry.extractors.filter((extractor) => extractor.id === 'openapi-aeds-fact-extractor');
+    registry.extractors[0].consumedInputs = context.buildIdentity.sourceDigests.map((source) => source.path);
+    const { receipt } = await runExtractor({
+        extractorId: 'openapi-aeds-fact-extractor',
+        repositoryRoot: directory,
+        registry,
+        buildIdentity: context.buildIdentity,
+        buildReceiptPath: context.buildReceiptPath,
+        useCache: false
+    });
+    assert.equal(receipt.status, 'ok', JSON.stringify(receipt));
+    assert.deepEqual(receipt.buildIdentity, context.buildIdentity);
+    assert.equal(receipt.observations.operationCount, 2);
+});
+
+test('canonical OpenAPI rejects cached and published observation byte tampering independently', (t) =>
+{
+    for (const field of ['path', 'artifactPath'])
+    {
+        const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-observation-')));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const { context, receipt } = writeCanonicalObservation(directory, sampleObservation());
+        const initial = extractOpenApi(context);
+        assert.equal(initial.status, 'ok', initial.failureReasons.join('\n'));
+        writeFileSync(path.join(directory, receipt.artifacts['openapi-aeds-observation'][field]), '{"tampered":true}\n');
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /artifact digest mismatch/u);
+    }
+});
+
+test('canonical OpenAPI rejects cached and published projection byte tampering independently', (t) =>
+{
+    for (const field of ['openapiPath', 'openapiArtifactPath'])
+    {
+        const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-projection-')));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const { context, receipt } = writeCanonicalObservation(directory, sampleObservation());
+        const initial = extractOpenApi(context);
+        assert.equal(initial.status, 'ok', initial.failureReasons.join('\n'));
+        writeFileSync(path.join(directory, receipt.artifacts['openapi-aeds-observation'].buildReceipt[field]), '{"tampered":true}\n');
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /projection.*digest mismatch/u);
+    }
+});
+
+test('canonical OpenAPI preserves observation and current authority checks after artifact resealing', (t) =>
+{
+    for (const [mutate, expected] of [
+        [(value) =>
+        {
+            value.observationDigest = '0'.repeat(64);
+        }, /observationDigest/u],
+        [(value) =>
+        {
+            value.endpointContractAuthority.contentDigest = '0'.repeat(64);
+            value.observationDigest = observationContentDigest(value);
+        }, /endpoint contract content digest/u],
+        [(value) =>
+        {
+            value.errorAuthority.catalogDigest = '0'.repeat(64);
+            value.observationDigest = observationContentDigest(value);
+        }, /error authority catalog digest/u]
+    ])
+    {
+        const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-resealed-')));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const { context, receipt } = writeCanonicalObservation(directory, sampleObservation());
+        const artifact = receipt.artifacts['openapi-aeds-observation'];
+        const observation = JSON.parse(readFileSync(path.join(directory, artifact.path), 'utf8'));
+        mutate(observation);
+        const bytes = `${JSON.stringify(observation)}\n`;
+        for (const file of [artifact.path, artifact.artifactPath])
+        {
+            writeFileSync(path.join(directory, file), bytes);
+        }
+        artifact.artifactDigest = sha256(Buffer.from(bytes));
+        artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+        receipt.contentDigest = null;
+        receipt.contentDigest = digestValue(receipt);
+        writeFileSync(path.join(directory, context.buildReceiptPath), `${JSON.stringify(receipt)}\n`);
+        context.buildIdentity.artifactDigest = artifact.artifactDigest;
+        context.buildIdentity.receiptDigest = receipt.contentDigest;
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), expected);
+    }
+});
+
+test('canonical OpenAPI refuses receipt drift and unsafe paths without falling back to a valid legacy receipt', (t) =>
+{
+    for (const mutate of [
+        (context) =>
+        {
+            context.buildReceiptPath = null;
+        },
+        (context) =>
+        {
+            context.buildReceiptPath = '../outside.json';
+        },
+        (context) =>
+        {
+            context.buildIdentity.receiptDigest = '0'.repeat(64);
+        },
+        (context) =>
+        {
+            context.sourceCommit = '0'.repeat(40);
+        },
+        (context) =>
+        {
+            context.worktreeFingerprint = '0'.repeat(64);
+        },
+        (context, directory) =>
+        {
+            const target = path.join(directory, `${context.buildReceiptPath}.link`);
+            symlinkSync(path.join(directory, context.buildReceiptPath), target);
+            context.buildReceiptPath += '.link';
+        },
+        (context, directory) =>
+        {
+            const target = `${context.buildReceiptPath}.another-run`;
+            cpSync(path.join(directory, context.buildReceiptPath), path.join(directory, target));
+            context.buildReceiptPath = target;
+        }
+    ])
+    {
+        const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-no-fallback-')));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const { context, legacy } = writeCanonicalObservation(directory, sampleObservation());
+        // Recreate a genuine legacy unit receipt before presenting an invalid canonical context.
+        writeFileSync(path.join(directory, buildReceiptRelative), `${JSON.stringify(legacy.receipt)}\n`);
+        const standalone = extractOpenApi({ repositoryRoot: directory, buildIdentity: legacy.buildIdentity });
+        assert.equal(standalone.status, 'ok', standalone.failureReasons.join('\n'));
+        mutate(context, directory);
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'failed');
+        assert.deepEqual(result.observations, {});
+    }
+});
+
 function rewriteReceipt(repositoryRoot, mutate)
 {
     const absolute = path.join(repositoryRoot, buildReceiptRelative);
     const receipt = JSON.parse(readFileSync(absolute, 'utf8'));
     mutate(receipt);
-    const { buildIdentity: _oldIdentity, ...body } = receipt;
+    const body = { ...receipt };
+    delete body.buildIdentity;
     receipt.buildIdentity = {
         artifactId: body.artifactId,
         receiptDigest: digestValue(body),
@@ -766,51 +1048,187 @@ test('observationDigest is recomputed from sealed content, not trusted from arti
 test('typed request, response, protocol, and error authority counterexamples fail closed', () =>
 {
     const cases = [
-        ['missing request', (value) => { delete value.operations[0].request; }, /request contract/iu],
-        ['request direction drift', (value) => { value.operations[0].request.direction = 'response'; }, /request direction|request contract/iu],
-        ['incorrect request required', (value) => { value.operations[0].request.required = true; }, /request direction|request contract/iu],
-        ['incorrect request nullable', (value) => { value.operations[1].request.nullable = true; }, /request contract/iu],
-        ['property nullable drift', (value) => { value.operations[1].request.properties.title.nullable = true; }, /request contract/iu],
-        ['missing nested definition', (value) => { delete value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata']; }, /request contract/iu],
-        ['nested required drift', (value) => { value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'].requiredFields = []; }, /request contract/iu],
-        ['missing required field', (value) => { value.operations[1].request.requiredFields = []; }, /request contract/iu],
-        ['schema digest stale', (value) => { value.operations[1].request.schemaDigest = '0'.repeat(64); }, /request contract/iu],
-        ['invented request field bounds', (value) => { value.operations[1].request.boundsState = 'frame-contract'; }, /request contract/iu],
-        ['bounds loss', (value) => { value.operations[1].request.properties.title.bounds.maxLength = null; }, /request contract/iu],
-        ['bounds projection drift', (value) => { value.operations[1].request.bounds = {}; }, /request contract/iu],
-        ['invented request union', (value) => { value.operations[1].request.unionState = 'one-of'; value.operations[1].request.oneOf = ['Missing']; }, /request contract/iu],
-        ['discriminator without union', (value) => { value.operations[1].request.discriminator = '$type'; }, /request contract/iu],
-        ['invented request required field', (value) => { value.operations[1].request.requiredFields.push('frame'); }, /request contract/iu],
-        ['request direction swap', (value) => { value.operations[1].request.source = 'none'; }, /request contract/iu],
-        ['parameter direction swap', (value) => { value.operations[1].request.parameters[0].direction = 'response'; }, /request contract/iu],
-        ['parameter source conflict', (value) => { value.operations[1].request.parameters[0].source = 'query'; }, /request contract/iu],
-        ['missing query parameter', (value) => { value.operations[1].request.parameters.pop(); }, /request contract/iu],
-        ['duplicate request parameter', (value) => { value.operations[1].request.parameters.push({ ...value.operations[1].request.parameters[0] }); }, /request contract/iu],
-        ['parameter bounds missing', (value) => { delete value.operations[1].request.parameters[0].bounds; }, /request contract/iu],
-        ['parameter bounds invalid', (value) => { value.operations[1].request.parameters[0].bounds.minLength = -1; }, /request contract/iu],
-        ['parameter evidence missing', (value) => { value.operations[1].request.parameters[0].evidence = []; }, /request contract/iu],
-        ['duplicate source type', (value) => { value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]); }, /request contract/iu],
-        ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
-        ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response contracts/iu],
-        ['content type drift', (value) => { value.operations[0].responses[0].contentType = 'application/json'; }, /response contracts/iu],
-        ['response schema drift', (value) => { value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError'; }, /response contracts/iu],
-        ['result placement drift', (value) => { value.operations[0].responses[0].resultPlacement = 'json.body'; }, /response contracts/iu],
-        ['duplicate response', (value) => { value.operations[0].responses.push({ ...value.operations[0].responses[0] }); }, /response contracts/iu],
-        ['extra public status', (value) => { value.operations[0].publicErrorStatuses.push(503); }, /response contracts/iu],
-        ['missing status evidence', (value) => { delete value.operations[0].publicErrorStatusEvidence['404']; }, /response contracts/iu],
-        ['unmapped status ref', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:999'; }, /response contracts/iu],
-        ['generic error placeholder', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:ApiError'; }, /response contracts/iu],
-        ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states/iu],
-        ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states/iu],
-        ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states/iu],
-        ['duplicate retired protocol value', (value) => { value.protocolStates.retiredFrameValues.push(40); }, /protocol states/iu],
-        ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states/iu],
-        ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
-        ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
-        ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /response contracts/iu],
-        ['premature enumerable status authority', (value) => { value.errorAuthority.statusMappingKeys = [400, 500]; }, /error authority binding/iu],
-        ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu],
-        ['endpoint contract authority drift', (value) => { value.endpointContractAuthority.schema = 'fsusblog.aeds-endpoint-contracts.v1'; }, /endpoint contract authority/iu]
+        ['missing request', (value) =>
+        {
+            delete value.operations[0].request;
+        }, /request contract/iu],
+        ['request direction drift', (value) =>
+        {
+            value.operations[0].request.direction = 'response';
+        }, /request direction|request contract/iu],
+        ['incorrect request required', (value) =>
+        {
+            value.operations[0].request.required = true;
+        }, /request direction|request contract/iu],
+        ['incorrect request nullable', (value) =>
+        {
+            value.operations[1].request.nullable = true;
+        }, /request contract/iu],
+        ['property nullable drift', (value) =>
+        {
+            value.operations[1].request.properties.title.nullable = true;
+        }, /request contract/iu],
+        ['missing nested definition', (value) =>
+        {
+            delete value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'];
+        }, /request contract/iu],
+        ['nested required drift', (value) =>
+        {
+            value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'].requiredFields = [];
+        }, /request contract/iu],
+        ['missing required field', (value) =>
+        {
+            value.operations[1].request.requiredFields = [];
+        }, /request contract/iu],
+        ['schema digest stale', (value) =>
+        {
+            value.operations[1].request.schemaDigest = '0'.repeat(64);
+        }, /request contract/iu],
+        ['invented request field bounds', (value) =>
+        {
+            value.operations[1].request.boundsState = 'frame-contract';
+        }, /request contract/iu],
+        ['bounds loss', (value) =>
+        {
+            value.operations[1].request.properties.title.bounds.maxLength = null;
+        }, /request contract/iu],
+        ['bounds projection drift', (value) =>
+        {
+            value.operations[1].request.bounds = {};
+        }, /request contract/iu],
+        ['invented request union', (value) =>
+        {
+            value.operations[1].request.unionState = 'one-of';
+            value.operations[1].request.oneOf = ['Missing'];
+        }, /request contract/iu],
+        ['discriminator without union', (value) =>
+        {
+            value.operations[1].request.discriminator = '$type';
+        }, /request contract/iu],
+        ['invented request required field', (value) =>
+        {
+            value.operations[1].request.requiredFields.push('frame');
+        }, /request contract/iu],
+        ['request direction swap', (value) =>
+        {
+            value.operations[1].request.source = 'none';
+        }, /request contract/iu],
+        ['parameter direction swap', (value) =>
+        {
+            value.operations[1].request.parameters[0].direction = 'response';
+        }, /request contract/iu],
+        ['parameter source conflict', (value) =>
+        {
+            value.operations[1].request.parameters[0].source = 'query';
+        }, /request contract/iu],
+        ['missing query parameter', (value) =>
+        {
+            value.operations[1].request.parameters.pop();
+        }, /request contract/iu],
+        ['duplicate request parameter', (value) =>
+        {
+            value.operations[1].request.parameters.push({ ...value.operations[1].request.parameters[0] });
+        }, /request contract/iu],
+        ['parameter bounds missing', (value) =>
+        {
+            delete value.operations[1].request.parameters[0].bounds;
+        }, /request contract/iu],
+        ['parameter bounds invalid', (value) =>
+        {
+            value.operations[1].request.parameters[0].bounds.minLength = -1;
+        }, /request contract/iu],
+        ['parameter evidence missing', (value) =>
+        {
+            value.operations[1].request.parameters[0].evidence = [];
+        }, /request contract/iu],
+        ['duplicate source type', (value) =>
+        {
+            value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]);
+        }, /request contract/iu],
+        ['missing error response', (value) =>
+        {
+            value.operations[0].responses.pop();
+        }, /response contracts/iu],
+        ['success status drift', (value) =>
+        {
+            value.operations[0].responses[0].status = 201;
+        }, /response contracts/iu],
+        ['content type drift', (value) =>
+        {
+            value.operations[0].responses[0].contentType = 'application/json';
+        }, /response contracts/iu],
+        ['response schema drift', (value) =>
+        {
+            value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError';
+        }, /response contracts/iu],
+        ['result placement drift', (value) =>
+        {
+            value.operations[0].responses[0].resultPlacement = 'json.body';
+        }, /response contracts/iu],
+        ['duplicate response', (value) =>
+        {
+            value.operations[0].responses.push({ ...value.operations[0].responses[0] });
+        }, /response contracts/iu],
+        ['extra public status', (value) =>
+        {
+            value.operations[0].publicErrorStatuses.push(503);
+        }, /response contracts/iu],
+        ['missing status evidence', (value) =>
+        {
+            delete value.operations[0].publicErrorStatusEvidence['404'];
+        }, /response contracts/iu],
+        ['unmapped status ref', (value) =>
+        {
+            value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:999';
+        }, /response contracts/iu],
+        ['generic error placeholder', (value) =>
+        {
+            value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:ApiError';
+        }, /response contracts/iu],
+        ['active migration overlap', (value) =>
+        {
+            value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail');
+        }, /protocol states/iu],
+        ['reserved frame in active partition', (value) =>
+        {
+            value.protocolStates.activeFrameIds.push('Reserved178');
+        }, /protocol states/iu],
+        ['non-reserved migration frame', (value) =>
+        {
+            value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame');
+        }, /protocol states/iu],
+        ['duplicate retired protocol value', (value) =>
+        {
+            value.protocolStates.retiredFrameValues.push(40);
+        }, /protocol states/iu],
+        ['missing migration partition', (value) =>
+        {
+            delete value.protocolStates.migrationOnlyFrameIds;
+        }, /protocol states/iu],
+        ['error behavior drift', (value) =>
+        {
+            value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract';
+        }, /public errors/iu],
+        ['invented operation error allow-list', (value) =>
+        {
+            value.operations[0].publicErrorRefState = 'operation-allow-list';
+        }, /public errors/iu],
+        ['duplicate public error ref', (value) =>
+        {
+            value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]);
+        }, /response contracts/iu],
+        ['premature enumerable status authority', (value) =>
+        {
+            value.errorAuthority.statusMappingKeys = [400, 500];
+        }, /error authority binding/iu],
+        ['duplicate authority fact', (value) =>
+        {
+            value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]);
+        }, /error authority binding/iu],
+        ['endpoint contract authority drift', (value) =>
+        {
+            value.endpointContractAuthority.schema = 'fsusblog.aeds-endpoint-contracts.v1';
+        }, /endpoint contract authority/iu]
     ];
 
     for (const [name, mutate, expected] of cases)
@@ -831,6 +1249,20 @@ test('typed request, response, protocol, and error authority counterexamples fai
         finally
         {
             rmSync(directory, { recursive: true, force: true });
+        }
+        const canonicalDirectory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-typed-negative-')));
+        try
+        {
+            const observation = sampleObservation();
+            mutate(observation);
+            const { context } = writeCanonicalObservation(canonicalDirectory, observation);
+            const result = extractOpenApi(context);
+            assert.equal(result.status, 'failed', `canonical ${name}`);
+            assert.match(result.failureReasons.join('\n'), expected, `canonical ${name}`);
+        }
+        finally
+        {
+            rmSync(canonicalDirectory, { recursive: true, force: true });
         }
     }
 });
