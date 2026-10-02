@@ -48,15 +48,41 @@ restore_finished_at=0
 workDirOwned=0
 postgresOwned=0
 redisOwned=0
+evidenceMode=0
+evidenceWorker=0
+evidenceTimeoutArgument=0
+evidenceNonce=""
+evidenceCleanupVerified=1
+evidenceWorkIdentity=""
+postgresAttempted=0
+redisAttempted=0
 
-mkdir -p "$OUT_DIR"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --migration-evidence) evidenceMode=1; shift ;;
+        --timeout-seconds)
+            if [[ $# -lt 2 ]]; then
+                blockers+=("drill-timeout-argument-missing")
+                status="blocked"
+                shift
+            else
+                sourceTimeoutSeconds="$2"
+                evidenceTimeoutArgument=1
+                shift 2
+            fi
+            ;;
+        *) blockers+=("unknown-arg:$1"); status="blocked"; shift ;;
+    esac
+done
 
 ReadSourceBudget() {
     if [[ ! -r /proc/uptime || ! "$sourceTimeoutSeconds" =~ ^[1-9][0-9]{0,6}$ ]] || ((sourceTimeoutSeconds > 2147483)); then
         AddBlocker "database-snapshot-timeout-invalid-or-missing"
         return 1
     fi
-    sourceDeadline=$(( $(SourceNow) + sourceTimeoutSeconds ))
+    if [[ "$sourceDeadline" == "0" ]]; then
+        sourceDeadline=$(( $(SourceNow) + sourceTimeoutSeconds ))
+    fi
 }
 
 SourceNow() {
@@ -189,6 +215,37 @@ Cleanup() {
     if [[ "$workDirOwned" == "1" ]]; then
         rm -f "$WORK_DIR/site-package.plaintext.tar.gz"
     fi
+    if [[ "$evidenceMode" == "1" ]]; then
+        [[ "$evidenceWorker" == "1" ]] || return
+        if [[ -n "$backend_pid" ]] && StopSourceChild "$backend_pid"; then
+            AddCheck "owned-backend-terminal" "verified"
+        else
+            evidenceCleanupVerified=0
+        fi
+        local sourcePath destinationName
+        for destinationName in backend.log native-restored-source.json package-manifest.json; do
+            case "$destinationName" in
+                backend.log) sourcePath="$WORK_DIR/backend.log" ;;
+                native-restored-source.json) sourcePath="$WORK_DIR/.source-observer.stdout" ;;
+                package-manifest.json) sourcePath="$WORK_DIR/site-package/manifest.json" ;;
+            esac
+            if [[ -f "$sourcePath" && ! -L "$sourcePath" ]]; then
+                RunSourceCommand "$OUT_DIR/owned-raw-retention.stdout" cp "$sourcePath" "$OUT_DIR/$destinationName" </dev/null || evidenceCleanupVerified=0
+            fi
+        done
+        CleanupEvidenceContainer postgres "$postgresAttempted" || evidenceCleanupVerified=0
+        CleanupEvidenceContainer redis "$redisAttempted" || evidenceCleanupVerified=0
+        if [[ "$workDirOwned" == "1" && "$sourceCleanupVerified" == "1" && "$evidenceCleanupVerified" == "1" ]]; then
+            if [[ -L "$WORK_DIR" || "$(stat -c '%d:%i' -- "$WORK_DIR")" != "$evidenceWorkIdentity" ]]; then
+                evidenceCleanupVerified=0
+            else
+                RunSourceCommand "$OUT_DIR/owned-work-cleanup.stdout" rm -rf -- "$WORK_DIR" </dev/null || evidenceCleanupVerified=0
+            fi
+            [[ ! -e "$WORK_DIR" && ! -L "$WORK_DIR" ]] || evidenceCleanupVerified=0
+        fi
+        [[ "$sourceCleanupVerified" == "1" && "$evidenceCleanupVerified" == "1" ]] || AddBlocker "owned-drill-cleanup-unverified"
+        return
+    fi
     if [[ -n "$backend_pid" ]] && kill -0 "$backend_pid" >/dev/null 2>&1; then
         kill "$backend_pid" >/dev/null 2>&1 || true
         wait "$backend_pid" >/dev/null 2>&1 || true
@@ -226,6 +283,27 @@ ArchiveIsSafe() {
 }
 
 trap Cleanup EXIT
+
+CleanupEvidenceContainer() {
+    local kind="$1" attempted="$2" cid label remaining
+    [[ "$attempted" == "1" ]] || return 0
+    if [[ ! -f "$OUT_DIR/owned-$kind.cid" || -L "$OUT_DIR/owned-$kind.cid" ]]; then
+        AddBlocker "owned-$kind-container-id-unavailable"
+        return 1
+    fi
+    read -r cid <"$OUT_DIR/owned-$kind.cid" || [[ -n "$cid" ]]
+    [[ "$cid" =~ ^[0-9a-f]{64}$ ]] || return 1
+    if ! RunSourceCommand "$OUT_DIR/owned-$kind-label.stdout" docker inspect \
+        --format '{{index .Config.Labels "fsusblog.backup-drill-owner"}}' "$cid" </dev/null; then
+        return 1
+    fi
+    label="$(<"$OUT_DIR/owned-$kind-label.stdout")"
+    [[ "$label" == "$evidenceNonce" ]] || return 1
+    RunSourceCommand "$OUT_DIR/owned-$kind-remove.stdout" docker rm -f "$cid" </dev/null || return 1
+    RunSourceCommand "$OUT_DIR/owned-$kind-after.stdout" docker ps -aq --no-trunc --filter "id=$cid" </dev/null || return 1
+    [[ ! -s "$OUT_DIR/owned-$kind-after.stdout" ]] || return 1
+    AddCheck "owned-$kind-container-removed" "verified"
+}
 
 JsonStringArray() {
     if (("$#" == 0)); then
@@ -576,7 +654,12 @@ RestorePostgres() {
         AddBlocker "postgres-pinned-image-missing"
         return
     }
-    if ! docker run -d \
+    local -a ownershipOptions=()
+    if [[ "$evidenceMode" == "1" ]]; then
+        ownershipOptions=(--cidfile "$OUT_DIR/owned-postgres.cid" --label "fsusblog.backup-drill-owner=$evidenceNonce")
+        postgresAttempted=1
+    fi
+    if ! docker run -d "${ownershipOptions[@]}" \
         --name "$postgres_container" \
         -e POSTGRES_USER=fsusblog \
         -e POSTGRES_PASSWORD=fsusblog_dev \
@@ -674,7 +757,12 @@ RestoreRedis() {
     fi
 
     chmod -R a+rwX "$redisData"
-    if ! docker run -d \
+    local -a ownershipOptions=()
+    if [[ "$evidenceMode" == "1" ]]; then
+        ownershipOptions=(--cidfile "$OUT_DIR/owned-redis.cid" --label "fsusblog.backup-drill-owner=$evidenceNonce")
+        redisAttempted=1
+    fi
+    if ! docker run -d "${ownershipOptions[@]}" \
         --name "$redis_container" \
         -v "$redisData:/data" \
         "$redisImage" redis-server --save "" --appendonly no >/dev/null; then
@@ -883,17 +971,91 @@ WaitForUrl() {
     return 1
 }
 
+VerifyEvidenceBackendListener() {
+    local output="$1" identity
+    identity="${sourceChildIdentities[$backend_pid]:-}"
+    [[ -n "$identity" ]] || return 1
+    RunSourceCommand "$output" node --input-type=module - "$backend_pid" "$BACKEND_PORT" "$identity" <<'NODE'
+import { readFile, readdir, readlink } from 'node:fs/promises';
+
+const [leader, port, expected] = process.argv.slice(2);
+const processGroup = async pid =>
+{
+    const raw = await readFile(`/proc/${pid}/stat`, 'utf8');
+    const fields = raw.slice(raw.lastIndexOf(') ') + 2).trim().split(/\s+/);
+    return { group: fields[2], identity: `${pid}:${fields[19]}` };
+};
+const initial = await processGroup(leader);
+if (!/^[0-9]+$/.test(port) || Number(port) < 1 || Number(port) > 65535 || initial.identity !== expected || initial.group !== leader)
+{
+    throw new Error('owned backend leader identity invalid');
+}
+const table = await readFile('/proc/net/tcp', 'utf8');
+const inodes = new Set(table.trim().split('\n').slice(1).map(line => line.trim().split(/\s+/))
+    .filter(fields => fields[3] === '0A' && Number.parseInt(fields[1].split(':')[1], 16) === Number(port)
+        && ['0100007F', '00000000'].includes(fields[1].split(':')[0])).map(fields => fields[9]));
+if (inodes.size === 0)
+{
+    throw new Error('owned backend listener absent');
+}
+const owned = new Set();
+for (const pid of await readdir('/proc'))
+{
+    if (!/^[0-9]+$/.test(pid))
+    {
+        continue;
+    }
+    try
+    {
+        if ((await processGroup(pid)).group !== leader)
+        {
+            continue;
+        }
+        for (const fd of await readdir(`/proc/${pid}/fd`))
+        {
+            const target = await readlink(`/proc/${pid}/fd/${fd}`);
+            const match = /^socket:\[([0-9]+)\]$/.exec(target);
+            if (match && inodes.has(match[1]))
+            {
+                owned.add(match[1]);
+            }
+        }
+    }
+    catch (error)
+    {
+        if (error.code !== 'ENOENT' && error.code !== 'ESRCH')
+        {
+            throw error;
+        }
+    }
+}
+const final = await processGroup(leader);
+if (owned.size !== inodes.size || final.identity !== expected || final.group !== leader)
+{
+    throw new Error('backend listener is not owned by this live process group');
+}
+console.log(JSON.stringify({ leader, identity: expected, port: Number(port), socketInodes: [...owned].sort() }));
+NODE
+}
+
 StartRestoredBackend() {
     local pgIp redisIp
+    local -a backendDeadlineCommand=()
     pgIp="$(ContainerIp "$postgres_container")"
     redisIp="$(ContainerIp "$redis_container")"
     [[ -n "$pgIp" ]] || AddBlocker "postgres-container-ip-missing"
     [[ -n "$redisIp" ]] || AddBlocker "redis-container-ip-missing"
     ((${#blockers[@]} == 0)) || return
 
+    if [[ "$evidenceMode" == "1" ]]; then
+        local remaining
+        remaining="$(SourceRemaining)" || { AddBlocker "owned-drill-deadline-expired"; return; }
+        backendDeadlineCommand=(timeout --signal=TERM --kill-after=1s "${remaining}s")
+    fi
+
     (
         cd "$ROOT_DIR"
-        env \
+        exec "${backendDeadlineCommand[@]}" env \
             ASPNETCORE_ENVIRONMENT=Development \
             ASPNETCORE_URLS="$BASE_URL" \
             ASPNETCORE_WEBROOT="$WORK_DIR/webroot" \
@@ -909,9 +1071,17 @@ StartRestoredBackend() {
             ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile
     ) >"$WORK_DIR/backend.log" 2>&1 &
     backend_pid="$!"
+    if [[ "$evidenceMode" == "1" ]] && ! RegisterChildIdentity "$backend_pid"; then
+        AddBlocker "owned-backend-process-identity-unverified"
+        return
+    fi
 
     WaitForUrl "restored-backend-live" "$BASE_URL/health/live" || return
     WaitForUrl "restored-backend-pow" "$BASE_URL/api/binary/auth/pow-challenge" "Accept: application/octet-stream" || return
+    if [[ "$evidenceMode" == "1" ]] && ! VerifyEvidenceBackendListener "$OUT_DIR/owned-backend-listener-start.json"; then
+        AddBlocker "owned-restored-backend-listener-unverified"
+        return
+    fi
     AddCheck "restored-backend-start" "ok"
 }
 
@@ -981,7 +1151,13 @@ RunReal() {
         return
     fi
     workDirOwned=1
+    if [[ "$evidenceMode" == "1" ]]; then
+        evidenceWorkIdentity="$(stat -c '%d:%i' -- "$WORK_DIR")"
+    fi
     PrepareSiteBackupPackage
+    if [[ "$evidenceMode" == "1" && "$sourceBinding" == "null" ]]; then
+        AddBlocker "owned-drill-snapshot-bound-version3-required"
+    fi
     RequireBackup "$POSTGRES_BACKUP" "postgres"
     RequireBackup "$REDIS_BACKUP" "redis"
     RequireBackup "$UPLOADS_BACKUP" "uploads"
@@ -1010,17 +1186,131 @@ RunReal() {
     restore_finished_at="$(date -u +%s)"
 }
 
-case "$MODE" in
-    dry-run)
-        RunDryRun
-        ;;
-    real)
-        RunReal
-        ;;
-    *)
-        AddBlocker "unsupported-mode:$MODE"
-        ;;
-esac
+RunEvidenceWorker() {
+    RunReal
+    if (("${#blockers[@]}" == 0)) && ! VerifyEvidenceBackendListener "$OUT_DIR/owned-backend-listener-end.json"; then
+        AddBlocker "owned-restored-backend-listener-after-smoke-unverified"
+    fi
+    if [[ "$sourceBinding" == "null" || "$restoredSource" == "null" ]]; then
+        AddBlocker "owned-drill-native-source-proof-unavailable"
+    fi
+    Cleanup
+    trap - EXIT
+    WriteReport
+    [[ "$status" == "ok" && "$sourceCleanupVerified" == "1" && "$evidenceCleanupVerified" == "1" ]]
+}
 
-WriteReport
-[[ "$status" == "ok" || "$status" == "scheduled" ]]
+RunMigrationEvidence() {
+    if [[ "$evidenceTimeoutArgument" != "1" ]] || ! ReadSourceBudget; then
+        printf '%s\n' '{"status":"blocked","blocker":"owned-drill-timeout-invalid-or-missing"}' >&2
+        return 1
+    fi
+    for command in bash jq node timeout ps sleep stat realpath sha256sum; do
+        RequireCommand "$command"
+    done
+    if [[ "$MODE" != "real" || "$RESTORE_STACK" != "1" || "$KEEP_WORK" != "0" \
+        || ! -f "$SITE_BACKUP_PACKAGE" || -L "$SITE_BACKUP_PACKAGE" \
+        || -e "$OUT_DIR" || -L "$OUT_DIR" || ! -d "$(dirname "$OUT_DIR")" ]]; then
+        AddBlocker "owned-drill-input-or-private-root-invalid"
+    fi
+    if (("${#blockers[@]}" != 0)); then
+        printf '%s\n' "${blockers[@]}" >&2
+        return 1
+    fi
+    OUT_DIR="$(realpath -m -- "$OUT_DIR")"
+    WORK_DIR="$(realpath -m -- "$WORK_DIR")"
+    case "$WORK_DIR" in "$OUT_DIR"/*) ;; *) AddBlocker "owned-drill-work-root-not-private"; return 1 ;; esac
+    if ! mkdir -m 0700 -- "$OUT_DIR"; then
+        AddBlocker "owned-drill-output-root-creation-failed"
+        return 1
+    fi
+    evidenceNonce="$RUN_ID-$(stat -c '%d-%i' -- "$OUT_DIR")"
+    OUT_FILE="$OUT_DIR/backup-restore-drill.json"
+    RESTORE_MANIFEST_FILE="$OUT_DIR/backup-restore-manifest.json"
+    RESIDUE_REPORT_FILE="$OUT_DIR/backup-restore-anonymous-residue.json"
+    SITE_BACKUP_PACKAGE="$(realpath -e -- "$SITE_BACKUP_PACKAGE")"
+    export FSUSBLOG_DRILL_OUTPUT_DIR="$OUT_DIR" FSUSBLOG_DRILL_WORK_DIR="$WORK_DIR" \
+        FSUSBLOG_DRILL_RUN_ID="$RUN_ID" FSUSBLOG_SITE_BACKUP_PACKAGE="$SITE_BACKUP_PACKAGE" \
+        FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS="$sourceTimeoutSeconds"
+    sourceFailureLog="$OUT_DIR/owned-drill.stderr"
+    if ! RunSourceCommand "$OUT_DIR/owned-drill.stdout" bash -c \
+        'source "$1"; evidenceMode=1; evidenceWorker=1; sourceDeadline="$2"; evidenceNonce="$3"; RunEvidenceWorker' \
+        owned-drill "$ROOT_DIR/tools/operations/backup-restore-drill.sh" "$sourceDeadline" "$evidenceNonce" </dev/null; then
+        AddBlocker "owned-drill-producer-terminal-or-cleanup-failed"
+        printf '%s\n' "${blockers[@]}" >&2
+        return 1
+    fi
+    # These are this invocation's actual producer artifacts, not caller-selected reports.
+    if ! RunSourceCommand "$OUT_DIR/owned-artifact-sha256.stdout" sha256sum \
+        "$SITE_BACKUP_PACKAGE" "$OUT_FILE" "$OUT_DIR/package-manifest.json" "$RESTORE_MANIFEST_FILE" \
+        "$RESIDUE_REPORT_FILE" "$OUT_DIR/owned-drill.stdout" "$OUT_DIR/owned-drill.stderr" \
+        "$OUT_DIR/native-restored-source.json" "$OUT_DIR/backend.log" \
+        "$OUT_DIR/backup-restore-drill-${RUN_ID}.source-stderr.log" \
+        "$OUT_DIR/owned-backend-listener-start.json" "$OUT_DIR/owned-backend-listener-end.json" </dev/null; then
+        AddBlocker "owned-drill-artifact-final-read-failed"
+        return 1
+    fi
+    local -a digests
+    mapfile -t digests <"$OUT_DIR/owned-artifact-sha256.stdout"
+    if [[ "${#digests[@]}" != "12" ]]; then return 1; fi
+    local packageDigest="${digests[0]%% *}" reportDigest="${digests[1]%% *}" manifestDigest="${digests[2]%% *}"
+    if ! jq -e --arg nonce "$RUN_ID" --arg packageDigest "$packageDigest" --arg manifestDigest "$manifestDigest" \
+        '.status == "ok" and .mode == "real" and .runId == $nonce and .sourceCleanupVerified == true
+         and .packageSha256 == $packageDigest and .manifestSha256 == $manifestDigest
+         and .restoredDatabaseDumpSha256 == .sourceBinding.capture.DatabaseDumpSha256
+         and (["restored-backend-start:ok", "public-page:ok", "binary-api:ok", "search-index:ok",
+               "notification-stream-live:ok", "admin-login:ok", "anonymous-residue-gate:ok",
+               "owned-backend-terminal:verified", "owned-postgres-container-removed:verified",
+               "owned-redis-container-removed:verified"] - .checks | length) == 0' "$OUT_FILE" >/dev/null; then
+        AddBlocker "owned-drill-actual-proof-or-full-smoke-invalid"
+        return 1
+    fi
+    SourceRemaining >/dev/null || return 1
+    jq -n --arg invocation "$RUN_ID" --arg privateRoot "$OUT_DIR" --arg packageSha256 "$packageDigest" \
+        --arg manifestSha256 "$manifestDigest" --arg reportSha256 "$reportDigest" \
+        --arg drillManifestSha256 "${digests[3]%% *}" --arg residueSha256 "${digests[4]%% *}" \
+        --arg stdoutSha256 "${digests[5]%% *}" --arg stderrSha256 "${digests[6]%% *}" \
+        --arg nativeRestoredSourceSha256 "${digests[7]%% *}" --slurpfile report "$OUT_FILE" \
+        --arg backendLogSha256 "${digests[8]%% *}" --arg nativeStderrSha256 "${digests[9]%% *}" --arg runId "$RUN_ID" \
+        --arg backendListenerStartSha256 "${digests[10]%% *}" --arg backendListenerEndSha256 "${digests[11]%% *}" \
+        --slurpfile manifest "$OUT_DIR/package-manifest.json" \
+        '{version:1, owner:"tools/operations/backup-restore-drill.sh", ownerVersion:"1", operation:"migration-evidence",
+          invocation:$invocation, privateRoot:$privateRoot, producerExitCode:0,
+          packageSha256:$packageSha256, manifestSha256:$manifestSha256,
+          reportReference:($privateRoot + "/backup-restore-drill.json"), reportSha256:$reportSha256,
+          manifestReference:($privateRoot + "/package-manifest.json"), manifest:$manifest[0],
+          drillManifestReference:($privateRoot + "/backup-restore-manifest.json"), drillManifestSha256:$drillManifestSha256,
+          residueReference:($privateRoot + "/backup-restore-anonymous-residue.json"), residueSha256:$residueSha256,
+          stdoutReference:($privateRoot + "/owned-drill.stdout"), stdoutSha256:$stdoutSha256,
+          stderrReference:($privateRoot + "/owned-drill.stderr"), stderrSha256:$stderrSha256,
+          nativeRestoredSourceReference:($privateRoot + "/native-restored-source.json"), nativeRestoredSourceSha256:$nativeRestoredSourceSha256,
+          backendLogReference:($privateRoot + "/backend.log"), backendLogSha256:$backendLogSha256,
+          nativeStderrReference:($privateRoot + "/backup-restore-drill-" + $runId + ".source-stderr.log"), nativeStderrSha256:$nativeStderrSha256,
+          backendListenerStartReference:($privateRoot + "/owned-backend-listener-start.json"), backendListenerStartSha256:$backendListenerStartSha256,
+          backendListenerEndReference:($privateRoot + "/owned-backend-listener-end.json"), backendListenerEndSha256:$backendListenerEndSha256,
+          sourceBinding:$report[0].sourceBinding, restoredSource:$report[0].restoredSource,
+          restoredDatabaseDumpSha256:$report[0].restoredDatabaseDumpSha256}'
+}
+
+Main() {
+    if (("${#blockers[@]}" != 0)); then
+        printf '%s\n' "${blockers[@]}" >&2
+        return 1
+    fi
+    if [[ "$evidenceMode" == "1" ]]; then
+        RunMigrationEvidence
+        return
+    fi
+    mkdir -p "$OUT_DIR"
+    case "$MODE" in
+        dry-run) RunDryRun ;;
+        real) RunReal ;;
+        *) AddBlocker "unsupported-mode:$MODE" ;;
+    esac
+    WriteReport
+    [[ "$status" == "ok" || "$status" == "scheduled" ]]
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    Main "$@"
+fi
