@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;

@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 

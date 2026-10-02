@@ -3,10 +3,10 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-using FsusBlog.Core.Common;
+namespace FsusBlog.Contracts.Articles;
 
-namespace FsusBlog.Core.Integrity;
-
+/// <summary>Revision-bound rights policy fields and the bound article-content digest.</summary>
+/// <remarks>A payload is not a signature, permission grant, or proof of persisted snapshots.</remarks>
 public sealed record ArticleRightsCanonicalInput(
     int ArticleId,
     long ArticleRevisionId,
@@ -23,6 +23,7 @@ public sealed record ArticleRightsCanonicalInput(
     string? CanonicalUrl,
     string ContentCanonicalHash);
 
+/// <summary>Explicit values substituted into the supported attribution-template tokens.</summary>
 public sealed record ArticleRightsAttributionValues(
     string Title,
     string Url,
@@ -31,12 +32,17 @@ public sealed record ArticleRightsAttributionValues(
     string License,
     string Proof);
 
+/// <summary>The single canonical-v1 rights-policy digest implementation.</summary>
 public static class ArticleRightsCanonicalHashV1
 {
+    /// <summary>The version included in the rights payload.</summary>
     public const int HashVersion = 1;
+    /// <summary>The rights-policy domain, distinct from article content.</summary>
     public const string DomainSeparator = "fsusblog.rights.article-policy.v1";
+    /// <summary>The digest algorithm and returned digest prefix.</summary>
     public const string HashAlgorithm = "sha256";
 
+    /// <summary>Hashes the complete validated policy payload and returns a sha256-prefixed digest.</summary>
     public static string ComputeHashHex(ArticleRightsCanonicalInput input)
     {
         byte[] payload = ArticleRightsCanonicalPayloadV1.BuildPayloadBytes(input);
@@ -45,8 +51,10 @@ public static class ArticleRightsCanonicalHashV1
     }
 }
 
+/// <summary>Writes the complete canonical rights payload without runtime or storage dependencies.</summary>
 public static class ArticleRightsCanonicalPayloadV1
 {
+    /// <summary>Returns validated canonical bytes, rejecting invalid coordinates, limits, or content digests.</summary>
     public static byte[] BuildPayloadBytes(ArticleRightsCanonicalInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -57,9 +65,11 @@ public static class ArticleRightsCanonicalPayloadV1
         return writer.WrittenSpan.ToArray();
     }
 
+    /// <summary>Returns the same complete validated payload as UTF-8 text.</summary>
     public static string BuildPayloadUtf8(ArticleRightsCanonicalInput input)
         => Encoding.UTF8.GetString(BuildPayloadBytes(input));
 
+    /// <summary>Validates input before appending the complete canonical payload to the caller-owned writer.</summary>
     public static void WritePayload(IBufferWriter<byte> writer, ArticleRightsCanonicalInput input)
     {
         ArgumentNullException.ThrowIfNull(writer);
@@ -242,7 +252,7 @@ public static class ArticleRightsCanonicalPayloadV1
             throw new ArgumentException("Hash must be a sha256 digest with 64 hexadecimal characters.", nameof(value));
         }
 
-        if (!HexText.IsSha256Hex(candidate))
+        if (candidate.Any(static character => !Uri.IsHexDigit(character)))
         {
             throw new ArgumentException("Hash must contain only hexadecimal characters.", nameof(value));
         }
@@ -251,8 +261,10 @@ public static class ArticleRightsCanonicalPayloadV1
     }
 }
 
+/// <summary>Substitutes supported attribution tokens while retaining unknown or unmatched tokens.</summary>
 public static class ArticleRightsAttributionTemplateRenderer
 {
+    /// <summary>Returns substituted text; an omitted or empty template yields empty text.</summary>
     public static string Render(string? template, ArticleRightsAttributionValues values)
     {
         ArgumentNullException.ThrowIfNull(values);
