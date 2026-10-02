@@ -13,6 +13,7 @@ const defaultPolicyPath = 'config/development/csharp-style-policy.json';
 const policySchema = 'fsusblog.csharp-style-policy.v1';
 const baselineSchema = 'fsusblog.csharp-style-baseline.v1';
 const validModes = new Set(['changed', 'full', 'strict-full']);
+const baselinePolicyRebindAuthority = 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
 
 let root = defaultRoot;
 let policy = null;
@@ -41,7 +42,7 @@ function parseArgs(argv)
             parsed.fix = true;
             continue;
         }
-        if (!['--root', '--policy', '--mode', '--base', '--file'].includes(argument))
+        if (!['--root', '--policy', '--mode', '--base', '--file', '--rebind-baseline-policy'].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
         }
@@ -50,7 +51,15 @@ function parseArgs(argv)
         {
             throw new Error(`${argument} requires a value`);
         }
-        if (argument === '--file')
+        if (argument === '--rebind-baseline-policy')
+        {
+            if (parsed.rebindBaselinePolicy !== undefined)
+            {
+                throw new Error('duplicate --rebind-baseline-policy');
+            }
+            parsed.rebindBaselinePolicy = value;
+        }
+        else if (argument === '--file')
         {
             parsed.files.push(value);
         }
@@ -1373,6 +1382,73 @@ function writeBaseline(violations)
     console.log(`[csharp-style] baseline updated violations=${violations.length} path=${policy.baseline}`);
 }
 
+function rebindBaselinePolicy(authority)
+{
+    if (authority !== baselinePolicyRebindAuthority)
+    {
+        throw new Error('baseline policy rebind requires the exact reviewed b19 authority commit');
+    }
+    const git = (...arguments_) => command(['git', '--no-optional-locks', '--no-replace-objects', ...arguments_]);
+    if (git('rev-parse', '--verify', `${authority}^{commit}`).stdout.trim() !== authority)
+    {
+        throw new Error('baseline policy rebind authority is not the exact commit');
+    }
+    git('merge-base', '--is-ancestor', authority, 'HEAD');
+    const readAuthorityBlob = (relativePath) =>
+    {
+        const entries = git('ls-tree', '-z', authority, '--', relativePath).stdout.split('\0').filter(Boolean);
+        const entry = entries[0]?.match(/^100644 blob ([0-9a-f]{40})\t(.+)$/u);
+        if (entries.length !== 1 || !entry || entry[2] !== relativePath)
+        {
+            throw new Error(`baseline policy rebind requires an exact regular authority blob: ${relativePath}`);
+        }
+        return git('cat-file', 'blob', entry[1]).stdout;
+    };
+    const oldPolicyBytes = readAuthorityBlob(defaultPolicyPath);
+    const oldPolicy = JSON.parse(oldPolicyBytes);
+    const target = path.join(root, oldPolicy.baseline);
+    const oldBaselineBytes = readAuthorityBlob(oldPolicy.baseline);
+    if (!fs.lstatSync(policyFile).isFile() || fs.realpathSync(policyFile) !== policyFile
+        || !fs.lstatSync(target).isFile() || fs.realpathSync(target) !== target)
+    {
+        throw new Error('baseline policy rebind requires physical regular policy and baseline files');
+    }
+    if (fs.readFileSync(target, 'utf8') !== oldBaselineBytes)
+    {
+        throw new Error('baseline policy rebind requires unchanged authority baseline bytes');
+    }
+    const oldBaseline = JSON.parse(oldBaselineBytes);
+    if (oldBaseline.schema !== baselineSchema || oldBaseline.policySha256 !== sha256(oldPolicyBytes))
+    {
+        throw new Error('baseline policy rebind authority baseline does not bind its original policy');
+    }
+    const expectedPolicy = {
+        ...oldPolicy,
+        enumNaming: {
+            ...oldPolicy.enumNaming,
+            acceptedSingularSuffixes: [...oldPolicy.enumNaming.acceptedSingularSuffixes, 'Miss']
+        }
+    };
+    const currentPolicyBytes = fs.readFileSync(policyFile, 'utf8');
+    if (currentPolicyBytes !== `${JSON.stringify(expectedPolicy, null, 4)}\n`)
+    {
+        throw new Error('baseline policy rebind permits only the reviewed Miss suffix append');
+    }
+    if (failures.length > 0)
+    {
+        throw new Error('baseline policy rebind refused invalid policy; no baseline was written');
+    }
+    const newPolicySha256 = sha256(currentPolicyBytes);
+    const oldDigestField = `"policySha256": "${oldBaseline.policySha256}"`;
+    if (oldBaselineBytes.split(oldDigestField).length !== 2)
+    {
+        throw new Error('baseline policy rebind requires one exact original digest field');
+    }
+    const output = oldBaselineBytes.replace(oldDigestField, `"policySha256": "${newPolicySha256}"`);
+    fs.writeFileSync(target, output);
+    console.log(`[csharp-style] baseline policy rebound authority=${authority} retainedFiles=${oldBaseline.fileCount} retainedViolations=${oldBaseline.violationCount}; no style scan performed`);
+}
+
 function validatePolicy()
 {
     if (policy.schema !== policySchema)
@@ -1479,6 +1555,11 @@ function main()
     {
         throw new Error(`repository root does not exist: ${root}`);
     }
+    if (args.rebindBaselinePolicy !== undefined
+        && (args.mode !== 'full' || args.fix || args.updateBaseline || args.files.length > 0 || args.policy || args.base))
+    {
+        throw new Error('baseline policy rebind requires full mode without fix, update-baseline, file, policy or base options');
+    }
     policyFile = path.resolve(args.policy ?? path.join(root, defaultPolicyPath));
     policy = readJson(policyFile, args.policy ?? defaultPolicyPath);
     if (!policy)
@@ -1486,6 +1567,11 @@ function main()
         return null;
     }
     validatePolicy();
+    if (args.rebindBaselinePolicy !== undefined)
+    {
+        rebindBaselinePolicy(args.rebindBaselinePolicy);
+        return null;
+    }
 
     const exclusions = (policy.excludedPaths ?? []).map(globToRegExp);
     const xmlScopes = (policy.xmlDocumentation?.scopes ?? []).map(globToRegExp);

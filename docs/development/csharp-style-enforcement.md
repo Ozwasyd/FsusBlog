@@ -53,6 +53,23 @@ dotnet format style FsusBlog.slnx --severity warn --exclude-diagnostics IDE1006 
 
 `IDE1006` remains controlled by the repository naming checker and the transparent baseline because automatic rename fixes can change public API, AEDS, database and security contracts. The generated baseline file is the only authority for the current remaining count; documentation must not copy a number that becomes stale after each module migration. It is migration debt, not a clean-style claim, and #1158 is not complete until `strict-full` reports zero. The Fast Static Governance lane calls the changed-file gate on every change, while the baseline-aware full scan remains the repository-wide authority during cleanup.
 
+The #3650 singular `Miss` classification repair has one explicit, metadata-only
+producer for rebinding the existing baseline to that policy change:
+
+```bash
+node tools/dotnet/check-csharp-style.mjs --mode full \
+    --rebind-baseline-policy b19b3dc715691b871f0e3cab598ec5da8f27633c
+```
+
+This producer requires that exact ancestor commit's regular Git policy and baseline
+blobs, unchanged current baseline bytes, and only the canonical `Miss` suffix append.
+It changes only `policySha256`; the original source epoch, complete file inventory,
+source/rule/violation digests and counts remain byte-identical. It does not scan C#,
+invoke Roslyn, capture new debt or certify style. Fix, baseline-update, file selection,
+alternate policy/base and non-full options are rejected. Ordinary checks still reject
+a stale policy digest. Running this producer requires its own candidate-bound review
+and authorization; it does not promote a candidate checker or waive any full gate.
+
 The text checker deliberately covers only syntax it can classify without contradicting Roslyn. Roslyn remains authoritative for continuation alignment, object and collection initializers, property patterns, compact automatic accessors, alias/static import groups, and content inside C# string literals. XML documentation is required for public types in every declared contract scope and for public members only in the narrower protocol, codec, analyzer, authentication, security and privacy member scopes; this avoids manufacturing empty comments for every self-describing POD field.
 
 ## Naming and external contracts

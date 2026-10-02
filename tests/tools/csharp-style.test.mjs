@@ -5,6 +5,7 @@ import {
     mkdtempSync,
     readFileSync,
     rmSync,
+    symlinkSync,
     writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -928,3 +929,165 @@ ${declaration}`
         });
     }
 }
+
+function withPolicyRebindFixture(callback)
+{
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-csharp-policy-rebind-'));
+    const authority = 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
+    const git = (...args) => spawnSync('git', ['--no-optional-locks', '--no-replace-objects', ...args], {
+        cwd: fixtureRoot,
+        encoding: 'utf8'
+    });
+    try
+    {
+        for (const args of [
+            ['clone', '--shared', '--no-checkout', root, fixtureRoot],
+            ['config', 'user.name', 'Fixture'],
+            ['config', 'user.email', 'fixture@example.invalid'],
+            ['update-ref', 'refs/heads/policy-rebind-fixture', authority],
+            ['symbolic-ref', 'HEAD', 'refs/heads/policy-rebind-fixture']
+        ])
+        {
+            const result = git(...args);
+            assert.equal(result.status, 0, output(result));
+        }
+        const baselinePath = 'config/development/csharp-style-baseline.json';
+        const originalBaseline = git('show', `${authority}:${baselinePath}`);
+        assert.equal(originalBaseline.status, 0, output(originalBaseline));
+        writeFixture(fixtureRoot, '.editorconfig', editorConfig);
+        writeFixture(fixtureRoot, 'config/development/csharp-style-policy.json', `${JSON.stringify(sourcePolicy, null, 4)}\n`);
+        writeFixture(fixtureRoot, baselinePath, originalBaseline.stdout);
+        // If the producer scans source or captures new debt, this refusal leaks
+        // into the result instead of preserving the original complete baseline.
+        writeFixture(fixtureRoot, 'src/sample/StillBad.cs', 'namespace Fixture;\n\npublic sealed class lowercase\n{\n}\n');
+        const run = (...args) => spawnSync(process.execPath, [checker, '--root', fixtureRoot, ...args], {
+            cwd: fixtureRoot,
+            encoding: 'utf8',
+            timeout: 60_000
+        });
+        callback({ fixtureRoot, authority, baselinePath, originalBaseline: originalBaseline.stdout, git, run });
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+}
+
+test('C# baseline policy rebind retains the complete present baseline and leaves ordinary refusals intact', () =>
+{
+    withPolicyRebindFixture(({ fixtureRoot, authority, baselinePath, originalBaseline, run }) =>
+    {
+        const ordinaryArgs = ['--mode', 'full', '--file', 'src/sample/StillBad.cs'];
+        const stale = run(...ordinaryArgs);
+        assert.notEqual(stale.status, 0);
+        assert.match(output(stale), /baseline policy digest is stale/u);
+        const rebound = run('--mode', 'full', '--rebind-baseline-policy', authority);
+        assert.equal(rebound.status, 0, output(rebound));
+        assert.match(rebound.stdout, /baseline policy rebound .*retainedFiles=16 retainedViolations=33; no style scan performed/u);
+        assert.doesNotMatch(rebound.stdout, /\[csharp-style\] ok/u);
+        const before = JSON.parse(originalBaseline);
+        const afterBytes = readFileSync(path.join(fixtureRoot, baselinePath), 'utf8');
+        const after = JSON.parse(afterBytes);
+        assert.notEqual(after.policySha256, before.policySha256);
+        assert.equal(after.policySha256, 'b341da309ee50cdc61626212053b8a5b2548309294051bf59e9e6927b4baf292');
+        assert.equal(afterBytes, originalBaseline.replace(before.policySha256, after.policySha256));
+        assert.deepEqual({ ...after, policySha256: before.policySha256 }, before);
+        const stillRejected = run(...ordinaryArgs);
+        assert.notEqual(stillRejected.status, 0);
+        assert.match(output(stillRejected), / type-name:/u);
+        assert.doesNotMatch(output(stillRejected), /baseline policy digest is stale/u);
+        const repeated = run('--mode', 'full', '--rebind-baseline-policy', authority);
+        assert.notEqual(repeated.status, 0);
+        assert.match(output(repeated), /unchanged authority baseline bytes/u);
+        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), afterBytes);
+    });
+});
+
+for (const [label, mutateFixture, args] of [
+    ['wrong authority', () => {}, ['--mode', 'full', '--rebind-baseline-policy', '0'.repeat(40)]],
+    ['symbolic authority', () => {}, ['--mode', 'full', '--rebind-baseline-policy', 'HEAD']],
+    ['changed mode', () => {}, ['--mode', 'changed']],
+    ['strict-full mode', () => {}, ['--mode', 'strict-full']],
+    ['fix combination', () => {}, ['--mode', 'full', '--fix']],
+    ['baseline-update combination', () => {}, ['--mode', 'full', '--update-baseline']],
+    ['file selection', () => {}, ['--mode', 'full', '--file', 'src/sample/StillBad.cs']],
+    ['alternate policy', () => {}, ['--mode', 'full', '--policy', 'config/development/csharp-style-policy.json']],
+    ['base option', () => {}, ['--mode', 'full', '--base', 'HEAD']],
+    ['baseline replacement', ({ fixtureRoot, baselinePath }) =>
+    {
+        const target = path.join(fixtureRoot, baselinePath);
+        const document = JSON.parse(readFileSync(target, 'utf8'));
+        document.violationCount += 1;
+        writeFileSync(target, `${JSON.stringify(document, null, 4)}\n`);
+    }, ['--mode', 'full']],
+    ['baseline symlink', ({ fixtureRoot, baselinePath }) =>
+    {
+        const target = path.join(fixtureRoot, baselinePath);
+        const alias = path.join(fixtureRoot, 'old-baseline.json');
+        writeFileSync(alias, readFileSync(target));
+        rmSync(target);
+        symlinkSync(alias, target);
+    }, ['--mode', 'full']],
+    ['policy symlink', ({ fixtureRoot }) =>
+    {
+        const target = path.join(fixtureRoot, 'config/development/csharp-style-policy.json');
+        const alias = path.join(fixtureRoot, 'old-policy.json');
+        writeFileSync(alias, readFileSync(target));
+        rmSync(target);
+        symlinkSync(alias, target);
+    }, ['--mode', 'full']],
+    ['other policy mutation', ({ fixtureRoot }) =>
+    {
+        const target = path.join(fixtureRoot, 'config/development/csharp-style-policy.json');
+        const document = JSON.parse(readFileSync(target, 'utf8'));
+        document.enumNaming.acceptedSingularSuffixes.push('Options');
+        writeFileSync(target, `${JSON.stringify(document, null, 4)}\n`);
+    }, ['--mode', 'full']],
+    ['invalid policy', ({ fixtureRoot }) =>
+    {
+        const target = path.join(fixtureRoot, 'config/development/csharp-style-policy.json');
+        const document = JSON.parse(readFileSync(target, 'utf8'));
+        document.minimumDotnetMajor = 9;
+        writeFileSync(target, `${JSON.stringify(document, null, 4)}\n`);
+    }, ['--mode', 'full']],
+    ['non-ancestor authority', ({ git }) =>
+    {
+        const tree = git('rev-parse', 'HEAD^{tree}');
+        assert.equal(tree.status, 0, output(tree));
+        const orphan = git('commit-tree', tree.stdout.trim(), '-m', 'unrelated fixture history');
+        assert.equal(orphan.status, 0, output(orphan));
+        const updated = git('update-ref', 'refs/heads/policy-rebind-fixture', orphan.stdout.trim());
+        assert.equal(updated.status, 0, output(updated));
+    }, ['--mode', 'full']]
+])
+{
+    test(`C# baseline policy rebind rejects ${label} without writing the present baseline`, () =>
+    {
+        withPolicyRebindFixture((fixture) =>
+        {
+            mutateFixture(fixture);
+            const target = path.join(fixture.fixtureRoot, fixture.baselinePath);
+            const before = readFileSync(target);
+            const invocation = args.includes('--rebind-baseline-policy')
+                ? args
+                : [...args, '--rebind-baseline-policy', fixture.authority];
+            const result = fixture.run(...invocation);
+            assert.notEqual(result.status, 0);
+            assert.doesNotMatch(result.stdout, /baseline policy rebound/u);
+            assert.deepEqual(readFileSync(target), before);
+        });
+    });
+}
+
+test('C# baseline policy rebind refuses a missing baseline instead of creating debt', () =>
+{
+    withPolicyRebindFixture(({ fixtureRoot, authority, baselinePath, run }) =>
+    {
+        const target = path.join(fixtureRoot, baselinePath);
+        rmSync(target);
+        const result = run('--mode', 'full', '--rebind-baseline-policy', authority);
+        assert.notEqual(result.status, 0);
+        assert.doesNotMatch(result.stdout, /baseline policy rebound/u);
+        assert.throws(() => readFileSync(target), /ENOENT/u);
+    });
+});
