@@ -560,6 +560,221 @@ public sealed class DocumentExportContractTests
             provider));
     }
 
+    [Theory]
+    [InlineData("tool-id")]
+    [InlineData("tool-version")]
+    public void ProviderResultContract_RejectsResealedToolIdentityDrift(string field)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportProviderReceipt baseline = ValidReceipt(task, input, provider);
+        DocumentExportContractValidator.Validate(baseline, task, input, provider);
+        DocumentExportProviderReceipt receipt = DocumentExportContractValidator.Seal(field == "tool-id"
+            ? baseline with { ToolId = "different-tool" }
+            : baseline with { ToolVersion = "different-version" });
+
+        Assert.NotEqual(baseline.ContentDigest, receipt.ContentDigest);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Equal(input.ContentDigest, receipt.InputDigest);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, provider));
+    }
+
+    [Fact]
+    public void ProviderResultContract_RejectsResealedProviderFromAnotherTaskFormat()
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract html = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportContractValidator.Validate(ValidReceipt(task, input, html), task, input, html);
+        DocumentExportProviderContract pdf = DocumentExportContractCatalog.RequireProvider("pdf");
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, pdf);
+
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
+        Assert.NotEqual(task.FormatId, pdf.FormatId);
+        Assert.NotEqual(task.ProviderId, receipt.ProviderId);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Equal(input.ContentDigest, receipt.InputDigest);
+        Assert.Equal(pdf.ToolchainId, receipt.ToolId);
+        Assert.Equal(pdf.OutputMediaType, receipt.OutputMediaType);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, pdf));
+    }
+
+    [Theory]
+    [InlineData("format")]
+    [InlineData("provider")]
+    [InlineData("version")]
+    public void ProviderResultContract_RejectsResealedTaskProviderBindingDrift(string field)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract baseline = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportContractValidator.Validate(ValidReceipt(task, input, baseline), task, input, baseline);
+        DocumentExportProviderContract provider = field switch
+        {
+            "format" => baseline with { FormatId = "pdf" },
+            "provider" => baseline with { ProviderId = "document-export.pdf" },
+            "version" => baseline with { ProviderVersion = "different-version" },
+            _ => throw new ArgumentException("Unknown task provider mutation.", nameof(field))
+        };
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.NotEqual(baseline, provider);
+        Assert.Equal(provider.ProviderId, receipt.ProviderId);
+        Assert.Equal(provider.ProviderVersion, receipt.ProviderVersion);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, provider));
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("mime")]
+    [InlineData("extension")]
+    [InlineData("renderer-id")]
+    [InlineData("renderer-version")]
+    [InlineData("input-schema")]
+    [InlineData("result-schema")]
+    [InlineData("sandbox")]
+    [InlineData("network")]
+    [InlineData("toolchain-id")]
+    [InlineData("toolchain-version")]
+    [InlineData("normalization")]
+    [InlineData("availability")]
+    [InlineData("budgets")]
+    [InlineData("delivery")]
+    [InlineData("features")]
+    public void ProviderResultContract_RejectsResealedNoncanonicalProviderContract(string field)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract baseline = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportContractValidator.Validate(ValidReceipt(task, input, baseline), task, input, baseline);
+        DocumentExportProviderContract provider = field switch
+        {
+            "owner" => baseline with { ProviderOwner = "different-owner" },
+            "mime" => baseline with { OutputMediaType = "application/other" },
+            "extension" => baseline with { OutputExtension = ".other" },
+            "renderer-id" => baseline with { RendererId = "different-renderer" },
+            "renderer-version" => baseline with { RendererVersion = "different-renderer-version" },
+            "input-schema" => baseline with { InputSchema = "different-input-schema" },
+            "result-schema" => baseline with { ResultSchema = "different-result-schema" },
+            "sandbox" => baseline with { SandboxClass = "different-sandbox" },
+            "network" => baseline with { NetworkPolicy = "different-network-policy" },
+            "toolchain-id" => baseline with { ToolchainId = "different-tool" },
+            "toolchain-version" => baseline with { ToolchainVersion = "different-tool-version" },
+            "normalization" => baseline with { NormalizationPolicy = "different-normalization" },
+            "availability" => baseline with { ImplementationAvailable = false },
+            "budgets" => baseline with
+            {
+                Budgets = baseline.Budgets with { MaxOutputBytes = baseline.Budgets.MaxOutputBytes + 1 }
+            },
+            "delivery" => baseline with
+            {
+                Delivery = baseline.Delivery with { RetentionTtl = baseline.Delivery.RetentionTtl + TimeSpan.FromSeconds(1) }
+            },
+            "features" => baseline with
+            {
+                Features = baseline.Features.Select((feature, index) => index == 0
+                    ? feature with { Disposition = DocumentExportFeatureDisposition.HardFail }
+                    : feature).ToArray()
+            },
+            _ => throw new ArgumentException("Unknown provider contract mutation.", nameof(field))
+        };
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.NotEqual(baseline, provider);
+        Assert.Equal(task.FormatId, provider.FormatId);
+        Assert.Equal(task.ProviderId, provider.ProviderId);
+        Assert.Equal(task.ProviderVersion, provider.ProviderVersion);
+        Assert.Equal(provider.ToolchainId, receipt.ToolId);
+        Assert.Equal(provider.ToolchainVersion, receipt.ToolVersion);
+        Assert.Throws<InvalidOperationException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, provider));
+    }
+
+    [Theory]
+    [InlineData("self-contained-html")]
+    [InlineData("pdf")]
+    [InlineData("docx")]
+    [InlineData("epub")]
+    public void ProviderResultContract_AcceptsExactValueEquivalentProviderForEveryFormat(string format)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportProviderContract canonical = DocumentExportContractCatalog.RequireProvider(format);
+        DocumentExportProviderContract provider = canonical with
+        {
+            Budgets = canonical.Budgets with { },
+            Delivery = canonical.Delivery with { },
+            Features = canonical.Features.Select(feature => feature with { }).ToArray()
+        };
+        DocumentExportTask task = DocumentExportContractValidator.Seal(ValidTask(input) with
+        {
+            FormatId = canonical.FormatId,
+            ProviderId = canonical.ProviderId,
+            ProviderVersion = canonical.ProviderVersion
+        });
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.NotSame(canonical, provider);
+        Assert.NotSame(canonical.Features, provider.Features);
+        Assert.True(provider.Features.SequenceEqual(canonical.Features));
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportContractValidator.Validate(receipt, task, input, provider);
+    }
+
+    [Fact]
+    public void ProviderResultContract_RejectsNullProvider()
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+        DocumentExportContractValidator.Validate(receipt, task, input, provider);
+
+        ArgumentNullException error = Assert.Throws<ArgumentNullException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, null!));
+        Assert.Equal("provider", error.ParamName);
+    }
+
+    private static DocumentExportProviderReceipt ValidReceipt(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportProviderContract provider)
+    {
+        byte[] output = Encoding.UTF8.GetBytes("contract-output");
+        return DocumentExportContractValidator.Seal(new DocumentExportProviderReceipt(
+            DocumentExportContractCatalog.ResultSchema,
+            task.ContentDigest,
+            input.ContentDigest,
+            provider.ProviderId,
+            provider.ProviderVersion,
+            input.RendererId,
+            input.RendererVersion,
+            input.RendererDigest,
+            input.AssetManifestDigest,
+            input.FontManifestDigest,
+            input.ReadingStyleAuthorityDigest,
+            provider.ToolchainId,
+            provider.ToolchainVersion,
+            Digest("sandbox-receipt"),
+            provider.OutputMediaType,
+            provider.OutputExtension,
+            provider.NormalizationPolicy,
+            DocumentExportDigest.ComputeBytes(output),
+            DocumentExportDigest.ComputeBytes(output),
+            output.LongLength,
+            ["headings"],
+            [],
+            [],
+            DocumentExportProviderResultStatus.Succeeded,
+            (long)provider.Delivery.RetentionTtl.TotalSeconds,
+            string.Empty));
+    }
+
     internal static DocumentExportFrozenInput ValidInput(string markdown = "# 标题\n\nHello 🌍")
     {
         byte[] source = Encoding.UTF8.GetBytes(markdown);

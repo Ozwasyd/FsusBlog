@@ -278,7 +278,20 @@ public static partial class DocumentExportContractValidator
         DocumentExportProviderContract provider)
     {
         ArgumentNullException.ThrowIfNull(receipt);
+        ArgumentNullException.ThrowIfNull(provider);
         Validate(task, input);
+        if (provider.FormatId != task.FormatId
+            || provider.ProviderId != task.ProviderId
+            || provider.ProviderVersion != task.ProviderVersion)
+        {
+            throw new InvalidDataException("Document export result provider is not bound to the task.");
+        }
+        // Reuse the complete registry identity check before trusting provider-selected result limits.
+        ValidateCatalog(
+        [
+            provider,
+            .. DocumentExportContractCatalog.Providers.Where(candidate => candidate.FormatId != provider.FormatId)
+        ]);
         RequireExact(receipt.Schema, DocumentExportContractCatalog.ResultSchema, nameof(receipt));
         RequireDigest(receipt.SandboxReceiptDigest, nameof(receipt.SandboxReceiptDigest));
         RequireDigest(receipt.OutputDigest, nameof(receipt.OutputDigest));
@@ -289,6 +302,8 @@ public static partial class DocumentExportContractValidator
             || receipt.InputDigest != input.ContentDigest
             || receipt.ProviderId != provider.ProviderId
             || receipt.ProviderVersion != provider.ProviderVersion
+            || receipt.ToolId != provider.ToolchainId
+            || receipt.ToolVersion != provider.ToolchainVersion
             || receipt.RendererId != input.RendererId
             || receipt.RendererVersion != input.RendererVersion
             || receipt.RendererDigest != input.RendererDigest
