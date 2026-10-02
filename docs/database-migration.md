@@ -17,6 +17,23 @@ before selecting a compatible retained image/database pair.
 
 ## Versioned Legacy Catalog
 
+The migration-owned `SqliteCurrentSchemaCatalogObserver` is a read-only SQLite
+bootstrap prerequisite, not an approved bootstrap operation. It measures the
+caller's original native `Serializable` transaction: main schema SQL (including
+checks, views and trigger bodies), generated columns, strict/without-rowid flags,
+complete index key/auxiliary facts, foreign keys and violations, and actual
+`sqlite_sequence` watermarks. It preserves declared provider types without
+inventing a second current entity mapping, changes no pragma and commits nothing.
+Attached/temp namespaces, virtual/shadow-table capabilities and incomplete or
+oversized metadata are refused, not omitted. Its limits are the original source
+observer metadata limits. Native filename is only a namespace observation, never
+a database incarnation. The unique current owner still must supply the complete
+legal SQLite recipe projection and expected effects; original native incarnation,
+apply/DAG registration, backup admission and all-three-provider execution gates
+remain required. This component does not admit a legacy database as empty, issue a
+current receipt, or qualify a full bootstrap. Cancellation/physical interrupt and
+cleanup deadlines remain owned by the caller's native session, not this reader.
+
 `SchemaMigrationRegistry` is a thin runtime adapter over the explicit
 `SchemaMigrationManifest`; it no longer owns descriptor implementations or a single
 ever-growing array. The manifest composes these immutable version catalogs:
