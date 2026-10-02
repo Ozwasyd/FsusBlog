@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/run-once.test.mjs",
+        "tools/test/execution-failure-diagnostic.mjs",
+        "tools/test/run-deterministic-command.mjs",
+        "tools/test/run-once.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "1bd44c5c0a9ccf732a9157e4121198f2666e52b98b64f9d588b38e7e2290c75d"
+        }
+    ]
+}

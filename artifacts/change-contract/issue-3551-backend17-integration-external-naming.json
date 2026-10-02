@@ -5,16 +5,33 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
-                "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs"
+                "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+                "tools/test/execution-failure-diagnostic.mjs",
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/run-once.mjs"
             ],
-            "reason": "The original registry governs all C# source paths. Preserve the existing registered environment and external runtime names while importing only the frozen RPC admission and HTML fragment refusal fixes; neither owner renames or adds environment contracts."
+            "reason": "The original registry governs these C# and tooling source paths. Preserve existing caller-visible environment and runtime spellings while importing only frozen admission, HTML refusal and bounded failure-diagnostic behavior; no environment authority or internal naming exception is introduced."
         },
         {
             "id": "content-doc-exactness-authority",
             "paths": [
                 "docs/architecture/overview.md"
             ],
-            "reason": "Preserve the current architecture authority's closed document-export and self-contained HTML identifiers while clarifying the frozen complete-fragment EOF refusal behavior; this prose import does not rename external or internal contracts."
+            "reason": "Preserve the architecture authority's closed document-export and self-contained HTML identifiers while carrying its frozen complete-fragment EOF refusal clarification."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing.md"
+            ],
+            "reason": "The original registry classifies maintained Markdown paths under this external naming surface. Preserve the testing authority's established external tool, CLI and receipt spellings; the frozen diagnostic clarification does not rename internal adapters or documented external contracts."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing v2 generated authority wire keys and exact closed target declarations while the original canonical producer refreshes the approved diagnostic source identities."
         }
     ]
 }
