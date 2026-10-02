@@ -862,6 +862,21 @@ creation time and ownership labels before removing only its container and
 anonymous volumes. Startup health polling does not retry failed test commands.
 SQL snapshots remain structural evidence, not real-engine acceptance.
 
+The fixture's bounded `SELECT VERSION()` startup-health polling has an explicit
+`non-retry` disposition: it does not repeat a test command or recover failed
+correctness evidence. Its authored input lives in
+`tools/test/retry-disposition-seeds.mjs`, with the exact raw fixture source and
+scanner evidence text, not caller-computed findings, locations or digests.
+The existing `tools/test/generate-retry-disposition-registry.mjs` consumes this
+input and the original scanner's uniquely matching finding. Missing or duplicate
+findings, source-byte drift, duplicate seeds and conflicting prior semantics fail
+before output. Existing dispositions retain their semantic owners; the generated
+registry's locations, source/syntax identities and content seal come only from
+the original producer. Adding this source input is not a regenerated registry,
+service admission, current MySQL result or issue acceptance.
+The `validate-matrix` cache inputs and its physical producer's declared inputs
+both include this exact seed module and `tests/migration/MySqlDdlFixture.cs`.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.

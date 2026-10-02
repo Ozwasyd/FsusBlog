@@ -10,6 +10,7 @@ import {
     scanHiddenRetries,
     sourceDigest
 } from './hidden-retry-scanner.mjs';
+import { resolveRetryDispositionSeeds } from './retry-disposition-seeds.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registryFile = path.join(root, 'config/testing/retry-disposition-registry.json');
@@ -28,7 +29,11 @@ for (const entry of current.entries)
     priorBySemanticKey.set(key, priorBySemanticKey.has(key) ? null : entry);
 }
 const scan = scanHiddenRetries(root);
-const priorFor = (finding) => priorByFindingId.get(finding.findingId)
+const seededByFindingId = new Map(resolveRetryDispositionSeeds(root, scan.findings, {
+    priorEntries: current.entries
+}).map(({ finding, disposition }) => [finding.findingId, { ...finding, ...disposition }]));
+const priorFor = (finding) => seededByFindingId.get(finding.findingId)
+    ?? priorByFindingId.get(finding.findingId)
     ?? priorBySemanticKey.get(semanticKey(finding));
 const missing = scan.findings.filter((finding) => !priorFor(finding));
 if (missing.length > 0)

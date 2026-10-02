@@ -44,6 +44,8 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test/run-deterministic-command.mjs \
     --path tools/test/attempt-provenance.mjs \
     --path tools/test/hidden-retry-scanner.mjs \
+    --path tools/test/retry-disposition-seeds.mjs \
+    --path tests/migration/MySqlDdlFixture.cs \
     --path tools/test/check-hidden-retries.mjs \
     --path tools/test/check-clean-attempt-consumers.mjs \
     --path tools/test/correctness-attempt-producers.mjs \
