@@ -273,9 +273,12 @@ all six original artifacts. It neither starts the current Server against histori
 rows nor issues runtime, anonymous-residue or current-schema qualification. Backend,
 listener and residue evidence fields are explicitly null in this scope. The normal
 disaster-recovery drill retains its separate full runtime smoke checks. The original
-producer invocation adapter, complete tool closure and full target/operation factory
+shell invocation adapter is composed by `OfflineMigrationPlanEvidence.ComposeOwnedReader`
+with owned tool/resource configuration, the registered source observer and independently
+read compiled planning authority. It uses the Host's existing monotonic deadline,
+not a new per-launch total. Complete tool closure and full target/operation factory
 are still required; the retained-file consumer and pure inspect port alone do not
-configure `CreateOwnedReader`. Owner-port unit fixtures prove these consumer decisions only, not
+configure the parameterless `CreateOwnedReader`. Owner-port unit fixtures prove these consumer decisions only, not
 encryption authentication, a real database or backup restoration. Until those actual owner capabilities are
 integrated and independently verified, no CLI plan is admitted; the existing
 `schema_offline_contract_not_supported` guard remains unchanged. The typed contract,
@@ -377,6 +380,26 @@ configured. Missing owners return `current_verify_native_owners_not_configured`
 before native access or publication. Validator unit fixtures exercise structural
 refusal rules only; they neither issue receipts through fake providers nor replace
 the required empty/old database, independent verifier and startup runtime gates.
+
+The offline Host's `verify` command requires explicit PostgreSQL instance/database
+identity, environment file, original plan/apply paths and their whole-byte SHA-256,
+invocation ID, ordered `--checkpoint <absolute-path> <sha256>` pairs, output path and
+`--timeout-seconds`. Paths are canonical, never `latest`, and the output must not
+replace an input. A single linked finite budget covers credential reads, native
+issuance, actual awaited session cleanup, publication and the token-aware response.
+`OfflineMigrationOwnedVerifyEvidence` invokes the original native issuer, not a
+recorded-proof validator. Missing compiled capabilities refuse before credentials
+or database access; an unverified connection cleanup remains a distinct failure,
+including after cancellation. Returned disposal is not physical remote-release proof.
+The Host rechecks the returned receipt's canonical bytes, whole SHA and explicit
+database/plan/apply/checkpoint bindings before using the sole Migration-owned
+`OfflineMigrationArtifactPublisher`. This publisher freezes owned bytes, flushes
+the private sibling file and atomically moves it without replacing an existing
+artifact; its reference names the actual published absolute path. It retains the
+original file-flush/rename semantics, not a new claim of directory-fsync recovery.
+If response delivery fails after publication, the file is retained and the result
+is `current_verify_receipt_published_response_failed`, not a claim that nothing was
+issued. Structural carrier and file fixtures do not prove native database issuance.
 
 The test-only materialization receipt remains a separate isolated-run artifact.
 Its schema check uses `CurrentSchemaReadObserver`, not an optional production

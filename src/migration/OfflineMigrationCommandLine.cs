@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Collections.Immutable;
 
 using FsusBlog.Contracts.Migration;
 
@@ -32,6 +33,12 @@ internal sealed record OfflineMigrationSourceCommandOptions(
     string EnvironmentFilePath,
     bool CaptureSession,
     string? DumpOutputPath,
+    int TimeoutSeconds);
+
+internal sealed record OfflineMigrationVerifyCommandOptions(
+    OfflineMigrationCurrentSchemaVerifyRequest Request,
+    string EnvironmentFilePath,
+    string OutputPath,
     int TimeoutSeconds);
 
 internal static class OfflineMigrationCommandLine
@@ -174,6 +181,96 @@ internal static class OfflineMigrationCommandLine
         return new(new(provider, values["--instance-id"], values["--database-id"]), values["--env-file"],
             values["--backup-package"], values["--backup-manifest"], values["--restore-drill"],
             values["--restore-env-file"], values["--output"], timeoutSeconds);
+    }
+
+    internal static OfflineMigrationVerifyCommandOptions ParseVerify(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "verify")
+        {
+            throw new InvalidOperationException("schema_verify_command_required");
+        }
+        string[] required = ["--provider", "--instance-id", "--database-id", "--env-file", "--plan", "--plan-sha256",
+            "--apply", "--apply-sha256", "--invocation-id", "--output", "--timeout-seconds"];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        var checkpoints = ImmutableArray.CreateBuilder<CurrentSchemaArtifactReference>();
+        for (int index = 1; index < args.Count; index++)
+        {
+            string name = args[index];
+            if (name == "--checkpoint")
+            {
+                string path = ReadExact(ref index);
+                string digest = ReadExact(ref index);
+                checkpoints.Add(Reference(path, digest));
+                continue;
+            }
+            if (!required.Contains(name, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException("schema_verify_argument_unknown");
+            }
+            if (!values.TryAdd(name, ReadExact(ref index)))
+            {
+                throw new InvalidOperationException("schema_verify_argument_duplicate");
+            }
+        }
+        if (required.Any(name => !values.ContainsKey(name)))
+        {
+            throw new InvalidOperationException("schema_verify_explicit_arguments_required");
+        }
+        if (values["--provider"] != "postgresql")
+        {
+            throw new InvalidOperationException("schema_verify_native_provider_not_supported");
+        }
+        string timeout = values["--timeout-seconds"];
+        if (timeout.Length is 0 or > 7 || timeout[0] == '0' || timeout.Any(value => value is < '0' or > '9')
+            || !int.TryParse(timeout, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds)
+            || seconds > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_verify_timeout_invalid");
+        }
+        string environment = CanonicalPath(values["--env-file"]);
+        string output = CanonicalPath(values["--output"]);
+        var request = new OfflineMigrationCurrentSchemaVerifyRequest(
+            Reference(values["--plan"], values["--plan-sha256"]),
+            Reference(values["--apply"], values["--apply-sha256"]), checkpoints.ToImmutable(),
+            new(CurrentSchemaProviderKind.PostgreSql, values["--instance-id"], values["--database-id"]),
+            values["--invocation-id"]);
+        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(request);
+        if (new[] { request.Plan.Reference, request.Apply.Reference, environment }
+            .Concat(request.Checkpoints.Select(value => value.Reference)).Contains(output, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("schema_verify_output_conflicts_with_input");
+        }
+        return new(request, environment, output, seconds);
+
+        string ReadExact(ref int index)
+        {
+            if (++index >= args.Count)
+            {
+                throw new InvalidOperationException("schema_verify_argument_value_required");
+            }
+            string value = args[index];
+            if (string.IsNullOrWhiteSpace(value) || value != value.Trim() || value.Any(char.IsControl))
+            {
+                throw new InvalidOperationException("schema_verify_argument_value_invalid");
+            }
+            return value;
+        }
+
+        static string CanonicalPath(string path)
+        {
+            if (!Path.IsPathFullyQualified(path) || Path.GetFullPath(path) != path
+                || path.Split('/', '\\').Any(value => value.Equals("latest", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("schema_verify_original_path_required");
+            }
+            return path;
+        }
+
+        static CurrentSchemaArtifactReference Reference(string path, string digest)
+        {
+            OfflineMigrationPlanValidation.RequireDigest(digest, "schema_verify_original_sha_invalid");
+            return new(CanonicalPath(path), digest);
+        }
     }
 
     public static OfflineMigrationCommandOptions Parse(IReadOnlyList<string> args)

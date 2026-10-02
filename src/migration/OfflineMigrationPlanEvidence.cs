@@ -133,9 +133,26 @@ internal static class OfflineMigrationPlanEvidence
     internal static IOfflineMigrationPlanningEvidence CreateOwnedReader()
     {
         // Registered source profiles are not complete current target/operation authority.
-        // The original authenticated backup inspector and drill-proof consumer also remain
-        // unavailable here. Caller JSON, digests or a successful drill flag cannot fill them.
+        // The original shell invocation is available through ComposeOwnedReader, but
+        // needs owned tool/resource configuration and complete compiled authority here.
+        // Caller JSON, digests or a successful drill flag cannot fill them.
         throw new InvalidOperationException("schema_offline_plan_evidence_owner_not_configured");
+    }
+
+    // The composition owner supplies actual compiled target/operation capability and
+    // original operation configuration. This is not a CLI extension or a deserialized
+    // plan factory; authority is still read/re-read independently by the real consumer.
+    internal static IOfflineMigrationPlanningEvidence ComposeOwnedReader(
+        IOfflineMigrationPlanningAuthorityReader authority,
+        OfflineMigrationShellBackupDrillConfiguration backupConfiguration,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(authority);
+        ArgumentNullException.ThrowIfNull(backupConfiguration);
+        return new OfflineMigrationOwnedPlanningEvidence(CreateOwnedSourceObserver(),
+            new OfflineMigrationBackupAdmission(new OfflineMigrationShellBackupDrillProducer(backupConfiguration)),
+            authority, OfflineMigrationSourceFingerprints.CreateRegistry(),
+            OfflineMigrationHost.ReadRequiredConnectionStringAsync, timeProvider ?? TimeProvider.System);
     }
 
     internal static async Task<VerifiedOfflineMigrationPlan> ReadAndVerifyAsync(

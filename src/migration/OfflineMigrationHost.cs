@@ -1,9 +1,11 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Security.Cryptography;
 
 using SqlSugar;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.SchemaMigration;
 
 namespace FsusBlog.Migration;
 
@@ -69,6 +71,32 @@ public static class OfflineMigrationHost
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 WriteJson(new { status = "failed", code = exception.Message });
+                return 1;
+            }
+        }
+
+        if (args.Length > 0 && args[0] == "verify")
+        {
+            try
+            {
+                OfflineMigrationVerifyCommandOptions options = OfflineMigrationCommandLine.ParseVerify(args);
+                await RunReadOnlyCommandWithSignalsAsync(callerToken => VerifyWithinBudgetAsync(
+                    options, OfflineMigrationVerifyEvidence.CreateOwned, Console.Out, callerToken)).ConfigureAwait(false);
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteJson(new { status = "failed", code = "schema_offline_verify_operation_cancelled" });
+                return 1;
+            }
+            catch (Exception error)
+            {
+                string code = error is InvalidOperationException
+                    && (error.Message.StartsWith("current_", StringComparison.Ordinal)
+                        || error.Message.StartsWith("schema_", StringComparison.Ordinal)
+                        || error.Message.StartsWith("offline_", StringComparison.Ordinal))
+                    ? error.Message.Split(':', 2)[0] : "schema_offline_verify_failed";
+                WriteJson(new { status = "failed", code });
                 return 1;
             }
         }
@@ -233,6 +261,62 @@ public static class OfflineMigrationHost
         // followed by disposing still-active commands. Missing cleanup proof is failure.
     }
 
+    internal static async Task VerifyWithinBudgetAsync(
+        OfflineMigrationVerifyCommandOptions options,
+        Func<IOfflineMigrationVerifiedReceiptProducer> createProducer,
+        TextWriter output, CancellationToken callerToken, TimeProvider? timeProvider = null)
+    {
+        if (options.TimeoutSeconds is <= 0 or > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_verify_timeout_invalid");
+        }
+        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(options.Request);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
+            timeProvider ?? TimeProvider.System);
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
+        operation.Token.ThrowIfCancellationRequested();
+        IOfflineMigrationVerifiedReceiptProducer producer = createProducer();
+        operation.Token.ThrowIfCancellationRequested();
+        OfflineMigrationCurrentSchemaIssuedArtifact issued = await producer.IssueAsync(options, operation.Token).ConfigureAwait(false);
+        operation.Token.ThrowIfCancellationRequested();
+        // The returned ReadOnlyMemory may still alias a producer-owned mutable array.
+        // Validate and publish one private snapshot, not two separately observed views.
+        byte[] receiptBytes = issued.Bytes.ToArray();
+        CurrentSchemaReceiptCodec.ValidateIntegrity(issued.Receipt);
+        if (issued.Receipt.Status != CurrentSchemaReceiptStatus.VerifiedCurrent
+            || issued.Receipt.Database != options.Request.Database || issued.Receipt.Plan != options.Request.Plan
+            || issued.Receipt.Apply != options.Request.Apply
+            || !issued.Receipt.Checkpoints.SequenceEqual(options.Request.Checkpoints)
+            || !receiptBytes.AsSpan().SequenceEqual(CurrentSchemaReceiptCodec.Serialize(issued.Receipt))
+            || Convert.ToHexStringLower(SHA256.HashData(receiptBytes)) != issued.Reference.Sha256)
+        {
+            throw new InvalidOperationException("current_verify_producer_artifact_changed");
+        }
+        CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
+            options.OutputPath, receiptBytes, operation.Token).ConfigureAwait(false);
+        // Publication is irreversible within this invocation. Keep the artifact if the
+        // bounded response fails, and distinguish that failure from an unissued receipt.
+        // Await the actual token-aware writer rather than abandoning a timed wait.
+        try
+        {
+            await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "ok", receipt = published }).AsMemory(),
+                operation.Token).ConfigureAwait(false);
+            await output.FlushAsync(operation.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            throw new InvalidOperationException("current_verify_receipt_published_response_failed");
+        }
+    }
+
+    internal static async Task<string> ReadRequiredConnectionStringAsync(string environmentFilePath, CancellationToken cancellationToken)
+    {
+        string[] lines = await File.ReadAllLinesAsync(environmentFilePath, cancellationToken).ConfigureAwait(false);
+        string? value = ParseEnvironmentLines(lines).GetValueOrDefault("ConnectionStrings__DefaultConnection");
+        if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("schema_connection_string_missing");
+        return value;
+    }
+
     internal static async Task ObserveSourceAsync(
         OfflineMigrationSourceCommandOptions options,
         string connectionString,
@@ -328,31 +412,8 @@ public static class OfflineMigrationHost
         cancellationToken.ThrowIfCancellationRequested();
         // Never overwrite an earlier immutable plan. Publication is after all read-only
         // admission, outside any database transaction and without invoking legacy phases.
-        string target = Path.GetFullPath(options.PlanOutputPath);
-        string staging = target + "." + Guid.NewGuid().ToString("N") + ".staging";
-        try
-        {
-            await using (var output = new FileStream(staging, new FileStreamOptions
-            {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                Options = FileOptions.Asynchronous,
-                UnixCreateMode = OperatingSystem.IsWindows() ? null : UnixFileMode.UserRead | UnixFileMode.UserWrite
-            }))
-            {
-                await output.WriteAsync(OfflineMigrationPlanCodec.Serialize(verified.Plan), cancellationToken).ConfigureAwait(false);
-                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
-                output.Flush(flushToDisk: true);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            File.Move(staging, target, overwrite: false);
-        }
-        finally
-        {
-            File.Delete(staging);
-        }
+        _ = await OfflineMigrationArtifactPublisher.PublishAsync(Path.GetFullPath(options.PlanOutputPath),
+            OfflineMigrationPlanCodec.Serialize(verified.Plan), cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<string> ResolveConnectionStringAsync(OfflineMigrationCommandOptions parsed)
