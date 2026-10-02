@@ -253,27 +253,73 @@ test('inspection rejects missing or invalid explicit budget before any staging w
     }
 });
 
-test('owned migration drill retains the original full smoke and publishes only this completed invocation', async () =>
+test('owned migration drill proves pre-migration recoverability without claiming current runtime DR', async () =>
 {
     const drill = await source('tools/operations/backup-restore-drill.sh');
     assert.match(drill, /--migration-evidence/);
     assert.match(drill, /sourceDeadline="\$2"; evidenceNonce="\$3"; RunEvidenceWorker/);
-    assert.match(drill, /RunEvidenceWorker\(\) \{\s+RunReal/);
+    assert.match(drill, /RunEvidenceWorker\(\) \{\s+RunPreMigrationRestore/);
     assert.match(drill, /StartRestoredBackend\s+RunSmokeChecks/);
     assert.match(drill, /--cidfile "\$OUT_DIR\/owned-postgres.cid"/);
     assert.match(drill, /--cidfile "\$OUT_DIR\/owned-redis.cid"/);
     assert.match(drill, /docker rm -f "\$cid"/);
     assert.match(drill, /docker ps -aq --no-trunc --filter "id=\$cid"/);
     assert.match(drill, /evidenceWorkIdentity="\$\(stat -c '%d:%i'/);
-    assert.match(drill, /owned-backend-listener-start.json/);
-    assert.match(drill, /owned-backend-listener-end.json/);
     assert.match(drill, /producerExitCode:0/);
     assert.match(drill, /nativeRestoredSourceReference:/);
     assert.match(drill, /drillManifestSha256:/);
-    assert.match(drill, /owned-drill-actual-proof-or-full-smoke-invalid/);
+    assert.match(drill, /owned-drill-actual-recoverability-proof-invalid/);
+    assert.match(drill, /version:2, owner:"tools\/operations\/backup-restore-drill.sh", ownerVersion:"2"/);
+    assert.match(drill, /\.mode == "migration-recoverability" and \.scope == "pre-migration-backup"/);
+    assert.match(drill, /\.baseUrl == null/);
+    for (const key of ['residueReference', 'residueSha256', 'backendLogReference', 'backendLogSha256',
+        'backendListenerStartReference', 'backendListenerStartSha256', 'backendListenerEndReference', 'backendListenerEndSha256'])
+    {
+        assert.match(drill, new RegExp(`${key}:null`));
+    }
     const worker = drill.match(/RunEvidenceWorker\(\) \{[\s\S]*?\n\}/);
     assert.ok(worker);
     assert.ok(worker[0].indexOf('    Cleanup\n') < worker[0].indexOf('    WriteReport\n'));
+});
+
+test('pre-migration restore preserves captured artifacts while ordinary real DR retains all runtime gates', async () =>
+{
+    const drill = await source('tools/operations/backup-restore-drill.sh');
+    const preMigration = drill.match(/RunPreMigrationRestore\(\) \{[\s\S]*?\n\}/);
+    const ordinary = drill.match(/RunReal\(\) \{[\s\S]*?\n\}/);
+    const artifacts = drill.match(/RestoreMigrationArtifacts\(\) \{[\s\S]*?\n\}/);
+    assert.ok(preMigration && ordinary && artifacts);
+    assert.match(preMigration[0], /PrepareSiteBackupPackage/);
+    assert.match(preMigration[0], /RestorePostgres/);
+    assert.match(preMigration[0], /RestoreMigrationArtifacts/);
+    assert.doesNotMatch(preMigration[0], /RunReal|RestoreRedis|StartRestoredBackend|RunSmokeChecks|RunAnonymousResidueGate/);
+    for (const call of ['RestorePostgres', 'RestoreRedis', 'RestoreWebrootArtifacts', 'StartRestoredBackend', 'RunSmokeChecks', 'RunAnonymousResidueGate'])
+    {
+        assert.match(ordinary[0], new RegExp(call));
+    }
+    assert.match(ordinary[0], /runtime-smoke-disabled/);
+    assert.match(artifacts[0], /uploads dataProtectionKeyRing configRedacted aotCache searchIndex/);
+    assert.match(artifacts[0], /actual.*!=.*expected/);
+    assert.match(artifacts[0], /ArchiveIsSafe/);
+    assert.match(artifacts[0], /tar --no-same-owner --no-same-permissions/);
+    assert.match(drill, /if \$migrationEvidence == 1 then \.dataProtection.encryptedKeyCount > 0 else \.dataProtection.encryptedKeyCount >= 2 end/);
+});
+
+test('owned worker source loading ignores its inherited transport arguments without running the producer', () =>
+{
+    const script = new URL('tools/operations/backup-restore-drill.sh', root).pathname;
+    // Exercise the actual sourced file and its actual inherited argv. No Main, DB tools, or output writes run.
+    const result = spawnSync('bash', ['-c',
+        'source "$1"; evidenceMode=1; evidenceWorker=1; sourceDeadline="$2"; evidenceNonce="$3"; '
+        + '[[ ${#blockers[@]} == 0 && $status == ok && $evidenceMode == 1 && $evidenceWorker == 1 '
+        + '&& $sourceDeadline == 12345 && $evidenceNonce == loading-fixture ]]',
+        'owned-drill', script, '12345', 'loading-fixture'], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, '');
+    const direct = spawnSync('bash', [script, '--unknown-fixture-argument'], { encoding: 'utf8' });
+    assert.equal(direct.status, 1);
+    assert.match(direct.stderr, /unknown-arg:--unknown-fixture-argument/);
+    assert.equal(direct.stdout, '');
 });
 
 test('owned migration drill rejects missing or invalid budget before creating output or running tools', () =>
