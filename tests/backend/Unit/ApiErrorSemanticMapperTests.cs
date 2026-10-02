@@ -3,6 +3,7 @@ using Xunit;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -28,6 +29,7 @@ public sealed class ApiErrorSemanticMapperTests
     [InlineData(429, ErrorCode.InfraFailure)]
     [InlineData(500, ErrorCode.InfraFailure)]
     [InlineData(503, ErrorCode.InfraFailure)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PublicStatus_EnumerationLookupEnvelopeAndErrorCreationAgree(int status, ErrorCode expected)
     {
         Assert.Equal(expected, ApiErrorSemanticMapper.PublicStatusMappings[status]);
@@ -41,6 +43,7 @@ public sealed class ApiErrorSemanticMapperTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary, InvariantId = "transport-authority-finite-immutable")]
     public void PublicStatus_EnumerationIsFiniteExactAndImmutable()
     {
         int[] expected = [400, 401, 403, 404, 405, 406, 409, 410, 411, 413, 415, 416, 422, 423, 426, 428, 429, 500, 503];
@@ -60,6 +63,7 @@ public sealed class ApiErrorSemanticMapperTests
     [InlineData(418)]
     [InlineData(599)]
     [InlineData(600)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "unknown-status-not-public-authority")]
     public void UnknownStatus_FallbackDoesNotClaimPublicMembership(int status)
     {
         Assert.False(ApiErrorSemanticMapper.PublicStatusMappings.ContainsKey(status));
@@ -75,6 +79,7 @@ public sealed class ApiErrorSemanticMapperTests
     [InlineData(ErrorCode.Forbidden, 403)]
     [InlineData(ErrorCode.InfraFailure, 500)]
     [InlineData(ErrorCode.Unknown, 500)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ReverseMapping_PreservesOriginalIndependentPolicy(ErrorCode code, int status)
     {
         Assert.Equal(status, ApiErrorSemanticMapper.MapStatusCode(ErrorDetail.Create(code, "original")));
