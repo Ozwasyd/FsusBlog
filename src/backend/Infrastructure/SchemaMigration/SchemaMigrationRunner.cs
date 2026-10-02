@@ -49,6 +49,15 @@ public sealed class CurrentSchemaMismatchException : InvalidOperationException
             : $"{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", errors)}";
 }
 
+/// <summary>A production receipt admission failure that must stop the business host in every environment.</summary>
+public sealed class CurrentSchemaAdmissionException : InvalidOperationException
+{
+    internal CurrentSchemaAdmissionException(bool cancelled)
+        : base(cancelled ? "current_schema_receipt_admission_cancelled" : "current_schema_receipt_admission_failed")
+    {
+    }
+}
+
 public sealed class CurrentSchemaStartupVerifier(
     ISqlSugarClient db,
     ISchemaModelInspector inspector,
@@ -60,13 +69,23 @@ public sealed class CurrentSchemaStartupVerifier(
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         admissionState.Clear();
-        string receiptPath = configuration["SchemaMigration:CurrentReceipt:Path"] ?? string.Empty;
-        string receiptSha256 = configuration["SchemaMigration:CurrentReceipt:Sha256"] ?? string.Empty;
-        string sourceRevision = configuration["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] ?? string.Empty;
-        CurrentSchemaAdmissionResult result = await CurrentSchemaReceiptAdmission.VerifyAsync(
-            receiptPath, receiptSha256, sourceRevision, db, inspector, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        admissionState.Publish(result);
+        try
+        {
+            string receiptPath = configuration["SchemaMigration:CurrentReceipt:Path"] ?? string.Empty;
+            string receiptSha256 = configuration["SchemaMigration:CurrentReceipt:Sha256"] ?? string.Empty;
+            string sourceRevision = configuration["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] ?? string.Empty;
+            CurrentSchemaAdmissionResult result = await CurrentSchemaReceiptAdmission.VerifyAsync(
+                receiptPath, receiptSha256, sourceRevision, db, inspector, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            admissionState.Publish(result);
+        }
+        catch (Exception exception) when (exception is not CurrentSchemaMismatchException
+            and not CurrentSchemaAdmissionException)
+        {
+            // Keep file/connection exception details out of startup reporting. A fixed
+            // fatal category, rather than environment-specific logging, owns admission.
+            throw new CurrentSchemaAdmissionException(exception is OperationCanceledException);
+        }
     }
 
     internal static async Task<byte[]> ReadBoundedReceiptAsync(
