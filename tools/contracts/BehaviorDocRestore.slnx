@@ -1,0 +1,7 @@
+<Solution>
+    <Project Path="FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj" />
+    <Project Path="FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj" />
+    <Project Path="FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj" />
+    <Project Path="FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj" />
+    <Project Path="FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj" />
+</Solution>

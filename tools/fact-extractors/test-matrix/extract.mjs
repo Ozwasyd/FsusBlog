@@ -1455,8 +1455,8 @@ export function extract(context)
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
   const replayDirectory = mkdtempSync(path.join(
-    context.repositoryRoot,
-    '.tmp/runtime-role-replay-'
+    os.tmpdir(),
+    'runtime-role-replay-'
   ))
   try
   {

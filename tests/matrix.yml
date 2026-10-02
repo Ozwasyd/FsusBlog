@@ -1540,6 +1540,12 @@ tiers:
               tools/docs,
               tools/fact-extractors,
               tools/test-matrix/behavior-doc-static-admission-contract.mjs,
+              tools/run-test-matrix.mjs,
+              tools/test-matrix/protected-behavior-doc-admission.mjs,
+              tools/test-matrix/production-disk-demand.mjs,
+              tools/test/behavior-doc-nuget-preparation.mjs,
+              tools/test/execution-envelope-directories.mjs,
+              tools/test/run-deterministic-command.mjs,
           ]
       requiresBootstrap: none
       requiresNode: true

@@ -207,6 +207,32 @@ export function readProductionDiskDemandCatalog(root, {
     return validateCatalog(JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
+/** Bind the actual finite offline copy to the original Fresh disk demand, without reducing safety. */
+export function bindBehaviorDocNugetDiskDemand(catalog, preparation)
+{
+    validateCatalog(catalog);
+    if (!Number.isSafeInteger(preparation?.allocatedBytes) || preparation.allocatedBytes <= 0
+        || !/^[a-f0-9]{64}$/u.test(preparation.treeDigest ?? '')
+        || !/^[a-f0-9]{64}$/u.test(preparation.bindingDigest ?? ''))
+    {
+        throw new Error('Fresh BehaviorDoc requires a bounded, byte-bound offline dependency inventory');
+    }
+    const result = JSON.parse(JSON.stringify(catalog));
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const producer = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    const scratch = producer?.demands.find((entry) => entry.rootId === 'os-temp');
+    if (!scratch) throw new Error('Original BehaviorDoc scratch demand is missing');
+    scratch.rootId = 'behavior-doc-run-owned';
+    scratch.peakAdditionalBytes += preparation.allocatedBytes;
+    // The copied payload is removed at every attempt terminal path, but peak/recovery are still reserved.
+    scratch.rollbackOrRecoveryBytes += preparation.allocatedBytes;
+    scratch.sourceOfEstimate += '; actual private NuGet inventory allocated bound='
+        + preparation.allocatedBytes + ', tree=' + preparation.treeDigest + ', transfer='
+        + preparation.bindingDigest + '; target allocation unit=' + preparation.allocationBlockSize
+        + '; scratch and replay are on the run-owned filesystem';
+    return validateCatalog(result);
+}
+
 function dependencyClosure(tiers)
 {
     const byId = new Map(tiers.map((tier) => [tier.id, tier]));
@@ -430,6 +456,7 @@ export function defaultProductionDiskRoots(root, {
     return {
         behaviorDocContractBuildCacheRoot,
         behaviorDocObservationRoot,
+        behaviorDocRunOwnedRoot: path.join(root, '.tmp/test-execution-envelope/run-owned'),
         productionFreshOutputRoot: outputRoot,
         productionBuildRoot: buildRoot,
         osTempRoot: os.tmpdir(),

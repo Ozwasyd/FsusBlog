@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { seedPreparedNuget } from './behavior-doc-nuget-preparation.mjs';
 
 export const executionEnvelopeDirectoriesSchema =
     'fsusblog.test-execution-envelope-directories.v1';
@@ -134,6 +135,7 @@ export function prepareRunOwnedDirectories({
     producerId,
     attemptId,
     outputs = [],
+    preparedNuget = null,
     authorityRoot = path.join(repositoryRoot, '.tmp/test-execution-envelope/run-owned')
 })
 {
@@ -151,63 +153,81 @@ export function prepareRunOwnedDirectories({
         `${safeSegment(attemptId, 'attempt')}-${process.pid}-${randomUUID()}`
     );
     createPrivateDirectory(ownedRoot);
-    const directories = Object.fromEntries([
-        ['home', 'home'],
-        ['temp', 'tmp'],
-        ['npmCache', 'npm-cache'],
-        ['nugetPackages', 'nuget-packages'],
-        ['dotnetHome', 'dotnet-home'],
-        ['toolCache', 'tool-cache']
-    ].map(([name, relative]) =>
+    try
     {
-        const directory = path.join(ownedRoot, relative);
-        createPrivateDirectory(directory);
-        return [name, assertPhysicalContainment(realAuthorityRoot, directory, name)];
-    }));
-    const externalRoots = {
-        userHome: os.homedir(),
-        systemTemp: os.tmpdir(),
-        sourceWorktree: fs.realpathSync(repositoryRoot)
-    };
-    const writableRoots = writableOutputRoots(fs.realpathSync(cwd), outputs);
-    const fragment = {
-        schema: executionEnvelopeDirectoriesSchema,
-        runId,
-        producerId,
-        attemptId,
-        authorityRoot: realAuthorityRoot,
-        ownedRoot: fs.realpathSync(ownedRoot),
-        directories,
-        writableRoots,
-        externalRoots,
-        ownership: 'current-run-current-attempt',
-        permissions: '0700',
-        aliasAdmission: 'realpath-contained',
-        preInventory: inventory(ownedRoot),
-        postInventory: null,
-        externalWriteObservation: {
-            enforcement: 'landlock-default-deny-write',
-            deniedRoots: Object.values(externalRoots).sort(),
-            allowedRoots: writableRoots,
-            preAllowedRootInventory: inventoryRoots(writableRoots),
-            postAllowedRootInventory: null
-        },
-        cleanup: { status: 'pending', removedOwnedRoot: false }
-    };
-    return {
-        fragment,
-        environment: {
-            HOME: directories.home,
-            USERPROFILE: directories.home,
-            TMPDIR: directories.temp,
-            TEMP: directories.temp,
-            TMP: directories.temp,
-            NPM_CONFIG_CACHE: directories.npmCache,
-            NUGET_PACKAGES: directories.nugetPackages,
-            DOTNET_CLI_HOME: directories.dotnetHome,
-            FSUSBLOG_TOOL_CACHE: directories.toolCache
+        const directories = Object.fromEntries([
+            ['home', 'home'],
+            ['temp', 'tmp'],
+            ['npmCache', 'npm-cache'],
+            ['nugetPackages', 'nuget-packages'],
+            ['dotnetHome', 'dotnet-home'],
+            ['toolCache', 'tool-cache']
+        ].map(([name, relative]) =>
+        {
+            const directory = path.join(ownedRoot, relative);
+            createPrivateDirectory(directory);
+            return [name, assertPhysicalContainment(realAuthorityRoot, directory, name)];
+        }));
+        const externalRoots = {
+            userHome: os.homedir(),
+            systemTemp: os.tmpdir(),
+            sourceWorktree: fs.realpathSync(repositoryRoot)
+        };
+        const writableRoots = writableOutputRoots(fs.realpathSync(cwd), outputs);
+        if (preparedNuget)
+        {
+            if (producerId !== 'behavior-doc-static-admission')
+            {
+                throw new Error('Prepared NuGet ingress is limited to the declared BehaviorDoc producer');
+            }
+            seedPreparedNuget(preparedNuget, directories.nugetPackages);
         }
-    };
+        const fragment = {
+            schema: executionEnvelopeDirectoriesSchema,
+            runId,
+            producerId,
+            attemptId,
+            authorityRoot: realAuthorityRoot,
+            ownedRoot: fs.realpathSync(ownedRoot),
+            directories,
+            writableRoots,
+            externalRoots,
+            ownership: 'current-run-current-attempt',
+            permissions: '0700',
+            aliasAdmission: 'realpath-contained',
+            preInventory: inventory(ownedRoot),
+            postInventory: null,
+            externalWriteObservation: {
+                enforcement: 'landlock-default-deny-write',
+                deniedRoots: Object.values(externalRoots).sort(),
+                allowedRoots: writableRoots,
+                preAllowedRootInventory: inventoryRoots(writableRoots),
+                postAllowedRootInventory: null
+            },
+            cleanup: { status: 'pending', removedOwnedRoot: false }
+        };
+        return {
+            fragment,
+            environment: {
+                HOME: directories.home,
+                USERPROFILE: directories.home,
+                TMPDIR: directories.temp,
+                TEMP: directories.temp,
+                TMP: directories.temp,
+                NPM_CONFIG_CACHE: directories.npmCache,
+                NUGET_PACKAGES: directories.nugetPackages,
+                DOTNET_CLI_HOME: directories.dotnetHome,
+                FSUSBLOG_TOOL_CACHE: directories.toolCache
+            }
+        };
+    }
+    catch (error)
+    {
+        // Preparation can fail before a fragment exists; clean this attempt and retain its first cause.
+        try { fs.rmSync(ownedRoot, { recursive: true, force: true }); }
+        catch (cleanupError) { error.cleanupError = cleanupError; }
+        throw error;
+    }
 }
 
 export function finalizeRunOwnedDirectories(prepared, {

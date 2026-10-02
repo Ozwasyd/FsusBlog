@@ -11,9 +11,10 @@ import {
     behaviorDocAdmissionTierId,
     defaultBehaviorDocAdmissionReceipt,
     readBehaviorDocStaticAdmissionReceipt,
-    runBehaviorDocStaticAdmission
 } from './docs/behavior-doc-static-admission.mjs';
+import { runProtectedBehaviorDocAdmission } from './test-matrix/protected-behavior-doc-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
+import { readPreparedBehaviorDocNuget } from './test/behavior-doc-nuget-preparation.mjs';
 import { requireCleanAttemptConsumerAdmission } from './release/browser-release-clean-attempt-consumers.mjs';
 import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
 import {
@@ -82,6 +83,7 @@ import { runProductionBuildLifecycle } from './test-matrix/production-build-life
 import { acquireProductionCapacityReservation } from './test-matrix/production-capacity-reservation.mjs';
 import {
     buildProductionDiskDemandPlan,
+    bindBehaviorDocNugetDiskDemand,
     defaultProductionDiskRoots,
     readProductionDiskDemandCatalog
 } from './test-matrix/production-disk-demand.mjs';
@@ -2532,7 +2534,7 @@ export async function establishBehaviorDocAdmission({
     }
     else
     {
-        const result = await runBehaviorDocStaticAdmission({
+        const result = await runProtectedBehaviorDocAdmission({
             repositoryRoot,
             runId: expectedRunId,
             outputFile: receiptFile,
@@ -3046,8 +3048,11 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
             root: profileRoot,
             tiers: capacityTiers,
             maxParallel: launchParallelism,
-            catalog: runtime.productionDiskDemandCatalog
-        ?? readProductionDiskDemandCatalog(root),
+            catalog: runtime.behaviorDocNugetPreparation
+                ? bindBehaviorDocNugetDiskDemand(
+                    runtime.productionDiskDemandCatalog ?? readProductionDiskDemandCatalog(root),
+                    runtime.behaviorDocNugetPreparation)
+                : runtime.productionDiskDemandCatalog ?? readProductionDiskDemandCatalog(root),
             roots: (runtime.defaultProductionDiskRoots ?? defaultProductionDiskRoots)(profileRoot, {
                 resolveDockerRoot: projectionOnly
                     ? null
@@ -3115,6 +3120,17 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
         ? (runtime.productionResumeAuthority
         ?? readProductionResumeCheckpointAuthority(admissionRunIdentity))
         : null;
+    if (productionFresh && !options.planOnly && !runtime.runBehaviorDocStaticAdmission
+        && !runtime.behaviorDocNugetPreparation)
+    {
+        const preparation = await readPreparedBehaviorDocNuget({
+            repositoryRoot: profileRoot, runId: admissionRunIdentity.runId,
+            file: process.env.FSUSBLOG_BEHAVIOR_DOC_NUGET_PREPARATION
+        });
+        return runLocalProfile(matrix, profileId, options, {
+            ...runtime, behaviorDocNugetPreparation: preparation
+        });
+    }
     if (productionFresh && !options.planOnly && runtime.productionCapacityReservationHeld !== true)
     {
         const planning = resolveCapacityPlanning();
@@ -3154,21 +3170,22 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
     {
         const admissionReceiptFile = runtime.behaviorDocStaticAdmissionReceiptFile
       ?? path.join(
-          os.tmpdir(),
-          'fsusblog-behavior-doc-static-admission',
+          profileRoot,
+          '.tmp/behavior-doc-static-admission',
           createHash('sha256')
               .update(`${profileRoot}\0${admissionRunIdentity.runId}`)
               .digest('hex'),
           'receipt.json'
       );
         const runAdmission = runtime.runBehaviorDocStaticAdmission
-      ?? runBehaviorDocStaticAdmission;
+      ?? runProtectedBehaviorDocAdmission;
         runtime.productionCapacityReservation?.guardProducer(behaviorDocAdmissionTierId);
         const admission = await runAdmission({
             repositoryRoot: profileRoot,
             runId: admissionRunIdentity.runId,
             outputFile: admissionReceiptFile,
-            candidateSpawnCountBeforeReceipt: 0
+            candidateSpawnCountBeforeReceipt: 0,
+            sourceState: runtime.productionFreshSourceState ?? null
         });
         await assertProductionFreshLeaseSourceStable();
         runtime.productionCapacityReservation?.completeProducer(behaviorDocAdmissionTierId);

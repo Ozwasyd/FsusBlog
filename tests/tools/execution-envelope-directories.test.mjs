@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
+const {inventoryPreparedNuget, seedPreparedNuget, validatePreparedNugetPackages} = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const {bindBehaviorDocNugetDiskDemand, defaultProductionDiskRoots, readProductionDiskDemandCatalog} = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
+const {runProtectedBehaviorDocAdmission} = await import(new URL('../../tools/test-matrix/protected-behavior-doc-admission.mjs', import.meta.url));
 test('HOME, TMP, npm, NuGet, and tool caches are unique run-attempt owned roots', (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-directories-'));
@@ -87,4 +91,192 @@ test('cleanup never removes sibling retained evidence or user files', (context) 
     });
     finalizeRunOwnedDirectories(prepared);
     assert.equal(fs.readFileSync(retained, 'utf8'), 'retained');
+});
+
+function fixture(context)
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-nuget-ingress-'));
+    context.after(() =>
+    {
+        const makeRemovable = (directory) =>
+        {
+            fs.chmodSync(directory, 0o700);
+            for (const name of fs.readdirSync(directory))
+            {
+                const file = path.join(directory, name);
+                if (fs.lstatSync(file).isDirectory()) makeRemovable(file);
+            }
+        };
+        makeRemovable(root);
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    const seed = path.join(root, 'seed');
+    fs.mkdirSync(path.join(seed, 'example/1.0.0'), { recursive: true });
+    const archive = Buffer.from('finite package fixture, not an SDK or NuGet restore receipt');
+    const contentHash = createHash('sha512').update(archive).digest('base64');
+    for (const [name, bytes] of Object.entries({
+        'example.1.0.0.nupkg': archive,
+        'example.1.0.0.nupkg.sha512': contentHash,
+        '.nupkg.metadata': '{}',
+        'lib.dll': 'source-bound fixture'
+    }))
+    {
+        fs.writeFileSync(path.join(seed, 'example/1.0.0', name), bytes, { mode: 0o444 });
+    }
+    for (const directory of [path.join(seed, 'example/1.0.0'), path.join(seed, 'example'), seed])
+    {
+        fs.chmodSync(directory, 0o555);
+    }
+    return { root, seed, closure: { packages: [{ path: 'example/1.0.0', contentHash }] } };
+}
+
+test('finite locked seed copies exact bytes and enters preInventory before execution', (context) =>
+{
+    const { root, seed, closure } = fixture(context);
+    const input = inventoryPreparedNuget(seed);
+    validatePreparedNugetPackages(input, closure);
+    const prepared = prepareRunOwnedDirectories({
+        repositoryRoot: root, cwd: root, runId: 'run', producerId: 'behavior-doc-static-admission',
+        attemptId: 'attempt', preparedNuget: input
+    });
+    assert.notEqual(prepared.environment.NUGET_PACKAGES, seed);
+    assert.equal(fs.statSync(prepared.environment.NUGET_PACKAGES).mode & 0o777, 0o700);
+    assert.ok(prepared.fragment.preInventory.some((entry) => entry.path === 'nuget-packages/example/1.0.0/lib.dll'));
+    assert.equal(fs.readFileSync(path.join(prepared.environment.NUGET_PACKAGES, 'example/1.0.0/lib.dll'), 'utf8'),
+        'source-bound fixture');
+    assert.equal(inventoryPreparedNuget(seed).treeDigest, input.treeDigest);
+    assert.equal(finalizeRunOwnedDirectories(prepared).cleanup.removedOwnedRoot, true);
+    assert.equal(fs.existsSync(seed), true);
+});
+
+test('missing and empty dependency payloads fail closed', (context) =>
+{
+    const { root, seed, closure } = fixture(context);
+    assert.throws(() => inventoryPreparedNuget(path.join(root, 'missing')), /ENOENT/u);
+    const empty = path.join(root, 'empty');
+    fs.mkdirSync(empty, { mode: 0o555 });
+    assert.throws(() => inventoryPreparedNuget(empty), /empty cache/u);
+    assert.throws(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed),
+        { packages: [...closure.packages, { path: 'missing/1.0.0', contentHash: closure.packages[0].contentHash }] }),
+    /roster/u);
+});
+
+test('wrong package bytes and extra top-level payload are refused', (context) =>
+{
+    const { seed, closure } = fixture(context);
+    const archive = path.join(seed, 'example/1.0.0/example.1.0.0.nupkg');
+    fs.chmodSync(archive, 0o644);
+    fs.writeFileSync(archive, 'wrong package');
+    fs.chmodSync(archive, 0o444);
+    assert.throws(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed), closure), /package content/u);
+    fs.chmodSync(seed, 0o755);
+    fs.writeFileSync(path.join(seed, 'extra'), 'not in locked graph', { mode: 0o444 });
+    fs.chmodSync(seed, 0o555);
+    assert.throws(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed), closure), /roster/u);
+});
+
+test('writable, symbolic-linked and hard-linked dependency inputs are refused', (context) =>
+{
+    const { root, seed } = fixture(context);
+    const file = path.join(seed, 'example/1.0.0/lib.dll');
+    fs.chmodSync(file, 0o644);
+    assert.throws(() => inventoryPreparedNuget(seed), /sealed read-only/u);
+    fs.chmodSync(file, 0o444);
+    fs.linkSync(file, path.join(root, 'hard-link'));
+    assert.throws(() => inventoryPreparedNuget(seed), /non-linked/u);
+    fs.unlinkSync(path.join(root, 'hard-link'));
+    fs.symlinkSync(seed, path.join(root, 'alias'));
+    assert.throws(() => inventoryPreparedNuget(path.join(root, 'alias')), /canonical/u);
+});
+
+test('seed drift and an occupied destination fail before copy', (context) =>
+{
+    const { root, seed } = fixture(context);
+    const input = inventoryPreparedNuget(seed);
+    const destination = path.join(root, 'cache');
+    fs.mkdirSync(destination);
+    fs.writeFileSync(path.join(destination, 'old'), 'old attempt');
+    assert.throws(() => seedPreparedNuget(input, destination), /fresh canonical/u);
+    fs.unlinkSync(path.join(destination, 'old'));
+    const file = path.join(seed, 'example/1.0.0/lib.dll');
+    fs.chmodSync(file, 0o644);
+    fs.writeFileSync(file, 'changed');
+    fs.chmodSync(file, 0o444);
+    assert.throws(() => seedPreparedNuget(input, destination), /drifted/u);
+    assert.deepEqual(fs.readdirSync(destination), []);
+});
+
+test('preseed failure cleans only the new attempt and preserves first failure', (context) =>
+{
+    const { root, seed } = fixture(context);
+    const input = inventoryPreparedNuget(seed);
+    const authority = path.join(root, '.tmp/test-execution-envelope/run-owned');
+    fs.mkdirSync(authority, { recursive: true });
+    fs.writeFileSync(path.join(authority, 'retained'), 'evidence');
+    assert.throws(() => prepareRunOwnedDirectories({
+        repositoryRoot: root, cwd: root, runId: 'run', producerId: 'behavior-doc-static-admission',
+        attemptId: 'attempt', preparedNuget: { ...input, treeDigest: '0'.repeat(64) }
+    }), /drifted/u);
+    const attempts = path.join(authority, 'run/behavior-doc-static-admission');
+    assert.deepEqual(fs.readdirSync(attempts), []);
+    assert.equal(fs.readFileSync(path.join(authority, 'retained'), 'utf8'), 'evidence');
+    assert.equal(fs.existsSync(seed), true);
+});
+
+test('offline ingress cannot be assigned to another producer', (context) =>
+{
+    const { root, seed } = fixture(context);
+    assert.throws(() => prepareRunOwnedDirectories({
+        repositoryRoot: root, cwd: root, runId: 'run', producerId: 'other',
+        attemptId: 'attempt', preparedNuget: inventoryPreparedNuget(seed)
+    }), /limited to the declared/u);
+});
+
+test('Fresh demand adds actual allocated peak/recovery on run-owned filesystem without reducing safety', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const original = readProductionDiskDemandCatalog(root);
+    const preparation = { allocatedBytes: 12288, treeDigest: 'a'.repeat(64), bindingDigest: 'b'.repeat(64) };
+    const bound = bindBehaviorDocNugetDiskDemand(original, preparation);
+    const old = original.producers.find((value) => value.producerId === 'behavior-doc-static-admission').demands;
+    const actual = bound.producers.find((value) => value.producerId === 'behavior-doc-static-admission').demands;
+    const before = old.find((value) => value.rootId === 'os-temp');
+    const after = actual.find((value) => value.rootId === 'behavior-doc-run-owned');
+    assert.equal(bound.safetyBytes, original.safetyBytes);
+    assert.equal(after.uncertaintyBytes, before.uncertaintyBytes);
+    assert.equal(after.peakAdditionalBytes, before.peakAdditionalBytes + preparation.allocatedBytes);
+    assert.equal(after.rollbackOrRecoveryBytes, before.rollbackOrRecoveryBytes + preparation.allocatedBytes);
+    assert.deepEqual(actual.filter((value) => value !== after), old.filter((value) => value !== before));
+    assert.equal(defaultProductionDiskRoots(root, { includeDockerStorage: false }).behaviorDocRunOwnedRoot,
+        path.join(root, '.tmp/test-execution-envelope/run-owned'));
+    assert.throws(() => bindBehaviorDocNugetDiskDemand(original, { ...preparation, allocatedBytes: Infinity }), /bounded/u);
+});
+
+test('protected admission refuses output escape before SDK or physical launch', async () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    let launches = 0;
+    await assert.rejects(runProtectedBehaviorDocAdmission({
+        repositoryRoot: root, runId: 'run', outputFile: path.join(root, '.tmp/escape/receipt.json'),
+        spawn: () => { launches++; throw new Error('must not launch'); }
+    }), /precise original output owner/u);
+    assert.equal(launches, 0);
+});
+
+test('missing offline preparation refuses admission before launch or reading old receipt', async (context) =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const admissionRoot = path.join(root, '.tmp/behavior-doc-static-admission');
+    fs.mkdirSync(admissionRoot, { recursive: true });
+    const ownedOutput = fs.mkdtempSync(path.join(admissionRoot, 'unit-old-receipt-'));
+    context.after(() => fs.rmSync(ownedOutput, { recursive: true, force: true }));
+    const receipt = path.join(ownedOutput, 'receipt.json');
+    fs.writeFileSync(receipt, 'old invalid receipt must not be parsed', { flag: 'wx' });
+    let launches = 0;
+    await assert.rejects(runProtectedBehaviorDocAdmission({
+        repositoryRoot: root, runId: 'run', outputFile: receipt,
+        preparationFile: '', spawn: () => { launches++; throw new Error('must not launch'); }
+    }), /explicit offline/u);
+    assert.equal(launches, 0);
+    assert.equal(fs.readFileSync(receipt, 'utf8'), 'old invalid receipt must not be parsed');
 });

@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/prepare-behavior-doc-nuget.mjs",
+                "tools/fact-extractors/test-matrix/extract.mjs",
+                "tools/run-test-matrix.mjs",
+                "tools/test-matrix/production-disk-demand.mjs",
+                "tools/test-matrix/protected-behavior-doc-admission.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
+                "tools/test/execution-envelope-directories.mjs",
+                "tools/test/run-deterministic-command.mjs"
+            ],
+            "reason": "preserve existing process environment names and the explicit host-only offline preparation input while using internal camelCase adapters"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing.md"
+            ],
+            "reason": "preserve caller-visible CLI and environment spelling in the current testing boundary document"
+        }
+    ]
+}
