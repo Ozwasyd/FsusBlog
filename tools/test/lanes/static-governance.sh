@@ -98,6 +98,10 @@ StaticArticleEmbedRelations() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-embed-relations.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-embed-relations.test.mjs"
 }
+StaticArticleRelations() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-relations.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-relations.test.mjs"
+}
 StaticBlockAnchorContract() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-block-anchor-contract.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/block-anchor-contract.test.mjs"
@@ -219,6 +223,7 @@ RunApplicationStaticPrechecksPhase() {
         article-embed-authoring StaticArticleEmbedAuthoring \
         article-embed-publication StaticArticleEmbedPublication \
         article-embed-relations StaticArticleEmbedRelations \
+        article-relations StaticArticleRelations \
         block-anchor-contract StaticBlockAnchorContract \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
         article-bulk-authority-governance StaticArticleBulkAuthorityGovernance \
