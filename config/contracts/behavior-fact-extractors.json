@@ -126,6 +126,7 @@
             "consumedInputs": [
                 "src/backend/Entities/UserSessionAuthenticationContext.cs",
                 "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
                 "src/backend/Services/Security/MfaChallengeService.cs",
                 "src/backend/Services/Security/PasskeyService.cs",
                 "src/backend/Services/Security/RecoveryKeyService.cs",
