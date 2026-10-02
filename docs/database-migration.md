@@ -248,6 +248,29 @@ shape. Fresh current schema and actual operation postconditions are independentl
 verified by the current-receipt owner; the pure binding helper is not a receipt
 issuer or an execution grant.
 
+The Host admission and independent issuer bind accepted progress to the original
+compiled article/media operation after the native whole-chain/checkpoint and
+source/backup/target/tool/DAG revalidation, before any Target or Resume observation.
+They pass that same closed operation registry, not a shadow registry or a checkpoint
+reconstructed from plan JSON. The operation retains the accepted verifier and derives
+its recovery checkpoint from its actual `Last`; each locked admission refreshes that
+binding, including completed no-op replay. Missing or changed media owners refuse
+instead of falling through the non-media path.
+
+The PostgreSQL legacy component preserves the original same-transaction ordering:
+validated historical staging, non-article conversion, article graph, verified physical
+media publication/CAS, exact historical-domain cleanup, then the original Core commit.
+Recovery publication is produced only by the actual private stage capabilities and
+retained tool, and its exact artifact reference/whole-byte SHA enters the committed
+unit's `After` facts. A new process re-reads the full native chain, exact checkpoint,
+original inputs and complete current domain before reconstructing the private read-only
+recovery capability; it does not re-capture a deleted legacy domain or promote orphan
+JSON into authority. `MediaPublished` and returned stage objects are not DB commit proof.
+The article graph row counts are full-readback counts, not authorization for other
+domains. Concrete three-provider descriptors, current control/sequence projection,
+cross-process original backup provenance and actual native execution remain incomplete;
+source integration and structural fixtures do not qualify these capabilities.
+
 The current `CreateOwnedReader` fails with
 `schema_offline_plan_evidence_owner_not_configured`: source profiles are registered,
 but the original backup owner's authenticated invocation still needs its concrete

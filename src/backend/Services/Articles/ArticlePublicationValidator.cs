@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;

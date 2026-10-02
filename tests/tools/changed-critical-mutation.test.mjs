@@ -89,7 +89,7 @@ function makeOwnerReceipt()
             {
                 behaviorId: 'binary-api-aeds-contract',
                 language: 'csharp',
-                sourcePath: 'src/core/Integrity/ArticleRightsCanonicalHashV1.cs',
+                sourcePath: 'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs',
                 symbol: 'ArticleRightsCanonicalHashV1',
                 bindingKind: 'attribute',
                 status: 'ok'
@@ -165,12 +165,12 @@ test('tool policy validates schema v2 and rejects old v1 catalog', () =>
 
 test('single-behavior change selects only its owner mutate file and binding-derived test filter', () =>
 {
-    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs']);
+    const selection = select(['src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs']);
 
     assert.equal(selection.status, 'selected');
     assert.equal(selection.behaviors.length, 1);
     assert.equal(selection.behaviors[0].behaviorId, 'binary-api-aeds-contract');
-    assert.deepEqual(selection.mutateFiles, ['src/core/Integrity/ArticleRightsCanonicalHashV1.cs']);
+    assert.deepEqual(selection.mutateFiles, ['src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs']);
     assert.match(selection.testFilter, /ArticleRightsCanonicalHashTests/u);
     assert.doesNotMatch(selection.testFilter, /AccountSubjectHasher/u);
 });
@@ -179,10 +179,10 @@ test('cross-behavior selection is deterministic and de-duplicated', () =>
 {
     const forward = select([
         'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
-        'src/core/Integrity/ArticleRightsCanonicalHashV1.cs'
+        'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs'
     ]);
     const reverse = select([
-        'src/core/Integrity/ArticleRightsCanonicalHashV1.cs',
+        'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs',
         'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs'
     ]);
 
@@ -233,7 +233,7 @@ test('docs-only/binding/catalog change triggers the full required behavior closu
     assert.ok(selection.reasons.some((reason) => reason.startsWith('governance-change:')));
     assert.deepEqual(selection.mutateFiles, [
         'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
-        'src/core/Integrity/ArticleRightsCanonicalHashV1.cs'
+        'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs'
     ]);
 });
 
@@ -250,11 +250,11 @@ test('binding/catalog config change triggers the full required behavior closure'
 
 test('generated config uses binding-derived test filter and owner-derived mutate files', () =>
 {
-    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs']);
+    const selection = select(['src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs']);
     const generated = createChangedCriticalStrykerConfig(selection, toolPolicy);
 
     assert.deepEqual(generated['stryker-config']['test-projects'], ['../../tests/backend/FsusBlog.Server.Tests.csproj']);
-    assert.deepEqual(generated['stryker-config'].mutate, ['Integrity/ArticleRightsCanonicalHashV1.cs']);
+    assert.deepEqual(generated['stryker-config'].mutate, ['Contracts/Articles/ArticleRightsCanonicalHashV1.cs']);
     assert.match(generated['stryker-config']['test-case-filter'], /ArticleRightsCanonicalHashTests/u);
     assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 });
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true);
@@ -262,10 +262,10 @@ test('generated config uses binding-derived test filter and owner-derived mutate
 
 test('mutant attribution maps each mutant to unique behavior via owner receipt', () =>
 {
-    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs']);
+    const selection = select(['src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs']);
     const report = {
         files: {
-            'src/core/Integrity/ArticleRightsCanonicalHashV1.cs': {
+            'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs': {
                 language: 'cs',
                 mutants: [
                     { id: '1', status: 'Killed', mutatorName: 'Arithmetic', coveredBy: ['t1'], killedBy: ['t1'] },
@@ -276,7 +276,7 @@ test('mutant attribution maps each mutant to unique behavior via owner receipt',
     };
     const { attributions, blocked } = attributeMutantsToBehaviors({
         report,
-        sourceProject: 'src/core',
+        sourceProject: 'src/shared',
         ownerReceipt: makeOwnerReceipt(),
         selection
     });

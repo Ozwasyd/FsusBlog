@@ -102,6 +102,68 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
             awaitCompletedDumpPath, cancellationToken).ConfigureAwait(false);
     }
 
+    // Apply-phase measurement only. The public planning observer above still
+    // inventories and refuses the control table as an unknown historical object.
+    internal async Task<OfflineMigrationSourceObservation> ObserveLegacyAfterValidatedJournalAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        RequirePostgreSqlStageSession(connection, transaction);
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        var budget = new ObservationBudget();
+        CurrentSchemaDatabaseIdentity database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        ImmutableArray<OfflineMigrationFact> schema = await ReadSchemaAsync(CurrentSchemaProviderKind.PostgreSql,
+            connection, transaction, budget, cancellationToken, validatedJournal: true).ConfigureAwait(false);
+        if (!OfflineMigrationSourceFingerprints.RequireKnownSchema(CurrentSchemaProviderKind.PostgreSql, schema))
+            throw new InvalidOperationException("legacy_target_prepare_known_legacy_required");
+        ImmutableArray<OfflineMigrationFact> business = await ReadBusinessAsync(CurrentSchemaProviderKind.PostgreSql,
+            connection, transaction, budget, cancellationToken).ConfigureAwait(false);
+        string content = await ReadContentDigestAsync(connection, transaction, true, cancellationToken).ConfigureAwait(false);
+        var observation = new OfflineMigrationSourceObservation(database, OfflineMigrationSourceFingerprints.ExtractorId,
+            OfflineMigrationSourceFingerprints.ExtractorVersion, schema, [new("history.state", "absent")], business, content);
+        _ = OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation);
+        return observation;
+    }
+
+    internal static Task<string> ReadStagedLegacyContentAsync(PgLegacyCurrentSchemaPreparation staged,
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+        => ReadContentDigestAsync(connection, transaction, true, cancellationToken,
+            staged.RequireOriginalSession(connection, transaction));
+
+    internal static void RequirePostgreSqlStageSession(DbConnection connection, DbTransaction transaction)
+    {
+        if (connection is not NpgsqlConnection || transaction is not NpgsqlTransaction
+            || connection.State != ConnectionState.Open || !ReferenceEquals(transaction.Connection, connection)
+            || transaction.IsolationLevel != IsolationLevel.RepeatableRead)
+            throw new InvalidOperationException("legacy_target_prepare_original_transaction_required");
+    }
+
+    // This is a projection of the already measured unsupported-object query,
+    // not a second journal schema. Its owner validates the complete journal
+    // columns/constraints first. Exclude only those constraint-backed indexes;
+    // extra indexes, triggers, policies and physical options remain observations.
+    internal static string ValidatedJournalUnsupportedSql()
+    {
+        string journal = "'public." + OfflineMigrationStateStore.ApplyJournalTableName + "'";
+        string constraint = "AND p.contype<>'p')";
+        string index = "WHERE n.nspname='public' AND NOT i.indisprimary)";
+        string supportedIndex = "i.indisvalid AND i.indisready AND i.indislive AND i.indisunique AND i.indimmediate"
+            + " AND i.indnatts=i.indnkeyatts AND i.indpred IS NULL AND i.indexprs IS NULL"
+            + " AND NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indoption) option WHERE option<>0)"
+            + " AND EXISTS (SELECT 1 FROM pg_catalog.pg_class idx JOIN pg_catalog.pg_am am ON am.oid=idx.relam"
+            + " WHERE idx.oid=i.indexrelid AND am.amname='btree' AND idx.reloptions IS NULL)"
+            + " AND NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indclass) classid"
+            + " JOIN pg_catalog.pg_opclass op ON op.oid=classid WHERE NOT op.opcdefault)"
+            + " AND NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indcollation) WITH ORDINALITY coll(collation,position)"
+            + " JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum=i.indkey[(coll.position-1)::int]"
+            + " WHERE coll.collation<>a.attcollation)";
+        return PostgreSqlUnsupported.Replace(constraint, "AND p.contype<>'p' AND p.conrelid<>pg_catalog.to_regclass(" + journal + "))",
+                StringComparison.Ordinal)
+            .Replace(index, "WHERE n.nspname='public' AND NOT i.indisprimary AND NOT (c.oid=pg_catalog.to_regclass("
+                + journal + ") AND " + supportedIndex + " AND EXISTS (SELECT 1 FROM pg_catalog.pg_constraint owned"
+                + " WHERE owned.conrelid=c.oid AND owned.conindid=i.indexrelid AND owned.contype='u')))", StringComparison.Ordinal);
+    }
+
     private static void RequireContentCapability(CurrentSchemaProviderKind provider)
     {
         if (!Enum.IsDefined(provider))
@@ -111,7 +173,7 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
     }
 
     private static async Task<string> ReadContentDigestAsync(DbConnection connection, DbTransaction transaction,
-        bool legacy, CancellationToken cancellationToken)
+        bool legacy, CancellationToken cancellationToken, string quotedSchema = "\"public\"")
     {
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(Encoding.ASCII.GetBytes("fsusblog.migration-source-content.v1\0"));
@@ -139,7 +201,7 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                 string order = string.Join(",", table.PrimaryKey.Select(key =>
                     table.Columns.Single(column => column.Name == key).Type.StartsWith("varchar", StringComparison.Ordinal)
                         ? $"\"{key}\" COLLATE \"C\" ASC" : $"\"{key}\" ASC"));
-                command.CommandText = $"SELECT {columns} FROM \"public\".\"{table.Name}\" ORDER BY {order}";
+                command.CommandText = $"SELECT {columns} FROM {quotedSchema}.\"{table.Name}\" ORDER BY {order}";
                 await using DbDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
                 while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 {
@@ -189,7 +251,7 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                     await AppendTextAsync(hash, name, cancellationToken).ConfigureAwait(false);
                     await using DbCommand command = connection.CreateCommand();
                     command.Transaction = transaction;
-                    command.CommandText = $"SELECT last_value,is_called FROM \"public\".\"{sequence}\"";
+                    command.CommandText = $"SELECT last_value,is_called FROM {quotedSchema}.\"{sequence}\"";
                     command.CommandTimeout = 30;
                     await using DbDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
                     if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -261,7 +323,7 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
 
     private static async Task<ImmutableArray<OfflineMigrationFact>> ReadSchemaAsync(
         CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
-        ObservationBudget budget, CancellationToken cancellationToken)
+        ObservationBudget budget, CancellationToken cancellationToken, bool validatedJournal = false)
     {
         var facts = ImmutableArray.CreateBuilder<OfflineMigrationFact>();
         ImmutableArray<ImmutableArray<string>> tables = await ReadRowsAsync(connection, transaction,
@@ -269,18 +331,32 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
             budget, cancellationToken).ConfigureAwait(false);
         foreach (ImmutableArray<string> row in tables)
         {
+            if (validatedJournal && row[0] == OfflineMigrationStateStore.ApplyJournalTableName)
+            {
+                if (row[1] != "r") throw new InvalidOperationException("legacy_target_prepare_journal_relation_unowned");
+                continue;
+            }
             facts.Add(new($"table/{row[0]}", row[1] == "r" ? "base" : row[1]));
         }
         ImmutableArray<ImmutableArray<string>> columns = await ReadRowsAsync(connection, transaction,
             PostgreSqlColumns, budget, cancellationToken).ConfigureAwait(false);
         foreach (ImmutableArray<string> row in columns)
         {
+            if (validatedJournal && row[0] == OfflineMigrationStateStore.ApplyJournalTableName)
+            {
+                // The original journal owner confirms names/types/requiredness
+                // and constraints, not arbitrary default or generation effects.
+                if (row[5].Length != 0 || row[6].Length != 0)
+                    throw new InvalidOperationException("legacy_target_prepare_journal_column_unowned_facts");
+                continue;
+            }
             string type = row[3] == "timestamp without time zone" ? "timestamp" : row[3];
             string identity = row[6] switch { "d" => "by-default", "a" => "always", "" => "none", _ => row[6] };
             facts.Add(OfflineMigrationSourceFingerprints.ColumnFact(row[0], row[1], int.Parse(row[2], CultureInfo.InvariantCulture),
                 type, row[4] == "1", Default(row[5]), identity, int.Parse(row[7], CultureInfo.InvariantCulture)));
         }
-        long unsupported = await ScalarAsync(connection, transaction, PostgreSqlUnsupported, budget, cancellationToken).ConfigureAwait(false);
+        string unsupportedSql = validatedJournal ? ValidatedJournalUnsupportedSql() : PostgreSqlUnsupported;
+        long unsupported = await ScalarAsync(connection, transaction, unsupportedSql, budget, cancellationToken).ConfigureAwait(false);
         facts.Add(new("objects.unsupported", unsupported.ToString(CultureInfo.InvariantCulture)));
         ImmutableArray<ImmutableArray<string>> sequences = await ReadRowsAsync(connection, transaction,
             PostgreSqlSequences, budget, cancellationToken).ConfigureAwait(false);

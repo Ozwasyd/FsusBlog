@@ -113,7 +113,9 @@ const EXPECTED_MUTATION_OWNER_FILES = Object.freeze({
         'src/backend/Services/Security/SecurityAdminPolicyService.cs',
         'src/backend/Services/Security/SecurityChallengeOrchestrator.cs',
         'src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs',
-        'src/core/Common/ErrorCode.cs'
+        'src/core/Common/ErrorCode.cs',
+        'src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs',
+        'src/shared/Contracts/Security/SecurityChallengeContracts.cs'
     ]
 });
 
@@ -709,6 +711,85 @@ test('mutation-owner catalog rejects every missing security owner and shared-sou
             && error.includes('src/backend/Services/Security/PasskeyService.cs')),
         ambiguousResult.errors.join('\n')
     );
+});
+
+test('default mutation-owner derivation selects all current Shared owners into the physical project config', () =>
+{
+    const expected = [
+        'src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs',
+        'src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs',
+        'src/shared/Contracts/Security/SecurityChallengeContracts.cs'
+    ];
+    assert.deepEqual(sharedOwnerClosure.bindings.filter((binding) => binding.sourcePath.startsWith('src/shared/'))
+        .map((binding) => binding.sourcePath).sort(), [...expected].sort());
+    const selection = selectRequiredBehaviorMutations({
+        toolPolicy: sharedToolPolicy,
+        rawToolPolicy: sharedRawToolPolicy,
+        sourceState: { commit: COMMIT, worktreeFingerprint: FINGERPRINT },
+        ownerReceipt: ownerReceiptFixture(),
+        implementationOwnerClosure: sharedOwnerClosure,
+        behaviorCatalog: sharedCatalog,
+        testBindingScan: sharedScan,
+        rawTestBindingScan: sharedScanBytes
+    });
+    const closure = selection.projectClosures.find((entry) => entry.sourceProject === 'src/shared');
+    assert.ok(closure, 'Shared must have a physical source-project mutation closure');
+    const relative = expected.map((source) => source.slice('src/shared/'.length)).sort();
+    assert.deepEqual([...closure.mutateFiles].sort(), relative);
+    assert.deepEqual(createChangedCriticalStrykerConfig(selection, sharedToolPolicy, 'src/shared')['stryker-config'].mutate,
+        closure.mutateFiles);
+    for (const source of expected)
+    {
+        assert.ok(selection.mutateFiles.includes(source), `${source} must not be filtered out by the physical selector`);
+    }
+});
+
+test('default mutation-owner derivation rejects every missing Shared owner', () =>
+{
+    const sources = sharedOwnerClosure.bindings.filter((binding) => binding.sourcePath.startsWith('src/shared/'));
+    assert.equal(sources.length, 3);
+    for (const binding of sources)
+    {
+        const catalog = loadBehaviorMutationOwnerCatalog(root);
+        const owner = catalog.behaviors.find((entry) => entry.behaviorId === binding.behaviorId);
+        assert.ok(owner.sourceFiles.includes(binding.sourcePath));
+        owner.sourceFiles = owner.sourceFiles.filter((source) => source !== binding.sourcePath);
+        const result = deriveBehaviorMutationOwners({
+            behaviorCatalog: sharedCatalog,
+            factExtractorRegistry: loadFactExtractorRegistry(root),
+            ownerCatalog: catalog,
+            repositoryRoot: root,
+            worktreeDigest: FINGERPRINT
+        });
+        assert.equal(result.closure, null);
+        assert.ok(result.errors.some((error) => error.includes(binding.sourcePath)), result.errors.join('\n'));
+    }
+});
+
+test('default mutation-owner derivation rejects unknown source projects and duplicate Shared attribution', () =>
+{
+    const unknown = loadBehaviorMutationOwnerCatalog(root);
+    const unknownPath = 'src/unknown/UnknownCurrentAuthority.cs';
+    unknown.behaviors[0].sourceFiles.push(unknownPath);
+    const duplicate = loadBehaviorMutationOwnerCatalog(root);
+    const sharedPath = 'src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs';
+    duplicate.behaviors.find((entry) => entry.behaviorId === 'configuration-error-security-policy').sourceFiles.push(sharedPath);
+    assert.equal(duplicate.behaviors.filter((entry) => entry.sourceFiles.includes(sharedPath)).length, 2);
+    for (const [catalog, source, expectedError] of [
+        [unknown, unknownPath, 'outside mutation source projects'],
+        [duplicate, sharedPath, 'shared by multiple behaviors']
+    ])
+    {
+        const result = deriveBehaviorMutationOwners({
+            behaviorCatalog: sharedCatalog,
+            factExtractorRegistry: loadFactExtractorRegistry(root),
+            ownerCatalog: catalog,
+            repositoryRoot: root,
+            worktreeDigest: FINGERPRINT
+        });
+        assert.equal(result.closure, null);
+        assert.ok(result.errors.some((error) => error.includes(source) && error.includes(expectedError)), result.errors.join('\n'));
+    }
 });
 
 test('behavior mutation qualification: producer + verifier seal and accept a complete release fixture', () =>

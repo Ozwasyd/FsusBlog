@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 
@@ -24,7 +25,7 @@ public static class ArticleRightsSnapshotBuilder
     {
         ArgumentNullException.ThrowIfNull(rights);
 
-        string contentCanonicalHash = "sha256:" + ArticleCanonicalHashV1.ComputeHashHex(new ArticleCanonicalInput(
+        ArticleRightsCanonicalBinding binding = ArticleRightsCanonicalBinding.Build(new ArticleCanonicalInput(
             ArticleId: articleId,
             ArticleRevisionId: revisionId,
             RevisionNo: revisionNo,
@@ -37,23 +38,9 @@ public static class ArticleRightsSnapshotBuilder
             Status: (int)status,
             PublishedAt: publishedAt,
             ScheduledPublishAt: scheduledPublishAt,
-            MarkdownContent: content));
-
-        string policyHash = ArticleRightsCanonicalHashV1.ComputeHashHex(new ArticleRightsCanonicalInput(
-            ArticleId: articleId,
-            ArticleRevisionId: revisionId,
-            RevisionNo: revisionNo,
-            LicenseType: rights.LicenseType,
-            CopyrightHolder: rights.CopyrightHolder,
-            CopyrightYear: rights.CopyrightYear,
-            RightsStatement: rights.RightsStatement,
-            AttributionTemplate: rights.AttributionTemplate,
-            CopyPolicy: rights.CopyPolicy,
-            MaxExcerptChars: rights.MaxExcerptChars,
-            AllowCodeCopy: rights.AllowCodeCopy,
-            ShowPublicBadge: rights.ShowPublicBadge,
-            CanonicalUrl: null,
-            ContentCanonicalHash: contentCanonicalHash));
+            MarkdownContent: content), rights);
+        string contentCanonicalHash = binding.ContentCanonicalHash;
+        string policyHash = binding.PolicyHash;
 
         if (contentCanonicalHash.Contains("recompute", StringComparison.OrdinalIgnoreCase)
             || policyHash.Contains("recompute", StringComparison.OrdinalIgnoreCase))

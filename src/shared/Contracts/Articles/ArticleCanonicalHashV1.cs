@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace FsusBlog.Core.Integrity;
+namespace FsusBlog.Contracts.Articles;
 
+/// <summary>Supplied article coordinates, metadata, taxonomy and full Markdown for canonical-v1.</summary>
+/// <remarks>These values do not prove that a stored revision or publication exists.</remarks>
 public sealed record ArticleCanonicalInput(
     int ArticleId,
     long? ArticleRevisionId,
@@ -19,12 +21,19 @@ public sealed record ArticleCanonicalInput(
     DateTime? ScheduledPublishAt,
     string MarkdownContent);
 
+/// <summary>The single canonical-v1 article payload and SHA-256 implementation.</summary>
+/// <remarks>Text uses NFC and LF normalization; a final newline remains significant.</remarks>
 public static class ArticleCanonicalHashV1
 {
+    /// <summary>The version bound into every article canonical payload.</summary>
     public const int HashVersion = 1;
+    /// <summary>The article-content domain, distinct from rights payloads.</summary>
     public const string DomainSeparator = "fsusblog.integrity.article-canonical.v1";
+    /// <summary>The digest algorithm used for canonical payload bytes.</summary>
     public const string HashAlgorithm = "sha256";
 
+    /// <summary>Validates the supplied canonical coordinates and returns the complete UTF-8 payload.</summary>
+    /// <remarks>Positive article/category/tag ids are required; optional revision coordinates are positive when supplied.</remarks>
     public static byte[] BuildPayloadBytes(ArticleCanonicalInput input)
     {
         ValidateInput(input);
@@ -49,9 +58,11 @@ public static class ArticleCanonicalHashV1
         return Encoding.UTF8.GetBytes(builder.ToString());
     }
 
+    /// <summary>Returns the same validated payload as UTF-8 text.</summary>
     public static string BuildPayloadUtf8(ArticleCanonicalInput input)
         => Encoding.UTF8.GetString(BuildPayloadBytes(input));
 
+    /// <summary>Hashes the complete validated payload and returns lowercase SHA-256 hexadecimal text.</summary>
     public static string ComputeHashHex(ArticleCanonicalInput input)
     {
         byte[] payload = BuildPayloadBytes(input);

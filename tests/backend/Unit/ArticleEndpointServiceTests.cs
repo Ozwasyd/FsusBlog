@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using System.Collections.Concurrent;
 
 using FsusBlog.Core.Algorithms;

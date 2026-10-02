@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Models.Moderation;
@@ -138,8 +139,6 @@ public sealed record class ArticlePreviewResponse(
     string PlainText,
     string SourceIdentity,
     IReadOnlyList<PrepublishIssue> Issues);
-
-public sealed record class PrepublishIssue(string Severity, string Code, string Message);
 
 public sealed record class PrepublishCheckResponse(bool CanPublish, IReadOnlyList<PrepublishIssue> Issues);
 

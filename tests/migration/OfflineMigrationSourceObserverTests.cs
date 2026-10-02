@@ -260,7 +260,7 @@ public sealed class OfflineMigrationSourceObserverTests
     }
 
     [Theory]
-    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown:")]
+    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown")]
     [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'2026-05-17 10:00:00',2)", "offline_source_boolean_value_invalid")]
     [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'not-a-date',0)", "offline_source_sqlite_timestamp_value_invalid")]
     [InlineData("INSERT INTO category(id,name) VALUES(1,zeroblob(1))", "offline_source_sqlite_storage_class_invalid")]
@@ -269,6 +269,14 @@ public sealed class OfflineMigrationSourceObserverTests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             await WriteSqliteAsync(path, sql, null, cancellation);
+            if (refusal == "source_fingerprint_unknown")
+            {
+                OfflineMigrationSourceFingerprintException unknown = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(
+                    () => ReadSqliteAsync(path, cancellation));
+                Assert.Equal(refusal, unknown.Code);
+                Assert.Contains(unknown.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Schema);
+                return;
+            }
             InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
             Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
         });
@@ -280,8 +288,31 @@ public sealed class OfflineMigrationSourceObserverTests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)", "a\0" + new string('x', 511), cancellation);
-            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
-            Assert.Equal("source_fingerprint_unknown:business_shape", error.Message);
+            OfflineMigrationSourceFingerprintException error = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() => ReadSqliteAsync(path, cancellation));
+            Assert.Equal("source_fingerprint_unknown", error.Code);
+            Assert.Contains(error.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Business);
+        });
+    }
+
+    [Fact]
+    public async Task SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences()
+    {
+        await WithSqliteFixtureAsync(async (path, cancellation) =>
+        {
+            string connectionString = new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString();
+            var observer = new OfflineMigrationSourceObserver();
+            // Actual identity/native capability must succeed before exercising
+            // the refusal; unavailable FILESTAT cannot satisfy this control.
+            OfflineMigrationSourceObservation before = await observer.ObserveAsync(
+                CurrentSchemaProviderKind.Sqlite, connectionString, cancellation);
+            Assert.Equal(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.BusinessShape);
+            await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)",
+                "a\0" + new string('x', 511), cancellation);
+            OfflineMigrationSourceFingerprintException refusal = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(
+                () => observer.ObserveAsync(CurrentSchemaProviderKind.Sqlite, connectionString, cancellation));
+            Assert.Equal("source_fingerprint_unknown", refusal.Code);
+            Assert.Contains(refusal.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Business);
+            Assert.Null(refusal.InnerException);
         });
     }
 

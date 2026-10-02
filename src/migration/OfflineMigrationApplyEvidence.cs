@@ -266,8 +266,10 @@ internal sealed class OfflineMigrationOwnedPlanAdmission(OfflineMigrationApplyCa
             OfflineMigrationSourceObservation source = await sourceObserver.ObserveAsync(actualDatabase.Provider, connection,
                 transaction, cancellationToken).ConfigureAwait(false);
             _ = OfflineMigrationOwnedApplyEvidence.BindCarrier(plan, original, artifact, planning, authority, admissionTime);
-            _ = OfflineMigrationPlanVerifier.Verify(plan, source, authority.AuthenticatedBackup, planning.Target,
+            VerifiedOfflineMigrationPlan admitted = OfflineMigrationPlanVerifier.Verify(plan, source, authority.AuthenticatedBackup, planning.Target,
                 authority.RetainedPlanTool, authority.Registry, authority.Dag, admissionTime, planning.MaximumBackupAge);
+            await OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, artifact, progress,
+                owners.Operations, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -280,7 +282,10 @@ internal sealed class OfflineMigrationOwnedPlanAdmission(OfflineMigrationApplyCa
                 throw new InvalidOperationException("offline_apply_first_journal_binding_invalid");
             }
             admissionTime = first.RecordedAt;
-            _ = OfflineMigrationOwnedApplyEvidence.BindCarrier(plan, original, artifact, planning, authority, admissionTime);
+            VerifiedOfflineMigrationPlan admitted = OfflineMigrationOwnedApplyEvidence.BindCarrier(
+                plan, original, artifact, planning, authority, admissionTime);
+            await OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, artifact, progress,
+                owners.Operations, cancellationToken).ConfigureAwait(false);
             if (progress.PendingUnit is { } unit)
             {
                 OfflineMigrationStep step = plan.OrderedSteps.Single(value => value.StepId == unit.StepId);
@@ -307,6 +312,49 @@ internal sealed class OfflineMigrationOwnedPlanAdmission(OfflineMigrationApplyCa
 
 internal static class OfflineMigrationApplyEvidence
 {
+    // Carrier/source/backup admission and the native full-chain read precede this
+    // call. The concrete operation retains the original accepted verifier and
+    // derives its exact checkpoint from Last; no caller checkpoint or DTO is used.
+    internal static async Task BindAcceptedOperationProgressAsync(VerifiedOfflineMigrationPlan verified,
+        CurrentSchemaArtifactReference artifact, OfflineMigrationApplyJournalVerifier progress,
+        IOfflineMigrationApplyOperationRegistry operations, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(verified);
+        ArgumentNullException.ThrowIfNull(progress);
+        ArgumentNullException.ThrowIfNull(operations);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (artifact.Sha256 != OfflineMigrationApplyJournalVerifier.ComputePlanArtifactDigest(verified.Plan)
+            || progress.First is { } first && (first.Plan != artifact
+                || first.PlanContentDigest != verified.Plan.ContentDigest || first.Database != verified.Plan.Source.Database
+                || progress.Last?.Plan != artifact))
+        {
+            throw new InvalidOperationException("offline_apply_accepted_progress_binding_changed");
+        }
+        foreach (OfflineMigrationStep step in verified.Plan.OrderedSteps)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            OfflineMigrationProviderOperation identity = step.Operations.Single(
+                value => value.Provider == verified.Plan.Source.Database.Provider);
+            OfflineMigrationApplyOperation operation = operations.Resolve(step, identity);
+            if (operation.Identity != identity
+                || progress.RequiresMedia(step.StepId) != (operation is OfflineMigrationArticleMediaOperation))
+            {
+                throw new InvalidOperationException("offline_apply_accepted_progress_owner_changed");
+            }
+            if (operation is PgArticlePreservationOperation article)
+            {
+                await article.BindVerifiedProgressAsync(verified, artifact, progress, operations, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else if (operation is OfflineMigrationArticleMediaOperation)
+            {
+                // A not-yet-implemented provider cannot silently use a no-progress
+                // path or a substitute media owner to authorize target recovery.
+                throw new InvalidOperationException("offline_apply_accepted_media_progress_owner_missing");
+            }
+        }
+    }
+
     internal static OfflineMigrationApplyJournalVerifier CreateBoundPreflight(OfflineMigrationPlan plan,
         CurrentSchemaArtifactReference artifact, string invocationId,
         IOfflineMigrationApplyOperationRegistry operations, CancellationToken cancellationToken)

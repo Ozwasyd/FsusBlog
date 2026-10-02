@@ -414,6 +414,165 @@ public sealed class OfflineMigrationApplyCommandTests
         return args.Concat(new[] { "--checkpoint", System.IO.Path.Combine(root, "previous-checkpoint.json"), "--checkpoint-sha256", Digest }).ToArray();
     }
 
+    [Fact]
+    public async Task Apply_AcceptedCompletedFixtureProgressKeepsItsExactHeadBeforeOperationObservation()
+    {
+        // Structural carrier/owner controls only: no fixture operation can perform
+        // native SQL, issue a backup capability or stand in for the concrete PG owner.
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(false);
+        OfflineMigrationApplyJournalVerifier progress = CompletedProgress(fixture, registry);
+        OfflineMigrationApplyJournalEntry first = progress.First!;
+        OfflineMigrationApplyJournalEntry last = progress.Last!;
+        var exact = new OfflineMigrationApplyCheckpoint(OfflineMigrationApplyJournalVerifier.Reference(last), last.InvocationId, last.Sequence);
+        progress.Complete(exact);
+        VerifiedOfflineMigrationPlan admitted = OfflineMigrationOwnedApplyEvidence.BindCarrier(
+            fixture.Plan, fixture.Bytes, fixture.Options.Plan, fixture.Planning, fixture.Authority, first.RecordedAt);
+        registry.Resolved.Clear();
+        await OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, fixture.Options.Plan,
+            progress, registry, CancellationToken.None);
+        Assert.Same(first, progress.First);
+        Assert.Same(last, progress.Last);
+        Assert.True(progress.Completed);
+        Assert.Single(registry.Resolved);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    [Theory]
+    [InlineData("head")]
+    [InlineData("sequence")]
+    [InlineData("invocation")]
+    public void Apply_ChangedExactCheckpointRefusesBeforeAcceptedProgressCanBeConsumed(string changed)
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(false);
+        OfflineMigrationApplyJournalVerifier progress = CompletedProgress(fixture, registry);
+        OfflineMigrationApplyJournalEntry last = progress.Last!;
+        var exact = new OfflineMigrationApplyCheckpoint(OfflineMigrationApplyJournalVerifier.Reference(last), last.InvocationId, last.Sequence);
+        progress.Complete(exact);
+        OfflineMigrationApplyCheckpoint invalid = changed switch
+        {
+            "head" => exact with { JournalHead = new("offline-apply/v1/" + Digest, Digest) },
+            "sequence" => exact with { Sequence = exact.Sequence - 1 },
+            _ => exact with { InvocationId = "another-invocation" }
+        };
+        InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() => progress.Complete(invalid));
+        Assert.Equal("offline_apply_checkpoint_mismatch", failure.Message);
+        Assert.Same(last, progress.Last);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Apply_ProgressCannotDowngradeBoundMediaOrSubstituteAChangedOperation(bool changedIdentity)
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var original = new BindingRegistry(true);
+        OfflineMigrationApplyJournalVerifier progress = OfflineMigrationApplyEvidence.CreateBoundPreflight(
+            fixture.Plan, fixture.Options.Plan, fixture.Options.InvocationId, original, CancellationToken.None);
+        VerifiedOfflineMigrationPlan admitted = OfflineMigrationOwnedApplyEvidence.BindCarrier(
+            fixture.Plan, fixture.Bytes, fixture.Options.Plan, fixture.Planning, fixture.Authority, AdmissionTime);
+        var wrong = new BindingRegistry(changedIdentity) { Refusal = changedIdentity ? "changed" : null };
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, fixture.Options.Plan,
+                progress, wrong, CancellationToken.None));
+        Assert.Equal("offline_apply_accepted_progress_owner_changed", failure.Message);
+        Assert.True(progress.RequiresMedia(fixture.Plan.OrderedSteps[0].StepId));
+        Assert.Equal(0, wrong.NativeCalls);
+    }
+
+    [Fact]
+    public async Task Apply_AnOwnerBindingFixtureCannotReplaceTheConcreteLoadedMediaOwner()
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(true);
+        OfflineMigrationApplyJournalVerifier progress = OfflineMigrationApplyEvidence.CreateBoundPreflight(
+            fixture.Plan, fixture.Options.Plan, fixture.Options.InvocationId, registry, CancellationToken.None);
+        VerifiedOfflineMigrationPlan admitted = OfflineMigrationOwnedApplyEvidence.BindCarrier(
+            fixture.Plan, fixture.Bytes, fixture.Options.Plan, fixture.Planning, fixture.Authority, AdmissionTime);
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, fixture.Options.Plan,
+                progress, registry, CancellationToken.None));
+        Assert.Equal("offline_apply_accepted_media_progress_owner_missing", failure.Message);
+        Assert.Null(progress.First);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    [Fact]
+    public async Task Apply_CancelledProgressBindingDoesNotResolveAnOperation()
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(false);
+        OfflineMigrationApplyJournalVerifier progress = CompletedProgress(fixture, registry);
+        VerifiedOfflineMigrationPlan admitted = OfflineMigrationOwnedApplyEvidence.BindCarrier(
+            fixture.Plan, fixture.Bytes, fixture.Options.Plan, fixture.Planning, fixture.Authority, AdmissionTime);
+        registry.Resolved.Clear();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(
+            admitted, fixture.Options.Plan, progress, registry, cancellation.Token));
+        Assert.Empty(registry.Resolved);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    [Fact]
+    public async Task Apply_AcceptedProgressCannotBeReboundToAnotherOriginalArtifactLocator()
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(false);
+        OfflineMigrationApplyJournalVerifier progress = CompletedProgress(fixture, registry);
+        VerifiedOfflineMigrationPlan admitted = OfflineMigrationOwnedApplyEvidence.BindCarrier(
+            fixture.Plan, fixture.Bytes, fixture.Options.Plan, fixture.Planning, fixture.Authority, AdmissionTime);
+        registry.Resolved.Clear();
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted,
+                fixture.Options.Plan with { Reference = fixture.Options.Plan.Reference + ".another" },
+                progress, registry, CancellationToken.None));
+        Assert.Equal("offline_apply_accepted_progress_binding_changed", failure.Message);
+        Assert.Empty(registry.Resolved);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    private static OfflineMigrationApplyJournalVerifier CompletedProgress(Fixture fixture, BindingRegistry registry)
+    {
+        OfflineMigrationApplyJournalVerifier progress = OfflineMigrationApplyEvidence.CreateBoundPreflight(
+            fixture.Plan, fixture.Options.Plan, fixture.Options.InvocationId, registry, CancellationToken.None);
+        OfflineMigrationStep step = fixture.Plan.OrderedSteps[0];
+        OfflineMigrationProviderOperation identity = step.Operations.Single(value => value.Provider == fixture.Options.Database.Provider);
+        OfflineMigrationPredicateObservation Observation(string predicate)
+        {
+            var observation = new OfflineMigrationPredicateObservation(predicate, identity.OperationReference,
+                identity.OperationSourceDigest, identity.SemanticDigest, [], [], string.Empty);
+            return observation with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation) };
+        }
+        OfflineMigrationApplyJournalEntry Control(OfflineMigrationApplyJournalState state)
+            => new(OfflineMigrationApplyJournalVerifier.Format, fixture.Options.Plan, fixture.Plan.ContentDigest,
+                fixture.Options.Database, fixture.Options.InvocationId, (progress.Last?.Sequence ?? 0) + 1, 1,
+                null, null, null, state, null, null, null, null, 0, 0, false, null, null,
+                progress.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest, string.Empty, null, AdmissionTime);
+        void Accept(OfflineMigrationApplyJournalEntry entry)
+            => progress.Accept(entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) });
+        Accept(Control(OfflineMigrationApplyJournalState.AttemptStarted));
+        OfflineMigrationApplyJournalEntry unit = Control(OfflineMigrationApplyJournalState.TransactionCommitted) with
+        {
+            StepId = step.StepId, OperationReference = identity.OperationReference, Mode = identity.Mode,
+            IdempotencyKey = step.IdempotencyDefinition, UnitComplete = true,
+            Before = Observation(step.SourcePrecondition), After = Observation(step.TargetPostcondition)
+        };
+        Accept(unit);
+        Accept(unit with { State = OfflineMigrationApplyJournalState.StepVerified,
+            Sequence = progress.Last!.Sequence + 1, PreviousDigest = progress.Last.ContentDigest });
+        Accept(Control(OfflineMigrationApplyJournalState.ApplyCompleted));
+        return progress;
+    }
+
     private static Fixture CreateFixture(string root)
     {
         // Pure structural contract fixture: no real source registration, backup, native

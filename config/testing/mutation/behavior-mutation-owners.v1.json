@@ -4,7 +4,8 @@
     "description": "Reviewed per-behavior C# implementation-owner mutation closure for the four mutation-required release behaviors. Derived from the behavior-fact-extractor registry consumedInputs (C# files under the mutation source projects), the reviewed AEDS critical slice (config/testing/mutation/critical.json + release-parity-subset.json) for binary-api-aeds-contract, and explicit disambiguation for security sources shared by the auth-session and config-error extractors (MfaChallengeService.cs, PasskeyService.cs, RecoveryKeyService.cs, and UserSecurityStepUpService.cs are assigned to authentication-session-permission, whose fact keys own authentication and step-up behavior). Exact disjoint source ownership is required so every Stryker mutant attributes to exactly one behavior.",
     "sourceProjects": [
         "src/backend",
-        "src/core"
+        "src/core",
+        "src/shared"
     ],
     "behaviors": [
         {
@@ -57,7 +58,9 @@
                 "src/backend/Services/Security/SecurityAdminPolicyService.cs",
                 "src/backend/Services/Security/SecurityChallengeOrchestrator.cs",
                 "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
-                "src/core/Common/ErrorCode.cs"
+                "src/core/Common/ErrorCode.cs",
+                "src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs",
+                "src/shared/Contracts/Security/SecurityChallengeContracts.cs"
             ]
         },
         {
@@ -73,7 +76,7 @@
                 "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
                 "src/backend/Services/CommentService.cs",
                 "src/backend/Services/Moderation/CommentModerationTransitions.cs",
-                "src/core/Services/Articles/ArticleStatusTransitionPolicy.cs"
+                "src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs"
             ]
         }
     ]

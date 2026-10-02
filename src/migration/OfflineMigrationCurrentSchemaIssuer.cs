@@ -161,9 +161,11 @@ internal static class OfflineMigrationCurrentSchemaIssuer
             {
                 throw new InvalidOperationException("current_verify_producer_source_unobserved");
             }
-            _ = OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, planBytes.Span, request.Plan,
+            VerifiedOfflineMigrationPlan admitted = OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, planBytes.Span, request.Plan,
                 authority.AuthenticatedBackup, current.Target, authority.RetainedPlanTool, authority.Registry,
                 authority.Dag, first.RecordedAt, authority.MaximumBackupAge);
+            await OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, request.Plan, journal,
+                owners.Operations, cancellationToken).ConfigureAwait(false);
 
             ImmutableArray<OfflineMigrationApplyJournalEntry> nativeProofs = journal.StepProofs;
             var postconditions = ImmutableArray.CreateBuilder<CurrentSchemaStepPostcondition>(plan.OrderedSteps.Length);
