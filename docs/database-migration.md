@@ -438,7 +438,10 @@ The original owner ordering (all tables before additional effects) is preserved.
 a PostgreSQL empty-source component. They consume only an actually invoked owned
 target, bind the current Migration assembly bytes, revalidate retained original
 input/artifact bytes and execute the full original command closure on the caller
-transaction. Native empty-source and complete target/effect predicates, initial
+transaction. Producer metadata, retained DLL/artifact reads and the operation's Migration DLL
+hash consume the original file owner's same-FD terminal identity validation; a
+matching hash does not waive replaced-path or ancestor identity refusal.
+Native empty-source and complete target/effect predicates, initial
 seed values and unique seed-key cardinalities are independently read before a
 complete unit is returned. Replay checks the target and stable seed keys, not
 mutable bootstrap values as permanent runtime facts. The original journal owner

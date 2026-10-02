@@ -253,8 +253,11 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
     private static async Task<string> HashOriginalAssemblyAsync(string path, CancellationToken cancellationToken)
     {
         using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, cancellationToken);
+        var initial = OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(path, handle, cancellationToken);
         await using var stream = new FileStream(handle, FileAccess.Read, 4096);
-        return Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
+        string digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
+        OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(path, handle, initial, cancellationToken);
+        return digest;
     }
 }
 
