@@ -359,6 +359,55 @@ public sealed class ArticlePreservationProjectionTests
             read with { Data = data with { FullSourceContentDigest = new string('c', 64) } }, "fixture://forged-source", default));
     }
 
+    [Theory]
+    [InlineData("source")]
+    [InlineData("policy")]
+    [InlineData("package")]
+    [InlineData("current")]
+    public async Task ArtifactPublication_PreCancelledRequestsDoNotReachTheFilePublisher(string artifact)
+    {
+        InputFixture fixture = WithStoredDefaults(Fixture());
+        ArticlePreservationDefaultPolicyExport policy = fixture.Current.DefaultPolicy!;
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        // No writable directory is supplied. A pre-cancelled request must fail in preparation,
+        // before the sole file publisher can consider this deliberately relative reference.
+        const string output = "not-an-absolute-output";
+        Task publication = artifact switch
+        {
+            "source" => ArticlePreservationPolicyExporter.PublishSourceAsync(
+                new(fixture.Source.Data, null!, [], null), output, cancelled.Token),
+            "policy" => ArticlePreservationPolicyExporter.PublishDefaultPolicyAsync(fixture.Source, output, cancelled.Token),
+            "package" => ArticlePreservationPolicyExporter.PublishCurrentPackageAsync(fixture.Source,
+                fixture.Source.Data.Articles[0], policy, 1, [1], fixture.Current.Articles[0].Data.Coordinates,
+                output, cancelled.Token),
+            "current" => ArticlePreservationPolicyExporter.PublishCurrentExportAsync(fixture.Source, policy,
+                fixture.Current.Categories, fixture.Current.Tags, fixture.Current.Articles, output, cancelled.Token),
+            _ => throw new ArgumentOutOfRangeException(nameof(artifact))
+        };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => publication);
+    }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("relative-policy.json", false)]
+    public async Task ArtifactPublication_RejectsNonAbsoluteOutputBeforeAnyFileCreation(string output, bool missingReference)
+    {
+        InputFixture fixture = Fixture();
+        if (missingReference)
+        {
+            ArgumentException failure = await Assert.ThrowsAsync<ArgumentException>(
+                () => ArticlePreservationPolicyExporter.PublishDefaultPolicyAsync(fixture.Source, output, CancellationToken.None));
+            Assert.Equal("reference", failure.ParamName);
+        }
+        else
+        {
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => ArticlePreservationPolicyExporter.PublishDefaultPolicyAsync(fixture.Source, output, CancellationToken.None));
+            Assert.Equal("offline_artifact_publication_input_invalid", failure.Message);
+        }
+    }
+
     private static InputFixture WithStoredDefaults(InputFixture fixture)
     {
         ArticlePreservationDefaultPolicyExport policy = ArticlePreservationPolicyExporter.PrepareDefaultPolicy(

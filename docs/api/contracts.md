@@ -2246,6 +2246,8 @@ For the explicitly registered `legacy-20260517-representative-profile`, offline 
 
 The current raw revision content-block address and stored revision/responsibility field encodings also have a single pure owner in `src/shared/Contracts/Articles/`. Production persistence retains the original null-to-empty Markdown input, UTF-8 byte length and uppercase SHA-256 block key, comma-separated sorted tag IDs without new filtering/deduplication, and Web JSON encoding for responsibility authors/reviewer/sources. The lowercase raw receipt SHA and normalized canonical article hash are distinct from that stored block key. These encoders do not change transaction ownership, global content-block sharing, snapshot validation or authoring admission.
 
+Offline article source, default-policy, per-article and aggregate artifact publication reuses the single Migration-owned immutable artifact publisher. An explicit absolute output path and unchanged complete prepared bytes are required; publication returns the actual file-byte SHA, not the semantic policy or graph digest. File publication does not by itself establish source admission, media verification, target commit or a current-schema receipt.
+
 `Article.Status` 的 exact set 由 [`design.md`](design.md) 的 generated section 拥有；
 本文件只保留下方由同一 observation 生成的 allowed/forbidden transition projections。
 
