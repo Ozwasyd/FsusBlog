@@ -497,6 +497,28 @@ an executable composition path once those actual owners are configured, not proo
 that the default toolchain/DAG, three-provider operations or cross-process retention
 have been qualified.
 
+`CreateOriginalAsync` binds the original private current-target and retained-tool
+producer capabilities to a code-owned DAG and the actual compiled operation registry.
+Its planning reader re-observes those retained inputs and resolves every declared
+provider descriptor through the original DAG ordering and provider/semantic checks;
+an implemented PostgreSQL descriptor cannot fill a missing MySQL or SQLite owner.
+The native source fingerprint still selects its exact entry in the original builder.
+`CreateOriginalFromRetainedToolAsync` asks that private retained-tool capability to
+invoke the original current-target producer using its actually observed Server
+domain and evidence root; it accepts no CLI assembly, expected hash or export path.
+`CreateOriginalPostgreSqlAsync` supplies the original same-session current-target
+observer rather than a caller observation. That observer uses the sole Shared
+PostgreSQL catalog/expression/effect algorithms, validates the original journal's
+physical shape before excluding it from the business comparison domain, and retains
+the complete physical observation digest. Independent issuance binds that same
+compiled registry before reading any journal entry, including media v2 entries.
+The retained-tool reader executes the actual Migration assembly's four embedded
+reader sources through its closed module loader, not reopened mutable disk scripts;
+this source integration does not establish actual SDK, database or process-tree
+qualification. Missing complete provider/entry owners and the formal current
+control-shape binding remain failures, not aliases, empty operations or table-name
+exceptions.
+
 Article/media compiled owners cannot use the original no-media `ExecuteAsync` path.
 The Host binds every original provider operation before reading the first journal
 entry; Core repeats that binding under its exclusive ownership. Core retains the

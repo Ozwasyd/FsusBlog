@@ -128,7 +128,8 @@ test('empty and symlink SDK roots are refused by the original inventory owner', 
     assert.throws(() => collectProductionInputTree(alias), /canonical/u);
 });
 
-function retainedByteFixture(t)
+function retainedByteFixture(t, { backendPath = null, backendFiles = [
+    'FsusBlog.Server.dll', 'FsusBlog.Shared.dll', 'FsusBlog.Server.runtimeconfig.json', 'FsusBlog.Server.deps.json'] } = {})
 {
     const value = fixture(t);
     const artifactRoot = path.join(path.dirname(value.root), 'production-artifacts');
@@ -147,17 +148,145 @@ function retainedByteFixture(t)
     invoke('finish');
     assert.deepEqual(fs.readFileSync(path.join(artifactRoot, 'payload/migration-runtime/migration-inputs-before.json')), beforeBytes);
     assert.equal(fs.existsSync(path.join(artifactRoot, 'migration-inputs-before.json')), false);
+    const domains = [{ name: 'migration-runtime', path: 'payload/migration-runtime' }];
+    if (backendPath)
+    {
+        fs.mkdirSync(path.join(artifactRoot, backendPath), { recursive: true });
+        for (const name of backendFiles)
+            fs.writeFileSync(path.join(artifactRoot, backendPath, name), `original byte fixture: ${name}`);
+        domains.push({ name: 'backend-runtime', path: backendPath });
+    }
     const actual = captureMigrationRetainedInputs(value);
     const receipt = createProductionBuildReceipt({
         root: value.root, artifactRoot,
         sourceState: { commit: actual.sourceIdentity.sourceCommit, worktreeFingerprint: actual.sourceIdentity.worktreeFingerprint },
         producer: { workflow: 'Byte fixture only', runId: 'fixture', runAttempt: 1, job: 'fixture-not-build' },
         toolchain: { node: 'fixture', npm: 'fixture', dotnet: 'fixture', vite: 'fixture', vitest: 'fixture', playwright: 'fixture', emsdk: 'fixture' },
-        inputPaths: ['Directory.Build.props'], domains: [{ name: 'migration-runtime', path: 'payload/migration-runtime' }],
+        inputPaths: ['Directory.Build.props'], domains,
         build: { command: 'tools/test/lanes/production-build-artifacts.sh' }
     });
     return { ...value, artifactRoot, receipt };
 }
+
+test('Migration-only byte receipt does not manufacture an original current-target producer domain', t =>
+{
+    const value = retainedByteFixture(t);
+    assert.equal(readProductionRetainedMigrationTool(value).CurrentTargetProducer, null);
+});
+
+test('original current-target producer inputs are measured from the same sealed production receipt', t =>
+{
+    const value = retainedByteFixture(t, { backendPath: 'payload/backend-runtime' });
+    const original = readProductionRetainedMigrationTool(value);
+    const bound = original.CurrentTargetProducer;
+    for (const [pathKey, digestKey, name] of [['AssemblyPath', 'AssemblySha256', 'FsusBlog.Server.dll'],
+        ['SharedAssemblyPath', 'SharedAssemblySha256', 'FsusBlog.Shared.dll'],
+        ['RuntimeConfigurationPath', 'RuntimeConfigurationSha256', 'FsusBlog.Server.runtimeconfig.json'],
+        ['DependenciesPath', 'DependenciesSha256', 'FsusBlog.Server.deps.json']])
+    {
+        assert.equal(bound[pathKey], path.join(value.artifactRoot, 'payload/backend-runtime', name));
+        assert.equal(bound[digestKey], value.receipt.artifacts.find(item => item.path === `payload/backend-runtime/${name}`).sha256.slice(7));
+    }
+    const executed = invokeCompiledFixture(value);
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.deepEqual(JSON.parse(executed.stdout), original);
+});
+
+test('incomplete or redirected original current-target producer domains are refused', t =>
+{
+    const missing = retainedByteFixture(t, { backendPath: 'payload/backend-runtime', backendFiles: ['FsusBlog.Server.dll'] });
+    assert.throws(() => readProductionRetainedMigrationTool(missing), /producer input missing/u);
+    const redirected = retainedByteFixture(t, { backendPath: 'payload/caller-backend' });
+    assert.throws(() => readProductionRetainedMigrationTool(redirected), /original read-only backend runtime domain/u);
+});
+
+test('modified original current-target input bytes are refused by original receipt verification', t =>
+{
+    const value = retainedByteFixture(t, { backendPath: 'payload/backend-runtime' });
+    const file = path.join(value.artifactRoot, 'payload/backend-runtime/FsusBlog.Server.deps.json');
+    fs.chmodSync(file, 0o644);
+    fs.appendFileSync(file, 'replacement');
+    assert.throws(() => readProductionRetainedMigrationTool(value));
+    const executed = invokeCompiledFixture(value);
+    assert.notEqual(executed.status, 0);
+    assert.equal(executed.stdout, '');
+});
+
+// Execute the exact fixed loader source owned by the C# producer. This is a
+// lightweight Node control, not compilation or an executing Migration capability.
+const producerSource = fs.readFileSync(new URL('../../src/migration/CurrentSchemaOwnedTargetProducer.cs', import.meta.url), 'utf8');
+const compiledLoader = producerSource.match(/private const string s_retainedCompiledReaderBootstrap = """\n([\s\S]*?)\n        """;/u)?.[1];
+const compiledModuleNames = ['tools/ci/migration-retained-inputs.mjs', 'tools/ci/production-build-artifacts.mjs',
+    'tools/fact-extractors/identity.mjs', 'tools/fact-extractors/lib/canonicalize.mjs'];
+const compiledFixtureSources = compiledModuleNames.map(name => fs.readFileSync(new URL(`../../${name}`, import.meta.url), 'base64'));
+function invokeCompiledFixture(value, sources = compiledFixtureSources, extra = [])
+{
+    assert.ok(compiledLoader, 'original C# fixed loader must exist');
+    return spawnSync('/usr/bin/node', ['--experimental-vm-modules', '--input-type=module', '--eval', compiledLoader, '--',
+        value.root, value.artifactRoot, value.sdkRoot, ...sources, ...extra], { env: process.env, encoding: 'utf8' });
+}
+
+test('compiled original four-module closure preserves import metadata and matches the original byte reader', t =>
+{
+    const value = retainedByteFixture(t);
+    const observed = invokeCompiledFixture(value);
+    assert.equal(observed.status, 0, observed.stderr);
+    assert.deepEqual(JSON.parse(observed.stdout), readProductionRetainedMigrationTool(value));
+    assert.equal(observed.stdout.trim().split('\n').length, 1);
+});
+
+test('compiled reader never executes replacement checkout JavaScript', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const name of compiledModuleNames)
+    {
+        fs.mkdirSync(path.dirname(path.join(value.root, name)), { recursive: true });
+        fs.writeFileSync(path.join(value.root, name), "throw new Error('mutable_checkout_executed');\n");
+    }
+    const observed = invokeCompiledFixture(value);
+    assert.notEqual(observed.status, 0);
+    assert.doesNotMatch(observed.stderr, /mutable_checkout_executed/u);
+    assert.equal(observed.stdout, '');
+});
+
+test('compiled reader rejects omitted, extra, malformed and oversized source payloads', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const sources of [compiledFixtureSources.slice(0, 3), [...compiledFixtureSources, compiledFixtureSources[0]],
+        ['!', ...compiledFixtureSources.slice(1)], [Buffer.alloc(98304).toString('base64'), ...compiledFixtureSources.slice(1)]])
+    {
+        const observed = invokeCompiledFixture(value, sources);
+        assert.notEqual(observed.status, 0);
+        if (observed.status === null) assert.equal(observed.error?.code, 'E2BIG');
+        assert.equal(observed.stdout ?? '', '');
+    }
+});
+
+test('compiled linker rejects filesystem, package, escape and unknown builtin fallbacks', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const dependency of ['file:///tmp/caller.mjs', 'caller-package', '../../../caller.mjs', 'node:module'])
+    {
+        const entry = `import '${dependency}'; export function readProductionRetainedMigrationTool() { return {}; }`;
+        const observed = invokeCompiledFixture(value, [Buffer.from(entry).toString('base64'), ...compiledFixtureSources.slice(1)]);
+        assert.notEqual(observed.status, 0);
+        assert.match(observed.stderr, /migration_retained_compiled_reader_(?:unknown|unbound)_import/u);
+        assert.equal(observed.stdout, '');
+    }
+});
+
+test('compiled linker rejects dynamic imports and a disconnected original closure', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const entry of ["await import('node:fs'); export function readProductionRetainedMigrationTool() { return {}; }",
+        'export function readProductionRetainedMigrationTool() { return {}; }'])
+    {
+        const observed = invokeCompiledFixture(value, [Buffer.from(entry).toString('base64'), ...compiledFixtureSources.slice(1)]);
+        assert.notEqual(observed.status, 0);
+        assert.match(observed.stderr, /migration_retained_compiled_reader_(?:dynamic_import|incomplete_closure)/u);
+        assert.equal(observed.stdout, '');
+    }
+});
 
 test('original before and after byte measurements are fully covered by the original production receipt', t =>
 {

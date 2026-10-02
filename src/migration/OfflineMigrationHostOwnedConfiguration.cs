@@ -84,6 +84,63 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         return new(planning, backup, verification, timeProvider, retained);
     }
 
+    internal static Task<OfflineMigrationHostOwnedConfiguration> CreateOriginalAsync(
+        OwnedCurrentSchemaTarget target,
+        OwnedRetainedMigrationTool tool,
+        OfflineMigrationDag dag,
+        IOfflineMigrationApplyOperationRegistry operations,
+        TimeSpan maximumBackupAge,
+        OfflineMigrationShellBackupDrillOwnedInputs backupInputs,
+        IOfflineMigrationCurrentSchemaObserver currentSchema,
+        CancellationToken cancellationToken,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(tool);
+        ArgumentNullException.ThrowIfNull(dag);
+        ArgumentNullException.ThrowIfNull(operations);
+        ArgumentNullException.ThrowIfNull(backupInputs);
+        ArgumentNullException.ThrowIfNull(currentSchema);
+        cancellationToken.ThrowIfCancellationRequested();
+        // An actual unsupported compiled provider fails before shell configuration
+        // or credential/native work. No caller plan can supply its missing identity.
+        OfflineMigrationOwnedPlanningAuthorityReader.ValidateDeclaredDagOwners(dag, operations, cancellationToken);
+        var planning = new OfflineMigrationOwnedPlanningAuthorityReader(
+            target, tool, operations, dag, maximumBackupAge);
+        return CreateRetainedAsync(planning, backupInputs,
+            OfflineMigrationCurrentSchemaVerificationOwners.CreateOwnedArtifactReader(),
+            currentSchema, operations, cancellationToken, timeProvider);
+    }
+
+    internal static Task<OfflineMigrationHostOwnedConfiguration> CreateOriginalPostgreSqlAsync(
+        OwnedCurrentSchemaTarget target, OwnedRetainedMigrationTool tool, OfflineMigrationDag dag,
+        IOfflineMigrationApplyOperationRegistry operations, TimeSpan maximumBackupAge,
+        OfflineMigrationShellBackupDrillOwnedInputs backupInputs, CancellationToken cancellationToken,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return CreateOriginalAsync(target, tool, dag, operations, maximumBackupAge, backupInputs,
+            new PgCurrentSchemaOwnedTargetObserver(target), cancellationToken, timeProvider);
+    }
+
+    internal static async Task<OfflineMigrationHostOwnedConfiguration> CreateOriginalFromRetainedToolAsync(
+        OwnedRetainedMigrationTool tool, OfflineMigrationDag dag,
+        IOfflineMigrationApplyOperationRegistry operations, TimeSpan maximumBackupAge,
+        OfflineMigrationShellBackupDrillOwnedInputs backupInputs, CancellationToken cancellationToken,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+        ArgumentNullException.ThrowIfNull(backupInputs);
+        cancellationToken.ThrowIfCancellationRequested();
+        OfflineMigrationOwnedPlanningAuthorityReader.ValidateDeclaredDagOwners(dag, operations, cancellationToken);
+        // The retained capability derives the original Server domain, source and
+        // output from its own observations. No CLI assembly/hash/path can supply it.
+        OwnedCurrentSchemaTarget target = await tool.InvokeCurrentSchemaOriginalOwnerAsync(
+            cancellationToken).ConfigureAwait(false);
+        return await CreateOriginalPostgreSqlAsync(target, tool, dag, operations,
+            maximumBackupAge, backupInputs, cancellationToken, timeProvider).ConfigureAwait(false);
+    }
+
     internal TimeProvider Clock { get; }
     internal OfflineMigrationShellBackupDrillConfiguration ShellBackupConfiguration => _backup;
     internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()

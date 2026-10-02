@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
 
@@ -296,7 +297,7 @@ public static class CurrentSchemaTestMaterializer
         bool preparedPublished = false;
         bool verifiedPublished = false;
         bool committed = false;
-        await db.Ado.BeginTranAsync().ConfigureAwait(false);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead).ConfigureAwait(false);
         try
         {
             await ValidateLivePostgresInstanceAsync(db, serviceIdentity.PostgresInstance, cancellationToken)

@@ -132,7 +132,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
                 throw new InvalidOperationException("current_verify_native_database_changed");
             }
 
-            var journal = new OfflineMigrationApplyJournalVerifier(plan, request.Plan, request.InvocationId);
+            OfflineMigrationApplyJournalVerifier journal = CreateBoundJournalVerifier(
+                plan, request.Plan, request.InvocationId, owners.Operations);
             await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
                 database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
                 .ConfigureAwait(false);
@@ -387,6 +388,19 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         byte[] snapshot = bytes.ToArray();
         ValidateArtifactBytes(reference, snapshot);
         return snapshot;
+    }
+
+    internal static OfflineMigrationApplyJournalVerifier CreateBoundJournalVerifier(
+        OfflineMigrationPlan plan, CurrentSchemaArtifactReference artifact, string invocationId,
+        IOfflineMigrationApplyOperationRegistry operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        var journal = new OfflineMigrationApplyJournalVerifier(plan, artifact, invocationId);
+        // The same actual owners used for postconditions declare media requirements
+        // before any native entry is streamed. Neither journal JSON nor a flag can
+        // replace this binding; VerifyExistingAsync re-enters this exact path.
+        journal.BindOperationOwners(operations);
+        return journal;
     }
 
     internal static void ValidateFirstAdmission(OfflineMigrationPlan plan,
