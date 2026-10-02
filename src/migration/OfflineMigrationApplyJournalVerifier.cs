@@ -173,6 +173,15 @@ public sealed class OfflineMigrationApplyJournalVerifier
                 throw new InvalidOperationException("offline_apply_step_not_committed");
             }
 
+            bool originalBefore = entry.Before.PredicateReference == _unit.Before!.PredicateReference
+                && entry.Before.ContentDigest == _unit.Before.ContentDigest;
+            bool recoveredTarget = entry.Before.PredicateReference == step.TargetPostcondition
+                && entry.Before.ContentDigest == _unit.After.ContentDigest;
+            if (!originalBefore && !recoveredTarget)
+            {
+                throw new InvalidOperationException("offline_apply_step_before_changed");
+            }
+
             _proofs.Add(entry);
             _unit = null;
             return;
@@ -244,8 +253,8 @@ public sealed class OfflineMigrationApplyJournalVerifier
     /// <summary>Canonical journal entry digest, excluding the digest field itself.</summary>
     public static string ComputeEntryDigest(OfflineMigrationApplyJournalEntry entry)
         => Digest(entry with { ContentDigest = string.Empty });
-    /// <summary>Immutable content-addressed reference to this exact recorded entry.</summary>
-    public static CurrentSchemaArtifactReference Reference(OfflineMigrationApplyJournalEntry entry)
+    /// <summary>Semantic entry anchor, not the byte SHA of an exported artifact.</summary>
+    public static OfflineMigrationJournalAnchor Reference(OfflineMigrationApplyJournalEntry entry)
         => new($"offline-apply/v1/{entry.ContentDigest}", entry.ContentDigest);
     private static string Digest<T>(T value)
         => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value)));
