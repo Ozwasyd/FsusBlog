@@ -47,5 +47,12 @@ public sealed class OwnedRetainedMigrationToolTests
             read.GetParameters().Select(parameter => parameter.Name).ToArray());
         Assert.DoesNotContain(type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static),
             method => method.Name is "FromPlan" or "Import" or "FromObservation");
+        foreach (string resource in new[] { "tools.ci.migration-retained-inputs.mjs", "tools.ci.production-build-artifacts.mjs",
+            "tools.fact-extractors.identity.mjs", "tools.fact-extractors.lib.canonicalize.mjs" })
+        {
+            using Stream compiled = type.Assembly.GetManifestResourceStream("FsusBlog.Migration.RetainedReader." + resource)!;
+            Assert.NotNull(compiled);
+            Assert.True(compiled.Length > 0);
+        }
     }
 }

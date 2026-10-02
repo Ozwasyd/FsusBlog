@@ -217,6 +217,21 @@ internal sealed class OwnedCurrentSchemaTarget
         }
         IReadOnlyList<CurrentSchemaProducerFile> before = await SnapshotRetainedReaderInputsAsync(inputs,
             cancellationToken).ConfigureAwait(false);
+        // A stable caller checkout is not an approved reader. These exact original
+        // source bytes were compiled into the actual executing Migration DLL.
+        // Derive their identities here; never accept hashes from caller JSON.
+        foreach (CurrentSchemaProducerFile input in before.Skip(1))
+        {
+            string relative = Path.GetRelativePath(configuration.SourceRoot, input.RelativePath).Replace(Path.DirectorySeparatorChar, '.');
+            await using Stream compiled = typeof(OwnedCurrentSchemaTarget).Assembly.GetManifestResourceStream(
+                "FsusBlog.Migration.RetainedReader." + relative)
+                ?? throw new InvalidOperationException("migration_retained_compiled_reader_input_missing");
+            string digest = Convert.ToHexString(await SHA256.HashDataAsync(compiled, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();
+            if (digest != input.Sha256)
+            {
+                throw new InvalidOperationException("migration_retained_compiled_reader_input_changed");
+            }
+        }
         string evidence = Path.Combine(configuration.EvidenceRoot, "migration-retained-read-" + Guid.NewGuid().ToString("N"));
         RequireRegularPath(configuration.EvidenceRoot);
         Directory.CreateDirectory(evidence);
@@ -341,6 +356,13 @@ internal sealed class OwnedCurrentSchemaTarget
         foreach (string argument in arguments)
         {
             process.StartInfo.ArgumentList.Add(argument);
+        }
+        if (host == "/usr/bin/node")
+        {
+            // Do not allow ambient JavaScript preloads or alternate module roots
+            // to execute before the fixed, compiled-bound original reader.
+            process.StartInfo.Environment.Remove("NODE_OPTIONS");
+            process.StartInfo.Environment.Remove("NODE_PATH");
         }
         await using var stdout = new FileStream(Path.Combine(evidence, "stdout.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
         await using var stderr = new FileStream(Path.Combine(evidence, "stderr.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
