@@ -220,7 +220,7 @@ public static class SchemaModelComparer
         => facts is not null && !string.IsNullOrWhiteSpace(facts.TableType)
             && facts.CreateOptions is not null && facts.Comment is not null
             && facts.Partitions is not null && facts.Partitions.All(static partition => partition is not null)
-            && (facts.TableType != "BASE TABLE" || (!string.IsNullOrWhiteSpace(facts.Engine)
+            && (facts.TableType != "BASE TABLE" || (facts.Partitions.Count > 0 && !string.IsNullOrWhiteSpace(facts.Engine)
                 && !string.IsNullOrWhiteSpace(facts.RowFormat) && !string.IsNullOrWhiteSpace(facts.Collation)));
 
     private static bool HasMySqlColumnFacts(SchemaMySqlColumnPhysicalFacts? facts)

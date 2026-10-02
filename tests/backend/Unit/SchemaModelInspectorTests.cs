@@ -22,6 +22,7 @@ public sealed class SchemaModelInspectorTests
     [InlineData("table-collation")]
     [InlineData("create-options")]
     [InlineData("partition")]
+    [InlineData("missing-partition-rows")]
     [InlineData("charset")]
     [InlineData("column-collation")]
     [InlineData("on-update")]
@@ -57,6 +58,7 @@ public sealed class SchemaModelInspectorTests
             case "table-collation": facts = facts! with { Collation = "other-collation" }; break;
             case "create-options": facts = facts! with { CreateOptions = "other-options" }; break;
             case "partition": facts = facts! with { Partitions = [facts!.Partitions[0] with { Name = "p0", Method = "RANGE" }] }; break;
+            case "missing-partition-rows": facts = facts! with { Partitions = [] }; break;
             case "charset": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { CharacterSet = "other-charset" } }; break;
             case "column-collation": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { Collation = "other-collation" } }; break;
             case "on-update": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { Extra = "on update CURRENT_TIMESTAMP" } }; break;
@@ -107,6 +109,15 @@ public sealed class SchemaModelInspectorTests
         var incomplete = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [original.Name] = incompleteBase },
             provider: SchemaProviderKind.MySql);
         Assert.NotEmpty(SchemaModelComparer.Compare(incomplete, incomplete));
+        var emptyPartitionRows = new SchemaTableModel(original.Name, original.Columns, original.Indexes,
+            original.IndexDefinitions, original.Constraints, original.Owner)
+        {
+            MySqlPhysical = original.MySqlPhysical! with { Partitions = [] }
+        };
+        var unobservedPartitions = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [original.Name] = emptyPartitionRows },
+            provider: SchemaProviderKind.MySql);
+        Assert.Contains(SchemaModelComparer.Compare(unobservedPartitions, unobservedPartitions),
+            static error => error.StartsWith("mysql-physical unobserved table", StringComparison.Ordinal));
         var noIndexDefinitions = new SchemaTableModel(original.Name, original.Columns, original.Indexes)
         {
             MySqlPhysical = original.MySqlPhysical
