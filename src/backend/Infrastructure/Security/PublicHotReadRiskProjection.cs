@@ -56,6 +56,8 @@ public readonly record struct PublicHotReadRiskProjectionLookup(
     DateTimeOffset? ExpiresAtUtc,
     string? Version)
 {
+    /// <summary>Represents a missing or stale local risk fact, not an authoritative zero score.</summary>
+    /// <remarks>The zero score accompanies <see langword="false"/> in <see cref="Known"/>; callers must apply their unknown-state policy rather than infer permission.</remarks>
     public static readonly PublicHotReadRiskProjectionLookup Unknown = new(
         false,
         0,
@@ -75,11 +77,20 @@ public readonly record struct PublicHotReadRiskProjectionUpdate(
     string EventId,
     bool IsAuthoritativeZero = false)
 {
+    /// <summary>Checks whether this update's expiry has been reached, including equality.</summary>
+    /// <param name="now">The time against which to compare <see cref="ExpiresAtUtc"/>.</param>
+    /// <returns><see langword="true"/> when the update has expired; otherwise <see langword="false"/>.</returns>
     public bool IsExpired(DateTimeOffset now) => ExpiresAtUtc <= now;
 
+    /// <summary>Serializes this update as the internal camel-case JSON Pub/Sub payload.</summary>
+    /// <returns>The transport payload for projection distribution, not a public response or delivery acknowledgement.</returns>
     public string ToPayload()
         => JsonSerializer.Serialize(this, s_jsonOptions);
 
+    /// <summary>Parses an internal update and validates its identity hash, epoch, event ID and timestamp ordering.</summary>
+    /// <param name="payload">The Redis Pub/Sub payload to decode.</param>
+    /// <param name="update">Receives the parsed update on success, or the default value on rejection.</param>
+    /// <returns><see langword="true"/> for a structurally valid update; this does not establish current freshness, version acceptance or available projection capacity.</returns>
     public static bool TryParse(RedisValue payload, out PublicHotReadRiskProjectionUpdate update)
     {
         try
@@ -199,6 +210,10 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
     private long _durableReplayCount;
     private long _distributedUpdateCount;
 
+    /// <summary>Creates a process-local projection with clamped entry, estimated-byte and entry-lifetime limits.</summary>
+    /// <param name="options">The configured limits; byte accounting estimates stored entries rather than the total managed heap.</param>
+    /// <param name="pseudonymizer">The identity owner used to derive write and readable-epoch hashes.</param>
+    /// <param name="timeProvider">The clock used for expiry checks and lifetime caps.</param>
     public PublicHotReadRiskProjection(
         IOptions<PublicHotReadRiskProjectionOptions> options,
         ISecurityRiskPseudonymizer pseudonymizer,
@@ -212,9 +227,15 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
         _timeProvider = timeProvider;
     }
 
+    /// <summary>Looks up local risk using the request's resolved client IP.</summary>
+    /// <param name="context">The request context supplying the client IP.</param>
+    /// <returns>The same known or unknown result as the string lookup, without an authoritative remote read.</returns>
     public PublicHotReadRiskProjectionLookup Lookup(HttpContext context)
         => Lookup(context.GetClientIp());
 
+    /// <summary>Searches readable-epoch pseudonyms in local memory and removes expired matches.</summary>
+    /// <param name="clientIp">The client identity to pseudonymize; an empty identity yields an unknown result.</param>
+    /// <returns>The first unexpired matching risk fact, or <see cref="PublicHotReadRiskProjectionLookup.Unknown"/>; unknown is not known-zero or an authorization decision.</returns>
     public PublicHotReadRiskProjectionLookup Lookup(string clientIp)
     {
         if (string.IsNullOrWhiteSpace(clientIp))
@@ -260,6 +281,9 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
         return PublicHotReadRiskProjectionLookup.Unknown;
     }
 
+    /// <summary>Projects an event's hashed client identity, total score, lifetime and version into local memory.</summary>
+    /// <param name="write">The event whose negative delta or risk-reset reason permits an authoritative zero-score replacement.</param>
+    /// <returns><see langword="true"/> when the derived update is accepted; a missing hash or rejected update returns <see langword="false"/>.</returns>
     public bool Apply(SecurityRiskEventWrite write)
     {
         if (string.IsNullOrWhiteSpace(write.ClientIpHash))
@@ -279,6 +303,11 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
                     || string.Equals(write.Reason, SecurityRiskEventReasons.RiskReset, StringComparison.Ordinal)));
     }
 
+    /// <summary>Applies valid, unexpired risk updates and requires replacements to advance the epoch, timestamp and event ID version.</summary>
+    /// <param name="update">The risk fact; expiry is capped to the configured lifetime and nonauthoritative zero cannot replace positive risk.</param>
+    /// <param name="durableReplay">Whether to count an accepted update as originating from durable replay.</param>
+    /// <param name="distributedUpdate">Whether to count an accepted update as originating from distributed delivery.</param>
+    /// <returns><see langword="true"/> when stored within the entry and estimated-byte budgets; otherwise <see langword="false"/>. Capacity reclamation does not evict unexpired positive risk.</returns>
     public bool Apply(
         PublicHotReadRiskProjectionUpdate update,
         bool durableReplay = false,
@@ -359,6 +388,13 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
         }
     }
 
+    /// <summary>Derives the current-epoch client pseudonym and applies a local update without retaining the raw IP.</summary>
+    /// <param name="clientIp">The client identity to hash; an empty identity is rejected.</param>
+    /// <param name="score">The score supplied to the ordinary update path.</param>
+    /// <param name="updatedAtUtc">The update timestamp used for version ordering.</param>
+    /// <param name="expiresAtUtc">The requested expiry, subject to normal validation and the lifetime cap.</param>
+    /// <param name="eventId">The event identity used as the final version tie-breaker.</param>
+    /// <returns><see langword="true"/> when accepted; this path does not mark a zero score as an authoritative reset.</returns>
     public bool ApplyIdentity(
         string clientIp,
         int score,
@@ -383,6 +419,8 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
             eventId));
     }
 
+    /// <summary>Captures entry count and estimated resident bytes under the projection lock, then reads its counters.</summary>
+    /// <returns>The local budget and observation snapshot, not a total-heap measurement or an atomic view of every counter.</returns>
     public PublicHotReadRiskProjectionSnapshot Snapshot()
     {
         int entryCount;
@@ -541,6 +579,10 @@ public sealed class RedisPublicHotReadRiskProjectionPublisher(
 {
     internal const string Channel = "fsus:security:public-hot-risk-projection:v1";
 
+    /// <summary>Attempts best-effort delivery on the scoped Redis Pub/Sub channel without acknowledging durable persistence or subscriber receipt.</summary>
+    /// <param name="update">The projection update serialized for internal distribution.</param>
+    /// <param name="cancellationToken">The caller's cancellation, propagated when observed; other publication failures are logged and suppressed.</param>
+    /// <returns>A task for the publication attempt; successful completion does not replace the durable event replay source.</returns>
     public async ValueTask PublishAsync(
         PublicHotReadRiskProjectionUpdate update,
         CancellationToken cancellationToken = default)

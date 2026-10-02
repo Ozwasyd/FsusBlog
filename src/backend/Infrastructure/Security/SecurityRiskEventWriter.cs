@@ -53,6 +53,8 @@ public sealed record SecurityRiskEventWriteQueueSnapshot(
     long ShedCount = 0,
     long SyncFallbackCount = 0)
 {
+    /// <summary>Gets unresolved work across queued, in-flight, durable-pending and terminal-failure dispositions.</summary>
+    /// <value>The sum of each nonnegative count, including unresolved terminal failures; it is not a count of successfully persisted events.</value>
     public long OutstandingCount => Math.Max(0, QueuedCount)
         + Math.Max(0, InFlightCount)
         + Math.Max(0, DurablePendingCount)
@@ -214,6 +216,9 @@ public sealed class SecurityRiskEventWriteQueue
             Volatile.Read(ref _shedCount),
             Volatile.Read(ref _syncFallbackCount));
 
+    /// <summary>Idempotently closes writer admission and attempts to complete the channel with the first supplied error.</summary>
+    /// <param name="error">The optional error for channel completion and the closed disposition.</param>
+    /// <remarks>This method does not wait for admitted work to drain, resolve terminal failures or commit durable events.</remarks>
     public void Complete(Exception? error = null)
     {
         if (Interlocked.Exchange(ref _completed, 1) != 0)
