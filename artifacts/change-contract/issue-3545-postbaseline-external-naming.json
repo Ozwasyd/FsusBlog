@@ -5,9 +5,10 @@
       "id": "json-wire-key",
       "paths": [
         "config/testing/correctness-attempt-producers.json",
+        "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
         "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
       ],
-      "reason": "Preserve serialized correctness-inventory and release-final authority keys while updating producer-derived source and dependency digests."
+      "reason": "Preserve serialized correctness-inventory, backend evidence-path and release-final authority keys while updating producer-derived source and dependency digests."
     },
     {
       "id": "search-index-utf8-scalar-owner",
