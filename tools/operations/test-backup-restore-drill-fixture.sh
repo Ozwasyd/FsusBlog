@@ -38,4 +38,21 @@ jq -e '
   and (.blockers | index("search-backup-missing") != null)
 ' "$OUT_DIR/backup-restore-drill.json" >/dev/null
 
+printf '%s\n' 'not-an-authenticated-package' >"$TMP_ROOT/site-package.fsbenc"
+printf '%s\n' 'substituted-database' >"$TMP_ROOT/other.dump"
+set +e
+FSUSBLOG_DRILL_OUTPUT_DIR="$OUT_DIR" \
+    FSUSBLOG_DRILL_MODE=real \
+    FSUSBLOG_DRILL_RUN_ID=fixture-package-override \
+    FSUSBLOG_SITE_BACKUP_PACKAGE="$TMP_ROOT/site-package.fsbenc" \
+    FSUSBLOG_POSTGRES_BACKUP="$TMP_ROOT/other.dump" \
+    "$ROOT_DIR/tools/operations/backup-restore-drill.sh"
+status=$?
+set -e
+
+[[ "$status" != "0" ]]
+jq -e '.status == "blocked" and (.blockers | index("site-backup-artifact-override-forbidden")) != null' \
+    "$OUT_DIR/backup-restore-drill.json" >/dev/null
+test ! -e "$OUT_DIR/backup-restore-drill-fixture-package-override/site-package"
+
 echo "[backup-restore-drill-fixture] ok"

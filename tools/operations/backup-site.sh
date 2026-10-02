@@ -20,6 +20,14 @@ ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
 CONFIG_SANITIZER="$ROOT_DIR/tools/operations/backup-config-sanitize.mjs"
 PLAINTEXT_PACKAGE_PATH="${BACKUP_ROOT}/.fsusblog-site-${RUN_ID}.plaintext.tar.gz"
 RECIPIENT_KEY_ID=""
+PACKAGE_SHA256=""
+MANIFEST_SHA256=""
+MIGRATION_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+DATABASE_PROVIDER="${FSUSBLOG_BACKUP_DATABASE_PROVIDER:-postgresql}"
+SOURCE_CAPTURE="null"
+capturePid=""
+captureReadFd=""
+captureWriteFd=""
 KEYRING_KEY_COUNT=0
 WORK_DIR_OWNED=0
 
@@ -28,6 +36,16 @@ blockers=()
 checks=()
 
 Cleanup() {
+    if [[ -n "$captureWriteFd" ]]; then
+        exec {captureWriteFd}>&-
+    fi
+    if [[ -n "$captureReadFd" ]]; then
+        exec {captureReadFd}<&-
+    fi
+    if [[ -n "$capturePid" ]]; then
+        kill "$capturePid" >/dev/null 2>&1 || true
+        wait "$capturePid" >/dev/null 2>&1 || true
+    fi
     rm -f "$PLAINTEXT_PACKAGE_PATH"
     if [[ "$WORK_DIR_OWNED" == "1" ]]; then
         rm -rf "$WORK_DIR"
@@ -66,6 +84,9 @@ WriteReport() {
         --arg status "$status" \
         --arg runId "$RUN_ID" \
         --arg packagePath "$PACKAGE_PATH" \
+        --arg packageSha256 "$PACKAGE_SHA256" \
+        --arg manifestSha256 "$MANIFEST_SHA256" \
+        --argjson sourceCapture "$SOURCE_CAPTURE" \
         --arg backupRoot "$BACKUP_ROOT" \
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg contentEncryption "AES-256-GCM" \
@@ -79,6 +100,9 @@ WriteReport() {
       runId: $runId,
       generatedAt: $generatedAt,
       packagePath: $packagePath,
+      packageSha256: (if $packageSha256 == "" then null else $packageSha256 end),
+      manifestSha256: (if $manifestSha256 == "" then null else $manifestSha256 end),
+      sourceCapture: $sourceCapture,
       backupRoot: $backupRoot,
       packageEncryption: {
         format: $envelopeFormat,
@@ -219,9 +243,89 @@ DumpDatabase() {
         AddBlocker "database-connection-invalid"
         return
     }
-    PGPASSWORD="$PG_CONN_PASSWORD" pg_dump -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --format=custom --file="$target"
+    if [[ -n "$MIGRATION_DLL" ]]; then
+        if ! CaptureDatabase "$target"; then
+            return
+        fi
+    elif ! PGPASSWORD="$PG_CONN_PASSWORD" pg_dump -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --format=custom --file="$target"; then
+        AddBlocker "database-dump-failed"
+        return
+    fi
 
     AddCheck "database" "dumped"
+}
+
+CaptureDatabase() {
+    local target="$1" environmentFile="$WORK_DIR/source-capture.env"
+    local hostValue databaseValue userValue passwordValue start final snapshotId readOriginal writeOriginal
+    hostValue="${PG_CONN_HOST//\"/\"\"}"
+    databaseValue="${PG_CONN_DB//\"/\"\"}"
+    userValue="${PG_CONN_USER//\"/\"\"}"
+    passwordValue="${PG_CONN_PASSWORD//\"/\"\"}"
+    if [[ "$DATABASE_PROVIDER" != "postgresql" || ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+        AddBlocker "database-snapshot-capture-capability-unavailable"
+        return 1
+    fi
+    if [[ ! "$PG_CONN_PORT" =~ ^[0-9]+$ || "$PG_CONN_HOST$PG_CONN_DB$PG_CONN_USER$PG_CONN_PASSWORD" == *$'\n'* || "$PG_CONN_HOST$PG_CONN_DB$PG_CONN_USER$PG_CONN_PASSWORD" == *$'\r'* ]]; then
+        AddBlocker "database-capture-environment-invalid"
+        return 1
+    fi
+    printf 'ConnectionStrings__DefaultConnection=Host="%s";Port=%s;Database="%s";Username="%s";Password="%s"\n' \
+        "$hostValue" "$PG_CONN_PORT" "$databaseValue" "$userValue" "$passwordValue" >"$environmentFile"
+    coproc SourceCapture {
+        exec "${DOTNET_BIN:-dotnet}" "$MIGRATION_DLL" observe-source --provider postgresql \
+            --env-file "$environmentFile" --capture-session --dump-output "$target"
+    }
+    capturePid="${SourceCapture_PID:-}"
+    readOriginal="${SourceCapture[0]:-}"
+    writeOriginal="${SourceCapture[1]:-}"
+    if [[ -z "$capturePid" || -z "$readOriginal" || -z "$writeOriginal" ]]; then
+        AddBlocker "database-snapshot-capture-process-unavailable"
+        return 1
+    fi
+    exec {captureReadFd}<&"$readOriginal"
+    exec {captureWriteFd}>&"$writeOriginal"
+    exec {readOriginal}<&-
+    exec {writeOriginal}>&-
+    if ! IFS= read -r -u "$captureReadFd" start || ! jq -e \
+        '.Source.Database.Provider == 0 and (.Source.ContentDigest | test("^[0-9a-f]{64}$"))
+         and (.SnapshotId | type == "string" and length > 0)
+         and (.CapturedAt | type == "string" and length > 0)
+         and (.ObserverId | type == "string" and length > 0)
+         and (.ObserverVersion | type == "string" and length > 0)' <<<"$start" >/dev/null; then
+        AddBlocker "database-snapshot-capture-start-invalid"
+        return 1
+    fi
+    snapshotId="$(jq -r '.SnapshotId' <<<"$start")"
+    if ! PGPASSWORD="$PG_CONN_PASSWORD" pg_dump -h "$PG_CONN_HOST" -p "$PG_CONN_PORT" -U "$PG_CONN_USER" -d "$PG_CONN_DB" \
+        --format=custom --snapshot="$snapshotId" --file="$target"; then
+        AddBlocker "database-snapshot-dump-failed"
+        return 1
+    fi
+    if ! printf 'DUMP_COMPLETED\n' >&"$captureWriteFd" || ! IFS= read -r -u "$captureReadFd" final; then
+        AddBlocker "database-snapshot-capture-terminal-missing"
+        return 1
+    fi
+    exec {captureWriteFd}>&-
+    captureWriteFd=""
+    exec {captureReadFd}<&-
+    captureReadFd=""
+    if ! wait "$capturePid"; then
+        capturePid=""
+        AddBlocker "database-snapshot-capture-failed"
+        return 1
+    fi
+    capturePid=""
+    rm -f "$environmentFile"
+    if ! jq -e --argjson start "$start" --arg digest "$(sha256sum "$target" | awk '{print $1}')" \
+        '.status == "ok" and .capture.Source == $start.Source and .capture.SnapshotId == $start.SnapshotId
+         and .capture.CapturedAt == $start.CapturedAt and .capture.ObserverId == $start.ObserverId
+         and .capture.ObserverVersion == $start.ObserverVersion and .capture.DatabaseDumpSha256 == $digest' <<<"$final" >/dev/null; then
+        AddBlocker "database-snapshot-capture-binding-invalid"
+        return 1
+    fi
+    SOURCE_CAPTURE="$(jq -c '.capture' <<<"$final")"
+    AddCheck "database-source-snapshot" "captured"
 }
 
 PackTree() {
@@ -294,7 +398,7 @@ SanitizeConfig() {
     /^FSUSBLOG_/ {
       key=$1
       value=$2
-      if (tolower(key) ~ /(secret|password|token|key|connection|string)/) value="<redacted>"
+      if (tolower(key) ~ /(secret|password|token|key|connection|string|identity|recipient|passphrase)/) value="<redacted>"
       print key "=" value
     }' >"$configDir/environment.redacted.txt"
     tar -czf "$WORK_DIR/config.redacted.tar.gz" -C "$configDir" .
@@ -326,11 +430,16 @@ WriteManifestFile() {
         --arg configSha256 "$configSha" \
         --arg aotSha256 "$aotSha" \
         --arg searchSha256 "$searchSha" \
+        --argjson sourceCapture "$SOURCE_CAPTURE" \
         '{
       kind: "fsusblog-site-backup",
-      version: 2,
+      version: (if $sourceCapture == null then 2 else 3 end),
       runId: $runId,
       generatedAt: $generatedAt,
+      sourceBinding: (if $sourceCapture == null then null else {
+        owner: "tools/operations/backup-site.sh", ownerVersion: "3", capture: $sourceCapture,
+        databaseDumpSha256: $databaseSha256
+      } end),
       artifacts: {
         database: $database,
         uploads: $uploads,
@@ -359,6 +468,7 @@ WriteManifestFile() {
         recipientKeyId: $recipientKeyId
       }
     }' >"$WORK_DIR/manifest.json"
+    MANIFEST_SHA256="$(sha256sum "$WORK_DIR/manifest.json" | awk '{print $1}')"
 }
 
 ResolveRecipient() {
@@ -398,6 +508,12 @@ Main() {
     RequireCommand pg_dump
     RequireCommand node
     RequireCommand sha256sum
+    if [[ -n "$MIGRATION_DLL" ]]; then
+        RequireCommand "${DOTNET_BIN:-dotnet}"
+    fi
+    if [[ "$DATABASE_PROVIDER" != "postgresql" ]]; then
+        AddBlocker "database-backup-provider-unsupported:$DATABASE_PROVIDER"
+    fi
 
     if (("${#blockers[@]}" == 0)); then
         ResolveRecipient
@@ -442,6 +558,7 @@ Main() {
             --input "$PLAINTEXT_PACKAGE_PATH" \
             --output "$PACKAGE_PATH" \
             --recipient "$RECIPIENT_FILE" >/dev/null; then
+            PACKAGE_SHA256="$(sha256sum "$PACKAGE_PATH" | awk '{print $1}')"
             AddCheck "site-package" "authenticated-encrypted"
         else
             AddBlocker "site-package-envelope-encryption-failed"

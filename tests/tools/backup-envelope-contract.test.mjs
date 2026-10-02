@@ -68,3 +68,69 @@ test('security documentation defines separate custody, rotation, retention, and 
         assert.match(documentation, new RegExp(required));
     }
 });
+
+test('backup and restore reports bind the exact encrypted package bytes', async () =>
+{
+    const [backup, restore, drill] = await Promise.all([
+        source('tools/operations/backup-site.sh'),
+        source('tools/operations/restore-site.sh'),
+        source('tools/operations/backup-restore-drill.sh')
+    ]);
+
+    for (const script of [backup, restore, drill])
+    {
+        assert.match(script, /packageSha256:/);
+    }
+    assert.match(backup, /sha256sum "\$PACKAGE_PATH"/);
+    assert.match(restore, /backup-package-changed-during-authentication/);
+    assert.match(drill, /site-backup-package-changed-during-authentication/);
+});
+
+test('site package drill cannot substitute independently supplied restore artifacts', async () =>
+{
+    const drill = await source('tools/operations/backup-restore-drill.sh');
+
+    assert.match(drill, /site-backup-artifact-override-forbidden/);
+    assert.match(drill, /POSTGRES_BACKUP="\$packageDir\/database\.dump"/);
+    assert.match(drill, /UPLOADS_BACKUP="\$packageDir\/uploads\.tar\.gz"/);
+    assert.match(drill, /AOT_BACKUP="\$packageDir\/aot-cache\.tar\.gz"/);
+    assert.match(drill, /SEARCH_BACKUP="\$packageDir\/search\.tar\.gz"/);
+    assert.doesNotMatch(drill, /POSTGRES_BACKUP="\$\{POSTGRES_BACKUP:-/);
+});
+
+test('migration capture holds the native snapshot until the original dump has completed', async () =>
+{
+    const backup = await source('tools/operations/backup-site.sh');
+
+    assert.match(backup, /--capture-session --dump-output "\$target"/);
+    assert.match(backup, /--format=custom --snapshot="\$snapshotId" --file="\$target"/);
+    assert.match(backup, /printf 'DUMP_COMPLETED\\n'/);
+    assert.match(backup, /wait "\$capturePid"/);
+    assert.match(backup, /\.capture\.Source == \$start\.Source/);
+    assert.match(backup, /\.capture\.DatabaseDumpSha256 == \$digest/);
+    assert.match(backup, /database-backup-provider-unsupported/);
+    assert.match(backup, /version: \(if \$sourceCapture == null then 2 else 3 end\)/);
+    assert.ok(backup.indexOf('--snapshot="$snapshotId"') < backup.indexOf("printf 'DUMP_COMPLETED\\n'"));
+    assert.ok(backup.indexOf('wait "$capturePid"') < backup.indexOf('SOURCE_CAPTURE="$(jq -c'));
+});
+
+test('bound restore independently observes an isolated target and exact restored content', async () =>
+{
+    const [restore, drill] = await Promise.all([
+        source('tools/operations/restore-site.sh'),
+        source('tools/operations/backup-restore-drill.sh')
+    ]);
+
+    assert.match(restore, /database-restore-target-not-isolated-or-unobserved/);
+    assert.match(restore, /--exit-on-error --clean --if-exists/);
+    assert.match(restore, /database-restored-source-content-mismatch/);
+    assert.match(restore, /database-bound-restore-path-not-isolated/);
+    assert.match(drill, /database-restored-source-not-isolated-or-content-mismatch/);
+    assert.match(drill, /restoredDatabaseDumpSha256:/);
+    for (const script of [restore, drill])
+    {
+        assert.match(script, /observe-source --provider postgresql --env-file/);
+        assert.match(script, /\.sourceBinding\.capture\.Source\.ContentDigest/);
+        assert.match(script, /\.sourceBinding\.capture\.DatabaseDumpSha256 == \.artifactDigests\.database/);
+    }
+});

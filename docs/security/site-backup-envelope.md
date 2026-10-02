@@ -28,6 +28,12 @@ tools/operations/restore-site.sh \
 
 The restore entry accepts only an authenticated envelope. Missing/mismatched identity, broad permissions, plaintext tar, truncation, tag/header/ciphertext tampering, a manifest-recipient mismatch, or an artifact-digest mismatch blocks before writing the database, uploads, or key ring.
 
+Backup, restore, and site-package drill reports record `packageSha256` for the exact encrypted package bytes. Restore and drill reject package changes during authentication. A site-package drill rejects separately supplied database, Redis, uploads, AOT, or search overrides rather than validating one package and restoring another artifact. This package binding is not a source-database fingerprint, current-snapshot proof, or a successful restore credential; those require the original database observer and actual isolated restore evidence.
+
+For offline migration backup capture, explicitly supply `FSUSBLOG_MIGRATION_SERVER_DLL` pointing to the original Migration host and `FSUSBLOG_BACKUP_DATABASE_PROVIDER=postgresql`. The native observer owns a read-only repeatable-read transaction, observes the actual instance/database and complete source content, and exports the snapshot used by the original `pg_dump`. The transaction remains alive until the dump completes and the native owner hashes its bytes. Inner manifest version 3 binds that capture evidence and the database artifact digest; caller JSON cannot replace it. MySQL and SQLite do not yet have a native snapshot capture adapter in this entry and are rejected, not advertised as backed-up providers.
+
+Version-3 restore requires a fresh staging root and file targets beneath it, independently observes a database target different from the captured source before database writes, and rereads exact restored content after `pg_restore`. A version-3 site-package drill similarly binds the actual disposable database observation and consumed dump to the package and manifest SHA. Ordinary version-2 encrypted backups remain readable for the existing disaster-recovery workflow, but cannot prove offline migration backup admission. A capture alone is not later source freshness: the planner must independently compare the current full content digest with capture and restore evidence. Neither script syntax checks nor fixture database tools prove an actual native snapshot or restore.
+
 ## Recipient rotation and retention
 
 Each envelope has one recipient. Rotate in this order:

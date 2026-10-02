@@ -67,6 +67,19 @@ jq -e '.status == "blocked" and (.blockers | index("backup-envelope-recipient-mi
     "$TMP_DIR/missing-recipient-backups/backup-site-issue-1099-missing-recipient.json" >/dev/null
 test ! -e "$TMP_DIR/missing-recipient-backups/site.fsbenc"
 
+if PATH="$TMP_DIR/fake-bin:$PATH" \
+    FSUSBLOG_BACKUP_RUN_ID="fixture-unsupported-provider" \
+    FSUSBLOG_BACKUP_ROOT="$TMP_DIR/unsupported-provider-backups" \
+    FSUSBLOG_BACKUP_RECIPIENT_FILE="$TMP_DIR/recipient.pem" \
+    FSUSBLOG_BACKUP_DATABASE_PROVIDER="mysql" \
+    "$ROOT_DIR/tools/operations/backup-site.sh" >/dev/null 2>&1; then
+    printf '%s\n' 'backup accepted a provider without a snapshot adapter' >&2
+    exit 1
+fi
+jq -e '.status == "blocked" and (.blockers | index("database-backup-provider-unsupported:mysql")) != null' \
+    "$TMP_DIR/unsupported-provider-backups/backup-site-fixture-unsupported-provider.json" >/dev/null
+test ! -e "$TMP_DIR/unsupported-provider-backups/fsusblog-site-fixture-unsupported-provider.tar.gz.fsbenc"
+
 PACKAGE="$TMP_DIR/backups/site.tar.gz.fsbenc"
 PATH="$TMP_DIR/fake-bin:$PATH" \
     FSUSBLOG_BACKUP_RUN_ID="issue-1099-fixture" \
@@ -84,6 +97,9 @@ PATH="$TMP_DIR/fake-bin:$PATH" \
     "$ROOT_DIR/tools/operations/backup-site.sh" >/dev/null
 
 test -s "$PACKAGE"
+PACKAGE_SHA256="$(sha256sum "$PACKAGE" | awk '{print $1}')"
+jq -e --arg packageSha256 "$PACKAGE_SHA256" '.packageSha256 == $packageSha256' \
+    "$TMP_DIR/backups/backup-site-issue-1099-fixture.json" >/dev/null
 jq -e '.status == "ok" and .packageEncryption.contentEncryption == "AES-256-GCM" and .packageEncryption.keyWrap == "RSA-OAEP-SHA256"' \
     "$TMP_DIR/backups/backup-site-issue-1099-fixture.json" >/dev/null
 if tar -tzf "$PACKAGE" >/dev/null 2>&1; then
@@ -176,6 +192,8 @@ PATH="$TMP_DIR/fake-bin:$PATH" \
     "$ROOT_DIR/tools/operations/restore-site.sh" --backup "$PACKAGE" --confirm >/dev/null
 
 jq -e '.status == "ok" and (.checks | index("site-package-envelope:authenticated")) != null and (.checks | index("data-protection-key-generations:2")) != null' \
+    "$TMP_DIR/restore-report.json" >/dev/null
+jq -e --arg packageSha256 "$PACKAGE_SHA256" '.packageSha256 == $packageSha256' \
     "$TMP_DIR/restore-report.json" >/dev/null
 test -f "$TMP_DIR/restored-keyring/key-old.xml"
 test -f "$TMP_DIR/restored-keyring/key-current.xml"
