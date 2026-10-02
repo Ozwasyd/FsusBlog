@@ -350,6 +350,12 @@ public static class PgCurrentSchemaCatalogObserver
                 constraint_meta.connoinherit AS no_inherit,
                 constraint_meta.conislocal AS is_local,
                 constraint_meta.coninhcount AS inheritance_count,
+                backing_index.relname AS backing_index_name,
+                COALESCE(backing_meta.indrelid = constraint_meta.conrelid
+                    AND backing_index.relnamespace = table_rel.relnamespace
+                    AND backing_meta.indisunique
+                    AND backing_meta.indimmediate
+                    AND backing_meta.indisprimary = (constraint_meta.contype = 'p'), FALSE) AS backing_index_owned,
                 constraint_meta.confupdtype::text AS foreign_key_update_action,
                 constraint_meta.confdeltype::text AS foreign_key_delete_action,
                 constraint_meta.confmatchtype::text AS foreign_key_match_type
@@ -358,6 +364,8 @@ public static class PgCurrentSchemaCatalogObserver
             JOIN pg_namespace table_namespace ON table_namespace.oid = table_rel.relnamespace
             LEFT JOIN pg_class referenced_rel ON referenced_rel.oid = constraint_meta.confrelid
             LEFT JOIN pg_namespace referenced_namespace ON referenced_namespace.oid = referenced_rel.relnamespace
+            LEFT JOIN pg_class backing_index ON backing_index.oid = constraint_meta.conindid
+            LEFT JOIN pg_index backing_meta ON backing_meta.indexrelid = constraint_meta.conindid
             WHERE table_namespace.nspname = 'public'
               AND (constraint_meta.contype IN ('p', 'u', 'f', 'c')
                 OR table_rel.relname = '{CurrentSchemaControlShape.ApplyJournalTableName}');
@@ -372,6 +380,13 @@ public static class PgCurrentSchemaCatalogObserver
             }
 
             string physicalName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["constraint_name"])!);
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
+                && (Convert.ToString(row["constraint_type"]) is "p" or "u")
+                && (!Convert.ToBoolean(row["backing_index_owned"])
+                    || row["backing_index_name"] is DBNull
+                    || !string.Equals(Convert.ToString(row["backing_index_name"]),
+                        Convert.ToString(row["constraint_name"]), StringComparison.Ordinal)))
+                throw new InvalidOperationException("current_schema_control_constraint_backing_index_unavailable");
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
                 && (Convert.ToBoolean(row["no_inherit"]) != (Convert.ToString(row["constraint_type"]) is "p" or "u")
                     || !Convert.ToBoolean(row["is_local"])
@@ -428,6 +443,8 @@ public static class PgCurrentSchemaCatalogObserver
 
         foreach ((string tableName, SchemaTableModel table) in tables.ToArray())
         {
+            // Control constraints must be actual pg_constraint rows, not inferred unique indexes.
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName) continue;
             var constraints = (Dictionary<string, SchemaConstraintModel>)table.Constraints;
             foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
             {

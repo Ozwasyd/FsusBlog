@@ -214,6 +214,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     [InlineData("collation")]
     [InlineData("check")]
     [InlineData("index")]
+    [InlineData("same-shape-standalone-index")]
     [InlineData("trigger")]
     [InlineData("same-name-wrong-shape")]
     [InlineData("unknown-history")]
@@ -248,6 +249,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
                 "collation" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload TYPE text COLLATE \"C\";",
                 "check" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_sequence_check; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_sequence_check CHECK (sequence >= 0);",
                 "index" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_entry_digest_key; CREATE UNIQUE INDEX {Journal}_entry_digest_key ON public.{Journal} (entry_digest DESC);",
+                "same-shape-standalone-index" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_entry_digest_key; CREATE UNIQUE INDEX {Journal}_entry_digest_key ON public.{Journal} (entry_digest ASC);",
                 "trigger" => $"CREATE FUNCTION public.control_fixture_guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'unexpected_control_effect'; END; $$; CREATE TRIGGER control_fixture_trigger BEFORE UPDATE OR DELETE ON public.{Journal} FOR EACH ROW EXECUTE FUNCTION public.control_fixture_guard();",
                 "same-name-wrong-shape" => $"DROP TABLE public.{Journal}; CREATE TABLE public.{Journal} (plan_digest varchar(64) NOT NULL);",
                 "unknown-history" => "CREATE TABLE public.__fsus_schema_unregistered_history (value text NOT NULL);",
@@ -260,6 +262,13 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             };
             await db.Ado.ExecuteCommandAsync(sql);
             await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
+            if (drift == "same-shape-standalone-index")
+            {
+                Assert.Equal(3, await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass;"));
+                await Assert.ThrowsAsync<InvalidOperationException>(() => PgCurrentSchemaControlShape.ValidateApplyJournalAsync(
+                    (System.Data.Common.DbConnection)db.Ado.Connection,
+                    (System.Data.Common.DbTransaction)caller, CancellationToken.None));
+            }
             Assert.Same(caller, db.Ado.Transaction);
             Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
         }

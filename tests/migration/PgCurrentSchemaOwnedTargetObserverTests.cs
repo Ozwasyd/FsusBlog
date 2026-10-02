@@ -82,6 +82,7 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
     [InlineData("index-include")]
     [InlineData("index-null-distinct")]
     [InlineData("missing-constraint")]
+    [InlineData("missing-constraint-same-index")]
     [InlineData("constraint-deferred")]
     [InlineData("constraint-unvalidated")]
     [InlineData("check")]
@@ -137,6 +138,7 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
             case "index-include": indexes[index.Name] = index with { IncludedColumns = ["parent_digest"] }; break;
             case "index-null-distinct": indexes[index.Name] = index with { NullsNotDistinct = true }; break;
             case "missing-constraint": constraints.Remove(check.Name); effects = effects with { Expressions = [] }; break;
+            case "missing-constraint-same-index": constraints.Remove(index.Name); break;
             case "constraint-deferred": constraints[index.Name] = constraints[index.Name] with { IsDeferrable = true }; break;
             case "constraint-unvalidated": constraints[check.Name] = check with { IsValidated = false }; break;
             case "check": effects = effects with { Expressions = [effects.Expressions[0] with { Expression = "sequence >= 0" }] }; break;
