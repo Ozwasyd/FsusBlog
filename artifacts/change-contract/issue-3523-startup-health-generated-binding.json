@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/retry-disposition-seeds.mjs",
+        "tools/test/generate-retry-disposition-registry.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/retry-disposition-registry.json",
+            "sha256": "5cbfe05437c923dd5e782d537a905daa7a3d027b04f345a5a6f9a632ddfdab57"
+        }
+    ]
+}

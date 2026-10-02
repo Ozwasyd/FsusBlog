@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { sealContentDigest } from './attempt-provenance.mjs';
+import { resolveRetryDispositionSeeds } from './retry-disposition-seeds.mjs';
 import {
     hiddenRetryScannerVersion,
     scanHiddenRetries,
@@ -28,7 +29,11 @@ for (const entry of current.entries)
     priorBySemanticKey.set(key, priorBySemanticKey.has(key) ? null : entry);
 }
 const scan = scanHiddenRetries(root);
-const priorFor = (finding) => priorByFindingId.get(finding.findingId)
+const seededByFindingId = new Map(resolveRetryDispositionSeeds(root, scan.findings, {
+    priorEntries: current.entries
+}).map(({ finding, disposition }) => [finding.findingId, { ...finding, ...disposition }]));
+const priorFor = (finding) => seededByFindingId.get(finding.findingId)
+    ?? priorByFindingId.get(finding.findingId)
     ?? priorBySemanticKey.get(semanticKey(finding));
 const missing = scan.findings.filter((finding) => !priorFor(finding));
 if (missing.length > 0)
