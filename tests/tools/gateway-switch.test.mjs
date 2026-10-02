@@ -406,6 +406,30 @@ test('an unconfirmed activation response does not authorize restoring source tra
   assert.equal(evidence.recoveryAction, 'schema-restore-or-forward-required')
 })
 
+test('lost response after actual target activation leaves source unrestored and undrained', (t) => {
+  const fixture = createGatewayFixture(t)
+  const result = runGateway(fixture, 'gateway-switch.sh', [
+    '--to', 'green', '--release', greenRelease, '--image-digest', greenDigest
+  ], { FAKE_ACTIVATE_RESPONSE_LOST_SLOT: 'green' })
+  assert.notEqual(result.status, 0)
+  const state = readSlotState(fixture.stateFile, { allowMissing: false })
+  assert.equal(state.status, 'rollback_required')
+  assert.equal(state.activeSlot, 'blue')
+  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'green')
+  assert.equal(fs.readFileSync(fixture.liveSlot, 'utf8').trim(), 'blue')
+  const runtime = JSON.parse(fs.readFileSync(fixture.runtimeState, 'utf8'))
+  assert.equal(runtime.green.state, 'active')
+  assert.equal(runtime.green.canReceiveTraffic, true)
+  assert.equal(runtime.blue.state, 'active')
+  assert.equal(runtime.blue.drain.requested, false)
+  assert.equal(runtime.green.drain.requested, false)
+  const evidence = JSON.parse(fs.readFileSync(path.join(fixture.evidenceDir, 'latest.json'), 'utf8'))
+  assert.equal(evidence.failureStage, 'target-activation')
+  assert.equal(evidence.recoveryAction, 'schema-restore-or-forward-required')
+  assert.equal(evidence.checks.targetActivation, false)
+  assert.equal(evidence.checks.targetNeutralizedOnRecovery, false)
+})
+
 test('explicit source recovery refuses before input access even in dry-run mode', (t) => {
   const fixture = createGatewayFixture(t)
   for (const mode of [[], ['--dry-run']]) {
@@ -792,6 +816,7 @@ if [[ "$url" == */api/ops/deployment/activate || "$url" == */api/ops/deployment/
     ' "\${FAKE_DEPLOYMENT_RUNTIME_STATE:?}" > "$temporary"
   fi
   mv "$temporary" "\${FAKE_DEPLOYMENT_RUNTIME_STATE:?}"
+  if [[ "$url" == */activate && "\${FAKE_ACTIVATE_RESPONSE_LOST_SLOT:-}" == "$slot" ]]; then exit 22; fi
   snapshot="$(jq -c --arg slot "$slot" '.[$slot]' "\${FAKE_DEPLOYMENT_RUNTIME_STATE:?}")"
   jq -cn --argjson snapshot "$snapshot" '{accepted: true, idempotent: false, status: "accepted", errorCode: null, snapshot: $snapshot}'
   exit 0
