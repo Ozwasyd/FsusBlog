@@ -332,7 +332,10 @@ for (const graftInput of ['repository-local', 'ambient'])
             const graftFile = graftInput === 'repository-local'
                 ? resolve(repository, '.git/info/grafts')
                 : resolve(repository, 'ambient-grafts');
-            if (graftInput === 'ambient') process.env.GIT_GRAFT_FILE = graftFile;
+            if (graftInput === 'ambient')
+            {
+                process.env.GIT_GRAFT_FILE = graftFile;
+            }
             const graftEnvironment = { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' };
             const unrelated = { ...baseline, deletionCommit: foreignDeletion };
             assert.ok(validate(unrelated).errors.some((error) => /not in trusted master history/u.test(error)));
@@ -354,8 +357,14 @@ for (const graftInput of ['repository-local', 'ambient'])
         }
         finally
         {
-            if (previousGraftFile === undefined) delete process.env.GIT_GRAFT_FILE;
-            else process.env.GIT_GRAFT_FILE = previousGraftFile;
+            if (previousGraftFile === undefined)
+            {
+                delete process.env.GIT_GRAFT_FILE;
+            }
+            else
+            {
+                process.env.GIT_GRAFT_FILE = previousGraftFile;
+            }
             rmSync(repository, { recursive: true, force: true });
         }
     });
@@ -514,8 +523,14 @@ test('real immutable source refuses cross-file Fact and Theory type shadows but 
                 readCurrent: () => JSON.stringify({ ...baseline, sourceCommit, deletionCommit,
                     records: [{ ...baseline.records[0], sourceBlobOid }] })
             });
-            if (accepted) assert.deepEqual(result.errors, [], attribute);
-            else assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)), attribute);
+        if (accepted)
+        {
+            assert.deepEqual(result.errors, [], attribute);
+        }
+        else
+        {
+            assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)), attribute);
+        }
         }
         finally
         {

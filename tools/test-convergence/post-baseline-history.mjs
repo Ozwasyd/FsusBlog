@@ -74,18 +74,33 @@ function precedingAttributeNames(masked, opening, methodOffset)
     let cursor = methodOffset;
     while (cursor > opening)
     {
-        while (cursor > opening && /\s/u.test(masked[cursor - 1])) cursor -= 1;
-        if (masked[cursor - 1] !== ']') break;
+        while (cursor > opening && /\s/u.test(masked[cursor - 1]))
+        {
+            cursor -= 1;
+        }
+        if (masked[cursor - 1] !== ']')
+        {
+            break;
+        }
         const end = cursor - 1;
         let depth = 1;
         cursor -= 1;
         while (cursor > opening && depth > 0)
         {
             cursor -= 1;
-            if (masked[cursor] === ']') depth += 1;
-            else if (masked[cursor] === '[') depth -= 1;
+            if (masked[cursor] === ']')
+            {
+                depth += 1;
+            }
+            else if (masked[cursor] === '[')
+            {
+                depth -= 1;
+            }
         }
-        if (depth !== 0) return [];
+        if (depth !== 0)
+        {
+            return [];
+        }
         const content = masked.slice(cursor + 1, end);
         let parentheses = 0;
         let brackets = 0;
@@ -93,21 +108,42 @@ function precedingAttributeNames(masked, opening, methodOffset)
         for (let index = 0; index <= content.length; index += 1)
         {
             const character = content[index];
-            if (character === '(') parentheses += 1;
-            else if (character === ')') parentheses -= 1;
-            else if (character === '[') brackets += 1;
-            else if (character === ']') brackets -= 1;
-            if (parentheses < 0 || brackets < 0) return [];
+            if (character === '(')
+            {
+                parentheses += 1;
+            }
+            else if (character === ')')
+            {
+                parentheses -= 1;
+            }
+            else if (character === '[')
+            {
+                brackets += 1;
+            }
+            else if (character === ']')
+            {
+                brackets -= 1;
+            }
+            if (parentheses < 0 || brackets < 0)
+            {
+                return [];
+            }
             if (index === content.length || (character === ',' && parentheses === 0 && brackets === 0))
             {
                 const attribute = /^\s*((?:global::)?[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*(?:\([\s\S]*\))?\s*$/u
                     .exec(content.slice(start, index));
-                if (!attribute) return [];
+                if (!attribute)
+                {
+                    return [];
+                }
                 names.push(attribute[1].replace(/\s/gu, ''));
                 start = index + 1;
             }
         }
-        if (parentheses !== 0 || brackets !== 0) return [];
+        if (parentheses !== 0 || brackets !== 0)
+        {
+            return [];
+        }
     }
     return names;
 }
@@ -116,15 +152,27 @@ function unambiguousTestAttribute(masked, name, attributeContext)
 {
     const parts = name.replace(/^global::/u, '').split('.');
     const simpleName = parts.at(-1);
-    if (!/^(?:Fact|Theory)(?:Attribute)?$/u.test(simpleName)) return false;
-    if (/\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/u.test(masked + attributeContext)) return false;
+    if (!/^(?:Fact|Theory)(?:Attribute)?$/u.test(simpleName))
+    {
+        return false;
+    }
+    if (/\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/u.test(masked + attributeContext))
+    {
+        return false;
+    }
     // Attribute spelling cannot establish the resolved identity of an alias.
     const alias = new RegExp(`\\busing\\s+@?${parts[0]}\\s*=`, 'u');
-    if (alias.test(masked) || alias.test(attributeContext)) return false;
+    if (alias.test(masked) || alias.test(attributeContext))
+    {
+        return false;
+    }
     // A type literally named Fact/Theory is not the owner's FactAttribute/TheoryAttribute identity.
     if (!simpleName.endsWith('Attribute')
         && new RegExp(`\\b(?:class|struct|record(?:\\s+(?:class|struct))?)\\s+@?${simpleName}\\b`, 'u')
-            .test(masked + '\n' + attributeContext)) return false;
+            .test(masked + '\n' + attributeContext))
+    {
+        return false;
+    }
     return true;
 }
 
@@ -140,7 +188,10 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
     }
     const masked = maskCSharpTrivia(source);
     // Escaped identifiers are unresolved here, not evidence that a member disappeared.
-    if (!proveXunit && /\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/u.test(masked)) return true;
+    if (!proveXunit && /\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/u.test(masked))
+    {
+        return true;
+    }
     const conditionalDirectives = [...masked.matchAll(/^[ \t]*#\s*(if|endif)\b/gmu)];
     const insideConditional = (offset) =>
     {
@@ -187,11 +238,17 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             continue;
         }
         // Mutually exclusive branches can change brace ownership; no symbols are evaluated here.
-        if (!proveXunit && conditionalDirectives.length > 0 && declaration.test(masked)) return true;
+        if (!proveXunit && conditionalDirectives.length > 0 && declaration.test(masked))
+        {
+            return true;
+        }
         const opening = masked.indexOf('{', classMatch.index + classMatch[0].length);
         if (opening < 0)
         {
-            if (!proveXunit) return true;
+            if (!proveXunit)
+            {
+                return true;
+            }
             continue;
         }
         if (proveXunit && (insideConditional(classMatch.index) || insideConditional(opening)))
@@ -206,7 +263,10 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
         }
         if (closing === masked.length)
         {
-            if (!proveXunit) return true;
+            if (!proveXunit)
+            {
+                return true;
+            }
             continue;
         }
         if (proveXunit && insideConditional(closing))
@@ -253,15 +313,27 @@ function historicalAttributeContext(root, commit, maskCSharpTrivia)
     const result = git(root, ['grep', '--no-textconv', '-l', '-z', '-E',
         '-e', '\\b(global|Fact|Theory)\\b', '-e', '\\\\(u[[:xdigit:]]{4}|U[[:xdigit:]]{8})',
         commit, '--', 'tests/backend']);
-    if (result.status === 1) return '';
-    if (result.status !== 0) throw new Error(`historical attribute context unavailable: ${String(result.stderr).trim()}`);
+    if (result.status === 1)
+    {
+        return '';
+    }
+    if (result.status !== 0)
+    {
+        throw new Error(`historical attribute context unavailable: ${String(result.stderr).trim()}`);
+    }
     const context = [];
     for (const entry of result.stdout.split('\0').filter(Boolean))
     {
         const prefix = `${commit}:`;
-        if (!entry.startsWith(prefix)) throw new Error('historical attribute context path is unbound');
+        if (!entry.startsWith(prefix))
+        {
+            throw new Error('historical attribute context path is unbound');
+        }
         const path = entry.slice(prefix.length);
-        if (!path.endsWith('.cs')) continue;
+        if (!path.endsWith('.cs'))
+        {
+            continue;
+        }
         historicalRegularBlobOid(root, commit, path, 'historical attribute context source', true);
         const source = gitText(root, ['show', `${commit}:${path}`], 'historical attribute context source');
         const masked = maskCSharpTrivia(source);
@@ -386,7 +458,9 @@ export function validatePostBaselineHistory({
     const readAttributeContext = (commit) =>
     {
         if (!attributeContexts.has(commit))
+        {
             attributeContexts.set(commit, historicalAttributeContext(root, commit, maskCSharpTrivia));
+        }
         return attributeContexts.get(commit);
     };
     if (currentPaths.size !== paths.length)
