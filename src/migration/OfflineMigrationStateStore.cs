@@ -1,5 +1,7 @@
 using System.Data;
 using System.Data.Common;
+using System.Runtime.ExceptionServices;
+using System.Text;
 using System.Text.Json;
 
 using SqlSugar;
@@ -19,6 +21,7 @@ internal static class OfflineMigrationStateStore
     internal const string StateTableName = "__fsus_schema_online_state";
     internal const string BackfillTableName = "__fsus_schema_backfill_progress";
     internal const string ApplyJournalTableName = "__fsus_schema_offline_apply_journal";
+    internal const string JournalCleanupFailuresKey = "FsusBlog.Migration.JournalCleanupFailures";
 
     // The sealed route currently admits only PostgreSQL's transactional native session.
     // Provider-specific journal/lock/DDL guarantees must be implemented before another
@@ -113,27 +116,37 @@ internal static class OfflineMigrationStateStore
         OfflineMigrationApplyJournalEntry entry, CancellationToken cancellationToken)
     {
         string payload = JsonSerializer.Serialize(entry);
-        if (payload.Length > 1_048_576)
+        if (Encoding.UTF8.GetByteCount(payload) > 1_048_576)
         {
             throw new InvalidOperationException("offline_apply_journal_entry_oversized");
         }
 
-        await using DbCommand command = NativeCommand(connection, transaction, $"""
+        DbCommand command = NativeCommand(connection, transaction, $"""
             INSERT INTO public.{ApplyJournalTableName}
                 (plan_digest, database_digest, invocation_id, sequence, entry_digest, parent_digest, entry_payload)
             VALUES (@plan, @database, @invocation, @sequence, @entry, @parent, @payload)
             """);
-        Parameter(command, "@plan", entry.PlanContentDigest);
-        Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(entry.Database));
-        Parameter(command, "@invocation", entry.InvocationId);
-        Parameter(command, "@sequence", entry.Sequence);
-        Parameter(command, "@entry", entry.ContentDigest);
-        Parameter(command, "@parent", entry.PreviousDigest);
-        Parameter(command, "@payload", payload);
-        if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1)
+        Exception? first = null;
+        try
         {
-            throw new InvalidOperationException("offline_apply_journal_append_failed");
+            Parameter(command, "@plan", entry.PlanContentDigest);
+            Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(entry.Database));
+            Parameter(command, "@invocation", entry.InvocationId);
+            Parameter(command, "@sequence", entry.Sequence);
+            Parameter(command, "@entry", entry.ContentDigest);
+            Parameter(command, "@parent", entry.PreviousDigest);
+            Parameter(command, "@payload", payload);
+            if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1)
+                throw new InvalidOperationException("offline_apply_journal_append_failed");
         }
+        catch (Exception failure) { first = failure; }
+        try { await command.DisposeAsync().ConfigureAwait(false); }
+        catch (Exception cleanup)
+        {
+            first ??= cleanup;
+            first.Data[JournalCleanupFailuresKey] = "offline_apply_journal_command_disposal_failed";
+        }
+        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
     }
 
     internal static DbCommand NativeCommand(DbConnection connection, DbTransaction? transaction, string sql)

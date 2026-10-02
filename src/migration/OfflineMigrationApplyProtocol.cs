@@ -21,6 +21,26 @@ internal abstract class OfflineMigrationApplyOperation
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken);
 }
 
+// A compiled article/media owner cannot select the old no-media Execute route.
+// It supplies actual retained source/media capabilities; Core alone persists the
+// preparation and commits the caller transaction and the one journal.
+internal abstract class OfflineMigrationArticleMediaOperation : OfflineMigrationApplyOperation
+{
+    internal abstract Task<OfflineMigrationMediaJournalEvidence> GetMediaBindingAsync(
+        VerifiedOfflineMigrationPlan plan, CurrentSchemaArtifactReference artifact, string invocationId,
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken);
+
+    internal abstract Task<OfflineMigrationApplyUnit> ExecuteMediaAsync(
+        OfflineMigrationStep step, OfflineMigrationApplyJournalEntry? previousUnit,
+        DbConnection connection, DbTransaction transaction, IArticleMediaPreservationJournal journal,
+        CancellationToken cancellationToken);
+
+    internal sealed override Task<OfflineMigrationApplyUnit> ExecuteAsync(
+        OfflineMigrationStep step, OfflineMigrationApplyJournalEntry? previousUnit,
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+        => throw new InvalidOperationException("offline_apply_media_journal_required");
+}
+
 internal sealed record OfflineMigrationApplyUnit(
     string? WatermarkBefore, string? WatermarkAfter, string? HighWatermark,
     long RowsProcessed, long ExpectedRows, bool Complete);

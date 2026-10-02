@@ -77,6 +77,9 @@ internal static class OfflineMigrationExecutor
         bool transactionBodyCompleted = false;
         void RememberFirstFailure(Exception failure)
         {
+            if (failure.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey]
+                is "offline_apply_journal_command_disposal_failed")
+                cleanupCodes.Add("offline_apply_journal_command_disposal_failed");
             if (firstFailure is null)
             {
                 firstFailure = failure;
@@ -112,6 +115,7 @@ internal static class OfflineMigrationExecutor
 
                 // Resolve the entire compiled provider closure before journal/control/business
                 // writes. The registry cannot add ad-hoc SQL from a plan or CLI argument.
+                progress.BindOperationOwners(registry);
                 foreach (OfflineMigrationStep step in plan.OrderedSteps)
                 {
                     foreach (OfflineMigrationProviderOperation identity in step.Operations)
@@ -124,6 +128,8 @@ internal static class OfflineMigrationExecutor
 
                         if (identity.Provider == plan.Source.Database.Provider)
                         {
+                            if ((resolved is OfflineMigrationArticleMediaOperation) != progress.RequiresMedia(step.StepId))
+                                throw new InvalidOperationException("offline_apply_operation_binding_changed");
                             operations.Add(step.StepId, resolved);
                         }
                     }
@@ -159,7 +165,9 @@ internal static class OfflineMigrationExecutor
                         if (progress.Last is { State: OfflineMigrationApplyJournalState.AttemptStarted
                             or OfflineMigrationApplyJournalState.TransactionCommitted
                             or OfflineMigrationApplyJournalState.BatchCommitted
-                            or OfflineMigrationApplyJournalState.StepVerified } interrupted)
+                            or OfflineMigrationApplyJournalState.StepVerified
+                            or OfflineMigrationApplyJournalState.MediaPrepared
+                            or OfflineMigrationApplyJournalState.MediaPublished } interrupted)
                         {
                             await AppendAsync(staged, admissionTransaction, Control(staged,
                                 OfflineMigrationApplyJournalState.RecoveryRequired, interrupted.Attempt,
@@ -192,6 +200,14 @@ internal static class OfflineMigrationExecutor
                     OfflineMigrationProviderOperation identity = step.Operations.Single(
                         value => value.Provider == plan.Source.Database.Provider);
                     OfflineMigrationApplyOperation operation = operations[step.StepId];
+                    if (operation is OfflineMigrationArticleMediaOperation mediaOperation
+                        && progress.PendingMedia is null && progress.PendingUnit is null)
+                    {
+                        // Durable preparation precedes filesystem publication and graph writes.
+                        // Only Core opens/commits this transaction on its original locked session.
+                        await PrepareMediaAsync(step, mediaOperation).ConfigureAwait(false);
+                        transactionBodyCompleted = false;
+                    }
                     await using DbTransaction transaction = await connection.BeginTransactionAsync(
                         IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false);
                     try
@@ -224,14 +240,31 @@ internal static class OfflineMigrationExecutor
                         }
                         else
                         {
-                            OfflineMigrationApplyUnit unit = await operation.ExecuteAsync(step, previousUnit,
-                                connection, transaction, cancellationToken).ConfigureAwait(false);
+                            OfflineMigrationMediaJournalEvidence? mediaEvidence = null;
+                            OfflineMigrationApplyUnit unit;
+                            if (operation is OfflineMigrationArticleMediaOperation actualMedia)
+                            {
+                                OfflineMigrationMediaJournalEvidence binding = await actualMedia.GetMediaBindingAsync(
+                                    verified, artifact, request.InvocationId, connection, transaction, cancellationToken).ConfigureAwait(false);
+                                if (binding != progress.PendingMedia?.Media)
+                                    throw new InvalidOperationException("offline_apply_media_binding_changed");
+                                var journal = new OfflineMigrationArticleMediaJournal(progress, staged, connection, transaction, request.Attempt);
+                                unit = await actualMedia.ExecuteMediaAsync(step, previousUnit, connection, transaction,
+                                    journal, cancellationToken).ConfigureAwait(false);
+                                if (!unit.Complete)
+                                    throw new InvalidOperationException("offline_apply_media_transaction_incomplete");
+                                mediaEvidence = journal.RequirePublished();
+                            }
+                            else
+                                unit = await operation.ExecuteAsync(step, previousUnit,
+                                    connection, transaction, cancellationToken).ConfigureAwait(false);
                             string afterPredicate = unit.Complete ? step.TargetPostcondition : step.ResumePolicy.ReplayPostcondition;
                             OfflineMigrationPredicateObservation after = await operation.ObserveAsync(afterPredicate,
                                 connection, transaction, cancellationToken).ConfigureAwait(false);
                             ValidateObservation(after, afterPredicate, identity);
                             var committed = new OfflineMigrationApplyJournalEntry(
-                                OfflineMigrationApplyJournalVerifier.Format, artifact, plan.ContentDigest, plan.Source.Database,
+                                mediaEvidence is null ? OfflineMigrationApplyJournalVerifier.Format : OfflineMigrationApplyJournalVerifier.MediaFormat,
+                                artifact, plan.ContentDigest, plan.Source.Database,
                                 request.InvocationId, (staged.Last?.Sequence ?? 0) + 1, request.Attempt,
                                 step.StepId, identity.OperationReference, identity.Mode,
                                 identity.Mode == OfflineMigrationExecutionMode.Transaction
@@ -239,7 +272,7 @@ internal static class OfflineMigrationExecutor
                                 step.IdempotencyDefinition, unit.WatermarkBefore, unit.WatermarkAfter, unit.HighWatermark,
                                 unit.RowsProcessed, unit.ExpectedRows, unit.Complete, before, after,
                                 staged.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
-                                string.Empty, null, DateTimeOffset.UtcNow);
+                                string.Empty, null, DateTimeOffset.UtcNow) { Media = mediaEvidence };
                             await AppendAsync(staged, transaction, committed, cancellationToken).ConfigureAwait(false);
                             if (unit.Complete)
                             {
@@ -390,6 +423,54 @@ internal static class OfflineMigrationExecutor
             => new(status, artifact, plan.ContentDigest, plan.Source.Database,
                 progress.Last is null ? null : new(OfflineMigrationApplyJournalVerifier.Reference(progress.Last),
                     request.InvocationId, progress.Last.Sequence), progress.StepProofs, codes.ToImmutableArray());
+
+        async Task PrepareMediaAsync(OfflineMigrationStep step, OfflineMigrationArticleMediaOperation operation)
+        {
+            await using DbTransaction preparation = await connection.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await admission.RevalidateAsync(verified, artifact, progress, connection, preparation, cancellationToken).ConfigureAwait(false);
+                OfflineMigrationPredicateObservation before = await operation.ObserveAsync(
+                    step.SourcePrecondition, connection, preparation, cancellationToken).ConfigureAwait(false);
+                ValidateObservation(before, step.SourcePrecondition, operation.Identity);
+                OfflineMigrationMediaJournalEvidence media = await operation.GetMediaBindingAsync(
+                    verified, artifact, request.InvocationId, connection, preparation, cancellationToken).ConfigureAwait(false);
+                OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                OfflineMigrationApplyJournalEntry entry = Control(staged,
+                    OfflineMigrationApplyJournalState.MediaPrepared, request.Attempt) with
+                {
+                    Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
+                    StepId = step.StepId,
+                    OperationReference = operation.Identity.OperationReference,
+                    Mode = operation.Identity.Mode,
+                    IdempotencyKey = step.IdempotencyDefinition,
+                    Before = before,
+                    Media = media
+                };
+                await AppendAsync(staged, preparation, entry, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                commitUnknown = true;
+                await preparation.CommitAsync(cancellationToken).ConfigureAwait(false);
+                commitUnknown = false;
+                progress = staged;
+                transactionBodyCompleted = true;
+            }
+            catch (Exception originalFailure)
+            {
+                RememberFirstFailure(originalFailure);
+                if (!commitUnknown)
+                {
+                    try { await preparation.RollbackAsync(CleanupToken()).ConfigureAwait(false); }
+                    catch
+                    {
+                        commitUnknown = true;
+                        cleanupCodes.Add("offline_apply_rollback_terminal_unknown");
+                    }
+                }
+                throw;
+            }
+        }
 
         async Task VerifyRecordedStepsAsync(DbTransaction transaction)
         {

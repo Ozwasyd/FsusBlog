@@ -524,6 +524,363 @@ public sealed class OfflineMigrationApplyJournalTests
         }
     }
 
+    [Fact]
+    public void Media_operation_cannot_use_the_no_journal_execute_route()
+    {
+        OfflineMigrationPlan plan = Plan();
+        var operation = new FixtureMediaOperation(plan.OrderedSteps[0].Operations[0]);
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = operation.ExecuteAsync(plan.OrderedSteps[0], null,
+                Substitute.For<DbConnection>(), Substitute.For<DbTransaction>(), default);
+        });
+    }
+
+    [Fact]
+    public void Media_owner_requires_durable_preparation_publication_and_atomic_committed_unit()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier, Unit(plan, verifier, complete: true)));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        OfflineMigrationApplyJournalVerifier staged = verifier.Fork();
+        Accept(staged, MediaEntry(plan, staged, OfflineMigrationApplyJournalState.MediaPublished));
+        Assert.Throws<InvalidOperationException>(() => staged.Complete(Checkpoint(staged)));
+        Assert.Equal(OfflineMigrationApplyJournalState.MediaPrepared, verifier.PendingMedia!.State);
+        Accept(staged, MediaUnit(plan, staged));
+        Accept(staged, Proof(staged));
+        Accept(staged, Control(plan, staged, OfflineMigrationApplyJournalState.ApplyCompleted));
+        staged.Complete(Checkpoint(staged));
+        Assert.True(staged.Completed);
+        Assert.Null(staged.PendingMedia);
+        Assert.Single(staged.StepProofs);
+        Assert.NotNull(staged.StepProofs[0].Media!.GenerationIdentity);
+    }
+
+    [Fact]
+    public void Media_publication_cannot_skip_preparation_or_repeat_a_parent_cas()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier,
+            MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished)));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier,
+            MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared)));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished));
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier,
+            MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished)));
+        Assert.Equal(3, verifier.Last!.Sequence);
+    }
+
+    [Theory]
+    [InlineData("invocation")]
+    [InlineData("run")]
+    [InlineData("plan-bytes")]
+    [InlineData("source")]
+    [InlineData("manifest")]
+    [InlineData("source-root")]
+    [InlineData("target-root")]
+    [InlineData("directory")]
+    public void Resealed_media_publication_cannot_change_the_prepared_binding(string changed)
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        OfflineMigrationApplyJournalEntry entry = MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished);
+        OfflineMigrationMediaJournalEvidence evidence = entry.Media!;
+        ArticleMediaBinding binding = evidence.Binding;
+        evidence = changed == "invocation" ? evidence with { InvocationId = "other-opaque-invocation" } : evidence with
+        {
+            Binding = changed switch
+            {
+                "run" => binding with { RunId = Guid.Parse("33333333-3333-3333-3333-333333333333") },
+                "plan-bytes" => binding with { PlanArtifactSha256 = plan.ContentDigest },
+                "source" => binding with { SourceContentDigest = new('c', 64) },
+                "manifest" => binding with { ManifestDigest = new('c', 64) },
+                "source-root" => binding with { SourceRootIdentity = "other-source" },
+                "target-root" => binding with { TargetRootIdentity = "other-target" },
+                "directory" => binding with { TargetDirectoryName = "other-generation" },
+                _ => throw new InvalidOperationException()
+            }
+        };
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier, entry with { Media = evidence }));
+        Assert.Equal(2, verifier.Last!.Sequence);
+        Assert.Equal(OfflineMigrationApplyJournalState.MediaPrepared, verifier.PendingMedia!.State);
+    }
+
+    [Fact]
+    public void Durable_preparation_recovers_the_exact_opaque_invocation_and_owned_run_pair()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        OfflineMigrationApplyJournalEntry prepared = verifier.PendingMedia!;
+        Assert.Equal("invocation", prepared.Media!.InvocationId);
+        Assert.NotEqual(prepared.Media.Binding.RunId.ToString("N"), prepared.Media.InvocationId);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.RecoveryRequired,
+            failure: "offline_apply_prior_attempt_interrupted"));
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2));
+        Assert.Same(prepared, verifier.PendingMedia);
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished) with { Attempt = 2 });
+        Accept(verifier, MediaUnit(plan, verifier) with { Attempt = 2 });
+        Accept(verifier, Proof(verifier) with { Attempt = 2 });
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
+        Assert.True(verifier.Completed);
+        Assert.Equal(RecordedAt, verifier.First!.RecordedAt);
+        Assert.Equal(prepared.Media.Binding, verifier.StepProofs[0].Media!.Binding);
+    }
+
+    [Fact]
+    public void V2_media_round_trip_retains_raw_binding_and_v1_null_media_bytes_are_unchanged()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        OfflineMigrationApplyJournalEntry control = Seal(Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        byte[] originalShape = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            control.Format, control.Plan, control.PlanContentDigest, control.Database, control.InvocationId,
+            control.Sequence, control.Attempt, control.StepId, control.OperationReference, control.Mode, control.State,
+            control.IdempotencyKey, control.WatermarkBefore, control.WatermarkAfter, control.HighWatermark,
+            control.RowsProcessed, control.ExpectedRows, control.UnitComplete, control.Before, control.After,
+            control.PreviousDigest, control.ContentDigest, control.FailureCode, control.RecordedAt
+        });
+        Assert.Equal(originalShape, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(control));
+        verifier.Accept(control);
+        OfflineMigrationApplyJournalEntry prepared = Seal(MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        byte[] bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(prepared);
+        OfflineMigrationApplyJournalEntry decoded = System.Text.Json.JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(bytes)!;
+        Assert.Equal(prepared.Media, decoded.Media);
+        Assert.Equal(prepared.ContentDigest, OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(decoded));
+        verifier.Accept(decoded);
+        Assert.StartsWith("offline-apply/v2/", OfflineMigrationApplyJournalVerifier.Reference(decoded).Reference);
+    }
+
+    [Fact]
+    public void Unbound_or_nonmedia_owner_cannot_admit_resealed_media_events()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier,
+            MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared)));
+        Assert.Throws<InvalidOperationException>(() => verifier.BindOperationOwners(new FixtureMediaRegistry()));
+        Assert.Equal(1, verifier.Last!.Sequence);
+    }
+
+    [Fact]
+    public async Task Failed_actual_journal_append_does_not_advance_the_staged_media_chain()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier committed = MediaVerifier(plan);
+        Accept(committed, Control(plan, committed, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(committed, MediaEntry(plan, committed, OfflineMigrationApplyJournalState.MediaPrepared));
+        OfflineMigrationApplyJournalVerifier staged = committed.Fork();
+        DbConnection connection = Substitute.For<DbConnection>();
+        connection.State.Returns(ConnectionState.Open);
+        DbTransaction transaction = Substitute.For<DbTransaction>();
+        transaction.Connection.Returns(connection);
+        transaction.IsolationLevel.Returns(IsolationLevel.RepeatableRead);
+        DbCommand command = Substitute.For<DbCommand>();
+        command.Parameters.Returns(new ParameterList());
+        command.CreateParameter().Returns(_ => Substitute.For<DbParameter>());
+        command.ExecuteNonQueryAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromException<int>(
+            new InvalidOperationException("fixture_native_append_failure")));
+        connection.CreateCommand().Returns(command);
+        var journal = new OfflineMigrationArticleMediaJournal(committed, staged, connection, transaction, 1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.RecordPublishedAsync(
+            new(committed.PendingMedia!.Media!.Binding, "verified-generation"), ArticleMediaJournalState.Prepared, default));
+        Assert.Same(committed.PendingMedia, staged.PendingMedia);
+        Assert.Same(committed.Last, staged.Last);
+        transaction.DidNotReceive().Commit();
+        transaction.DidNotReceive().Rollback();
+        connection.DidNotReceive().Open();
+    }
+
+    [Fact]
+    public async Task Publication_appends_original_seven_bindings_on_graph_transaction_without_committing()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier committed = MediaVerifier(plan);
+        Accept(committed, Control(plan, committed, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(committed, MediaEntry(plan, committed, OfflineMigrationApplyJournalState.MediaPrepared));
+        OfflineMigrationApplyJournalVerifier staged = committed.Fork();
+        DbConnection connection = Substitute.For<DbConnection>();
+        connection.State.Returns(ConnectionState.Open);
+        DbTransaction transaction = Substitute.For<DbTransaction>();
+        transaction.Connection.Returns(connection);
+        transaction.IsolationLevel.Returns(IsolationLevel.RepeatableRead);
+        DbCommand command = Substitute.For<DbCommand>();
+        var parameters = new ParameterList();
+        command.Parameters.Returns(parameters);
+        command.CreateParameter().Returns(_ => Substitute.For<DbParameter>());
+        command.ExecuteNonQueryAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(1));
+        connection.CreateCommand().Returns(command);
+        var journal = new OfflineMigrationArticleMediaJournal(committed, staged, connection, transaction, 1);
+        ArticleMediaBinding binding = committed.PendingMedia!.Media!.Binding;
+        Assert.Equal(ArticleMediaJournalState.Prepared, await journal.RequirePreparedAsync(binding, default));
+        await journal.RecordPublishedAsync(new(binding, "verified-generation"), ArticleMediaJournalState.Prepared, default);
+        Assert.Equal(ArticleMediaJournalState.MediaPublished, await journal.RequirePreparedAsync(binding, default));
+        Assert.Equal("verified-generation", journal.RequirePublished().GenerationIdentity);
+        Assert.Equal(OfflineMigrationApplyJournalState.MediaPrepared, committed.PendingMedia.State);
+        Assert.Equal(OfflineMigrationApplyJournalState.MediaPublished, staged.PendingMedia!.State);
+        Assert.Same(transaction, command.Transaction);
+        Assert.Equal(new[] { "@plan", "@database", "@invocation", "@sequence", "@entry", "@parent", "@payload" },
+            parameters.Values.Select(static value => value.ParameterName).ToArray());
+        Assert.Equal(committed.Last!.ContentDigest, parameters.Values[5].Value);
+        Assert.Contains(OfflineMigrationStateStore.ApplyJournalTableName, command.CommandText);
+        transaction.DidNotReceive().Commit();
+        transaction.DidNotReceive().Rollback();
+        connection.DidNotReceive().Open();
+    }
+
+    [Fact]
+    public void Media_owner_cannot_admit_a_checkpointed_partial_graph_mode()
+    {
+        OfflineMigrationPlan plan = Plan(OfflineMigrationExecutionMode.CheckpointedBatch);
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        Assert.Throws<InvalidOperationException>(() => verifier.BindOperationOwners(new FixtureMediaRegistry()));
+        Assert.Null(verifier.First);
+        Assert.Null(verifier.Last);
+    }
+
+    [Fact]
+    public void Resealed_unit_cannot_swap_the_physically_published_generation()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished));
+        OfflineMigrationApplyJournalEntry unit = MediaUnit(plan, verifier);
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier, unit with
+        {
+            Media = unit.Media! with { GenerationIdentity = "other-generation" }
+        }));
+        Assert.Null(verifier.PendingUnit);
+    }
+
+    [Theory]
+    [InlineData("unrelated-reference")]
+    [InlineData("changed-facts")]
+    public void Publication_must_retain_the_original_prepared_source_predicate(string changed)
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        OfflineMigrationApplyJournalEntry published = MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished);
+        OfflineMigrationPredicateObservation before = changed == "unrelated-reference"
+            ? published.Before! with { PredicateReference = "unrelated-owner" }
+            : published.Before! with { ExpectedFacts = [new("rows", "999")], ActualFacts = [new("rows", "999")] };
+        before = before with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before) };
+        Assert.Throws<InvalidOperationException>(() => Accept(verifier, published with { Before = before }));
+        Assert.Equal(OfflineMigrationApplyJournalState.MediaPrepared, verifier.PendingMedia!.State);
+    }
+
+    [Fact]
+    public async Task Journal_append_retains_first_cancellation_when_command_disposal_also_fails()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalEntry entry = Seal(Control(plan, Verifier(plan), OfflineMigrationApplyJournalState.AttemptStarted));
+        DbConnection connection = Substitute.For<DbConnection>();
+        DbTransaction transaction = Substitute.For<DbTransaction>();
+        DbCommand command = Substitute.For<DbCommand>();
+        command.Parameters.Returns(new ParameterList());
+        command.CreateParameter().Returns(_ => Substitute.For<DbParameter>());
+        var first = new OperationCanceledException("fixture_original_cancel");
+        command.ExecuteNonQueryAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<int>(first));
+        command.DisposeAsync().Returns(ValueTask.FromException(new InvalidOperationException("fixture_cleanup_private_detail")));
+        connection.CreateCommand().Returns(command);
+        OperationCanceledException actual = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            OfflineMigrationStateStore.AppendApplyJournalAsync(connection, transaction, entry, default));
+        Assert.Same(first, actual);
+        Assert.Equal("offline_apply_journal_command_disposal_failed", actual.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey]);
+        transaction.DidNotReceive().Commit();
+        transaction.DidNotReceive().Rollback();
+    }
+
+    [Fact]
+    public async Task Journal_budget_counts_actual_utf8_bytes_before_any_native_command()
+    {
+        OfflineMigrationPlan plan = Plan();
+        ImmutableArray<OfflineMigrationFact> facts = Enumerable.Range(0, 96)
+            .Select(index => new OfflineMigrationFact($"fact-{index:D3}", new string('漢', 1024))).ToImmutableArray();
+        OfflineMigrationApplyJournalEntry entry = Unit(plan, Verifier(plan), complete: true);
+        OfflineMigrationPredicateObservation before = entry.Before! with { ExpectedFacts = facts, ActualFacts = facts };
+        OfflineMigrationPredicateObservation after = entry.After! with { ExpectedFacts = facts, ActualFacts = facts };
+        before = before with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before) };
+        after = after with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(after) };
+        entry = Seal(entry with { Before = before, After = after });
+        // UnsafeRelaxedJsonEscaping is not the producer contract: the actual default
+        // JSON encoder escapes these characters, so assert only the original byte cap.
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(System.Text.Json.JsonSerializer.Serialize(entry)) > 1_048_576);
+        DbConnection connection = Substitute.For<DbConnection>();
+        DbTransaction transaction = Substitute.For<DbTransaction>();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => OfflineMigrationStateStore.AppendApplyJournalAsync(
+            connection, transaction, entry, default));
+        Assert.Empty(connection.ReceivedCalls());
+        Assert.Empty(transaction.ReceivedCalls());
+    }
+
+    private static OfflineMigrationApplyJournalVerifier MediaVerifier(OfflineMigrationPlan plan)
+    {
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        verifier.BindOperationOwners(new FixtureMediaRegistry());
+        return verifier;
+    }
+
+    private static OfflineMigrationMediaJournalEvidence MediaBinding(OfflineMigrationPlan plan)
+        => new("invocation", new(Guid.Parse("22222222-2222-2222-2222-222222222222"), Artifact(plan).Sha256,
+            plan.ContentDigest, plan.Source.ContentDigest, new('b', 64), "actual-source-root", "actual-target-root", "generation"), null);
+
+    private static OfflineMigrationApplyJournalEntry MediaEntry(OfflineMigrationPlan plan,
+        OfflineMigrationApplyJournalVerifier verifier, OfflineMigrationApplyJournalState state)
+    {
+        OfflineMigrationStep step = plan.OrderedSteps[0];
+        OfflineMigrationProviderOperation operation = step.Operations[0];
+        OfflineMigrationMediaJournalEvidence media = verifier.PendingMedia?.Media ?? MediaBinding(plan);
+        return Control(plan, verifier, state) with
+        {
+            Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
+            StepId = step.StepId, OperationReference = operation.OperationReference, Mode = operation.Mode,
+            IdempotencyKey = step.IdempotencyDefinition, Before = Observation(plan, step.SourcePrecondition),
+            Media = state == OfflineMigrationApplyJournalState.MediaPublished ? media with { GenerationIdentity = "verified-generation" } : media
+        };
+    }
+
+    private static OfflineMigrationApplyJournalEntry MediaUnit(OfflineMigrationPlan plan, OfflineMigrationApplyJournalVerifier verifier)
+        => Unit(plan, verifier, complete: true) with
+        {
+            Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
+            Media = verifier.PendingMedia!.Media
+        };
+
+    private sealed class FixtureMediaRegistry : IOfflineMigrationApplyOperationRegistry
+    {
+        public OfflineMigrationApplyOperation Resolve(OfflineMigrationStep step, OfflineMigrationProviderOperation operation)
+            => new FixtureMediaOperation(operation);
+    }
+
+    private sealed class FixtureMediaOperation(OfflineMigrationProviderOperation identity) : OfflineMigrationArticleMediaOperation
+    {
+        internal override OfflineMigrationProviderOperation Identity => identity;
+        internal override Task<OfflineMigrationPredicateObservation> ObserveAsync(string predicateReference,
+            DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+            => throw new NotSupportedException("fixture_media_observation_unavailable");
+        internal override Task<OfflineMigrationMediaJournalEvidence> GetMediaBindingAsync(VerifiedOfflineMigrationPlan plan,
+            CurrentSchemaArtifactReference artifact, string invocationId, DbConnection connection, DbTransaction transaction,
+            CancellationToken cancellationToken) => throw new NotSupportedException("fixture_media_source_capability_unavailable");
+        internal override Task<OfflineMigrationApplyUnit> ExecuteMediaAsync(OfflineMigrationStep step,
+            OfflineMigrationApplyJournalEntry? previousUnit, DbConnection connection, DbTransaction transaction,
+            IArticleMediaPreservationJournal journal, CancellationToken cancellationToken)
+            => throw new NotSupportedException("fixture_media_execution_unavailable");
+    }
+
     private static OfflineMigrationPlan Plan(OfflineMigrationExecutionMode mode = OfflineMigrationExecutionMode.Transaction,
         CurrentSchemaProviderKind provider = CurrentSchemaProviderKind.PostgreSql, bool destructive = false)
     {

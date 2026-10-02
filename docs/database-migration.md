@@ -479,6 +479,26 @@ or planning owners and pre-cancellation refuse before tool observations. This is
 an executable composition path once those actual owners are configured, not proof
 that the default toolchain/DAG, three-provider operations or cross-process retention
 have been qualified.
+
+Article/media compiled owners cannot use the original no-media `ExecuteAsync` path.
+The Host binds every original provider operation before reading the first journal
+entry; Core repeats that binding under its exclusive ownership. Core retains the
+exact preparation before any media publication, then commits the graph unit,
+`MediaPublished` parent-unique CAS and final step proof on the same original
+transaction. The opaque invocation ID and owned media `RunId` GUID are an explicit
+pair, not a parser conversion. Whole plan bytes, semantic digest, source content,
+media manifest and physical root/generation identities remain bound; recovery must
+verify the actual complete generation readset and source bytes before re-entering
+CAS. The seven-column/four-constraint journal shape and non-media v1 bytes remain
+unchanged; media bindings use a Migration-only v2 payload. Media staging or
+publication alone is not `DatabaseCommitted` or a current receipt. The compiled
+article operation and all provider/legacy capabilities still need their actual
+owners; the Host does not register fixtures or empty operations to complete them.
+
+The media parser dependency uses AngleSharp 1.5.0, not the affected 1.4.0 version.
+Source dependency declarations require the original locked restore producer before
+SDK/runtime qualification; generated package locks are not patched by this source
+integration.
 `RunOwnedAsync` uses the same dispatcher and clock as the default entry, without a
 CLI plugin/registration API. This is a real composition path, not an authorization
 record. Actual original target/operation factories and retained-backup/tool provenance

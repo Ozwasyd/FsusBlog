@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -353,6 +354,54 @@ public sealed class OfflineMigrationApplyCommandTests
         Assert.False(constructed);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Apply_PreflightBindsAllOriginalProviderOwnersBeforeFirstJournalEntry(bool media)
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(media);
+        OfflineMigrationApplyJournalVerifier progress = OfflineMigrationApplyEvidence.CreateBoundPreflight(
+            fixture.Plan, fixture.Options.Plan, fixture.Options.InvocationId, registry, CancellationToken.None);
+        Assert.Null(progress.First);
+        Assert.Null(progress.Last);
+        Assert.Equal(media, progress.RequiresMedia(fixture.Plan.OrderedSteps[0].StepId));
+        Assert.Equal(Enum.GetValues<CurrentSchemaProviderKind>(), registry.Resolved);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("changed")]
+    public void Apply_PreflightRejectsMissingOrChangedOwnerRatherThanReadingAnUnboundJournal(string refusal)
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(true) { Refusal = refusal };
+        InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationApplyEvidence.CreateBoundPreflight(fixture.Plan, fixture.Options.Plan,
+                fixture.Options.InvocationId, registry, CancellationToken.None));
+        Assert.Equal(refusal == "missing" ? "offline_apply_operation_owner_missing" : "offline_apply_operation_binding_changed",
+            failure.Message);
+        Assert.Single(registry.Resolved);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
+    [Fact]
+    public void Apply_CancelledPreflightDoesNotResolveAnyOwner()
+    {
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        var registry = new BindingRegistry(true);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => OfflineMigrationApplyEvidence.CreateBoundPreflight(
+            fixture.Plan, fixture.Options.Plan, fixture.Options.InvocationId, registry, cancellation.Token));
+        Assert.Empty(registry.Resolved);
+        Assert.Equal(0, registry.NativeCalls);
+    }
+
     private static string[] Arguments(string root) => ["apply", "--provider", "postgresql", "--instance-id", "instance",
         "--database-id", "database", "--env-file", System.IO.Path.Combine(root, "connection.env"), "--plan", System.IO.Path.Combine(root, "plan.json"),
         "--plan-sha256", Digest, "--invocation-id", "invocation", "--attempt", "1", "--output", System.IO.Path.Combine(root, "apply.json"),
@@ -404,6 +453,60 @@ public sealed class OfflineMigrationApplyCommandTests
         : IOfflineMigrationApplyProducer
     {
         public Task<OfflineMigrationApplyResult> ApplyAsync(OfflineMigrationApplyCommandOptions options, CancellationToken token) => apply(options, token);
+    }
+
+    // Owner-binding controls only: these objects cannot execute any database or media work.
+    private sealed class BindingRegistry(bool media) : IOfflineMigrationApplyOperationRegistry
+    {
+        internal string? Refusal { get; init; }
+        internal List<CurrentSchemaProviderKind> Resolved { get; } = [];
+        internal int NativeCalls { get; private set; }
+
+        public OfflineMigrationApplyOperation Resolve(OfflineMigrationStep step, OfflineMigrationProviderOperation operation)
+        {
+            Resolved.Add(operation.Provider);
+            if (Refusal == "missing")
+            {
+                throw new InvalidOperationException("offline_apply_operation_owner_missing");
+            }
+            OfflineMigrationProviderOperation actual = Refusal == "changed"
+                ? operation with { SemanticDigest = new string('b', 64) } : operation;
+            return media ? new BindingMediaOperation(actual, this) : new BindingPlainOperation(actual, this);
+        }
+
+        internal Task<T> RefuseNative<T>()
+        {
+            NativeCalls++;
+            throw new NotSupportedException("fixture_owner_binding_only");
+        }
+    }
+
+    private sealed class BindingPlainOperation(OfflineMigrationProviderOperation identity, BindingRegistry registry)
+        : OfflineMigrationApplyOperation
+    {
+        internal override OfflineMigrationProviderOperation Identity => identity;
+        internal override Task<OfflineMigrationPredicateObservation> ObserveAsync(string predicateReference,
+            DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+            => registry.RefuseNative<OfflineMigrationPredicateObservation>();
+        internal override Task<OfflineMigrationApplyUnit> ExecuteAsync(OfflineMigrationStep step,
+            OfflineMigrationApplyJournalEntry? previousUnit, DbConnection connection, DbTransaction transaction,
+            CancellationToken cancellationToken) => registry.RefuseNative<OfflineMigrationApplyUnit>();
+    }
+
+    private sealed class BindingMediaOperation(OfflineMigrationProviderOperation identity, BindingRegistry registry)
+        : OfflineMigrationArticleMediaOperation
+    {
+        internal override OfflineMigrationProviderOperation Identity => identity;
+        internal override Task<OfflineMigrationPredicateObservation> ObserveAsync(string predicateReference,
+            DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+            => registry.RefuseNative<OfflineMigrationPredicateObservation>();
+        internal override Task<OfflineMigrationMediaJournalEvidence> GetMediaBindingAsync(VerifiedOfflineMigrationPlan plan,
+            CurrentSchemaArtifactReference artifact, string invocationId, DbConnection connection, DbTransaction transaction,
+            CancellationToken cancellationToken) => registry.RefuseNative<OfflineMigrationMediaJournalEvidence>();
+        internal override Task<OfflineMigrationApplyUnit> ExecuteMediaAsync(OfflineMigrationStep step,
+            OfflineMigrationApplyJournalEntry? previousUnit, DbConnection connection, DbTransaction transaction,
+            IArticleMediaPreservationJournal journal, CancellationToken cancellationToken)
+            => registry.RefuseNative<OfflineMigrationApplyUnit>();
     }
 
     private sealed class FailingResponseWriter : StringWriter

@@ -86,7 +86,8 @@ internal sealed class OfflineMigrationOwnedApplyEvidence(
                 {
                     throw new InvalidOperationException("offline_apply_native_database_changed");
                 }
-                var preflight = new OfflineMigrationApplyJournalVerifier(plan, options.Plan, options.InvocationId);
+                OfflineMigrationApplyJournalVerifier preflight = OfflineMigrationApplyEvidence.CreateBoundPreflight(
+                    plan, options.Plan, options.InvocationId, owners.Operations, cancellationToken);
                 await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, snapshot, plan.ContentDigest,
                     actualDatabase, request, preflight, cancellationToken).ConfigureAwait(false);
                 OfflineMigrationCurrentSchemaAuthoritySnapshot authority = await owners.Authority.ReadAsync(plan, connection,
@@ -306,6 +307,20 @@ internal sealed class OfflineMigrationOwnedPlanAdmission(OfflineMigrationApplyCa
 
 internal static class OfflineMigrationApplyEvidence
 {
+    internal static OfflineMigrationApplyJournalVerifier CreateBoundPreflight(OfflineMigrationPlan plan,
+        CurrentSchemaArtifactReference artifact, string invocationId,
+        IOfflineMigrationApplyOperationRegistry operations, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        cancellationToken.ThrowIfCancellationRequested();
+        var progress = new OfflineMigrationApplyJournalVerifier(plan, artifact, invocationId);
+        // Bind every original provider operation before streaming First or any media
+        // event. A payload flag, missing registry or identity clone cannot make a
+        // journal look like the no-media route. Core repeats this under its lock.
+        progress.BindOperationOwners(operations);
+        return progress;
+    }
+
     internal static IOfflineMigrationApplyProducer ComposeOwned(OfflineMigrationApplyCapabilities owners,
         TimeProvider? timeProvider = null)
     {
