@@ -24,14 +24,6 @@
                 "tests/migration/schema-ddl-provider-snapshots.json"
             ],
             "reason": "The existing registry schema and provider snapshot producer own serialized field names; preserve those keys while generating the exact new finding disposition and provider SQL preview."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/database-migration.md",
-                "docs/testing.md"
-            ],
-            "reason": "Preserve existing current-document headings, external command/path and contract spellings while documenting original typed provider semantics and source-owned startup-health admission."
         }
     ]
 }
