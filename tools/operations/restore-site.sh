@@ -6,6 +6,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKUP_PACKAGE=""
 CONFIRM="0"
 DRY_RUN="0"
+inspectOnly=0
+inspectRootOwned=0
+inspectRootIdentity=""
+inspectTimeoutArgument=0
 RUN_ID="${FSUSBLOG_RESTORE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RESTORE_ROOT="${FSUSBLOG_RESTORE_ROOT:-${ROOT_DIR}/.tmp/restore-site-${RUN_ID}}"
 DATA_ROOT="${FSUSBLOG_DATA_ROOT:-${ROOT_DIR}/src/backend/bin/data}"
@@ -37,7 +41,11 @@ status="ok"
 
 Cleanup() {
     StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
-    rm -f "$DECRYPTED_PACKAGE"
+    if [[ "$inspectOnly" == "1" ]]; then
+        CleanupInspection
+    else
+        rm -f "$DECRYPTED_PACKAGE"
+    fi
 }
 
 trap Cleanup EXIT
@@ -55,6 +63,21 @@ while [[ $# -gt 0 ]]; do
         --dry-run)
             DRY_RUN="1"
             shift
+            ;;
+        --inspect-only)
+            inspectOnly=1
+            shift
+            ;;
+        --timeout-seconds)
+            if [[ $# -lt 2 ]]; then
+                blockers+=("inspection-timeout-argument-missing")
+                status="blocked"
+                shift
+            else
+                sourceTimeoutSeconds="$2"
+                inspectTimeoutArgument=1
+                shift 2
+            fi
             ;;
         *)
             blockers+=("unknown-arg:$1")
@@ -139,7 +162,11 @@ RunSourceCommand() {
     timeout --signal=TERM --kill-after=1s "${remaining}s" "$@" <&0 >"$outputPath" 2>>"$sourceFailureLog" &
     sourceChildPid="$!"
     if ! WaitSourceChild "$sourceChildPid"; then
-        StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
+        if StopSourceChild "$sourceChildPid"; then
+            sourceChildPid=""
+        else
+            sourceCleanupVerified=0
+        fi
         return 1
     fi
     sourceChildPid=""
@@ -540,14 +567,16 @@ VerifyPackageManifest() {
             return
         fi
         sourceBinding="$(jq -c '.sourceBinding' "$manifest")"
-        if ! ReadSourceBudget; then
-            return
+        if [[ "$inspectOnly" != "1" ]]; then
+            if ! ReadSourceBudget; then
+                return
+            fi
+            RequireCommand timeout
+            RequireCommand ps
+            RequireCommand sleep
+            mkdir -p "$(dirname "$sourceFailureLog")"
+            VerifyIsolatedRestorePaths
         fi
-        RequireCommand timeout
-        RequireCommand ps
-        RequireCommand sleep
-        mkdir -p "$(dirname "$sourceFailureLog")"
-        VerifyIsolatedRestorePaths
     fi
 
     local keyringVerify="$RESTORE_ROOT/keyring-verify"
@@ -595,7 +624,114 @@ VerifyConsumedArtifacts() {
     done
 }
 
+CleanupInspection() {
+    [[ "$inspectRootOwned" == "1" ]] || return 0
+    if [[ "$sourceCleanupVerified" != "1" || -L "$RESTORE_ROOT" || ! -d "$RESTORE_ROOT" \
+        || "$(stat -c '%d:%i' -- "$RESTORE_ROOT")" != "$inspectRootIdentity" ]]; then
+        AddBlocker "inspection-stage-cleanup-unverified"
+        return 1
+    fi
+    if ! RunSourceCommand "$RESTORE_ROOT/.inspection-cleanup.stdout" rm -rf -- "$RESTORE_ROOT" </dev/null \
+        || [[ -e "$RESTORE_ROOT" || -L "$RESTORE_ROOT" ]]; then
+        AddBlocker "inspection-stage-cleanup-failed"
+        return 1
+    fi
+    inspectRootOwned=0
+}
+
+InspectAuthenticatedPackage() {
+    # This function runs only in the parent's bounded child group. It reuses the
+    # restore owner's sole authentication and manifest validators, without Main.
+    DecryptPackage
+    if (("${#blockers[@]}" == 0)); then
+        if ! ArchiveIsSafe "$DECRYPTED_PACKAGE"; then
+            AddBlocker "backup-package-archive-unsafe"
+        else
+            tar --no-same-owner --no-same-permissions -xzf "$DECRYPTED_PACKAGE" -C "$RESTORE_ROOT/package"
+            rm -f "$DECRYPTED_PACKAGE"
+            VerifyPackageManifest
+        fi
+    fi
+    if (("${#blockers[@]}" == 0)); then
+        VerifyConsumedArtifacts
+    fi
+    if (("${#blockers[@]}" != 0)); then
+        printf '%s\n' "${blockers[@]}" >&2
+        return 1
+    fi
+    if [[ "$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')" != "$packageSha256" ]]; then
+        AddBlocker "backup-package-changed-during-inspection"
+        return 1
+    fi
+    jq -n --arg packageSha256 "$packageSha256" --arg manifestSha256 "$manifestSha256" \
+        --arg manifestBase64 "$(base64 -w 0 "$RESTORE_ROOT/package/manifest.json")" \
+        --slurpfile manifest "$RESTORE_ROOT/package/manifest.json" \
+        '{version: 1, owner: "tools/operations/restore-site.sh", ownerVersion: "1", operation: "inspect-only",
+          status: "ok", packageSha256: $packageSha256, manifestSha256: $manifestSha256,
+          manifestBase64: $manifestBase64, manifest: $manifest[0],
+          sourceBinding: ($manifest[0].sourceBinding // null), artifactDigests: $manifest[0].artifactDigests}'
+}
+
+InspectPackage() {
+    if [[ "$inspectTimeoutArgument" != "1" ]] || ! ReadSourceBudget; then
+        printf '%s\n' '{"status":"blocked","blocker":"inspection-timeout-invalid-or-missing"}' >&2
+        return 1
+    fi
+    for command in jq tar node sha256sum timeout ps sleep stat base64 bash realpath; do
+        RequireCommand "$command"
+    done
+    if [[ "$CONFIRM" == "1" || "$DRY_RUN" == "1" || ! -f "$BACKUP_PACKAGE" || -L "$BACKUP_PACKAGE" \
+        || -e "$RESTORE_ROOT" || -L "$RESTORE_ROOT" || ! -d "$(dirname "$RESTORE_ROOT")" ]]; then
+        AddBlocker "inspection-input-or-fresh-stage-invalid"
+    fi
+    sourceFailureLog="${RESTORE_ROOT}.inspect-stderr.log"
+    if [[ -e "$sourceFailureLog" || -L "$sourceFailureLog" ]]; then
+        AddBlocker "inspection-failure-log-already-exists"
+    fi
+    if (("${#blockers[@]}" != 0)); then
+        printf '%s\n' "${blockers[@]}" >&2
+        return 1
+    fi
+    RESTORE_ROOT="$(realpath -m -- "$RESTORE_ROOT")"
+    BACKUP_PACKAGE="$(realpath -e -- "$BACKUP_PACKAGE")"
+    DECRYPTED_PACKAGE="$RESTORE_ROOT/.site-package.plaintext.tar.gz"
+    export FSUSBLOG_RESTORE_ROOT="$RESTORE_ROOT"
+    if ! mkdir -- "$RESTORE_ROOT"; then
+        AddBlocker "inspection-stage-creation-failed"
+        return 1
+    fi
+    inspectRootOwned=1
+    inspectRootIdentity="$(stat -c '%d:%i' -- "$RESTORE_ROOT")"
+    mkdir "$RESTORE_ROOT/package"
+    local inspectionResult packageAtCompletion
+    if ! RunSourceCommand "$RESTORE_ROOT/.inspection.json" bash -c \
+        'source "$1" --inspect-only --backup "$2"; InspectAuthenticatedPackage' \
+        inspection "$ROOT_DIR/tools/operations/restore-site.sh" "$BACKUP_PACKAGE" </dev/null; then
+        AddBlocker "inspection-authentication-or-terminal-failed"
+        printf '%s\n' "${blockers[@]}" >&2
+        return 1
+    fi
+    inspectionResult="$(<"$RESTORE_ROOT/.inspection.json")"
+    if ! RunSourceCommand "$RESTORE_ROOT/.inspection-final-sha256" sha256sum "$BACKUP_PACKAGE" </dev/null; then
+        AddBlocker "inspection-package-final-read-failed"
+        return 1
+    fi
+    read -r packageAtCompletion _ <"$RESTORE_ROOT/.inspection-final-sha256"
+    if ! jq -e --arg packageSha256 "$packageAtCompletion" \
+        '.version == 1 and .owner == "tools/operations/restore-site.sh" and .ownerVersion == "1"
+         and .operation == "inspect-only" and .status == "ok" and .packageSha256 == $packageSha256' <<<"$inspectionResult" >/dev/null \
+        || ! CleanupInspection; then
+        AddBlocker "inspection-result-or-cleanup-invalid"
+        return 1
+    fi
+    printf '%s\n' "$inspectionResult"
+}
+
 Main() {
+    if [[ "$inspectOnly" == "1" ]]; then
+        InspectPackage
+        return
+    fi
     mkdir -p "$RESTORE_ROOT/package"
     RequireCommand jq
     RequireCommand tar
@@ -650,4 +786,6 @@ Main() {
     [[ "$status" == "ok" ]]
 }
 
-Main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    Main "$@"
+fi
