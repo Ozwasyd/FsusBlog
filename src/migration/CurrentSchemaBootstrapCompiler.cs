@@ -20,12 +20,13 @@ internal sealed record CompiledCurrentSchemaBootstrap(
 /// Current bootstrap operation owner. It neither reconstructs business mapping
 /// nor loads Server; callers must supply independently bound owned current input.
 /// </summary>
-internal static class CurrentSchemaBootstrapCompiler
+internal static partial class CurrentSchemaBootstrapCompiler
 {
     internal static CompiledCurrentSchemaBootstrap Compile(
         CurrentSchemaBootstrapInput input,
         CurrentSchemaProducerIdentity expectedOwner,
-        SchemaProviderKind provider)
+        SchemaProviderKind provider,
+        string? expectedOwnedInputDigest = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (input.Producer != expectedOwner || input.Producer.ProducerId != "fsusblog.current-schema-owned-projection.v1"
@@ -41,19 +42,23 @@ internal static class CurrentSchemaBootstrapCompiler
         {
             throw new InvalidOperationException("current_schema_bootstrap_recipe_binding_invalid");
         }
+        if (input.RequiredRecipes.Count == 0)
+        {
+            throw new InvalidOperationException("current_schema_bootstrap_recipe_closure_unavailable");
+        }
         string[] missing = input.RequiredRecipes.Where(static recipe => recipe.SemanticDescription is null)
             .Select(static recipe => recipe.TableName).Order(StringComparer.Ordinal).ToArray();
         if (missing.Length > 0)
         {
             throw new InvalidOperationException($"current_schema_bootstrap_recipe_semantics_unavailable:{string.Join(',', missing)}");
         }
-        // No caller-supplied description may silently substitute for the current
-        // recipe owner's independently verified semantic/source binding.
-        if (input.RequiredRecipes.Count > 0)
+        // The caller's verified owned artifact supplies this digest. Matching
+        // self-reported producer strings alone is not a recipe-source binding.
+        if (!IsDigest(expectedOwnedInputDigest!) || expectedOwnedInputDigest != OwnedInputDigest(input))
         {
-            throw new InvalidOperationException("current_schema_bootstrap_recipe_semantic_binding_not_implemented");
+            throw new InvalidOperationException("current_schema_bootstrap_recipe_semantic_binding_invalid");
         }
-        return CompileEntityProjection(input.EntityProjection, provider);
+        return CompileOwnedRecipes(input, provider);
     }
 
     internal static CompiledCurrentSchemaBootstrap CompileEntityProjection(
@@ -95,7 +100,7 @@ internal static class CurrentSchemaBootstrapCompiler
                     {
                         throw new InvalidOperationException("current_schema_bootstrap_identity_default_conflict");
                     }
-                    definition += $" DEFAULT {DefaultValue(column.DefaultValue)}";
+                    definition += $" DEFAULT {EntityDefaultValue(column)}";
                 }
                 definitions.Add(definition);
             }
@@ -273,6 +278,17 @@ internal static class CurrentSchemaBootstrapCompiler
         => Regex.IsMatch(value, "^(?:-?[0-9]+(?:\\.[0-9]+)?|true|false|NULL|'(?:[^']|'')*'|now\\(\\)|CURRENT_TIMESTAMP)$",
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) ? value
             : throw new InvalidOperationException("current_schema_bootstrap_default_capability_unavailable");
+
+    private static string EntityDefaultValue(SchemaColumnModel column)
+    {
+        string value = column.DefaultValue!;
+        // SugarColumn string defaults are literal values, not a second list of
+        // business statuses. The current column type supplies this interpretation.
+        if (column.DataType == "string" && Regex.IsMatch(value, "^[A-Za-z_][A-Za-z0-9_ .-]*$", RegexOptions.CultureInvariant)
+            && !value.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+            return "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
+        return DefaultValue(value);
+    }
 
     private static string Expression(string? value)
         => !string.IsNullOrWhiteSpace(value) && !value.Contains(';') && !value.Contains("--", StringComparison.Ordinal)

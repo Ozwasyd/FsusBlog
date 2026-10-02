@@ -46,9 +46,70 @@ public sealed class CurrentSchemaBootstrapCompilerTests
         CurrentSchemaProducerIdentity owner = Owner();
         CurrentSchemaProjection projection = Projection();
         var input = new CurrentSchemaBootstrapInput(projection, owner,
-            [new CurrentSchemaRequiredRecipeReference("required_current_table", SchemaProviderKind.PostgreSql, new string('b', 64), projection.Schema)]);
-        Assert.Contains("recipe_semantic_binding_not_implemented", Assert.Throws<InvalidOperationException>(
+            [new CurrentSchemaRequiredRecipeReference("required_current_table", SchemaProviderKind.PostgreSql, new string('b', 64),
+                new CurrentSchemaRecipeFacts(projection.Schema.Tables["probe"], []))]);
+        Assert.Contains("recipe_semantic_binding_invalid", Assert.Throws<InvalidOperationException>(
             () => CurrentSchemaBootstrapCompiler.Compile(input, owner, SchemaProviderKind.PostgreSql)).Message);
+    }
+
+    [Fact]
+    public void Bootstrap_BoundRecipeFactsCompileCompleteEffectsAndSharedTargetIdentity()
+    {
+        CurrentSchemaProducerIdentity owner = Owner();
+        var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
+        {
+            ["id"] = new("id", false, true, false, null, "int32", PhysicalType: "integer"),
+            ["value"] = new("value", false, false, false, null, "int32", DefaultValue: "0", PhysicalType: "integer")
+        };
+        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal)
+        {
+            ["recipe_probe_pkey"] = new("recipe_probe_pkey", "primary-key", ["id"])
+        };
+        var table = new SchemaTableModel("recipe_probe", columns, [], constraints: constraints);
+        var facts = new CurrentSchemaRecipeFacts(table,
+        [
+            new(CurrentSchemaRecipeOperationKind.DefineImmutableGuard, "recipe_guard", ErrorCode: "immutable_row"),
+            new(CurrentSchemaRecipeOperationKind.RemoveTrigger, "recipe_trigger", "recipe_probe"),
+            new(CurrentSchemaRecipeOperationKind.CreateImmutableTrigger, "recipe_trigger", "recipe_probe", Function: "recipe_guard"),
+            new(CurrentSchemaRecipeOperationKind.InsertIfAbsent, "recipe_probe", "recipe_probe", Columns: ["id", "value"], Values: ["1", "0"], ConflictColumn: "id")
+        ]);
+        var input = new CurrentSchemaBootstrapInput(Projection(), owner,
+            [new("recipe_probe", SchemaProviderKind.PostgreSql, new string('d', 64), facts)]);
+        string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner, SchemaProviderKind.PostgreSql, binding);
+        Assert.Equal(7, compiled.Commands.Count);
+        Assert.Contains("CREATE FUNCTION", compiled.Commands[3].Sql);
+        Assert.Contains("BEFORE UPDATE OR DELETE", compiled.Commands[5].Sql);
+        Assert.False(compiled.Commands[6].IsDdl);
+        Assert.NotEqual(input.EntityProjection.Identity.ContentDigest, compiled.Target.ContentDigest);
+        Assert.Equal(compiled.Target, CurrentSchemaBootstrapCompiler.Compile(input, owner, SchemaProviderKind.PostgreSql, binding).Target);
+        var dropped = input with { RequiredRecipes = [] };
+        Assert.Contains("recipe_closure_unavailable", Assert.Throws<InvalidOperationException>(() =>
+            CurrentSchemaBootstrapCompiler.Compile(dropped, owner, SchemaProviderKind.PostgreSql, binding)).Message);
+        table.Columns["value"] = columns["value"] with { DefaultValue = "1" };
+        Assert.Contains("recipe_semantic_binding_invalid", Assert.Throws<InvalidOperationException>(() =>
+            CurrentSchemaBootstrapCompiler.Compile(input, owner, SchemaProviderKind.PostgreSql, binding)).Message);
+    }
+
+    [Fact]
+    public void Bootstrap_BoundFactsRejectUnknownEffectAndIgnoredArguments()
+    {
+        CurrentSchemaProducerIdentity owner = Owner();
+        var table = new SchemaTableModel("recipe_probe", new Dictionary<string, SchemaColumnModel>
+        {
+            ["id"] = new("id", false, false, false, null, "int32", PhysicalType: "integer")
+        }, []);
+        foreach (CurrentSchemaRecipeOperation operation in new[]
+        {
+            new CurrentSchemaRecipeOperation((CurrentSchemaRecipeOperationKind)999, "unknown"),
+            new CurrentSchemaRecipeOperation(CurrentSchemaRecipeOperationKind.CreateSequence, "sequence_probe", ErrorCode: "ignored")
+        })
+        {
+            var input = new CurrentSchemaBootstrapInput(Projection(), owner,
+                [new("recipe_probe", SchemaProviderKind.PostgreSql, new string('d', 64), new(table, [operation]))]);
+            Assert.Throws<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.Compile(input, owner,
+                SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input)));
+        }
     }
 
     [Fact]
@@ -59,6 +120,17 @@ public sealed class CurrentSchemaBootstrapCompilerTests
         Assert.Contains("owner_binding_invalid", Assert.Throws<InvalidOperationException>(
             () => CurrentSchemaBootstrapCompiler.Compile(input, owner with { ProducerAssemblySha256 = new string('c', 64) },
                 SchemaProviderKind.PostgreSql)).Message);
+    }
+
+    [Fact]
+    public void FullBootstrap_EmptyRecipeRosterCannotFallBackToEntitySubset()
+    {
+        CurrentSchemaProducerIdentity owner = Owner();
+        var empty = new CurrentSchemaBootstrapInput(Projection(), owner, []);
+        Assert.Contains("recipe_closure_unavailable", Assert.Throws<InvalidOperationException>(() =>
+            CurrentSchemaBootstrapCompiler.Compile(empty, owner, SchemaProviderKind.PostgreSql,
+                CurrentSchemaBootstrapCompiler.OwnedInputDigest(empty))).Message);
+        Assert.NotEmpty(CurrentSchemaBootstrapCompiler.CompileEntityProjection(empty.EntityProjection, SchemaProviderKind.PostgreSql).Commands);
     }
 
     [Fact]
@@ -81,6 +153,14 @@ public sealed class CurrentSchemaBootstrapCompilerTests
         CurrentSchemaProjection projection = Projection(defaultValue: "unknown_default()");
         Assert.Contains("default_capability_unavailable", Assert.Throws<InvalidOperationException>(() =>
             CurrentSchemaBootstrapCompiler.CompileEntityProjection(projection, SchemaProviderKind.PostgreSql)).Message);
+    }
+
+    [Fact]
+    public void EntitySubset_CurrentStringDefaultIsATypeDerivedLiteralNotAnIdentifier()
+    {
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            Projection(defaultValue: "pending"), SchemaProviderKind.PostgreSql);
+        Assert.Contains("DEFAULT 'pending'", compiled.Commands[0].Sql);
     }
 
     private static CurrentSchemaProducerIdentity Owner()

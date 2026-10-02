@@ -9,6 +9,8 @@ const { validateCurrentSchemaAuthority } = await import(new URL('../../tools/db/
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const canonicalRelative = 'src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs';
 const extractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs';
+const recipeExtractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs';
+const exporterRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaOwnedProjectionExporter.cs';
 const neutralRelatives = [
     canonicalRelative,
     'src/shared/Contracts/Schema/CurrentSchemaModel.cs',
@@ -21,7 +23,7 @@ const materializerRelative = 'src/backend/Infrastructure/Testing/CurrentSchemaTe
 function mutatedRepository(mutate)
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-schema-authority-'));
-    for (const relative of [...neutralRelatives, extractorRelative, inspectorRelative])
+    for (const relative of [...neutralRelatives, extractorRelative, inspectorRelative, recipeExtractorRelative, exporterRelative])
     {
         const target = path.join(temporary, relative);
         fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -34,6 +36,22 @@ function mutatedRepository(mutate)
 test('current schema authority has one canonical extractor, three adapters and one verifier', () =>
 {
     assert.deepEqual(validateCurrentSchemaAuthority(root), []);
+});
+
+test('recipe facts retain one original source owner and reject second extractors', () =>
+{
+    const duplicate = mutatedRepository((repository) =>
+    {
+        fs.writeFileSync(path.join(repository, 'src/shared/Contracts/Schema/SecondRecipeExtractor.cs'),
+            'internal static class CurrentSchemaRecipeFactExtractor {}\n');
+    });
+    assert.ok(validateCurrentSchemaAuthority(duplicate).some((error) => error.includes('exactly one production declaration')));
+    const substituted = mutatedRepository((repository) =>
+    {
+        const file = path.join(repository, exporterRelative);
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('CurrentSchemaRuntimeRollupTables.Tables.Select', 'callerRecipes.Select'));
+    });
+    assert.ok(validateCurrentSchemaAuthority(substituted).some((error) => error.includes('sole original current-owned recipe catalog')));
 });
 
 test('current schema authority rejects migration catalog input and fixture reconstruction', () =>

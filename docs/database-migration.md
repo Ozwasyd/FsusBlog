@@ -175,23 +175,35 @@ binds the compiled source commit and actual Server/Shared assembly bytes, and
 references every original current-owned PostgreSQL rollup recipe by its complete
 create/additional-SQL digest. SQL remains with `CurrentSchemaRuntimeRollupTables`;
 it is not copied into Shared or reconstructed from migration descriptors. A
-recipe reference is not its neutral semantic description: missing descriptions
-remain explicit and refuse complete bootstrap before commands can be returned.
+recipe reference is not its neutral semantic description. The single original
+recipe extractor derives columns, types, defaults, constraints and every additional
+effect (indexes, sequences, immutable guards/triggers, seed insertion, added columns
+and guarded foreign keys) directly from that catalog, without a second business
+field list. Unknown source syntax refuses the entire export. Shared holds typed
+effects and expression semantics, not provider SQL templates. `WriteArtifactAsync`
+publishes a new, non-overwriting `fsusblog.current-schema-owned-target.v1` artifact;
+the single neutral target projection binds both the entity facts and all recipe
+facts. Missing descriptions still refuse before any command is returned.
 The exporter payload is neither an apply grant nor a self-reported current target;
 the offline evidence owner must independently bind its original producer, bytes
 and complete source closure before consumption. No owned target artifact has
 been produced by this source-only change.
 
-`CurrentSchemaBootstrapCompiler` owns concrete PostgreSQL entity-subset DDL
+`CurrentSchemaBootstrapCompiler` owns PostgreSQL entity and complete-recipe DDL
 compilation from the neutral facts and executes those frozen commands only on
 the caller's existing native connection/transaction. It does not open or commit
 transactions, write a journal, or replace plan/source/backup admission. Missing
 recipe semantics, unsupported defaults/computed capabilities, native provider
-capabilities and command drift refuse explicitly. The full current bootstrap
-operation is not registered or runnable yet: complete rollup semantic/source
-binding, original apply predicate/journal integration, MySQL/SQLite execution
-owners and real three-provider qualification remain pending. Entity-subset unit
-or PostgreSQL fixture cases cannot qualify an empty production database upgrade
+capabilities and command drift refuse explicitly. Recipe compilation additionally
+requires the exact input digest from an independently verified owned artifact;
+producer strings or caller-supplied facts cannot substitute for that evidence.
+The original owner ordering (all tables before additional effects) is preserved.
+The full current bootstrap operation is not registered or runnable yet: actual
+owned export/source proof, same-transaction native observation, original apply
+predicate/journal integration, MySQL/SQLite execution owners and real three-provider
+qualification remain pending. Source cases include original-vs-compiled PostgreSQL
+schema/effect parity and immutable guard refusal, but have not been executed for
+this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
 
 `tools/db/check-current-schema-authority.mjs` checks both the neutral contract

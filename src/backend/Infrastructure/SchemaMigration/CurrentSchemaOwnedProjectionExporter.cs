@@ -21,7 +21,8 @@ public static class CurrentSchemaOwnedProjectionExporter
     /// </summary>
     /// <returns>
     /// The canonical entity projection and every original required recipe reference.
-    /// Recipe semantics that have not been neutralized remain explicitly absent.
+    /// All required recipes are extracted from their original owner; unknown
+    /// syntax refuses the export instead of publishing a partial target.
     /// </returns>
     public static async Task<CurrentSchemaBootstrapInput> ExportAsync(CancellationToken cancellationToken)
     {
@@ -45,6 +46,32 @@ public static class CurrentSchemaOwnedProjectionExporter
             DescribeRequiredRecipes());
     }
 
+    /// <summary>
+    /// Writes a new owned target artifact without replacing an existing file.
+    /// This read-only producer observes no database and grants no apply admission.
+    /// </summary>
+    /// <param name="outputPath">A new artifact path owned by the calling export task.</param>
+    /// <param name="cancellationToken">Cancellation before or during output; unpublished temporary bytes remain available on failure.</param>
+    /// <returns>The complete original-owner input and its neutral target identity.</returns>
+    public static async Task<CurrentSchemaOwnedTargetArtifact> WriteArtifactAsync(string outputPath, CancellationToken cancellationToken)
+    {
+        CurrentSchemaBootstrapInput input = await ExportAsync(cancellationToken).ConfigureAwait(false);
+        var artifact = new CurrentSchemaOwnedTargetArtifact(CurrentSchemaOwnedTargetProjection.ArtifactSchemaVersion,
+            input, CurrentSchemaOwnedTargetProjection.ComputeInputDigest(input), CurrentSchemaOwnedTargetProjection.Observe(input));
+        string target = Path.GetFullPath(outputPath);
+        string temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+            4096, FileOptions.Asynchronous | FileOptions.WriteThrough))
+        {
+            await JsonSerializer.SerializeAsync(stream, artifact, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            stream.Flush(flushToDisk: true);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        File.Move(temporary, target, overwrite: false);
+        return artifact;
+    }
+
     internal static IReadOnlyList<CurrentSchemaRequiredRecipeReference> DescribeRequiredRecipes()
         => CurrentSchemaRuntimeRollupTables.Tables.Select(static table =>
             new CurrentSchemaRequiredRecipeReference(
@@ -56,7 +83,7 @@ public static class CurrentSchemaOwnedProjectionExporter
                     table.CreateSql,
                     table.AdditionalSql
                 })))).ToLowerInvariant(),
-                SemanticDescription: null)).ToArray();
+                SemanticDescription: CurrentSchemaRecipeFactExtractor.Extract(table))).ToArray();
 
     private static async Task<string> HashAssemblyAsync(Assembly assembly, CancellationToken cancellationToken)
     {

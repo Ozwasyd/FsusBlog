@@ -170,6 +170,76 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
 public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards()
+    {
+        string originalDatabase = await fixture.CreateDatabaseAsync();
+        string compiledDatabase = await fixture.CreateDatabaseAsync();
+        string originalConnection = fixture.BuildDatabaseConnectionString(originalDatabase);
+        string compiledConnection = fixture.BuildDatabaseConnectionString(compiledDatabase);
+        var inspector = new SchemaModelInspector();
+        IReadOnlyList<Type> entityTypes = inspector.GetManagedEntityTypes();
+        using (var original = new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = originalConnection, DbType = SqlSugar.DbType.PostgreSQL, IsAutoCloseConnection = true
+        }))
+        {
+            original.CodeFirst.InitTables(entityTypes.ToArray());
+            await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(original, CancellationToken.None);
+        }
+        CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(inspector.BuildCanonicalModel(entityTypes));
+        var owner = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+            new string('b', 64), new string('c', 64));
+        var input = new CurrentSchemaBootstrapInput(projection, owner, CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes());
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        await using (var connection = new NpgsqlConnection(compiledConnection))
+        {
+            await connection.OpenAsync();
+            await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
+            await CurrentSchemaBootstrapCompiler.ExecuteAsync(compiled, connection, transaction, CancellationToken.None);
+            await transaction.CommitAsync();
+        }
+        Assert.Equal(await fixture.CaptureSchemaSnapshotAsync(originalConnection),
+            await fixture.CaptureSchemaSnapshotAsync(compiledConnection));
+        foreach (string connectionString in new[] { originalConnection, compiledConnection })
+        {
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using NpgsqlCommand seed = connection.CreateCommand();
+            seed.CommandText = "SELECT state, last_article_id, rate_per_second FROM public_article_projection_backfill WHERE scope='global';";
+            await using (NpgsqlDataReader reader = await seed.ExecuteReaderAsync())
+            {
+                Assert.True(await reader.ReadAsync());
+                Assert.Equal("paused", reader.GetString(0));
+                Assert.Equal(0, reader.GetInt32(1));
+                Assert.InRange(reader.GetInt32(2), 1, 1000);
+            }
+            await using NpgsqlCommand guard = connection.CreateCommand();
+            guard.CommandText = "SELECT prosrc FROM pg_proc WHERE proname IN ('article_create_immutable_guard','article_template_immutable_guard') ORDER BY proname;";
+            await using NpgsqlDataReader guards = await guard.ExecuteReaderAsync();
+            int count = 0;
+            while (await guards.ReadAsync())
+            {
+                Assert.Contains("RAISE EXCEPTION", guards.GetString(0));
+                count++;
+            }
+            Assert.Equal(2, count);
+            await guards.DisposeAsync();
+            await using NpgsqlCommand insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO article_create_request(request_id,owner_admin_principal_id,request_digest,receipt_id,created_at_utc) VALUES (@request,1,@digest,@receipt,now());";
+            insert.Parameters.AddWithValue("request", Guid.NewGuid());
+            insert.Parameters.AddWithValue("digest", new string('a', 64));
+            insert.Parameters.AddWithValue("receipt", Guid.NewGuid());
+            await insert.ExecuteNonQueryAsync();
+            await using NpgsqlCommand update = connection.CreateCommand();
+            update.CommandText = "UPDATE article_create_request SET created_at_utc=now();";
+            PostgresException refusal = await Assert.ThrowsAsync<PostgresException>(() => update.ExecuteNonQueryAsync());
+            Assert.Equal("P0001", refusal.SqlState);
+            Assert.Contains("article_create_immutable_row", refusal.MessageText);
+        }
+    }
+
+    [Fact]
     public async Task CompiledEntitySubset_MaterializesExactOriginalExtractorFactsOnRealPostgres()
     {
         string database = await fixture.CreateDatabaseAsync();

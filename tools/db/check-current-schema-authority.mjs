@@ -9,6 +9,8 @@ const canonicalRelative = 'src/shared/Contracts/Schema/CurrentSchemaCanonicalAut
 const extractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs';
 const modelRelative = 'src/shared/Contracts/Schema/CurrentSchemaModel.cs';
 const inspectorRelative = 'src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs';
+const recipeExtractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs';
+const exporterRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaOwnedProjectionExporter.cs';
 
 function sourceFiles(directory)
 {
@@ -47,6 +49,8 @@ export function validateCurrentSchemaAuthority(root)
     const extractor = sources.find((entry) => entry.relative === extractorRelative);
     const model = sources.find((entry) => entry.relative === modelRelative);
     const inspector = sources.find((entry) => entry.relative === inspectorRelative);
+    const recipeExtractor = sources.find((entry) => entry.relative === recipeExtractorRelative);
+    const exporter = sources.find((entry) => entry.relative === exporterRelative);
     if (!canonical)
     {
         errors.push(`missing canonical current schema authority: ${canonicalRelative}`);
@@ -67,11 +71,17 @@ export function validateCurrentSchemaAuthority(root)
     {
         return errors;
     }
+    if (!recipeExtractor || !exporter)
+    {
+        errors.push('missing current-owned recipe extractor or projection exporter');
+        return errors;
+    }
 
     const combined = sources.map((entry) => entry.source).join('\n');
     for (const [label, pattern] of [
         ['CurrentSchemaCanonicalAuthority', /\b(?:static\s+)?class\s+CurrentSchemaCanonicalAuthority\b/gu],
         ['CurrentSchemaEntityExtractor', /\b(?:static\s+)?class\s+CurrentSchemaEntityExtractor\b/gu],
+        ['CurrentSchemaRecipeFactExtractor', /\b(?:static\s+)?class\s+CurrentSchemaRecipeFactExtractor\b/gu],
         ['CurrentSchemaProjection', /\brecord\s+CurrentSchemaProjection\b/gu],
         ['RuntimeEntitySchemaAdapter', /\bclass\s+RuntimeEntitySchemaAdapter\b/gu],
         ['GeneratedCurrentSchemaProjectionAdapter', /\bclass\s+GeneratedCurrentSchemaProjectionAdapter\b/gu],
@@ -90,7 +100,7 @@ export function validateCurrentSchemaAuthority(root)
     {
         errors.push('canonical current schema authority must expose exactly one projection generator');
     }
-    const producer = `${canonical.source}\n${extractor.source}\n${model.source}`;
+    const producer = `${canonical.source}\n${extractor.source}\n${model.source}\n${recipeExtractor.source}`;
     if (/SchemaMigration(?:Registry|Manifest|Descriptor)|GetDescriptors\s*\(/u.test(producer))
     {
         errors.push('migration catalog or descriptor cannot define current schema authority');
@@ -102,7 +112,8 @@ export function validateCurrentSchemaAuthority(root)
 
     for (const entry of sources)
     {
-        if (entry.relative === canonicalRelative || entry.relative === extractorRelative || entry.relative === inspectorRelative)
+        if (entry.relative === canonicalRelative || entry.relative === extractorRelative || entry.relative === inspectorRelative
+            || entry.relative === recipeExtractorRelative)
         {
             continue;
         }
@@ -110,6 +121,16 @@ export function validateCurrentSchemaAuthority(root)
         {
             errors.push(`hand-written or second current schema producer is forbidden: ${entry.relative}`);
         }
+        if (entry.relative !== exporterRelative && /CurrentSchemaRecipeFactExtractor\.Extract\s*\(/u.test(entry.source))
+        {
+            errors.push(`second current recipe producer is forbidden: ${entry.relative}`);
+        }
+    }
+    if (!/Extract\s*\(CurrentSchemaRuntimeRollupTable\s+recipe\)/u.test(recipeExtractor.source)
+        || !/CurrentSchemaRuntimeRollupTables\.Tables\.Select/u.test(exporter.source)
+        || !/CurrentSchemaRecipeFactExtractor\.Extract\(table\)/u.test(exporter.source))
+    {
+        errors.push('recipe projection must derive from the sole original current-owned recipe catalog');
     }
     if (!/CurrentSchemaEntityExtractor\.Extract\s*\(entityTypes\)/u.test(inspector.source))
     {

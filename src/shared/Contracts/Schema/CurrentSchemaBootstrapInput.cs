@@ -24,4 +24,4 @@ public sealed record CurrentSchemaRequiredRecipeReference(
     string TableName,
     SchemaProviderKind Provider,
     string RecipeDigest,
-    SchemaModelSnapshot? SemanticDescription);
+    CurrentSchemaRecipeFacts? SemanticDescription);

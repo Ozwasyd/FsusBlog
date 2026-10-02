@@ -108,6 +108,18 @@ public sealed class SchemaTableModel(
     IReadOnlyDictionary<string, SchemaConstraintModel>? constraints = null,
     SchemaOwnerModel? owner = null)
 {
+    [System.Text.Json.Serialization.JsonConstructor]
+    public SchemaTableModel(
+        string name,
+        Dictionary<string, SchemaColumnModel> columns,
+        HashSet<string> indexes,
+        IReadOnlyDictionary<string, SchemaIndexModel> indexDefinitions,
+        IReadOnlyDictionary<string, SchemaConstraintModel> constraints,
+        SchemaOwnerModel? owner)
+        : this(name, columns, (IEnumerable<string>)indexes, indexDefinitions, constraints, owner)
+    {
+    }
+
     public string Name { get; } = name;
     public Dictionary<string, SchemaColumnModel> Columns { get; } = columns;
     public HashSet<string> Indexes { get; } = [.. indexes];
