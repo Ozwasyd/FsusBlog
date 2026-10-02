@@ -106,6 +106,13 @@ public sealed partial class RevisionSourceDiffEngine(
             linked.Token.ThrowIfCancellationRequested();
             return WithElapsed(result, stopwatch.ElapsedMilliseconds);
         }
+        catch (MemoryBudgetExceededException error)
+        {
+            return WithElapsed(
+                Failure(bundle, RevisionComparePlanStatus.BudgetExceeded,
+                    "revision_diff_memory_budget_exceeded", error.RequestedBytes),
+                stopwatch.ElapsedMilliseconds);
+        }
         catch (OperationCanceledException)
         {
             string reason = timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested
@@ -149,6 +156,8 @@ public sealed partial class RevisionSourceDiffEngine(
         CancellationToken cancellationToken)
     {
         RevisionCompareBudgets budgets = bundle.Plan.Budgets;
+        MemoryBudget memory = BeginMemoryBudget(bundle,
+            baseStructure?.Headings.Length ?? 0, compareStructure?.Headings.Length ?? 0);
         ImmutableArray<SourceLine> baseLines = SplitLines(bundle.BasePackage.RawMarkdown.AsSpan(), cancellationToken);
         ImmutableArray<SourceLine> compareLines = SplitLines(bundle.ComparePackage.RawMarkdown.AsSpan(), cancellationToken);
         if (!ValidStructureCoordinates(baseStructure, baseLines, bundle.BasePackage.RawMarkdown.Length)
@@ -156,20 +165,18 @@ public sealed partial class RevisionSourceDiffEngine(
         {
             return Failure(bundle, RevisionComparePlanStatus.Invalid, "revision_diff_structure_invalid");
         }
-        long estimatedMemory = ((long)bundle.BasePackage.RawMarkdown.Length + bundle.ComparePackage.RawMarkdown.Length) * 3L
-            + ((long)baseLines.Length + compareLines.Length) * 128L
-            + ((long)(baseStructure?.Headings.Length ?? 0) + (compareStructure?.Headings.Length ?? 0)) * 96L;
-        if (estimatedMemory > budgets.MaxMemoryBytes)
+        List<LineEdit> edits;
+        using (memory.Reserve(LineWorkspaceBytes(CountChangedLines(
+            bundle.BasePackage.RawMarkdown.AsSpan(), baseLines,
+            bundle.ComparePackage.RawMarkdown.AsSpan(), compareLines, cancellationToken))))
         {
-            return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded, "revision_diff_memory_budget_exceeded");
+            edits = CreateLineEdits(
+                bundle.BasePackage.RawMarkdown.AsSpan(),
+                baseLines,
+                bundle.ComparePackage.RawMarkdown.AsSpan(),
+                compareLines,
+                cancellationToken);
         }
-
-        List<LineEdit> edits = CreateLineEdits(
-            bundle.BasePackage.RawMarkdown.AsSpan(),
-            baseLines,
-            bundle.ComparePackage.RawMarkdown.AsSpan(),
-            compareLines,
-            cancellationToken);
         if (edits.Count > bundle.Plan.Admission.HunkLimit)
         {
             return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded, "revision_diff_chunk_budget_exceeded");
@@ -188,6 +195,7 @@ public sealed partial class RevisionSourceDiffEngine(
         foreach (LineEdit edit in edits)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            memory.Retain(192L);
             RevisionByteRange baseRange = Range(baseLines, edit.BaseStart, edit.BaseCount, bundle.BasePackage.RawMarkdown.Length);
             RevisionByteRange compareRange = Range(compareLines, edit.CompareStart, edit.CompareCount, bundle.ComparePackage.RawMarkdown.Length);
             ImmutableArray<RevisionDiffWordEdit> words = [];
@@ -199,6 +207,7 @@ public sealed partial class RevisionSourceDiffEngine(
                     bundle.ComparePackage.RawMarkdown.AsSpan(compareRange.Offset, compareRange.Length),
                     compareRange.Offset,
                     budgets.MaxTokenCount - tokenCount,
+                    memory,
                     cancellationToken);
                 if (wordDiff.BudgetExceeded)
                 {
@@ -208,21 +217,21 @@ public sealed partial class RevisionSourceDiffEngine(
                 words = wordDiff.Edits;
             }
 
-            IEnumerable<string> enclosingHeadings = EnclosingHeading(baseHeadings, edit.BaseStart)
-                .Concat(EnclosingHeading(compareHeadings, edit.CompareStart));
-            ImmutableArray<string> headingIds = enclosingHeadings
-                .Concat(baseHeadings
-                .Where(heading => Overlaps(baseRange, heading.Source))
-                .Select(static heading => heading.IdentityDigest)
-                .Concat(compareHeadings
-                    .Where(heading => Overlaps(compareRange, heading.Source))
-                    .Select(static heading => heading.IdentityDigest)))
-                .Distinct(StringComparer.Ordinal)
-                .ToImmutableArray();
-            estimatedMemory += 192L + words.Length * 80L + headingIds.Length * 72L;
-            if (estimatedMemory > budgets.MaxMemoryBytes)
+            ImmutableArray<string> headingIds;
+            using (memory.Reserve(HeadingWorkspaceBytes(baseHeadings.Length + compareHeadings.Length)))
             {
-                return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded, "revision_diff_memory_budget_exceeded");
+                IEnumerable<string> enclosingHeadings = EnclosingHeading(baseHeadings, edit.BaseStart)
+                    .Concat(EnclosingHeading(compareHeadings, edit.CompareStart));
+                headingIds = enclosingHeadings
+                    .Concat(baseHeadings
+                    .Where(heading => Overlaps(baseRange, heading.Source))
+                    .Select(static heading => heading.IdentityDigest)
+                    .Concat(compareHeadings
+                        .Where(heading => Overlaps(compareRange, heading.Source))
+                        .Select(static heading => heading.IdentityDigest)))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToImmutableArray();
+                memory.Retain(headingIds.Length * 72L);
             }
             estimatedOutput += 192L + words.Length * 80L + headingIds.Length * 72L;
             if (estimatedOutput > budgets.MaxOutputBytes)
@@ -241,6 +250,9 @@ public sealed partial class RevisionSourceDiffEngine(
                 headingIds));
         }
 
+        // Count without materializing: context records include their digest strings
+        // and simultaneous builder/immutable storage.
+        memory.Retain(CountContextGroups(hunks, bundle.Plan.Options.ContextLineCount) * 384L);
         ImmutableArray<RevisionDiffContextGroup> contextGroups = CreateContextGroups(
             hunks,
             baseLines,
@@ -249,11 +261,6 @@ public sealed partial class RevisionSourceDiffEngine(
             bundle.ComparePackage.RawMarkdown.Length,
             bundle.Plan.Options.ContextLineCount,
             cancellationToken);
-        estimatedMemory += contextGroups.Length * 128L;
-        if (estimatedMemory > budgets.MaxMemoryBytes)
-        {
-            return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded, "revision_diff_memory_budget_exceeded");
-        }
         estimatedOutput += contextGroups.Length * 128L;
         int chunkCount = hunks.Count == 0 ? 0 : (hunks.Count + budgets.MaxHunksPerChunk - 1) / budgets.MaxHunksPerChunk;
         if (estimatedOutput > budgets.MaxOutputBytes || chunkCount > budgets.MaxChunks)
@@ -261,6 +268,7 @@ public sealed partial class RevisionSourceDiffEngine(
             return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded, "revision_diff_output_budget_exceeded");
         }
 
+        memory.Retain(chunkCount * 256L);
         var chunks = ImmutableArray.CreateBuilder<RevisionDiffChunk>(chunkCount);
         for (int offset = 0, index = 0; offset < hunks.Count; offset += budgets.MaxHunksPerChunk, index++)
         {
@@ -286,7 +294,7 @@ public sealed partial class RevisionSourceDiffEngine(
             baseHeadings,
             compareHeadings,
             contextGroups,
-            estimatedMemory,
+            memory.PeakBytes,
             estimatedOutput,
             tokenCount,
             materializedChunks);
