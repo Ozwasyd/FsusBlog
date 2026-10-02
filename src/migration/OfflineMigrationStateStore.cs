@@ -1,7 +1,10 @@
 using System.Data;
 using System.Data.Common;
+using System.Text.Json;
 
 using SqlSugar;
+
+using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
 
@@ -15,6 +18,178 @@ internal static class OfflineMigrationStateStore
     internal const string HistoryTableName = "__fsus_schema_migration_history";
     internal const string StateTableName = "__fsus_schema_online_state";
     internal const string BackfillTableName = "__fsus_schema_backfill_progress";
+    internal const string ApplyJournalTableName = "__fsus_schema_offline_apply_journal";
+
+    // The sealed route currently admits only PostgreSQL's transactional native session.
+    // Provider-specific journal/lock/DDL guarantees must be implemented before another
+    // provider is admitted; the legacy three-dialect DDL emitter is not that guarantee.
+    internal static async Task EnsureApplyJournalAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        await using DbCommand command = NativeCommand(connection, transaction, $"""
+            CREATE TABLE IF NOT EXISTS public.{ApplyJournalTableName} (
+                plan_digest varchar(64) NOT NULL,
+                database_digest varchar(64) NOT NULL,
+                invocation_id varchar(160) NOT NULL,
+                sequence bigint NOT NULL CHECK (sequence > 0),
+                entry_digest varchar(64) NOT NULL,
+                parent_digest varchar(64) NOT NULL,
+                entry_payload text NOT NULL,
+                PRIMARY KEY (plan_digest, database_digest, invocation_id, sequence),
+                UNIQUE (plan_digest, database_digest, invocation_id, parent_digest),
+                UNIQUE (entry_digest)
+            )
+            """);
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task ReadApplyJournalAsync(
+        DbConnection connection, DbTransaction transaction,
+        string planContentDigest, CurrentSchemaDatabaseIdentity database,
+        OfflineMigrationApplyRequest request, OfflineMigrationApplyJournalVerifier verifier,
+        CancellationToken cancellationToken)
+    {
+        await using (DbCommand available = NativeCommand(connection, transaction,
+            "SELECT to_regclass('public.__fsus_schema_offline_apply_journal') IS NOT NULL"))
+        {
+            if (!Convert.ToBoolean(await available.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+            {
+                if (request.Checkpoint is not null)
+                {
+                    throw new InvalidOperationException("offline_apply_checkpoint_missing");
+                }
+
+                return;
+            }
+        }
+
+        await ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        string databaseDigest = OfflineMigrationPlanValidation.Digest(database);
+        await using DbCommand command = NativeCommand(connection, transaction, $"""
+            SELECT invocation_id, sequence, entry_digest, parent_digest,
+                CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
+            FROM public.{ApplyJournalTableName}
+            WHERE plan_digest = @plan AND database_digest = @database
+            ORDER BY invocation_id, sequence
+            """);
+        Parameter(command, "@plan", planContentDigest);
+        Parameter(command, "@database", databaseDigest);
+        await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (request.Checkpoint is null || reader.GetString(0) != request.InvocationId)
+            {
+                throw new InvalidOperationException("offline_apply_explicit_checkpoint_required");
+            }
+
+            if (reader.IsDBNull(4))
+            {
+                throw new InvalidOperationException("offline_apply_journal_entry_oversized");
+            }
+
+            string payload = reader.GetString(4);
+            OfflineMigrationApplyJournalEntry entry = JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(payload)
+                ?? throw new InvalidOperationException("offline_apply_journal_entry_invalid");
+            if (entry.Sequence != reader.GetInt64(1) || entry.ContentDigest != reader.GetString(2)
+                || entry.PreviousDigest != reader.GetString(3))
+            {
+                throw new InvalidOperationException("offline_apply_journal_columns_changed");
+            }
+
+            verifier.Accept(entry);
+        }
+
+        if (request.Checkpoint is not null)
+        {
+            // Read the entire exact run, not WHERE sequence <= requested: a stale head is
+            // rejected instead of hiding later committed effects or selecting latest.
+            verifier.Complete(request.Checkpoint);
+        }
+    }
+
+    internal static async Task AppendApplyJournalAsync(
+        DbConnection connection, DbTransaction transaction,
+        OfflineMigrationApplyJournalEntry entry, CancellationToken cancellationToken)
+    {
+        string payload = JsonSerializer.Serialize(entry);
+        if (payload.Length > 1_048_576)
+        {
+            throw new InvalidOperationException("offline_apply_journal_entry_oversized");
+        }
+
+        await using DbCommand command = NativeCommand(connection, transaction, $"""
+            INSERT INTO public.{ApplyJournalTableName}
+                (plan_digest, database_digest, invocation_id, sequence, entry_digest, parent_digest, entry_payload)
+            VALUES (@plan, @database, @invocation, @sequence, @entry, @parent, @payload)
+            """);
+        Parameter(command, "@plan", entry.PlanContentDigest);
+        Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(entry.Database));
+        Parameter(command, "@invocation", entry.InvocationId);
+        Parameter(command, "@sequence", entry.Sequence);
+        Parameter(command, "@entry", entry.ContentDigest);
+        Parameter(command, "@parent", entry.PreviousDigest);
+        Parameter(command, "@payload", payload);
+        if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1)
+        {
+            throw new InvalidOperationException("offline_apply_journal_append_failed");
+        }
+    }
+
+    internal static DbCommand NativeCommand(DbConnection connection, DbTransaction? transaction, string sql)
+    {
+        DbCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        return command;
+    }
+
+    private static async Task ValidateApplyJournalAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        // IF NOT EXISTS is not evidence that an existing control table has the required
+        // append-only keys. Validate the physical owner shape before reading or appending.
+        await using DbCommand command = NativeCommand(connection, transaction, """
+            WITH actual_columns AS (
+                SELECT attname::text AS name, format_type(atttypid, atttypmod) AS type, attnotnull AS required
+                FROM pg_attribute
+                WHERE attrelid = to_regclass('public.__fsus_schema_offline_apply_journal')
+                    AND attnum > 0 AND NOT attisdropped
+            ), expected_columns(name, type, required) AS (
+                VALUES ('plan_digest', 'character varying(64)', true),
+                    ('database_digest', 'character varying(64)', true),
+                    ('invocation_id', 'character varying(160)', true),
+                    ('sequence', 'bigint', true), ('entry_digest', 'character varying(64)', true),
+                    ('parent_digest', 'character varying(64)', true), ('entry_payload', 'text', true)
+            ), actual_constraints AS (
+                SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+                WHERE conrelid = to_regclass('public.__fsus_schema_offline_apply_journal')
+            ), expected_constraints(definition) AS (
+                VALUES ('PRIMARY KEY (plan_digest, database_digest, invocation_id, sequence)'),
+                    ('UNIQUE (plan_digest, database_digest, invocation_id, parent_digest)'),
+                    ('UNIQUE (entry_digest)'), ('CHECK ((sequence > 0))')
+            )
+            SELECT NOT EXISTS (
+                (SELECT * FROM actual_columns EXCEPT SELECT * FROM expected_columns)
+                UNION ALL (SELECT * FROM expected_columns EXCEPT SELECT * FROM actual_columns)
+            ) AND NOT EXISTS (
+                (SELECT * FROM actual_constraints EXCEPT SELECT * FROM expected_constraints)
+                UNION ALL (SELECT * FROM expected_constraints EXCEPT SELECT * FROM actual_constraints)
+            )
+            """);
+        if (!Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+        {
+            throw new InvalidOperationException("offline_apply_journal_physical_shape_changed");
+        }
+    }
+
+    internal static void Parameter(DbCommand command, string name, object value)
+    {
+        DbParameter parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
 
     internal sealed record BackfillSnapshot(
         string MigrationId,

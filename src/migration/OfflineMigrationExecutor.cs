@@ -1,7 +1,11 @@
 using System.Data.Common;
+using System.Data;
+using System.Collections.Immutable;
 using System.Text.Json;
 
 using SqlSugar;
+
+using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
 
@@ -14,6 +18,332 @@ public sealed record OfflineMigrationExecutionResult(
 internal static class OfflineMigrationExecutor
 {
     private const int MaximumBackfillBatches = 100;
+
+    // This is the existing domain executor's sealed route, not the historical online
+    // Contract phase. CLI integration remains blocked until real operation owners exist.
+    internal static async Task<OfflineMigrationApplyResult> ApplyAsync(
+        VerifiedOfflineMigrationPlan verified, CurrentSchemaArtifactReference artifact,
+        OfflineMigrationApplyRequest request, DbConnection connection,
+        IOfflineMigrationPlanAdmission admission, IOfflineMigrationApplyOperationRegistry registry,
+        CancellationToken cancellationToken)
+    {
+        OfflineMigrationPlan plan = verified.Plan;
+        OfflineMigrationApplyJournalVerifier progress;
+        try
+        {
+            progress = new OfflineMigrationApplyJournalVerifier(plan, artifact, request.InvocationId);
+        }
+        catch (InvalidOperationException)
+        {
+            return new(OfflineMigrationApplyStatus.Failed, artifact, plan.ContentDigest, plan.Source.Database, null, [],
+                ["offline_apply_plan_binding_invalid"]);
+        }
+        if (plan.Source.Database.Provider != CurrentSchemaProviderKind.PostgreSql)
+        {
+            return Result(OfflineMigrationApplyStatus.Failed, "offline_apply_native_provider_not_supported");
+        }
+
+        if (connection.State != ConnectionState.Open || request.Attempt < 1
+            || request.InvocationId.Length > 160 || request.InvocationId.Any(char.IsControl)
+            || (plan.OrderedSteps.Any(step => step.Destructive) && !request.ConfirmDestructive))
+        {
+            return Result(OfflineMigrationApplyStatus.Failed, "offline_apply_admission_options_invalid");
+        }
+
+        bool locked = false;
+        bool commitUnknown = false;
+        bool started = false;
+        bool admissionWritesStarted = false;
+        var operations = new Dictionary<string, OfflineMigrationApplyOperation>(StringComparer.Ordinal);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await using (DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, null,
+                "SELECT pg_try_advisory_lock(hashtext(@name))"))
+            {
+                OfflineMigrationStateStore.Parameter(command, "@name", OfflineMigrationHost.StateLockConstant);
+                locked = Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+            }
+
+            if (!locked)
+            {
+                return Result(OfflineMigrationApplyStatus.Failed, "offline_apply_lock_busy");
+            }
+
+            // Resolve the entire compiled provider closure before journal/control/business
+            // writes. The registry cannot add ad-hoc SQL from a plan or CLI argument.
+            foreach (OfflineMigrationStep step in plan.OrderedSteps)
+            {
+                foreach (OfflineMigrationProviderOperation identity in step.Operations)
+                {
+                    OfflineMigrationApplyOperation resolved = registry.Resolve(step, identity);
+                    if (resolved.Identity != identity)
+                    {
+                        throw new InvalidOperationException("offline_apply_operation_binding_changed");
+                    }
+
+                    if (identity.Provider == plan.Source.Database.Provider)
+                    {
+                        operations.Add(step.StepId, resolved);
+                    }
+                }
+            }
+
+            await using (DbTransaction admissionTransaction = await connection.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false))
+            {
+                await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, admissionTransaction,
+                    plan.ContentDigest, plan.Source.Database, request, progress, cancellationToken).ConfigureAwait(false);
+                await admission.RevalidateAsync(verified, artifact, progress, connection,
+                    admissionTransaction, cancellationToken).ConfigureAwait(false);
+                await VerifyRecordedStepsAsync(admissionTransaction).ConfigureAwait(false);
+                if (progress.Completed)
+                {
+                    await admissionTransaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                    return Result(OfflineMigrationApplyStatus.NoOpVerified);
+                }
+
+                int previousAttempt = progress.Last?.Attempt ?? 0;
+                if (request.Attempt != previousAttempt + 1)
+                {
+                    throw new InvalidOperationException("offline_apply_attempt_not_successor");
+                }
+
+                OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                admissionWritesStarted = true;
+                await OfflineMigrationStateStore.EnsureApplyJournalAsync(connection, admissionTransaction,
+                    cancellationToken).ConfigureAwait(false);
+                if (progress.Last is { State: OfflineMigrationApplyJournalState.AttemptStarted
+                    or OfflineMigrationApplyJournalState.TransactionCommitted
+                    or OfflineMigrationApplyJournalState.BatchCommitted
+                    or OfflineMigrationApplyJournalState.StepVerified } interrupted)
+                {
+                    await AppendAsync(staged, admissionTransaction, Control(staged,
+                        OfflineMigrationApplyJournalState.RecoveryRequired, interrupted.Attempt,
+                        "offline_apply_prior_attempt_interrupted"), cancellationToken).ConfigureAwait(false);
+                }
+
+                await AppendAsync(staged, admissionTransaction, Control(staged,
+                    OfflineMigrationApplyJournalState.AttemptStarted, request.Attempt), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                commitUnknown = true;
+                await admissionTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                commitUnknown = false;
+                progress = staged;
+                started = true;
+                admissionWritesStarted = false;
+            }
+
+            while (progress.StepProofs.Length < plan.OrderedSteps.Length)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                OfflineMigrationStep step = plan.OrderedSteps[progress.StepProofs.Length];
+                OfflineMigrationProviderOperation identity = step.Operations.Single(
+                    value => value.Provider == plan.Source.Database.Provider);
+                OfflineMigrationApplyOperation operation = operations[step.StepId];
+                await using DbTransaction transaction = await connection.BeginTransactionAsync(
+                    IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await admission.RevalidateAsync(verified, artifact, progress, connection,
+                        transaction, cancellationToken).ConfigureAwait(false);
+                    OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                    OfflineMigrationApplyJournalEntry? previousUnit = progress.PendingUnit;
+                    string beforePredicate = previousUnit is null ? step.SourcePrecondition
+                        : previousUnit.UnitComplete ? step.TargetPostcondition : step.ResumePolicy.ReplayPostcondition;
+                    OfflineMigrationPredicateObservation before = await operation.ObserveAsync(beforePredicate,
+                        connection, transaction, cancellationToken).ConfigureAwait(false);
+                    ValidateObservation(before, beforePredicate, identity);
+                    if (previousUnit?.UnitComplete == true)
+                    {
+                        // The final unit committed before interruption. Verify actual target
+                        // facts, then append only the missing step proof; do not repeat effects.
+                        OfflineMigrationApplyJournalEntry proof = previousUnit with
+                        {
+                            Sequence = (staged.Last?.Sequence ?? 0) + 1,
+                            Attempt = request.Attempt,
+                            State = OfflineMigrationApplyJournalState.StepVerified,
+                            Before = before,
+                            After = before,
+                            PreviousDigest = staged.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
+                            ContentDigest = string.Empty,
+                            RecordedAt = DateTimeOffset.UtcNow
+                        };
+                        await AppendAsync(staged, transaction, proof, cancellationToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        OfflineMigrationApplyUnit unit = await operation.ExecuteAsync(step, previousUnit,
+                            connection, transaction, cancellationToken).ConfigureAwait(false);
+                        string afterPredicate = unit.Complete ? step.TargetPostcondition : step.ResumePolicy.ReplayPostcondition;
+                        OfflineMigrationPredicateObservation after = await operation.ObserveAsync(afterPredicate,
+                            connection, transaction, cancellationToken).ConfigureAwait(false);
+                        ValidateObservation(after, afterPredicate, identity);
+                        var committed = new OfflineMigrationApplyJournalEntry(
+                            OfflineMigrationApplyJournalVerifier.Format, artifact, plan.ContentDigest, plan.Source.Database,
+                            request.InvocationId, (staged.Last?.Sequence ?? 0) + 1, request.Attempt,
+                            step.StepId, identity.OperationReference, identity.Mode,
+                            identity.Mode == OfflineMigrationExecutionMode.Transaction
+                                ? OfflineMigrationApplyJournalState.TransactionCommitted : OfflineMigrationApplyJournalState.BatchCommitted,
+                            step.IdempotencyDefinition, unit.WatermarkBefore, unit.WatermarkAfter, unit.HighWatermark,
+                            unit.RowsProcessed, unit.ExpectedRows, unit.Complete, before, after,
+                            staged.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
+                            string.Empty, null, DateTimeOffset.UtcNow);
+                        await AppendAsync(staged, transaction, committed, cancellationToken).ConfigureAwait(false);
+                        if (unit.Complete)
+                        {
+                            await AppendAsync(staged, transaction, committed with
+                            {
+                                Sequence = (staged.Last?.Sequence ?? 0) + 1,
+                                State = OfflineMigrationApplyJournalState.StepVerified,
+                                PreviousDigest = staged.Last!.ContentDigest
+                            }, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                    commitUnknown = true;
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    commitUnknown = false;
+                    progress = staged;
+                }
+                catch
+                {
+                    if (!commitUnknown)
+                    {
+                        try { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); }
+                        catch { commitUnknown = true; }
+                    }
+
+                    throw;
+                }
+            }
+
+            await using (DbTransaction terminalTransaction = await connection.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false))
+            {
+                await admission.RevalidateAsync(verified, artifact, progress, connection,
+                    terminalTransaction, cancellationToken).ConfigureAwait(false);
+                await VerifyRecordedStepsAsync(terminalTransaction).ConfigureAwait(false);
+                OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                await AppendAsync(staged, terminalTransaction, Control(staged,
+                    OfflineMigrationApplyJournalState.ApplyCompleted, request.Attempt), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                commitUnknown = true;
+                await terminalTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                commitUnknown = false;
+                progress = staged;
+            }
+
+            return Result(OfflineMigrationApplyStatus.Completed);
+        }
+        catch (Exception failure)
+        {
+            // Never publish provider messages, SQL parameters, private facts or connection
+            // strings. Ambiguous commit/rollback requires exact re-reading or backup restore,
+            // not a guessed retry or a marker claiming effects did not commit.
+            commitUnknown |= admissionWritesStarted;
+            bool cancelled = failure is OperationCanceledException;
+            string code = commitUnknown ? "offline_apply_commit_outcome_unknown"
+                : cancelled ? "offline_apply_cancelled" : "offline_apply_rejected";
+            if (started && !commitUnknown)
+            {
+                try
+                {
+                    await using DbTransaction terminal = await connection.BeginTransactionAsync(
+                        IsolationLevel.RepeatableRead, CancellationToken.None).ConfigureAwait(false);
+                    OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                    await AppendAsync(staged, terminal, Control(staged,
+                        cancelled ? OfflineMigrationApplyJournalState.AttemptCancelled : OfflineMigrationApplyJournalState.AttemptFailed,
+                        request.Attempt, code), CancellationToken.None).ConfigureAwait(false);
+                    await terminal.CommitAsync(CancellationToken.None).ConfigureAwait(false);
+                    progress = staged;
+                }
+                catch
+                {
+                    return Result(OfflineMigrationApplyStatus.RecoveryRequired, code, "offline_apply_terminal_persistence_unknown");
+                }
+            }
+
+            return Result(commitUnknown ? OfflineMigrationApplyStatus.RecoveryRequired
+                : cancelled ? OfflineMigrationApplyStatus.Cancelled : OfflineMigrationApplyStatus.Failed, code);
+        }
+        finally
+        {
+            if (locked)
+            {
+                try
+                {
+                    await using DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, null,
+                        "SELECT pg_advisory_unlock(hashtext(@name))");
+                    OfflineMigrationStateStore.Parameter(command, "@name", OfflineMigrationHost.StateLockConstant);
+                    await command.ExecuteScalarAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // A broken caller-owned session must be disposed by its owner. Do not
+                    // replace the first failure or invent a successful unlock receipt.
+                    try { connection.Close(); }
+                    catch { /* Preserve the original outcome; the host owns disposal. */ }
+                }
+            }
+        }
+
+        OfflineMigrationApplyResult Result(OfflineMigrationApplyStatus status, params string[] codes)
+            => new(status, artifact, plan.ContentDigest, plan.Source.Database,
+                progress.Last is null ? null : new(OfflineMigrationApplyJournalVerifier.Reference(progress.Last),
+                    request.InvocationId, progress.Last.Sequence), progress.StepProofs, codes.ToImmutableArray());
+
+        async Task VerifyRecordedStepsAsync(DbTransaction transaction)
+        {
+            foreach (OfflineMigrationApplyJournalEntry recorded in progress.StepProofs)
+            {
+                OfflineMigrationStep step = plan.OrderedSteps.Single(value => value.StepId == recorded.StepId);
+                OfflineMigrationProviderOperation identity = step.Operations.Single(value => value.Provider == plan.Source.Database.Provider);
+                OfflineMigrationPredicateObservation actual = await operations[step.StepId].ObserveAsync(
+                    step.TargetPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
+                ValidateObservation(actual, step.TargetPostcondition, identity);
+                if (!OfflineMigrationPlanValidation.Equal(actual, recorded.After))
+                {
+                    throw new InvalidOperationException("offline_apply_recorded_postcondition_changed");
+                }
+            }
+        }
+
+        static async Task AppendAsync(OfflineMigrationApplyJournalVerifier staged, DbTransaction transaction,
+            OfflineMigrationApplyJournalEntry entry, CancellationToken token)
+        {
+            entry = entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) };
+            staged.Accept(entry);
+            await OfflineMigrationStateStore.AppendApplyJournalAsync(transaction.Connection!, transaction, entry, token).ConfigureAwait(false);
+        }
+
+        OfflineMigrationApplyJournalEntry Control(OfflineMigrationApplyJournalVerifier staged,
+            OfflineMigrationApplyJournalState state, int attempt, string? failureCode = null)
+            => new(OfflineMigrationApplyJournalVerifier.Format, artifact, plan.ContentDigest, plan.Source.Database,
+                request.InvocationId, (staged.Last?.Sequence ?? 0) + 1, attempt,
+                null, null, null, state, null, null, null, null, 0, 0, false, null, null,
+                staged.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
+                string.Empty, failureCode, DateTimeOffset.UtcNow);
+    }
+
+    private static void ValidateObservation(OfflineMigrationPredicateObservation observation,
+        string predicateReference, OfflineMigrationProviderOperation identity)
+    {
+        if (observation.PredicateReference != predicateReference || observation.OperationReference != identity.OperationReference
+            || observation.OperationSourceDigest != identity.OperationSourceDigest || observation.SemanticDigest != identity.SemanticDigest
+            || observation.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation)
+            || observation.ExpectedFacts.IsDefault || observation.ActualFacts.IsDefault
+            || !observation.ExpectedFacts.SequenceEqual(observation.ActualFacts)
+            || observation.ExpectedFacts.Length > 256
+            || observation.ExpectedFacts.Any(fact => string.IsNullOrWhiteSpace(fact.Name)
+                || fact.Name.Length > 160 || fact.Value is null || fact.Value.Length > 4096)
+            || !observation.ExpectedFacts.Select(fact => fact.Name).SequenceEqual(
+                observation.ExpectedFacts.Select(fact => fact.Name).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)))
+        {
+            throw new InvalidOperationException("offline_apply_owner_predicate_failed");
+        }
+    }
 
     public static async Task<OfflineMigrationExecutionResult> RunAsync(
         OfflineMigrationCommandOptions command,
