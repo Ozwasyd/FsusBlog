@@ -343,8 +343,11 @@ admission time before revalidating the original backup/registry/DAG bindings.
 
 Native current schema, instance/database identity, required target postconditions
 and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
-read-only transaction. Expected/actual fact vectors must close in both directions
-and agree with the original committed step proofs; an empty observation, partial
+read-only transaction. The issuer passes its actual native instance/database identity to the current-schema
+observer with that exact connection/transaction; an adapter cannot substitute plan
+identity or establish a second capture. Its returned identity must match that observation.
+Expected/actual fact vectors must close in both directions and agree with the original
+committed step proofs; an empty observation, partial
 apply, warning, unknown operation or provider cannot produce `verified-current`.
 The current target is independently derived from its original owner, never the plan
 payload. Only after successful observation and snapshot cleanup does the issuer

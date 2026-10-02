@@ -48,6 +48,31 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
     }
 
     [Theory]
+    [InlineData("unobserved-physical-schema")]
+    [InlineData("cross-instance")]
+    [InlineData("cross-database")]
+    [InlineData("target-source")]
+    [InlineData("target-content")]
+    public void CurrentObservation_BindsOwnedTargetAndSoleNativeSessionIdentity(string invalid)
+    {
+        Fixture fixture = CreateFixture();
+        var observed = new CurrentSchemaAdmissionObservation(fixture.Plan.Target, fixture.Request.Database, s_digest);
+        OfflineMigrationCurrentSchemaIssuer.ValidateCurrentObservation(observed, fixture.Request.Database, fixture.Plan.Target);
+        CurrentSchemaAdmissionObservation changed = invalid switch
+        {
+            "unobserved-physical-schema" => observed with { ActualSchemaDigest = string.Empty },
+            "cross-instance" => observed with { Database = observed.Database with { InstanceId = "other-instance" } },
+            "cross-database" => observed with { Database = observed.Database with { DatabaseId = "other-database" } },
+            "target-source" => observed with { Target = observed.Target with { SourceDigest = new string('b', 64) } },
+            "target-content" => observed with { Target = observed.Target with { ContentDigest = new string('b', 64) } },
+            _ => throw new InvalidOperationException("Unknown current-observation mutation.")
+        };
+
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationCurrentSchemaIssuer.ValidateCurrentObservation(
+            changed, fixture.Request.Database, fixture.Plan.Target));
+    }
+
+    [Theory]
     [InlineData("physical-schema")]
     [InlineData("target-shape")]
     [InlineData("semantic-vector")]

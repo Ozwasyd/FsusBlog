@@ -152,14 +152,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
             ValidateFirstAdmission(plan, request, first);
 
             CurrentSchemaAdmissionObservation current = await owners.CurrentSchema.ObserveAsync(
-                connection, transaction, cancellationToken).ConfigureAwait(false);
-            CurrentSchemaReceiptCodec.ValidateTarget(current.Target);
-            CurrentSchemaReceiptCodec.ValidateDatabase(current.Database);
-            CurrentSchemaReceiptCodec.RequireDigest(current.ActualSchemaDigest);
-            if (current.Database != database || current.Target != plan.Target)
-            {
-                throw new InvalidOperationException("current_verify_actual_target_or_database_changed");
-            }
+                connection, transaction, database, cancellationToken).ConfigureAwait(false);
+            ValidateCurrentObservation(current, database, plan.Target);
             OfflineMigrationCurrentSchemaAuthoritySnapshot authority = await owners.Authority.ReadAsync(
                 plan, connection, transaction, cancellationToken).ConfigureAwait(false);
             if (authority.CurrentVerifier.SourceRevision == new string('0', 40))
@@ -235,6 +229,19 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         }
         cancellationToken.ThrowIfCancellationRequested();
         return receipt ?? throw new InvalidOperationException("current_verify_receipt_not_observed");
+    }
+
+    internal static void ValidateCurrentObservation(CurrentSchemaAdmissionObservation current,
+        CurrentSchemaDatabaseIdentity nativeDatabase, CurrentSchemaTargetIdentity intendedTarget)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        CurrentSchemaReceiptCodec.ValidateTarget(current.Target);
+        CurrentSchemaReceiptCodec.ValidateDatabase(current.Database);
+        CurrentSchemaReceiptCodec.RequireDigest(current.ActualSchemaDigest);
+        if (current.Database != nativeDatabase || current.Target != intendedTarget)
+        {
+            throw new InvalidOperationException("current_verify_actual_target_or_database_changed");
+        }
     }
 
     internal static void ValidateRequest(OfflineMigrationCurrentSchemaVerifyRequest request)
