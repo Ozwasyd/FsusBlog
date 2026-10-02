@@ -33,7 +33,7 @@ public sealed record CurrentSchemaStepPostcondition(
 /// </summary>
 public sealed record CurrentSchemaReceipt(
     string Format,
-    CurrentSchemaReceiptStatus Status,
+    [property: JsonRequired] CurrentSchemaReceiptStatus Status,
     CurrentSchemaTargetIdentity Target,
     string SourceFingerprintId,
     string SourceFingerprintVersion,

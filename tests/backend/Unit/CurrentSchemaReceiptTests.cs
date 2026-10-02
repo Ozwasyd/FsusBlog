@@ -11,6 +11,21 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class CurrentSchemaReceiptTests
 {
+    [Fact]
+    public void ReceiptCodec_RequiresExplicitStatusEvenWhenTheDefaultWouldMatchItsSeal()
+    {
+        byte[] bytes = CurrentSchemaReceiptCodec.Serialize(CreateReceipt());
+        CurrentSchemaReceipt valid = CurrentSchemaReceiptCodec.Deserialize(bytes);
+        Assert.Equal(CurrentSchemaReceiptStatus.VerifiedCurrent, valid.Status);
+        string original = Encoding.UTF8.GetString(bytes);
+        const string Status = "\"status\":\"verified-current\",";
+        Assert.Contains(Status, original, StringComparison.Ordinal);
+        string missing = original.Replace(Status, string.Empty, StringComparison.Ordinal);
+        Assert.Contains(valid.ContentDigest, missing, StringComparison.Ordinal);
+
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaReceiptCodec.Deserialize(Encoding.UTF8.GetBytes(missing)));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("relative/receipt.json")]
