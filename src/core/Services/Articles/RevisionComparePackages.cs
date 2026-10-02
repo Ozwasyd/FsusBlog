@@ -81,6 +81,7 @@ public sealed class RevisionCompareSnapshot
 public sealed class RevisionComparePackage
 {
     internal RevisionComparePackage(
+        int schemaVersion,
         int articleId,
         RevisionCompareSourceKind sourceKind,
         string sourceIdentity,
@@ -94,6 +95,7 @@ public sealed class RevisionComparePackage
         ImmutableArray<RevisionCompareSnapshot> snapshots,
         string packageDigest)
     {
+        SchemaVersion = schemaVersion;
         ArticleId = articleId;
         SourceKind = sourceKind;
         SourceIdentity = sourceIdentity;
@@ -106,6 +108,11 @@ public sealed class RevisionComparePackage
         Metadata = metadata;
         Snapshots = snapshots;
         PackageDigest = packageDigest;
+    }
+
+    public int SchemaVersion
+    {
+        get;
     }
 
     public int ArticleId

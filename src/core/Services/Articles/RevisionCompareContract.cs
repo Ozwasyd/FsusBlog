@@ -4,8 +4,8 @@ namespace FsusBlog.Core.Services.Articles;
 
 public static class RevisionCompareContract
 {
-    public const int SchemaVersion = 1;
-    public const string PlannerVersion = "revision-compare-plan-v1";
+    public const int SchemaVersion = 2;
+    public const string PlannerVersion = "revision-compare-plan-v2";
     public const string DiffEngineVersion = "revision-source-diff-v1";
     public const int MaxIdentityLength = 256;
     public const int MaxMetadataValueLength = 8_192;
@@ -130,7 +130,7 @@ public static class RevisionCompareContract
             if (!RevisionCompareMetadataRegistry.TryGet(value.FieldId, out RevisionCompareMetadataDescriptor descriptor)
                 || descriptor.ValueType != value.ValueType
                 || descriptor.Sensitive != value.Sensitive
-                || value.CanonicalValue.Length > MaxMetadataValueLength)
+                || !RevisionCompareMetadataRegistry.ValidCanonicalValue(value.ValueType, value.CanonicalValue))
             {
                 throw new RevisionCompareContractException("revision_compare_metadata_invalid");
             }

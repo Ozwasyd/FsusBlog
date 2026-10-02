@@ -8,6 +8,25 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed partial class RevisionSourceDiffTests
 {
     [Fact]
+    public async Task ComputeAsync_UsesV2EnvelopeWithoutChangingV1DiffAlgorithmIdentity()
+    {
+        (RevisionSourceDiffEngine engine, RevisionComparePlanBundle plan) = await SetupAsync(
+            Encoding.UTF8.GetBytes("one\n"),
+            Encoding.UTF8.GetBytes("two\n"));
+
+        RevisionSourceDiffResult result = await engine.ComputeAsync(plan, DateTimeOffset.UtcNow);
+
+        Assert.True(result.IsSuccess, result.Receipt.ReasonCode);
+        Assert.Equal(2, result.Receipt.SchemaVersion);
+        Assert.Equal("revision-source-diff-v1", result.Receipt.EngineVersion);
+        Assert.True(RevisionSourceDiffVerifier.Verify(plan, result));
+        Assert.False(RevisionSourceDiffVerifier.Verify(plan, result with
+        {
+            Receipt = result.Receipt with { SchemaVersion = 1 }
+        }));
+    }
+
+    [Fact]
     public async Task Verify_RejectsMutatedClosedRange()
     {
         byte[] baseline = Encoding.UTF8.GetBytes("one\n");

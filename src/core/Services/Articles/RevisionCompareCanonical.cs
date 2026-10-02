@@ -14,6 +14,7 @@ internal static class RevisionCompareCanonical
         => value.Length == 64 && value.All(static character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     public static string PackageDigest(
+        int schemaVersion,
         int articleId,
         RevisionCompareSourceKind sourceKind,
         string sourceIdentity,
@@ -27,7 +28,7 @@ internal static class RevisionCompareCanonical
         ImmutableArray<RevisionCompareSnapshot> snapshots)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        Append(hash, RevisionCompareContract.SchemaVersion);
+        Append(hash, schemaVersion);
         Append(hash, articleId);
         Append(hash, (int)sourceKind);
         Append(hash, sourceIdentity);

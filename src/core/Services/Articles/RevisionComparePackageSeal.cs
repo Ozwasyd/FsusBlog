@@ -37,6 +37,7 @@ public static class RevisionComparePackageSeal
 
         string sourceDigest = RevisionCompareCanonical.Sha256(source.AsSpan());
         string packageDigest = RevisionCompareCanonical.PackageDigest(
+            RevisionCompareContract.SchemaVersion,
             articleId,
             sourceKind,
             sourceIdentity,
@@ -49,6 +50,7 @@ public static class RevisionComparePackageSeal
             metadataValues,
             snapshotValues);
         return new RevisionComparePackage(
+            RevisionCompareContract.SchemaVersion,
             articleId,
             sourceKind,
             sourceIdentity,
@@ -65,6 +67,11 @@ public static class RevisionComparePackageSeal
 
     public static bool Verify(RevisionComparePackage package)
     {
+        if (package.SchemaVersion != RevisionCompareContract.SchemaVersion)
+        {
+            return false;
+        }
+
         try
         {
             RevisionCompareContract.ValidatePackageShape(
@@ -84,6 +91,7 @@ public static class RevisionComparePackageSeal
                 && string.Equals(
                     package.PackageDigest,
                     RevisionCompareCanonical.PackageDigest(
+                        package.SchemaVersion,
                         package.ArticleId,
                         package.SourceKind,
                         package.SourceIdentity,

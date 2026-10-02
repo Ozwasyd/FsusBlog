@@ -92,7 +92,9 @@ public sealed class AuthoringRevisionCompareDraftContextProvider(IAuthoringDraft
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (draft is null || draft.ArticleId != request.ArticleId)
+        if (draft is null
+            || draft.ArticleId != request.ArticleId
+            || !string.Equals(draft.DraftKey, request.DraftKey, StringComparison.Ordinal))
         {
             return new AuthoringRevisionCompareDraftContextResult(
                 RevisionComparePackageReadStatus.Unavailable,
@@ -434,7 +436,7 @@ public sealed class AuthoringRevisionComparePackageReader(
                 articleId,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (article is null)
+        if (article is null || article.ArticleId != articleId)
         {
             return RevisionComparePackageReadResult.Unavailable();
         }
@@ -471,7 +473,9 @@ public sealed class AuthoringRevisionComparePackageReader(
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (draft is null || draft.ArticleId != articleId)
+        if (draft is null
+            || draft.ArticleId != articleId
+            || !string.Equals(draft.DraftKey, selector.DraftKey, StringComparison.Ordinal))
         {
             return RevisionComparePackageReadResult.Unavailable();
         }
@@ -548,7 +552,12 @@ public sealed class AuthoringRevisionComparePackageReader(
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (revision is null || revision.ArticleId != articleId)
+        if (revision is null
+            || revision.ArticleId != articleId
+            || !string.Equals(
+                revision.Id,
+                selector.RevisionId.Value.ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal))
         {
             return RevisionComparePackageReadResult.Unavailable();
         }

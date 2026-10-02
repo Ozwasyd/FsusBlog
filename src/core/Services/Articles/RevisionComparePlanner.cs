@@ -368,6 +368,11 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
         {
             return Invalid("revision_compare_observation_time_invalid");
         }
+        if (bundle.Plan.SchemaVersion != RevisionCompareContract.SchemaVersion
+            || !string.Equals(bundle.Plan.PlannerVersion, RevisionCompareContract.PlannerVersion, StringComparison.Ordinal))
+        {
+            return Invalid("revision_compare_schema_stale", RevisionComparePlanStatus.Stale);
+        }
         if (observedAtUtc > bundle.Plan.ExpiresAtUtc)
         {
             return Invalid("revision_compare_plan_expired", RevisionComparePlanStatus.Stale);
