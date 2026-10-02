@@ -57,7 +57,7 @@ evidenceWorkIdentity=""
 postgresAttempted=0
 redisAttempted=0
 
-while [[ $# -gt 0 ]]; do
+while [[ "${BASH_SOURCE[0]}" == "$0" && $# -gt 0 ]]; do
     case "$1" in
         --migration-evidence) evidenceMode=1; shift ;;
         --timeout-seconds)
@@ -217,9 +217,9 @@ Cleanup() {
     fi
     if [[ "$evidenceMode" == "1" ]]; then
         [[ "$evidenceWorker" == "1" ]] || return
-        if [[ -n "$backend_pid" ]] && StopSourceChild "$backend_pid"; then
-            AddCheck "owned-backend-terminal" "verified"
-        else
+        if [[ -n "$backend_pid" ]]; then
+            StopSourceChild "$backend_pid" || sourceCleanupVerified=0
+            AddBlocker "pre-migration-backup-started-unexpected-backend"
             evidenceCleanupVerified=0
         fi
         local sourcePath destinationName
@@ -235,6 +235,10 @@ Cleanup() {
         done
         CleanupEvidenceContainer postgres "$postgresAttempted" || evidenceCleanupVerified=0
         CleanupEvidenceContainer redis "$redisAttempted" || evidenceCleanupVerified=0
+        if [[ "$redisAttempted" == "1" ]]; then
+            AddBlocker "pre-migration-backup-started-unexpected-redis"
+            evidenceCleanupVerified=0
+        fi
         if [[ "$workDirOwned" == "1" && "$sourceCleanupVerified" == "1" && "$evidenceCleanupVerified" == "1" ]]; then
             if [[ -L "$WORK_DIR" || "$(stat -c '%d:%i' -- "$WORK_DIR")" != "$evidenceWorkIdentity" ]]; then
                 evidenceCleanupVerified=0
@@ -243,7 +247,11 @@ Cleanup() {
             fi
             [[ ! -e "$WORK_DIR" && ! -L "$WORK_DIR" ]] || evidenceCleanupVerified=0
         fi
-        [[ "$sourceCleanupVerified" == "1" && "$evidenceCleanupVerified" == "1" ]] || AddBlocker "owned-drill-cleanup-unverified"
+        if [[ "$sourceCleanupVerified" == "1" && "$evidenceCleanupVerified" == "1" ]]; then
+            AddCheck "owned-pre-migration-resources-terminal" "verified"
+        else
+            AddBlocker "owned-drill-cleanup-unverified"
+        fi
         return
     fi
     if [[ -n "$backend_pid" ]] && kill -0 "$backend_pid" >/dev/null 2>&1; then
@@ -315,7 +323,10 @@ JsonStringArray() {
 }
 
 WriteReport() {
-    local checksJson blockersJson generatedAt rpoSeconds rtoSeconds
+    local checksJson blockersJson generatedAt rpoSeconds rtoSeconds reportMode="$MODE"
+    if [[ "$evidenceMode" == "1" ]]; then
+        reportMode="migration-recoverability"
+    fi
     generatedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     checksJson="$(JsonStringArray "${checks[@]}")"
     blockersJson="$(JsonStringArray "${blockers[@]}")"
@@ -336,7 +347,7 @@ WriteReport() {
 
     jq -n \
         --arg status "$status" \
-        --arg mode "$MODE" \
+        --arg mode "$reportMode" \
         --arg generatedAt "$generatedAt" \
         --arg runId "$RUN_ID" \
         --arg workDir "$WORK_DIR" \
@@ -358,7 +369,7 @@ WriteReport() {
       generatedAt: $generatedAt,
       runId: $runId,
       workDir: $workDir,
-      baseUrl: $baseUrl,
+      baseUrl: (if $mode == "migration-recoverability" then null else $baseUrl end),
       packageSha256: (if $packageSha256 == "" then null else $packageSha256 end),
       manifestSha256: (if $manifestSha256 == "" then null else $manifestSha256 end),
       sourceBinding: $sourceBinding,
@@ -372,12 +383,22 @@ WriteReport() {
         rtoSeconds: $rtoSeconds
       },
       blockers: $blockers
-    }' >"$OUT_FILE"
+    } + (if $mode == "migration-recoverability" then {scope:"pre-migration-backup"} else {} end)' >"$OUT_FILE"
 
     Log "wrote $OUT_FILE"
 }
 
 WriteRestoreManifest() {
+    if [[ "$evidenceMode" == "1" ]]; then
+        jq -n --arg runId "$RUN_ID" --argjson sourceBinding "$sourceBinding" \
+            '{kind:"fsusblog-pre-migration-restore-manifest", version:1, runId:$runId,
+              scope:"pre-migration-backup", sourceBinding:$sourceBinding,
+              restorePolicy:{allowed:["database", "uploads", "dataProtectionKeyRing", "configRedacted", "aotCache", "searchIndex"],
+                preserveCapturedSchemaAndContent:true, migrationApply:false, currentServerStarted:false, productionDrQualified:false}}' \
+            >"$RESTORE_MANIFEST_FILE"
+        AddCheck "restore-manifest" "written"
+        return
+    fi
     jq -n \
         --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --arg runId "$RUN_ID" \
@@ -857,13 +878,13 @@ PrepareSiteBackupPackage() {
     tar --no-same-owner --no-same-permissions -xzf "$decryptedPackage" -C "$packageDir"
     rm -f "$decryptedPackage"
 
-    if ! jq -e --arg recipientKeyId "$recipientKeyId" \
+    if ! jq -e --arg recipientKeyId "$recipientKeyId" --argjson migrationEvidence "$evidenceMode" \
         '.kind == "fsusblog-site-backup"
       and (.version == 2 or .version == 3)
       and .envelope.recipientKeyId == $recipientKeyId
       and .dataProtection.encryptedAtRest == true
       and .dataProtection.plaintextMasterKeyPresent == false
-      and .dataProtection.encryptedKeyCount >= 2' \
+      and (if $migrationEvidence == 1 then .dataProtection.encryptedKeyCount > 0 else .dataProtection.encryptedKeyCount >= 2 end)' \
         "$packageDir/manifest.json" >/dev/null; then
         AddBlocker "site-backup-key-generation-manifest-invalid"
         return
@@ -949,7 +970,11 @@ PrepareSiteBackupPackage() {
     AOT_BACKUP="$packageDir/aot-cache.tar.gz"
     SEARCH_BACKUP="$packageDir/search.tar.gz"
     AddCheck "site-backup-package" "authenticated-unpacked"
-    AddCheck "data-protection-current-previous-generations" "$generationCount"
+    if [[ "$evidenceMode" == "1" ]]; then
+        AddCheck "data-protection-captured-generations" "$generationCount"
+    else
+        AddCheck "data-protection-current-previous-generations" "$generationCount"
+    fi
 }
 
 WaitForUrl() {
@@ -1186,11 +1211,53 @@ RunReal() {
     restore_finished_at="$(date -u +%s)"
 }
 
-RunEvidenceWorker() {
-    RunReal
-    if (("${#blockers[@]}" == 0)) && ! VerifyEvidenceBackendListener "$OUT_DIR/owned-backend-listener-end.json"; then
-        AddBlocker "owned-restored-backend-listener-after-smoke-unverified"
+RestoreMigrationArtifacts() {
+    local label artifact target expected actual
+    for label in uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
+        artifact="$(jq -r --arg label "$label" '.artifacts[$label]' "$WORK_DIR/site-package/manifest.json")"
+        expected="$(jq -r --arg label "$label" '.artifactDigests[$label]' "$WORK_DIR/site-package/manifest.json")"
+        actual="$(sha256sum "$WORK_DIR/site-package/$artifact" | awk '{print $1}')"
+        if [[ "$actual" != "$expected" ]] || ! ArchiveIsSafe "$WORK_DIR/site-package/$artifact"; then
+            AddBlocker "pre-migration-artifact-changed-or-unsafe:$label"
+            return
+        fi
+        target="$WORK_DIR/migration-artifacts/$label"
+        mkdir -p "$target"
+        if ! tar --no-same-owner --no-same-permissions -xzf "$WORK_DIR/site-package/$artifact" -C "$target"; then
+            AddBlocker "pre-migration-artifact-restore-failed:$label"
+            return
+        fi
+        AddCheck "$label-recoverable" "verified"
+    done
+}
+
+RunPreMigrationRestore() {
+    for command in docker dotnet jq node sha256sum tar; do
+        RequireCommand "$command"
+    done
+    if (("${#blockers[@]}" != 0)); then return; fi
+    if [[ -e "$WORK_DIR" || -L "$WORK_DIR" ]] || ! mkdir -m 0700 -- "$WORK_DIR"; then
+        AddBlocker "restore-work-dir-not-fresh"
+        return
     fi
+    workDirOwned=1
+    evidenceWorkIdentity="$(stat -c '%d:%i' -- "$WORK_DIR")"
+    PrepareSiteBackupPackage
+    if [[ "$sourceBinding" == "null" ]]; then
+        AddBlocker "owned-drill-snapshot-bound-version3-required"
+    fi
+    if (("${#blockers[@]}" != 0)); then return; fi
+    WriteRestoreManifest
+    restore_started_at="$(date -u +%s)"
+    RestorePostgres
+    if (("${#blockers[@]}" == 0)); then
+        RestoreMigrationArtifacts
+    fi
+    restore_finished_at="$(date -u +%s)"
+}
+
+RunEvidenceWorker() {
+    RunPreMigrationRestore
     if [[ "$sourceBinding" == "null" || "$restoredSource" == "null" ]]; then
         AddBlocker "owned-drill-native-source-proof-unavailable"
     fi
@@ -1208,7 +1275,7 @@ RunMigrationEvidence() {
     for command in bash jq node timeout ps sleep stat realpath sha256sum; do
         RequireCommand "$command"
     done
-    if [[ "$MODE" != "real" || "$RESTORE_STACK" != "1" || "$KEEP_WORK" != "0" \
+    if [[ "$MODE" != "real" || "$KEEP_WORK" != "0" \
         || ! -f "$SITE_BACKUP_PACKAGE" || -L "$SITE_BACKUP_PACKAGE" \
         || -e "$OUT_DIR" || -L "$OUT_DIR" || ! -d "$(dirname "$OUT_DIR")" ]]; then
         AddBlocker "owned-drill-input-or-private-root-invalid"
@@ -1243,51 +1310,49 @@ RunMigrationEvidence() {
     # These are this invocation's actual producer artifacts, not caller-selected reports.
     if ! RunSourceCommand "$OUT_DIR/owned-artifact-sha256.stdout" sha256sum \
         "$SITE_BACKUP_PACKAGE" "$OUT_FILE" "$OUT_DIR/package-manifest.json" "$RESTORE_MANIFEST_FILE" \
-        "$RESIDUE_REPORT_FILE" "$OUT_DIR/owned-drill.stdout" "$OUT_DIR/owned-drill.stderr" \
-        "$OUT_DIR/native-restored-source.json" "$OUT_DIR/backend.log" \
-        "$OUT_DIR/backup-restore-drill-${RUN_ID}.source-stderr.log" \
-        "$OUT_DIR/owned-backend-listener-start.json" "$OUT_DIR/owned-backend-listener-end.json" </dev/null; then
+        "$OUT_DIR/owned-drill.stdout" "$OUT_DIR/owned-drill.stderr" \
+        "$OUT_DIR/native-restored-source.json" "$OUT_DIR/backup-restore-drill-${RUN_ID}.source-stderr.log" </dev/null; then
         AddBlocker "owned-drill-artifact-final-read-failed"
         return 1
     fi
     local -a digests
     mapfile -t digests <"$OUT_DIR/owned-artifact-sha256.stdout"
-    if [[ "${#digests[@]}" != "12" ]]; then return 1; fi
+    if [[ "${#digests[@]}" != "8" ]]; then return 1; fi
     local packageDigest="${digests[0]%% *}" reportDigest="${digests[1]%% *}" manifestDigest="${digests[2]%% *}"
     if ! jq -e --arg nonce "$RUN_ID" --arg packageDigest "$packageDigest" --arg manifestDigest "$manifestDigest" \
-        '.status == "ok" and .mode == "real" and .runId == $nonce and .sourceCleanupVerified == true
+        '.status == "ok" and .mode == "migration-recoverability" and .scope == "pre-migration-backup"
+         and .baseUrl == null and .runId == $nonce and .sourceCleanupVerified == true
          and .packageSha256 == $packageDigest and .manifestSha256 == $manifestDigest
          and .restoredDatabaseDumpSha256 == .sourceBinding.capture.DatabaseDumpSha256
-         and (["restored-backend-start:ok", "public-page:ok", "binary-api:ok", "search-index:ok",
-               "notification-stream-live:ok", "admin-login:ok", "anonymous-residue-gate:ok",
-               "owned-backend-terminal:verified", "owned-postgres-container-removed:verified",
-               "owned-redis-container-removed:verified"] - .checks | length) == 0' "$OUT_FILE" >/dev/null; then
-        AddBlocker "owned-drill-actual-proof-or-full-smoke-invalid"
+         and (["site-backup-package:authenticated-unpacked", "database-restored-source:verified", "postgres-restore:ok",
+               "uploads-recoverable:verified", "dataProtectionKeyRing-recoverable:verified", "configRedacted-recoverable:verified",
+               "aotCache-recoverable:verified", "searchIndex-recoverable:verified", "owned-postgres-container-removed:verified",
+               "owned-pre-migration-resources-terminal:verified"] - .checks | length) == 0' "$OUT_FILE" >/dev/null; then
+        AddBlocker "owned-drill-actual-recoverability-proof-invalid"
         return 1
     fi
     SourceRemaining >/dev/null || return 1
     jq -n --arg invocation "$RUN_ID" --arg privateRoot "$OUT_DIR" --arg packageSha256 "$packageDigest" \
         --arg manifestSha256 "$manifestDigest" --arg reportSha256 "$reportDigest" \
-        --arg drillManifestSha256 "${digests[3]%% *}" --arg residueSha256 "${digests[4]%% *}" \
-        --arg stdoutSha256 "${digests[5]%% *}" --arg stderrSha256 "${digests[6]%% *}" \
-        --arg nativeRestoredSourceSha256 "${digests[7]%% *}" --slurpfile report "$OUT_FILE" \
-        --arg backendLogSha256 "${digests[8]%% *}" --arg nativeStderrSha256 "${digests[9]%% *}" --arg runId "$RUN_ID" \
-        --arg backendListenerStartSha256 "${digests[10]%% *}" --arg backendListenerEndSha256 "${digests[11]%% *}" \
+        --arg drillManifestSha256 "${digests[3]%% *}" \
+        --arg stdoutSha256 "${digests[4]%% *}" --arg stderrSha256 "${digests[5]%% *}" \
+        --arg nativeRestoredSourceSha256 "${digests[6]%% *}" --slurpfile report "$OUT_FILE" \
+        --arg nativeStderrSha256 "${digests[7]%% *}" --arg runId "$RUN_ID" \
         --slurpfile manifest "$OUT_DIR/package-manifest.json" \
-        '{version:1, owner:"tools/operations/backup-restore-drill.sh", ownerVersion:"1", operation:"migration-evidence",
+        '{version:2, owner:"tools/operations/backup-restore-drill.sh", ownerVersion:"2", operation:"migration-evidence",
           invocation:$invocation, privateRoot:$privateRoot, producerExitCode:0,
           packageSha256:$packageSha256, manifestSha256:$manifestSha256,
           reportReference:($privateRoot + "/backup-restore-drill.json"), reportSha256:$reportSha256,
           manifestReference:($privateRoot + "/package-manifest.json"), manifest:$manifest[0],
           drillManifestReference:($privateRoot + "/backup-restore-manifest.json"), drillManifestSha256:$drillManifestSha256,
-          residueReference:($privateRoot + "/backup-restore-anonymous-residue.json"), residueSha256:$residueSha256,
+          residueReference:null, residueSha256:null,
           stdoutReference:($privateRoot + "/owned-drill.stdout"), stdoutSha256:$stdoutSha256,
           stderrReference:($privateRoot + "/owned-drill.stderr"), stderrSha256:$stderrSha256,
           nativeRestoredSourceReference:($privateRoot + "/native-restored-source.json"), nativeRestoredSourceSha256:$nativeRestoredSourceSha256,
-          backendLogReference:($privateRoot + "/backend.log"), backendLogSha256:$backendLogSha256,
+          backendLogReference:null, backendLogSha256:null,
           nativeStderrReference:($privateRoot + "/backup-restore-drill-" + $runId + ".source-stderr.log"), nativeStderrSha256:$nativeStderrSha256,
-          backendListenerStartReference:($privateRoot + "/owned-backend-listener-start.json"), backendListenerStartSha256:$backendListenerStartSha256,
-          backendListenerEndReference:($privateRoot + "/owned-backend-listener-end.json"), backendListenerEndSha256:$backendListenerEndSha256,
+          backendListenerStartReference:null, backendListenerStartSha256:null,
+          backendListenerEndReference:null, backendListenerEndSha256:null,
           sourceBinding:$report[0].sourceBinding, restoredSource:$report[0].restoredSource,
           restoredDatabaseDumpSha256:$report[0].restoredDatabaseDumpSha256}'
 }
