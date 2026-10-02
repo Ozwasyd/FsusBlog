@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 
 using FsusBlog.Contracts.Migration;
 
@@ -15,13 +16,13 @@ public sealed class OfflineMigrationPlanTests
     private static readonly DateTimeOffset AdmissionTime = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
 
     [Theory]
-    [InlineData(OfflineMigrationProvider.PostgreSql, false)]
-    [InlineData(OfflineMigrationProvider.MySql, false)]
-    [InlineData(OfflineMigrationProvider.Sqlite, false)]
-    [InlineData(OfflineMigrationProvider.PostgreSql, true)]
-    [InlineData(OfflineMigrationProvider.MySql, true)]
-    [InlineData(OfflineMigrationProvider.Sqlite, true)]
-    public void Plan_KnownCompleteContractObservationsFreezeSharedDag(OfflineMigrationProvider provider, bool old)
+    [InlineData(CurrentSchemaProviderKind.PostgreSql, false)]
+    [InlineData(CurrentSchemaProviderKind.MySql, false)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite, false)]
+    [InlineData(CurrentSchemaProviderKind.PostgreSql, true)]
+    [InlineData(CurrentSchemaProviderKind.MySql, true)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite, true)]
+    public void Plan_KnownCompleteContractObservationsFreezeSharedDag(CurrentSchemaProviderKind provider, bool old)
     {
         Fixture fixture = CreateFixture(provider, old);
         OfflineMigrationPlan plan = fixture.Build();
@@ -35,7 +36,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_ObservationOrderAndInvocationTimeDoNotAlterContentBytes()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         OfflineMigrationPlan first = fixture.Build();
         Fixture reordered = fixture with
         {
@@ -49,7 +50,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_RegistryInputOrderDoesNotAlterRegistryOrContentDigest()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         OfflineMigrationPlan first = fixture.Build();
         var reordered = new OfflineMigrationSourceRegistry("v1", Definitions().Reverse().Select(entry => entry with
         {
@@ -65,7 +66,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_OneColumnDriftReportsExactDifferenceWithoutNearestBaseline()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         var changed = fixture.Source with { Schema = [new("table.article", "present"), new("column.article.id", "text")] };
         string message = Assert.Throws<InvalidOperationException>(() => fixture.Registry.Match(changed)).Message;
         Assert.StartsWith("source_fingerprint_unknown:", message);
@@ -75,7 +76,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_PartialAndCombinedBaselinesAreUnknown()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.MySql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.MySql, true);
         var partial = fixture.Source with { History = ImmutableArray<OfflineMigrationFact>.Empty };
         Assert.StartsWith("source_fingerprint_unknown:", Assert.Throws<InvalidOperationException>(() => fixture.Registry.Match(partial)).Message);
         var combined = fixture.Source with { BusinessShape = [new("article.identity", "legacy"), new("unregistered.column", "present")] };
@@ -85,7 +86,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_AmbiguousExactBaselinesAreRejected()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.Sqlite, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.Sqlite, true);
         ImmutableArray<OfflineMigrationFingerprintDefinition> definitions = Definitions();
         var ambiguous = new OfflineMigrationSourceRegistry("v1", definitions.Add(definitions[1] with { Id = "duplicate-shape" }));
         Assert.StartsWith("source_fingerprint_ambiguous:", Assert.Throws<InvalidOperationException>(() => ambiguous.Match(fixture.Source)).Message);
@@ -94,7 +95,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_UnobservedCategoryAndDuplicateFactsAreRejected()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, false);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, false);
         Assert.Equal("source_observation_category_missing", Assert.Throws<InvalidOperationException>(() =>
             fixture.Registry.Match(fixture.Source with { Schema = default })).Message);
         Assert.Equal("source_observation_duplicate_or_null", Assert.Throws<InvalidOperationException>(() =>
@@ -104,7 +105,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_DestructiveStepWithoutBackupIsRejected()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         Assert.Contains(fixture.Dag.Steps, step => step.Destructive);
         Assert.Equal("offline_backup_required", Assert.Throws<InvalidOperationException>(() =>
             (fixture with { Backup = null! }).Build()).Message);
@@ -116,7 +117,7 @@ public sealed class OfflineMigrationPlanTests
     [InlineData(-1, -2)]
     public void Plan_StaleFutureOrUnverifiedBackupIsRejected(int capturedHours, int restoredHours)
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         var backup = fixture.Backup with
         {
             CapturedAt = AdmissionTime.AddHours(capturedHours),
@@ -128,7 +129,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_BackupForAnotherDatabaseAndPartialArtifactClosureAreRejected()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         var other = fixture.Backup with
         {
             SourceAtCapture = fixture.Source with { Database = fixture.Source.Database with { DatabaseId = "other" } }
@@ -141,13 +142,46 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_BackupMustMatchCurrentShapeAndActuallyIsolatedRestoreShape()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         var drift = fixture.Backup with { SourceAtCapture = fixture.Source with { History = [] } };
         Assert.Equal("offline_backup_source_database_mismatch", Assert.Throws<InvalidOperationException>(() => (fixture with { Backup = drift }).Build()).Message);
         var active = fixture.Backup with { RestoredSource = fixture.Source };
         Assert.Equal("offline_backup_restore_not_isolated_or_changed", Assert.Throws<InvalidOperationException>(() => (fixture with { Backup = active }).Build()).Message);
         var changedRestore = fixture.Backup with { RestoredSource = fixture.Backup.RestoredSource with { History = [] } };
         Assert.Equal("offline_backup_restore_not_isolated_or_changed", Assert.Throws<InvalidOperationException>(() => (fixture with { Backup = changedRestore }).Build()).Message);
+    }
+
+    [Fact]
+    public void Plan_EqualShapeAndEqualLengthDataChangesInvalidateCapturedSource()
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        OfflineMigrationSourceObservation changed = fixture.Source with { ContentDigest = DigestB };
+        Assert.Empty(OfflineMigrationPlanValidation.Differences(
+            OfflineMigrationPlanValidation.Shape(fixture.Source), OfflineMigrationPlanValidation.Shape(changed)));
+        Assert.Equal("old", fixture.Registry.Match(changed).Id);
+        Assert.Equal("offline_backup_source_database_mismatch", Assert.Throws<InvalidOperationException>(() =>
+            (fixture with { Source = changed }).Build()).Message);
+    }
+
+    [Fact]
+    public void Plan_RestoredDataContentMustMatchCapturedSnapshotNotOnlyShape()
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        var changed = fixture.Backup with { RestoredSource = fixture.Backup.RestoredSource with { ContentDigest = DigestB } };
+        Assert.Equal("offline_backup_restore_not_isolated_or_changed", Assert.Throws<InvalidOperationException>(() =>
+            (fixture with { Backup = changed }).Build()).Message);
+    }
+
+    [Fact]
+    public void Plan_CaptureAndRestoreDumpDigestsMustBindOriginalDatabaseArtifact()
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        Assert.Equal("offline_backup_snapshot_dump_binding_mismatch", Assert.Throws<InvalidOperationException>(() =>
+            (fixture with { Backup = fixture.Backup with { DatabaseDumpSha256 = DigestB } }).Build()).Message);
+        Assert.Equal("offline_backup_snapshot_dump_binding_mismatch", Assert.Throws<InvalidOperationException>(() =>
+            (fixture with { Backup = fixture.Backup with { RestoredDatabaseDumpSha256 = DigestB } }).Build()).Message);
+        Assert.Equal("offline_backup_snapshot_identity_missing", Assert.Throws<InvalidOperationException>(() =>
+            (fixture with { Backup = fixture.Backup with { CaptureSnapshotId = "" } }).Build()).Message);
     }
 
     [Theory]
@@ -157,7 +191,7 @@ public sealed class OfflineMigrationPlanTests
     [InlineData("disconnected")]
     public void Plan_DagClosureRejectsDuplicateMissingCyclicAndDisconnectedSteps(string mutation)
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.Sqlite, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.Sqlite, true);
         ImmutableArray<OfflineMigrationStep> steps = mutation switch
         {
             "duplicate" => fixture.Dag.Steps.Add(fixture.Dag.Steps[0]),
@@ -172,7 +206,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Plan_ProviderSemanticDivergenceAndMissingProviderAreRejected()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.MySql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.MySql, true);
         OfflineMigrationStep entry = fixture.Dag.Steps[0];
         var divergent = entry with { Operations = entry.Operations.SetItem(1, entry.Operations[1] with { SemanticDigest = DigestB }) };
         Assert.Equal("offline_step_provider_semantics_diverge", Assert.Throws<InvalidOperationException>(() =>
@@ -185,7 +219,7 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Verify_TargetToolAndFreshSourceDriftAreRejectedEvenWithResealedPayload()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         OfflineMigrationPlan plan = fixture.Build();
         Assert.Equal("offline_plan_target_or_tool_changed", Assert.Throws<InvalidOperationException>(() =>
             fixture.Verify(Reseal(plan with { Target = plan.Target with { ContentDigest = DigestB } }))).Message);
@@ -206,7 +240,7 @@ public sealed class OfflineMigrationPlanTests
     [InlineData("destructive")]
     public void Verify_ResealedFingerprintStepsAndRediscoveryFieldsCannotChangeAuthority(string mutation)
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.PostgreSql, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         OfflineMigrationPlan plan = fixture.Build();
         OfflineMigrationStep step = plan.OrderedSteps[0];
         OfflineMigrationPlan changed = mutation switch
@@ -226,11 +260,20 @@ public sealed class OfflineMigrationPlanTests
     [Fact]
     public void Verify_BackupReferenceTamperAndDigestTamperAreRejected()
     {
-        Fixture fixture = CreateFixture(OfflineMigrationProvider.Sqlite, true);
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.Sqlite, true);
         OfflineMigrationPlan plan = fixture.Build();
         var changed = plan with { Backup = plan.Backup with { Package = new("another-package", DigestB) } };
         Assert.Equal("offline_plan_backup_changed", Assert.Throws<InvalidOperationException>(() => fixture.Verify(Reseal(changed))).Message);
         Assert.Equal("offline_plan_digest_mismatch", Assert.Throws<InvalidOperationException>(() => fixture.Verify(plan with { ContentDigest = DigestB })).Message);
+    }
+
+    [Fact]
+    public void Plan_ArtifactHashBindsCompleteBytesNotSelfExcludedContentDigest()
+    {
+        OfflineMigrationPlan plan = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true).Build();
+        string actualArtifactSha256 = Convert.ToHexStringLower(SHA256.HashData(OfflineMigrationPlanCodec.Serialize(plan)));
+        Assert.NotEqual(plan.ContentDigest, actualArtifactSha256);
+        Assert.Equal(plan.ContentDigest, OfflineMigrationPlanCodec.ComputeContentDigest(plan));
     }
 
     private static OfflineMigrationPlan Reseal(OfflineMigrationPlan plan)
@@ -242,27 +285,28 @@ public sealed class OfflineMigrationPlanTests
 
         static OfflineMigrationFingerprintDefinition Definition(string id, bool old)
             => new(id, "v1", "contract-test-only", ["OfflineMigrationPlanTests"], "entry",
-                Enum.GetValues<OfflineMigrationProvider>().Select(provider => OfflineMigrationPlanValidation.Shape(Source(provider, old))).ToImmutableArray());
+                Enum.GetValues<CurrentSchemaProviderKind>().Select(provider => OfflineMigrationPlanValidation.Shape(Source(provider, old))).ToImmutableArray());
     }
 
-    private static OfflineMigrationSourceObservation Source(OfflineMigrationProvider provider, bool old)
+    private static OfflineMigrationSourceObservation Source(CurrentSchemaProviderKind provider, bool old)
         => new(new(provider, "source-instance", "source-database"), "contract-fixture", "v1",
             old ? [new("table.article", "present"), new("column.article.id", "uuid")] : [],
             old ? [new("migration.original", "checksum:succeeded")] : [],
-            old ? [new("article.identity", "legacy")] : []);
+            old ? [new("article.identity", "legacy")] : [], DigestA);
 
-    private static Fixture CreateFixture(OfflineMigrationProvider provider, bool old)
+    private static Fixture CreateFixture(CurrentSchemaProviderKind provider, bool old)
     {
         OfflineMigrationSourceObservation source = Source(provider, old);
         var backup = new OfflineMigrationBackupObservation(
             new("package", DigestA), new("manifest", DigestA), new("drill", DigestA),
-            "contract-test-only", "v1", AdmissionTime.AddHours(-1), AdmissionTime.AddMinutes(-1), source,
+            "contract-test-only", "v1", AdmissionTime.AddHours(-1), AdmissionTime.AddMinutes(-1),
+            "contract-snapshot", DigestA, DigestA, source,
             source with { Database = new(provider, "isolated-instance", "restore-database") },
             [new("database", DigestA), new("uploads", DigestA), new("dataProtectionKeyRing", DigestA),
                 new("configRedacted", DigestA), new("aotCache", DigestA), new("searchIndex", DigestA)]);
-        var target = new OfflineMigrationTargetIdentity("model", "extractor", "generator", DigestA, DigestA);
-        var tool = new OfflineMigrationToolIdentity(new string('a', 40), DigestA, DigestA, DigestA);
-        var operations = Enum.GetValues<OfflineMigrationProvider>().Select(value => new OfflineMigrationProviderOperation(
+        var target = new CurrentSchemaTargetIdentity("model", "extractor", "generator", DigestA, DigestA);
+        var tool = new CurrentSchemaVerifierIdentity(new string('a', 40), DigestA, DigestA, DigestA);
+        var operations = Enum.GetValues<CurrentSchemaProviderKind>().Select(value => new OfflineMigrationProviderOperation(
             value, $"contract-operation:{value}", DigestA, DigestA, OfflineMigrationExecutionMode.Transaction)).ToImmutableArray();
         var resume = new OfflineMigrationResumePolicy("v1", 0, "transaction", "postcondition:replay");
         var dag = new OfflineMigrationDag("contract-dag", "v1",
@@ -274,8 +318,8 @@ public sealed class OfflineMigrationPlanTests
     private sealed record Fixture(
         OfflineMigrationSourceObservation Source,
         OfflineMigrationBackupObservation Backup,
-        OfflineMigrationTargetIdentity Target,
-        OfflineMigrationToolIdentity Tool,
+        CurrentSchemaTargetIdentity Target,
+        CurrentSchemaVerifierIdentity Tool,
         OfflineMigrationSourceRegistry Registry,
         OfflineMigrationDag Dag)
     {

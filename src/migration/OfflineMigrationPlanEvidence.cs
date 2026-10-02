@@ -5,8 +5,8 @@ namespace FsusBlog.Migration;
 internal sealed record OfflineMigrationPlanningSnapshot(
     OfflineMigrationSourceObservation Source,
     OfflineMigrationBackupObservation Backup,
-    OfflineMigrationTargetIdentity Target,
-    OfflineMigrationToolIdentity Tool,
+    CurrentSchemaTargetIdentity Target,
+    CurrentSchemaVerifierIdentity Tool,
     OfflineMigrationSourceRegistry Registry,
     OfflineMigrationDag Dag,
     DateTimeOffset AdmissionTime,
@@ -26,6 +26,9 @@ internal interface IOfflineMigrationPlanningEvidence
 
 internal static class OfflineMigrationPlanEvidence
 {
+    internal static IOfflineMigrationSnapshotSourceObserver CreateOwnedSourceObserver()
+        => throw new InvalidOperationException("schema_offline_source_observer_owner_not_configured");
+
     internal static IOfflineMigrationPlanningEvidence CreateOwnedReader()
     {
         // The existing site backup/drill does not bind source instance or fingerprint, and

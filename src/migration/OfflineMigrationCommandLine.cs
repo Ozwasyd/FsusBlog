@@ -12,7 +12,7 @@ internal sealed record OfflineMigrationCommandOptions(
     bool DryRun);
 
 internal sealed record OfflineMigrationPlanCommandOptions(
-    OfflineMigrationDatabaseIdentity ExpectedDatabase,
+    CurrentSchemaDatabaseIdentity ExpectedDatabase,
     string EnvironmentFilePath,
     string BackupPackagePath,
     string BackupManifestPath,
@@ -20,8 +20,77 @@ internal sealed record OfflineMigrationPlanCommandOptions(
     string RestoreEnvironmentFilePath,
     string PlanOutputPath);
 
+internal sealed record OfflineMigrationSourceCommandOptions(
+    CurrentSchemaProviderKind Provider,
+    string EnvironmentFilePath,
+    bool CaptureSession,
+    string? DumpOutputPath);
+
 internal static class OfflineMigrationCommandLine
 {
+    internal static OfflineMigrationSourceCommandOptions ParseSourceObservation(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "observe-source")
+        {
+            throw new InvalidOperationException("schema_source_observation_command_required");
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        bool captureSession = false;
+        for (int index = 1; index < args.Count; index++)
+        {
+            string argument = args[index];
+            if (argument == "--capture-session")
+            {
+                if (captureSession)
+                {
+                    throw new InvalidOperationException("schema_source_capture_duplicate");
+                }
+
+                captureSession = true;
+                continue;
+            }
+
+            if (argument is not ("--provider" or "--env-file" or "--dump-output"))
+            {
+                throw new InvalidOperationException($"schema_source_observation_argument_unknown:{argument}");
+            }
+
+            string value = ReadValue(args, ref index, argument);
+            if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
+            {
+                throw new InvalidOperationException($"schema_source_observation_argument_invalid_or_duplicate:{argument}");
+            }
+        }
+
+        if (!values.TryGetValue("--provider", out string? providerValue)
+            || !values.TryGetValue("--env-file", out string? environmentFile))
+        {
+            throw new InvalidOperationException("schema_source_observation_provider_and_environment_required");
+        }
+
+        CurrentSchemaProviderKind provider = providerValue switch
+        {
+            "postgresql" => CurrentSchemaProviderKind.PostgreSql,
+            "mysql" => CurrentSchemaProviderKind.MySql,
+            "sqlite" => CurrentSchemaProviderKind.Sqlite,
+            _ => throw new InvalidOperationException("schema_source_observation_provider_unknown")
+        };
+        values.TryGetValue("--dump-output", out string? dumpOutput);
+        if (captureSession && (provider != CurrentSchemaProviderKind.PostgreSql
+            || dumpOutput is null || !Path.IsPathFullyQualified(dumpOutput)))
+        {
+            throw new InvalidOperationException("schema_source_capture_provider_or_dump_path_invalid");
+        }
+
+        if (!captureSession && dumpOutput is not null)
+        {
+            throw new InvalidOperationException("schema_source_dump_path_only_for_capture");
+        }
+
+        return new(provider, environmentFile, captureSession, dumpOutput);
+    }
+
     internal static OfflineMigrationPlanCommandOptions ParsePlan(IReadOnlyList<string> args)
     {
         if (args.Count == 0 || args[0] != "plan")
@@ -55,11 +124,11 @@ internal static class OfflineMigrationCommandLine
             }
         }
 
-        OfflineMigrationProvider provider = values["--provider"] switch
+        CurrentSchemaProviderKind provider = values["--provider"] switch
         {
-            "postgresql" => OfflineMigrationProvider.PostgreSql,
-            "mysql" => OfflineMigrationProvider.MySql,
-            "sqlite" => OfflineMigrationProvider.Sqlite,
+            "postgresql" => CurrentSchemaProviderKind.PostgreSql,
+            "mysql" => CurrentSchemaProviderKind.MySql,
+            "sqlite" => CurrentSchemaProviderKind.Sqlite,
             _ => throw new InvalidOperationException("schema_plan_provider_unknown")
         };
         return new(new(provider, values["--instance-id"], values["--database-id"]), values["--env-file"],

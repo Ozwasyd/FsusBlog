@@ -18,6 +18,33 @@ public static class OfflineMigrationHost
 
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "observe-source")
+        {
+            try
+            {
+                OfflineMigrationSourceCommandOptions options = OfflineMigrationCommandLine.ParseSourceObservation(args);
+                string? connectionString = ReadEnvironmentFile(options.EnvironmentFilePath)
+                    .GetValueOrDefault("ConnectionStrings__DefaultConnection");
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException("schema_connection_string_missing");
+                }
+
+                await ObserveSourceAsync(options, connectionString, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver(),
+                    Console.In, Console.Out, CancellationToken.None).ConfigureAwait(false);
+                return 0;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Provider faults must not publish credentials or raw historical row values.
+                string code = exception is InvalidOperationException
+                    ? exception.Message.Split(':', 2)[0]
+                    : "schema_offline_source_observation_failed";
+                WriteJson(new { status = "failed", code });
+                return 1;
+            }
+        }
+
         if (args.Length > 0 && args[0] == "plan")
         {
             try
@@ -82,6 +109,86 @@ public static class OfflineMigrationHost
             });
             return 1;
         }
+    }
+
+    internal static async Task ObserveSourceAsync(
+        OfflineMigrationSourceCommandOptions options,
+        string connectionString,
+        IOfflineMigrationSnapshotSourceObserver observer,
+        TextReader control,
+        TextWriter output,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!options.CaptureSession)
+        {
+            OfflineMigrationSourceObservation observed = await observer.ObserveAsync(
+                options.Provider, connectionString, cancellationToken).ConfigureAwait(false);
+            OfflineMigrationPlanValidation.ValidateObservation(observed);
+            if (observed.Database.Provider != options.Provider)
+            {
+                throw new InvalidOperationException("schema_source_observation_provider_mismatch");
+            }
+
+            await output.WriteLineAsync(JsonSerializer.Serialize(observed).AsMemory(), cancellationToken).ConfigureAwait(false);
+            await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (options.Provider != CurrentSchemaProviderKind.PostgreSql || options.DumpOutputPath is null
+            || !Path.IsPathFullyQualified(options.DumpOutputPath) || File.Exists(options.DumpOutputPath)
+            || Directory.Exists(options.DumpOutputPath))
+        {
+            throw new InvalidOperationException("schema_source_capture_dump_path_not_new");
+        }
+
+        OfflineMigrationSourceObservation? announcedSource = null;
+        string? announcedSnapshot = null;
+        DateTimeOffset capturedAt = default;
+        var captured = await observer.CapturePostgreSqlSnapshotAsync(connectionString, async (source, snapshotId, token) =>
+        {
+            OfflineMigrationPlanValidation.ValidateObservation(source);
+            if (source.Database.Provider != CurrentSchemaProviderKind.PostgreSql || announcedSource is not null)
+            {
+                throw new InvalidOperationException("schema_source_capture_observation_invalid");
+            }
+
+            OfflineMigrationPlanValidation.RequireText(snapshotId, "schema_source_capture_snapshot_invalid");
+            announcedSource = source;
+            announcedSnapshot = snapshotId;
+            capturedAt = DateTimeOffset.UtcNow;
+            await output.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                Source = source,
+                SnapshotId = snapshotId,
+                CapturedAt = capturedAt,
+                ObserverId = source.ExtractorId,
+                ObserverVersion = source.ExtractorVersion
+            }).AsMemory(), token).ConfigureAwait(false);
+            await output.FlushAsync(token).ConfigureAwait(false);
+            string? terminal = await control.ReadLineAsync(token).ConfigureAwait(false);
+            if (terminal != "DUMP_COMPLETED")
+            {
+                throw new InvalidOperationException("schema_source_capture_dump_terminal_required");
+            }
+
+            // The original dump owner owns actual child drain. This closed handshake selects
+            // neither a path nor a digest; the observer hashes the path bound before capture.
+            return options.DumpOutputPath;
+        }, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (announcedSource is null || captured.SnapshotId != announcedSnapshot
+            || !OfflineMigrationPlanValidation.Equal(captured.Source, announcedSource))
+        {
+            throw new InvalidOperationException("schema_source_capture_identity_changed");
+        }
+
+        OfflineMigrationPlanValidation.RequireDigest(captured.DumpSha256, "schema_source_capture_dump_digest_invalid");
+        var evidence = new OfflineMigrationBackupCaptureEvidence(captured.Source, captured.SnapshotId,
+            capturedAt, captured.Source.ExtractorId, captured.Source.ExtractorVersion, captured.DumpSha256);
+        await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "ok", capture = evidence })
+            .AsMemory(), cancellationToken).ConfigureAwait(false);
+        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     internal static async Task WritePlanAsync(
