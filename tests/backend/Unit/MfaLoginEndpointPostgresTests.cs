@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
@@ -13,6 +14,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -39,9 +41,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
+
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 using SqlSugar;
 
@@ -80,10 +87,14 @@ public sealed class MfaLoginEndpointPostgresTests(
         Assert.Equal(HttpStatusCode.Unauthorized, pendingSensitiveAccess.StatusCode);
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
 
+        AuthAuthoritySnapshot beforeRefresh = await host.CaptureAuthorityAsync();
+        int auditCount = host.AuthAuditEvents.Length;
         using HttpResponseMessage earlyRefresh = await host.RefreshAsync(
             pending.ChallengeToken!,
             pending.ChallengeToken!);
-        Assert.Equal(HttpStatusCode.Unauthorized, earlyRefresh.StatusCode);
+        await AssertRefreshRejectedAsync(earlyRefresh, "REFRESH_EXPIRED_OR_UNKNOWN", clearsCookies: true);
+        Assert.Equal(beforeRefresh, await host.CaptureAuthorityAsync());
+        AssertRefreshFailureAudit(host, auditCount, "expired-or-unknown");
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
         Assert.Equal(0, await host.CountSessionsAsync());
 
@@ -362,6 +373,237 @@ public sealed class MfaLoginEndpointPostgresTests(
         Assert.Equal(1, await host.CountSessionsAsync());
     }
 
+    [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-refresh-authority")]
+    public async Task GuestRefresh_WithoutCookiesRejectsWithoutIssuingOrConsumingAuthority()
+    {
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        AuthAuthoritySnapshot before = await host.CaptureAuthorityAsync();
+        int auditCount = host.AuthAuditEvents.Length;
+
+        using HttpResponseMessage rejected = await host.RefreshWithoutCookiesAsync();
+
+        await AssertRefreshRejectedAsync(rejected, "会话已失效，请重新登录", clearsCookies: false);
+        Assert.Equal(before, await host.CaptureAuthorityAsync());
+        Assert.Equal(0, await host.CountSessionsAsync());
+        // The mapped endpoint rejects before the rotation service or MFA verifier.
+        Assert.Equal(auditCount, host.AuthAuditEvents.Length);
+    }
+
+    [Theory]
+    [InlineData("revoked")]
+    [InlineData("idle-expired")]
+    [InlineData("absolute-expired")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-refresh-authority")]
+    public async Task CompletedMfaRefresh_InactivePostgresSessionRejectsWithoutRotationOrProofConsumption(string scenario)
+    {
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        using HttpResponseMessage login = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+        AuthLoginFlowDto pending = await ReadLoginFlowAsync(login);
+        using HttpResponseMessage completed = await host.CompleteMfaAsync(
+            pending.ChallengeToken!, ComputeCurrentTotp(host.MfaSecret), DeviceA);
+        UserSession issued = Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+        await host.AssertAccessTokenMatchesSessionAsync(completed, issued);
+        string proof = await host.CreateRetainedProofAsync(issued.SessionId);
+        using HttpResponseMessage controlLogin = await host.PasskeyLoginAsync(host.OtherMfaUser.Id, DeviceB);
+        string controlContinuation = (await ReadLoginFlowAsync(controlLogin)).ChallengeToken!;
+        await host.RevokeOrExpireSessionAsync(issued.SessionId, scenario);
+        AuthAuthoritySnapshot before = await host.CaptureAuthorityAsync();
+        int auditCount = host.AuthAuditEvents.Length;
+
+        using HttpResponseMessage rejected = await host.RefreshAsync(
+            ReadCookie(completed, "RefreshToken"), issued.SessionId);
+
+        await AssertRefreshRejectedAsync(rejected, "REFRESH_EXPIRED_OR_UNKNOWN", clearsCookies: true);
+        Assert.Equal(before, await host.CaptureAuthorityAsync());
+        UserSession after = await host.ReadSessionAsync(issued.SessionId);
+        Assert.Equal(issued.RefreshTokenHash, after.RefreshTokenHash);
+        Assert.Equal(issued.RefreshFamilyId, after.RefreshFamilyId);
+        Assert.Equal(issued.RefreshGeneration, after.RefreshGeneration);
+        Assert.Equal(1, await host.CountSessionsAsync());
+        Assert.Equal(0, await host.CountRefreshTombstonesAsync());
+        Assert.True(await host.ContinuationExistsAsync(controlContinuation));
+        AssertRefreshFailureAudit(host, auditCount, "expired-or-revoked");
+        // The low-level consume oracle proves refresh left the issued proof intact;
+        // it does not grant an inactive Session sensitive-action authorization.
+        Assert.True(await host.ConsumeRetainedProofAsync(issued.SessionId, proof));
+        Assert.False(await host.ConsumeRetainedProofAsync(issued.SessionId, proof));
+    }
+
+    [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-continuation-authority")]
+    public async Task CompletedMfa_RealLogoutThenOldContinuationReplayCannotCreateAnotherSession()
+    {
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        using HttpResponseMessage login = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+        AuthLoginFlowDto pending = await ReadLoginFlowAsync(login);
+        using HttpResponseMessage completed = await host.CompleteMfaAsync(
+            pending.ChallengeToken!, ComputeCurrentTotp(host.MfaSecret), DeviceA);
+        UserSession issued = Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+        await host.AssertAccessTokenMatchesSessionAsync(completed, issued);
+        string proof = await host.CreateRetainedProofAsync(issued.SessionId);
+        Assert.False(await host.ContinuationExistsAsync(pending.ChallengeToken!));
+        int auditCount = host.AuthAuditEvents.Length;
+
+        using HttpResponseMessage logout = await host.LogoutAsync(
+            ReadCookie(completed, "AccessToken"), ReadCookie(completed, "RefreshToken"), issued.SessionId);
+
+        Assert.Equal(HttpStatusCode.OK, logout.StatusCode);
+        await AssertEmptySuccessAsync(logout);
+        AssertDeletedAuthCookies(logout, includesAdmin: true);
+        UserSession revoked = await host.ReadSessionAsync(issued.SessionId);
+        Assert.NotNull(revoked.RevokedAt);
+        Assert.Equal("logout", revoked.RevokeReason);
+        Assert.Equal(UserSessionMode.Revoked, revoked.SessionMode);
+        Assert.Equal(issued.RefreshTokenHash, revoked.RefreshTokenHash);
+        Assert.Equal(issued.RefreshGeneration, revoked.RefreshGeneration);
+        Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(auditCount, host.AuthAuditEvents.Length);
+        AuthAuthoritySnapshot beforeReplay = await host.CaptureAuthorityAsync();
+
+        using HttpResponseMessage replay = await host.CompleteMfaAsync(
+            pending.ChallengeToken!, ComputeCurrentTotp(host.MfaSecret), DeviceA);
+
+        await AssertRejectedWithoutDetailLeakAsync(replay, "MFA_CHALLENGE_EXPIRED");
+        Assert.Equal(beforeReplay, await host.CaptureAuthorityAsync());
+        Assert.Equal(1, await host.CountSessionsAsync());
+        Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(auditCount, host.AuthAuditEvents.Length);
+        Assert.True(await host.ConsumeRetainedProofAsync(issued.SessionId, proof));
+        Assert.False(await host.ConsumeRetainedProofAsync(issued.SessionId, proof));
+
+        // Logout retires the old authority, not the account's ability to begin a
+        // new canonical Passkey login. Do not recreate the fake terminal state.
+        using HttpResponseMessage freshLogin = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+        Assert.Equal("mfa_required", (await ReadLoginFlowAsync(freshLogin)).AuthPhase);
+        Assert.False(freshLogin.Headers.TryGetValues("Set-Cookie", out _));
+        Assert.Equal(1, await host.CountSessionsAsync());
+    }
+
+    [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
+    public async Task CompletedMfaToken_MappedPublicHandleWriteExecutesProductionCommandInPostgres()
+    {
+        const string PublicHandle = "mfa2348written";
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        using HttpResponseMessage login = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+        AuthLoginFlowDto pending = await ReadLoginFlowAsync(login);
+        AuthAuthoritySnapshot beforePendingWrite = await host.CaptureAuthorityAsync();
+        int pendingAuditCount = host.AuthAuditEvents.Length;
+        using HttpResponseMessage pendingWrite = await host.WritePublicHandleAsync(pending.ChallengeToken!, PublicHandle);
+        Assert.Equal(HttpStatusCode.Unauthorized, pendingWrite.StatusCode);
+        // Default JWT authorization challenges before the mapped write handler;
+        // unlike the refresh endpoint's AEDS error, its canonical body is empty.
+        Assert.Empty(await pendingWrite.Content.ReadAsByteArrayAsync());
+        Assert.Equal("Bearer", Assert.Single(pendingWrite.Headers.WwwAuthenticate).Scheme);
+        Assert.False(pendingWrite.Headers.TryGetValues("Set-Cookie", out _));
+        Assert.Equal(beforePendingWrite, await host.CaptureAuthorityAsync());
+        Assert.Equal(pendingAuditCount, host.AuthAuditEvents.Length);
+        Assert.Equal(0, await host.CountSessionsAsync());
+        Assert.Equal(0, await host.CountRefreshTombstonesAsync());
+
+        using HttpResponseMessage completed = await host.CompleteMfaAsync(
+            pending.ChallengeToken!, ComputeCurrentTotp(host.MfaSecret), DeviceA);
+        UserSession issued = Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+        await host.AssertAccessTokenMatchesSessionAsync(completed, issued);
+        User before = await host.ReadUserAsync(host.MfaUser.Id);
+        User otherBefore = await host.ReadUserAsync(host.OtherMfaUser.Id);
+        string recoveryHashes = await host.ReadRecoveryHashesAsync(host.MfaUser.Id);
+        AuthAuthoritySnapshot beforeWrite = await host.CaptureAuthorityAsync();
+        int auditCount = host.AuthAuditEvents.Length;
+
+        using HttpResponseMessage written = await host.WritePublicHandleAsync(
+            ReadCookie(completed, "AccessToken"), PublicHandle);
+
+        Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+        await AssertEmptySuccessAsync(written);
+        Assert.False(written.Headers.TryGetValues("Set-Cookie", out _));
+        User after = await host.ReadUserAsync(host.MfaUser.Id);
+        Assert.Equal(PublicHandle, after.PublicHandle);
+        Assert.Equal(before.PasskeySignalVersion + 1, after.PasskeySignalVersion);
+        User otherAfter = await host.ReadUserAsync(host.OtherMfaUser.Id);
+        Assert.Equal(otherBefore.PublicHandle, otherAfter.PublicHandle);
+        Assert.Equal(otherBefore.PasskeySignalVersion, otherAfter.PasskeySignalVersion);
+        Assert.Equal(recoveryHashes, await host.ReadRecoveryHashesAsync(host.MfaUser.Id));
+        Assert.Equal(beforeWrite.Sessions, (await host.CaptureAuthorityAsync()).Sessions);
+        Assert.False(await host.ContinuationExistsAsync(pending.ChallengeToken!));
+        Assert.Equal(1, await host.CountSessionsAsync());
+        Assert.Equal(0, await host.CountRefreshTombstonesAsync());
+        Assert.Equal(auditCount, host.AuthAuditEvents.Length);
+        // Public-handle is an existing authenticated write, not a step-up action.
+        // Keep its production policy; do not add MFA or claim credential mutation.
+    }
+
+    private static async Task AssertRefreshRejectedAsync(
+        HttpResponseMessage response,
+        string message,
+        bool clearsCookies)
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        ErrorDetail error = await ReadErrorAsync(response);
+        Assert.Equal(ErrorCode.Unauthorized, error.Code);
+        Assert.Equal(message, error.Message);
+        if (clearsCookies)
+        {
+            AssertDeletedAuthCookies(response, includesAdmin: false);
+        }
+        else
+        {
+            Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
+        }
+    }
+
+    private static void AssertDeletedAuthCookies(HttpResponseMessage response, bool includesAdmin)
+    {
+        string[] names = includesAdmin
+            ? ["AccessToken", "RefreshToken", "SessionId", "AdminAccessToken", "AdminSessionId"]
+            : ["AccessToken", "RefreshToken", "SessionId"];
+        string[] expected = names.SelectMany(static name => new[] { name, "__Host-" + name }).ToArray();
+        string[] cookies = response.Headers.GetValues("Set-Cookie").ToArray();
+        Assert.Equal(expected.Length, cookies.Length);
+        foreach (string name in expected)
+        {
+            string cookie = Assert.Single(cookies, value => value.StartsWith(name + "=", StringComparison.Ordinal));
+            Assert.StartsWith(name + "=;", cookie, StringComparison.Ordinal);
+            Assert.Contains("expires=Thu, 01 Jan 1970 00:00:00 GMT", cookie, StringComparison.Ordinal);
+        }
+    }
+
+    private static void AssertRefreshFailureAudit(MfaLoginTestHost host, int previousCount, string reason)
+    {
+        LogEvent audit = Assert.Single(host.AuthAuditEvents.Skip(previousCount));
+        Assert.Equal(AuditSourceCatalog.Auth, Assert.IsType<ScalarValue>(audit.Properties[AuditPropertyNames.Source]).Value);
+        Assert.Equal(AuditTypeCatalog.Security, Assert.IsType<ScalarValue>(audit.Properties[AuditPropertyNames.Type]).Value);
+        Assert.Equal("refresh.failed", Assert.IsType<ScalarValue>(audit.Properties["AuditAction"]).Value);
+        Assert.Equal(reason, Assert.IsType<ScalarValue>(audit.Properties["Reason"]).Value);
+    }
+
+    private static async Task AssertEmptySuccessAsync(HttpResponseMessage response)
+    {
+        var decoded = new AedsEncoder().TryDecode(await response.Content.ReadAsByteArrayAsync());
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.EmptySuccess, decoded.Value.FrameType);
+    }
+
+    private sealed record AuthAuthoritySnapshot(string Accounts, string Sessions, string Profiles, string Tombstones, string Cache);
+
+    private sealed class AuthAuditSink : ILogEventSink
+    {
+        private readonly ConcurrentQueue<LogEvent> _events = new();
+
+        public LogEvent[] Events => _events.ToArray();
+
+        public void Emit(LogEvent logEvent)
+        {
+            if (logEvent.Properties.ContainsKey("AuditAction")
+                && logEvent.Properties.TryGetValue(AuditPropertyNames.Source, out LogEventPropertyValue? source)
+                && source is ScalarValue { Value: AuditSourceCatalog.Auth })
+            {
+                _events.Enqueue(logEvent);
+            }
+        }
+    }
+
     private static async Task AssertRejectedWithoutDetailLeakAsync(
         HttpResponseMessage response,
         string expectedMessage)
@@ -454,6 +696,7 @@ public sealed class MfaLoginEndpointPostgresTests(
         private readonly SqlSugarClient _db;
         private readonly RedisMfaCache _cache;
         private readonly ITotpService _totp;
+        private readonly AuthAuditSink _audit;
 
         private MfaLoginTestHost(
             WebApplication application,
@@ -465,13 +708,15 @@ public sealed class MfaLoginEndpointPostgresTests(
             User otherMfaUser,
             User nonMfaUser,
             string mfaSecret,
-            string otherMfaSecret)
+            string otherMfaSecret,
+            AuthAuditSink audit)
         {
             _application = application;
             _client = client;
             _db = db;
             _cache = cache;
             _totp = totp;
+            _audit = audit;
             MfaUser = mfaUser;
             OtherMfaUser = otherMfaUser;
             NonMfaUser = nonMfaUser;
@@ -500,6 +745,7 @@ public sealed class MfaLoginEndpointPostgresTests(
             get;
         }
         public int ActiveContinuationCount => _cache.CountContinuations();
+        public LogEvent[] AuthAuditEvents => _audit.Events;
 
         public static async Task<MfaLoginTestHost> CreateAsync(
             PostgresSchemaMigrationFixture fixture,
@@ -550,6 +796,11 @@ public sealed class MfaLoginEndpointPostgresTests(
             };
             WebApplicationBuilder builder = WebApplication.CreateBuilder(options);
             builder.WebHost.UseTestServer();
+            var audit = new AuthAuditSink();
+            builder.Logging.ClearProviders().AddSerilog(new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .WriteTo.Sink(audit)
+                .CreateLogger(), dispose: true);
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Jwt:SecretKey"] = "issue-2348-jwt-signing-key-with-at-least-32-bytes",
@@ -608,6 +859,10 @@ public sealed class MfaLoginEndpointPostgresTests(
             localePreferences.GetAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns(new UserLocalePreferenceDto(LocalePreferenceModes.Auto, null, 0, DateTime.UnixEpoch));
             ReplaceSingleton(builder.Services, localePreferences);
+            IContentFilterService contentFilter = Substitute.For<IContentFilterService>();
+            contentFilter.ValidateContent(Arg.Any<string>())
+                .Returns(new ContentValidationResult(true, "ok", string.Empty));
+            ReplaceSingleton(builder.Services, contentFilter);
             ReplaceSingleton<ISecurityRiskSignalSink>(builder.Services, new NoopRiskSignalSink());
             ReplaceSingleton<ISecurityRiskScoreReader>(builder.Services, new ZeroRiskScoreReader());
             ReplaceSingleton<ISecurityRiskPolicyProvider>(
@@ -643,7 +898,8 @@ public sealed class MfaLoginEndpointPostgresTests(
                 otherMfaUser,
                 nonMfaUser,
                 mfaSecret,
-                otherMfaSecret);
+                otherMfaSecret,
+                audit);
         }
 
         public Task<HttpResponseMessage> PasskeyLoginAsync(int accountId, string deviceSignal)
@@ -697,6 +953,30 @@ public sealed class MfaLoginEndpointPostgresTests(
             return _client.SendAsync(request);
         }
 
+        public Task<HttpResponseMessage> RefreshWithoutCookiesAsync()
+            => _client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/binary/auth/refresh-token"));
+
+        public Task<HttpResponseMessage> LogoutAsync(string accessToken, string refreshToken, string sessionId)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/binary/auth/logout");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Add("Cookie", $"RefreshToken={refreshToken}; SessionId={sessionId}");
+            return _client.SendAsync(request);
+        }
+
+        public Task<HttpResponseMessage> WritePublicHandleAsync(string accessToken, string publicHandle)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, "/api/binary/auth/public-handle")
+            {
+                Content = new ByteArrayContent(new AedsEncoder().Encode(
+                    AedsFrameType.AuthUpdatePublicHandleRequest,
+                    PodBinaryCodec.EncodeStringMutationRequest(publicHandle)))
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            return _client.SendAsync(request);
+        }
+
         public Task<HttpResponseMessage> AccessProtectedEndpointAsync(string accessToken)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/me");
@@ -716,6 +996,63 @@ public sealed class MfaLoginEndpointPostgresTests(
             => _db.Queryable<UserSession>()
                 .Where(session => session.UserId == accountId && session.RevokedAt == null)
                 .ToListAsync();
+
+        public Task<UserSession> ReadSessionAsync(string sessionId)
+            => _db.Queryable<UserSession>().SingleAsync(session => session.SessionId == sessionId);
+
+        public Task<User> ReadUserAsync(int accountId)
+            => _db.Queryable<User>().SingleAsync(user => user.Id == accountId);
+
+        public Task<int> CountRefreshTombstonesAsync() => _db.Queryable<UserRefreshTokenTombstone>().CountAsync();
+
+        public async Task<AuthAuthoritySnapshot> CaptureAuthorityAsync()
+        {
+            return new AuthAuthoritySnapshot(
+                await ReadRowsAsync("SELECT COALESCE(jsonb_agg(to_jsonb(row) ORDER BY id), '[]'::jsonb)::text FROM sys_user AS row"),
+                await ReadRowsAsync("SELECT COALESCE(jsonb_agg(to_jsonb(row) ORDER BY sessionid), '[]'::jsonb)::text FROM sys_user_session AS row"),
+                await ReadRowsAsync("SELECT COALESCE(jsonb_agg(to_jsonb(row) ORDER BY user_id), '[]'::jsonb)::text FROM user_mfa_profile AS row"),
+                await ReadRowsAsync("SELECT COALESCE(jsonb_agg(to_jsonb(row) ORDER BY token_hash), '[]'::jsonb)::text FROM user_refresh_token_tombstone AS row"),
+                await _cache.SnapshotAsync());
+        }
+
+        private async Task<string> ReadRowsAsync(string sql)
+            => HashToken(Convert.ToString(await _db.Ado.GetScalarAsync(sql), CultureInfo.InvariantCulture)!);
+
+        public async Task RevokeOrExpireSessionAsync(string sessionId, string scenario)
+        {
+            if (scenario == "revoked")
+            {
+                await using AsyncServiceScope scope = _application.Services.CreateAsyncScope();
+                Assert.True(await scope.ServiceProvider.GetRequiredService<IUserSessionCommandService>()
+                    .RevokeSessionAsync(MfaUser.Id, sessionId, "test-auth-refresh-revoke"));
+                return;
+            }
+            string sql = scenario switch
+            {
+                "idle-expired" => "UPDATE sys_user_session SET idleexpiresat = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE sessionid = @SessionId",
+                "absolute-expired" => "UPDATE sys_user_session SET absoluteexpiresat = CURRENT_TIMESTAMP - INTERVAL '1 minute' WHERE sessionid = @SessionId",
+                _ => throw new ArgumentOutOfRangeException(nameof(scenario))
+            };
+            Assert.Equal(1, await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter("@SessionId", sessionId)));
+            await _cache.Cache.RemoveAsync(CachePolicyId.SecurityUserSessionValidation, sessionId);
+        }
+
+        public async Task<string> CreateRetainedProofAsync(string sessionId)
+        {
+            await using AsyncServiceScope scope = _application.Services.CreateAsyncScope();
+            // Seed a real canonical proof-store authority for the non-consumption
+            // oracle, not a TOTP step-up endpoint or WebAuthn verification claim.
+            return await scope.ServiceProvider.GetRequiredService<IMfaChallengeService>().CreateProofTokenAsync(
+                MfaUser.Id, MfaUser.AccountSubjectHash!, sessionId,
+                UserSecurityStepUpActions.PasskeyDelete, UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(5));
+        }
+
+        public async Task<bool> ConsumeRetainedProofAsync(string sessionId, string proof)
+        {
+            await using AsyncServiceScope scope = _application.Services.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<IMfaChallengeService>().ValidateAndConsumeProofTokenAsync(
+                MfaUser.Id, MfaUser.AccountSubjectHash!, sessionId, UserSecurityStepUpActions.PasskeyDelete, proof);
+        }
 
         public async Task AssertAccessTokenMatchesSessionAsync(HttpResponseMessage response, UserSession stored)
         {
@@ -901,6 +1238,15 @@ public sealed class MfaLoginEndpointPostgresTests(
         public int CountContinuations()
             => connection.GetServer(Assert.Single(connection.GetEndPoints()))
                 .Keys(pattern: prefix + "fsus:sec:mfa-challenge:*").Count();
+
+        public async Task<string> SnapshotAsync()
+        {
+            RedisKey[] keys = connection.GetServer(Assert.Single(connection.GetEndPoints()))
+                .Keys(pattern: prefix + "*").OrderBy(static key => key.ToString(), StringComparer.Ordinal).ToArray();
+            RedisValue[] values = keys.Length == 0 ? [] : await Database.StringGetAsync(keys);
+            return HashToken(string.Join('|', keys.Select((key, index) =>
+                key.ToString() + "=" + Convert.ToHexString(SHA256.HashData((byte[]?)values[index] ?? [])))));
+        }
 
         public async Task ExpireThroughRedisTtlAsync(string challengeToken)
         {
