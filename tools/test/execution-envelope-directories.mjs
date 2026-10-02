@@ -8,6 +8,35 @@ import { seedPreparedNuget } from './behavior-doc-nuget-preparation.mjs';
 export const executionEnvelopeDirectoriesSchema =
     'fsusblog.test-execution-envelope-directories.v1';
 
+// Only this owner can mint an alias capability; serialized fragments are not capabilities.
+const privateTmpCapabilities = new WeakMap();
+
+export function inspectOwnedPrivateTmp(capability, { environment, readWritePaths } = {})
+{
+    const binding = privateTmpCapabilities.get(capability);
+    if (!binding)
+    {
+        throw new Error('private /tmp alias requires the original current-attempt directory capability');
+    }
+    const metadata = fs.lstatSync(binding.source, { bigint: true });
+    if (!metadata.isDirectory() || fs.realpathSync(binding.source) !== binding.source
+        || String(metadata.dev) !== binding.device || String(metadata.ino) !== binding.inode
+        || String(metadata.uid) !== binding.uid || Number(metadata.mode & 0o777n) !== 0o700
+        || fs.realpathSync(binding.ownedRoot) !== binding.ownedRoot
+        || fs.realpathSync(binding.toolCache) !== binding.toolCache
+        || !isWithin(binding.ownedRoot, binding.toolCache)
+        || !isWithin(binding.ownedRoot, binding.source)
+        || (environment && (environment.FSUSBLOG_TOOL_CACHE !== binding.toolCache
+            || environment.FSUSBLOG_TEST_RUN_ID !== binding.runId
+            || environment.TMPDIR !== binding.source || environment.TMP !== binding.source
+            || environment.TEMP !== binding.source))
+        || (readWritePaths && !readWritePaths.includes(binding.source)))
+    {
+        throw new Error('private /tmp alias current-attempt directory identity drifted');
+    }
+    return { ...binding };
+}
+
 function sha256(value)
 {
     return `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -206,8 +235,23 @@ export function prepareRunOwnedDirectories({
             },
             cleanup: { status: 'pending', removedOwnedRoot: false }
         };
+        const privateTmpCapability = Object.freeze({});
+        const tempMetadata = fs.lstatSync(directories.temp, { bigint: true });
+        privateTmpCapabilities.set(privateTmpCapability, Object.freeze({
+            source: directories.temp,
+            destination: '/tmp',
+            ownedRoot: fragment.ownedRoot,
+            toolCache: directories.toolCache,
+            runId,
+            producerId,
+            attemptId,
+            device: String(tempMetadata.dev),
+            inode: String(tempMetadata.ino),
+            uid: String(tempMetadata.uid)
+        }));
         return {
             fragment,
+            privateTmpCapability,
             environment: {
                 HOME: directories.home,
                 USERPROFILE: directories.home,

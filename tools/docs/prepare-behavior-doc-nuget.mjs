@@ -103,6 +103,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint },
             policy: loadExecutionEnvelopePolicy(), catalog: loadExecutionEnvelopeApplicability() });
         const network = prepareNetworkSandbox({ command: environment.command, cwd: root,
+            ownedDirectoryEnvelope: directories,
             directories: directories.fragment.directories, writableRoots: directories.fragment.writableRoots,
             plannedEndpoints: [], environment: environment.environment, policy: loadExecutionNetworkPolicy() });
         const toolchain = environment.fragment.actualExecutable;
@@ -133,7 +134,8 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 physicalExecution = await runPhysicalExecution({ command: network.command, cwd: root,
                     env: environment.environment, signal: controller.signal,
                     linuxPrivateNetwork: network.linuxPrivateNetwork, linuxNetworkPolicy: network.linuxNetworkPolicy,
-                    linuxReadWritePaths: network.linuxReadWritePaths });
+                    linuxReadWritePaths: network.linuxReadWritePaths,
+                    linuxOwnedPrivateTmp: network.linuxOwnedPrivateTmp });
             }
             catch (error) { failure = error; physicalExecution = error.physicalExecution; }
             terminalEvidence = physicalExecution;

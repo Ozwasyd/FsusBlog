@@ -105,6 +105,7 @@ const result = await new Promise((resolve) =>
     {
         child.stdio[3].write(`${JSON.stringify({
             authorityId: admission.authorityId,
+            privateTmpPlan: admission.privateTmpPlan,
             command,
             environmentJson: JSON.stringify(commandEnvironment)
         })}\n`);

@@ -259,6 +259,10 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
     const physical = receipt.physicalExecution;
     const feed = inventoryNugetOfflineFeed(preparation.feedRoot, closure);
     const toolchain = receipt.physicalExecution?.toolchain;
+    const alias = physical?.executionAdmission?.ownedPrivateTmp;
+    const filesystem = physical?.authority?.filesystemIsolation;
+    const directoryFragment = physical?.executionEnvelopeFragments?.directories;
+    const plannedAlias = physical?.executionEnvelopeFragments?.network?.sandbox?.filesystem?.ownedPrivateTmp;
     const executable = resolveExecutablePath('dotnet', { pathValue: process.env.PATH });
     if (receipt.receiptDigest !== transfer.receiptDigest || receipt.commit !== source.sourceCommit
         || receipt.worktreeFingerprint !== source.worktreeFingerprint
@@ -276,6 +280,19 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
         || !physical.lifecycle?.includes('post-observe-zero-members')
         || physical.cleanup?.status !== 'verified' || !Array.isArray(physical.processInventory)
         || physical.executionAdmission?.phase !== 'pre-exec'
+        || !alias || !plannedAlias || !equal(filesystem?.ownedPrivateTmp?.actual, alias)
+        || alias.plan?.source !== directoryFragment?.directories?.temp
+        || alias.plan?.ownedRoot !== directoryFragment?.ownedRoot
+        || alias.plan?.runId !== runId || alias.plan?.destination !== '/tmp'
+        || !equal(plannedAlias, Object.fromEntries(Object.entries(alias.plan).filter(([name]) =>
+            !['hostMountNamespace', 'hostTmpDevice', 'hostTmpInode'].includes(name))))
+        || filesystem?.privateTmp !== true || filesystem?.protectSystem !== 'strict'
+        || filesystem?.protectHome !== 'read-only'
+        || filesystem?.ownedPrivateTmp?.bindPaths !== `${alias.plan?.source}:/tmp`
+        || alias.sourceDevice !== alias.plan?.device || alias.sourceInode !== alias.plan?.inode
+        || alias.aliasDevice !== alias.sourceDevice || alias.aliasInode !== alias.sourceInode
+        || alias.mountNamespace === alias.plan?.hostMountNamespace
+        || alias.aliasMode !== 0o700 || alias.aliasUid !== alias.plan?.uid || !alias.mountInfo
         || !equal(physical.executionEnvelopeFragments?.environment?.actualExecutable, toolchain)
         || physical.processInventory.filter((entry) => entry.role === 'direct-child').length !== 1
         || physical.processInventory.some((entry) => entry.role === 'direct-child' && (entry.exitCode !== 0 || entry.signal))

@@ -7,6 +7,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
+import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
 import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
 import {
     collectProcessGroupOrJobIdentity,
@@ -158,6 +159,7 @@ function unitProperties(unitName, runSystemctl)
         '--property=ProtectHome',
         '--property=ProtectSystem',
         '--property=ReadWritePaths',
+        '--property=BindPaths',
         '--no-pager'
     ];
     let result;
@@ -430,6 +432,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             linuxPrivateNetwork = false,
             linuxNetworkPolicy = null,
             linuxReadWritePaths = [],
+            linuxOwnedPrivateTmp = null,
             signal,
             policy,
             stdout,
@@ -439,6 +442,22 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
         })
         {
             requireSystemdAuthority(runSystemctl);
+            const ownedPrivateTmp = linuxOwnedPrivateTmp
+                ? inspectOwnedPrivateTmp(linuxOwnedPrivateTmp, { environment: env, readWritePaths: linuxReadWritePaths })
+                : null;
+            if (ownedPrivateTmp && (/[\s:\\]/u.test(ownedPrivateTmp.source)
+                || ['/tmp', '/var/tmp'].some((directory) => ownedPrivateTmp.source === directory
+                    || ownedPrivateTmp.source.startsWith(`${directory}/`))))
+            {
+                throw new Error('private /tmp alias path cannot be represented exactly by systemd');
+            }
+            const hostTmp = ownedPrivateTmp ? fs.statSync('/tmp', { bigint: true }) : null;
+            const privateTmpPlan = ownedPrivateTmp ? {
+                ...ownedPrivateTmp,
+                hostMountNamespace: fs.readlinkSync('/proc/self/ns/mnt'),
+                hostTmpDevice: String(hostTmp.dev),
+                hostTmpInode: String(hostTmp.ino)
+            } : null;
             const authorityId = randomUUID();
             const { privateKey, publicKey } = generateKeyPairSync('ed25519');
             let python;
@@ -481,7 +500,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 writePrivateJsonFile(controlRoot, 'admission.json', {
                     authorityId,
                     publicKey: publicKey.export({ type: 'spki', format: 'pem' }),
-                    python
+                    python,
+                    privateTmpPlan
                 });
             }
             catch (error)
@@ -507,6 +527,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     '--property=ProtectSystem=strict',
                     '--property=ProtectHome=read-only',
                     '--property=PrivateTmp=yes',
+                    ...(privateTmpPlan ? [`--property=BindPaths=${privateTmpPlan.source}:/tmp:norbind`] : []),
                     ...linuxReadWritePaths.map((entry) => `--property=ReadWritePaths=${entry}`)
                 ] : []),
                 `--working-directory=${cwd}`,
@@ -835,6 +856,11 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 {
                     throw new Error('physical execution systemd filesystem authority is unverifiable');
                 }
+                if (privateTmpPlan && (properties.values.BindPaths !== `${privateTmpPlan.source}:/tmp`
+                    || !exactPropertyTokens(properties.values.ReadWritePaths, linuxReadWritePaths)))
+                {
+                    throw new Error('physical execution systemd owned /tmp binding is unverifiable');
+                }
                 authorityEstablished = true;
                 supervisorPid = Number(fs.readFileSync(readyFile, 'utf8').trim());
                 controlGroup = properties.values.ControlGroup;
@@ -916,6 +942,20 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 {
                     throw new WaitForFileCancellation('admission', signal.reason);
                 }
+                if (privateTmpPlan)
+                {
+                    inspectOwnedPrivateTmp(linuxOwnedPrivateTmp, { environment: env, readWritePaths: linuxReadWritePaths });
+                    const actual = childRegistration.ownedPrivateTmp;
+                    if (!actual || JSON.stringify(actual.plan) !== JSON.stringify(privateTmpPlan)
+                        || actual.mountNamespace === privateTmpPlan.hostMountNamespace
+                        || actual.sourceDevice !== privateTmpPlan.device || actual.sourceInode !== privateTmpPlan.inode
+                        || actual.aliasDevice !== actual.sourceDevice || actual.aliasInode !== actual.sourceInode
+                        || (actual.aliasDevice === privateTmpPlan.hostTmpDevice && actual.aliasInode === privateTmpPlan.hostTmpInode)
+                        || !actual.mountInfo || actual.aliasMode !== 0o700 || actual.aliasUid !== privateTmpPlan.uid)
+                    {
+                        throw new Error('physical execution kernel owned /tmp alias admission is unverifiable');
+                    }
+                }
                 executionAdmission = {
                     phase: 'pre-exec',
                     pid: commandPid,
@@ -923,7 +963,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     commandDigest: `sha256:${createHash('sha256').update(JSON.stringify(command)).digest('hex')}`,
                     environmentDigest: childRegistration.environmentDigest,
                     executableCandidates: childRegistration.executables,
-                    executedImageObservation: 'not-observed'
+                    executedImageObservation: 'not-observed',
+                    ...(privateTmpPlan ? { ownedPrivateTmp: childRegistration.ownedPrivateTmp } : {})
                 };
                 writePrivateJsonFile(controlRoot, 'release.json', {
                     registration: registrationBytes,
@@ -1121,7 +1162,11 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         protectSystem: 'strict',
                         protectHome: 'read-only',
                         privateTmp: true,
-                        readWritePaths: [...linuxReadWritePaths]
+                        readWritePaths: [...linuxReadWritePaths],
+                        ...(privateTmpPlan ? {
+                            ownedPrivateTmp: { planned: privateTmpPlan, actual: executionAdmission?.ownedPrivateTmp ?? null,
+                                bindPaths: properties?.values?.BindPaths ?? null }
+                        } : {})
                     }
                     : null,
                 established: establishedState,

@@ -437,6 +437,7 @@ async function main(argv)
                 ],
                 cwd,
                 directories: directoryEnvelope.fragment.directories,
+                ownedDirectoryEnvelope: directoryEnvelope,
                 writableRoots: directoryEnvelope.fragment.writableRoots,
                 plannedEndpoints: projectPlannedEndpoints({
                     services: producerEnvelope.requiredServices,
@@ -680,7 +681,8 @@ async function main(argv)
                         {
                             linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
                             linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
-                            linuxReadWritePaths: networkSandbox.linuxReadWritePaths
+                            linuxReadWritePaths: networkSandbox.linuxReadWritePaths,
+                            linuxOwnedPrivateTmp: networkSandbox.linuxOwnedPrivateTmp
                         }
                     );
                 }

@@ -12,6 +12,8 @@ const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox
 const {runPhysicalExecution} = await import(new URL('../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
 const policy = loadExecutionNetworkPolicy();
 
+const { inspectOwnedPrivateTmp, finalizeRunOwnedDirectoriesAfterPhysical } = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
+
 test('network policy is default deny with no ambient external endpoint', () =>
 {
     assert.deepEqual(validateExecutionNetworkPolicy(policy), []);
@@ -458,4 +460,114 @@ test('physical runner permits declared canonical outputs and denies undeclared/r
     networkFinalized = true;
     assert.equal(finalizeRunOwnedDirectories(directoryEnvelope).cleanup.status, 'complete');
     directoryFinalized = true;
+});
+
+test('owned private /tmp capabilities refuse serialized, cross-owner, stale and altered inputs', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-owned-tmp-capability-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const prepare = (attemptId) => prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'owned-tmp-run', producerId: 'producer', attemptId });
+    const owner = prepare('first');
+    const other = prepare('second');
+    const environment = { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'owned-tmp-run', PATH: process.env.PATH };
+    const readWritePaths = Object.values(owner.fragment.directories);
+    const binding = inspectOwnedPrivateTmp(owner.privateTmpCapability, { environment, readWritePaths });
+    assert.equal(binding.source, owner.fragment.directories.temp);
+    assert.equal(binding.destination, '/tmp');
+    assert.throws(() => inspectOwnedPrivateTmp(JSON.parse(JSON.stringify(owner.privateTmpCapability))), /capability/u);
+    assert.throws(() => inspectOwnedPrivateTmp(other.privateTmpCapability, { environment, readWritePaths }), /drifted/u);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability, {
+        environment: { ...environment, FSUSBLOG_TEST_RUN_ID: 'older-run' }, readWritePaths
+    }), /drifted/u);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability, { environment, readWritePaths: [] }), /drifted/u);
+    fs.chmodSync(binding.source, 0o755);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /drifted/u);
+    fs.chmodSync(binding.source, 0o700);
+    const retired = binding.source + '-retired';
+    fs.renameSync(binding.source, retired);
+    fs.mkdirSync(binding.source, { mode: 0o700 });
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /drifted/u);
+    fs.rmdirSync(binding.source);
+    fs.symlinkSync(other.fragment.directories.temp, binding.source);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /drifted/u);
+    fs.unlinkSync(binding.source);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /ENOENT/u);
+});
+
+test('native owned private /tmp refuses absent binding before its command', { skip: process.platform !== 'linux' }, (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-owned-tmp-absent-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'owned-tmp-absent', producerId: 'producer', attemptId: 'attempt' });
+    const environment = { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'owned-tmp-absent', PATH: process.env.PATH };
+    const sentinel = path.join(owner.fragment.directories.temp, 'must-not-execute');
+    const sandbox = prepareNetworkSandbox({ command: [process.execPath, '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'bad')`], cwd: root,
+        directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
+        writableRoots: owner.fragment.writableRoots, environment, policy });
+    const result = spawnSync(sandbox.command[0], sandbox.command.slice(1), { cwd: root, env: environment, encoding: 'utf8' });
+    assert.equal(result.status, 125, result.stderr);
+    assert.match(result.stderr, /owned temporary alias object identity mismatch/u);
+    assert.equal(fs.existsSync(sentinel), false);
+    assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
+    assert.equal(finalizeRunOwnedDirectories(owner).cleanup.status, 'complete');
+});
+
+test('original physical owner binds only current owned /tmp and retains external write denial', {
+    skip: process.platform !== 'linux'
+}, async (context) =>
+{
+    fs.mkdirSync(path.join(process.cwd(), '.tmp'), { recursive: true });
+    const root = fs.mkdtempSync(path.join(process.cwd(), '.tmp/fsusblog-owned-tmp-physical-'));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'owned-tmp-physical', producerId: 'producer', attemptId: 'attempt' });
+    let terminal;
+    let physicalStarted = false;
+    context.after(() =>
+    {
+        finalizeRunOwnedDirectoriesAfterPhysical(owner, { physicalStarted, physicalExecution: terminal });
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    const hostTmp = fs.statSync('/tmp', { bigint: true });
+    const hostNamespace = fs.readlinkSync('/proc/self/ns/mnt');
+    const name = `fsusblog-alias-${process.pid}-${path.basename(root)}`;
+    const external = path.join(root, 'read-only-source');
+    fs.writeFileSync(external, 'unchanged');
+    const source = owner.fragment.directories.temp;
+    const environment = { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'owned-tmp-physical', PATH: process.env.PATH,
+        LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' };
+    const sandbox = prepareNetworkSandbox({ command: [process.execPath, '-e', [
+        "const fs = require('node:fs')",
+        `fs.writeFileSync('/tmp/${name}', 'owned-alias')`,
+        `if (fs.readFileSync(${JSON.stringify(path.join(source, name))}, 'utf8') !== 'owned-alias') throw Error('wrong alias')`,
+        `try { fs.writeFileSync(${JSON.stringify(external)}, 'bad'); throw Error('external writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }`,
+        "try { fs.writeFileSync('/var/tmp/fsusblog-must-not-write', 'bad'); throw Error('var/tmp writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }"
+    ].join(';')], cwd: root, directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
+        writableRoots: owner.fragment.writableRoots, environment, policy });
+    assert.equal(sandbox.linuxReadWritePaths.includes('/tmp'), false);
+    assert.equal(sandbox.linuxReadWritePaths.includes('/var/tmp'), false);
+    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    try
+    {
+        physicalStarted = true;
+        terminal = await runPhysicalExecution({ command: sandbox.command, cwd: root, env: environment,
+            linuxNetworkPolicy: sandbox.linuxNetworkPolicy, linuxReadWritePaths: sandbox.linuxReadWritePaths,
+            linuxOwnedPrivateTmp: sandbox.linuxOwnedPrivateTmp, stdout: quiet, stderr: quiet });
+    }
+    catch (error) { terminal = error.physicalExecution; throw error; }
+    assert.equal(terminal.postObservation, 'zero-members');
+    const actual = terminal.executionAdmission.ownedPrivateTmp;
+    assert.equal(actual.sourceDevice, actual.aliasDevice);
+    assert.equal(actual.sourceInode, actual.aliasInode);
+    assert.notEqual(actual.mountNamespace, hostNamespace);
+    assert.equal(terminal.authority.filesystemIsolation.ownedPrivateTmp.bindPaths, `${source}:/tmp`);
+    assert.equal(fs.readFileSync(path.join(source, name), 'utf8'), 'owned-alias');
+    assert.equal(fs.existsSync(path.join('/tmp', name)), false);
+    assert.equal(fs.readFileSync(external, 'utf8'), 'unchanged');
+    const hostAfter = fs.statSync('/tmp', { bigint: true });
+    assert.deepEqual([hostAfter.dev, hostAfter.ino], [hostTmp.dev, hostTmp.ino]);
+    assert.equal(fs.readlinkSync('/proc/self/ns/mnt'), hostNamespace);
+    assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
 });
