@@ -63,9 +63,10 @@ Channel<int> actual = Channel.CreateUnbounded<int>();
     assert.deepEqual(discovered, [{ file, line: 4 }]);
 });
 
-test('catalog is bidirectionally exact and emits successor dispositions', () =>
+test('catalog is bidirectionally exact and rejects every real unbounded channel', () =>
 {
-    assert.deepEqual(validateBoundedChannelCatalog(defaultCatalogPath, { discovered: currentDiscovery() }), []);
+    const forbidden = discoverUnboundedChannels().map((channel) => `unbounded channel is forbidden: ${channel.file}:${channel.line}`);
+    assert.deepEqual(validateBoundedChannelCatalog(defaultCatalogPath, { discovered: currentDiscovery() }), forbidden);
     const report = queueDispositionReport();
     assert.equal(report.length, currentDiscovery().length);
     assert.ok(report.every((entry) => entry.disposition && entry.implementationOwner));
@@ -232,6 +233,13 @@ test('stable ordering and digest reject reorder or content drift', () =>
 
 test('terminal receipt binds current source, catalog, aggregate, matrix, mutations, and zero warnings', () =>
 {
+    const forbidden = discoverUnboundedChannels();
+    if (forbidden.length > 0)
+    {
+        assert.throws(() => buildBoundedQueueAcceptanceReceipt(), /cannot build bounded queue acceptance receipt: .*unbounded channel is forbidden/u);
+        assert.throws(() => verifyBoundedQueueAcceptanceReceipt({ schema: 'fsusblog.bounded-queue-acceptance.v1' }), /unbounded channel is forbidden/u);
+        return;
+    }
     const receipt = buildBoundedQueueAcceptanceReceipt();
     const participantQueues = catalog().queues.filter((queue) => queue.drainParticipant);
     assert.equal(receipt.schema, 'fsusblog.bounded-queue-acceptance.v1');

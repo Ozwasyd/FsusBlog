@@ -56,6 +56,7 @@ const acceptanceSourcePaths = [
     'tests/backend/Unit/PublicHotReadRiskProjectionQueueWrapperTests.cs',
     'tests/backend/Unit/PublicAotFileShellInvalidationQueueTests.cs',
     'tests/tools/bounded-channel-contracts.test.mjs',
+    'tests/tools/bounded-channel-discovery.test.mjs',
     matrixTestSource,
     'tools/governance/bounded-channel-contracts.mjs',
     'tools/governance/bounded-channel-discovery.mjs'
@@ -157,7 +158,7 @@ export function validateBoundedChannelCatalog(catalogPath = defaultCatalogPath, 
         return [...errors, 'catalog queues must be an array'];
     }
     const discovered = options.discovered ?? discoverBoundedChannels(options.sources ? { sources: options.sources } : {});
-    const unbounded = options.unbounded ?? (options.sources instanceof Map ? discoverUnboundedChannels({ sources: options.sources }) : []);
+    const unbounded = options.unbounded ?? discoverUnboundedChannels(options.sources instanceof Map ? { sources: options.sources } : {});
     for (const channel of unbounded)
     {
         errors.push(`unbounded channel is forbidden: ${channel.file}:${channel.line}`);

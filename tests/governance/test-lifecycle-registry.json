@@ -3548,6 +3548,22 @@
             }
         },
         {
+            "file": "tests/tools/bounded-channel-discovery.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "bounded-channel-discovery",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/browser-diagnostics-release-runtime.test.mjs",
             "owner": "manual-diagnostic:tests/tools/browser-diagnostics-release-runtime.test.mjs",
             "executionCategory": "manual-diagnostic",
