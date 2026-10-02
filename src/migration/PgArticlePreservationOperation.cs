@@ -16,6 +16,9 @@ internal sealed record PgArticlePreservationMediaConfiguration(
     string TargetParent, string TargetDirectoryName, ArticlePreservationLimits ProjectionLimits,
     ArticleMediaLimits MediaLimits, ArticlePreservationWriteLimits WriteLimits, TimeSpan SourceReadBudget);
 
+internal sealed record PgArticlePreservationRecoveryConfiguration(
+    OwnedRetainedMigrationTool Tool, string AbsoluteOutputPath, long MaximumInputBytes);
+
 // The factory independently reads original artifacts, captures actual historical rows and
 // inventories native media. No caller DTO, payload seal or stage flag creates this operation.
 // Only PostgreSQL is implemented here. Other provider/DAG entries remain unregistered.
@@ -40,6 +43,11 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     private OfflineMigrationMediaJournalEvidence? _binding;
     private ArticleMediaPublication? _publication;
     private PgLegacyNonArticlePreparation? _nonArticle;
+    private PgArticlePreservationRecoveryConfiguration? _recoveryConfiguration;
+    private VerifiedOfflineMigrationPlan? _verifiedPlan;
+    private CurrentSchemaArtifactReference? _verifiedPlanArtifact;
+    private IOfflineMigrationApplyOperationRegistry? _verifiedRegistry;
+    private OfflineMigrationApplyCheckpoint? _verifiedCheckpoint;
 
     private PgArticlePreservationOperation(OwnedCurrentSchemaTarget owned, CurrentSchemaArtifactReference source,
         CurrentSchemaArtifactReference current, PgArticlePreservationMediaConfiguration configuration,
@@ -68,6 +76,18 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     internal override OfflineMigrationProviderOperation Identity { get; }
     internal OfflineMigrationStep Step { get; }
     internal CurrentSchemaVerifierIdentity RetainedTool { get; }
+
+    // Mandatory for this whole-legacy operation: a caller-owned finite artifact
+    // locator and the actual original retained-tool capability, not a tool DTO.
+    internal async Task BindRecoveryOwnerAsync(PgArticlePreservationRecoveryConfiguration configuration, CancellationToken token)
+    {
+        RequireRecoveryConfiguration(configuration);
+        if (await configuration.Tool.RevalidateAsync(token).ConfigureAwait(false) != RetainedTool)
+            throw new InvalidOperationException("article_preservation_operation_recovery_tool_changed");
+        if (_recoveryConfiguration is not null && _recoveryConfiguration != configuration)
+            throw new InvalidOperationException("article_preservation_operation_recovery_configuration_changed");
+        _recoveryConfiguration = configuration;
+    }
 
     // Phase one retains a real compiled descriptor without SQL or a source/media admission.
     // Resolve remains synchronous. The original Core's fresh RR boundary performs phase two.
@@ -162,8 +182,10 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     // Called by the original admission owner after streaming/Accept of the full journal
     // bound to the original closed registry. This does not turn a plan DTO into source facts.
     internal async Task BindVerifiedProgressAsync(VerifiedOfflineMigrationPlan verified,
-        CurrentSchemaArtifactReference artifact, OfflineMigrationApplyJournalVerifier progress, CancellationToken token)
+        CurrentSchemaArtifactReference artifact, OfflineMigrationApplyJournalVerifier progress,
+        IOfflineMigrationApplyOperationRegistry originalRegistry, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(originalRegistry);
         ImmutableArray<byte> original = await ReadArtifactAsync(artifact, _configuration.WriteLimits.MaximumArtifactBytes, token).ConfigureAwait(false);
         if (!original.AsSpan().SequenceEqual(OfflineMigrationPlanCodec.Serialize(verified.Plan))
             || verified.Plan.ContentDigest != OfflineMigrationPlanCodec.ComputeContentDigest(verified.Plan)
@@ -172,10 +194,18 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         RequireStep(verified.Plan.OrderedSteps.Single(step => step.StepId == StepReference), Identity);
         if (!progress.RequiresMedia(StepReference))
             throw new InvalidOperationException("article_preservation_operation_progress_owner_not_bound");
+        OfflineMigrationStep actualStep = verified.Plan.OrderedSteps.Single(step => step.StepId == StepReference);
+        if (!ReferenceEquals(originalRegistry.Resolve(actualStep, Identity), this))
+            throw new InvalidOperationException("article_preservation_operation_progress_original_owner_changed");
         if (progress.First is { } first && (first.Plan != artifact || first.PlanContentDigest != verified.Plan.ContentDigest
             || first.Database != verified.Plan.Source.Database || progress.Last?.Plan != artifact))
             throw new InvalidOperationException("article_preservation_operation_progress_binding_changed");
         _verifiedProgress = progress.Fork();
+        _verifiedPlan = verified;
+        _verifiedPlanArtifact = artifact;
+        _verifiedRegistry = originalRegistry;
+        _verifiedCheckpoint = progress.Last is { } last
+            ? new(OfflineMigrationApplyJournalVerifier.Reference(last), last.InvocationId, last.Sequence) : null;
     }
 
     internal static bool RequiresCommittedTarget(OfflineMigrationApplyJournalVerifier progress,
@@ -197,6 +227,10 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         RequireInvocation(invocationId);
+        PgArticlePreservationRecoveryConfiguration recovery = _recoveryConfiguration
+            ?? throw new InvalidOperationException("article_preservation_operation_recovery_producer_missing");
+        if (await recovery.Tool.RevalidateAsync(cancellationToken).ConfigureAwait(false) != RetainedTool)
+            throw new InvalidOperationException("article_preservation_operation_recovery_tool_changed");
         await MaterializeOriginalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await RevalidateInputsAsync(cancellationToken).ConfigureAwait(false);
         // Hash the full original plan file, not its semantic ContentDigest or reserialized DTO.
@@ -216,6 +250,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         if (_binding is not null && _binding != evidence)
             throw new InvalidOperationException("article_preservation_operation_media_binding_changed");
         _binding = evidence;
+        _verifiedPlan = verified;
+        _verifiedPlanArtifact = artifact;
         return evidence;
     }
 
@@ -227,6 +263,14 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         RequireStep(step, Identity);
         if (previousUnit is not null || _binding is null)
             throw new InvalidOperationException("article_preservation_operation_prepared_binding_required");
+        PgArticlePreservationRecoveryConfiguration recovery = _recoveryConfiguration
+            ?? throw new InvalidOperationException("article_preservation_operation_recovery_producer_missing");
+        VerifiedOfflineMigrationPlan verified = _verifiedPlan
+            ?? throw new InvalidOperationException("article_preservation_operation_verified_plan_missing");
+        CurrentSchemaArtifactReference planArtifact = _verifiedPlanArtifact
+            ?? throw new InvalidOperationException("article_preservation_operation_verified_plan_missing");
+        if (await recovery.Tool.RevalidateAsync(cancellationToken).ConfigureAwait(false) != RetainedTool)
+            throw new InvalidOperationException("article_preservation_operation_recovery_tool_changed");
         await RevalidateInputsAsync(cancellationToken).ConfigureAwait(false);
         await RequireOriginalSourceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         // Require the actual durable preparation before any structural or graph effect.
@@ -256,6 +300,11 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         await nonArticle.CompleteAsync(article, connection, transaction, cancellationToken).ConfigureAwait(false);
         await nonArticle.RevalidateCurrentAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await article.RevalidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        // Publication alone is not durable provenance. Core's original transaction
+        // will seal this actual reference in After and commit it with graph/media.
+        _ = await nonArticle.PublishRecoveryAsync(article, recovery.Tool, verified, planArtifact,
+            _source.Artifact, _current.Artifact, _binding.InvocationId, _configuration.MediaRunId,
+            recovery.AbsoluteOutputPath, recovery.MaximumInputBytes, connection, transaction, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return new(null, null, null, graph.VerifiedRows, graph.VerifiedRows, true);
     }
@@ -280,10 +329,23 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
                 throw new InvalidOperationException("article_preservation_operation_verified_progress_capability_missing");
             await MaterializePublishedAsync(cancellationToken).ConfigureAwait(false);
             if (_nonArticle is null)
-                throw new InvalidOperationException("article_preservation_operation_nonarticle_capability_missing");
+            {
+                PgArticlePreservationRecoveryConfiguration recovery = _recoveryConfiguration
+                    ?? throw new InvalidOperationException("article_preservation_operation_recovery_producer_missing");
+                _nonArticle = await PgLegacyNonArticlePreparation.ReadCommittedAsync(_owned, recovery.Tool,
+                    _verifiedPlan ?? throw new InvalidOperationException("article_preservation_operation_verified_plan_missing"),
+                    _verifiedPlanArtifact ?? throw new InvalidOperationException("article_preservation_operation_verified_plan_missing"),
+                    _verifiedCheckpoint ?? throw new InvalidOperationException("article_preservation_operation_verified_checkpoint_missing"),
+                    _verifiedRegistry ?? throw new InvalidOperationException("article_preservation_operation_verified_registry_missing"),
+                    _source.Artifact, _current.Artifact, _configuration.MediaRunId, recovery.MaximumInputBytes,
+                    connection, transaction, cancellationToken).ConfigureAwait(false);
+            }
             await _nonArticle.RevalidateCurrentAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
             await RevalidateTargetAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-            facts = [new("article.projection_digest", _plan.ContentDigest), new("media.manifest_digest", _plan.Media.ManifestDigest)];
+            CurrentSchemaArtifactReference proof = _nonArticle.RecoveryArtifact;
+            facts = [new("article.projection_digest", _plan.ContentDigest), new("media.manifest_digest", _plan.Media.ManifestDigest),
+                new(PgLegacyNonArticlePreparation.RecoveryReferenceFact, proof.Reference),
+                new(PgLegacyNonArticlePreparation.RecoveryDigestFact, proof.Sha256)];
         }
         else throw new InvalidOperationException("article_preservation_operation_unknown_predicate");
         // Facts are emitted only after complete native readback. A failure throws before an
@@ -431,6 +493,23 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         if (configuration.ProjectionLimits.MaximumArticles <= 0 || configuration.ProjectionLimits.MaximumTaxonomyRows <= 0
             || configuration.ProjectionLimits.MaximumMetadataBytes <= 0)
             throw new InvalidOperationException("article_preservation_operation_configuration_required");
+    }
+
+    internal static void RequireRecoveryConfiguration(PgArticlePreservationRecoveryConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (configuration.Tool is null)
+            throw new InvalidOperationException("article_preservation_operation_recovery_configuration_required");
+        RequireRecoveryOutput(configuration.AbsoluteOutputPath, configuration.MaximumInputBytes);
+    }
+
+    internal static void RequireRecoveryOutput(string path, long maximumInputBytes)
+    {
+        if (maximumInputBytes is <= 0 or > int.MaxValue || string.IsNullOrWhiteSpace(path)
+            || !Path.IsPathFullyQualified(path) || Path.GetFullPath(path) != path
+            || Path.GetPathRoot(path) == path || path.Any(char.IsControl)
+            || path.Split('/', '\\').Any(value => value.Equals("latest", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("article_preservation_operation_recovery_configuration_required");
     }
 
     private static Task<ArticleMediaInventory> InventoryAsync(ArticlePreservationSourceExport source,

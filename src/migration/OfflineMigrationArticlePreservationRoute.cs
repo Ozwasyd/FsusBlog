@@ -43,6 +43,7 @@ internal sealed class OfflineMigrationArticlePreservationRoute :
         CurrentSchemaArtifactReference sourceArtifact, CurrentSchemaArtifactReference currentArtifact,
         OwnedCurrentSchemaTarget target, OwnedRetainedMigrationTool retainedTool,
         PgArticlePreservationMediaConfiguration configuration,
+        PgArticlePreservationRecoveryConfiguration recoveryConfiguration,
         ImmutableArray<OfflineMigrationApplyOperation> otherProviderOwners, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(retainedTool);
@@ -53,6 +54,7 @@ internal sealed class OfflineMigrationArticlePreservationRoute :
         CurrentSchemaVerifierIdentity actualTool = await retainedTool.RevalidateAsync(cancellationToken).ConfigureAwait(false);
         PgArticlePreservationOperation article = await PgArticlePreservationOperation.CreateAsync(
             sourceArtifact, currentArtifact, target, actualTool, configuration, cancellationToken).ConfigureAwait(false);
+        await article.BindRecoveryOwnerAsync(recoveryConfiguration, cancellationToken).ConfigureAwait(false);
         ImmutableArray<OfflineMigrationApplyOperation> actualOwners = [article, .. otherProviderOwners];
         var (dag, registry) = BuildDeclaredDag(article.Step, actualOwners, cancellationToken);
         OfflineMigrationArticlePreservationRoute route = Create(article, dag, registry, retainedTool, cancellationToken);
@@ -86,6 +88,7 @@ internal sealed class OfflineMigrationArticlePreservationRoute :
         CurrentSchemaArtifactReference sourceArtifact, CurrentSchemaArtifactReference currentArtifact,
         OwnedCurrentSchemaTarget target, OwnedRetainedMigrationTool retainedTool,
         PgArticlePreservationMediaConfiguration configuration,
+        PgArticlePreservationRecoveryConfiguration recoveryConfiguration,
         OfflineMigrationDag codeOwnedDag, IOfflineMigrationApplyOperationRegistry otherOwners,
         CancellationToken cancellationToken)
     {
@@ -95,6 +98,7 @@ internal sealed class OfflineMigrationArticlePreservationRoute :
         CurrentSchemaVerifierIdentity actualTool = await retainedTool.RevalidateAsync(cancellationToken).ConfigureAwait(false);
         PgArticlePreservationOperation article = await PgArticlePreservationOperation.CreateAsync(
             sourceArtifact, currentArtifact, target, actualTool, configuration, cancellationToken).ConfigureAwait(false);
+        await article.BindRecoveryOwnerAsync(recoveryConfiguration, cancellationToken).ConfigureAwait(false);
         OfflineMigrationArticlePreservationRoute route = Create(article, codeOwnedDag, otherOwners, retainedTool, cancellationToken);
         if (await retainedTool.RevalidateAsync(cancellationToken).ConfigureAwait(false) != actualTool)
             throw new InvalidOperationException("article_preservation_route_retained_tool_changed");
