@@ -307,8 +307,8 @@ public static class CurrentSchemaTestMaterializer
             await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, cancellationToken)
                 .ConfigureAwait(false);
 
-            var verifier = new CurrentSchemaStartupVerifier(db, inspector);
-            await verifier.RunAsync(cancellationToken).ConfigureAwait(false);
+            var observer = new CurrentSchemaReadObserver(db, inspector);
+            _ = await observer.ReadAsync(cancellationToken).ConfigureAwait(false);
             SchemaModelSnapshot actual = await inspector.ReadActualModelAsync(db, cancellationToken).ConfigureAwait(false);
             string observedDatabaseDigest = CurrentSchemaCanonicalAuthority.ComputeObservationDigest(actual.Tables);
             string[] tables = actual.Tables.Keys.Order(StringComparer.Ordinal).ToArray();

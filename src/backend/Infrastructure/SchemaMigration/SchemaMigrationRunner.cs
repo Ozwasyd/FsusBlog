@@ -51,64 +51,46 @@ public sealed class CurrentSchemaMismatchException : InvalidOperationException
 
 public sealed class CurrentSchemaStartupVerifier(
     ISqlSugarClient db,
-    ISchemaModelInspector inspector) : ISchemaMigrationRunner
+    ISchemaModelInspector inspector,
+    Microsoft.Extensions.Configuration.IConfiguration configuration,
+    CurrentSchemaAdmissionState admissionState) : ISchemaMigrationRunner
 {
     internal const string HistoryTableName = "__fsus_schema_migration_history";
 
-    private static readonly string[] s_allowedExtraTables =
-    [
-        HistoryTableName,
-        "article_view_projection_watermark",
-        "article_asset_cleanup_queue",
-        "article_asset_reference",
-        "asset_library_article_ref",
-        "asset_library_item",
-        "authoring_canvas_operation_journal",
-        "authoring_canvas_operation_command",
-        "authoring_canvas_operation_command_fact",
-        "authoring_canvas_operation_history_state",
-        "authoring_canvas_operation_fact",
-        "authoring_canvas_operation_receipt",
-        "sys_visit_log",
-        "__fsus_schema_online_state",
-        "__fsus_schema_backfill_progress"
-    ];
-
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<Type> entityTypes = inspector.GetManagedEntityTypes();
-        CurrentSchemaCanonicalModel canonical = inspector.BuildCanonicalModel(entityTypes);
-        SchemaModelSnapshot expected = CurrentSchemaCanonicalAuthority.ProjectProvider(
-            canonical,
-            SchemaProviderKind.PostgreSql);
-        SchemaModelSnapshot actual;
-        try
-        {
-            actual = await inspector.ReadActualModelAsync(db, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            throw new CurrentSchemaMismatchException(
-                canonical.Identity.ContentDigest,
-                "unavailable",
-                "fsusblog.current-schema.mismatch.unreadable",
-                [$"actual schema could not be read without writes: {exception.GetType().Name}"]);
-        }
+        admissionState.Clear();
+        string receiptPath = configuration["SchemaMigration:CurrentReceipt:Path"] ?? string.Empty;
+        string receiptSha256 = configuration["SchemaMigration:CurrentReceipt:Sha256"] ?? string.Empty;
+        string sourceRevision = configuration["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] ?? string.Empty;
+        CurrentSchemaAdmissionResult result = await CurrentSchemaReceiptAdmission.VerifyAsync(
+            receiptPath, receiptSha256, sourceRevision, db, inspector, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        admissionState.Publish(result);
+    }
 
-        string actualDigest = CurrentSchemaCanonicalAuthority.ComputeObservationDigest(actual.Tables);
-        IReadOnlyList<string> errors = SchemaModelComparer.Compare(
-            expected,
-            actual,
-            s_allowedExtraTables,
-            SchemaAllowedExtraLinkNames.Names,
-            CurrentSchemaRuntimeRollupTables.TableNames);
-        if (errors.Count > 0)
+    internal static async Task<byte[]> ReadBoundedReceiptAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        const int MaximumBytes = FsusBlog.Contracts.SchemaMigration.CurrentSchemaReceiptCodec.MaximumEncodedBytes;
+        await using var file = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
+        if (file.Length == 0 || file.Length > MaximumBytes)
         {
-            throw new CurrentSchemaMismatchException(
-                canonical.Identity.ContentDigest,
-                actualDigest,
-                "fsusblog.current-schema.mismatch",
-                errors);
+            throw new InvalidOperationException("current_schema_receipt_size_invalid");
         }
+        using var bytes = new MemoryStream((int)file.Length);
+        byte[] buffer = new byte[4096];
+        int count;
+        while ((count = await file.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+        {
+            if (bytes.Length + count > MaximumBytes)
+            {
+                throw new InvalidOperationException("current_schema_receipt_size_exceeded");
+            }
+            bytes.Write(buffer, 0, count);
+        }
+        return bytes.ToArray();
     }
 }
