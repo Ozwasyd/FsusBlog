@@ -276,6 +276,57 @@ public sealed class OfflineMigrationApplyJournalTests
         Assert.Equal(0, connection.WriteAttempts);
     }
 
+    [Theory]
+    [InlineData("main-cancel")]
+    [InlineData("operation-fault")]
+    public async Task Transaction_disposal_fault_does_not_replace_the_first_in_flight_failure(string first)
+    {
+        OfflineMigrationPlan plan = Plan();
+        using var connection = new LockOnlyConnection(allowReadOnlyAdmission: true, failTransactionDisposal: true);
+        using var cancellation = new CancellationTokenSource();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
+        admission.RevalidateAsync(Arg.Any<VerifiedOfflineMigrationPlan>(), Arg.Any<CurrentSchemaArtifactReference>(),
+            Arg.Any<OfflineMigrationApplyJournalVerifier>(), Arg.Any<DbConnection>(), Arg.Any<DbTransaction>(),
+            Arg.Any<CancellationToken>()).Returns(async call =>
+            {
+                Assert.Same(connection, call.Arg<DbConnection>());
+                Assert.Equal(IsolationLevel.RepeatableRead, call.Arg<DbTransaction>().IsolationLevel);
+                entered.TrySetResult();
+                await release.Task;
+                if (first == "main-cancel") { call.Arg<CancellationToken>().ThrowIfCancellationRequested(); }
+                throw new InvalidOperationException("fixture_private_operation_fault");
+            });
+        Task<OfflineMigrationApplyResult> pending = OfflineMigrationExecutor.ApplyAsync(
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan),
+            new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)), connection,
+            admission, new FixtureOperationRegistry(), cancellation.Token);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(pending.IsCompleted);
+            Assert.Equal(0, connection.WriteAttempts);
+            if (first == "main-cancel") { cancellation.Cancel(); }
+            release.TrySetResult();
+            OfflineMigrationApplyResult result = await pending;
+            Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
+            Assert.Equal(first == "main-cancel" ? "offline_apply_cancelled" : "offline_apply_rejected", result.Codes[0]);
+            Assert.Contains("offline_apply_disposal_terminal_unknown", result.Codes);
+            Assert.DoesNotContain("fixture_private_operation_fault", string.Join(';', result.Codes));
+            Assert.DoesNotContain("fixture_private_disposal_fault", string.Join(';', result.Codes));
+            Assert.Equal(1, connection.TransactionDisposals);
+            Assert.Equal(0, connection.WriteAttempts);
+            Assert.Null(result.Checkpoint);
+            Assert.Equal("SELECT pg_advisory_unlock(hashtext(@name))", connection.Commands[^1]);
+        }
+        finally
+        {
+            release.TrySetResult();
+            await pending;
+        }
+    }
+
     [Fact]
     public async Task Unsupported_native_provider_is_rejected_before_connection_or_admission_use()
     {
@@ -526,7 +577,7 @@ public sealed class OfflineMigrationApplyJournalTests
     // refusal boundary. It cannot execute DDL, transactions, or semantic operations and
     // is not evidence of PostgreSQL/provider correctness or successful migration.
     private sealed class LockOnlyConnection(bool allowReadOnlyAdmission = false, bool failUnlock = false,
-        bool awaitUnlockCancellation = false) : DbConnection
+        bool awaitUnlockCancellation = false, bool failTransactionDisposal = false) : DbConnection
     {
         internal List<string> Commands { get; } = [];
         internal int TransactionAttempts { get; private set; }
@@ -536,6 +587,7 @@ public sealed class OfflineMigrationApplyJournalTests
         internal bool UnlockAwaitEnded { get; set; }
         internal bool FailUnlock => failUnlock;
         internal bool AwaitUnlockCancellation => awaitUnlockCancellation;
+        internal bool FailTransactionDisposal => failTransactionDisposal;
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
         public override string Database => "fixture-database";
@@ -629,7 +681,14 @@ public sealed class OfflineMigrationApplyJournalTests
         public override void Rollback() { }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { owner.TransactionDisposals++; }
+            if (disposing)
+            {
+                owner.TransactionDisposals++;
+                if (owner.FailTransactionDisposal)
+                {
+                    throw new InvalidOperationException("fixture_private_disposal_fault");
+                }
+            }
             base.Dispose(disposing);
         }
     }
