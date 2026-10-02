@@ -235,8 +235,8 @@ issuer or an execution grant.
 
 The current `CreateOwnedReader` fails with
 `schema_offline_plan_evidence_owner_not_configured`: source profiles are registered,
-but the original backup owner still needs its authenticated read-only inspect port
-and exact drill-proof binding, and the complete current target/compiled operation
+but the original backup owner's authenticated invocation still needs its concrete
+Host binding, and the complete current target/compiled operation
 closure is not configured. The Host-owned evidence consumer resolves complete
 authority before native or package work, consumes only that original authenticated
 backup port, then independently reads the actual source database. The complete
@@ -251,7 +251,21 @@ references are bound to their exact canonical paths and actual byte digests. A
 caller report's restored-source field never substitutes for the owned native observation, and
 authority is re-read after observation to reject target/DAG/tool drift. A `status`
 field, six caller hashes or an entity-only target subset cannot supply a missing
-capability. Owner-port unit fixtures prove these consumer decisions only, not
+capability. `OfflineMigrationBackupAdmission` consumes only the original producer's
+versioned `migration-evidence` invocation: the package and each retained artifact
+are read from actual bytes, the inner manifest/report/native restored observation
+are cross-bound, and a fresh private output root and invocation nonce are required.
+Its producer port must await the real operation and its children/pipes to terminal;
+cancellation cannot convert an unverified cleanup into a normal cancellation result.
+The pre-migration evidence scope is `pre-migration-backup`, with report mode
+`migration-recoverability`: it proves isolated database restoration and recovery of
+all six original artifacts. It neither starts the current Server against historical
+rows nor issues runtime, anonymous-residue or current-schema qualification. Backend,
+listener and residue evidence fields are explicitly null in this scope. The normal
+disaster-recovery drill retains its separate full runtime smoke checks. The original
+producer invocation adapter, complete tool closure and full target/operation factory
+are still required; the retained-file consumer and pure inspect port alone do not
+configure `CreateOwnedReader`. Owner-port unit fixtures prove these consumer decisions only, not
 encryption authentication, a real database or backup restoration. Until those actual owner capabilities are
 integrated and independently verified, no CLI plan is admitted; the existing
 `schema_offline_contract_not_supported` guard remains unchanged. The typed contract,
