@@ -1,9 +1,9 @@
-using Xunit;
-
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Shared.Contracts.Governance;
+
+using Xunit;
 
 namespace FsusBlog.Server.Tests.Unit;
 

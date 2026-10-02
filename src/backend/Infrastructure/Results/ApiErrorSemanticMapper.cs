@@ -8,7 +8,10 @@ internal static class ApiErrorSemanticMapper
 {
     // Lookup and observation enumerate these exact entries. The unknown-status
     // fallback preserves runtime behavior, but is not an enumerated public set.
-    public static FrozenDictionary<int, ErrorCode> PublicStatusMappings { get; } =
+    public static FrozenDictionary<int, ErrorCode> PublicStatusMappings
+    {
+        get;
+    } =
         new Dictionary<int, ErrorCode>
         {
             { StatusCodes.Status400BadRequest, ErrorCode.Validation },

@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md",
+                "tools/fact-extractors/config-error-security-policy/extract.mjs"
+            ],
+            "reason": "Preserve the existing public transport status, error-code, fact-reference and document marker spellings while the original compiled observation and extractor project the sole production mapper."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs"
+            ],
+            "reason": "Preserve external adapter spellings under the existing C# naming surface; enumerable transport mapping does not rename public status identifiers, process keys or wire values."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the original lifecycle registry JSON keys and physical owner identifiers while registering the complete existing Node error-observation suite without another test authority."
+        }
+    ]
+}
