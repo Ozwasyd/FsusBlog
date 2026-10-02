@@ -58,11 +58,19 @@ derive and match the target and actual database observations.
 
 The Server command retirement does not complete the release cutover. Existing
 release-manifest compatibility coordinates, rollout Expand invocation, online
-health/qualification bridge, and old-image rollback paths still require the
+health report, and old-image rollback paths still require the
 coordinated #2218 replacement. Until those prerequisites and consumers are closed,
 they must not be treated as a working offline release protocol. Do not invoke the
 old Server migration examples or use their compatibility window as release
 authorization.
+
+The Test-only qualification routes temporarily remain registered for exact route
+inventory consumers, but refuse every request: bridge write returns HTTP 410 with
+`schema_qualification_retired`; compatibility readiness returns HTTP 503 with
+`schema_incompatible`. They have no database or coordinator dependency and cannot
+create the old bridge table, upsert an old-shape record, or grant readiness.
+Their final removal requires the original route-inventory producer update; route
+presence is not compatibility support or receipt verification.
 
 ## Recovery constraints
 
