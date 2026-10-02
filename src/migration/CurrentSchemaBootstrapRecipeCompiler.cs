@@ -82,8 +82,10 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 expected = new(operation.Kind, operation.Name, operation.Table, Index: index);
                 break;
             case CurrentSchemaRecipeOperationKind.CreateSequence:
+                CurrentSchemaIndependentSequencePhysicalProjection sequence =
+                    CurrentSchemaCanonicalAuthority.ProjectIndependentSequence(operation, SchemaProviderKind.PostgreSql);
                 sql = $"CREATE SEQUENCE {name} AS bigint;";
-                expected = new(operation.Kind, operation.Name);
+                expected = new(operation.Kind, operation.Name, Sequence: sequence.Facts);
                 break;
             case CurrentSchemaRecipeOperationKind.DefineImmutableGuard:
                 string error = operation.ErrorCode ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_guard_missing");
