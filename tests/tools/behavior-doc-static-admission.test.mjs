@@ -1233,14 +1233,18 @@ test('protected runner remains asynchronous and forwards cancellation before awa
     const observed = pending.then(() => { settled = true; }, (error) => { settled = true; return error; });
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(settled, false);
-    controller.abort(new Error('fixture cancellation'));
+    const cancellationReason = new Error('fixture cancellation');
+    controller.abort(cancellationReason);
     assert.deepEqual(cancellations, ['SIGTERM']);
     assert.equal(settled, false);
     child.emit('exit', 1, 'SIGTERM');
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(settled, false);
     child.emit('close', 1, 'SIGTERM');
-    assert.match((await observed).message, /cancelled/u);
+    const failure = await observed;
+    assert.match(failure.message, /cancelled/u);
+    assert.equal(failure.name, 'AbortError');
+    assert.equal(failure.cause, cancellationReason);
 });
 
 test('protected runner accepts close zero and refuses launch errors or nonzero terminal', async () =>

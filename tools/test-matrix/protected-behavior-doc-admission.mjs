@@ -27,20 +27,21 @@ export async function waitProtectedBehaviorDocRunner(command, args, options, { s
     if (signal?.aborted) throw signal.reason;
     const child = spawn(command, args, options);
     let firstFailure = null;
-    const cancel = (value) =>
+    const cancel = (value, reason = null) =>
     {
-        firstFailure ??= Object.assign(new Error(`Protected admission cancelled: ${value}`), { signal: value });
+        firstFailure ??= Object.assign(new Error(`Protected admission cancelled: ${value}`, { cause: reason }), {
+            name: 'AbortError', signal: value
+        });
         child.kill(value);
     };
     const onSigint = () => cancel('SIGINT');
     const onSigterm = () => cancel('SIGTERM');
-    const onAbort = () => cancel('SIGTERM');
+    const onAbort = () => cancel('SIGTERM', signal.reason);
     process.on('SIGINT', onSigint);
     process.on('SIGTERM', onSigterm);
     signal?.addEventListener('abort', onAbort, { once: true });
     try
     {
-        if (signal?.aborted) onAbort();
         await new Promise((resolve, reject) =>
         {
             child.once('error', (error) => { firstFailure ??= error; });
@@ -55,6 +56,7 @@ export async function waitProtectedBehaviorDocRunner(command, args, options, { s
                 }
                 else resolve();
             });
+            if (signal?.aborted) onAbort();
         });
     }
     finally
