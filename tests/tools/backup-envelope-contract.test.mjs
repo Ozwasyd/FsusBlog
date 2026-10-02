@@ -212,7 +212,7 @@ test('the production shell budget parsers reject noncanonical or overflowing val
         ])
         {
             // Only the actual parser and monotonic clock functions run: no script Main, files, or database tools.
-            const result = spawnSync('bash', ['-c', `AddBlocker() { :; }\n${clock[0]}\n${parser[0]}\n${variable}="$1"\nRead${prefix}Budget`, 'budget-parser', value], { encoding: 'utf8' });
+            const result = spawnSync('bash', ['-c', `AddBlocker() { :; }\n${clock[0]}\n${parser[0]}\n${prefix.toLowerCase()}Deadline=0\n${variable}="$1"\nRead${prefix}Budget`, 'budget-parser', value], { encoding: 'utf8' });
             assert.equal(result.status, accepted ? 0 : 1, `${path}: ${JSON.stringify(value)}: ${result.stderr}`);
         }
     }
@@ -251,6 +251,62 @@ test('inspection rejects missing or invalid explicit budget before any staging w
         assert.equal(result.stdout, '');
         assert.match(result.stderr, /inspection-timeout-invalid-or-missing/);
     }
+});
+
+test('owned migration drill retains the original full smoke and publishes only this completed invocation', async () =>
+{
+    const drill = await source('tools/operations/backup-restore-drill.sh');
+    assert.match(drill, /--migration-evidence/);
+    assert.match(drill, /sourceDeadline="\$2"; evidenceNonce="\$3"; RunEvidenceWorker/);
+    assert.match(drill, /RunEvidenceWorker\(\) \{\s+RunReal/);
+    assert.match(drill, /StartRestoredBackend\s+RunSmokeChecks/);
+    assert.match(drill, /--cidfile "\$OUT_DIR\/owned-postgres.cid"/);
+    assert.match(drill, /--cidfile "\$OUT_DIR\/owned-redis.cid"/);
+    assert.match(drill, /docker rm -f "\$cid"/);
+    assert.match(drill, /docker ps -aq --no-trunc --filter "id=\$cid"/);
+    assert.match(drill, /evidenceWorkIdentity="\$\(stat -c '%d:%i'/);
+    assert.match(drill, /owned-backend-listener-start.json/);
+    assert.match(drill, /owned-backend-listener-end.json/);
+    assert.match(drill, /producerExitCode:0/);
+    assert.match(drill, /nativeRestoredSourceReference:/);
+    assert.match(drill, /drillManifestSha256:/);
+    assert.match(drill, /owned-drill-actual-proof-or-full-smoke-invalid/);
+    const worker = drill.match(/RunEvidenceWorker\(\) \{[\s\S]*?\n\}/);
+    assert.ok(worker);
+    assert.ok(worker[0].indexOf('    Cleanup\n') < worker[0].indexOf('    WriteReport\n'));
+});
+
+test('owned migration drill rejects missing or invalid budget before creating output or running tools', () =>
+{
+    const script = new URL('tools/operations/backup-restore-drill.sh', root).pathname;
+    for (const value of [null, '0', '01', '+1', '2147484', '999999999999999999999'])
+    {
+        const args = [script, '--migration-evidence'];
+        if (value !== null)
+        {
+            args.push('--timeout-seconds', value);
+        }
+        const result = spawnSync('bash', args, { encoding: 'utf8', env: { ...process.env, FSUSBLOG_DRILL_MODE: 'real' } });
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '');
+        assert.match(result.stderr, /owned-drill-timeout-invalid-or-missing/);
+    }
+});
+
+test('embedded operation JavaScript parses without importing or executing its production body', async () =>
+{
+    let blocks = 0;
+    for (const path of ['tools/operations/backup-site.sh', 'tools/operations/backup-restore-drill.sh'])
+    {
+        const script = await source(path);
+        for (const match of script.matchAll(/<<'NODE'(?: &)?\n([\s\S]*?)\nNODE/g))
+        {
+            const result = spawnSync('node', ['--check', '--input-type=module'], { input: match[1], encoding: 'utf8' });
+            assert.equal(result.status, 0, result.stderr);
+            blocks += 1;
+        }
+    }
+    assert.equal(blocks, 2);
 });
 
 test('restore validators bind the canonical artifact names actually consumed', async () =>
