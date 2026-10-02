@@ -15,6 +15,13 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         ArgumentNullException.ThrowIfNull(planning);
         ArgumentNullException.ThrowIfNull(backup);
         ArgumentNullException.ThrowIfNull(verification);
+        // A raw shell-fixture configuration is not a production composition. The
+        // original owner must have observed the actual tool bytes and input scope;
+        // it repeats those checks at entry and before launching the producer.
+        if (backup.OwnedInputs is null)
+        {
+            throw new InvalidOperationException("offline_backup_owned_tool_configuration_required");
+        }
         OfflineMigrationOwnedApplyEvidence.RequireOwners(new(verification.Artifacts, planning, verification.Authority, verification.Operations));
         if (verification.CurrentSchema is null)
         {
@@ -26,7 +33,29 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         Clock = timeProvider ?? TimeProvider.System;
     }
 
+    internal static async Task<OfflineMigrationHostOwnedConfiguration> CreateAsync(
+        IOfflineMigrationPlanningAuthorityReader planning, OfflineMigrationShellBackupDrillOwnedInputs backupInputs,
+        OfflineMigrationCurrentSchemaVerificationCapabilities verification, CancellationToken cancellationToken,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(planning);
+        ArgumentNullException.ThrowIfNull(backupInputs);
+        ArgumentNullException.ThrowIfNull(verification);
+        cancellationToken.ThrowIfCancellationRequested();
+        OfflineMigrationOwnedApplyEvidence.RequireOwners(new(verification.Artifacts, planning,
+            verification.Authority, verification.Operations));
+        if (verification.CurrentSchema is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+        OfflineMigrationShellBackupDrillConfiguration backup = await backupInputs.CreateConfigurationAsync(
+            cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(planning, backup, verification, timeProvider);
+    }
+
     internal TimeProvider Clock { get; }
+    internal OfflineMigrationShellBackupDrillConfiguration ShellBackupConfiguration => _backup;
     internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()
         => OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _backup, Clock);
     internal IOfflineMigrationApplyProducer CreateApplyProducer()

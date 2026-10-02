@@ -277,7 +277,7 @@ public sealed class OfflineMigrationApplyCommandTests
     }
 
     [Fact]
-    public void Apply_CompiledHostCompositionBuildsOriginalConsumersWithoutNativeAccess()
+    public void Apply_CompiledConsumersDoNotTurnRawShellConfigurationIntoProductionAdmission()
     {
         // Capability wiring fixture only. These substitutes are never production owners
         // and no configured consumer is invoked against a database or backup.
@@ -288,10 +288,13 @@ public sealed class OfflineMigrationApplyCommandTests
         IOfflineMigrationApplyOperationRegistry operations = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
         var backup = new OfflineMigrationShellBackupDrillConfiguration("/fixture", "/fixture/bash", "/fixture/setsid",
             "/fixture/dotnet", "/fixture/FsusBlog.Migration.dll", "/fixture/identity", null, new Dictionary<string, string>(), 1, 1);
-        var configuration = new OfflineMigrationHostOwnedConfiguration(planning, backup, new(artifacts, current, authority, operations));
-        Assert.IsType<OfflineMigrationOwnedPlanningEvidence>(configuration.CreatePlanningEvidence());
-        Assert.IsType<OfflineMigrationOwnedApplyEvidence>(configuration.CreateApplyProducer());
-        Assert.IsType<OfflineMigrationOwnedVerifyEvidence>(configuration.CreateVerifyProducer());
+        var capabilities = new OfflineMigrationCurrentSchemaVerificationCapabilities(artifacts, current, authority, operations);
+        Assert.IsType<OfflineMigrationOwnedApplyEvidence>(OfflineMigrationApplyEvidence.ComposeOwned(
+            new(artifacts, planning, authority, operations)));
+        Assert.IsType<OfflineMigrationOwnedVerifyEvidence>(OfflineMigrationVerifyEvidence.ComposeOwned(capabilities));
+        InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() =>
+            new OfflineMigrationHostOwnedConfiguration(planning, backup, capabilities));
+        Assert.Equal("offline_backup_owned_tool_configuration_required", failure.Message);
         Assert.Empty(planning.ReceivedCalls());
         Assert.Empty(artifacts.ReceivedCalls());
         Assert.Empty(current.ReceivedCalls());
@@ -299,6 +302,30 @@ public sealed class OfflineMigrationApplyCommandTests
         Assert.Empty(operations.ReceivedCalls());
         Assert.Throws<InvalidOperationException>(() => new OfflineMigrationHostOwnedConfiguration(planning, backup,
             new(artifacts, current, authority, null!)));
+    }
+
+    [Fact]
+    public async Task Apply_CancelledHostConfigurationDoesNotObserveToolsOrNativePorts()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var backup = new OfflineMigrationShellBackupDrillConfiguration("/fixture", "/fixture/bash", "/fixture/setsid",
+            "/fixture/dotnet", "/fixture/FsusBlog.Migration.dll", "/fixture/identity", null, new Dictionary<string, string>(), 1, 1);
+        var artifact = new CurrentSchemaArtifactReference("/fixture/tool", Digest);
+        var inputs = new OfflineMigrationShellBackupDrillOwnedInputs(backup,
+            new(artifact, artifact, artifact, artifact, artifact, artifact, artifact),
+            new(new(CurrentSchemaProviderKind.PostgreSql, "instance", "database"), "/fixture/source.env",
+                "/fixture/restore.env", "/fixture/package", "/fixture/output", "/fixture/plan"));
+        IOfflineMigrationPlanningAuthorityReader planning = Substitute.For<IOfflineMigrationPlanningAuthorityReader>();
+        var verification = new OfflineMigrationCurrentSchemaVerificationCapabilities(
+            Substitute.For<IOfflineMigrationVerificationArtifactReader>(), Substitute.For<IOfflineMigrationCurrentSchemaObserver>(),
+            Substitute.For<IOfflineMigrationCurrentSchemaVerificationAuthority>(), Substitute.For<IOfflineMigrationApplyOperationRegistry>());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => OfflineMigrationHostOwnedConfiguration.CreateAsync(
+            planning, inputs, verification, cancellation.Token));
+        Assert.Empty(planning.ReceivedCalls());
+        Assert.Empty(verification.Artifacts.ReceivedCalls());
+        Assert.Empty(verification.Authority.ReceivedCalls());
+        Assert.Empty(verification.Operations.ReceivedCalls());
     }
 
     [Fact]

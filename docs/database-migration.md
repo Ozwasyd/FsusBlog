@@ -438,6 +438,11 @@ tool/resource configuration is registered. These interfaces and source fixtures
 are neither actual database execution nor three-provider qualification.
 `OfflineMigrationHostOwnedConfiguration` assembles all three original consumer
 routes from the same compiled planning, verification and original shell configuration.
+Its async creation consumes the original backup owner's real tool/input resolver;
+raw shell-fixture configurations without that owner binding are rejected. The owner
+rehashes its seven original tools and checks the operation's explicit scope again
+at producer entry and immediately before launch. This byte binding is not a source,
+toolchain, target or retained-backup authority and cannot fill those missing ports.
 `RunOwnedAsync` uses the same dispatcher and clock as the default entry, without a
 CLI plugin/registration API. This is a real composition path, not an authorization
 record. Actual original target/operation factories and retained-backup/tool provenance
