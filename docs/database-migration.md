@@ -289,6 +289,33 @@ default to success. Receipt admission failures stop hosted business-service star
 in Development as well as Production, using the fatal admission category rather
 than the ordinary development-only bootstrap logging fallback.
 
+The Migration-owned `OfflineMigrationCurrentSchemaIssuer` requires explicit original
+plan/apply/checkpoint artifacts and a completed exact native journal. Artifact SHA-256
+binds all actual file bytes; `OfflineMigrationJournalAnchor.EntryDigest` binds the
+entry payload's separate semantic seal. The verifier streams the entire original
+invocation (not a prefix ending at a requested checkpoint), validates every explicit
+checkpoint against its native entry, and authenticates the first attempt's UTC
+admission time before revalidating the original backup/registry/DAG bindings.
+
+Native current schema, instance/database identity, required target postconditions
+and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
+read-only transaction. Expected/actual fact vectors must close in both directions
+and agree with the original committed step proofs; an empty observation, partial
+apply, warning, unknown operation or provider cannot produce `verified-current`.
+The current target is independently derived from its original owner, never the plan
+payload. Only after successful observation and snapshot cleanup does the issuer
+return canonical current-receipt bytes with their separate whole-file SHA-256.
+`VerifyExistingAsync` consumes an explicit original receipt artifact and re-runs
+that native verification before comparing the complete recomputed receipt seal;
+it does not accept a caller's success status or re-use its claimed verifier identity.
+
+The normal issuer factory remains deliberately unavailable until original native
+current-schema, compiled-operation, artifact and authenticated-backup owners are
+configured. Missing owners return `current_verify_native_owners_not_configured`
+before native access or publication. Validator unit fixtures exercise structural
+refusal rules only; they neither issue receipts through fake providers nor replace
+the required empty/old database, independent verifier and startup runtime gates.
+
 The test-only materialization receipt remains a separate isolated-run artifact.
 Its schema check uses `CurrentSchemaReadObserver`, not an optional production
 receipt bypass. Offline receipt issuance additionally requires the original sealed
