@@ -448,7 +448,7 @@ public class Regex
                 errorDiagnostics: (current.report.diagnostics ?? []).filter((entry) => entry.severity === 'error'),
                 hasRuntimeRollupCase: (current.report.testCases ?? []).some((entry) => (
                     entry.ownerFile === 'tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs'
-                    && entry.methodName === 'RuntimeRollupCatalog_MatchesPostCodeFirstEnsureTableSteps'
+                    && entry.methodName === 'RuntimeRollupCatalog_MatchesPostCodeFirstMigrationDdl'
                 ))
             },
             cs0117,
