@@ -408,6 +408,39 @@ public sealed class ArticlePreservationProjectionTests
         }
     }
 
+    [Fact]
+    public void Storage_rows_keep_all_current_snapshot_obligations_and_original_storage_encodings()
+    {
+        ArticlePreservationWritePlan plan = Project(WithStoredDefaults(Fixture()));
+        ImmutableArray<ArticlePreservationLogicalRow> rows = ArticlePreservationStorageProgram.BuildLogicalRows(plan, default);
+        string prefix = "FsusBlog.Server.Entities.";
+        Assert.Equal(11, rows.Length);
+        Assert.Single(rows, row => row.EntityOwner == prefix + "ArticlePublicationRecord");
+        ArticlePreservationLogicalRow revision = Assert.Single(rows, row => row.EntityOwner == prefix + "ArticleRevision");
+        Assert.Equal("1", revision.Fields.Single(static field => field.Property == "TagIds").Value);
+        Assert.Equal(string.Empty, revision.Fields.Single(static field => field.Property == "MarkdownContent").Value);
+        Assert.Equal(0L, revision.Fields.Single(static field => field.Property == "CreatedByAdminPrincipalId").Value);
+        ArticlePreservationLogicalRow block = Assert.Single(rows, row => row.EntityOwner == prefix + "ArticleRevisionContentBlock");
+        Assert.Equal(plan.Articles[0].ContentAddress.ContentHash, block.Fields.Single(static field => field.Property == "ContentHash").Value);
+        Assert.Equal(plan.Articles[0].Source.Markdown, block.Fields.Single(static field => field.Property == "MarkdownContent").Value);
+        ArticlePreservationLogicalRow responsibility = Assert.Single(rows, row => row.EntityOwner == prefix + "ArticleResponsibilitySnapshot");
+        Assert.Equal(false, responsibility.Fields.Single(static field => field.Property == "ResponsiblePersonConfirmed").Value);
+        Assert.Equal("[]", responsibility.Fields.Single(static field => field.Property == "AuthorsJson").Value);
+    }
+
+    [Fact]
+    public void Storage_rows_deduplicate_only_the_real_global_raw_content_block()
+    {
+        InputFixture fixture = Fixture();
+        ArticlePreservationWritePlan plan = Project(WithSecondArticle(fixture, fixture.Source.Data.Articles[0].Markdown!,
+            fixture.Current.Articles[0].Data.Coordinates.ContentBlockId));
+        ImmutableArray<ArticlePreservationLogicalRow> rows = ArticlePreservationStorageProgram.BuildLogicalRows(plan, default);
+        Assert.Single(rows, static row => row.EntityOwner.EndsWith(".ArticleRevisionContentBlock", StringComparison.Ordinal));
+        Assert.Equal(2, rows.Count(static row => row.EntityOwner.EndsWith(".ArticleRevision", StringComparison.Ordinal)));
+        Assert.Equal(2, rows.Count(static row => row.EntityOwner.EndsWith(".ArticleRightsSnapshot", StringComparison.Ordinal)));
+        Assert.Equal(2, rows.Count(static row => row.EntityOwner.EndsWith(".ArticleResponsibilitySnapshot", StringComparison.Ordinal)));
+    }
+
     private static InputFixture WithStoredDefaults(InputFixture fixture)
     {
         ArticlePreservationDefaultPolicyExport policy = ArticlePreservationPolicyExporter.PrepareDefaultPolicy(

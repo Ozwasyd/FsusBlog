@@ -2248,6 +2248,8 @@ The current raw revision content-block address and stored revision/responsibilit
 
 Offline article source, default-policy, per-article and aggregate artifact publication reuses the single Migration-owned immutable artifact publisher. An explicit absolute output path and unchanged complete prepared bytes are required; publication returns the actual file-byte SHA, not the semantic policy or graph digest. File publication does not by itself establish source admission, media verification, target commit or a current-schema receipt.
 
+Offline article storage compilation binds current logical property values to the invoked current schema owner's exact exported table/column owner identities; physical names are not maintained in a second article mapping. Every mapped current field must be present and supported, with complete required snapshot/publication coordinates and the original content-block/tag/responsibility encodings. Missing, extra, duplicate, incompatible or computed field mappings are rejected before a storage program is produced. This immutable program is not a native schema observation, execution grant, media commit or whole-database qualification.
+
 `Article.Status` 的 exact set 由 [`design.md`](design.md) 的 generated section 拥有；
 本文件只保留下方由同一 observation 生成的 allowed/forbidden transition projections。
 
