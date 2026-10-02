@@ -134,8 +134,8 @@ internal static class SqliteCurrentSchemaCatalogObserver
         // sqlite_sequence is an actual AUTOINCREMENT high-water mark, not a replacement
         // for an unsupported PostgreSQL sequence recipe. Keep its observed values verbatim.
         ImmutableArray<SqliteSequenceValue> sequenceValues = objects.Any(item => item.Kind == "table" && item.Name == "sqlite_sequence")
-            ? await RowsAsync(connection, transaction, $"SELECT {Text("name")}, seq FROM main.sqlite_sequence ORDER BY name", null,
-                budget, reader => new SqliteSequenceValue(budget.RequiredText(reader, 0), reader.GetInt64(1)), cancellationToken).ConfigureAwait(false)
+            ? await RowsAsync(connection, transaction, $"SELECT {Text("name")}, seq, TYPEOF(name), TYPEOF(seq) FROM main.sqlite_sequence ORDER BY name", null,
+                budget, reader => ReadSequenceValue(reader, budget), cancellationToken).ConfigureAwait(false)
             : [];
         long applicationId = await ScalarAsync(connection, transaction, "PRAGMA main.application_id", cancellationToken).ConfigureAwait(false);
         long userVersion = await ScalarAsync(connection, transaction, "PRAGMA main.user_version", cancellationToken).ConfigureAwait(false);
@@ -244,6 +244,19 @@ internal static class SqliteCurrentSchemaCatalogObserver
     // UTF-16 character; oversize text still exceeds the original character limit.
     private static string Text(string column) => $"CAST(SUBSTR(CAST({column} AS BLOB), 1, {(OfflineMigrationSourceObserver.MaximumCellCharacters + 1) * 4}) AS TEXT)";
     private static int Integer(DbDataReader reader, int ordinal) => checked((int)reader.GetInt64(ordinal));
+
+    private static SqliteSequenceValue ReadSequenceValue(DbDataReader reader, MetadataBudget budget)
+    {
+        // sqlite_sequence has no column affinity. The native GetInt64 conversion
+        // would otherwise turn caller-edited text/real/null storage into a false
+        // integer fact; unsupported storage is refused before that conversion.
+        if (budget.RequiredText(reader, 2) != "text" || budget.RequiredText(reader, 3) != "integer")
+        {
+            throw Failure("sqlite_current_catalog_sequence_storage_type_invalid");
+        }
+        return new(budget.RequiredText(reader, 0), reader.GetInt64(1));
+    }
+
     private static bool Boolean(DbDataReader reader, int ordinal) => reader.GetInt64(ordinal) switch
     {
         0 => false,

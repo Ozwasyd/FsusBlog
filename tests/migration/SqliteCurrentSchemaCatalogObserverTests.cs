@@ -218,6 +218,42 @@ public sealed class SqliteCurrentSchemaCatalogObserverTests
         Assert.Same(fixture.Connection, fixture.Transaction.Connection);
     }
 
+    [Theory]
+    [InlineData("seq = 'garbage'")]
+    [InlineData("seq = 1.5")]
+    [InlineData("seq = NULL")]
+    [InlineData("name = 123")]
+    public async Task AutoincrementStorageTypesAreRejectedBeforeNativeNumericCoercion(string mutation)
+    {
+        await using var fixture = await CatalogFixture.CreateAsync($"""
+            CREATE TABLE item(id INTEGER PRIMARY KEY AUTOINCREMENT);
+            INSERT INTO item VALUES(1);
+            UPDATE sqlite_sequence SET {mutation};
+            """);
+        await AssertCodeAsync("sqlite_current_catalog_sequence_storage_type_invalid", () => fixture.ReadAsync());
+    }
+
+    [Theory]
+    [InlineData(long.MaxValue)]
+    [InlineData(-3L)]
+    public async Task NativeIntegerSequenceFactsRemainExactWithoutInventingExpectedValues(long value)
+    {
+        await using var fixture = await CatalogFixture.CreateAsync("""
+            CREATE TABLE item(id INTEGER PRIMARY KEY AUTOINCREMENT);
+            INSERT INTO item VALUES(1);
+            """);
+        await using (SqliteCommand command = fixture.Connection.CreateCommand())
+        {
+            command.Transaction = fixture.Transaction;
+            command.CommandText = "UPDATE sqlite_sequence SET seq = $value";
+            command.Parameters.AddWithValue("$value", value);
+            await command.ExecuteNonQueryAsync();
+        }
+        SqliteSequenceValue actual = Assert.Single((await fixture.ReadAsync()).SequenceValues);
+        Assert.Equal("item", actual.Table);
+        Assert.Equal(value, actual.Value);
+    }
+
     private static async Task AssertCodeAsync(string expected, Func<Task<SqliteCurrentSchemaCatalog>> action)
     {
         InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(action);
