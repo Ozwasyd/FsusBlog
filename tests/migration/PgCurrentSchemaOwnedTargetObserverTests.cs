@@ -153,6 +153,46 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
         Assert.NotEmpty(PgCurrentSchemaControlShape.CompareApplyJournal(snapshot, effects));
     }
 
+    [Theory]
+    [InlineData("missing-control")]
+    [InlineData("missing-constraint-same-index")]
+    [InlineData("missing-sequence")]
+    [InlineData("sequence-cache")]
+    public void CompleteControlAndIndependentSequence_RejectEitherNativeDomainDriftAfterCombinedPositive(string drift)
+    {
+        SchemaTableModel control = CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.PostgreSql);
+        var tables = new Dictionary<string, SchemaTableModel> { [control.Name] = control };
+        var snapshot = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel>(tables),
+            provider: SchemaProviderKind.PostgreSql);
+        var operation = new CurrentSchemaRecipeOperation(CurrentSchemaRecipeOperationKind.CreateSequence, "probe_seq",
+            Sequence: CurrentSchemaIndependentSequenceFacts.PostgreSqlBigIntDefaults);
+        var expected = new CurrentSchemaCompletePhysicalProjection(snapshot, [operation], [])
+        {
+            IndependentSequences = [CurrentSchemaCanonicalAuthority.ProjectIndependentSequence(operation, SchemaProviderKind.PostgreSql)]
+        };
+        PgCurrentSequence sequence = new(operation.Name, "bigint", 1, 1, 1, long.MaxValue, 1, false);
+        PgCurrentSchemaEffectObservation effects = ControlEffects(control) with { Sequences = [sequence] };
+        Assert.Empty(PgCurrentSchemaOwnedTargetObserver.Compare(expected, snapshot, effects));
+        switch (drift)
+        {
+            case "missing-control":
+                tables.Clear();
+                effects = effects with { Expressions = [] };
+                break;
+            case "missing-constraint-same-index":
+                var constraints = new Dictionary<string, SchemaConstraintModel>(control.Constraints);
+                constraints.Remove(control.Name + "_entry_digest_key");
+                tables[control.Name] = new(control.Name, control.Columns, control.Indexes,
+                    control.IndexDefinitions, constraints, control.Owner);
+                break;
+            case "missing-sequence": effects = effects with { Sequences = [] }; break;
+            case "sequence-cache": effects = effects with { Sequences = [sequence with { Cache = 2 }] }; break;
+            default: throw new InvalidOperationException("Unknown combined native drift.");
+        }
+        var changed = new SchemaModelSnapshot(tables, provider: SchemaProviderKind.PostgreSql);
+        Assert.NotEmpty(PgCurrentSchemaOwnedTargetObserver.Compare(expected, changed, effects));
+    }
+
     [Fact]
     public void CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse()
     {

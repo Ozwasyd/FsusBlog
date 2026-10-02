@@ -534,6 +534,17 @@ descriptor SQL or make provider DDL a second current-schema mapping. The migrati
 assembly extraction above changes compile ownership only; descriptor IDs,
 fingerprints, checksums, SQL and execution order remain stable.
 
+Current-owned recipe effects also retain the original independent PostgreSQL
+`CREATE SEQUENCE ... AS bigint` configuration as typed facts: start/increment/minimum
+1, maximum `Int64.MaxValue`, cache 1, non-cyclic, and not a business-column identity.
+The complete recipe/content identity and provider target include these facts;
+missing, altered, duplicate or unused sequence arguments refuse. This preserves
+the original `nextval` behavior, including permitted gaps, without promising
+gapless numbering, commit ordering or stronger crash persistence. MySQL and
+SQLite independent-sequence projections remain explicitly unavailable until the
+same authority owns their physical allocation protocol and actual verification;
+an observed AUTO_INCREMENT column or trigger action does not define that target.
+
 Acceptance runtime bootstrap uses the explicit Server command
 `materialize-current-schema-test` only after its isolated PostgreSQL service is
 ready and before any runtime application starts. The command is unavailable to the

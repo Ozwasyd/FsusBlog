@@ -11,6 +11,132 @@ namespace FsusBlog.Server.Tests;
 public sealed class CurrentSchemaOwnedProjectionExporterTests
 {
     [Fact]
+    public void OriginalIndependentSequence_ExportsEveryConfigurationFactAndNotAColumnIdentity()
+    {
+        CurrentSchemaRequiredRecipeReference recipe = Assert.Single(
+            CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes().Where(static reference =>
+                reference.SemanticDescription!.AdditionalOperations.Any(static operation =>
+                    operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence)));
+        CurrentSchemaRecipeOperation operation = Assert.Single(recipe.SemanticDescription!.AdditionalOperations.Where(
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        Assert.Equal("public_article_projection_version_seq", operation.Name);
+        Assert.Equal(new CurrentSchemaIndependentSequenceFacts("bigint", 1, 1, 1, long.MaxValue, 1, false, true),
+            operation.Sequence);
+        Assert.Null(operation.Table);
+        Assert.False(recipe.SemanticDescription.Table.Columns["article_id"].IsIdentity);
+        Assert.False(recipe.SemanticDescription.Table.Columns["version"].IsIdentity);
+        CurrentSchemaIndependentSequencePhysicalProjection physical =
+            CurrentSchemaCanonicalAuthority.ProjectIndependentSequence(operation, SchemaProviderKind.PostgreSql);
+        Assert.Equal(operation.Name, physical.Name);
+        Assert.Equal(SchemaProviderKind.PostgreSql, physical.Provider);
+        Assert.Equal(CurrentSchemaSequencePhysicalKind.NativeIndependentSequence, physical.Kind);
+        Assert.Equal(operation.Sequence, physical.Facts);
+    }
+
+    [Theory]
+    [InlineData(SchemaProviderKind.MySql)]
+    [InlineData(SchemaProviderKind.Sqlite)]
+    [InlineData(SchemaProviderKind.Semantic)]
+    public void IndependentSequence_UnimplementedPhysicalMappingDoesNotInventAnAllocator(SchemaProviderKind provider)
+    {
+        var operation = new CurrentSchemaRecipeOperation(CurrentSchemaRecipeOperationKind.CreateSequence, "probe_seq",
+            Sequence: CurrentSchemaIndependentSequenceFacts.PostgreSqlBigIntDefaults);
+        Assert.Contains("independent_sequence_provider_unavailable", Assert.Throws<InvalidOperationException>(() =>
+            CurrentSchemaCanonicalAuthority.ProjectIndependentSequence(operation, provider)).Message);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("type")]
+    [InlineData("start")]
+    [InlineData("increment")]
+    [InlineData("minimum")]
+    [InlineData("maximum")]
+    [InlineData("cache")]
+    [InlineData("cycle")]
+    [InlineData("column-identity")]
+    [InlineData("unused-argument")]
+    [InlineData("wrong-kind")]
+    public void IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(string mutation)
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+            inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        CurrentSchemaRequiredRecipeReference[] original = CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes().ToArray();
+        int recipeIndex = Array.FindIndex(original, static reference => reference.SemanticDescription!.AdditionalOperations.Any(
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        CurrentSchemaRecipeFacts originalFacts = original[recipeIndex].SemanticDescription!;
+        CurrentSchemaRecipeOperation[] operations = originalFacts.AdditionalOperations.ToArray();
+        int operationIndex = Array.FindIndex(operations, static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence);
+        CurrentSchemaRecipeOperation operation = operations[operationIndex];
+        CurrentSchemaIndependentSequenceFacts facts = operation.Sequence!;
+        operations[operationIndex] = mutation switch
+        {
+            "missing" => operation with { Sequence = null },
+            "type" => operation with { Sequence = facts with { DataType = "integer" } },
+            "start" => operation with { Sequence = facts with { StartValue = 2 } },
+            "increment" => operation with { Sequence = facts with { IncrementBy = 2 } },
+            "minimum" => operation with { Sequence = facts with { MinValue = 0 } },
+            "maximum" => operation with { Sequence = facts with { MaxValue = long.MaxValue - 1 } },
+            "cache" => operation with { Sequence = facts with { CacheSize = 2 } },
+            "cycle" => operation with { Sequence = facts with { IsCyclic = true } },
+            "column-identity" => operation with { Sequence = facts with { IsIndependent = false } },
+            "unused-argument" => operation with { Table = originalFacts.Table.Name },
+            "wrong-kind" => operation with { Kind = CurrentSchemaRecipeOperationKind.RemoveTrigger },
+            _ => throw new InvalidOperationException("unknown mutation fixture")
+        };
+        var changed = original.ToArray();
+        changed[recipeIndex] = original[recipeIndex] with
+        {
+            SemanticDescription = originalFacts with { AdditionalOperations = operations }
+        };
+        Assert.NotEqual(CurrentSchemaOwnedTargetProjection.Observe(entity, original).ContentDigest,
+            CurrentSchemaOwnedTargetProjection.Observe(entity, changed).ContentDigest);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            entity, changed, SchemaProviderKind.PostgreSql));
+    }
+
+    [Fact]
+    public void IndependentSequence_CompletePhysicalTargetRetainsConfigurationAndRejectsDuplicateEffects()
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+            inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        CurrentSchemaRequiredRecipeReference[] recipes = CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes().ToArray();
+        CurrentSchemaCompletePhysicalProjection target = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            entity, recipes, SchemaProviderKind.PostgreSql);
+        CurrentSchemaIndependentSequencePhysicalProjection sequence = Assert.Single(target.IndependentSequences);
+        Assert.Equal("public_article_projection_version_seq", sequence.Name);
+        Assert.Equal(CurrentSchemaIndependentSequenceFacts.PostgreSqlBigIntDefaults, sequence.Facts);
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(entity, recipes), target.Tables.Identity);
+        SchemaTableModel control = target.Tables.Tables[CurrentSchemaControlShape.ApplyJournalTableName];
+        Assert.Equal(7, control.Columns.Count);
+        Assert.Equal(4, control.Constraints.Count);
+        Assert.Equal(3, control.IndexDefinitions.Count);
+        Assert.Equal(CurrentSchemaCanonicalAuthority.ModelVersion, target.Tables.Identity!.ModelVersion);
+        Assert.Contains(target.SchemaEffects, operation => operation.Name == sequence.Name && operation.Sequence == sequence.Facts);
+        int recipeIndex = Array.FindIndex(recipes, static reference => reference.SemanticDescription!.AdditionalOperations.Any(
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        CurrentSchemaRecipeFacts facts = recipes[recipeIndex].SemanticDescription!;
+        CurrentSchemaRecipeOperation duplicate = Assert.Single(facts.AdditionalOperations.Where(
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        recipes[recipeIndex] = recipes[recipeIndex] with
+        {
+            SemanticDescription = facts with { AdditionalOperations = facts.AdditionalOperations.Append(duplicate).ToArray() }
+        };
+        Assert.Contains("independent_sequence_duplicate", Assert.Throws<InvalidOperationException>(() =>
+            CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(entity, recipes, SchemaProviderKind.PostgreSql)).Message);
+    }
+
+    [Fact]
+    public void IndependentSequence_ExtractionDoesNotAcceptAChangedSqlConfiguration()
+    {
+        var recipe = new CurrentSchemaRuntimeRollupTable("probe", "CREATE TABLE IF NOT EXISTS probe (id integer PRIMARY KEY);",
+            ["CREATE SEQUENCE IF NOT EXISTS probe_seq AS bigint START 2;"]);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
+    }
+
+    [Fact]
     public void LiveReaderProjectionOverloads_KeepTheOriginalCompositeIdentityAndPhysicalFacts()
     {
         var inspector = new SchemaModelInspector();

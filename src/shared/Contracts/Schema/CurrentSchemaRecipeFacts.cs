@@ -18,6 +18,39 @@ public enum CurrentSchemaRecipeOperationKind
     AddConstraintIfAbsent
 }
 
+/// <summary>The independent sequence configuration derived from the original current-owned recipe.</summary>
+/// <remarks>
+/// This is not a column identity or a promise of gapless or commit-ordered values.
+/// The original PostgreSQL sequence allocator and its rollback behavior remain unchanged.
+/// </remarks>
+public sealed record CurrentSchemaIndependentSequenceFacts(
+    string DataType,
+    long StartValue,
+    long IncrementBy,
+    long MinValue,
+    long MaxValue,
+    long CacheSize,
+    bool IsCyclic,
+    bool IsIndependent)
+{
+    /// <summary>Defaults of the original closed CREATE SEQUENCE AS bigint source grammar.</summary>
+    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults { get; } =
+        new("bigint", 1, 1, 1, long.MaxValue, 1, false, true);
+}
+
+/// <summary>The physical representation actually supported by the original sequence projector.</summary>
+public enum CurrentSchemaSequencePhysicalKind
+{
+    NativeIndependentSequence
+}
+
+/// <summary>A provider projection of one independent sequence, not a provider allocator implementation or execution grant.</summary>
+public sealed record CurrentSchemaIndependentSequencePhysicalProjection(
+    string Name,
+    SchemaProviderKind Provider,
+    CurrentSchemaSequencePhysicalKind Kind,
+    CurrentSchemaIndependentSequenceFacts Facts);
+
 /// <summary>
 /// A provider-independent effect and its current-owned arguments. Expressions in
 /// defaults, predicates and seed values retain the owner's expression semantics;
@@ -34,7 +67,8 @@ public sealed record CurrentSchemaRecipeOperation(
     string? Function = null,
     IReadOnlyList<string>? Columns = null,
     IReadOnlyList<string>? Values = null,
-    string? ConflictColumn = null);
+    string? ConflictColumn = null,
+    CurrentSchemaIndependentSequenceFacts? Sequence = null);
 
 /// <summary>Current control relation facts, not SQL, journal payload or an execution grant.</summary>
 /// <param name="Version">The explicitly versioned current control contract.</param>

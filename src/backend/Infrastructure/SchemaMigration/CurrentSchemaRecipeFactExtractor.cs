@@ -150,7 +150,8 @@ internal static class CurrentSchemaRecipeFactExtractor
         if (Starts(source, "CREATE SEQUENCE"))
         {
             Match match = Match(source, $"CREATE SEQUENCE IF NOT EXISTS (?<name>{Id}) AS bigint;");
-            return new(CurrentSchemaRecipeOperationKind.CreateSequence, match.Groups["name"].Value);
+            return new(CurrentSchemaRecipeOperationKind.CreateSequence, match.Groups["name"].Value,
+                Sequence: CurrentSchemaIndependentSequenceFacts.PostgreSqlBigIntDefaults);
         }
         if (Starts(source, "CREATE OR REPLACE FUNCTION"))
         {
