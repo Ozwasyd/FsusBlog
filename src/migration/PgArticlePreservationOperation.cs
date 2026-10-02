@@ -38,6 +38,7 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     private string _targetRootIdentity = null!;
     private readonly CurrentSchemaArtifactReference _assembly;
     private OfflineMigrationMediaJournalEvidence? _binding;
+    private ArticleMediaPublication? _publication;
     private PgLegacyNonArticlePreparation? _nonArticle;
 
     private PgArticlePreservationOperation(OwnedCurrentSchemaTarget owned, CurrentSchemaArtifactReference source,
@@ -90,9 +91,17 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             throw new InvalidOperationException("article_preservation_operation_artifact_reference_invalid");
         string assemblyPath = Path.GetFullPath(typeof(PgArticlePreservationOperation).Assembly.Location);
         using var assemblyHandle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(assemblyPath, cancellationToken);
+        var assemblyIdentity = OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(
+            assemblyPath, assemblyHandle, cancellationToken);
         var assemblyStream = new FileStream(assemblyHandle, FileAccess.Read, 4096);
         string assemblyDigest = await PreserveFirstAsync(assemblyStream,
-            async () => Convert.ToHexStringLower(await SHA256.HashDataAsync(assemblyStream, cancellationToken).ConfigureAwait(false)))
+            async () =>
+            {
+                string digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(assemblyStream, cancellationToken).ConfigureAwait(false));
+                OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(
+                    assemblyPath, assemblyHandle, assemblyIdentity, cancellationToken);
+                return digest;
+            })
             .ConfigureAwait(false);
         return new(owned, sourceArtifact, currentArtifact, configuration, new(assemblyPath, assemblyDigest), actualRetainedTool);
     }
@@ -239,6 +248,7 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             _plan.Media, _configuration.SourceAssetRoot, _configuration.TargetParent,
             _configuration.TargetDirectoryName, _binding.Binding, _configuration.MediaLimits,
             journal, cancellationToken).ConfigureAwait(false);
+        _publication = publication;
         PgArticlePreservationStage article = await PgArticlePreservationStage.CreateAsync(
             this, legacy, connection, transaction, publication, cancellationToken).ConfigureAwait(false);
         // The original nonarticle owner re-observes this opaque capability and every other
@@ -313,8 +323,46 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             throw new InvalidOperationException("article_preservation_operation_target_root_changed");
         using ArticleMediaDirectory generation = parent.TryOpenDirectory(_configuration.TargetDirectoryName)
             ?? throw new InvalidOperationException("article_preservation_operation_generation_missing");
+        string expectedGeneration = _publication?.GenerationIdentity
+            ?? RequireCommittedMedia().GenerationIdentity
+            ?? throw new InvalidOperationException("article_preservation_operation_committed_generation_missing");
+        RequireGenerationIdentity(generation.Identity, expectedGeneration);
         await generation.VerifyAsync(_plan.Media.Files, _configuration.MediaLimits.FileBytes,
             _configuration.MediaLimits.MetadataBytes, token).ConfigureAwait(false);
+        // Identity is cached on the anchored FD. Re-open the original pathname after
+        // full verification so an equal-byte replacement cannot seal an older inode.
+        using var terminalParent = ArticleMediaDirectory.Open(_configuration.TargetParent, writable: false);
+        if (terminalParent.Identity != _targetRootIdentity)
+            throw new InvalidOperationException("article_preservation_operation_target_root_changed");
+        using ArticleMediaDirectory terminalGeneration = terminalParent.TryOpenDirectory(_configuration.TargetDirectoryName)
+            ?? throw new InvalidOperationException("article_preservation_operation_generation_missing");
+        RequireGenerationIdentity(terminalGeneration.Identity, expectedGeneration);
+    }
+
+    private OfflineMigrationMediaJournalEvidence RequireCommittedMedia()
+    {
+        if (_verifiedProgress is null || !RequiresCommittedTarget(_verifiedProgress, StepReference, Identity))
+            throw new InvalidOperationException("article_preservation_operation_verified_progress_capability_missing");
+        OfflineMigrationApplyJournalEntry? pending = _verifiedProgress.PendingUnit;
+        OfflineMigrationApplyJournalEntry unit = pending?.StepId == StepReference
+            ? pending : _verifiedProgress.StepProofs.Single(entry => entry.StepId == StepReference);
+        OfflineMigrationMediaJournalEvidence media = unit.Media
+            ?? throw new InvalidOperationException("article_preservation_operation_committed_generation_missing");
+        if (media.Binding.RunId != _configuration.MediaRunId
+            || media.Binding.SourceContentDigest != _source.Data.FullSourceContentDigest
+            || media.Binding.ManifestDigest != _plan.Media.ManifestDigest
+            || media.Binding.SourceRootIdentity != _plan.Media.SourceRootIdentity
+            || media.Binding.TargetRootIdentity != _targetRootIdentity
+            || media.Binding.TargetDirectoryName != _configuration.TargetDirectoryName)
+            throw new InvalidOperationException("article_preservation_operation_committed_media_binding_changed");
+        return media;
+    }
+
+    internal static void RequireGenerationIdentity(string actual, string expected)
+    {
+        if (string.IsNullOrWhiteSpace(actual) || string.IsNullOrWhiteSpace(expected)
+            || !string.Equals(actual, expected, StringComparison.Ordinal))
+            throw new InvalidOperationException("article_preservation_operation_generation_identity_changed");
     }
 
     private async Task RevalidateInputsAsync(CancellationToken token)
@@ -322,11 +370,17 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         await _owned.RevalidateRetainedArtifactAsync(token).ConfigureAwait(false);
         await RequirePublishedInputsAsync(_source, _current, _configuration.WriteLimits.MaximumArtifactBytes, token).ConfigureAwait(false);
         using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(_assembly.Reference, token);
+        var initial = OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(_assembly.Reference, handle, token);
         var stream = new FileStream(handle, FileAccess.Read, 4096);
-        string actualAssembly = await PreserveFirstAsync(stream,
-            async () => Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false))).ConfigureAwait(false);
-        if (actualAssembly != _assembly.Sha256)
-            throw new InvalidOperationException("article_preservation_operation_compiled_owner_changed");
+        _ = await PreserveFirstAsync(stream,
+            async () =>
+            {
+                string digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, token).ConfigureAwait(false));
+                if (digest != _assembly.Sha256)
+                    throw new InvalidOperationException("article_preservation_operation_compiled_owner_changed");
+                OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(_assembly.Reference, handle, initial, token);
+                return digest;
+            }).ConfigureAwait(false);
         ArticleMediaInventory actual = await InventoryAsync(_source, _configuration, token).ConfigureAwait(false);
         if (!ArticlePreservationSemanticReceipt.Serialize(actual).AsSpan().SequenceEqual(ArticlePreservationSemanticReceipt.Serialize(_plan.Media)))
             throw new InvalidOperationException("article_preservation_operation_source_media_changed");
@@ -413,12 +467,13 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         return value;
     }
 
-    private static async Task<ImmutableArray<byte>> ReadArtifactAsync(CurrentSchemaArtifactReference reference,
+    internal static async Task<ImmutableArray<byte>> ReadArtifactAsync(CurrentSchemaArtifactReference reference,
         long maximumBytes, CancellationToken token)
     {
         if (reference is null || !ArticlePreservationSemanticReceipt.IsDigest(reference.Sha256) || maximumBytes <= 0)
             throw new InvalidOperationException("article_preservation_operation_artifact_reference_invalid");
         using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(reference.Reference, token);
+        var initial = OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(reference.Reference, handle, token);
         var stream = new FileStream(handle, FileAccess.Read, 4096);
         return await PreserveFirstAsync(stream, async () =>
         {
@@ -428,6 +483,7 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             await stream.ReadExactlyAsync(bytes.AsMemory(), token).ConfigureAwait(false);
             if (stream.ReadByte() != -1 || ArticlePreservationSemanticReceipt.HashBytes(bytes) != reference.Sha256)
                 throw new InvalidOperationException("article_preservation_operation_original_artifact_changed");
+            OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(reference.Reference, handle, initial, token);
             return bytes.ToImmutableArray();
         }).ConfigureAwait(false);
     }
