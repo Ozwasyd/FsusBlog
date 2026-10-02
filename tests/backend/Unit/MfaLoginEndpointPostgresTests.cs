@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -38,16 +39,22 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
 using SqlSugar;
+
+using StackExchange.Redis;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Trait("Category", "SecurityStateMachine")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
-public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture fixture)
+public sealed class MfaLoginEndpointPostgresTests(
+    PostgresSchemaMigrationFixture fixture,
+    PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     private const string DeviceA = "issue-2348-device-a";
     private const string DeviceB = "issue-2348-device-b";
@@ -56,7 +63,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes()
     {
-        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture);
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
 
         using HttpResponseMessage pendingResponse = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
         Assert.Equal(HttpStatusCode.OK, pendingResponse.StatusCode);
@@ -66,8 +73,9 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         Assert.False(string.IsNullOrWhiteSpace(pending.ChallengeToken));
         Assert.False(pendingResponse.Headers.TryGetValues("Set-Cookie", out _));
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(0, await host.CountSessionsAsync());
 
-        using HttpResponseMessage pendingSensitiveAccess = await host.AccessSensitiveEndpointAsync(
+        using HttpResponseMessage pendingSensitiveAccess = await host.AccessProtectedEndpointAsync(
             pending.ChallengeToken!);
         Assert.Equal(HttpStatusCode.Unauthorized, pendingSensitiveAccess.StatusCode);
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
@@ -77,6 +85,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
             pending.ChallengeToken!);
         Assert.Equal(HttpStatusCode.Unauthorized, earlyRefresh.StatusCode);
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(0, await host.CountSessionsAsync());
 
         string totp = ComputeCurrentTotp(host.MfaSecret);
         using HttpResponseMessage completedResponse = await host.CompleteMfaAsync(
@@ -95,6 +104,8 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         Assert.True(stored.MfaVerified);
         Assert.Equal(UserSessionAuthenticationStrengths.Mfa, stored.AuthenticationStrength);
         Assert.NotEqual(DeviceA, stored.DeviceSignalHash);
+        await host.AssertAccessTokenMatchesSessionAsync(completedResponse, stored);
+        Assert.False(await host.ContinuationExistsAsync(pending.ChallengeToken!));
 
         using HttpResponseMessage replay = await host.CompleteMfaAsync(
             pending.ChallengeToken!,
@@ -103,12 +114,13 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
         Assert.Equal("MFA_CHALLENGE_EXPIRED", (await ReadErrorAsync(replay)).Message);
         Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(1, await host.CountSessionsAsync());
     }
 
     [Fact]
     public async Task MfaContinuation_ConcurrentTotpCompletionCreatesExactlyOnePostgresSession()
     {
-        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture);
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
         using HttpResponseMessage pendingResponse = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
         AuthLoginFlowDto pending = await ReadLoginFlowAsync(pendingResponse);
         string totp = ComputeCurrentTotp(host.MfaSecret);
@@ -124,6 +136,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
                 responses.Where(static response => response.StatusCode != HttpStatusCode.OK),
                 static response => Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode));
             Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+            Assert.Equal(1, await host.CountSessionsAsync());
         }
         finally
         {
@@ -138,7 +151,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-continuation-authority")]
     public async Task MfaContinuation_RejectsMissingCrossUserCrossDeviceExpiredAndRevokedUseWithoutSession()
     {
-        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture);
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
 
         using HttpResponseMessage missing = await host.CompleteMfaAsync(
             "not-a-issued-continuation",
@@ -162,7 +175,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         await AssertRejectedWithoutDetailLeakAsync(crossDevice, "MFA_CHALLENGE_EXPIRED");
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
 
-        host.ExpireContinuation(pending.ChallengeToken!);
+        await host.ExpireContinuationThroughRedisTtlAsync(pending.ChallengeToken!);
         using HttpResponseMessage expired = await host.CompleteMfaAsync(
             pending.ChallengeToken!,
             ComputeCurrentTotp(host.MfaSecret),
@@ -171,7 +184,16 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
 
         using HttpResponseMessage revokedPendingResponse = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
         AuthLoginFlowDto revokedPending = await ReadLoginFlowAsync(revokedPendingResponse);
-        host.RevokeContinuation(revokedPending.ChallengeToken!);
+        // Exercise production RecordFailureAsync and canonical invalidation, not a
+        // fixture-side deletion labelled "revocation".
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            using HttpResponseMessage failed = await host.CompleteMfaAsync(
+                revokedPending.ChallengeToken!, null, DeviceA, "invalid-recovery-code");
+            await AssertRejectedWithoutDetailLeakAsync(
+                failed, attempt == 4 ? "MFA_CHALLENGE_LOCKED" : "MFA_CHALLENGE_INVALID");
+        }
+        Assert.False(await host.ContinuationExistsAsync(revokedPending.ChallengeToken!));
         using HttpResponseMessage revoked = await host.CompleteMfaAsync(
             revokedPending.ChallengeToken!,
             ComputeCurrentTotp(host.MfaSecret),
@@ -179,13 +201,14 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         await AssertRejectedWithoutDetailLeakAsync(revoked, "MFA_CHALLENGE_EXPIRED");
 
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(0, await host.CountSessionsAsync());
     }
 
     [Fact]
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task NonMfaPasskeyLogin_PreservesDirectSessionAndCookieSemantics()
     {
-        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture);
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
 
         using HttpResponseMessage response = await host.PasskeyLoginAsync(host.NonMfaUser.Id, DeviceA);
 
@@ -197,7 +220,146 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         Assert.Equal(ReadCookie(response, "SessionId"), stored.SessionId);
         Assert.Equal(HashToken(ReadCookie(response, "RefreshToken")), stored.RefreshTokenHash);
         Assert.Equal(UserSessionAuthenticationStrengths.WebAuthnUv, stored.AuthenticationStrength);
+        await host.AssertAccessTokenMatchesSessionAsync(response, stored);
         Assert.Equal(0, host.ActiveContinuationCount);
+    }
+
+    [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-continuation-authority")]
+    public async Task MfaContinuation_TwoAccountRecoveryProofsCannotCompleteEachOthersLogin()
+    {
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        string codeA = Assert.Single(await host.SeedRecoveryCodesAsync(host.MfaUser.Id, 1));
+        string codeB = Assert.Single(await host.SeedRecoveryCodesAsync(host.OtherMfaUser.Id, 1));
+        Assert.NotEqual(codeA, codeB);
+        string hashesA = await host.ReadRecoveryHashesAsync(host.MfaUser.Id);
+        string hashesB = await host.ReadRecoveryHashesAsync(host.OtherMfaUser.Id);
+        using HttpResponseMessage loginA = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+        using HttpResponseMessage loginB = await host.PasskeyLoginAsync(host.OtherMfaUser.Id, DeviceA);
+        AuthLoginFlowDto pendingA = await ReadLoginFlowAsync(loginA);
+        AuthLoginFlowDto pendingB = await ReadLoginFlowAsync(loginB);
+        Assert.NotEqual(pendingA.ChallengeToken, pendingB.ChallengeToken);
+
+        using HttpResponseMessage swappedA = await host.CompleteMfaAsync(
+            pendingA.ChallengeToken!, null, DeviceA, codeB);
+        using HttpResponseMessage swappedB = await host.CompleteMfaAsync(
+            pendingB.ChallengeToken!, null, DeviceA, codeA);
+        await AssertRejectedWithoutDetailLeakAsync(swappedA, "MFA_CHALLENGE_INVALID");
+        await AssertRejectedWithoutDetailLeakAsync(swappedB, "MFA_CHALLENGE_INVALID");
+        Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(0, await host.CountActiveSessionsAsync(host.OtherMfaUser.Id));
+        Assert.Equal(0, await host.CountSessionsAsync());
+        Assert.Equal(hashesA, await host.ReadRecoveryHashesAsync(host.MfaUser.Id));
+        Assert.Equal(hashesB, await host.ReadRecoveryHashesAsync(host.OtherMfaUser.Id));
+        Assert.True(await host.ContinuationExistsAsync(pendingA.ChallengeToken!));
+        Assert.True(await host.ContinuationExistsAsync(pendingB.ChallengeToken!));
+
+        using HttpResponseMessage completedA = await host.CompleteMfaAsync(
+            pendingA.ChallengeToken!, null, DeviceA, codeA);
+        using HttpResponseMessage completedB = await host.CompleteMfaAsync(
+            pendingB.ChallengeToken!, null, DeviceA, codeB);
+        Assert.Equal(host.MfaUser.Id, (await ReadMfaResultAsync(completedA)).User?.AccountId);
+        Assert.Equal(host.OtherMfaUser.Id, (await ReadMfaResultAsync(completedB)).User?.AccountId);
+        await host.AssertAccessTokenMatchesSessionAsync(
+            completedA, Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id)));
+        await host.AssertAccessTokenMatchesSessionAsync(
+            completedB, Assert.Single(await host.GetActiveSessionsAsync(host.OtherMfaUser.Id)));
+        Assert.Equal(string.Empty, await host.ReadRecoveryHashesAsync(host.MfaUser.Id));
+        Assert.Equal(string.Empty, await host.ReadRecoveryHashesAsync(host.OtherMfaUser.Id));
+        Assert.False(await host.ContinuationExistsAsync(pendingA.ChallengeToken!));
+        Assert.False(await host.ContinuationExistsAsync(pendingB.ChallengeToken!));
+        Assert.Equal(2, await host.CountSessionsAsync());
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(6)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-continuation-authority")]
+    public async Task RecoveryCode_IndependentMfaContinuationsRaceAndReplayIssueOnlyOneSession(int participants)
+    {
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        IReadOnlyList<string> codes = await host.SeedRecoveryCodesAsync(host.MfaUser.Id, 2);
+        string beforeHashes = await host.ReadRecoveryHashesAsync(host.MfaUser.Id);
+        string expectedHashes = host.ConsumeRecoveryHash(beforeHashes, codes[0]);
+        var continuations = new List<string>();
+        for (int index = 0; index < participants; index++)
+        {
+            using HttpResponseMessage login = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+            AuthLoginFlowDto pending = await ReadLoginFlowAsync(login);
+            Assert.False(login.Headers.TryGetValues("Set-Cookie", out _));
+            continuations.Add(pending.ChallengeToken!);
+        }
+        Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+        using var barrier = new Barrier(participants);
+        Task<HttpResponseMessage>[] attempts = continuations.Select(challenge => Task.Factory.StartNew(
+            async () =>
+            {
+                Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(20)));
+                return await host.CompleteMfaAsync(challenge, null, DeviceA, codes[0]);
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap()).ToArray();
+        HttpResponseMessage[] responses = await Task.WhenAll(attempts).WaitAsync(TimeSpan.FromSeconds(30));
+        try
+        {
+            HttpResponseMessage winner = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
+            int winnerIndex = Array.IndexOf(responses, winner);
+            Assert.Equal(host.MfaUser.Id, (await ReadMfaResultAsync(winner)).User?.AccountId);
+            UserSession stored = Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+            Assert.Equal(UserSessionAuthenticationStrengths.Recovery, stored.AuthenticationStrength);
+            await host.AssertAccessTokenMatchesSessionAsync(winner, stored);
+            Assert.False(await host.ContinuationExistsAsync(continuations[winnerIndex]));
+            foreach (HttpResponseMessage loser in responses.Where(response => response != winner))
+            {
+                await AssertRejectedWithoutDetailLeakAsync(loser, "MFA_CHALLENGE_INVALID");
+                Assert.True(await host.ContinuationExistsAsync(continuations[Array.IndexOf(responses, loser)]));
+            }
+            Assert.Equal(expectedHashes, await host.ReadRecoveryHashesAsync(host.MfaUser.Id));
+            Assert.Equal(0, await host.CountActiveSessionsAsync(host.OtherMfaUser.Id));
+            Assert.Equal(1, await host.CountSessionsAsync());
+
+            using HttpResponseMessage replay = await host.CompleteMfaAsync(
+                continuations[winnerIndex], null, DeviceA, codes[0]);
+            await AssertRejectedWithoutDetailLeakAsync(replay, "MFA_CHALLENGE_EXPIRED");
+            using HttpResponseMessage freshLogin = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+            AuthLoginFlowDto fresh = await ReadLoginFlowAsync(freshLogin);
+            using HttpResponseMessage replayWithFreshContinuation = await host.CompleteMfaAsync(
+                fresh.ChallengeToken!, null, DeviceA, codes[0]);
+            await AssertRejectedWithoutDetailLeakAsync(replayWithFreshContinuation, "MFA_CHALLENGE_INVALID");
+            Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+            Assert.Equal(expectedHashes, await host.ReadRecoveryHashesAsync(host.MfaUser.Id));
+            Assert.Equal(1, await host.CountSessionsAsync());
+
+            using HttpResponseMessage retainedCode = await host.CompleteMfaAsync(
+                fresh.ChallengeToken!, null, DeviceA, codes[1]);
+            Assert.Equal(HttpStatusCode.OK, retainedCode.StatusCode);
+            Assert.Equal(2, await host.CountActiveSessionsAsync(host.MfaUser.Id));
+            Assert.Equal(2, await host.CountSessionsAsync());
+            Assert.Equal(string.Empty, await host.ReadRecoveryHashesAsync(host.MfaUser.Id));
+        }
+        finally
+        {
+            foreach (HttpResponseMessage response in responses)
+            {
+                response.Dispose();
+            }
+        }
+    }
+
+    [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-authentication-context-coherence")]
+    public async Task CompletedMfaAccessToken_AfterCanonicalCacheInvalidationRejectsDatabaseContextMismatch()
+    {
+        await using MfaLoginTestHost host = await MfaLoginTestHost.CreateAsync(fixture, redis);
+        using HttpResponseMessage login = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
+        AuthLoginFlowDto pending = await ReadLoginFlowAsync(login);
+        using HttpResponseMessage completed = await host.CompleteMfaAsync(
+            pending.ChallengeToken!, ComputeCurrentTotp(host.MfaSecret), DeviceA);
+        UserSession stored = Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+        await host.AssertAccessTokenMatchesSessionAsync(completed, stored);
+        await host.ChangeSessionStrengthAsync(stored.SessionId, UserSessionAuthenticationStrengths.WebAuthnUv);
+        using HttpResponseMessage rejected = await host.AccessProtectedEndpointAsync(ReadCookie(completed, "AccessToken"));
+        Assert.Equal(HttpStatusCode.Unauthorized, rejected.StatusCode);
+        Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
+        Assert.Equal(1, await host.CountSessionsAsync());
     }
 
     private static async Task AssertRejectedWithoutDetailLeakAsync(
@@ -290,13 +452,15 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         private readonly WebApplication _application;
         private readonly HttpClient _client;
         private readonly SqlSugarClient _db;
-        private readonly InMemoryMfaCache _cache;
+        private readonly RedisMfaCache _cache;
+        private readonly ITotpService _totp;
 
         private MfaLoginTestHost(
             WebApplication application,
             HttpClient client,
             SqlSugarClient db,
-            InMemoryMfaCache cache,
+            RedisMfaCache cache,
+            ITotpService totp,
             User mfaUser,
             User otherMfaUser,
             User nonMfaUser,
@@ -307,6 +471,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
             _client = client;
             _db = db;
             _cache = cache;
+            _totp = totp;
             MfaUser = mfaUser;
             OtherMfaUser = otherMfaUser;
             NonMfaUser = nonMfaUser;
@@ -334,9 +499,11 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         {
             get;
         }
-        public int ActiveContinuationCount => _cache.ActiveStringCount;
+        public int ActiveContinuationCount => _cache.CountContinuations();
 
-        public static async Task<MfaLoginTestHost> CreateAsync(PostgresSchemaMigrationFixture fixture)
+        public static async Task<MfaLoginTestHost> CreateAsync(
+            PostgresSchemaMigrationFixture fixture,
+            PublicHotDeliveryRedisFixture redis)
         {
             string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
             var db = PostgresSqlSugarTestClient.Create(connectionString);
@@ -352,7 +519,8 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
             User nonMfaUser = SeedUser(db, mfaEnabled: false, 'c');
             var totp = new TotpService(
                 new EphemeralDataProtectionProvider(),
-                TimeProvider.System);
+                TimeProvider.System,
+                new TotpService.RecoveryCodeHashPolicy(1024, 1, 1));
             string mfaSecret = SeedMfaProfile(db, totp, mfaUser.Id);
             string otherMfaSecret = SeedMfaProfile(db, totp, otherMfaUser.Id);
 
@@ -374,7 +542,8 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
                         (true, "ok", user, 41));
                 });
 
-            var cache = new InMemoryMfaCache();
+            RedisMfaCache cacheContext = await RedisMfaCache.CreateAsync(redis);
+            UnifiedCache cache = cacheContext.Cache;
             var options = new WebApplicationOptions
             {
                 EnvironmentName = Environments.Development
@@ -386,7 +555,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
                 ["Jwt:SecretKey"] = "issue-2348-jwt-signing-key-with-at-least-32-bytes",
                 ["Jwt:Issuer"] = "issue-2348-tests",
                 ["Jwt:Audience"] = "issue-2348-tests",
-                ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+                ["ConnectionStrings:Redis"] = redis.ConnectionString,
                 ["ConnectionStrings:DefaultConnection"] = connectionString,
                 ["CORS_ALLOWED_HOSTS"] = "http://localhost",
                 ["AuthCookies:AllowInsecureTransportCookies"] = "true",
@@ -425,9 +594,16 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
             ReplaceSingleton<ICacheCounterStore>(builder.Services, cache);
             ReplaceSingleton<ICacheOneTimeStore>(builder.Services, cache);
             ReplaceSingleton<ICacheInvalidationStore>(builder.Services, cache);
+            ReplaceSingleton<ICacheCompareExchangeStore>(builder.Services, cache);
+            ReplaceSingleton<ICacheKeyResolver>(builder.Services, cacheContext.Keys);
             ReplaceSingleton<IUserSessionValidationCache>(
                 builder.Services,
-                Substitute.For<IUserSessionValidationCache>());
+                new UserSessionValidationCache(
+                    cacheContext.Keys,
+                    cache,
+                    cache,
+                    cacheContext.Operations,
+                    builder.Configuration));
             IUserLocalePreferenceReader localePreferences = Substitute.For<IUserLocalePreferenceReader>();
             localePreferences.GetAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns(new UserLocalePreferenceDto(LocalePreferenceModes.Auto, null, 0, DateTime.UnixEpoch));
@@ -461,7 +637,8 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
                 app,
                 app.GetTestClient(),
                 db,
-                cache,
+                cacheContext,
+                totp,
                 mfaUser,
                 otherMfaUser,
                 nonMfaUser,
@@ -498,8 +675,9 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
 
         public Task<HttpResponseMessage> CompleteMfaAsync(
             string challengeToken,
-            string code,
-            string deviceSignal)
+            string? code,
+            string deviceSignal,
+            string? recoveryCode = null)
             => SendBinaryAsync(
                 "/api/binary/auth/mfa/challenge",
                 AedsFrameType.MfaChallengeVerifyRequest,
@@ -508,7 +686,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
                         challengeToken,
                         "login",
                         code,
-                        null)),
+                        recoveryCode)),
                 deviceSignal);
 
         public Task<HttpResponseMessage> RefreshAsync(string refreshToken, string sessionId)
@@ -519,7 +697,7 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
             return _client.SendAsync(request);
         }
 
-        public Task<HttpResponseMessage> AccessSensitiveEndpointAsync(string accessToken)
+        public Task<HttpResponseMessage> AccessProtectedEndpointAsync(string accessToken)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/auth/me");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -532,19 +710,82 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
                 .Where(session => session.UserId == accountId && session.RevokedAt == null)
                 .CountAsync();
 
+        public Task<int> CountSessionsAsync() => _db.Queryable<UserSession>().CountAsync();
+
         public Task<List<UserSession>> GetActiveSessionsAsync(int accountId)
             => _db.Queryable<UserSession>()
                 .Where(session => session.UserId == accountId && session.RevokedAt == null)
                 .ToListAsync();
 
-        public void ExpireContinuation(string challengeToken) => _cache.Remove(challengeToken);
+        public async Task AssertAccessTokenMatchesSessionAsync(HttpResponseMessage response, UserSession stored)
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(ReadCookie(response, "SessionId"), stored.SessionId);
+            Assert.Equal(HashToken(ReadCookie(response, "RefreshToken")), stored.RefreshTokenHash);
+            string accessToken = ReadCookie(response, "AccessToken");
+            JwtSecurityToken jwt = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+            Assert.Equal(stored.SessionId, jwt.Claims.Single(claim => claim.Type == "sid").Value);
+            Assert.Equal(stored.AuthenticationMethod, jwt.Claims.Single(claim => claim.Type == "auth_method").Value);
+            Assert.Equal(stored.AuthenticationStrength, jwt.Claims.Single(claim => claim.Type == "auth_strength").Value);
+            Assert.Equal(
+                new DateTimeOffset(DateTime.SpecifyKind(stored.AuthenticatedAtUtc, DateTimeKind.Utc)).ToUnixTimeSeconds(),
+                long.Parse(jwt.Claims.Single(claim => claim.Type == "auth_time").Value, CultureInfo.InvariantCulture));
+            // /auth/me is a protected account read, not action-bound sensitive authorization.
+            // Its production JWT handler verifies the signature and the real PG Session.
+            using HttpResponseMessage accountResponse = await AccessProtectedEndpointAsync(accessToken);
+            Assert.Equal(HttpStatusCode.OK, accountResponse.StatusCode);
+            var decoded = new AedsEncoder().TryDecode(await accountResponse.Content.ReadAsByteArrayAsync());
+            Assert.True(decoded.IsSuccess);
+            Assert.Equal(AedsFrameType.IdentityAccountSnapshot, decoded.Value.FrameType);
+            Assert.True(PodBinaryCodec.TryDecodeIdentityAccountSnapshot(decoded.Value.Payload, out var account));
+            Assert.Equal(stored.UserId, account.AccountId);
+        }
 
-        public void RevokeContinuation(string challengeToken) => _cache.Remove(challengeToken);
+        public async Task<IReadOnlyList<string>> SeedRecoveryCodesAsync(int accountId, int count)
+        {
+            IReadOnlyList<string> codes = _totp.GenerateRecoveryCodes(count);
+            string hashes = _totp.HashRecoveryCodes(codes);
+            await _db.Updateable<UserMfaProfile>()
+                .SetColumns(profile => profile.MfaRecoveryCodesHash == hashes)
+                .Where(profile => profile.UserId == accountId)
+                .ExecuteCommandAsync();
+            return codes;
+        }
+
+        public async Task<string> ReadRecoveryHashesAsync(int accountId)
+            => (await _db.Queryable<UserMfaProfile>().SingleAsync(profile => profile.UserId == accountId)).MfaRecoveryCodesHash!;
+
+        public string ConsumeRecoveryHash(string hashes, string code)
+        {
+            RecoveryCodeConsumeResult result = _totp.ConsumeRecoveryCode(hashes, code);
+            Assert.True(result.Success);
+            return result.UpdatedHashes;
+        }
+
+        public async Task ChangeSessionStrengthAsync(string sessionId, string strength)
+        {
+            await _db.Updateable<UserSession>()
+                .SetColumns(session => session.AuthenticationStrength == strength)
+                .Where(session => session.SessionId == sessionId)
+                .ExecuteCommandAsync();
+            // Force the canonical validator's PostgreSQL path after this test-only
+            // row mutation; do not claim hot-cache invalidation from a direct SQL write.
+            await _cache.Cache.RemoveAsync(CachePolicyId.SecurityUserSessionValidation, sessionId);
+            Assert.Null(await _application.Services.GetRequiredService<IUserSessionValidationCache>()
+                .ReadAsync(sessionId));
+        }
+
+        public Task<bool> ContinuationExistsAsync(string challengeToken)
+            => _cache.Database.KeyExistsAsync(_cache.ResolveKey(challengeToken));
+
+        public Task ExpireContinuationThroughRedisTtlAsync(string challengeToken)
+            => _cache.ExpireThroughRedisTtlAsync(challengeToken);
 
         public async ValueTask DisposeAsync()
         {
             _client.Dispose();
             await _application.DisposeAsync();
+            await _cache.DisposeAsync();
             _db.Dispose();
         }
 
@@ -631,192 +872,76 @@ public sealed class MfaLoginEndpointPostgresTests(PostgresSchemaMigrationFixture
         }
     }
 
-    private sealed class InMemoryMfaCache :
-        ICacheStringReader,
-        ICacheStringWriter,
-        ICacheCounterStore,
-        ICacheOneTimeStore,
-        ICacheInvalidationStore
+    // This adapter only owns isolated Redis resources and key inspection. All cache
+    // reads, writes, failure counters and consume-once operations use UnifiedCache.
+    private sealed class RedisMfaCache(
+        ConnectionMultiplexer connection,
+        UnifiedCache cache,
+        CacheKeyResolver keys,
+        string prefix) : IAsyncDisposable
     {
-        private readonly Lock _gate = new();
-        private readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, long> _counters = new(StringComparer.Ordinal);
+        public UnifiedCache Cache { get; } = cache;
+        public CacheKeyResolver Keys { get; } = keys;
+        public IDatabase Database { get; } = connection.GetDatabase();
+        public IRedisOperationExecutor Operations { get; } = RedisOperationExecutor.ForTestConnection(connection);
 
-        public int ActiveStringCount
+        public static async Task<RedisMfaCache> CreateAsync(PublicHotDeliveryRedisFixture fixture)
         {
-            get
+            ConnectionMultiplexer connection = await fixture.ConnectAsync();
+            var scope = new MfaRuntimeKeyScope($"fsus-mfa-{Guid.NewGuid():N}:");
+            var policies = new CachePolicyRegistry();
+            var keys = new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance);
+            var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+            return new RedisMfaCache(connection, cache, keys, scope.ScopeToken);
+        }
+
+        public string ResolveKey(string challengeToken)
+            => Keys.BuildKey(CachePolicyId.SecurityMfaChallenge, challengeToken);
+
+        public int CountContinuations()
+            => connection.GetServer(Assert.Single(connection.GetEndPoints()))
+                .Keys(pattern: prefix + "fsus:sec:mfa-challenge:*").Count();
+
+        public async Task ExpireThroughRedisTtlAsync(string challengeToken)
+        {
+            string key = ResolveKey(challengeToken);
+            TimeSpan? issuedTtl = await Database.KeyTimeToLiveAsync(key);
+            Assert.NotNull(issuedTtl);
+            Assert.InRange(issuedTtl.Value, TimeSpan.FromMinutes(4), TimeSpan.FromMinutes(5));
+            // Shorten only this test-owned key's physical TTL, as in the canonical
+            // AnonymousCommentTicketRedisConcurrencyTests owner. Never DEL it.
+            Assert.True(await Database.KeyExpireAsync(key, TimeSpan.FromMilliseconds(250)));
+            TimeSpan? shortenedTtl = await Database.KeyTimeToLiveAsync(key);
+            Assert.NotNull(shortenedTtl);
+            Assert.InRange(shortenedTtl.Value, TimeSpan.Zero, TimeSpan.FromMilliseconds(250));
+            Assert.NotNull(await Cache.GetStringAsync(CachePolicyId.SecurityMfaChallenge, challengeToken));
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+            while (await Database.KeyExistsAsync(key))
             {
-                lock (_gate)
-                {
-                    return _strings.Count;
-                }
+                Assert.True(DateTime.UtcNow < deadline, "Redis did not expire the MFA continuation TTL.");
+                await Task.Delay(10);
             }
+            Assert.Null(await Cache.GetStringAsync(CachePolicyId.SecurityMfaChallenge, challengeToken));
+            Assert.False(await Cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaChallenge, challengeToken));
         }
 
-        public Task<string?> GetStringAsync(
-            CachePolicyId policyId,
-            string identity,
-            CancellationToken cancellationToken = default)
+        public async ValueTask DisposeAsync()
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
+            Cache.Dispose();
+            RedisKey[] keys = connection.GetServer(Assert.Single(connection.GetEndPoints()))
+                .Keys(pattern: prefix + "*").ToArray();
+            if (keys.Length > 0)
             {
-                return Task.FromResult(_strings.GetValueOrDefault(identity));
+                await Database.KeyDeleteAsync(keys);
             }
+            await connection.DisposeAsync();
         }
+    }
 
-        public Task SetStringAsync(
-            CachePolicyId policyId,
-            string identity,
-            string value,
-            TimeSpan? l2TtlOverride = null,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                _strings[identity] = value;
-            }
-            return Task.CompletedTask;
-        }
-
-        public Task<long> IncrementAsync(
-            CachePolicyId policyId,
-            string identity,
-            long value = 1,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                long next = _counters.GetValueOrDefault(identity) + value;
-                _counters[identity] = next;
-                return Task.FromResult(next);
-            }
-        }
-
-        public Task<long[]> IncrementManyAsync(
-            CachePolicyId policyId,
-            IReadOnlyList<string> identities,
-            long value = 1,
-            CancellationToken cancellationToken = default)
-            => IncrementManyWithExpiryAsync(
-                policyId,
-                identities,
-                TimeSpan.FromMinutes(10),
-                value,
-                cancellationToken);
-
-        public Task<long[]> IncrementManyWithExpiryAsync(
-            CachePolicyId policyId,
-            IReadOnlyList<string> identities,
-            TimeSpan ttl,
-            long value = 1,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                var result = new long[identities.Count];
-                for (int index = 0; index < identities.Count; index++)
-                {
-                    string identity = identities[index];
-                    result[index] = _counters.GetValueOrDefault(identity) + value;
-                    _counters[identity] = result[index];
-                }
-                return Task.FromResult(result);
-            }
-        }
-
-        public Task<bool> ConsumeOnceAsync(
-            CachePolicyId policyId,
-            string identity,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                return Task.FromResult(_strings.Remove(identity));
-            }
-        }
-
-        public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(
-            CachePolicyId policyId,
-            string identity,
-            Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                if (!_strings.Remove(identity, out string? value))
-                {
-                    return Task.FromResult(new CacheReadResult<T>(false, default));
-                }
-
-                (bool success, T? decoded) = decoder(Encoding.UTF8.GetBytes(value));
-                return Task.FromResult(new CacheReadResult<T>(success, success ? decoded : default));
-            }
-        }
-
-        public Task RemoveAsync(
-            CachePolicyId policyId,
-            string identity,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Remove(identity);
-            return Task.CompletedTask;
-        }
-
-        public Task RemoveManyAsync(
-            IReadOnlyList<CacheKeyIdentity> keys,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                foreach (CacheKeyIdentity key in keys)
-                {
-                    _strings.Remove(key.Identity);
-                }
-            }
-            return Task.CompletedTask;
-        }
-
-        public Task RemoveByPrefixAsync(
-            CachePolicyId policyId,
-            string identityPrefix,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            lock (_gate)
-            {
-                foreach (string key in _strings.Keys
-                    .Where(key => key.StartsWith(identityPrefix, StringComparison.Ordinal))
-                    .ToArray())
-                {
-                    _strings.Remove(key);
-                }
-            }
-            return Task.CompletedTask;
-        }
-
-        public Task RemoveByPrefixManyAsync(
-            IReadOnlyList<CachePrefixIdentity> prefixes,
-            CancellationToken cancellationToken = default)
-            => Task.WhenAll(prefixes.Select(prefix => RemoveByPrefixAsync(
-                prefix.PolicyId,
-                prefix.IdentityPrefix,
-                cancellationToken)));
-
-        public void Remove(string identity)
-        {
-            lock (_gate)
-            {
-                _strings.Remove(identity);
-            }
-        }
+    private sealed class MfaRuntimeKeyScope(string prefix) : IRuntimeKeyScope
+    {
+        public string ScopeToken => prefix;
+        public string PrefixKey(string key) => prefix + key;
     }
 
     private sealed class NoopRiskSignalSink : ISecurityRiskSignalSink
