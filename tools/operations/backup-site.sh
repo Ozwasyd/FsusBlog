@@ -20,11 +20,11 @@ ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
 CONFIG_SANITIZER="$ROOT_DIR/tools/operations/backup-config-sanitize.mjs"
 PLAINTEXT_PACKAGE_PATH="${BACKUP_ROOT}/.fsusblog-site-${RUN_ID}.plaintext.tar.gz"
 RECIPIENT_KEY_ID=""
-PACKAGE_SHA256=""
-MANIFEST_SHA256=""
-MIGRATION_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
-DATABASE_PROVIDER="${FSUSBLOG_BACKUP_DATABASE_PROVIDER:-postgresql}"
-SOURCE_CAPTURE="null"
+packageSha256=""
+manifestSha256=""
+migrationDll="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+databaseProvider="${FSUSBLOG_BACKUP_DATABASE_PROVIDER:-postgresql}"
+sourceCapture="null"
 capturePid=""
 captureReadFd=""
 captureWriteFd=""
@@ -84,9 +84,9 @@ WriteReport() {
         --arg status "$status" \
         --arg runId "$RUN_ID" \
         --arg packagePath "$PACKAGE_PATH" \
-        --arg packageSha256 "$PACKAGE_SHA256" \
-        --arg manifestSha256 "$MANIFEST_SHA256" \
-        --argjson sourceCapture "$SOURCE_CAPTURE" \
+        --arg packageSha256 "$packageSha256" \
+        --arg manifestSha256 "$manifestSha256" \
+        --argjson sourceCapture "$sourceCapture" \
         --arg backupRoot "$BACKUP_ROOT" \
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg contentEncryption "AES-256-GCM" \
@@ -243,7 +243,7 @@ DumpDatabase() {
         AddBlocker "database-connection-invalid"
         return
     }
-    if [[ -n "$MIGRATION_DLL" ]]; then
+    if [[ -n "$migrationDll" ]]; then
         if ! CaptureDatabase "$target"; then
             return
         fi
@@ -262,7 +262,7 @@ CaptureDatabase() {
     databaseValue="${PG_CONN_DB//\"/\"\"}"
     userValue="${PG_CONN_USER//\"/\"\"}"
     passwordValue="${PG_CONN_PASSWORD//\"/\"\"}"
-    if [[ "$DATABASE_PROVIDER" != "postgresql" || ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+    if [[ "$databaseProvider" != "postgresql" || ! -f "$migrationDll" || -L "$migrationDll" ]]; then
         AddBlocker "database-snapshot-capture-capability-unavailable"
         return 1
     fi
@@ -273,7 +273,7 @@ CaptureDatabase() {
     printf 'ConnectionStrings__DefaultConnection=Host="%s";Port=%s;Database="%s";Username="%s";Password="%s"\n' \
         "$hostValue" "$PG_CONN_PORT" "$databaseValue" "$userValue" "$passwordValue" >"$environmentFile"
     coproc SourceCapture {
-        exec "${DOTNET_BIN:-dotnet}" "$MIGRATION_DLL" observe-source --provider postgresql \
+        exec "${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql \
             --env-file "$environmentFile" --capture-session --dump-output "$target"
     }
     capturePid="${SourceCapture_PID:-}"
@@ -324,7 +324,7 @@ CaptureDatabase() {
         AddBlocker "database-snapshot-capture-binding-invalid"
         return 1
     fi
-    SOURCE_CAPTURE="$(jq -c '.capture' <<<"$final")"
+    sourceCapture="$(jq -c '.capture' <<<"$final")"
     AddCheck "database-source-snapshot" "captured"
 }
 
@@ -430,7 +430,7 @@ WriteManifestFile() {
         --arg configSha256 "$configSha" \
         --arg aotSha256 "$aotSha" \
         --arg searchSha256 "$searchSha" \
-        --argjson sourceCapture "$SOURCE_CAPTURE" \
+        --argjson sourceCapture "$sourceCapture" \
         '{
       kind: "fsusblog-site-backup",
       version: (if $sourceCapture == null then 2 else 3 end),
@@ -468,7 +468,7 @@ WriteManifestFile() {
         recipientKeyId: $recipientKeyId
       }
     }' >"$WORK_DIR/manifest.json"
-    MANIFEST_SHA256="$(sha256sum "$WORK_DIR/manifest.json" | awk '{print $1}')"
+    manifestSha256="$(sha256sum "$WORK_DIR/manifest.json" | awk '{print $1}')"
 }
 
 ResolveRecipient() {
@@ -508,11 +508,11 @@ Main() {
     RequireCommand pg_dump
     RequireCommand node
     RequireCommand sha256sum
-    if [[ -n "$MIGRATION_DLL" ]]; then
+    if [[ -n "$migrationDll" ]]; then
         RequireCommand "${DOTNET_BIN:-dotnet}"
     fi
-    if [[ "$DATABASE_PROVIDER" != "postgresql" ]]; then
-        AddBlocker "database-backup-provider-unsupported:$DATABASE_PROVIDER"
+    if [[ "$databaseProvider" != "postgresql" ]]; then
+        AddBlocker "database-backup-provider-unsupported:$databaseProvider"
     fi
 
     if (("${#blockers[@]}" == 0)); then
@@ -558,7 +558,7 @@ Main() {
             --input "$PLAINTEXT_PACKAGE_PATH" \
             --output "$PACKAGE_PATH" \
             --recipient "$RECIPIENT_FILE" >/dev/null; then
-            PACKAGE_SHA256="$(sha256sum "$PACKAGE_PATH" | awk '{print $1}')"
+            packageSha256="$(sha256sum "$PACKAGE_PATH" | awk '{print $1}')"
             AddCheck "site-package" "authenticated-encrypted"
         else
             AddBlocker "site-package-envelope-encryption-failed"

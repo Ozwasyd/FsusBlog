@@ -24,12 +24,12 @@ SITE_BACKUP_PACKAGE="${FSUSBLOG_SITE_BACKUP_PACKAGE:-}"
 BACKUP_IDENTITY_FILE="${FSUSBLOG_BACKUP_IDENTITY_FILE:-}"
 BACKUP_IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
 BACKUP_ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
-SITE_PACKAGE_SHA256=""
-SITE_MANIFEST_SHA256=""
-MIGRATION_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
-SOURCE_BINDING="null"
-RESTORED_SOURCE="null"
-RESTORED_DATABASE_DUMP_SHA256=""
+sitePackageSha256=""
+siteManifestSha256=""
+migrationDll="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+sourceBinding="null"
+restoredSource="null"
+restoredDatabaseDumpSha256=""
 
 status="ok"
 blockers=()
@@ -39,6 +39,9 @@ postgres_container="fsusblog-restore-postgres-${RUN_ID//[^a-zA-Z0-9]/-}"
 redis_container="fsusblog-restore-redis-${RUN_ID//[^a-zA-Z0-9]/-}"
 restore_started_at=0
 restore_finished_at=0
+workDirOwned=0
+postgresOwned=0
+redisOwned=0
 
 mkdir -p "$OUT_DIR"
 
@@ -56,15 +59,24 @@ AddBlocker() {
 }
 
 Cleanup() {
-    rm -f "$WORK_DIR/site-package.plaintext.tar.gz"
+    if [[ "$workDirOwned" == "1" ]]; then
+        rm -f "$WORK_DIR/site-package.plaintext.tar.gz"
+    fi
     if [[ -n "$backend_pid" ]] && kill -0 "$backend_pid" >/dev/null 2>&1; then
         kill "$backend_pid" >/dev/null 2>&1 || true
         wait "$backend_pid" >/dev/null 2>&1 || true
     fi
 
     if [[ "$KEEP_WORK" != "1" && "$MODE" != "dry-run" ]]; then
-        docker rm -f "$postgres_container" "$redis_container" >/dev/null 2>&1 || true
-        rm -rf "$WORK_DIR"
+        if [[ "$postgresOwned" == "1" ]]; then
+            docker rm -f "$postgres_container" >/dev/null 2>&1 || true
+        fi
+        if [[ "$redisOwned" == "1" ]]; then
+            docker rm -f "$redis_container" >/dev/null 2>&1 || true
+        fi
+        if [[ "$workDirOwned" == "1" ]]; then
+            rm -rf "$WORK_DIR"
+        fi
     fi
 }
 
@@ -124,11 +136,11 @@ WriteReport() {
         --arg runId "$RUN_ID" \
         --arg workDir "$WORK_DIR" \
         --arg baseUrl "$BASE_URL" \
-        --arg packageSha256 "$SITE_PACKAGE_SHA256" \
-        --arg manifestSha256 "$SITE_MANIFEST_SHA256" \
-        --arg restoredDatabaseDumpSha256 "$RESTORED_DATABASE_DUMP_SHA256" \
-        --argjson sourceBinding "$SOURCE_BINDING" \
-        --argjson restoredSource "$RESTORED_SOURCE" \
+        --arg packageSha256 "$sitePackageSha256" \
+        --arg manifestSha256 "$siteManifestSha256" \
+        --arg restoredDatabaseDumpSha256 "$restoredDatabaseDumpSha256" \
+        --argjson sourceBinding "$sourceBinding" \
+        --argjson restoredSource "$restoredSource" \
         --argjson checks "$checksJson" \
         --argjson blockers "$blockersJson" \
         --argjson rpoSeconds "$rpoSeconds" \
@@ -433,12 +445,16 @@ RestorePostgres() {
         AddBlocker "postgres-pinned-image-missing"
         return
     }
-    docker run -d \
+    if ! docker run -d \
         --name "$postgres_container" \
         -e POSTGRES_USER=fsusblog \
         -e POSTGRES_PASSWORD=fsusblog_dev \
         -e POSTGRES_DB=fsusblog \
-        "$postgresImage" >/dev/null
+        "$postgresImage" >/dev/null; then
+        AddBlocker "postgres-restore-container-start-failed"
+        return
+    fi
+    postgresOwned=1
 
     WaitForPostgres || {
         AddBlocker "postgres-restore-container-not-ready"
@@ -457,7 +473,7 @@ RestorePostgres() {
             ;;
     esac
 
-    if [[ "$SOURCE_BINDING" != "null" ]]; then
+    if [[ "$sourceBinding" != "null" ]]; then
         VerifyRestoredSource || return
     fi
 
@@ -466,7 +482,7 @@ RestorePostgres() {
 
 VerifyRestoredSource() {
     local environmentFile="$WORK_DIR/.source-observer.env" pgIp actualDigest
-    if [[ ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+    if [[ ! -f "$migrationDll" || -L "$migrationDll" ]]; then
         AddBlocker "database-restored-source-observer-unavailable"
         return 1
     fi
@@ -476,27 +492,27 @@ VerifyRestoredSource() {
         return 1
     fi
     actualDigest="$(sha256sum "$POSTGRES_BACKUP" | awk '{print $1}')"
-    if [[ "$actualDigest" != "$(jq -r '.databaseDumpSha256' <<<"$SOURCE_BINDING")" ]]; then
+    if [[ "$actualDigest" != "$(jq -r '.databaseDumpSha256' <<<"$sourceBinding")" ]]; then
         AddBlocker "database-restored-dump-binding-mismatch"
         return 1
     fi
     printf 'ConnectionStrings__DefaultConnection=Host=%s;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev\n' \
         "$pgIp" >"$environmentFile"
-    if ! RESTORED_SOURCE="$("${DOTNET_BIN:-dotnet}" "$MIGRATION_DLL" observe-source --provider postgresql --env-file "$environmentFile")"; then
+    if ! restoredSource="$("${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql --env-file "$environmentFile")"; then
         rm -f "$environmentFile"
-        RESTORED_SOURCE="null"
+        restoredSource="null"
         AddBlocker "database-restored-source-observation-failed"
         return 1
     fi
     rm -f "$environmentFile"
-    if ! jq -e --argjson binding "$SOURCE_BINDING" \
+    if ! jq -e --argjson binding "$sourceBinding" \
         '. as $restored | .Database.Provider == 0 and .Database != $binding.capture.Source.Database
-         and . == ($binding.capture.Source | .Database = $restored.Database)' <<<"$RESTORED_SOURCE" >/dev/null; then
-        RESTORED_SOURCE="null"
+         and . == ($binding.capture.Source | .Database = $restored.Database)' <<<"$restoredSource" >/dev/null; then
+        restoredSource="null"
         AddBlocker "database-restored-source-not-isolated-or-content-mismatch"
         return 1
     fi
-    RESTORED_DATABASE_DUMP_SHA256="$actualDigest"
+    restoredDatabaseDumpSha256="$actualDigest"
     AddCheck "database-restored-source" "verified"
 }
 
@@ -517,10 +533,14 @@ RestoreRedis() {
     fi
 
     chmod -R a+rwX "$redisData"
-    docker run -d \
+    if ! docker run -d \
         --name "$redis_container" \
         -v "$redisData:/data" \
-        "$redisImage" redis-server --save "" --appendonly no >/dev/null
+        "$redisImage" redis-server --save "" --appendonly no >/dev/null; then
+        AddBlocker "redis-restore-container-start-failed"
+        return
+    fi
+    redisOwned=1
 
     WaitForRedis || {
         AddBlocker "redis-restore-container-not-ready"
@@ -589,12 +609,12 @@ PrepareSiteBackupPackage() {
         decryptArgs+=(--passphrase-file "$BACKUP_IDENTITY_PASSPHRASE_FILE")
     fi
     local envelopeInfo recipientKeyId
-    SITE_PACKAGE_SHA256="$(sha256sum "$SITE_BACKUP_PACKAGE" | awk '{print $1}')"
+    sitePackageSha256="$(sha256sum "$SITE_BACKUP_PACKAGE" | awk '{print $1}')"
     if ! envelopeInfo="$(node "$BACKUP_ENVELOPE_TOOL" "${decryptArgs[@]}")"; then
         AddBlocker "site-backup-envelope-invalid"
         return
     fi
-    if [[ "$SITE_PACKAGE_SHA256" != "$(sha256sum "$SITE_BACKUP_PACKAGE" | awk '{print $1}')" ]]; then
+    if [[ "$sitePackageSha256" != "$(sha256sum "$SITE_BACKUP_PACKAGE" | awk '{print $1}')" ]]; then
         AddBlocker "site-backup-package-changed-during-authentication"
         rm -f "$decryptedPackage"
         return
@@ -620,11 +640,19 @@ PrepareSiteBackupPackage() {
         return
     fi
 
-    local label artifact expectedDigest actualDigest
+    local label artifact expectedDigest actualDigest expectedArtifact
     for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
+        case "$label" in
+            database) expectedArtifact="database.dump" ;;
+            uploads) expectedArtifact="uploads.tar.gz" ;;
+            dataProtectionKeyRing) expectedArtifact="data-protection-keyring.tar.gz" ;;
+            configRedacted) expectedArtifact="config.redacted.tar.gz" ;;
+            aotCache) expectedArtifact="aot-cache.tar.gz" ;;
+            searchIndex) expectedArtifact="search.tar.gz" ;;
+        esac
         artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$packageDir/manifest.json")"
         expectedDigest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$packageDir/manifest.json")"
-        if [[ -z "$artifact" || "$artifact" == */* || ! "$expectedDigest" =~ ^[0-9a-f]{64}$ || ! -f "$packageDir/$artifact" ]]; then
+        if [[ "$artifact" != "$expectedArtifact" || ! "$expectedDigest" =~ ^[0-9a-f]{64}$ || ! -f "$packageDir/$artifact" ]]; then
             AddBlocker "site-backup-artifact-invalid:$label"
             return
         fi
@@ -633,9 +661,13 @@ PrepareSiteBackupPackage() {
             AddBlocker "site-backup-artifact-digest-mismatch:$label"
             return
         fi
+        if [[ "$label" != "database" ]] && ! ArchiveIsSafe "$packageDir/$artifact"; then
+            AddBlocker "site-backup-inner-artifact-archive-unsafe:$label"
+            return
+        fi
     done
 
-    SITE_MANIFEST_SHA256="$(sha256sum "$packageDir/manifest.json" | awk '{print $1}')"
+    siteManifestSha256="$(sha256sum "$packageDir/manifest.json" | awk '{print $1}')"
     if [[ "$(jq -r '.version' "$packageDir/manifest.json")" == "3" ]]; then
         if ! jq -e '.sourceBinding.owner == "tools/operations/backup-site.sh" and .sourceBinding.ownerVersion == "3"
             and .sourceBinding.capture.Source.Database.Provider == 0
@@ -646,8 +678,8 @@ PrepareSiteBackupPackage() {
             AddBlocker "site-backup-source-snapshot-binding-invalid"
             return
         fi
-        SOURCE_BINDING="$(jq -c '.sourceBinding' "$packageDir/manifest.json")"
-        if [[ ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+        sourceBinding="$(jq -c '.sourceBinding' "$packageDir/manifest.json")"
+        if [[ ! -f "$migrationDll" || -L "$migrationDll" ]]; then
             AddBlocker "site-backup-source-observer-unavailable"
             return
         fi
@@ -793,6 +825,15 @@ RunReal() {
     RequireCommand npm
     RequireCommand node
     RequireCommand sha256sum
+    if [[ -e "$WORK_DIR" || "$WORK_DIR" == "/" || "$WORK_DIR" == "$ROOT_DIR" || "$WORK_DIR" == "$OUT_DIR" ]]; then
+        AddBlocker "restore-work-dir-not-fresh"
+        return
+    fi
+    if ! mkdir -m 0700 "$WORK_DIR"; then
+        AddBlocker "restore-work-dir-create-failed"
+        return
+    fi
+    workDirOwned=1
     PrepareSiteBackupPackage
     RequireBackup "$POSTGRES_BACKUP" "postgres"
     RequireBackup "$REDIS_BACKUP" "redis"

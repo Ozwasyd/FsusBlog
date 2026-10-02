@@ -111,7 +111,7 @@ test('migration capture holds the native snapshot until the original dump has co
     assert.match(backup, /database-backup-provider-unsupported/);
     assert.match(backup, /version: \(if \$sourceCapture == null then 2 else 3 end\)/);
     assert.ok(backup.indexOf('--snapshot="$snapshotId"') < backup.indexOf("printf 'DUMP_COMPLETED\\n'"));
-    assert.ok(backup.indexOf('wait "$capturePid"') < backup.indexOf('SOURCE_CAPTURE="$(jq -c'));
+    assert.ok(backup.indexOf('wait "$capturePid"') < backup.indexOf('sourceCapture="$(jq -c'));
 });
 
 test('bound restore independently observes an isolated target and exact restored content', async () =>
@@ -133,4 +133,34 @@ test('bound restore independently observes an isolated target and exact restored
         assert.match(script, /\.sourceBinding\.capture\.Source\.ContentDigest/);
         assert.match(script, /\.sourceBinding\.capture\.DatabaseDumpSha256 == \.artifactDigests\.database/);
     }
+});
+
+test('restore validators bind the canonical artifact names actually consumed', async () =>
+{
+    const [restore, drill] = await Promise.all([
+        source('tools/operations/restore-site.sh'),
+        source('tools/operations/backup-restore-drill.sh')
+    ]);
+
+    for (const script of [restore, drill])
+    {
+        for (const artifact of [
+            'database.dump',
+            'uploads.tar.gz',
+            'data-protection-keyring.tar.gz',
+            'config.redacted.tar.gz',
+            'aot-cache.tar.gz',
+            'search.tar.gz'
+        ])
+        {
+            assert.ok(script.includes(`expectedArtifact="${artifact}"`));
+        }
+        assert.ok(script.includes('$artifact" != "$expectedArtifact'));
+        assert.match(script, /inner-artifact-archive-unsafe/);
+    }
+    assert.match(restore, /backup-artifact-changed-before-restore/);
+    assert.ok(restore.indexOf('        VerifyConsumedArtifacts\n') < restore.indexOf('        RestoreDatabase\n'));
+    assert.match(drill, /restore-work-dir-not-fresh/);
+    assert.match(drill, /if \[\[ "\$postgresOwned" == "1" \]\]/);
+    assert.match(drill, /if \[\[ "\$redisOwned" == "1" \]\]/);
 });
