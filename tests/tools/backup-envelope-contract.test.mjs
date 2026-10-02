@@ -354,6 +354,21 @@ test('actual owned worker signal handler refuses success and invokes its exit cl
     assert.equal(result.stderr, 'cleanup-path');
 });
 
+test('original shell adapter owns nonblocking pipe reads and every actual raw write without background-copy waits', async () =>
+{
+    const adapter = await source('src/migration/OfflineMigrationShellBackupDrillProducer.cs');
+    assert.doesNotMatch(adapter, /\.CopyToAsync\(|\.WaitAsync\(/);
+    assert.match(adapter, /while \(!producer.HasExited \|\| !stdoutPipe.EndOfStream \|\| !stderrPipe.EndOfStream\)/);
+    assert.match(adapter, /await stdoutPipe.TransferNextAsync/);
+    assert.match(adapter, /await stderrPipe.TransferNextAsync/);
+    assert.match(adapter, /await destination.WriteAsync/);
+    assert.match(adapter, /if \(read == 0\)[\s\S]*?EndOfStream = true/);
+    assert.match(adapter, /if \(error is 4 or 11\) return false/);
+    assert.match(adapter, /flags \| 0x800/);
+    assert.match(adapter, /stdoutPipe\?\.Dispose\(\);\s+stderrPipe\?\.Dispose\(\);/);
+    assert.match(adapter, /"cleanup_unverified:" \+ firstCause/);
+});
+
 test('embedded operation JavaScript parses without importing or executing its production body', async () =>
 {
     let blocks = 0;
