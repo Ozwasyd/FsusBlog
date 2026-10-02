@@ -170,6 +170,81 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
 public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task NativeCatalogObserver_OriginalServerParityUsesSamePhysicalModelsAndObservationDigest()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        var inspector = new SchemaModelInspector();
+        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
+        SchemaModelSnapshot original = await inspector.ReadActualModelAsync(db, CancellationToken.None);
+        await using var connection = new NpgsqlConnection(db.CurrentConnectionConfig.ConnectionString);
+        await connection.OpenAsync();
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        SchemaModelSnapshot native = await PgCurrentSchemaCatalogObserver.ReadAsync(connection, transaction, CancellationToken.None);
+        Assert.Empty(SchemaModelComparer.Compare(original, native));
+        Assert.Empty(SchemaModelComparer.Compare(native, original));
+        Assert.Equal(CurrentSchemaCanonicalAuthority.ComputeObservationDigest(original.Tables),
+            CurrentSchemaCanonicalAuthority.ComputeObservationDigest(native.Tables));
+        await using NpgsqlCommand stillActive = connection.CreateCommand();
+        stillActive.Transaction = transaction;
+        stillActive.CommandText = "SELECT 1;";
+        Assert.Equal(1, Convert.ToInt32(await stillActive.ExecuteScalarAsync()));
+        await transaction.RollbackAsync();
+    }
+
+    [Fact]
+    public async Task NativeCatalogObserver_ReusesCallerRepeatableReadSnapshotAcrossConcurrentCatalogChange()
+    {
+        string database = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(database);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        SchemaModelSnapshot before = await PgCurrentSchemaCatalogObserver.ReadAsync(connection, transaction, CancellationToken.None);
+        await using (var other = new NpgsqlConnection(connectionString))
+        {
+            await other.OpenAsync();
+            await using NpgsqlCommand create = other.CreateCommand();
+            create.CommandText = "CREATE TABLE native_catalog_external_probe(id integer PRIMARY KEY);";
+            await create.ExecuteNonQueryAsync();
+        }
+        SchemaModelSnapshot sameSnapshot = await PgCurrentSchemaCatalogObserver.ReadAsync(connection, transaction, CancellationToken.None);
+        Assert.Equal(CurrentSchemaCanonicalAuthority.ComputeObservationDigest(before.Tables),
+            CurrentSchemaCanonicalAuthority.ComputeObservationDigest(sameSnapshot.Tables));
+        Assert.DoesNotContain("native_catalog_external_probe", sameSnapshot.Tables.Keys);
+        await transaction.RollbackAsync();
+        await using NpgsqlTransaction fresh = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        SchemaModelSnapshot newSnapshot = await PgCurrentSchemaCatalogObserver.ReadAsync(connection, fresh, CancellationToken.None);
+        Assert.Contains("native_catalog_external_probe", newSnapshot.Tables.Keys);
+        Assert.NotEmpty(SchemaModelComparer.Compare(before, newSnapshot));
+        await fresh.RollbackAsync();
+    }
+
+    [Fact]
+    public async Task NativeCatalogObserver_RejectsWrongTransactionClosedConnectionAndCancellationBeforeQueries()
+    {
+        string database = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(database);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (NpgsqlTransaction wrongIsolation = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted))
+        {
+            Assert.Contains("native_catalog_transaction_mismatch", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                PgCurrentSchemaCatalogObserver.ReadAsync(connection, wrongIsolation, CancellationToken.None))).Message);
+            await wrongIsolation.RollbackAsync();
+        }
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        await using var closed = new NpgsqlConnection(connectionString);
+        Assert.Contains("native_catalog_transaction_mismatch", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            PgCurrentSchemaCatalogObserver.ReadAsync(closed, transaction, CancellationToken.None))).Message);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            PgCurrentSchemaCatalogObserver.ReadAsync(connection, transaction, cancellation.Token));
+        await transaction.RollbackAsync();
+    }
+
+    [Fact]
     public async Task CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards()
     {
         string originalDatabase = await fixture.CreateDatabaseAsync();

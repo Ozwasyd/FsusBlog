@@ -206,6 +206,20 @@ schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
 
+`PgCurrentSchemaCatalogObserver` is Migration-owned generic PostgreSQL catalog
+measurement, not a second current expected-schema authority. Its four catalog
+queries and decoding semantics match the original Server read-only observer;
+it uses the caller's already-open native connection and original RepeatableRead
+transaction, propagates cancellation through queries/rows, and never opens,
+commits or captures another database session. Both observation scopes use the
+sole Shared physical models, comparer and original `ComputeObservationDigest`.
+The measurement alone grants nothing: the issuer must use its sole session's
+observed native database identity and independently verified complete owned
+target input. Complete-artifact target identity must still be aligned with the
+original runtime consumer; neither an entity-only target nor a caller-supplied
+plan/receipt can establish that binding. The source-only observer parity,
+snapshot reuse and invalid-transaction cases are not actual PostgreSQL evidence.
+
 `tools/db/check-current-schema-authority.mjs` checks both the neutral contract
 and original Server extractor, and prevents a second production
 extractor, hand-written table inventory, fixture reconstruction or migration
