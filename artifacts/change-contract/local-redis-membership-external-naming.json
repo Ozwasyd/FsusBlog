@@ -1,0 +1,45 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical test requirement and generated evidence schemas while binding LocalRedis membership to the existing producer."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the registered coverage IDs, evidence paths and serialized ledger keys when refining the LocalRedis fail-closed contract."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "Preserve the canonical requirement and evidence field names consumed by the shared backend governance checker."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/backend-platform-selection.mjs",
+                "tools/test/perception-redis-producer.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment keys and LocalRedis producer options while keeping internal JavaScript names unchanged."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/perception-character-v3-redis-fixture.sh"
+            ],
+            "reason": "Preserve exported process configuration keys shared by the existing backend lanes and the sole canonical LocalRedis runner."
+        }
+    ]
+}

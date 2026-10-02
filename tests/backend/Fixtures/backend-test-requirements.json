@@ -718,10 +718,13 @@
     {
       "id": "BACKEND-PERCEPTION-V3-BUDGET-LOCAL-REDIS",
       "risk": "critical",
-      "coverage": "Issue 2527: BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity is not selected by ordinary unit lanes. The canonical LocalRedis producer executes it exactly once with current run/prefix/endpoint/source/assembly and individual TRX outcome binding; exact bytes, retry, subject and egress rejection, ambiguous accounting and burned inventory must agree in real Redis.",
+      "coverage": "Issues 2525 and 2527: ordinary full, affected and production plans record all four canonical LocalRedis IDs as not-selected. The canonical producer requires artifact-burn own-connection positive Redis/Lua call evidence and executes budgeted lease exactly once with current run/prefix/endpoint/source/assembly and individual TRX outcome binding; exact bytes, retry, subject and egress rejection, ambiguous accounting and burned inventory must agree in real Redis.",
       "evidencePaths": [
         "tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs",
         "tools/test/perception-redis-producer.mjs",
+        "tools/dotnet-affected-tests.sh",
+        "tools/test/backend-platform-selection.mjs",
+        ".tmp/backend-unit/platform-membership-plan.json",
         "tests/tools/perception-character-v3-redis-fixture.test.mjs",
         ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
       ]

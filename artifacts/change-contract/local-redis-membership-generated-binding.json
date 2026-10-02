@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/test/perception-redis-producer.mjs",
+        "tools/test/backend-platform-selection.mjs",
+        "tools/test/lanes/_suite-support.sh",
+        "tools/dotnet-affected-tests.sh"
+    ],
+    "outputs": [
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "774f2dc9873c529e0519a75e5b0c18db9b8466956a261aacd3f0a945b9340c38"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "52418dc5991b3e035375a18e71641894f6f4006055fbbab01762e7453f974117"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8bfe5803b5f60372052365df74ef1a45eccee176c9777008cc65d45306f0a549"
+        }
+    ]
+}

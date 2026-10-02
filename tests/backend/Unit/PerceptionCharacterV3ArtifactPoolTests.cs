@@ -8,6 +8,7 @@ using FsusBlog.Shared.Contracts.Security;
 using Microsoft.Extensions.Configuration;
 
 using StackExchange.Redis;
+using StackExchange.Redis.Profiling;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -81,6 +82,15 @@ public sealed partial class PerceptionCharacterV3Tests
         string redisPrefixRoot = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_PREFIX")
             ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS_PREFIX environment variable is not set.");
         Assert.False(string.IsNullOrWhiteSpace(redisPrefixRoot), "FSUSBLOG_TEST_REDIS_PREFIX must not be empty.");
+        string runId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID")
+            ?? throw new InvalidOperationException("LocalRedis run identity is required.");
+        Assert.Equal($"test:perception-v3-local-redis:{runId}:", redisPrefixRoot);
+        string evidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_BURN_EVIDENCE")
+            ?? throw new InvalidOperationException("LocalRedis burn evidence path is required.");
+        string sourceCommit = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_COMMIT")
+            ?? throw new InvalidOperationException("LocalRedis source commit is required.");
+        string sourceFingerprint = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_FINGERPRINT")
+            ?? throw new InvalidOperationException("LocalRedis source fingerprint is required.");
         string poolRoot = Path.Combine(Path.GetTempPath(), "fsusblog-v3-pool-" + Guid.CreateVersion7().ToString("N"));
         string generation = "runtime-test-generation";
         byte[] key = RandomNumberGenerator.GetBytes(32);
@@ -89,6 +99,8 @@ public sealed partial class PerceptionCharacterV3Tests
             await GeneratePoolAsync(poolRoot, generation, key);
             await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
             string redisPrefix = redisPrefixRoot + "artifact-burn:";
+            var redisProfile = new ProfilingSession();
+            redis.RegisterProfiler(() => redisProfile);
             var keyScope = new TestRuntimeKeyScope(redisPrefix);
             await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
             var options = new PerceptionCharacterV3ArtifactPoolOptions
@@ -150,6 +162,23 @@ public sealed partial class PerceptionCharacterV3Tests
             var restartedPool = new RedisPerceptionCharacterV3ArtifactPool(
                 RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root);
             await Assert.ThrowsAsync<InvalidOperationException>(() => restartedPool.InitializeAsync(CancellationToken.None));
+            string[] commands = redisProfile.FinishProfiling().Select(static command => command.Command).ToArray();
+            int luaCalls = commands.Count(static command => command is "EVAL" or "EVALSHA");
+            Assert.True(luaCalls > 0, "Artifact burn must execute Lua on its own Redis connection.");
+            await File.WriteAllTextAsync(evidencePath, JsonSerializer.Serialize(new
+            {
+                schema = "fsusblog.perception-character-v3-burn-redis-calls.v1",
+                testId = "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply",
+                runId,
+                sourceCommit,
+                sourceFingerprint,
+                prefixNamespace = redisPrefix,
+                endpoint = redis.GetEndPoints()[0] is System.Net.DnsEndPoint dns
+                    ? $"{dns.Host}:{dns.Port}"
+                    : redis.GetEndPoints()[0].ToString(),
+                commandCount = commands.Length,
+                luaCalls
+            }));
         }
         finally
         {

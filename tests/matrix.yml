@@ -2654,6 +2654,8 @@ tiers:
               tests/migration,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
+              tools/test/perception-redis-producer.mjs,
+              tools/dotnet-affected-tests.sh,
               tools/test/run-backend-production-shards.mjs,
               tools/check-backend-test-governance.mjs,
               tools/test/lanes/backend-unit.sh,

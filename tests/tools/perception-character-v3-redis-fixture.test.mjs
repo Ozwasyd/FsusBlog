@@ -6,8 +6,26 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const {BUDGETED_LEASE_TEST, BUDGET_CASE_IDS, CANONICAL_LOCAL_REDIS_TESTS, CUTOVER_TEST, LOCAL_REDIS_FILTER, LOCAL_REDIS_PLANNED_TESTS, MANDATORY_BURN_TEST, REDIS_LUA_CASE_IDS, REDIS_LUA_TEST, reconcileLocalRedisOutcome} = await import(new URL('../../tools/test/perception-redis-producer.mjs', import.meta.url));
+const {BUDGETED_LEASE_TEST, BUDGET_CASE_IDS, CANONICAL_LOCAL_REDIS_TESTS, CUTOVER_TEST, LOCAL_REDIS_FILTER, LOCAL_REDIS_PLANNED_TESTS, MANDATORY_BURN_TEST, REDIS_LUA_CASE_IDS, REDIS_LUA_TEST, planOrdinaryLocalRedisMembership, reconcileLocalRedisOutcome, reconcileOrdinaryLocalRedisOutcome} = await import(new URL('../../tools/test/perception-redis-producer.mjs', import.meta.url));
+const {projectBackendPlatformPlan, reconcileBackendPlatformOutcome} = await import(new URL('../../tools/test/backend-platform-selection.mjs', import.meta.url));
+const {projectProductionPlatformPlan} = await import(new URL('../../tools/test/run-backend-production-shards.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+function burnEvidence(overrides = {})
+{
+    return {
+        schema: 'fsusblog.perception-character-v3-burn-redis-calls.v1',
+        testId: MANDATORY_BURN_TEST,
+        runId: 'test-run',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`,
+        endpoint: '127.0.0.1:6379',
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:artifact-burn:',
+        commandCount: 50,
+        luaCalls: 40,
+        ...overrides
+    };
+}
 
 function budgetEvidence(overrides = {})
 {
@@ -38,13 +56,14 @@ test('budgeted lease requires its own exact outcome and current run accounting e
         cleanupVerified: true, redisLuaCallsBefore: 1, redisLuaCallsAfter: 2,
         redisLuaCaseEvidence: redisLuaCaseEvidence(), redisBudgetEvidence: budgetEvidence(),
         redisCutoverEvidence: cutoverEvidence(),
+        redisBurnEvidence: burnEvidence(),
         runId: 'test-run', sourceCommit: 'test-commit', sourceFingerprint: `sha256:${'b'.repeat(64)}`
     };
     assert.equal(reconcileLocalRedisOutcome(common).status, 'passed');
     const variants = [
-        { trxContent: `<TestRun>${results.slice(0, -1).join('')}</TestRun>` },
-        { trxContent: `<TestRun>${results.join('')}${results.at(-1)}</TestRun>` },
-        { trxContent: `<TestRun>${results.slice(0, -1).join('')}${results.at(-1).replace('Passed', 'Failed')}</TestRun>` },
+        { trxContent: `<TestRun>${results.filter((result) => !result.includes(BUDGETED_LEASE_TEST)).join('')}</TestRun>` },
+        { trxContent: `<TestRun>${results.join('')}${results.find((result) => result.includes(BUDGETED_LEASE_TEST))}</TestRun>` },
+        { trxContent: `<TestRun>${results.map((result) => result.includes(BUDGETED_LEASE_TEST) ? result.replace('Passed', 'Failed') : result).join('')}</TestRun>` },
         { redisBudgetEvidence: null },
         { redisBudgetEvidence: budgetEvidence({ runId: 'old-run' }) },
         { redisBudgetEvidence: budgetEvidence({ prefixNamespace: 'test:perception-v3-local-redis:other:budgeted-lease:' }) },
@@ -76,6 +95,18 @@ test('budgeted lease requires its own exact outcome and current run accounting e
         },
         { cleanupVerified: false }
     ];
+    for (const testId of [BUDGETED_LEASE_TEST, CUTOVER_TEST])
+    {
+        const ownResult = results.find((result) => result.includes(testId));
+        assert.ok(ownResult);
+        const otherResults = results.filter((result) => !result.includes(testId));
+        for (const ownResults of [[], [ownResult, ownResult], [ownResult.replace('Passed', 'Failed')]])
+        {
+            assert.equal(reconcileLocalRedisOutcome({
+                ...common, trxContent: `<TestRun>${[...otherResults, ...ownResults].join('')}</TestRun>`
+            }).status, 'failed');
+        }
+    }
     for (const variant of variants)
     {
         assert.equal(reconcileLocalRedisOutcome({ ...common, ...variant }).status, 'failed');
@@ -95,6 +126,115 @@ test('budgeted lease requires its own exact outcome and current run accounting e
     assert.throws(() => reconcileLocalRedisOutcome({
         ...common, plannedTestIds: [MANDATORY_BURN_TEST, REDIS_LUA_TEST]
     }), /exact producer filter/u);
+});
+
+test('burn Passed with zero own Redis calls fails even when every other test and aggregate pass', () =>
+{
+    const common = {
+        trxContent: `<TestRun>${LOCAL_REDIS_PLANNED_TESTS.map((id) =>
+            `<UnitTestResult testId="${id}" testName="${id}" outcome="Passed" />`).join('')}</TestRun>`,
+        container: 'burn-test', endpoint: '127.0.0.1:6379',
+        testAssembly: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
+        testAssemblyDigest: `sha256:${'a'.repeat(64)}`, filter: LOCAL_REDIS_FILTER,
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:',
+        cleanupVerified: true, redisLuaCallsBefore: 0, redisLuaCallsAfter: 100,
+        redisLuaCaseEvidence: redisLuaCaseEvidence(), redisBudgetEvidence: budgetEvidence(),
+        redisCutoverEvidence: cutoverEvidence(), redisBurnEvidence: burnEvidence(),
+        runId: 'test-run', sourceCommit: 'test-commit', sourceFingerprint: `sha256:${'b'.repeat(64)}`
+    };
+    assert.equal(reconcileLocalRedisOutcome(common).status, 'passed');
+    for (const evidence of [null, burnEvidence({ commandCount: 0, luaCalls: 0 }),
+        burnEvidence({ luaCalls: 0 }), burnEvidence({ runId: 'old-run' }),
+        burnEvidence({ sourceCommit: 'old-commit' }), burnEvidence({ sourceFingerprint: `sha256:${'c'.repeat(64)}` }),
+        burnEvidence({ testId: BUDGETED_LEASE_TEST }), burnEvidence({ endpoint: '127.0.0.1:1' }),
+        burnEvidence({ prefixNamespace: 'test:perception-v3-local-redis:other:artifact-burn:' })])
+    {
+        const receipt = reconcileLocalRedisOutcome({ ...common, redisBurnEvidence: evidence });
+        assert.equal(receipt.status, 'failed');
+        assert.equal(receipt.mandatoryTestOutcome, 'Passed');
+        assert.equal(receipt.redisObservation.observed, true);
+        assert.ok(receipt.failureCodes.some((code) => code.startsWith('burn-')));
+    }
+});
+
+test('ordinary full and production plans record four exact not-selected IDs and reject execution or plan tampering', () =>
+{
+    const record = { id: 'portable', fullyQualifiedName: 'Example.Portable', traits: {} };
+    for (const lane of ['backend-unit', 'backend-production'])
+    {
+        const plan = projectBackendPlatformPlan([record], 'linux', {
+            lane, baseFilter: 'Category!=Integration&Fixture!=LocalRedis'
+        });
+        assert.deepEqual(plan.localRedisTests.map((test) => test.fullyQualifiedName), LOCAL_REDIS_PLANNED_TESTS);
+        assert.ok(plan.localRedisTests.every((test) => test.result === 'not-selected' && test.planned === false));
+        assert.deepEqual(reconcileBackendPlatformOutcome(plan, []).localRedisTests, plan.localRedisTests);
+        for (const testName of LOCAL_REDIS_PLANNED_TESTS)
+        {
+            assert.throws(() => reconcileBackendPlatformOutcome(plan, [{ testId: 'unexpected', testName, outcome: 'Passed' }]), /not-selected LocalRedis/u);
+        }
+        assert.throws(() => reconcileBackendPlatformOutcome({ ...plan, localRedisTests: [] }, []), /all four/u);
+    }
+    assert.throws(() => planOrdinaryLocalRedisMembership('Category!=Integration'), /conjunctively/u);
+    assert.throws(() => planOrdinaryLocalRedisMembership('Fixture!=LocalRedis|Fixture=LocalRedis'), /conjunctively/u);
+    const expected = planOrdinaryLocalRedisMembership('Fixture!=LocalRedis');
+    for (const filter of ['(FullyQualifiedName=x|FullyQualifiedName=y)&Fixture!=LocalRedis',
+        'Fixture!=LocalRedis&(FullyQualifiedName=x|FullyQualifiedName=y)',
+        '(Fixture!=LocalRedis&FullyQualifiedName=x)|(Fixture!=LocalRedis&FullyQualifiedName=y)'])
+    {
+        assert.deepEqual(planOrdinaryLocalRedisMembership(filter), expected);
+    }
+    for (const filter of ['(Fixture!=LocalRedis&FullyQualifiedName=x)|FullyQualifiedName=y',
+        'FullyQualifiedName~Fixture!=LocalRedis', 'Fixture!=LocalRedis|Fixture=LocalRedis',
+        'Fixture!=LocalRedis&(FullyQualifiedName=x|FullyQualifiedName=y', 'Fixture!=LocalRedis&',
+        '(Fixture!=LocalRedis)FullyQualifiedName=x'])
+    {
+        assert.throws(() => planOrdinaryLocalRedisMembership(filter));
+    }
+    const productionRecords = [record, { id: 'integration', traits: { Category: ['Integration'] } },
+        ...LOCAL_REDIS_PLANNED_TESTS.map((fullyQualifiedName) => ({
+            id: fullyQualifiedName, fullyQualifiedName, traits: { Fixture: ['LocalRedis'] }
+        }))];
+    for (const platform of ['linux', 'darwin', 'win32'])
+    {
+        const actualProductionPlan = projectProductionPlatformPlan(productionRecords, platform);
+        assert.equal(actualProductionPlan.plannedTestCaseCount, 1);
+        assert.deepEqual(actualProductionPlan.localRedisTests, planOrdinaryLocalRedisMembership('Fixture!=LocalRedis'));
+    }
+});
+
+test('ordinary affected CLI emits a source-bound exact exclusion plan before test execution', () =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-membership-'));
+    const output = path.join(directory, 'plan.json');
+    const args = [path.join(root, 'tools/test/perception-redis-producer.mjs'), '--ordinary-plan',
+        '--lane', 'backend-unit-affected', '--filter', 'Category!=Integration&Fixture!=LocalRedis',
+        '--run-id', 'ordinary-test', '--source-commit', 'test-commit',
+        '--source-fingerprint', `sha256:${'b'.repeat(64)}`, '--output', output];
+    try
+    {
+        const result = spawnSync(process.execPath, args, { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+        assert.equal(plan.runId, 'ordinary-test');
+        assert.equal(plan.sourceCommit, 'test-commit');
+        assert.deepEqual(plan.tests.map((test) => test.fullyQualifiedName), LOCAL_REDIS_PLANNED_TESTS);
+        assert.ok(plan.tests.every((test) => test.result === 'not-selected' && test.planned === false));
+        const ordinaryTrx = '<TestRun><UnitTestResult testId="ordinary" testName="Example.Portable" outcome="Passed" /></TestRun>';
+        assert.equal(reconcileOrdinaryLocalRedisOutcome(plan, ordinaryTrx).status, 'passed');
+        assert.throws(() => reconcileOrdinaryLocalRedisOutcome(plan, '<TestRun/>'), /executed/u);
+        for (const testName of LOCAL_REDIS_PLANNED_TESTS)
+        {
+            assert.throws(() => reconcileOrdinaryLocalRedisOutcome(plan,
+                `<TestRun><UnitTestResult testId="redis" testName="${testName}" outcome="Passed" /></TestRun>`), /not-selected/u);
+        }
+        const invalid = [...args];
+        invalid[invalid.indexOf('--filter') + 1] = 'Category!=Integration';
+        assert.notEqual(spawnSync(process.execPath, invalid).status, 0);
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
 });
 
 function redisLuaCaseEvidence(overrides = {})
@@ -259,6 +399,10 @@ test('ordinary backend test filter excludes Fixture=LocalRedis to prevent false-
 {
     const suiteSupport = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
     const productionRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
+    const affectedRunner = fs.readFileSync(path.join(root, 'tools/dotnet-affected-tests.sh'), 'utf8');
+    assert.match(affectedRunner, /ordinaryFilter="\$\{FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Fixture!=LocalRedis\}"/u);
+    assert.match(affectedRunner, /--filter "\$ordinaryFilter"/u);
+    assert.match(affectedRunner, /--ordinary-plan/u);
     assert.match(
         suiteSupport,
         /BACKEND_ORDINARY_TEST_FILTER="[^"]*Fixture!=LocalRedis[^"]*"/u,
@@ -317,6 +461,9 @@ test('ArtifactPoolBurn test fails closed and contains no early return on missing
         /throw new InvalidOperationException/u,
         'ArtifactPoolBurn test must throw when FSUSBLOG_TEST_REDIS is not set'
     );
+    assert.match(methodBody, /RegisterProfiler/u);
+    assert.match(methodBody, /FinishProfiling/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_BURN_EVIDENCE/u);
 });
 
 test('RedisLua state and device authority test fails closed and binds canonical prefix and case evidence', () =>
@@ -462,6 +609,7 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
         redisLuaCaseEvidence: redisLuaCaseEvidence(),
         redisBudgetEvidence: budgetEvidence(),
         redisCutoverEvidence: cutoverEvidence(),
+        redisBurnEvidence: burnEvidence(),
         runId: 'test-run',
         sourceCommit: 'test-commit',
         sourceFingerprint: `sha256:${'b'.repeat(64)}`
