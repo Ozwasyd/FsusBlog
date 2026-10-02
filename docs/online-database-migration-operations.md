@@ -64,6 +64,13 @@ they must not be treated as a working offline release protocol. Do not invoke th
 old Server migration examples or use their compatibility window as release
 authorization.
 
+`tools/db/run-online-migrations.sh` is retained only as a refusal tombstone for old
+callers. It emits `schema_wrapper_retired` and exits non-zero before reading
+manifest/environment/evidence files or launching any executable, regardless of
+phase, dry-run, resume token, or destructive confirmation. It is not a second
+migration CLI. A rollout still calling its obsolete Expand stage must stop; this
+refusal must never be recorded as a completed migration or converted into success.
+
 The Test-only qualification routes temporarily remain registered for exact route
 inventory consumers, but refuse every request: bridge write returns HTTP 410 with
 `schema_qualification_retired`; compatibility readiness returns HTTP 503 with
