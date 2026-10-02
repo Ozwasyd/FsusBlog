@@ -28,6 +28,8 @@ internal sealed class PgLegacyCurrentSchemaPreparation
 
     internal OfflineMigrationSourceObservation OriginalSource { get; }
     internal CurrentSchemaIdentity Target => _owned.Target;
+    internal OwnedCurrentSchemaTarget OwnedTarget => _owned;
+    internal string RequireRetainedSchemaName() => _quotedSchema[1..^1].Replace("\"\"", "\"", StringComparison.Ordinal);
 
     internal static async Task<PgLegacyCurrentSchemaPreparation> StageAsync(
         OwnedCurrentSchemaTarget owned, OfflineMigrationSourceObservation admittedSource,
