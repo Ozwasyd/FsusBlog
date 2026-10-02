@@ -3830,8 +3830,8 @@
         },
         {
             "path": "tools/test/behavior-doc-nuget-preparation.mjs",
-            "contentDigest": "sha256:d511eab985e9357a8fbbf1e57a24724b2010a58a072ecbd9ca71371f880832f9",
-            "indexDigest": "sha256:d511eab985e9357a8fbbf1e57a24724b2010a58a072ecbd9ca71371f880832f9"
+            "contentDigest": "sha256:9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33",
+            "indexDigest": "sha256:9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33"
         },
         {
             "path": "tools/test/bundles/bundle-steps.mjs",
@@ -3975,8 +3975,8 @@
         },
         {
             "path": "tools/test/execution-envelope-directories.mjs",
-            "contentDigest": "sha256:28149458474b79ed281400f675dcf853aec8a0381dde2350fc0dd427eadec239",
-            "indexDigest": "sha256:28149458474b79ed281400f675dcf853aec8a0381dde2350fc0dd427eadec239"
+            "contentDigest": "sha256:0e3211801a910a88b5293f85860fefab4b7a1ab5f707f43dcf05b006599b12ce",
+            "indexDigest": "sha256:0e3211801a910a88b5293f85860fefab4b7a1ab5f707f43dcf05b006599b12ce"
         },
         {
             "path": "tools/test/execution-envelope-environment.mjs",
@@ -3985,8 +3985,8 @@
         },
         {
             "path": "tools/test/execution-envelope-network.mjs",
-            "contentDigest": "sha256:1bb4702f7900de5167ae6107279b5258aa1392e170f6137408d048957f002400",
-            "indexDigest": "sha256:1bb4702f7900de5167ae6107279b5258aa1392e170f6137408d048957f002400"
+            "contentDigest": "sha256:ccd68cb257543556f0329340914919d019fe0bb2d5a12c0a87dafe7c13c0c34d",
+            "indexDigest": "sha256:ccd68cb257543556f0329340914919d019fe0bb2d5a12c0a87dafe7c13c0c34d"
         },
         {
             "path": "tools/test/execution-envelope-receipt.mjs",
@@ -4185,13 +4185,13 @@
         },
         {
             "path": "tools/test/physical-execution-linux-systemd-adapter.mjs",
-            "contentDigest": "sha256:6362b8c39dce75cffbed433c2007ad4862f5845b6d8daf8762a2bc72ec52012b",
-            "indexDigest": "sha256:6362b8c39dce75cffbed433c2007ad4862f5845b6d8daf8762a2bc72ec52012b"
+            "contentDigest": "sha256:e15bfb368be745306a11b7d9f7d9b38dc3c4a24beafbf12aecd3b0f6c3f6e995",
+            "indexDigest": "sha256:e15bfb368be745306a11b7d9f7d9b38dc3c4a24beafbf12aecd3b0f6c3f6e995"
         },
         {
             "path": "tools/test/physical-execution-process-tree.mjs",
-            "contentDigest": "sha256:7c5cd2ef4b65c3d10dd31a28cd7ca0d0faf1ffd279a9e2fb3995575cf79ee4f8",
-            "indexDigest": "sha256:7c5cd2ef4b65c3d10dd31a28cd7ca0d0faf1ffd279a9e2fb3995575cf79ee4f8"
+            "contentDigest": "sha256:8b931b9e7dd72fa7bf4bfd666c736f5cf333e9dec9745fcc75c51f857092949f",
+            "indexDigest": "sha256:8b931b9e7dd72fa7bf4bfd666c736f5cf333e9dec9745fcc75c51f857092949f"
         },
         {
             "path": "tools/test/physical-execution-windows-job-adapter.mjs",
@@ -4295,8 +4295,8 @@
         },
         {
             "path": "tools/test/run-deterministic-command.mjs",
-            "contentDigest": "sha256:2928fa8b06342ebc6bb53a4d3d3dbb20ef807311690a293cf8ff3fa646faa616",
-            "indexDigest": "sha256:2928fa8b06342ebc6bb53a4d3d3dbb20ef807311690a293cf8ff3fa646faa616"
+            "contentDigest": "sha256:581998d34620d9891681f94929848de79d98164b5a481e54b072d90a61e5ac2f",
+            "indexDigest": "sha256:581998d34620d9891681f94929848de79d98164b5a481e54b072d90a61e5ac2f"
         },
         {
             "path": "tools/test/run-frontend-vitest-rolling-shards.mjs",
@@ -5587,6 +5587,7 @@
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-envelope-services.mjs",
@@ -11234,6 +11235,7 @@
                 "tools/test-observations/source-identity.mjs",
                 "tools/test-observations/validation.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/changed-critical-mutation-attribution.mjs",
                 "tools/test/changed-critical-mutation-evidence.mjs",
                 "tools/test/changed-critical-mutation-identity.mjs",
@@ -11245,6 +11247,7 @@
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/mutation-evidence-receipt.mjs",
@@ -13925,12 +13928,14 @@
                 "tools/test-observations/validation.mjs",
                 "tools/test/attempt-provenance.mjs",
                 "tools/test/attempt-runner.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/bundles/runtime-environment.mjs",
                 "tools/test/current-run-evidence-checkpoint.mjs",
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/governance-suite-plan.mjs",
@@ -14785,11 +14790,13 @@
                 "tools/test-matrix/schema-validator/validate.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/current-run-evidence-checkpoint.mjs",
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
@@ -17595,11 +17602,13 @@
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/current-run-evidence-checkpoint.mjs",
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/lanes/runtime-evidence-probe.mjs",
@@ -24874,6 +24883,7 @@
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-envelope-services.mjs",
@@ -27844,11 +27854,13 @@
                 "tools/test-matrix/schema-validator/validate.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/current-run-evidence-checkpoint.mjs",
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
@@ -30575,11 +30587,13 @@
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/current-run-evidence-checkpoint.mjs",
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/lanes/runtime-evidence-probe.mjs",
@@ -35224,6 +35238,7 @@
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/bundles/bundle-steps.mjs",
                 "tools/test/bundles/runtime-environment.mjs",
                 "tools/test/collect-release-reliability-fixture.mjs",
@@ -35234,6 +35249,7 @@
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/export-production-build-environment.mjs",
@@ -35432,12 +35448,14 @@
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
                 "tools/test/attempt-provenance.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/bundles/runtime-environment.mjs",
                 "tools/test/current-run-evidence-checkpoint.mjs",
                 "tools/test/current-run-evidence-locator.mjs",
                 "tools/test/current-run-evidence-publication.mjs",
                 "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
+                "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-environment.mjs",
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",

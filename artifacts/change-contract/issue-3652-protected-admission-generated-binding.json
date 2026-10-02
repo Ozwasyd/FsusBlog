@@ -8,6 +8,9 @@
         "tools/test-matrix/protected-behavior-doc-admission.mjs",
         "tools/test/behavior-doc-nuget-preparation.mjs",
         "tools/test/execution-envelope-directories.mjs",
+        "tools/test/execution-envelope-network.mjs",
+        "tools/test/physical-execution-linux-systemd-adapter.mjs",
+        "tools/test/physical-execution-process-tree.mjs",
         "tools/test/run-deterministic-command.mjs"
     ],
     "outputs": [
@@ -17,7 +20,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "a8efea8fed803cdd6f3eef5d9de5060a034ad2d51010473c4c2999b2fddccaf3"
+            "sha256": "abb62dd78ffe0a8c9fe891239b361cc503966d6ed190d5fd4facc0a89a33e36c"
         }
     ]
 }
