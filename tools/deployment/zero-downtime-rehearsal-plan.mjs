@@ -306,7 +306,12 @@ export async function runCurrentRehearsal(resolved, { mode, runId }) {
     const replay = verifyReleaseRolloutEvidence(value, { evidencePath: file, readBytes: currentFileBytes, now: Date.now() });
     if (replay.status !== 'pass') fail(replay.errors.join('\n'));
     const target = resolved.manifests.target;
-    if (value.manifestSha256 !== target.sha256 || value.candidateSourceRevision !== target.value.commitSha
+    const source = resolved.manifests.source;
+    if (value.rolloutId !== state.rolloutId || state.finalEvidencePath !== file
+      || !isDeepStrictEqual(value.source, state.source) || !isDeepStrictEqual(value.target, state.target)
+      || state.source.releaseId !== source.value.releaseId || state.source.imageDigest !== source.value.imageDigest
+      || state.target.releaseId !== target.value.releaseId || state.target.imageDigest !== target.value.imageDigest
+      || value.manifestSha256 !== target.sha256 || value.candidateSourceRevision !== target.value.commitSha
       || !isDeepStrictEqual(value.currentSchema, target.value.currentSchema)
       || state.manifestSha256 !== target.sha256 || state.candidateSourceRevision !== target.value.commitSha
       || !isDeepStrictEqual(state.currentSchema, target.value.currentSchema)) fail('completed current evidence bindings differ');

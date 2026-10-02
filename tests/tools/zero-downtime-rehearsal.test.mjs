@@ -415,6 +415,41 @@ if (runsFixtureShard('base'))
         assert.equal(control.status, 0, control.stderr);
         assert.equal(currentSummary(fixture, 'all-bindings-control').releaseEvidence.verification.status, 'pass');
     });
+
+    test('complete current replay binds the caller rollout, both durable identities and the exact final file after a positive control', async t =>
+    {
+        const fixture = createCurrentFixture(t);
+        const slots = fs.readFileSync(fixture.raw.runtime.slotState);
+        const completed = readJson(fixture.completedState);
+        const actor = readJson(fixture.actorConfig);
+        const control = await runCurrentFixture(fixture, 'normal', 'complete-binding-control');
+        assert.equal(control.status, 0, control.stderr);
+        for (const [name, mutate] of [
+            ['source', state => { state.source.imageDigest = 'sha256:' + 'f'.repeat(64); }],
+            ['target', state => { state.target.imageDigest = 'sha256:' + 'f'.repeat(64); }],
+            ['path', state => { state.finalEvidencePath = actor.finalEvidence; }]
+        ])
+        {
+            fs.unlinkSync(fixture.raw.rollout.stateFile);
+            fs.writeFileSync(fixture.raw.runtime.slotState, slots);
+            const changed = structuredClone(completed); mutate(changed); writeJson(fixture.completedState, changed);
+            const result = await runCurrentFixture(fixture, 'normal', 'different-completed-' + name);
+            assert.notEqual(result.status, 0, name);
+            assert.match(currentSummary(fixture, 'different-completed-' + name).errors.join('\n'), /completed current evidence bindings differ/u);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+        writeJson(fixture.completedState, completed);
+        fs.unlinkSync(fixture.raw.rollout.stateFile);
+        fs.writeFileSync(fixture.raw.runtime.slotState, slots);
+        const other = createReleaseRolloutEvidenceFixture({ manifest: fixture.manifests.target,
+            rolloutId: 'different-complete-rollout', source: completed.source, target: completed.target });
+        const directory = path.join(fixture.root, 'different-sealed-complete-evidence'); fs.mkdirSync(directory);
+        actor.finalEvidence = other.createFinalEvidence(directory).file;
+        writeJson(fixture.actorConfig, actor);
+        const different = await runCurrentFixture(fixture, 'normal', 'different-report-rollout');
+        assert.notEqual(different.status, 0);
+        assert.match(currentSummary(fixture, 'different-report-rollout').errors.join('\n'), /completed current evidence bindings differ/u);
+    });
 }
 
 /** Recording component actors only; never issued/native/provider/backup qualification. */
@@ -493,7 +528,8 @@ function createCurrentFixture(t)
     const final = evidenceFixture.createFinalEvidence(fixtureDirectory);
     const fixtureState = path.join(fixtureDirectory, 'state.json'), completedState = path.join(root, 'completed-state.json');
     writeRolloutStateAtomic(completedState, completeRollout(readRolloutState(fixtureState), {
-        evidencePath: final.file, completedAtUtc: '2026-07-11T00:30:00.000Z'
+        evidencePath: path.join(workRoot, 'evidence', rolloutId, 'evidence', 'release-rollout.json'),
+        completedAtUtc: '2026-07-11T00:30:00.000Z'
     }));
     const raw = {
         schema: 'fsusblog.zero-downtime-rehearsal-plan.v2', environment: 'Test',
@@ -568,7 +604,7 @@ if (process.env.FSUSBLOG_CURRENT_FIXTURE_KILL === '1') {
 `);
     fs.writeFileSync(path.join(root, 'tools/deployment/release-rollout.sh'),
         '#!/usr/bin/env bash\nexec ' + JSON.stringify(process.execPath) + ' -- ' + JSON.stringify(releaseActor) + ' "$@"\n', { mode: 0o755 });
-    return { root, plan, raw, manifests, log, bin, containers, actorConfig, fixtureState };
+    return { root, plan, raw, manifests, log, bin, containers, actorConfig, fixtureState, completedState };
 }
 
 function runCurrentFixture(fixture, mode, runId, overrides = {})
