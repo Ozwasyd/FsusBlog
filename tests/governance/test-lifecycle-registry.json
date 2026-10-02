@@ -5633,15 +5633,22 @@
         },
         {
             "file": "tests/tools/perception-character-v3-redis-fixture.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/perception-character-v3-redis-fixture.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "perception-character-v3-redis-fixture",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/perception-character-v3-redis-fixture",
+                "output": ".tmp/test-governance/results/{checkId}/perception-character-v3-redis-fixture.json"
+            }
         },
         {
             "file": "tests/tools/playwright-browser-identity.test.mjs",

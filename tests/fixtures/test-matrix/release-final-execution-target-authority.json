@@ -30,8 +30,8 @@
         },
         {
             "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-            "contentDigest": "sha256:352e6e921d48ecba6e06f1a19540fbd1b724298c7bdc96cd5aefa4b0b112d2e0",
-            "indexDigest": "sha256:352e6e921d48ecba6e06f1a19540fbd1b724298c7bdc96cd5aefa4b0b112d2e0"
+            "contentDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103",
+            "indexDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103"
         },
         {
             "path": "src/frontend/package.json",
@@ -1605,8 +1605,8 @@
         },
         {
             "path": "tools/check-test-retention.mjs",
-            "contentDigest": "sha256:06506b00f41ceb79dee41a5f885d258a129cbecde1b8f66fcbc43d975f272729",
-            "indexDigest": "sha256:06506b00f41ceb79dee41a5f885d258a129cbecde1b8f66fcbc43d975f272729"
+            "contentDigest": "sha256:99ae47e86af6fa65ebb8da49224e1dbd02542b529f2c63ea1dcf94c07ea9b501",
+            "indexDigest": "sha256:99ae47e86af6fa65ebb8da49224e1dbd02542b529f2c63ea1dcf94c07ea9b501"
         },
         {
             "path": "tools/check-test-suite-convergence.mjs",
@@ -3275,8 +3275,8 @@
         },
         {
             "path": "tools/test-inventory/adapters.mjs",
-            "contentDigest": "sha256:b63bfa94c23221b666d5c0fc085bacf4b319700932dd148929f3d0e9b3413321",
-            "indexDigest": "sha256:b63bfa94c23221b666d5c0fc085bacf4b319700932dd148929f3d0e9b3413321"
+            "contentDigest": "sha256:5e9ae8ef4b87de88b0c5d647dc52d5581b930f3875384137d1ee2a51a9ddbadc",
+            "indexDigest": "sha256:5e9ae8ef4b87de88b0c5d647dc52d5581b930f3875384137d1ee2a51a9ddbadc"
         },
         {
             "path": "tools/test-inventory/api.mjs",
@@ -3285,13 +3285,13 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:c6e3c1a3763e6d85a2d4ee8d29b8bf0b1f549d249eb4ad32e20ce438dfb12323",
-            "indexDigest": "sha256:c6e3c1a3763e6d85a2d4ee8d29b8bf0b1f549d249eb4ad32e20ce438dfb12323"
+            "contentDigest": "sha256:f4bdbfc05f5eabf034ef33af79f6e01d1eac6bf2714f437065faf7678ef461c8",
+            "indexDigest": "sha256:f4bdbfc05f5eabf034ef33af79f6e01d1eac6bf2714f437065faf7678ef461c8"
         },
         {
             "path": "tools/test-inventory/produce.mjs",
-            "contentDigest": "sha256:956ffb808132f8ee5e1ed10f8c60ecc86dd7c499d1804e3df5036a06cdb89e03",
-            "indexDigest": "sha256:956ffb808132f8ee5e1ed10f8c60ecc86dd7c499d1804e3df5036a06cdb89e03"
+            "contentDigest": "sha256:6c7a16b64b9ec4dbf1e5de17758acf49955debb8b37843083a4e49d41947d3c7",
+            "indexDigest": "sha256:6c7a16b64b9ec4dbf1e5de17758acf49955debb8b37843083a4e49d41947d3c7"
         },
         {
             "path": "tools/test-inventory/schema.mjs",
@@ -3725,8 +3725,8 @@
         },
         {
             "path": "tools/test-retention/audit.mjs",
-            "contentDigest": "sha256:ea9f29d43a40c323d48ac676739668e91fbdda7756bef2cdff1a0ef033863a7d",
-            "indexDigest": "sha256:ea9f29d43a40c323d48ac676739668e91fbdda7756bef2cdff1a0ef033863a7d"
+            "contentDigest": "sha256:f88eda233320e013ac3954a09b823e828250c677270d75c91ef0a5ea8ba8e57a",
+            "indexDigest": "sha256:f88eda233320e013ac3954a09b823e828250c677270d75c91ef0a5ea8ba8e57a"
         },
         {
             "path": "tools/test-runtime/behavior-evidence-ready-authority.mjs",

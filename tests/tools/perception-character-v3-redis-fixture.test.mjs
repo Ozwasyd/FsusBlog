@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const {BUDGETED_LEASE_TEST, BUDGET_CASE_IDS, CANONICAL_LOCAL_REDIS_TESTS, CUTOVER_TEST, LOCAL_REDIS_FILTER, LOCAL_REDIS_PLANNED_TESTS, MANDATORY_BURN_TEST, REDIS_LUA_CASE_IDS, REDIS_LUA_TEST, planOrdinaryLocalRedisMembership, reconcileLocalRedisOutcome, reconcileOrdinaryLocalRedisOutcome} = await import(new URL('../../tools/test/perception-redis-producer.mjs', import.meta.url));
 const {projectBackendPlatformPlan, reconcileBackendPlatformOutcome} = await import(new URL('../../tools/test/backend-platform-selection.mjs', import.meta.url));
 const {projectProductionPlatformPlan} = await import(new URL('../../tools/test/run-backend-production-shards.mjs', import.meta.url));
+const {buildStaticGovernanceExecutionPlan, loadStaticGovernanceRegistry} = await import(new URL('../../tools/test/static-governance-host.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function burnEvidence(overrides = {})
@@ -304,12 +305,69 @@ function cutoverEvidence(overrides = {})
     };
 }
 
-function runFixtureWithDockerStub({ port = '127.0.0.1:6379', pingReady = false, cleanupScanFails = false } = {})
+function assertFixtureClosure(fixture)
 {
-    const stubDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-docker-'));
+    for (const file of fixture.closure)
+    {
+        assert.deepEqual(fs.readFileSync(path.join(fixture.directory, file)), fs.readFileSync(path.join(root, file)), file);
+    }
+}
+
+function createIsolatedFixtureRoot()
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-repository-'));
+    const closure = [
+        'tools/test/perception-character-v3-redis-fixture.sh',
+        'tools/test/perception-redis-producer.mjs',
+        'tools/test/execution-envelope-services.mjs',
+        'tools/test/process-identity.mjs',
+        'tools/test-matrix/execution-envelope-policy.mjs',
+        'config/testing/test-execution-service-catalog.json'
+    ];
+    try
+    {
+        for (const file of closure)
+        {
+            const destination = path.join(directory, file);
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            fs.copyFileSync(path.join(root, file), destination);
+        }
+        const fixture = { directory, closure };
+        assertFixtureClosure(fixture);
+        return fixture;
+    }
+    catch (error)
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+        throw error;
+    }
+}
+
+function fixtureEnvironment(directory, inherited = {})
+{
+    // Hermetic checker fixtures are diagnostic, never qualified runtime evidence.
+    return {
+        PATH: `${path.join(directory, 'stubs')}:/usr/bin:/bin`,
+        LANG: inherited.LANG ?? 'C', LC_ALL: inherited.LC_ALL ?? 'C', TMPDIR: directory,
+        FSUSBLOG_NODE: process.execPath,
+        FSUSBLOG_TEST_REDIS_HOST: '127.0.0.1',
+        FSUSBLOG_TEST_CONFIGURATION: 'Release',
+        FSUSBLOG_TEST_RUN_ID: 'hermetic-fixture',
+        FSUSBLOG_TEST_SOURCE_COMMIT: 'hermetic-fixture-source',
+        FSUSBLOG_TEST_SOURCE_FINGERPRINT: `sha256:${'c'.repeat(64)}`,
+        FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT: path.join(directory, '.tmp/test-results/backend/cutover.json')
+    };
+}
+
+function createDockerStubs(fixture, cleanupScanFails)
+{
+    const stubDirectory = path.join(fixture.directory, 'stubs');
+    fs.mkdirSync(stubDirectory);
+    fs.symlinkSync(process.execPath, path.join(stubDirectory, 'node'));
     const dockerStub = path.join(stubDirectory, 'docker');
     const sleepStub = path.join(stubDirectory, 'sleep');
     fs.writeFileSync(dockerStub, `#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$FSUSBLOG_FAKE_DOCKER_TRACE"
 if [[ "$1" == "info" || "$1" == "run" || "$1 $2" == "image inspect" || "$1" == "rm" ]]; then exit 0; fi
 if [[ "$1" == "port" ]]; then printf '%s\\n' "$FSUSBLOG_FAKE_DOCKER_PORT"; exit 0; fi
 if [[ "$1 $3" == "exec redis-cli" && "$4" == "ping" ]]; then [[ "$FSUSBLOG_FAKE_DOCKER_PING" == "ready" ]] && echo PONG && exit 0; exit 1; fi
@@ -322,9 +380,12 @@ exit 1
 `, { mode: 0o755 });
     fs.writeFileSync(sleepStub, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
     const producerObserver = path.join(stubDirectory, 'producer-observer');
+    fs.writeFileSync(path.join(stubDirectory, 'dotnet'), `#!/usr/bin/env bash
+printf 'cwd=%s\\nargs=%s\\ncutover=%s\\n' "$PWD" "$*" "$FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT" > "$FSUSBLOG_FAKE_DOTNET_TRACE"
+exit 0
+`, { mode: 0o755 });
     if (cleanupScanFails)
     {
-        fs.writeFileSync(path.join(stubDirectory, 'dotnet'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
         fs.writeFileSync(producerObserver, `#!/usr/bin/env bash
 if [[ "$1" == *perception-redis-producer.mjs && "$2" != --print-filter ]]; then
     printf 'observed producer arguments: %s\\n' "$*" >&2
@@ -333,30 +394,136 @@ fi
 exec "$FSUSBLOG_REAL_NODE" "$@"
 `, { mode: 0o755 });
     }
+    return { stubDirectory, producerObserver };
+}
+
+function runFixtureWithDockerStub({ port = '127.0.0.1:6379', pingReady = false, cleanupScanFails = false, environment = {} } = {})
+{
+    const fixture = createIsolatedFixtureRoot();
     try
     {
-        return spawnSync('/bin/bash', [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')], {
-            cwd: root,
+        const { stubDirectory, producerObserver } = createDockerStubs(fixture, cleanupScanFails);
+        assertFixtureClosure(fixture);
+        const result = spawnSync('/bin/bash', [path.join(fixture.directory, 'tools/test/perception-character-v3-redis-fixture.sh')], {
+            cwd: fixture.directory,
             encoding: 'utf8',
             env: {
-                ...process.env,
-                PATH: `${stubDirectory}:${process.env.PATH}`,
+                ...fixtureEnvironment(fixture.directory, environment),
                 FSUSBLOG_FAKE_DOCKER_PORT: port,
                 FSUSBLOG_FAKE_DOCKER_PING: pingReady ? 'ready' : 'not-ready',
                 FSUSBLOG_FAKE_CLEANUP_SCAN: String(cleanupScanFails),
                 FSUSBLOG_FAKE_SCAN_MARKER: path.join(stubDirectory, 'scan-observed'),
+                FSUSBLOG_FAKE_DOCKER_TRACE: path.join(stubDirectory, 'docker-trace'),
+                FSUSBLOG_FAKE_DOTNET_TRACE: path.join(stubDirectory, 'dotnet-trace'),
                 ...(cleanupScanFails ? {
                     FSUSBLOG_NODE: producerObserver,
                     FSUSBLOG_REAL_NODE: process.execPath
                 } : {})
             }
         });
+        const readTrace = (name) => fs.existsSync(path.join(stubDirectory, name))
+            ? fs.readFileSync(path.join(stubDirectory, name), 'utf8') : '';
+        return {
+            ...result,
+            fixtureRoot: fixture.directory,
+            outputDirectoryExists: fs.existsSync(path.join(fixture.directory, '.tmp/test-results/backend')),
+            dotnetTrace: readTrace('dotnet-trace'),
+            dockerTrace: readTrace('docker-trace')
+        };
     }
     finally
     {
-        fs.rmSync(stubDirectory, { recursive: true, force: true });
+        fs.rmSync(fixture.directory, { recursive: true, force: true });
     }
 }
+
+test('canonical shell stubs use byte-exact owned repository closure and confine inherited outputs', (context) =>
+{
+    assert.equal(typeof createIsolatedFixtureRoot, 'function');
+    const fixture = createIsolatedFixtureRoot();
+    try
+    {
+        assert.notEqual(fixture.directory, root);
+        for (const file of fixture.closure)
+        {
+            assert.deepEqual(fs.readFileSync(path.join(fixture.directory, file)), fs.readFileSync(path.join(root, file)));
+        }
+    }
+    finally
+    {
+        fs.rmSync(fixture.directory, { recursive: true, force: true });
+    }
+    const result = runFixtureWithDockerStub({
+        pingReady: true, cleanupScanFails: true,
+        environment: {
+            FSUSBLOG_NODE: '/not-owned/node', FSUSBLOG_TEST_REDIS_HOST: 'not-local',
+            FSUSBLOG_TEST_SOURCE_COMMIT: 'inherited-source', FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'inherited-fingerprint',
+            FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT: path.join(root, '.tmp/test-results/backend/not-owned.json')
+        }
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /test_status=0 producer_status=1/u);
+    assert.ok(result.outputDirectoryExists);
+    assert.equal(fs.existsSync(result.fixtureRoot), false, 'only the owned temporary repository must be cleaned');
+    assert.ok(result.dotnetTrace.includes(result.fixtureRoot));
+    assert.ok(result.stderr.includes(path.join(result.fixtureRoot, 'tools/test/perception-redis-producer.mjs')));
+    assert.ok(result.stderr.includes(path.join(result.fixtureRoot, '.tmp/test-results/backend/cutover.json')));
+    assert.ok(result.stderr.includes('--source-commit hermetic-fixture-source'));
+    assert.ok(result.stderr.includes('--cleanup-verified false'));
+    assert.equal(result.stderr.includes(root), false, 'producer arguments must not address the current checkout');
+    assert.equal(result.dotnetTrace.includes(root), false);
+    assert.match(result.dockerTrace, /rm -f fsusblog-perception-v3-redis-hermetic-fixture-/u);
+    context.diagnostic(JSON.stringify({
+        fixtureRoot: result.fixtureRoot, status: result.status,
+        stdout: result.stdout, stderr: result.stderr,
+        dockerTrace: result.dockerTrace, dotnetTrace: result.dotnetTrace,
+        cleanupVerified: !fs.existsSync(result.fixtureRoot),
+        scope: 'hermetic checker orchestration, not LocalRedis qualification'
+    }));
+});
+
+test('isolated canonical fixture rejects missing or altered copied support bytes', () =>
+{
+    for (const mutation of ['missing', 'altered'])
+    {
+        const fixture = createIsolatedFixtureRoot();
+        try
+        {
+            const target = path.join(fixture.directory, 'tools/test/perception-redis-producer.mjs');
+            if (mutation === 'missing')
+            {
+                fs.unlinkSync(target);
+            }
+            else
+            {
+                fs.appendFileSync(target, '\n// changed fixture support\n');
+            }
+            assert.throws(() => assertFixtureClosure(fixture));
+        }
+        finally
+        {
+            fs.rmSync(fixture.directory, { recursive: true, force: true });
+        }
+    }
+});
+
+test('canonical registry plans the isolated LocalRedis checker suite exactly once on the existing temporary host', () =>
+{
+    const registryPath = path.join(root, 'tests/governance/test-lifecycle-registry.json');
+    const file = 'tests/tools/perception-character-v3-redis-fixture.test.mjs';
+    const entries = JSON.parse(fs.readFileSync(registryPath, 'utf8')).nodeTests.filter((entry) => entry.file === file);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].owner, 'repository-governance:static-node-contracts');
+    assert.equal(entries[0].executionCategory, 'repository-governance');
+    assert.equal(entries[0].lifecycle, 'canonical-execution');
+    assert.equal(entries[0].physicalExecutionCount, 1);
+    const plan = buildStaticGovernanceExecutionPlan(loadStaticGovernanceRegistry(registryPath, root));
+    const hosts = plan.hosts.filter((host) => host.checks.some((check) => check.file === file));
+    assert.equal(hosts.length, 1);
+    assert.equal(hosts[0].category, 'isolated-temporary-repository-fixture');
+    assert.equal(hosts[0].id, 'host:temporary-repository');
+    assert.equal(hosts[0].checks.filter((check) => check.file === file).length, 1);
+});
 
 test('canonical LocalRedis producer registers all four Perception V3 tests under single shared owner', () =>
 {
@@ -541,17 +708,19 @@ test('perception-character-v3-redis-fixture.sh binds fail-closed container lifec
 
 test('LocalRedis runner fails closed when Docker is unavailable, port parsing fails, or PING is not ready', () =>
 {
-    const unavailableDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-local-redis-no-docker-'));
+    const unavailableFixture = createIsolatedFixtureRoot();
+    const unavailableDirectory = path.join(unavailableFixture.directory, 'stubs');
+    fs.mkdirSync(unavailableDirectory);
     fs.symlinkSync('/usr/bin/dirname', path.join(unavailableDirectory, 'dirname'));
     try
     {
         const unavailable = spawnSync(
             '/bin/bash',
-            [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')],
+            [path.join(unavailableFixture.directory, 'tools/test/perception-character-v3-redis-fixture.sh')],
             {
-                cwd: root,
+                cwd: unavailableFixture.directory,
                 encoding: 'utf8',
-                env: { ...process.env, PATH: unavailableDirectory }
+                env: { ...fixtureEnvironment(unavailableFixture.directory), PATH: unavailableDirectory }
             }
         );
         assert.notEqual(unavailable.status, 0);
@@ -559,7 +728,7 @@ test('LocalRedis runner fails closed when Docker is unavailable, port parsing fa
     }
     finally
     {
-        fs.rmSync(unavailableDirectory, { recursive: true, force: true });
+        fs.rmSync(unavailableFixture.directory, { recursive: true, force: true });
     }
 
     const invalidPort = runFixtureWithDockerStub({ port: 'invalid' });
@@ -574,13 +743,21 @@ test('LocalRedis runner fails closed when Docker is unavailable, port parsing fa
     assert.notEqual(scanFailed.status, 0);
     assert.match(scanFailed.stderr, /failed to inspect the Redis prefix/u);
 
-    const nonlocalHost = spawnSync('/bin/bash', [path.join(root, 'tools/test/perception-character-v3-redis-fixture.sh')], {
-        cwd: root,
-        encoding: 'utf8',
-        env: { ...process.env, FSUSBLOG_TEST_REDIS_HOST: 'not-local' }
-    });
-    assert.notEqual(nonlocalHost.status, 0);
-    assert.match(nonlocalHost.stderr, /local Docker host/u);
+    const nonlocalFixture = createIsolatedFixtureRoot();
+    try
+    {
+        const nonlocalHost = spawnSync('/bin/bash', [path.join(nonlocalFixture.directory, 'tools/test/perception-character-v3-redis-fixture.sh')], {
+            cwd: nonlocalFixture.directory,
+            encoding: 'utf8',
+            env: { ...fixtureEnvironment(nonlocalFixture.directory), FSUSBLOG_TEST_REDIS_HOST: 'not-local' }
+        });
+        assert.notEqual(nonlocalHost.status, 0);
+        assert.match(nonlocalHost.stderr, /local Docker host/u);
+    }
+    finally
+    {
+        fs.rmSync(nonlocalFixture.directory, { recursive: true, force: true });
+    }
 });
 
 test('reconcileLocalRedisOutcome parses passing TRX and produces conforming receipt', () =>
