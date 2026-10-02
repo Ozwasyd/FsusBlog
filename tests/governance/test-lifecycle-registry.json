@@ -3569,14 +3569,21 @@
         },
         {
             "file": "tests/tools/config-error-security-policy-observation.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/config-error-security-policy-observation.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "compatibility-wrapper"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "config-error-security-policy-observation",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/config-error-security-policy-observation",
+                "output": ".tmp/test-governance/results/{checkId}/config-error-security-policy-observation.json"
+            }
         },
         {
             "file": "tests/tools/content-addressed-build-cache.test.mjs",
