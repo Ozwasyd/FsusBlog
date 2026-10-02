@@ -510,6 +510,8 @@ test('native owned private /tmp refuses absent binding before its command', { sk
     const result = spawnSync(sandbox.command[0], sandbox.command.slice(1), { cwd: root, env: environment, encoding: 'utf8' });
     assert.equal(result.status, 125, result.stderr);
     assert.match(result.stderr, /owned temporary alias object identity mismatch/u);
+    context.diagnostic(JSON.stringify({ nativeAbsentAlias: { command: sandbox.command, exitCode: result.status,
+        stdout: result.stdout, stderr: result.stderr, targetExecuted: fs.existsSync(sentinel) } }));
     assert.equal(fs.existsSync(sentinel), false);
     assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
     assert.equal(finalizeRunOwnedDirectories(owner).cleanup.status, 'complete');
@@ -549,14 +551,24 @@ test('original physical owner binds only current owned /tmp and retains external
     assert.equal(sandbox.linuxReadWritePaths.includes('/tmp'), false);
     assert.equal(sandbox.linuxReadWritePaths.includes('/var/tmp'), false);
     const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    const nativeStderr = [];
+    const stderr = new Writable({ write(chunk, _encoding, callback) { nativeStderr.push(Buffer.from(chunk)); callback(); } });
     try
     {
         physicalStarted = true;
         terminal = await runPhysicalExecution({ command: sandbox.command, cwd: root, env: environment,
             linuxNetworkPolicy: sandbox.linuxNetworkPolicy, linuxReadWritePaths: sandbox.linuxReadWritePaths,
-            linuxOwnedPrivateTmp: sandbox.linuxOwnedPrivateTmp, stdout: quiet, stderr: quiet });
+            linuxOwnedPrivateTmp: sandbox.linuxOwnedPrivateTmp, stdout: quiet, stderr });
     }
-    catch (error) { terminal = error.physicalExecution; throw error; }
+    catch (error)
+    {
+        terminal = error.physicalExecution;
+        context.diagnostic(JSON.stringify({ physicalExecution: terminal, nativeStderr: Buffer.concat(nativeStderr).toString('utf8') }));
+        throw error;
+    }
+    const observedStderr = Buffer.concat(nativeStderr).toString('utf8');
+    assert.match(observedStderr, /execution-envelope-landlock: owned-private-tmp-verified device=\d+ inode=\d+ uid=\d+/u);
+    context.diagnostic(JSON.stringify({ physicalExecution: terminal, nativeStderr: observedStderr }));
     assert.equal(terminal.postObservation, 'zero-members');
     const actual = terminal.executionAdmission.ownedPrivateTmp;
     assert.equal(actual.sourceDevice, actual.aliasDevice);
