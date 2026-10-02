@@ -51,8 +51,9 @@ function canonicalAuthorityFixture(context)
     fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true })
     fs.copyFileSync(path.join(root, file), path.join(directory, file))
   }
+  const manifest = createReadinessManifest(releaseId, source.sourceCommit)
   const rolloutFixture = createReleaseRolloutEvidenceFixture({
-    rolloutId, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
+    rolloutId, manifest, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
   })
   const rolloutDirectory = path.join(directory, '.tmp', 'rollout')
   const data = { directory: rolloutDirectory, stateFile: path.join(rolloutDirectory, 'state.json'),
@@ -60,7 +61,6 @@ function canonicalAuthorityFixture(context)
   rolloutFixture.advanceState(data, { includeFinalStage: true })
   const artifacts = rolloutFixture.writeArtifacts(data)
   const auxiliary = rolloutFixture.writeAuxiliary(data)
-  const manifest = createReadinessManifest(releaseId, source.sourceCommit)
   write(auxiliary.releaseManifest, manifest)
   const rolloutFile = path.join(rolloutDirectory, 'release-rollout.json')
   const finalized = rolloutFixture.runEvidence(['finalize', '--state', data.stateFile, '--out', rolloutFile,

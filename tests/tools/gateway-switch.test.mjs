@@ -1,10 +1,13 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { createReleaseManifest, writeReleaseManifestAtomic } from '../../tools/release/release-manifest.mjs'
 import {
   abortGatewayTransition,
     beginGatewayTransition,
@@ -508,10 +511,12 @@ test('rollout cannot resume persisted image rollback or old-source recovery as d
   for (const kind of ['rollback', 'deploy']) {
     const rolloutFile = path.join(fixture.directory, `${kind}-rollout.json`)
     const state = createRolloutState({
-      rolloutId: `${kind}-fixture`, kind, manifestPath: manifest,
+      ...createCurrentRolloutFixtureBinding(),
+      rolloutId: `${kind}-fixture`, kind: 'deploy', manifestPath: manifest,
       source: { slot: 'blue', releaseId: blueRelease, imageDigest: blueDigest, runtimeGeneration: 1 },
       target: { slot: 'green', releaseId: greenRelease, imageDigest: greenDigest, runtimeGeneration: 2 }
     })
+    if (kind === 'rollback') state.kind = 'rollback'
     if (kind === 'deploy') {
       state.status = 'recovery_required'
       state.recovery = {
@@ -519,7 +524,8 @@ test('rollout cannot resume persisted image rollback or old-source recovery as d
         reason: 'post_switch_gate_failed_before_source_drain', failedStage: 'source-drain'
       }
     }
-    writeRolloutStateAtomic(rolloutFile, state)
+    // Deliberately persist a historical invalid state without the current writer accepting it.
+    fs.writeFileSync(rolloutFile, `${JSON.stringify(state)}\n`)
     const beforeRollout = fs.readFileSync(rolloutFile, 'utf8')
     const before = snapshot(fixture)
     const beforeRuntime = fs.readFileSync(fixture.runtimeState, 'utf8')
@@ -528,13 +534,121 @@ test('rollout cannot resume persisted image rollback or old-source recovery as d
       '--resume', '--release-manifest', manifest, '--rollout-state-file', rolloutFile
     ], { FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL: 'http://127.0.0.1:18080/health/ready' })
     assert.notEqual(result.status, 0)
-    assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+    assert.match(result.stderr, /schema_image_only_rollback_retired|current_schema_admission/u)
     assert.equal(fs.readFileSync(rolloutFile, 'utf8'), beforeRollout)
     assertUnchanged(fixture, before)
     assert.equal(fs.readFileSync(fixture.runtimeState, 'utf8'), beforeRuntime)
     assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
   }
 })
+
+test('fresh current admission rejects missing environment and mismatched Server output before mutable rollout work', (t) => {
+  for (const mutation of ['missing-environment', 'malformed-output', 'wrong-candidate', 'wrong-receipt', 'wrong-target', 'wrong-database', 'wrong-physical', 'missing-status']) {
+    const fixture = createGatewayFixture(t)
+    const current = currentAdmissionInputs(fixture)
+    const output = structuredClone(current.output)
+    if (mutation === 'wrong-candidate') output.candidateSourceRevision = 'a'.repeat(40)
+    if (mutation === 'wrong-receipt') output.artifactSha256 = 'a'.repeat(64)
+    if (mutation === 'wrong-target') output.target.contentDigest = 'a'.repeat(64)
+    if (mutation === 'wrong-database') output.database.databaseId = 'other'
+    if (mutation === 'wrong-physical') output.actualSchemaDigest = output.target.contentDigest
+    if (mutation === 'missing-status') delete output.status
+    fs.writeFileSync(current.outputFile, mutation === 'malformed-output' ? '{invalid' : JSON.stringify(output))
+    const before = snapshot(fixture)
+    const runtime = fs.readFileSync(fixture.runtimeState)
+    const result = runGateway(fixture, 'release-rollout.sh', ['--release-manifest', current.manifestFile,
+      '--rollout-state-file', current.stateFile], current.environment(mutation === 'missing-environment'))
+    assert.notEqual(result.status, 0, mutation)
+    assert.match(result.stderr, /current_schema_admission/u)
+    assert.equal(fs.existsSync(current.stateFile), false, mutation)
+    assert.equal(fs.existsSync(current.lockFile), false, mutation)
+    assertUnchanged(fixture, before)
+    assert.deepEqual(fs.readFileSync(fixture.runtimeState), runtime)
+    assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), '')
+    if (mutation === 'missing-environment') assert.equal(fs.existsSync(current.commandLog), false)
+    else assertCurrentAdmissionInvocation(current)
+  }
+})
+
+test('accepted component admission reaches later required gates without claiming a native receipt', (t) => {
+  const fixture = createGatewayFixture(t)
+  const current = currentAdmissionInputs(fixture)
+  const result = runGateway(fixture, 'release-rollout.sh', ['--release-manifest', current.manifestFile,
+    '--rollout-state-file', current.stateFile], current.environment())
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /backup restore evidence is required/u)
+  assert.equal(fs.existsSync(current.lockFile), true)
+  assert.equal(fs.existsSync(current.stateFile), false)
+  assertCurrentAdmissionInvocation(current)
+})
+
+test('resume rebinds current receipt and complete manifest before lock or native command', (t) => {
+  for (const field of ['manifestSha256', 'candidateSourceRevision', 'currentSchema']) {
+    const fixture = createGatewayFixture(t)
+    const current = currentAdmissionInputs(fixture)
+    const state = createRolloutState({ ...createCurrentRolloutFixtureBinding(),
+      manifestSha256: createHash('sha256').update(fs.readFileSync(current.manifestFile)).digest('hex'),
+      candidateSourceRevision: current.manifest.commitSha, currentSchema: current.manifest.currentSchema,
+      rolloutId: 'resume-current-refusal', manifestPath: current.manifestFile,
+      source: { slot: 'blue', releaseId: blueRelease, imageDigest: blueDigest, runtimeGeneration: 1 },
+      target: { slot: 'green', releaseId: greenRelease, imageDigest: greenDigest, runtimeGeneration: 2 } })
+    if (field === 'currentSchema') state.currentSchema.database.databaseId = 'other'
+    else state[field] = field === 'manifestSha256' ? 'a'.repeat(64) : 'a'.repeat(40)
+    writeRolloutStateAtomic(current.stateFile, state)
+    const before = fs.readFileSync(current.stateFile)
+    const slotBefore = snapshot(fixture)
+    const result = runGateway(fixture, 'release-rollout.sh', ['--resume', '--release-manifest', current.manifestFile,
+      '--rollout-state-file', current.stateFile], current.environment())
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /current_schema_admission_input_binding_failed/u)
+    assert.equal(fs.existsSync(current.lockFile), false)
+    assert.equal(fs.existsSync(current.commandLog), false)
+    assert.deepEqual(fs.readFileSync(current.stateFile), before)
+    assertUnchanged(fixture, slotBefore)
+  }
+})
+
+function currentAdmissionInputs(fixture) {
+  // Explicit fake component outputs are not issued Shared receipts or database observations.
+  const binding = createCurrentRolloutFixtureBinding()
+  const receiptFile = path.join(fixture.directory, 'current-receipt.json')
+  fs.writeFileSync(receiptFile, JSON.stringify({ format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current',
+    target: binding.currentSchema.target, database: binding.currentSchema.database, actualSchemaDigest: binding.currentSchema.actualSchemaDigest }))
+  binding.currentSchema.receipt = { reference: receiptFile, sha256: createHash('sha256').update(fs.readFileSync(receiptFile)).digest('hex') }
+  const manifest = createReleaseManifest({ releaseId: greenRelease, commitSha: binding.candidateSourceRevision,
+    imageRepository: 'ghcr.io/fsusblog/app', imageTag: `ghcr.io/fsusblog/app:${greenRelease}`,
+    imageDigest: greenDigest, registryDigestVerified: true, createdAtUtc: '2026-07-11T02:02:02Z',
+    frontendManifestHash: `sha256:${'c'.repeat(64)}`, wasmArtifactHash: `sha256:${'d'.repeat(64)}`,
+    currentSchema: binding.currentSchema, dotnetVersion: '10.0.100', nodeVersion: '24.0.0',
+    dockerVersion: '28.0.0', dockerfileDigest: `sha256:${'e'.repeat(64)}`, target: 'final' })
+  const manifestFile = path.join(fixture.directory, 'current-manifest.json')
+  writeReleaseManifestAtomic(manifestFile, manifest)
+  const output = { status: 'verified-current', candidateSourceRevision: manifest.commitSha,
+    artifactSha256: binding.currentSchema.receipt.sha256, target: binding.currentSchema.target,
+    database: binding.currentSchema.database, actualSchemaDigest: binding.currentSchema.actualSchemaDigest }
+  const outputFile = path.join(fixture.directory, 'admission-output.json')
+  fs.writeFileSync(outputFile, JSON.stringify(output))
+  const envFile = path.join(fixture.directory, 'production.env')
+  fs.writeFileSync(envFile, 'ASPNETCORE_ENVIRONMENT=Production\n', { mode: 0o600 })
+  const stateFile = path.join(fixture.directory, 'current-rollout.json')
+  const lockFile = path.join(fixture.directory, 'current.lock')
+  const commandLog = path.join(fixture.directory, 'current-command.log')
+  return { manifest, manifestFile, output, outputFile, stateFile, lockFile, commandLog,
+    environment: missing => ({ FSUSBLOG_PRODUCTION_ENV_FILE: missing ? path.join(fixture.directory, 'missing.env') : envFile,
+      FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL: 'http://127.0.0.1:18080/health/ready',
+      FSUSBLOG_DEPLOYMENT_LOCK_FILE: lockFile,
+      FAKE_CURRENT_ADMISSION_OUTPUT: outputFile, FAKE_CURRENT_ADMISSION_COMMAND_LOG: commandLog }) }
+}
+
+function assertCurrentAdmissionInvocation(current) {
+  const command = fs.readFileSync(current.commandLog, 'utf8')
+  assert.match(command, /--entrypoint\n\/app\/FsusBlog.Server\n/u)
+  assert.ok(command.includes(current.manifest.imageRef))
+  assert.ok(command.includes('current-schema-check\n'))
+  assert.ok(command.includes(current.output.artifactSha256))
+  assert.ok(command.includes(current.manifest.commitSha))
+  assert.doesNotMatch(command, /--user|--schema-minimum-coordinate|migrate/u)
+}
 
 function createRunningState() {
   const state = createEmptySlotState('2026-07-11T00:00:00.000Z')
@@ -744,6 +858,11 @@ function waitForOutput(stream, expected) {
 function writeFakeDocker(file) {
   fs.writeFileSync(file, `#!/usr/bin/env bash
 set -euo pipefail
+if [[ "\${1:-}" == "run" && -n "\${FAKE_CURRENT_ADMISSION_OUTPUT:-}" ]]; then
+  printf '%s\\n' "$@" >> "\${FAKE_CURRENT_ADMISSION_COMMAND_LOG:?}"
+  cat "\${FAKE_CURRENT_ADMISSION_OUTPUT:?}"
+  exit 0
+fi
 if [[ "\${1:-}" == "inspect" ]]; then
   name="\${2:-}"
   jq -e --arg name "$name" '.[$name]' "\${FAKE_DOCKER_STATE:?}" >/dev/null 2>&1 || exit 1

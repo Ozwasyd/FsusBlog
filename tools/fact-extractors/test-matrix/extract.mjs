@@ -430,6 +430,16 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     rolloutId: 'runtime-observation-rollout',
     kind: 'deploy',
     manifestPath: '/runtime-observation/release.json',
+    // Metadata-only library fixture: no manifest or issued receipt is produced here.
+    manifestSha256: '1'.repeat(64),
+    candidateSourceRevision: 'b'.repeat(40),
+    currentSchema: {
+      receipt: { reference: '/runtime-observation/current-receipt.json', sha256: '2'.repeat(64) },
+      target: { modelVersion: 'fixture-v1', extractorVersion: 'fixture-v1', generatorVersion: 'fixture-v1',
+        sourceDigest: '3'.repeat(64), contentDigest: '4'.repeat(64) },
+      database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+      actualSchemaDigest: '5'.repeat(64)
+    },
     source: { slot: 'blue', releaseId: releaseA, imageDigest: digestA, runtimeGeneration: 1 },
     target: { slot: 'green', releaseId: releaseB, imageDigest: digestB, runtimeGeneration: 2 },
     createdAtUtc: at

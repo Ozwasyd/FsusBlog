@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { assertReleaseIdentity, isValidReleaseId } from './release-id.mjs';
+import { validateCurrentSchemaBinding } from './release-manifest-value-contract.mjs';
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
 export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1';
@@ -72,7 +73,7 @@ export function readCurrentSchemaReleaseBinding(file, expectedWholeArtifactSha25
     {
         throw new Error('current receipt path must be canonical and contain no symlinks');
     }
-    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     let bytes;
     try
     {
@@ -416,74 +417,6 @@ function parseReleaseManifestFile(file)
     }
 }
 
-
-/** Validates only the release's explicit current-only references; it never grants database admission. */
-function validateCurrentSchemaBinding(value, errors)
-{
-    if (!value || typeof value !== 'object' || Array.isArray(value))
-    {
-        errors.push('currentSchema is required');
-        return;
-    }
-    rejectUnknownFields(value, new Set(['receipt', 'target', 'database', 'actualSchemaDigest']), 'currentSchema', errors);
-    const object = (part, fields, label) =>
-    {
-        if (!part || typeof part !== 'object' || Array.isArray(part))
-        {
-            errors.push(`${label} is required`);
-            return false;
-        }
-        rejectUnknownFields(part, new Set(fields), label, errors);
-        return true;
-    };
-    const text = (value, label) =>
-    {
-        if (typeof value !== 'string' || !value.trim() || value !== value.trim()
-            || /[\u0000-\u001f\u007f-\u009f]/u.test(value)
-            || Buffer.from(value, 'utf8').toString('utf8') !== value)
-        {
-            errors.push(`${label} must be exact nonempty text`);
-        }
-    };
-    const digest = (value, label) =>
-    {
-        if (typeof value !== 'string' || !/^[0-9a-f]{64}$/u.test(value))
-        {
-            errors.push(`${label} must be a raw lowercase SHA-256`);
-        }
-    };
-    if (object(value.receipt, ['reference', 'sha256'], 'currentSchema.receipt'))
-    {
-        text(value.receipt.reference, 'currentSchema.receipt.reference');
-        if (typeof value.receipt.reference === 'string'
-            && value.receipt.reference.split(/[\\/]/u).some(part => part.toLowerCase() === 'latest'))
-        {
-            errors.push('currentSchema.receipt.reference cannot select latest');
-        }
-        digest(value.receipt.sha256, 'currentSchema.receipt.sha256');
-    }
-    if (object(value.target, ['modelVersion', 'extractorVersion', 'generatorVersion', 'sourceDigest', 'contentDigest'], 'currentSchema.target'))
-    {
-        for (const field of ['modelVersion', 'extractorVersion', 'generatorVersion'])
-        {
-            text(value.target[field], `currentSchema.target.${field}`);
-        }
-        for (const field of ['sourceDigest', 'contentDigest'])
-        {
-            digest(value.target[field], `currentSchema.target.${field}`);
-        }
-    }
-    if (object(value.database, ['provider', 'instanceId', 'databaseId'], 'currentSchema.database'))
-    {
-        if (![0, 1, 2].includes(value.database.provider))
-        {
-            errors.push('currentSchema.database.provider must be a closed CurrentSchemaProviderKind value');
-        }
-        text(value.database.instanceId, 'currentSchema.database.instanceId');
-        text(value.database.databaseId, 'currentSchema.database.databaseId');
-    }
-    digest(value.actualSchemaDigest, 'currentSchema.actualSchemaDigest');
-}
 
 function rejectUnknownFields(value, allowed, label, errors)
 {

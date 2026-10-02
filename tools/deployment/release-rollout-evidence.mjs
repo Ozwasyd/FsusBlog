@@ -4,11 +4,11 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { validatePublicAotWarmEvidence } from '../frontend/public-aot-warm-evidence.mjs'
+import { validateAuxiliaryEvidence as validateAuxiliaryEvidenceContract, validateCurrentSchemaStageOutput, validateCurrentRolloutEvidenceBindings } from './release-rollout-auxiliary-evidence-contract.mjs'
 import { ROLLOUT_STAGES, readRolloutState } from './release-rollout-lib.mjs'
 
-const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v1'
-const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v1'
+const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v2'
+const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v2'
 const REQUIRED_FINAL_ARTIFACTS = Object.freeze([
   'publicTraffic',
   'notificationStream',
@@ -20,7 +20,7 @@ const REQUIRED_FINAL_ARTIFACTS = Object.freeze([
 const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
   'releaseManifest',
   'backupRestoreGate',
-  'migrationExpand',
+  'currentSchemaAdmission',
   'candidateReadiness',
   'assetMaterialization',
   'retentionPrepared',
@@ -132,6 +132,9 @@ function emitStageEvidence(options) {
     durationMs: Date.parse(completedAtUtc) - Date.parse(startedAtUtc),
     output: { stdout, stderr }
   }
+  const errors = []
+  validateCurrentSchemaStageOutput(evidence, state, errors, { fileMetadata, readJson })
+  if (errors.length > 0) throw new Error(errors.join('\n'))
   writeJsonExclusiveOrReplace(requiredPath(options, 'out'), evidence, options.replace === true)
   process.stdout.write(`${JSON.stringify(evidence)}\n`)
 }
@@ -163,6 +166,7 @@ function finalizeEvidence(options, artifactInputs, auxiliaryInputs) {
       try {
         const metadata = fileMetadata(attempt.evidencePath)
         const parsed = readJson(attempt.evidencePath)
+        validateCurrentSchemaStageOutput(parsed, state, errors, { fileMetadata, readJson })
         if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== state.rolloutId || parsed.stage !== stage || parsed.status !== attempt.status) {
           errors.push(`${stage}: attempt ${index + 1} evidence identity/status is invalid`)
         }
@@ -180,6 +184,7 @@ function finalizeEvidence(options, artifactInputs, auxiliaryInputs) {
     try {
       const metadata = fileMetadata(record.evidencePath)
       const parsed = readJson(record.evidencePath)
+      validateCurrentSchemaStageOutput(parsed, state, errors, { fileMetadata, readJson })
       if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== state.rolloutId || parsed.stage !== stage || parsed.status !== 'ok') {
         errors.push(`${stage}: stage evidence identity/status is invalid`)
       }
@@ -202,11 +207,10 @@ function finalizeEvidence(options, artifactInputs, auxiliaryInputs) {
     source: state.source,
     target: state.target,
     gatewayGeneration: state.gatewayGeneration,
-    rollback: {
-      allowed: state.rollbackAllowed,
-      contractMigrationApplied: state.contractMigrationApplied,
-      target: state.source
-    },
+    manifestSha256: state.manifestSha256,
+    candidateSourceRevision: state.candidateSourceRevision,
+    currentSchema: state.currentSchema,
+    rollback: { allowed: false },
     stages,
     recoveries,
     artifacts,
@@ -304,6 +308,9 @@ function collectAuxiliaryEvidence(inputs, errors, state) {
     try {
       const parsed = readJson(file)
       validateAuxiliaryEvidence(name, parsed, state, errors)
+      if (name === 'releaseManifest' && fileMetadata(file).sha256 !== `sha256:${state.manifestSha256}`) {
+        errors.push('releaseManifest: complete manifest bytes differ from durable rollout binding')
+      }
       auxiliary[name] = { ...fileMetadata(file), schema: parsed.schema ?? null, status: parsed.status ?? null }
     } catch (error) {
       errors.push(`${name}: ${message(error)}`)
@@ -313,101 +320,7 @@ function collectAuxiliaryEvidence(inputs, errors, state) {
 }
 
 function validateAuxiliaryEvidence(name, value, state, errors) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    errors.push(`${name}: auxiliary evidence must be a JSON object`)
-    return
-  }
-  if (value.rolloutId !== undefined && value.rolloutId !== state.rolloutId) errors.push(`${name}: rolloutId mismatch`)
-  if (value.releaseId !== undefined && name !== 'releaseManifest'
-    && ![state.source.releaseId, state.target.releaseId].includes(value.releaseId)) errors.push(`${name}: releaseId is outside rollout identities`)
-  if (value.target?.releaseId !== undefined && value.target.releaseId !== state.target.releaseId) errors.push(`${name}: target release mismatch`)
-    if (value.source?.releaseId !== undefined && value.source.releaseId !== state.source.releaseId) {errors.push(`${name}: source release mismatch`)};
-    if (Array.isArray(value.errors) && value.errors.length > 0) {errors.push(`${name}: errors must be empty`)};
-    if (name === 'releaseManifest')
-{
-        if (value.schema !== 'fsusblog.release-manifest.v2'
-      || value.releaseId !== state.target.releaseId
-      || value.imageDigest !== state.target.imageDigest)
-{
-            errors.push(`${name}: immutable target identity mismatch`);
-    }
-    return
-  }
-  if (name === 'operatorNote') {
-    if (value.schema !== 'fsusblog.release-rollout-operator-note.v1'
-      || value.rolloutId !== state.rolloutId
-      || typeof value.provided !== 'boolean'
-      || typeof value.note !== 'string'
-      || value.note.length > 4000) {
-      errors.push(`${name}: structured operator note is invalid`)
-    }
-    return
-  }
-  if (name === 'publicAotWarm') {
-    const publicAotErrors = validatePublicAotWarmEvidence(value, {
-      expectedRelease: state.target.releaseId,
-      expectedSlot: state.target.slot,
-      expectedPublicOrigin: value.expectedPublicOrigin,
-      requireScope: 'all',
-      maxAgeSeconds: Number.MAX_SAFE_INTEGER
-    })
-        errors.push(...publicAotErrors.map((error) => `${name}: ${error}`));
-        return;
-    }
-    const targetGeneration = Number(state.target.runtimeGeneration ?? state.target.generation);
-    if (name === 'challengeKindCutoverReceipt')
-{
-        if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-receipt.v1'
-      || value.accepted !== true || value.status !== 'applied' || value.dryRun !== false
-      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration)
-{
-            errors.push(`${name}: applied receipt is not bound to the target release fence`);
-        }
-        return;
-    }
-    if (name === 'challengeKindCutoverAcceptance')
-{
-        if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-acceptance.v1'
-      || value.accepted !== true || value.releaseId !== state.target.releaseId
-      || value.slot !== state.target.slot || value.generation !== targetGeneration)
-{
-            errors.push(`${name}: verifier acceptance is not bound to the target release fence`);
-        }
-        return;
-    }
-    if (name === 'challengeKindCutoverGate')
-{
-        if (value.schema !== 'fsusblog.release-challenge-kind-cutover-gate.v1'
-      || value.status !== 'pass' || value.rolloutId !== state.rolloutId
-      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration
-      || value.lifecycle?.destructiveCutoverStarted !== true
-      || value.lifecycle?.activationCommitted !== false
-      || value.lifecycle?.stage !== 'source-drain'
-      || value.bindings?.backendFence !== true || value.bindings?.frontend !== true
-      || value.bindings?.staticAssets !== true || value.bindings?.cutover !== true
-      || value.bindings?.perceptionCharacterV3 !== true)
-{
-            errors.push(`${name}: cross-layer target binding gate is invalid`);
-        }
-        return;
-    }
-    if (name === 'perceptionCharacterV3Cutover')
-{
-        if (value.schemaVersion !== 'fsus.security.perception-character-v3-cutover-receipt.v1'
-      || value.accepted !== true || value.status !== 'activated' || value.dryRun !== false
-      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration)
-{
-            errors.push(`${name}: V3 cutover is not bound to the target release fence`);
-        }
-        return;
-    }
-    if (value.status !== undefined && !['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status))
-{
-        errors.push(`${name}: status is not successful`);
-    }
+  validateAuxiliaryEvidenceContract(name, value, state, errors)
 }
 
 function verifyFinalEvidence(file) {
@@ -419,6 +332,7 @@ function verifyFinalEvidence(file) {
     return { schema: 'fsusblog.release-rollout-evidence-verification.v1', status: 'fail', errors: [message(error)] }
   }
   if (evidence.schema !== FINAL_SCHEMA) errors.push(`schema must be ${FINAL_SCHEMA}`)
+  validateCurrentRolloutEvidenceBindings(evidence, errors)
   if (evidence.status !== 'pass') errors.push('rollout evidence status must be pass')
   if (!Array.isArray(evidence.errors) || evidence.errors.length !== 0) errors.push('rollout evidence errors must be empty')
   if (!Array.isArray(evidence.stages) || evidence.stages.map(item => item.stage).join('\n') !== ROLLOUT_STAGES.join('\n')) {
@@ -438,6 +352,7 @@ function verifyFinalEvidence(file) {
           continue
         }
         const parsed = readJson(metadata.path)
+        validateCurrentSchemaStageOutput(parsed, evidence, errors, { fileMetadata, readJson })
         if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== evidence.rolloutId || parsed.stage !== expectedStage || parsed.status !== 'ok') {
           errors.push(`stage evidence identity/status is invalid: ${expectedStage}`)
         }
@@ -467,6 +382,7 @@ function verifyFinalEvidence(file) {
               continue
             }
             const parsedAttempt = readJson(attempt.evidence.path)
+            validateCurrentSchemaStageOutput(parsedAttempt, evidence, errors, { fileMetadata, readJson })
             if (parsedAttempt.schema !== STAGE_SCHEMA
               || parsedAttempt.rolloutId !== evidence.rolloutId
               || parsedAttempt.stage !== expectedStage
@@ -544,6 +460,9 @@ function verifyFinalEvidence(file) {
     try {
       const current = fileMetadata(metadata.path)
       if (current.sha256 !== metadata.sha256 || current.bytes !== metadata.bytes) errors.push(`auxiliary evidence changed after seal: ${name}`)
+      if (name === 'releaseManifest' && current.sha256 !== `sha256:${evidence.manifestSha256}`) {
+        errors.push('releaseManifest: complete manifest bytes differ from durable rollout binding')
+      }
       validateAuxiliaryEvidence(name, readJson(metadata.path), evidence, errors)
     } catch (error) {
       errors.push(`${name}: ${message(error)}`)
@@ -609,7 +528,7 @@ function validateSemanticArtifact(name, value, errors) {
     if (!value.checks || Object.values(value.checks).some(check => check !== true)) errors.push(`${name}: one or more resource checks did not pass`)
   } else if (name === 'faultInjection') {
     const requiredCases = [
-      'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+      'manifest-digest-mismatch', 'capacity-insufficient', 'current-admission-failure', 'candidate-readiness',
       'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
       'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
     ]

@@ -56,11 +56,11 @@ substitutes for that observation. The receipt's producer source revision and the
 deployment candidate revision are distinct identities: the candidate must freshly
 derive and match the target and actual database observations.
 
-The Server command retirement does not complete the release cutover. Existing
-release-manifest compatibility coordinates, rollout Expand invocation, online
-health report, and old-image rollback paths still require the
-coordinated #2218 replacement. Until those prerequisites and consumers are closed,
-they must not be treated as a working offline release protocol. Do not invoke the
+The Server command retirement does not complete the release cutover. Current-only
+manifest, health and rollout consumers replace the old release-time compatibility
+window, but genuine receipt issuance, native observations and qualification remain
+separate prerequisites. Until those prerequisites and consumers are closed,
+they must not be treated as an accepted offline release protocol. Do not invoke the
 old Server migration examples or use their compatibility window as release
 authorization.
 
@@ -122,11 +122,46 @@ and candidate inputs, not silently converted or accepted through fallback.
 
 Manifest validation and its v2 deploy-input output are reference/identity checks,
 not actual database admission (`admissionVerified` is false). They neither issue
-a receipt nor parse a sealed migration plan. The original rollout still requires
-integration of candidate-pinned fresh Server verification before deployment; the
-retired Expand entry remains a failure, not a skipped or fabricated successful stage.
+a receipt nor parse a sealed migration plan. The rollout executes candidate-pinned
+fresh Server verification before its first mutable work and again on resume and
+before each stage. It does not execute the retired Expand entry or convert its
+refusal into success.
 Previous frontend/static-asset retention remains separately governed and cannot
 authorize image rollback on a migrated database.
+
+## Current-only rollout and retained evidence
+
+The rollout state and stage/final evidence use v2. State binds the raw SHA-256 of
+the complete manifest bytes, the candidate Git revision and the exact current
+receipt/target/database/physical-schema references. Old v1 state cannot be resumed
+or automatically resealed. Recovery requires the original exact authorized inputs,
+a fresh native read-only admission and the same durable target identity; after
+activation, image-only restoration of the old source is forbidden.
+
+Before a lock, state, probe or slot mutation, `release-rollout.sh` runs the
+manifest's digest-pinned Server image with `current-schema-check`. It mounts the
+explicit environment and receipt read-only, retains the image's existing user,
+and compares all six output fields to the immutable manifest bindings. Missing
+files, unreadable permissions, unknown native capabilities, mismatched candidate,
+target, database or physical observation refuse. Manifest and receipt bytes are
+rechecked after the command. Resume and completed-stage skipping require fresh
+admission; prior startup state or a cached JSON status is not substituted.
+
+The dry-run is structural planning only (`admissionVerified: false`) and does not
+acquire the host lock. The fixed 15-stage sequence replaces only Expand with
+`current-schema-admission`; six final artifacts and 24 auxiliary references remain
+mandatory. Successful current-admission stages and attempts retain hash-bound
+Server stdout, independently replayed against the same binding. The final consumer
+also verifies the actual copied manifest bytes and all existing safety, security,
+traffic, resource and target-fence conditions. This is source integration, not
+evidence that those commands or production gates have executed successfully.
+
+The old v1 zero-downtime rehearsal harness still contains online migration and
+old-image rollback qualification inputs. It cannot qualify this v2 protocol or
+stand in for the original offline plan/apply/verify, real-provider crash/recovery,
+restored-backup and performance acceptance. Its replacement must consume the
+original #2215–#2217 actual capabilities; absent issuer/native prerequisites remain
+fail-closed, not synthetic successful qualifications.
 
 ## Current-schema health consumer
 
@@ -157,9 +192,9 @@ The outer `release-rollout.sh --rollback` option refuses during argument parsing
 including dry-run/resume/no-switch combinations. A persisted legacy rollback or
 old-source rollback recovery cannot be resumed as a deploy. Its old synthetic
 `not-required-for-rollback` Expand success evidence is no longer produced. The
-remaining retired Expand-wrapper stage must still fail; its replacement by fresh
-current-only receipt admission is a separate pending integration, not a skipped
-migration or a successful offline apply.
+new `current-schema-admission` stage is a fresh read-only observation, not a skipped
+migration or a successful offline apply. The retired Expand wrapper still fails
+when invoked independently.
 
 If a candidate has not activated, the same `gateway-switch.sh` invocation may
 preserve the existing source upstream without restarting an image. After target activation, the gateway

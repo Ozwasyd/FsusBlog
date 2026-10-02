@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -71,6 +72,7 @@ function createFixture(t, name) {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const stateFile = path.join(directory, 'rollout-state.json')
   const state = createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
     rolloutId: `deploy-${name}-20260711`,
     manifestPath: path.join(directory, 'release-manifest.json'),
     source: {
@@ -114,7 +116,7 @@ function moveToOverlap(data) {
     'manifest-validate',
     'capacity-preflight',
     'backup-restore-gate',
-    'expand-migration',
+    'current-schema-admission',
     'asset-materialize'
   ]
   for (let index = 0; index < stages.length; index += 1) {

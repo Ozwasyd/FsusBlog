@@ -1,4 +1,5 @@
 import { createReleaseIdValueContract } from './release-id-value-contract.mjs';
+import { isDeepStrictEqual } from 'node:util';
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
 export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1';
@@ -194,7 +195,10 @@ function validateLegacyReleaseManifestV1()
 }
 
 /** Validates only the release's explicit current-only references; it never grants database admission. */
-function validateCurrentSchemaBinding(value, errors)
+    return { createReleaseManifest, validateReleaseManifest, validateLegacyReleaseManifestV1 };
+}
+
+export function validateCurrentSchemaBinding(value, errors)
 {
     if (!value || typeof value !== 'object' || Array.isArray(value))
     {
@@ -289,5 +293,29 @@ function containsSensitiveField(value) {
   return false
 }
 
-    return { createReleaseManifest, validateReleaseManifest, validateLegacyReleaseManifestV1 };
+/** Checks only bindings of the sole Server command's output, never substitutes for executing that command. */
+export function validateCurrentSchemaAdmissionOutput(value, binding, candidateSourceRevision)
+{
+    const errors = [];
+    validateCurrentSchemaBinding(binding, errors);
+    if (typeof candidateSourceRevision !== 'string' || !/^[0-9a-f]{40}$/u.test(candidateSourceRevision) || /^0+$/u.test(candidateSourceRevision))
+    {
+        errors.push('candidate source revision must be an exact nonzero Git SHA');
+    }
+    const fields = ['status', 'candidateSourceRevision', 'artifactSha256', 'target', 'database', 'actualSchemaDigest'];
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || Object.keys(value).sort().join('\n') !== [...fields].sort().join('\n'))
+    {
+        errors.push('current schema admission output must contain the exact Server output fields');
+        return errors;
+    }
+    if (value.status !== 'verified-current' || value.candidateSourceRevision !== candidateSourceRevision
+        || value.artifactSha256 !== binding?.receipt?.sha256
+        || !isDeepStrictEqual(value.target, binding?.target)
+        || !isDeepStrictEqual(value.database, binding?.database)
+        || value.actualSchemaDigest !== binding?.actualSchemaDigest)
+    {
+        errors.push('current schema admission output does not match the immutable candidate receipt bindings');
+    }
+    return errors;
 }

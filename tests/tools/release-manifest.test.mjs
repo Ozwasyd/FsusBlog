@@ -229,7 +229,7 @@ test('v1 rollback-only manifests are retired and cannot be read or rewritten', (
     };
     fs.writeFileSync(file, `${JSON.stringify(legacy)}\n`);
 
-    assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v2/u);
+    assert.throws(() => readReleaseManifest(file), /schema must be fsusblog[.]release-manifest[.]v3/u);
     assert.throws(() => readLegacyReleaseManifestV1(file), error => error.message === LEGACY_RELEASE_MANIFEST_RETIREMENT);
     const checker = path.join(root, 'tools/release/check-release-manifest.mjs');
     const normalRead = spawnSync(process.execPath, [checker, '--manifest', file], { encoding: 'utf8' });
@@ -241,7 +241,7 @@ test('v1 rollback-only manifests are retired and cannot be read or rewritten', (
     assert.match(explicitLegacyRead.stderr, /unknown, duplicate or missing argument/u);
     assert.throws(
         () => writeReleaseManifestAtomic(path.join(directory, 'rewritten.json'), legacy),
-        /schema must be fsusblog[.]release-manifest[.]v2/u
+        /schema must be fsusblog[.]release-manifest[.]v3/u
     );
     assert.equal(fs.existsSync(path.join(directory, 'rewritten.json')), false);
 });
@@ -681,6 +681,23 @@ test('build reference projection binds whole receipt bytes without granting data
     assert.deepEqual(createReleaseManifest({ ...createInput(), currentSchema: actual }).currentSchema, actual);
     fs.appendFileSync(file, '\n');
     assert.throws(() => readCurrentSchemaReleaseBinding(file, wholeSha), /whole-artifact SHA-256 mismatch/u);
+});
+
+test('reference projection rejects a real FIFO without waiting for a writer', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-reference-fifo-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const fifo = path.join(fs.realpathSync(directory), 'current.fifo');
+    const created = spawnSync('mkfifo', [fifo], { encoding: 'utf8', timeout: 10_000 });
+    assert.equal(created.status, 0, created.stderr);
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
+        'import { readCurrentSchemaReleaseBinding } from "./tools/release/release-manifest.mjs"; readCurrentSchemaReleaseBinding(process.argv[1], process.argv[2]);',
+        fifo, '1'.repeat(64)
+    ], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.error, undefined);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /regular artifact/u);
+    assert.equal(fs.lstatSync(fifo).isFIFO(), true);
 });
 
 test('reference projection rejects missing, aliased, oversized, malformed or non-current artifacts', (t) =>

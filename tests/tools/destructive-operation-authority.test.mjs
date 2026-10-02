@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -274,6 +275,7 @@ function deploymentFixture()
         imageDigest: targetDigest, startedAt: '2026-07-11T00:00:03.000Z'
     });
     const rollout = createRolloutState({
+      ...createCurrentRolloutFixtureBinding(),
         rolloutId: 'deploy-release-2981', manifestPath: '/tmp/release-2981.json',
         source: { slot: 'blue', releaseId: sourceRelease, imageDigest: sourceDigest, runtimeGeneration: 1 },
         target: { slot: 'green', releaseId: targetRelease, imageDigest: targetDigest, runtimeGeneration: 2 },

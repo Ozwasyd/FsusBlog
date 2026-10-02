@@ -550,6 +550,25 @@ test('build-final rejects missing deployment receipt before materialization or D
     assert.equal(fs.existsSync(dockerArgs), false);
 });
 
+test('build-final rejects a real FIFO receipt without a writer or any build products', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-build-current-fifo-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const fifo = path.join(fs.realpathSync(directory), 'current.fifo');
+    const created = spawnSync('mkfifo', [fifo], { encoding: 'utf8', timeout: 10_000 });
+    assert.equal(created.status, 0, created.stderr);
+    const { result, dockerArgs, materializerArgs } = runBuildWithInspect(t, {}, {
+        FSUSBLOG_FINAL_PUSH: '1', FSUSBLOG_FINAL_LOCAL_ONLY: '0',
+        FSUSBLOG_CURRENT_SCHEMA_RECEIPT: fifo, FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256: '1'.repeat(64)
+    });
+    assert.equal(result.error, undefined);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /regular artifact/u);
+    assert.equal(fs.existsSync(materializerArgs), false);
+    assert.equal(fs.existsSync(dockerArgs), false);
+    assert.equal(fs.lstatSync(fifo).isFIFO(), true);
+});
+
 test('build-final rejects retired schema windows and deployment references in local-only mode', (t) =>
 {
     for (const extraEnv of [

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 
 import { FINAL_SCHEMA } from './release-rollout-evidence-constants.mjs'
+import { validateCurrentRolloutEvidenceBindings } from './release-rollout-auxiliary-evidence-contract.mjs'
 import {
   validateRolloutArtifacts,
   validateRolloutAuxiliary,
@@ -30,6 +31,7 @@ export function verifyReleaseRolloutEvidence(evidence, { evidencePath, readBytes
   }
   const errors = []
   if (evidence.schema !== FINAL_SCHEMA) errors.push(`schema must be ${FINAL_SCHEMA}`)
+  validateCurrentRolloutEvidenceBindings(evidence, errors)
   if (evidence.status !== 'pass') errors.push('rollout evidence status must be pass')
   if (!Array.isArray(evidence.errors) || evidence.errors.length !== 0)
   {

@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { createRolloutState } from '../../tools/deployment/release-rollout-lib.mjs';
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const verifier = path.join(root, 'tools/deployment/verify-release-challenge-kind-cutover.mjs');
@@ -19,7 +21,14 @@ function write(directory, name, value)
 
 function fixtures(directory)
 {
-    const identity = { releaseId: 'release-1368', slot: 'green', generation: 42 };
+    const identity = { releaseId: '20261003010101-bbbbbbbbbbbb', slot: 'green', generation: 42 };
+    const state = createRolloutState({ ...createCurrentRolloutFixtureBinding(),
+        rolloutId: 'deploy-release-1368', manifestPath: path.join(directory, 'manifest.json'),
+        source: { slot: 'blue', releaseId: '20261002010101-aaaaaaaaaaaa', imageDigest: `sha256:${'a'.repeat(64)}`, runtimeGeneration: 41 },
+        target: { slot: identity.slot, releaseId: identity.releaseId, imageDigest: `sha256:${'b'.repeat(64)}`, runtimeGeneration: identity.generation } });
+    // Component-only state at the existing destructive boundary, not a production rollout receipt.
+    Object.assign(state, { status: 'running', currentStage: 'source-drain', switchCommitted: true,
+        gatewayGeneration: 1, destructiveCutoverStarted: true, activationCommitted: false });
     const releaseTarget = {
         schema: 'fsusblog.security.perception-character-v3-release-target.v1',
         contractDigest: 'b'.repeat(64),
@@ -36,7 +45,7 @@ function fixtures(directory)
     return {
         identity,
         policyVersion: 'policy-a',
-        state: write(directory, 'state.json', { schema: 'fsusblog.release-rollout-state.v1', rolloutId: 'deploy-release-1368', currentStage: 'source-drain', destructiveCutoverStarted: true, activationCommitted: false, target: { releaseId: identity.releaseId, slot: identity.slot, runtimeGeneration: identity.generation } }),
+        state: write(directory, 'state.json', state),
         fence: write(directory, 'fence.json', { operation: 'status', result: { accepted: true }, request: { endpoint: `http://127.0.0.1:8082/api/ops/deployment/fence/status?releaseId=${identity.releaseId}&slot=${identity.slot}&generation=${identity.generation}` } }),
         acceptance: write(directory, 'acceptance.json', { schemaVersion: 'fsus.security-challenge-kind-cutover-acceptance.v1', accepted: true, operationId: 'op', targetFingerprint: 'a'.repeat(64), ...identity }),
         releaseTarget: write(directory, 'release-target.json', releaseTarget),
