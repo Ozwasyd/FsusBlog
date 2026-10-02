@@ -342,6 +342,58 @@ public sealed class ProductionStartupValidatorTests
 
     [Fact]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
+    public void ApiErrorSemanticMapper_CatalogValidation_RejectsUndefinedErrorCode()
+    {
+        ApiErrorSemanticMapper.TransportMapping[] canonical = [.. ApiErrorSemanticMapper.TransportMappings];
+        Assert.Equal(canonical, ApiErrorSemanticMapper.ValidateCatalog(canonical));
+        int index = Array.FindIndex(canonical,
+            static mapping => mapping.Id == ApiErrorTransportMappingId.Operation503Forbidden);
+        Assert.True(index >= 0);
+        Assert.Equal(ErrorCode.Forbidden, canonical[index].ErrorCode);
+
+        ApiErrorSemanticMapper.TransportMapping[] undefinedCode = [.. canonical];
+        undefinedCode[index] = undefinedCode[index] with
+        {
+            ErrorCode = (ErrorCode)byte.MaxValue
+        };
+        Assert.False(Enum.IsDefined(undefinedCode[index].ErrorCode));
+        Assert.Equal(canonical.Select(static mapping => mapping.Id),
+            undefinedCode.Select(static mapping => mapping.Id));
+        Assert.Equal(canonical.Select(static mapping => mapping.HttpStatus),
+            undefinedCode.Select(static mapping => mapping.HttpStatus));
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => ApiErrorSemanticMapper.ValidateCatalog(undefinedCode));
+        Assert.Equal("Invalid ApiError transport mapping Operation503Forbidden.", exception.Message);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
+    public void ApiErrorSemanticMapper_CatalogValidation_RejectsUndefinedMappingKind()
+    {
+        ApiErrorSemanticMapper.TransportMapping[] canonical = [.. ApiErrorSemanticMapper.TransportMappings];
+        Assert.Equal(canonical, ApiErrorSemanticMapper.ValidateCatalog(canonical));
+        int index = Array.FindIndex(canonical,
+            static mapping => mapping.Id == ApiErrorTransportMappingId.Operation503Forbidden);
+        Assert.True(index >= 0);
+        Assert.Equal(ApiErrorTransportMappingKind.OperationStatusPair, canonical[index].Kind);
+
+        ApiErrorSemanticMapper.TransportMapping[] undefinedKind = [.. canonical];
+        undefinedKind[index] = undefinedKind[index] with
+        {
+            Kind = (ApiErrorTransportMappingKind)int.MaxValue
+        };
+        Assert.False(Enum.IsDefined(undefinedKind[index].Kind));
+        Assert.Equal(canonical.Select(static mapping => mapping.Id),
+            undefinedKind.Select(static mapping => mapping.Id));
+        Assert.Equal(canonical.Select(static mapping => mapping.HttpStatus),
+            undefinedKind.Select(static mapping => mapping.HttpStatus));
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => ApiErrorSemanticMapper.ValidateCatalog(undefinedKind));
+        Assert.Equal("Invalid ApiError transport mapping Operation503Forbidden.", exception.Message);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
     public void ApiErrorSemanticMapper_StatusMappingKeys_RejectMissingExtraUnsortedAndEveryStatusOmission()
     {
         ApiErrorSemanticMapper.TransportMapping[] mappings = [.. ApiErrorSemanticMapper.TransportMappings];

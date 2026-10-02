@@ -241,7 +241,9 @@ internal static class ApiErrorSemanticMapper
 
         foreach (TransportMapping mapping in mappings)
         {
-            if (mapping.HttpStatus is < 400 or > 599
+            if (!Enum.IsDefined(mapping.Kind)
+                || !Enum.IsDefined(mapping.ErrorCode)
+                || mapping.HttpStatus is < 400 or > 599
                 || mapping.ErrorCode == ErrorCode.None
                 || (mapping.ErrorCode == ErrorCode.Unknown
                     && mapping.Kind != ApiErrorTransportMappingKind.ErrorCodeDefaultStatus)
