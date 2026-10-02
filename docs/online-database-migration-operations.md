@@ -86,7 +86,27 @@ backup with its matching database identity, or a forward offline fix/migration.
 Restoration and resumed migration require fresh independent verification and a
 new receipt before admission. Never edit schema history or progress rows to force
 readiness, and never start an old-shape image against a database already migrated
-to the current schema.
+to the current schema. The old `gateway-rollback.sh` and
+`release-rollout-recovery.sh rollback-to-source` paths now refuse before reading
+state or launching an executable. Internal `gateway-switch.sh --kind rollback`
+also refuses before acquiring the deployment lock or changing an upstream.
+
+If a candidate has not activated, the same `gateway-switch.sh` invocation may
+preserve the existing source upstream without restarting an image. After target activation, the gateway
+does not automatically restore source traffic on reload/probe/commit failure, or
+after an activation request with an unconfirmed response: it
+retains failure evidence and requires verified database restore or forward
+recovery. A recorded previous release, a healthy image, or a monotonic generation
+is not a current-schema/database admission receipt.
+
+Restart recovery cannot infer that activation never happened from a healthy old
+image or a currently Ready target. `gateway-recover.sh --action restore-source`
+refuses, automatic recovery does not select old-source fallback, and persisted
+legacy rollback transitions are rejected. Forward target recovery keeps its
+existing identity and lifecycle checks, but never restores saved source upstream
+bytes after activating the target. These gateway controls do not themselves
+produce or validate the new current-schema receipt: complete operational
+admission remains pending its candidate-pinned, fresh Server observer integration.
 
 Historical migration descriptors and migration regression fixtures remain owned
 by the offline migration assembly. Retirement of a Server entry is not permission

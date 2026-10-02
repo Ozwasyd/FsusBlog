@@ -127,7 +127,7 @@ test('legacy slot state upgrades only from a complete persisted active identity 
     assert.throws(() => readLegacySlotState(file), /partial gateway-state extension/u);
 });
 
-test('gateway switches blue to green and rolls back while sustained public requests avoid failures', async (t) =>
+test('gateway switches blue to green but refuses image-only rollback while public requests avoid failures', async (t) =>
 {
   const fixture = createGatewayFixture(t)
   const requester = collectChild(spawn('bash', ['-c', [
@@ -171,16 +171,19 @@ test('gateway switches blue to green and rolls back while sustained public reque
   assert.equal(evidence.lifecycle.sourceAfterDrain.state, 'draining')
 
   setRuntimeCandidateReady(fixture, 'blue')
+  const beforeRollback = snapshot(fixture)
   const rolledBack = runGateway(fixture, 'gateway-rollback.sh')
-  assert.equal(rolledBack.status, 0, rolledBack.stderr)
+  assert.notEqual(rolledBack.status, 0)
+  assert.match(rolledBack.stderr, /schema_image_only_rollback_retired/u)
+  assertUnchanged(fixture, beforeRollback)
   state = readSlotState(fixture.stateFile, { allowMissing: false })
-  assert.equal(state.activeSlot, 'blue')
-  assert.equal(state.previousSlot, 'green')
-  assert.equal(state.switchGeneration, 3)
-  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'blue')
+  assert.equal(state.activeSlot, 'green')
+  assert.equal(state.previousSlot, 'blue')
+  assert.equal(state.switchGeneration, 2)
+  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'green')
   evidence = JSON.parse(fs.readFileSync(path.join(fixture.evidenceDir, 'latest.json'), 'utf8'))
   assert.equal(evidence.status, 'ok')
-  assert.equal(evidence.kind, 'rollback')
+  assert.equal(evidence.kind, 'switch')
 })
 
 test('gateway mutation scripts reject direct invocation outside the unique rollout entry', (t) => {
@@ -191,7 +194,7 @@ test('gateway mutation scripts reject direct invocation outside the unique rollo
   assert.notEqual(switched.status, 0)
   assert.match(switched.stderr, /gateway-switch is internal/u)
   assert.notEqual(rolledBack.status, 0)
-  assert.match(rolledBack.stderr, /gateway-rollback is internal/u)
+  assert.match(rolledBack.stderr, /schema_image_only_rollback_retired/u)
 })
 
 test('dry-run executes identity, readiness and full staged config checks without changing traffic or state', (t) => {
@@ -235,23 +238,25 @@ test('unready candidate and staged config rejection leave active upstream and du
   assert.equal(evidence.checks.stagedConfigTest, false)
 })
 
-test('reload failure restores source include, verifies source traffic and records failed transition', (t) => {
+test('reload failure after activation requires database restore or forward recovery without restoring source', (t) => {
   const fixture = createGatewayFixture(t)
   const result = runGateway(fixture, 'gateway-switch.sh', [
     '--to', 'green', '--release', greenRelease, '--image-digest', greenDigest
   ], { FAKE_OPENRESTY_RELOAD_FAIL_ONCE: '1' })
   assert.notEqual(result.status, 0)
   const state = readSlotState(fixture.stateFile, { allowMissing: false })
-  assert.equal(state.status, 'stable')
+  assert.equal(state.status, 'rollback_required')
   assert.equal(state.activeSlot, 'blue')
   assert.equal(state.switchGeneration, 1)
+  assert.equal(state.pendingTransition.toSlot, 'green')
   assert.equal(state.lastTrafficTransition.status, 'failed')
-  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'blue')
+  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'green')
   assert.equal(fs.readFileSync(fixture.liveSlot, 'utf8').trim(), 'blue')
   const evidence = JSON.parse(fs.readFileSync(path.join(fixture.evidenceDir, 'latest.json'), 'utf8'))
   assert.equal(evidence.status, 'failed')
   assert.equal(evidence.failureStage, 'reload')
-  assert.equal(evidence.recoveryAction, 'source-upstream-restored')
+  assert.equal(evidence.recoveryAction, 'schema-restore-or-forward-required')
+  assert.equal(evidence.checks.targetActivation, true)
 })
 
 test('deployment lock rejects concurrent gateway mutation before any upstream write', async (t) => {
@@ -270,21 +275,26 @@ test('deployment lock rejects concurrent gateway mutation before any upstream wr
   holder.kill('SIGTERM')
 })
 
-test('restart recovery diagnoses interrupted source/target ownership and resolves without guessing', (t) => {
+test('restart recovery refuses old-source fallback and can commit the observed active target', (t) => {
   const restoreFixture = createGatewayFixture(t)
   beginPersistedTransition(restoreFixture)
   fs.writeFileSync(restoreFixture.activeUpstream, renderUpstream('green', restoreFixture.environment))
   fs.writeFileSync(restoreFixture.liveSlot, 'blue\n')
   const diagnosis = runGateway(restoreFixture, 'gateway-recover.sh', ['--dry-run'])
   assert.equal(diagnosis.status, 0, diagnosis.stderr)
-  assert.equal(JSON.parse(diagnosis.stdout).proposedAction, 'restore-source')
+  assert.equal(JSON.parse(diagnosis.stdout).proposedAction, 'blocked')
+  const before = snapshot(restoreFixture)
+  const beforeRuntime = fs.readFileSync(restoreFixture.runtimeState, 'utf8')
   const recovered = runGateway(restoreFixture, 'gateway-recover.sh')
-  assert.equal(recovered.status, 0, recovered.stderr)
+  assert.notEqual(recovered.status, 0)
+  assert.match(recovered.stderr, /verified database restore or explicit forward recovery/u)
+  assertUnchanged(restoreFixture, before)
+  assert.equal(fs.readFileSync(restoreFixture.runtimeState, 'utf8'), beforeRuntime)
   let state = readSlotState(restoreFixture.stateFile, { allowMissing: false })
-  assert.equal(state.status, 'stable')
+  assert.equal(state.status, 'switching')
   assert.equal(state.activeSlot, 'blue')
   assert.equal(state.switchGeneration, 1)
-  assert.equal(inspectUpstreamFile(restoreFixture.activeUpstream, restoreFixture.environment).slot, 'blue')
+  assert.equal(inspectUpstreamFile(restoreFixture.activeUpstream, restoreFixture.environment).slot, 'green')
 
   const commitFixture = createGatewayFixture(t)
   beginPersistedTransition(commitFixture)
@@ -321,6 +331,130 @@ test('rollback refuses a recorded identity that no longer matches the immutable 
   assert.notEqual(rollback.status, 0)
   assert.equal(fs.readFileSync(fixture.activeUpstream, 'utf8'), beforeUpstream)
   assert.equal(fs.readFileSync(fixture.liveSlot, 'utf8').trim(), 'green')
+})
+
+test('internal gateway switch cannot bypass retired rollback through its kind argument', (t) => {
+  const fixture = createGatewayFixture(t)
+  for (const mode of [[], ['--dry-run']]) {
+    const before = snapshot(fixture)
+    const beforeLog = fs.readFileSync(fixture.openrestyLog, 'utf8')
+    const result = runGateway(fixture, 'gateway-switch.sh', [
+      '--to', 'green', '--release', greenRelease, '--image-digest', greenDigest,
+      '--kind', 'rollback', ...mode
+    ])
+
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+    assertUnchanged(fixture, before)
+    assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
+  }
+})
+
+test('post-switch source recovery refuses before reading inputs or restarting any previous image', (t) => {
+  const fixture = createGatewayFixture(t)
+  const before = snapshot(fixture)
+  const beforeRuntime = fs.readFileSync(fixture.runtimeState, 'utf8')
+  const beforeLog = fs.readFileSync(fixture.openrestyLog, 'utf8')
+  const output = path.join(fixture.directory, 'must-not-be-created.json')
+  const result = runGateway(fixture, 'release-rollout-recovery.sh', [
+    'rollback-to-source', '--rollout-state', fixture.stateFile,
+    '--source-manifest', path.join(fixture.directory, 'missing-source-manifest.json'),
+    '--out', output
+  ])
+
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+  assertUnchanged(fixture, before)
+  assert.equal(fs.readFileSync(fixture.runtimeState, 'utf8'), beforeRuntime)
+  assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
+  assert.equal(fs.existsSync(output), false)
+})
+
+test('failure before candidate activation permits source preservation without an image restart', (t) => {
+  const fixture = createGatewayFixture(t)
+  const result = runGateway(fixture, 'gateway-switch.sh', [
+    '--to', 'green', '--release', greenRelease, '--image-digest', greenDigest
+  ], { FAKE_OPENRESTY_TEST_FAIL_ACTIVE_ONCE: '1' })
+
+  assert.notEqual(result.status, 0)
+  const state = readSlotState(fixture.stateFile, { allowMissing: false })
+  assert.equal(state.status, 'stable')
+  assert.equal(state.activeSlot, 'blue')
+  assert.equal(state.switchGeneration, 1)
+  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'blue')
+  assert.equal(fs.readFileSync(fixture.liveSlot, 'utf8').trim(), 'blue')
+  const evidence = JSON.parse(fs.readFileSync(path.join(fixture.evidenceDir, 'latest.json'), 'utf8'))
+  assert.equal(evidence.failureStage, 'active-config-test')
+  assert.equal(evidence.recoveryAction, 'source-upstream-restored')
+  assert.equal(evidence.checks.targetActivation, false)
+})
+
+test('an unconfirmed activation response does not authorize restoring source traffic', (t) => {
+  const fixture = createGatewayFixture(t)
+  const result = runGateway(fixture, 'gateway-switch.sh', [
+    '--to', 'green', '--release', greenRelease, '--image-digest', greenDigest
+  ], { FAKE_ACTIVATE_FAIL_SLOT: 'green' })
+
+  assert.notEqual(result.status, 0)
+  const state = readSlotState(fixture.stateFile, { allowMissing: false })
+  assert.equal(state.status, 'rollback_required')
+  assert.equal(state.activeSlot, 'blue')
+  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'green')
+  const evidence = JSON.parse(fs.readFileSync(path.join(fixture.evidenceDir, 'latest.json'), 'utf8'))
+  assert.equal(evidence.failureStage, 'target-activation')
+  assert.equal(evidence.recoveryAction, 'schema-restore-or-forward-required')
+})
+
+test('explicit source recovery refuses before input access even in dry-run mode', (t) => {
+  const fixture = createGatewayFixture(t)
+  for (const mode of [[], ['--dry-run']]) {
+    const before = snapshot(fixture)
+    const beforeLog = fs.readFileSync(fixture.openrestyLog, 'utf8')
+    const result = runGateway(fixture, 'gateway-recover.sh', [
+      '--action', 'restore-source', '--state-file', path.join(fixture.directory, 'missing.json'),
+      '--active-upstream', path.join(fixture.directory, 'missing.conf'), ...mode
+    ])
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+    assertUnchanged(fixture, before)
+    assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
+  }
+})
+
+test('restart forward recovery does not restore source upstream after activated target reload failure', (t) => {
+  const fixture = createGatewayFixture(t)
+  beginPersistedTransition(fixture)
+  const result = runGateway(fixture, 'gateway-recover.sh', ['--action', 'commit-target'], {
+    FAKE_OPENRESTY_RELOAD_FAIL_ONCE: '1'
+  })
+  assert.notEqual(result.status, 0)
+  assert.equal(inspectUpstreamFile(fixture.activeUpstream, fixture.environment).slot, 'green')
+  assert.equal(fs.readFileSync(fixture.liveSlot, 'utf8').trim(), 'blue')
+  assert.equal(readSlotState(fixture.stateFile, { allowMissing: false }).status, 'switching')
+  const runtime = JSON.parse(fs.readFileSync(fixture.runtimeState, 'utf8'))
+  assert.equal(runtime.green.state, 'active')
+  assert.equal(runtime.blue.state, 'active')
+  const evidence = JSON.parse(fs.readFileSync(path.join(fixture.evidenceDir, 'latest.json'), 'utf8'))
+  assert.equal(evidence.status, 'failed')
+  assert.equal(evidence.checks.targetActivation, true)
+  assert.equal(evidence.checks.stateResolution, false)
+})
+
+test('restart recovery refuses a persisted legacy rollback transition without runtime mutation', (t) => {
+  const fixture = createGatewayFixture(t)
+  beginPersistedTransition(fixture)
+  const state = JSON.parse(fs.readFileSync(fixture.stateFile, 'utf8'))
+  state.pendingTransition.kind = 'rollback'
+  fs.writeFileSync(fixture.stateFile, `${JSON.stringify(state, null, 2)}\n`)
+  const before = snapshot(fixture)
+  const beforeRuntime = fs.readFileSync(fixture.runtimeState, 'utf8')
+  const beforeLog = fs.readFileSync(fixture.openrestyLog, 'utf8')
+  const result = runGateway(fixture, 'gateway-recover.sh', ['--action', 'commit-target'])
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+  assertUnchanged(fixture, before)
+  assert.equal(fs.readFileSync(fixture.runtimeState, 'utf8'), beforeRuntime)
+  assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
 })
 
 function createRunningState() {
@@ -573,6 +707,7 @@ if [[ "$url" == */api/ops/deployment/status ]]; then
   exit 0
 fi
 if [[ "$url" == */api/ops/deployment/activate || "$url" == */api/ops/deployment/drain ]]; then
+  if [[ "$url" == */activate && "\${FAKE_ACTIVATE_FAIL_SLOT:-}" == "$slot" ]]; then exit 22; fi
   body="$(cat)"
   expected_release="$(jq -r '.releaseId // ""' <<< "$body")"
   expected_slot="$(jq -r '.slot // ""' <<< "$body")"
@@ -631,6 +766,10 @@ if [[ "$mode" == "test" ]]; then
   [[ "\${FAKE_OPENRESTY_TEST_FAIL:-}" != "all" ]] || exit 1
   if [[ "\${FAKE_OPENRESTY_TEST_FAIL:-}" == "staged" && "$config" == *".stage-"* ]]; then exit 1; fi
   if [[ "\${FAKE_OPENRESTY_TEST_FAIL:-}" == "active" && "$config" != *".stage-"* ]]; then exit 1; fi
+  if [[ "\${FAKE_OPENRESTY_TEST_FAIL_ACTIVE_ONCE:-0}" == "1" && "$config" != *".stage-"* && ! -f "\${FAKE_OPENRESTY_FAIL_MARKER:?}" ]]; then
+    : > "\${FAKE_OPENRESTY_FAIL_MARKER:?}"
+    exit 1
+  fi
   exit 0
 fi
 if [[ "$mode" == "reload" ]]; then
