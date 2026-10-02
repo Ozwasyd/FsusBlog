@@ -284,6 +284,10 @@ closed. This route performs no DDL, backfill, journal or migration-history write
 Only successful startup admission publishes `CurrentSchemaAdmissionState.Current`;
 an absent state is never readiness. The same read-only verification API does not
 publish readiness when used by an operational consumer.
+The receipt JSON must explicitly contain its closed `status`; omission cannot
+default to success. Receipt admission failures stop hosted business-service startup
+in Development as well as Production, using the fatal admission category rather
+than the ordinary development-only bootstrap logging fallback.
 
 The test-only materialization receipt remains a separate isolated-run artifact.
 Its schema check uses `CurrentSchemaReadObserver`, not an optional production
