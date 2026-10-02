@@ -217,6 +217,7 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
     {
         Require(Text(output, prefix + "Reference") == expectedPath, "artifact_reference_mismatch");
         await using FileStream input = OpenRegularFile(expectedPath, cancellationToken);
+        var initial = CaptureRegularFileIdentity(expectedPath, input, cancellationToken);
         long length = input.Length;
         Require(length is > 0 and <= int.MaxValue, "json_artifact_representation_invalid");
         byte[] bytes = new byte[checked((int)length)];
@@ -225,16 +226,50 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         Require(await input.ReadAsync(trailing, cancellationToken).ConfigureAwait(false) == 0
             && input.Length == length, "artifact_bytes_changed");
         Require(Convert.ToHexStringLower(SHA256.HashData(bytes)) == Digest(output, prefix + "Sha256"), "artifact_bytes_changed");
+        ValidateRegularFileUnchanged(expectedPath, input, initial, cancellationToken);
         return Parse(bytes);
     }
 
     private static async Task<string> HashRegularFileAsync(string path, CancellationToken cancellationToken)
     {
         await using FileStream input = OpenRegularFile(path, cancellationToken);
+        var initial = CaptureRegularFileIdentity(path, input, cancellationToken);
         long length = input.Length;
         string digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(input, cancellationToken).ConfigureAwait(false));
         Require(input.Position == length && input.Length == length, "artifact_bytes_changed");
+        ValidateRegularFileUnchanged(path, input, initial, cancellationToken);
         return digest;
+    }
+
+    internal static OfflineMigrationCurrentSchemaArtifactReader.OriginalRegularFileIdentity CaptureRegularFileIdentity(
+        string path, FileStream input, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(
+                path, input.SafeFileHandle, cancellationToken);
+        }
+        catch (InvalidOperationException error) when (error.Message.StartsWith("current_verify_", StringComparison.Ordinal))
+        {
+            throw Failure("artifact_identity_changed");
+        }
+    }
+
+    internal static void ValidateRegularFileUnchanged(string path, FileStream input,
+        OfflineMigrationCurrentSchemaArtifactReader.OriginalRegularFileIdentity initial, CancellationToken cancellationToken)
+    {
+        // Initial anchoring is not a terminal pathname proof. Reuse the sole owner's
+        // complete same-FD metadata and anchored leaf/ancestor observations after all
+        // original byte/hash checks; equal bytes at a replacement inode are still drift.
+        try
+        {
+            OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(
+                path, input.SafeFileHandle, initial, cancellationToken);
+        }
+        catch (InvalidOperationException error) when (error.Message.StartsWith("current_verify_", StringComparison.Ordinal))
+        {
+            throw Failure("artifact_identity_changed");
+        }
     }
 
     private static FileStream OpenRegularFile(string path, CancellationToken cancellationToken)

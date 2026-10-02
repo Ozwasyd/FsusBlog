@@ -258,8 +258,12 @@ are cross-bound, and a fresh private output root and invocation nonce are requir
 Regular-file admission reuses the original artifact reader's Linux `openat` owner:
 each ancestor is opened relative to its owned directory FD with no-follow flags,
 not checked by a string path followed by a separate leaf-only open. The backup
-consumer retains its own input representation checks and whole-byte hashes; it
-does not enlarge the current-receipt reader's independent byte limit.
+consumer retains its own input representation checks and whole-byte hashes. Both
+JSON and streaming-hash reads capture the sole owner's opaque native identity
+before the first read and revalidate the complete FD and original anchored path
+after EOF/hash checks, before returning evidence. Same bytes at a replacement
+leaf or directory chain remain drift; empty logs remain valid. This does not
+enlarge the current-receipt reader's independent byte limit.
 Its producer port must await the real operation and its children/pipes to terminal;
 cancellation cannot convert an unverified cleanup into a normal cancellation result.
 The Host also supplies one invocation-only monotonic deadline through the evidence

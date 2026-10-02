@@ -132,6 +132,59 @@ public sealed class OfflineMigrationBackupAdmissionTests
             OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, CancellationToken.None));
     }
 
+    [Theory]
+    [InlineData("unchanged", false)]
+    [InlineData("empty", false)]
+    [InlineData("same-bytes-leaf", true)]
+    [InlineData("same-inode-ancestor", true)]
+    public async Task OriginalProductionFinalIdentityPredicateRejectsReplacementEvenWithIdenticalBytes(string mutation, bool refuse)
+    {
+        using var fixture = new EvidenceFixture();
+        string ancestor = Path.Combine(fixture.Parent, "original-parent");
+        string retired = Path.Combine(fixture.Parent, "retired-parent");
+        string substitute = Path.Combine(fixture.Parent, "substitute-parent");
+        Directory.CreateDirectory(ancestor);
+        Directory.CreateDirectory(substitute);
+        string path = Path.Combine(ancestor, "original.bin");
+        byte[] original = mutation == "empty" ? [] : "identical original bytes"u8.ToArray();
+        await File.WriteAllBytesAsync(path, original);
+        if (mutation == "same-inode-ancestor")
+        {
+            // Establish both hard links before capture so replacing only the ancestor
+            // changes neither the opened leaf's link count nor its complete metadata.
+            Assert.Equal(0, Link(path, Path.Combine(substitute, "original.bin")));
+        }
+        using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, CancellationToken.None);
+        await using var input = new FileStream(handle, FileAccess.Read);
+        var initial = OfflineMigrationBackupAdmission.CaptureRegularFileIdentity(path, input, CancellationToken.None);
+        if (mutation == "same-bytes-leaf")
+        {
+            string replacement = Path.Combine(substitute, "replacement.bin");
+            await File.WriteAllBytesAsync(replacement, original);
+            File.Move(replacement, path, overwrite: true);
+        }
+        else if (mutation == "same-inode-ancestor")
+        {
+            Directory.Move(ancestor, retired);
+            Directory.Move(substitute, ancestor);
+        }
+        using var bytes = new MemoryStream();
+        await input.CopyToAsync(bytes);
+        Assert.Equal(original, bytes.ToArray());
+        Assert.Equal(original, await File.ReadAllBytesAsync(path));
+        Assert.Equal(Hash(original), Hash(bytes.ToArray()));
+        if (refuse)
+        {
+            InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() =>
+                OfflineMigrationBackupAdmission.ValidateRegularFileUnchanged(path, input, initial, CancellationToken.None));
+            Assert.Equal("offline_backup_owned_artifact_identity_changed", failure.Message);
+        }
+        else
+        {
+            OfflineMigrationBackupAdmission.ValidateRegularFileUnchanged(path, input, initial, CancellationToken.None);
+        }
+    }
+
     [Fact]
     public async Task CancellationDuringProducerAwaitDoesNotReturnBeforeItsTerminal()
     {
@@ -201,6 +254,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
         Assert.Equal("offline_backup_owned_remaining_budget_unrepresentable",
             Assert.Throws<InvalidOperationException>(() => deadline.RemainingWholeSeconds(CancellationToken.None)).Message);
     }
+
+    [DllImport("libc", EntryPoint = "link", SetLastError = true)]
+    private static extern int Link([MarshalAs(UnmanagedType.LPUTF8Str)] string existingPath,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string newPath);
 
     private sealed class BudgetClock : TimeProvider
     {
