@@ -329,6 +329,19 @@ public sealed class OfflineMigrationApplyCommandTests
     }
 
     [Fact]
+    public void Plan_OriginalRetentionPortCompositionDoesNotImportAnyBackupObservation()
+    {
+        // Wiring fixture only; the substitutes are not a production retention owner.
+        IOfflineMigrationPlanningAuthorityReader planning = Substitute.For<IOfflineMigrationPlanningAuthorityReader>();
+        IOfflineMigrationOwnedBackupAdmission backup = Substitute.For<IOfflineMigrationOwnedBackupAdmission>();
+        Assert.IsType<OfflineMigrationOwnedPlanningEvidence>(OfflineMigrationPlanEvidence.ComposeOwnedReader(planning, backup));
+        Assert.Empty(planning.ReceivedCalls());
+        Assert.Empty(backup.ReceivedCalls());
+        Assert.Throws<ArgumentNullException>(() => OfflineMigrationPlanEvidence.ComposeOwnedReader(
+            planning, (IOfflineMigrationOwnedBackupAdmission)null!));
+    }
+
+    [Fact]
     public async Task Apply_MissingBudgetRefusesBeforeConfiguredProducerConstruction()
     {
         using var directory = new OwnedDirectory();
