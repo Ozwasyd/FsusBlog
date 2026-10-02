@@ -566,7 +566,7 @@ expectMatrixValidateFailure(
 
 expectMatrixValidateFailure(
     removeTier(matrixSourceText, 'frontend-build'),
-    'frontend fast split missing tier frontend-build',
+    'finite execution target tools/test/lanes/frontend-build.sh is missing',
     'validate must reject missing frontend-fast split tiers'
 );
 
