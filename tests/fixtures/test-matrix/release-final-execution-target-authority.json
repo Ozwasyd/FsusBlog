@@ -75,8 +75,8 @@
         },
         {
             "path": "tests/browser-contract/contract.mjs",
-            "contentDigest": "sha256:1b6a3c6e1ddd0c296146098c60554778af9036d57ffd775bd083a9f5412241ad",
-            "indexDigest": "sha256:1b6a3c6e1ddd0c296146098c60554778af9036d57ffd775bd083a9f5412241ad"
+            "contentDigest": "sha256:968a5827ed60973555628d688f7d2b905a3c9ba7af97c729dfbb318a502312df",
+            "indexDigest": "sha256:968a5827ed60973555628d688f7d2b905a3c9ba7af97c729dfbb318a502312df"
         },
         {
             "path": "tests/browser-contract/default-fixture-provider.mjs",
@@ -1380,8 +1380,8 @@
         },
         {
             "path": "tests/tools/release-reliability-receipt.test.mjs",
-            "contentDigest": "sha256:82b392c53b64e96ec14c7ddc62529be76090a7f8e4c795db61537a9f96880598",
-            "indexDigest": "sha256:82b392c53b64e96ec14c7ddc62529be76090a7f8e4c795db61537a9f96880598"
+            "contentDigest": "sha256:8d1ebbf5a1ad92fc0bae243ee69c31c2da878a4cb15ba38d78495dbc1be291ac",
+            "indexDigest": "sha256:8d1ebbf5a1ad92fc0bae243ee69c31c2da878a4cb15ba38d78495dbc1be291ac"
         },
         {
             "path": "tests/tools/resource-utilization.test.mjs",
@@ -1435,8 +1435,8 @@
         },
         {
             "path": "tests/tools/support/clean-attempt-evidence-fixture.mjs",
-            "contentDigest": "sha256:16ffef8a3fdf1e99f63c736deaaf26f3fef475bf6e3d6023ec1e87d6c4301d84",
-            "indexDigest": "sha256:16ffef8a3fdf1e99f63c736deaaf26f3fef475bf6e3d6023ec1e87d6c4301d84"
+            "contentDigest": "sha256:8f4f2021b6f2fe7a9dd2c118242b86c5768327eece9e66b387e9a296c596d4a9",
+            "indexDigest": "sha256:8f4f2021b6f2fe7a9dd2c118242b86c5768327eece9e66b387e9a296c596d4a9"
         },
         {
             "path": "tests/tools/support/esm-fixture-materializer-contracts.mjs",
@@ -2280,8 +2280,8 @@
         },
         {
             "path": "tools/fact-extractors/post-runtime/candidate.mjs",
-            "contentDigest": "sha256:5174adf51e07787206172d4e4237fb4fcfd1a5041886f18b205ee389ed3ff332",
-            "indexDigest": "sha256:5174adf51e07787206172d4e4237fb4fcfd1a5041886f18b205ee389ed3ff332"
+            "contentDigest": "sha256:62115562a17534b52f68ea0833e530487f45c3e38a1d430bd8c95fbc0a175cf3",
+            "indexDigest": "sha256:62115562a17534b52f68ea0833e530487f45c3e38a1d430bd8c95fbc0a175cf3"
         },
         {
             "path": "tools/fact-extractors/post-runtime/common.mjs",
@@ -2710,8 +2710,8 @@
         },
         {
             "path": "tools/operations/check-release-evidence-manifest.mjs",
-            "contentDigest": "sha256:5a7d07a816975ab13a726ce7e2accafac2df3447bc40d723d62a52d95c2b10b0",
-            "indexDigest": "sha256:5a7d07a816975ab13a726ce7e2accafac2df3447bc40d723d62a52d95c2b10b0"
+            "contentDigest": "sha256:ccd6a2fff63c7a748a2957b465fc5969afac85c59b75db9bf2bfa54b8788fa74",
+            "indexDigest": "sha256:ccd6a2fff63c7a748a2957b465fc5969afac85c59b75db9bf2bfa54b8788fa74"
         },
         {
             "path": "tools/operations/evidence-classification.mjs",
@@ -2750,13 +2750,13 @@
         },
         {
             "path": "tools/release/browser-contract-receipt-contract.mjs",
-            "contentDigest": "sha256:966b904e3134f9cfd8fd70c34e864c2824d60649387ff309c7bf8e81bdedcd3d",
-            "indexDigest": "sha256:966b904e3134f9cfd8fd70c34e864c2824d60649387ff309c7bf8e81bdedcd3d"
+            "contentDigest": "sha256:1e90b7d64cd90bc9b0bd6bf915b6dafbf78d5256596d7d978a346999136d466d",
+            "indexDigest": "sha256:1e90b7d64cd90bc9b0bd6bf915b6dafbf78d5256596d7d978a346999136d466d"
         },
         {
             "path": "tools/release/browser-release-clean-attempt-consumers.mjs",
-            "contentDigest": "sha256:d3ac13160ab6d00d9c0f56ca2982e9c2a7a7480a271e0c946509a750c661559d",
-            "indexDigest": "sha256:d3ac13160ab6d00d9c0f56ca2982e9c2a7a7480a271e0c946509a750c661559d"
+            "contentDigest": "sha256:e33023cb66bd5c9e73df6e45a888385fe6aa7d30ec60147e32a37bfed5eba192",
+            "indexDigest": "sha256:e33023cb66bd5c9e73df6e45a888385fe6aa7d30ec60147e32a37bfed5eba192"
         },
         {
             "path": "tools/release/check-release-final.mjs",
@@ -2765,18 +2765,18 @@
         },
         {
             "path": "tools/release/clean-attempt-evidence-source.mjs",
-            "contentDigest": "sha256:3f1761753d6f9dc396f1753f660295d40633eb20f01edca79712acbce775b093",
-            "indexDigest": "sha256:3f1761753d6f9dc396f1753f660295d40633eb20f01edca79712acbce775b093"
+            "contentDigest": "sha256:286caeffd77c17844f521e42b54eb3dc379f230d0870dcf65c9fbd5b2515969d",
+            "indexDigest": "sha256:286caeffd77c17844f521e42b54eb3dc379f230d0870dcf65c9fbd5b2515969d"
         },
         {
             "path": "tools/release/clean-attempt-evidence-transport.mjs",
-            "contentDigest": "sha256:24da2650d47ad2e558d13c4393a67b20ac45b633bd83dd6f7b50291b3fba3d5a",
-            "indexDigest": "sha256:24da2650d47ad2e558d13c4393a67b20ac45b633bd83dd6f7b50291b3fba3d5a"
+            "contentDigest": "sha256:19209e517ae9e02286a07108017bde921119b12e51ac3e399ab3161a6647d178",
+            "indexDigest": "sha256:19209e517ae9e02286a07108017bde921119b12e51ac3e399ab3161a6647d178"
         },
         {
             "path": "tools/release/clean-first-attempt-verifier.mjs",
-            "contentDigest": "sha256:2a3f79b7c1e24444c2ff4b16e42b32308bd86d445b3491bfa7ba005918e0ae5a",
-            "indexDigest": "sha256:2a3f79b7c1e24444c2ff4b16e42b32308bd86d445b3491bfa7ba005918e0ae5a"
+            "contentDigest": "sha256:36a9f235c54cbb5ab15afc7305f05fc350c6395855ac789c8d76f7432c75dcbe",
+            "indexDigest": "sha256:36a9f235c54cbb5ab15afc7305f05fc350c6395855ac789c8d76f7432c75dcbe"
         },
         {
             "path": "tools/release/create-release-manifest.mjs",
@@ -2797,6 +2797,11 @@
             "path": "tools/release/public-preview-release-evidence.mjs",
             "contentDigest": "sha256:1abc412ec4e04f66be9b4953af71047c169cbc54c428f5cfb31d47aa3af5ca66",
             "indexDigest": "sha256:1abc412ec4e04f66be9b4953af71047c169cbc54c428f5cfb31d47aa3af5ca66"
+        },
+        {
+            "path": "tools/release/release-clean-attempt-cohort.mjs",
+            "contentDigest": "sha256:64404dcdb28dc9b0e80fb479fb2a125d003d4488e28d616c3002549c9dbfb52f",
+            "indexDigest": "sha256:64404dcdb28dc9b0e80fb479fb2a125d003d4488e28d616c3002549c9dbfb52f"
         },
         {
             "path": "tools/release/release-domain-final-binding.mjs",
@@ -2830,8 +2835,8 @@
         },
         {
             "path": "tools/release/release-reliability-qualified-receipt.mjs",
-            "contentDigest": "sha256:3b1579608039525b4badefab2d9c76528b01e599c0c59efc4b16bd48fc305951",
-            "indexDigest": "sha256:3b1579608039525b4badefab2d9c76528b01e599c0c59efc4b16bd48fc305951"
+            "contentDigest": "sha256:22e169864c22cee481c9625d57675d9976bd155da9a888f410dda16765d1b879",
+            "indexDigest": "sha256:22e169864c22cee481c9625d57675d9976bd155da9a888f410dda16765d1b879"
         },
         {
             "path": "tools/release/schema-compatibility-coordinate.mjs",
@@ -2840,13 +2845,13 @@
         },
         {
             "path": "tools/release/test-evidence-receipts-cli.mjs",
-            "contentDigest": "sha256:d706fef1eaf3a8a03d79950159799d358af1ba1b3cdeda2f2e8258e176839711",
-            "indexDigest": "sha256:d706fef1eaf3a8a03d79950159799d358af1ba1b3cdeda2f2e8258e176839711"
+            "contentDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a",
+            "indexDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a"
         },
         {
             "path": "tools/release/test-evidence-receipts.mjs",
-            "contentDigest": "sha256:36fe52e9815c27cceca62f7f2f055871309f58335f5ba3e5efb4cab032626858",
-            "indexDigest": "sha256:36fe52e9815c27cceca62f7f2f055871309f58335f5ba3e5efb4cab032626858"
+            "contentDigest": "sha256:5eb6cff2a62befe0953629fd1c9be9eea5297fa727a93897d26c731558d6d779",
+            "indexDigest": "sha256:5eb6cff2a62befe0953629fd1c9be9eea5297fa727a93897d26c731558d6d779"
         },
         {
             "path": "tools/release/theme-css-safety-evidence.mjs",
@@ -2860,8 +2865,8 @@
         },
         {
             "path": "tools/run-test-matrix.mjs",
-            "contentDigest": "sha256:85ec7664e6969d2a0da48a18fc785b6b2805919726ce9ac0155a90785c534db8",
-            "indexDigest": "sha256:85ec7664e6969d2a0da48a18fc785b6b2805919726ce9ac0155a90785c534db8"
+            "contentDigest": "sha256:ccd0e58c475b220b35510b221617313496fce2738972b8a637055591017bce13",
+            "indexDigest": "sha256:ccd0e58c475b220b35510b221617313496fce2738972b8a637055591017bce13"
         },
         {
             "path": "tools/runtime-profiles/release-runtime-matrix.mjs",
@@ -3570,8 +3575,8 @@
         },
         {
             "path": "tools/test-matrix/required-evidence-catalog.mjs",
-            "contentDigest": "sha256:de814266fc58064e3d824e5c298d9d3e1ba2c4ba8abeb420dfca9071b8e3fd03",
-            "indexDigest": "sha256:de814266fc58064e3d824e5c298d9d3e1ba2c4ba8abeb420dfca9071b8e3fd03"
+            "contentDigest": "sha256:62fae8ed7b0c82fe2ae029bd0d7b8f1f63f742a0abdc71200b08de89d012a53e",
+            "indexDigest": "sha256:62fae8ed7b0c82fe2ae029bd0d7b8f1f63f742a0abdc71200b08de89d012a53e"
         },
         {
             "path": "tools/test-matrix/reset-postcondition-verifier.mjs",
@@ -4235,8 +4240,8 @@
         },
         {
             "path": "tools/test/release-reliability-receipt.mjs",
-            "contentDigest": "sha256:41d9f8747c4183a34cf0c428932c87ddf0ef05c4b441022364563a78259e9ed0",
-            "indexDigest": "sha256:41d9f8747c4183a34cf0c428932c87ddf0ef05c4b441022364563a78259e9ed0"
+            "contentDigest": "sha256:87d9ba95dda82bf2cbefdf9eb637f86a03f46b348769b8b4aa31b82e08519536",
+            "indexDigest": "sha256:87d9ba95dda82bf2cbefdf9eb637f86a03f46b348769b8b4aa31b82e08519536"
         },
         {
             "path": "tools/test/release-reliability-runtime-admission.mjs",
@@ -4495,8 +4500,8 @@
         },
         {
             "path": "tools/test/verify-release-reliability-receipt.mjs",
-            "contentDigest": "sha256:bed78c4aa9dbe79a16c70021cee081c111100b3a6b95168a1dc83ceec33ada64",
-            "indexDigest": "sha256:bed78c4aa9dbe79a16c70021cee081c111100b3a6b95168a1dc83ceec33ada64"
+            "contentDigest": "sha256:4d44a8423168ff80070be3197437536bb96ff6cbae31aa7243718c4a3868932a",
+            "indexDigest": "sha256:4d44a8423168ff80070be3197437536bb96ff6cbae31aa7243718c4a3868932a"
         },
         {
             "path": "tools/test/verify-replay-qualification.mjs",
@@ -5463,8 +5468,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:85ec7664e6969d2a0da48a18fc785b6b2805919726ce9ac0155a90785c534db8",
-            "indexDigest": "sha256:85ec7664e6969d2a0da48a18fc785b6b2805919726ce9ac0155a90785c534db8",
+            "contentDigest": "sha256:ccd0e58c475b220b35510b221617313496fce2738972b8a637055591017bce13",
+            "indexDigest": "sha256:ccd0e58c475b220b35510b221617313496fce2738972b8a637055591017bce13",
             "dependencyClosure": [
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
@@ -5721,14 +5726,7 @@
                 "tools/fact-extractors/registry.mjs",
                 "tools/frontend/public-aot-warm-evidence.mjs",
                 "tools/release/browser-contract-receipt-contract.mjs",
-                "tools/release/browser-release-clean-attempt-consumers.mjs",
-                "tools/release/clean-attempt-evidence-source.mjs",
-                "tools/release/clean-attempt-evidence-transport.mjs",
-                "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
-                "tools/release/release-domain-final-binding.mjs",
-                "tools/release/release-reliability-qualified-receipt.mjs",
-                "tools/release/test-evidence-receipts.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
                 "tools/test-evidence/browser-contract-observed-facts.mjs",
                 "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
@@ -5744,18 +5742,11 @@
                 "tools/test-matrix/behavior-evidence-post-runtime.mjs",
                 "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
                 "tools/test-matrix/content-addressed-evidence-store.mjs",
-                "tools/test-matrix/evidence-projection.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
-                "tools/test-matrix/release-domain-ledger.mjs",
-                "tools/test-matrix/release-final-evidence-contract.mjs",
-                "tools/test-matrix/required-evidence-catalog.mjs",
                 "tools/test-matrix/scheduler-run-owner.mjs",
                 "tools/test-matrix/schema-validator/package.json",
                 "tools/test-matrix/schema-validator/validate.mjs",
-                "tools/test/attempt-provenance.mjs",
-                "tools/test/current-run-evidence-locator.mjs",
-                "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
                 "tools/test/process-identity.mjs",
                 "tools/yaml/parse-document.mjs"
@@ -5829,14 +5820,7 @@
                 "tools/fact-extractors/registry.mjs",
                 "tools/frontend/public-aot-warm-evidence.mjs",
                 "tools/release/browser-contract-receipt-contract.mjs",
-                "tools/release/browser-release-clean-attempt-consumers.mjs",
-                "tools/release/clean-attempt-evidence-source.mjs",
-                "tools/release/clean-attempt-evidence-transport.mjs",
-                "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
-                "tools/release/release-domain-final-binding.mjs",
-                "tools/release/release-reliability-qualified-receipt.mjs",
-                "tools/release/test-evidence-receipts.mjs",
                 "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
                 "tools/test-evidence/browser-contract-observed-facts.mjs",
                 "tools/test-evidence/runtime-observation-probe-cache-facts.mjs",
@@ -5852,18 +5836,11 @@
                 "tools/test-matrix/behavior-evidence-post-runtime.mjs",
                 "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
                 "tools/test-matrix/content-addressed-evidence-store.mjs",
-                "tools/test-matrix/evidence-projection.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
-                "tools/test-matrix/release-domain-ledger.mjs",
-                "tools/test-matrix/release-final-evidence-contract.mjs",
-                "tools/test-matrix/required-evidence-catalog.mjs",
                 "tools/test-matrix/scheduler-run-owner.mjs",
                 "tools/test-matrix/schema-validator/package.json",
                 "tools/test-matrix/schema-validator/validate.mjs",
-                "tools/test/attempt-provenance.mjs",
-                "tools/test/current-run-evidence-locator.mjs",
-                "tools/test/current-run-evidence-transport.mjs",
                 "tools/test/evidence-location-contract.mjs",
                 "tools/test/process-identity.mjs",
                 "tools/yaml/parse-document.mjs"
@@ -26950,16 +26927,30 @@
             "indexDigest": "sha256:8e783f0372d2c8206a17dff389920580f7404f3d230af07263b6d3e7dd70af20",
             "dependencyClosure": [
                 "tests/tools/fixtures/release-runtime-matrix.mjs",
+                "tools/ci/production-build-artifacts.mjs",
                 "tools/operations/check-release-evidence-manifest.mjs",
                 "tools/operations/evidence-classification.mjs",
+                "tools/release/clean-attempt-evidence-source.mjs",
+                "tools/release/clean-attempt-evidence-transport.mjs",
+                "tools/release/clean-first-attempt-verifier.mjs",
+                "tools/release/release-clean-attempt-cohort.mjs",
+                "tools/release/release-domain-final-binding.mjs",
                 "tools/release/release-id.mjs",
                 "tools/release/release-manifest.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tools/runtime-profiles/release-runtime-matrix.mjs",
                 "tools/runtime-profiles/runtime-publish-evidence.mjs",
                 "tools/runtime-profiles/runtime-publish-profile.mjs",
+                "tools/test-matrix/evidence-projection.mjs",
                 "tools/test-matrix/production-fresh-output-locator.mjs",
                 "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+                "tools/test-matrix/release-domain-ledger.mjs",
+                "tools/test-matrix/release-final-evidence-contract.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs",
+                "tools/test/attempt-provenance.mjs",
+                "tools/test/current-run-evidence-locator.mjs",
+                "tools/test/current-run-evidence-transport.mjs",
+                "tools/test/evidence-location-contract.mjs",
                 "tools/test/measurement-noise-envelope.mjs"
             ]
         },
@@ -27371,6 +27362,7 @@
                 "tools/release/clean-attempt-evidence-transport.mjs",
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
+                "tools/release/release-clean-attempt-cohort.mjs",
                 "tools/release/release-domain-final-binding.mjs",
                 "tools/release/release-id.mjs",
                 "tools/release/release-manifest.mjs",
