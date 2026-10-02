@@ -144,6 +144,37 @@ public sealed class OfflineMigrationBackupAdmissionTests
         Assert.True(fixture.TerminalObserved);
     }
 
+    [Fact]
+    public async Task MissingHostDeadlineIsRefusedBeforeProducerInvocation()
+    {
+        using var fixture = new EvidenceFixture();
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ReadAsync(
+            fixture.Options with { OperationDeadline = null }));
+        Assert.Equal("offline_backup_owned_operation_deadline_required", error.Message);
+        Assert.Equal(0, fixture.Calls);
+    }
+
+    [Fact]
+    public void MonotonicRemainingBudgetNeverRestartsOrRoundsPastOriginalDeadline()
+    {
+        var clock = new BudgetClock();
+        var deadline = new OfflineMigrationOperationDeadline(clock, 30);
+        Assert.Equal(30, deadline.RemainingWholeSeconds(CancellationToken.None));
+        clock.Advance(TimeSpan.FromMilliseconds(7250));
+        Assert.Equal(22, deadline.RemainingWholeSeconds(CancellationToken.None));
+        clock.Advance(TimeSpan.FromSeconds(22));
+        Assert.Equal("offline_backup_owned_remaining_budget_unrepresentable",
+            Assert.Throws<InvalidOperationException>(() => deadline.RemainingWholeSeconds(CancellationToken.None)).Message);
+    }
+
+    private sealed class BudgetClock : TimeProvider
+    {
+        private long ticks;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => ticks;
+        public void Advance(TimeSpan elapsed) => ticks += elapsed.Ticks;
+    }
+
     private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     private sealed class EvidenceFixture : IOfflineMigrationBackupDrillProducer, IDisposable
@@ -163,7 +194,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
             Options = new(new(CurrentSchemaProviderKind.PostgreSql, "captured-instance", "1/source"),
                 Path.Combine(Parent, "source.env"), package, Path.Combine(OutputRoot, "package-manifest.json"),
                 Path.Combine(OutputRoot, "backup-restore-drill.json"), Path.Combine(Parent, "restore.env"),
-                Path.Combine(Parent, "plan.json"), 30);
+                Path.Combine(Parent, "plan.json"), 30)
+            {
+                OperationDeadline = new(TimeProvider.System, 30)
+            };
         }
 
         public Task<OfflineMigrationBackupObservation> ReadAsync(OfflineMigrationPlanCommandOptions? options = null,

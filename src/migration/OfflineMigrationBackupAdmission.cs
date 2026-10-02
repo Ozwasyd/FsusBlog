@@ -25,6 +25,41 @@ internal interface IOfflineMigrationBackupDrillProducer
 
 internal sealed record OfflineMigrationBackupDrillTerminal(int ExitCode, ReadOnlyMemory<byte> StandardOutput);
 
+// The Host creates this once with the same clock/budget as its cancellation timer.
+// Remaining time is never reset when a later package/restore stage is entered. This
+// ephemeral ledger is not part of any artifact and is not an evidence authority.
+internal sealed class OfflineMigrationOperationDeadline
+{
+    private readonly TimeProvider clock;
+    private readonly long startedAt;
+    private readonly TimeSpan total;
+
+    internal OfflineMigrationOperationDeadline(TimeProvider clock, int timeoutSeconds)
+    {
+        if (timeoutSeconds is <= 0 or > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_plan_timeout_invalid");
+        }
+        this.clock = clock;
+        startedAt = clock.GetTimestamp();
+        total = TimeSpan.FromSeconds(timeoutSeconds);
+    }
+
+    internal int RemainingWholeSeconds(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        TimeSpan elapsed = clock.GetElapsedTime(startedAt);
+        TimeSpan remaining = total - elapsed;
+        if (elapsed < TimeSpan.Zero || remaining < TimeSpan.FromSeconds(1))
+        {
+            // The original shell accepts only whole seconds. Rounding up would extend
+            // its operation beyond the original deadline; insufficient time is refusal.
+            throw new InvalidOperationException("offline_backup_owned_remaining_budget_unrepresentable");
+        }
+        return checked((int)(remaining.Ticks / TimeSpan.TicksPerSecond));
+    }
+}
+
 /// <summary>
 /// Consume the original owned drill's terminal output and actual retained bytes. This class
 /// does not decrypt, restore, sign evidence, or turn an arbitrary report into an invocation.
@@ -65,6 +100,11 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         {
             throw Failure("provider_capture_capability_missing");
         }
+        if (options.OperationDeadline is null)
+        {
+            throw Failure("operation_deadline_required");
+        }
+        _ = options.OperationDeadline.RemainingWholeSeconds(cancellationToken);
         string reportPath = Canonical(options.RestoreDrillPath);
         string root = Path.GetDirectoryName(reportPath)!;
         if (reportPath != Path.Combine(root, "backup-restore-drill.json")
