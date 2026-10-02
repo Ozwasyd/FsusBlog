@@ -34,6 +34,10 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
     private readonly OfflineMigrationShellBackupDrillInputScope _scope;
     private readonly Action<string>? _afterToolReadForFixture;
 
+    // Original immutable locators for early Host scope comparison, not a
+    // verified backup, source observation or invocation/execution capability.
+    internal OfflineMigrationShellBackupDrillInputScope InputScope => _scope;
+
     internal OfflineMigrationShellBackupDrillOwnedInputs(
         OfflineMigrationShellBackupDrillConfiguration configuration,
         OfflineMigrationShellBackupDrillTools tools,
