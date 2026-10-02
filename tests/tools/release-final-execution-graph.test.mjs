@@ -446,6 +446,18 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
             ]
         },
         {
+            name: 'nonexistent producer',
+            mutate(tier)
+            {
+                tier.requiresEvidenceFrom[tier.requiresEvidenceFrom.indexOf('browser-contract')] =
+                    'missing-evidence-producer';
+            },
+            diagnostics: [
+                /missing canonical evidence inputs: browser-contract/u,
+                /unexpected evidence inputs: missing-evidence-producer/u
+            ]
+        },
+        {
             name: 'duplication',
             mutate(tier)
             {
