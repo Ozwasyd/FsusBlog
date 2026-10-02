@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -19,7 +20,7 @@ public static class ArticleResponsibilitySnapshotBuilder
     {
         ArgumentNullException.ThrowIfNull(draft);
 
-        IReadOnlyList<Models.Dtos.PrepublishIssue> issues = ArticleResponsibilityGovernance.Evaluate(draft);
+        IReadOnlyList<PrepublishIssue> issues = ArticleResponsibilityGovernance.Evaluate(draft);
         if (issues.Any(static issue => string.Equals(issue.Severity, "error", StringComparison.OrdinalIgnoreCase)))
         {
             var firstError = issues.First(static issue => string.Equals(issue.Severity, "error", StringComparison.OrdinalIgnoreCase));

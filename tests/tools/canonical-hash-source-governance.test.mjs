@@ -16,7 +16,7 @@ const canonicalSources = [
     'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs'
 ];
 
-test('canonical hash source boundary keeps shared and core free of runtime and external dependencies', () =>
+test('canonical hash source boundary keeps core free of runtime and external dependencies', () =>
 {
     const forbiddenNamespaces = [
         'FsusBlog.Server',

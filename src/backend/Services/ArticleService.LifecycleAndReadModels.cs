@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;

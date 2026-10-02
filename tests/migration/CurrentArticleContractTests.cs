@@ -85,4 +85,34 @@ public sealed class CurrentArticleContractTests
         Assert.True(writer.Enabled && writer.AllowCodeCopy && writer.ShowPublicBadge && writer.ProofBindingEnabled);
         Assert.Null(writer.CopyrightHolder);
     }
+
+    [Fact]
+    public void RightsCanonicalBinding_UsesTheOriginalCompleteContentAndPolicyAssociation()
+    {
+        var article = new ArticleCanonicalInput(1, 101, 1, "article:1", "Title", null, null,
+            1, [], ArticleStatusValues.Published, new DateTime(2026, 5, 17, 10, 0, 0, DateTimeKind.Utc), null, "body\n");
+        ArticleRightsNormalizedModel rights = ArticleProductionNormalizers.NormalizeArticleRights(null);
+        ArticleRightsCanonicalBinding binding = ArticleRightsCanonicalBinding.Build(article, rights);
+
+        Assert.Equal("sha256:" + ArticleCanonicalHashV1.ComputeHashHex(article), binding.ContentCanonicalHash);
+        Assert.Equal(binding.ContentCanonicalHash, binding.Rights.ContentCanonicalHash);
+        Assert.Equal(ArticleRightsCanonicalHashV1.ComputeHashHex(binding.Rights), binding.PolicyHash);
+        Assert.Equal(article.ArticleRevisionId, binding.Rights.ArticleRevisionId);
+        Assert.Equal(article.RevisionNo, binding.Rights.RevisionNo);
+        Assert.Null(binding.Rights.CanonicalUrl);
+    }
+
+    [Theory]
+    [InlineData(null, 1)]
+    [InlineData(101L, null)]
+    [InlineData(0L, 1)]
+    [InlineData(101L, 0)]
+    public void RightsCanonicalBinding_RejectsMissingOrNonpositiveRevisionCoordinates(long? revisionId, int? revisionNo)
+    {
+        var article = new ArticleCanonicalInput(1, revisionId, revisionNo, "article:1", "Title", null, null,
+            1, [], ArticleStatusValues.Draft, null, null, "body");
+        Assert.True(revisionId is null or <= 0 || revisionNo is null or <= 0);
+        Assert.ThrowsAny<ArgumentException>(() => ArticleRightsCanonicalBinding.Build(article,
+            ArticleProductionNormalizers.NormalizeArticleRights(null)));
+    }
 }

@@ -2240,7 +2240,7 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 ### Article life cycle
 
-Current article canonical payloads/hashes and pure rights input normalization have one source in `src/shared/Contracts/Articles/`, consumed by Core, Server and offline Migration. Writer normalization still rejects negative excerpt limits and trims bounded text; wire encoding retains its existing non-trimming and zero-clamping behavior. These pure contracts do not grant publication eligibility or fabricate missing rights/responsibility snapshots. Offline preservation must retain raw Markdown separately from its normalized canonical hash.
+Current article canonical payloads/hashes, rights canonical binding, pure rights input normalization, status transition policy and responsibility draft/validation have one source in `src/shared/Contracts/Articles/`, consumed by Core, Server and offline Migration. Writer normalization still rejects negative excerpt limits and trims bounded text; wire encoding retains its existing non-trimming and zero-clamping behavior. Responsibility persistence, actor admission and publication/content-filter services remain Server-owned. These pure contracts do not grant publication eligibility or fabricate missing rights/responsibility snapshots. Offline preservation must retain raw Markdown separately from its normalized canonical hash, require complete explicit source/current packages and ID mappings, and retain the original global Markdown content-block sharing. Artifact byte seals and pure write plans are not source provenance, media filesystem evidence or a database commit.
 
 `Article.Status` 的 exact set 由 [`design.md`](design.md) 的 generated section 拥有；
 本文件只保留下方由同一 observation 生成的 allowed/forbidden transition projections。

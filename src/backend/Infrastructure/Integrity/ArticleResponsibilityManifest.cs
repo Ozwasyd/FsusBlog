@@ -1,7 +1,7 @@
 using System.Data.Common;
-using System.Net;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Services;
@@ -9,17 +9,6 @@ using FsusBlog.Server.Services;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
-
-public sealed record ArticleResponsiblePerson(string Name, string? ProfileUrl);
-
-public sealed record ArticleEvidenceSource(
-    string Title,
-    string Url,
-    string SourceType,
-    DateOnly? AccessedOn,
-    string? Version,
-    string? CitationNote,
-    bool IsPublic = true);
 
 public sealed record ArticleUpdateDisclosure(
     string Summary,
@@ -278,7 +267,7 @@ public sealed class ArticleResponsibilityManifestService(
     private static ArticleResponsiblePerson? SanitizePerson(ArticleResponsiblePerson? person)
     {
         string? name = NullIfWhiteSpace(person?.Name);
-        return name is null ? null : new ArticleResponsiblePerson(name, PublicUrl(person?.ProfileUrl));
+        return name is null ? null : new ArticleResponsiblePerson(name, ArticleResponsibilityGovernance.PublicUrl(person?.ProfileUrl));
     }
 
     private static IReadOnlyList<ArticleEvidenceSource> SanitizeSources(IEnumerable<ArticleEvidenceSource> sources)
@@ -286,7 +275,7 @@ public sealed class ArticleResponsibilityManifestService(
             .Where(static source => source.IsPublic)
             .Select(static source => new ArticleEvidenceSource(
                 NullIfWhiteSpace(source.Title) ?? string.Empty,
-                PublicUrl(source.Url) ?? string.Empty,
+                ArticleResponsibilityGovernance.PublicUrl(source.Url) ?? string.Empty,
                 NullIfWhiteSpace(source.SourceType) ?? "other",
                 source.AccessedOn,
                 NullIfWhiteSpace(source.Version),
@@ -294,40 +283,6 @@ public sealed class ArticleResponsibilityManifestService(
             .Where(static source => source.Title.Length > 0 && source.Url.Length > 0)
             .Take(100)
             .ToArray();
-
-    internal static string? PublicUrl(string? value)
-    {
-        if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out Uri? uri)
-            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
-            || !string.IsNullOrEmpty(uri.UserInfo)
-            || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        if (IPAddress.TryParse(uri.Host, out IPAddress? address)
-            && (IPAddress.IsLoopback(address) || IsPrivateAddress(address)))
-        {
-            return null;
-        }
-
-        return uri.AbsoluteUri;
-    }
-
-    private static bool IsPrivateAddress(IPAddress address)
-    {
-        byte[] bytes = address.GetAddressBytes();
-        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-        {
-            return bytes[0] == 10
-                || bytes[0] == 127
-                || (bytes[0] == 169 && bytes[1] == 254)
-                || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
-                || (bytes[0] == 192 && bytes[1] == 168);
-        }
-
-        return address.IsIPv6LinkLocal || address.IsIPv6SiteLocal || address.Equals(IPAddress.IPv6Loopback);
-    }
 
     private static T? Deserialize<T>(string? json)
     {
@@ -356,24 +311,6 @@ public sealed class ArticleResponsibilityManifestService(
             IntegrityPublicErrorResponse.NotFound("article_responsibility_not_found"));
 }
 
-public sealed record ArticleResponsibilityDraft(
-    bool InheritSiteAuthor,
-    IReadOnlyList<ArticleResponsiblePerson> Authors,
-    ArticleResponsiblePerson? Reviewer,
-    IReadOnlyList<ArticleEvidenceSource> Sources,
-    string? UpdateSummary,
-    string? UpdateReason,
-    DateTime? EffectiveAt,
-    string? ConclusionImpact,
-    string? Methodology,
-    string? Applicability,
-    string? Limitations,
-    bool ResponsiblePersonConfirmed,
-    bool ContainsStrongClaims,
-    bool IsSubstantiveUpdate,
-    bool RequiresMethodsDisclosure,
-    int ExpectedVersion);
-
 public sealed record ArticleResponsibilitySaveResponse(
     bool Saved,
     bool VersionConflict,
@@ -385,7 +322,7 @@ public sealed record ArticleResponsibilitySaveResponse(
     string? PreviousSnapshotId,
     string? ArticlePublicationId,
     int? PublicationNo,
-    IReadOnlyList<Models.Dtos.PrepublishIssue> Issues);
+    IReadOnlyList<PrepublishIssue> Issues);
 
 public sealed record ArticleResponsibilityVersionResponse(
     string Id,
@@ -437,7 +374,7 @@ public sealed class ArticleResponsibilityAuthoringService(
         ArticleResponsibilityDraft draft,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Models.Dtos.PrepublishIssue> issues = ArticleResponsibilityGovernance.Evaluate(draft);
+        IReadOnlyList<PrepublishIssue> issues = ArticleResponsibilityGovernance.Evaluate(draft);
         if (issues.Any(static issue => string.Equals(issue.Severity, "error", StringComparison.OrdinalIgnoreCase)))
         {
             ArticleRevision? rejectedRevision = await db.Queryable<ArticleRevision>()
@@ -825,33 +762,4 @@ public sealed class ArticleResponsibilityAuthoringService(
         long? CurrentPublicationRevisionId,
         long? RightsSnapshotId,
         DateTime? CurrentPublishedAt);
-}
-
-public static class ArticleResponsibilityGovernance
-{
-    public static IReadOnlyList<Models.Dtos.PrepublishIssue> Evaluate(ArticleResponsibilityDraft draft)
-    {
-        var issues = new List<Models.Dtos.PrepublishIssue>();
-        if (!draft.InheritSiteAuthor && draft.Authors.Count == 0)
-            issues.Add(Block("responsible_author_missing", "必须指定责任作者或显式继承站点作者。"));
-        if (!draft.ResponsiblePersonConfirmed)
-            issues.Add(Block("responsible_person_unconfirmed", "AI 辅助内容必须由真实责任人确认。"));
-        if (draft.Authors.Any(static author => string.IsNullOrWhiteSpace(author.Name)))
-            issues.Add(Block("author_profile_mismatch", "作者公开资料缺少稳定展示名。"));
-        if (draft.ContainsStrongClaims && draft.Sources.Count == 0)
-            issues.Add(Warn("strong_claim_without_source", "强结论尚未提供可核验来源。"));
-        if (draft.Sources.Any(static source => string.IsNullOrWhiteSpace(source.Title) || PublicSourceUrlInvalid(source.Url)))
-            issues.Add(Warn("source_invalid", "来源标题缺失，或链接不可公开访问。"));
-        if (draft.IsSubstantiveUpdate && (string.IsNullOrWhiteSpace(draft.UpdateSummary) || string.IsNullOrWhiteSpace(draft.UpdateReason)))
-            issues.Add(Warn("update_note_missing", "实质更新需要说明改了什么以及为什么修改。"));
-        if (draft.RequiresMethodsDisclosure && (string.IsNullOrWhiteSpace(draft.Methodology) || string.IsNullOrWhiteSpace(draft.Limitations)))
-            issues.Add(Warn("methods_or_limitations_missing", "此内容类型应人工复核方法与局限说明。"));
-        return issues;
-    }
-
-    private static bool PublicSourceUrlInvalid(string value)
-        => ArticleResponsibilityManifestService.PublicUrl(value) is null;
-
-    private static Models.Dtos.PrepublishIssue Block(string code, string message) => new("error", code, message);
-    private static Models.Dtos.PrepublishIssue Warn(string code, string message) => new("warning", code, message);
 }

@@ -186,7 +186,7 @@
             "kind": "compiled-assembly",
             "entrypoint": "tools/fact-extractors/content-lifecycle/extract.mjs",
             "consumedInputs": [
-                "src/core/Services/Articles/ArticleStatusTransitionPolicy.cs",
+                "src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs",
                 "src/backend/Entities/Article.cs",
                 "src/backend/Entities/Comment.cs",
                 "src/backend/Entities/CommentMutationOutbox.cs",
