@@ -128,6 +128,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
         const actual = captureMigrationRetainedInputs({ root, sdkRoot });
         validateMigrationRetainedInputs(before, actual);
         writeNew(path.join(artifactRoot, 'payload/migration-runtime', snapshotName), actual);
+        // Retain the exact original before bytes inside the original receipt's
+        // sealed domain. An unclaimed sidecar at the artifact root is forbidden.
+        fs.linkSync(beforeFile, path.join(artifactRoot, 'payload/migration-runtime/migration-inputs-before.json'));
+        fs.unlinkSync(beforeFile);
     }
     else if (operation === 'read')
     {

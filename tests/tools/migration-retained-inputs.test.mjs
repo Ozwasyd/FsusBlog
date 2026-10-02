@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { captureMigrationRetainedInputs, validateMigrationRetainedInputs } from '../../tools/ci/migration-retained-inputs.mjs';
-import { collectProductionInputTree } from '../../tools/ci/production-build-artifacts.mjs';
+import { captureMigrationRetainedInputs, readProductionRetainedMigrationTool, validateMigrationRetainedInputs } from '../../tools/ci/migration-retained-inputs.mjs';
+import { collectProductionInputTree, createProductionBuildReceipt, verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
 
 function fixture(t)
 {
@@ -126,4 +126,70 @@ test('empty and symlink SDK roots are refused by the original inventory owner', 
     const alias = path.join(value.root, 'sdk-alias');
     fs.symlinkSync(value.sdkRoot, alias);
     assert.throws(() => collectProductionInputTree(alias), /canonical/u);
+});
+
+function retainedByteFixture(t)
+{
+    const value = fixture(t);
+    const artifactRoot = path.join(path.dirname(value.root), 'production-artifacts');
+    fs.mkdirSync(path.join(artifactRoot, 'payload/migration-runtime'), { recursive: true });
+    const inputOwner = new URL('../../tools/ci/migration-retained-inputs.mjs', import.meta.url);
+    const invoke = operation =>
+    {
+        const result = spawnSync(process.execPath, [inputOwner.pathname, operation, value.root, artifactRoot, value.sdkRoot],
+            { encoding: 'utf8', env: process.env });
+        assert.equal(result.status, 0, result.stderr);
+    };
+    invoke('begin');
+    const beforeBytes = fs.readFileSync(path.join(artifactRoot, 'migration-inputs-before.json'));
+    // Deliberately not a PE, build or runtime fixture. This tests byte retention only.
+    fs.writeFileSync(path.join(artifactRoot, 'payload/migration-runtime/FsusBlog.Migration.dll'), 'assembly byte fixture');
+    invoke('finish');
+    assert.deepEqual(fs.readFileSync(path.join(artifactRoot, 'payload/migration-runtime/migration-inputs-before.json')), beforeBytes);
+    assert.equal(fs.existsSync(path.join(artifactRoot, 'migration-inputs-before.json')), false);
+    const actual = captureMigrationRetainedInputs(value);
+    const receipt = createProductionBuildReceipt({
+        root: value.root, artifactRoot,
+        sourceState: { commit: actual.sourceIdentity.sourceCommit, worktreeFingerprint: actual.sourceIdentity.worktreeFingerprint },
+        producer: { workflow: 'Byte fixture only', runId: 'fixture', runAttempt: 1, job: 'fixture-not-build' },
+        toolchain: { node: 'fixture', npm: 'fixture', dotnet: 'fixture', vite: 'fixture', vitest: 'fixture', playwright: 'fixture', emsdk: 'fixture' },
+        inputPaths: ['Directory.Build.props'], domains: [{ name: 'migration-runtime', path: 'payload/migration-runtime' }],
+        build: { command: 'tools/test/lanes/production-build-artifacts.sh' }
+    });
+    return { ...value, artifactRoot, receipt };
+}
+
+test('original before and after byte measurements are fully covered by the original production receipt', t =>
+{
+    const value = retainedByteFixture(t);
+    const verified = verifyProductionBuildReceipt({ artifactRoot: value.artifactRoot,
+        expectedSourceState: value.receipt.sourceState, expectedInputRoot: value.root, repairReadOnlySeal: false });
+    assert.equal(verified.evidence.status, 'success');
+    const measured = readProductionRetainedMigrationTool(value);
+    assert.equal(measured.Identity.SourceRevision, value.receipt.sourceState.commit);
+    assert.match(measured.AssemblySha256, /^[a-f0-9]{64}$/u);
+    assert.match(measured.ReceiptSha256, /^[a-f0-9]{64}$/u);
+});
+
+test('retained byte reader refuses a lost seal without repairing caller evidence', t =>
+{
+    const value = retainedByteFixture(t);
+    const file = path.join(value.artifactRoot, 'payload/migration-runtime/FsusBlog.Migration.dll');
+    fs.chmodSync(file, 0o600);
+    assert.throws(() => readProductionRetainedMigrationTool(value), /read-only/u);
+    assert.notEqual(fs.statSync(file).mode & 0o222, 0);
+});
+
+test('retained byte reader rejects unreceipted sidecars and modified output bytes', t =>
+{
+    const value = retainedByteFixture(t);
+    const stray = path.join(value.artifactRoot, 'unclaimed.json');
+    fs.writeFileSync(stray, '{}');
+    assert.throws(() => readProductionRetainedMigrationTool(value), /not covered/u);
+    fs.unlinkSync(stray);
+    const file = path.join(value.artifactRoot, 'payload/migration-runtime/FsusBlog.Migration.dll');
+    fs.chmodSync(file, 0o600);
+    fs.writeFileSync(file, 'substitute assembly');
+    fs.chmodSync(file, 0o400);
+    assert.throws(() => readProductionRetainedMigrationTool(value), /digest mismatch/u);
 });
