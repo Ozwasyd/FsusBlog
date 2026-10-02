@@ -7,6 +7,7 @@ using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Algorithms.Schema;
 
 using Npgsql;
 

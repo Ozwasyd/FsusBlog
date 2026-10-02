@@ -6,11 +6,10 @@ using System.Text.RegularExpressions;
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Shared.Algorithms;
 
-namespace FsusBlog.Migration;
+namespace FsusBlog.Shared.Algorithms.Schema;
 
-// Generic provider syntax, not a business-field mapping. It consumes the original
-// owned expression and the complete raw catalog expression in their bound table.
-internal sealed class PgCurrentSchemaExpressionParser
+/// <summary>Single current PostgreSQL expression algorithm; no business mapping, DDL or admission authority.</summary>
+public sealed class PgCurrentSchemaExpressionParser
 {
     private readonly IReadOnlyDictionary<string, SchemaColumnModel> _columns;
     private readonly List<Token> _tokens;
@@ -22,7 +21,8 @@ internal sealed class PgCurrentSchemaExpressionParser
         _tokens = Lex(source);
     }
 
-    internal static SchemaExpressionNode Parse(string source, IReadOnlyDictionary<string, SchemaColumnModel> columns)
+    /// <summary>Decodes the supported PostgreSQL expression grammar with exact typed literals and bound columns.</summary>
+    public static SchemaExpressionNode Parse(string source, IReadOnlyDictionary<string, SchemaColumnModel> columns)
     {
         var parser = new PgCurrentSchemaExpressionParser(source, columns);
         SchemaExpressionNode value = parser.Expression(0);
@@ -30,7 +30,8 @@ internal sealed class PgCurrentSchemaExpressionParser
         return value;
     }
 
-    internal static SchemaExpressionNode ParseExpectedDefault(SchemaColumnModel column, IReadOnlyDictionary<string, SchemaColumnModel> columns)
+    /// <summary>Interprets the original current owner's default facts without altering their storage semantics.</summary>
+    public static SchemaExpressionNode ParseExpectedDefault(SchemaColumnModel column, IReadOnlyDictionary<string, SchemaColumnModel> columns)
     {
         string source = column.DefaultValue ?? throw Refused();
         // The original entity owner/compiler treats bare string defaults as literal
@@ -41,7 +42,8 @@ internal sealed class PgCurrentSchemaExpressionParser
         return NormalizeDefaultLiteral(Parse(source, columns), column);
     }
 
-    internal static SchemaExpressionNode ParseObservedDefault(string source, SchemaColumnModel column,
+    /// <summary>Decodes the full native default and compares its literal in the already verified physical storage domain.</summary>
+    public static SchemaExpressionNode ParseObservedDefault(string source, SchemaColumnModel column,
         IReadOnlyDictionary<string, SchemaColumnModel> columns)
         => NormalizeDefaultLiteral(Parse(source, columns), column);
 
@@ -357,7 +359,8 @@ internal sealed class PgCurrentSchemaExpressionParser
             arguments[literalIndex] = NormalizeIntegralStorageLiteral(literal, _columns[column.Value]);
     }
 
-    internal static SchemaExpressionNode NormalizeIntegralStorageLiteral(SchemaExpressionNode value, SchemaColumnModel column)
+    /// <summary>Normalizes only supported literal assignment to the verified integral storage domain; arithmetic is not erased.</summary>
+    public static SchemaExpressionNode NormalizeIntegralStorageLiteral(SchemaExpressionNode value, SchemaColumnModel column)
     {
         if (IntegralLiteral(value) is not { } number || IntegralRange(column.DataType) is not { } range
             || number < range.Minimum || number > range.Maximum)

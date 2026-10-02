@@ -412,7 +412,9 @@ added columns/constraints and indexes into the provider target. It retains the
 nonrelational sequence/function/trigger effects and bootstrap seed effects
 separately: relational comparison alone does not prove those effects. Seed data
 postconditions belong to apply, not to permanent runtime schema identity. Native
-expression/effect measurement now has a Migration-owned PostgreSQL component:
+expression/effect measurement has one current-only PostgreSQL implementation in
+`Shared.Algorithms.Schema`, consumed by both Server and Migration through BCL
+`DbConnection`/`DbTransaction`:
 complete `pg_get_expr` defaults/checks/index predicates, their bound dependencies,
 unowned sequences and function/trigger semantics are observed on the same native
 RepeatableRead transaction. Typed expression comparison retains literal bytes,
@@ -420,10 +422,12 @@ casts, PostgreSQL numeric operand types and exact decimal identity; only proven
 direct integral-column literal comparisons and literal assignments normalize to
 the already compared storage domain. Arithmetic operand types are not erased.
 Unsupported syntax refuses rather than dropping
-checks/defaults. Shared owns only neutral AST/identity and exact decimal syntax,
-not PostgreSQL parsing or SQL. The actual physical digest still uses the original
-unmodified native snapshot. Composite target alignment with the original runtime
-consumer remains pending; this projection is not a verified physical schema.
+checks/defaults. Neutral facts/identity remain in Shared.Contracts; current native
+catalog SQL and expression parsing belong to Shared.Algorithms, with no provider
+package, DDL templates, legacy mapping or journal validation. The actual physical
+digest still uses the original unmodified native snapshot. The Server reader now
+derives the same composite entity-plus-recipe target and compares the complete
+native effects; this source alignment is not verified physical-schema evidence.
 
 `CurrentSchemaBootstrapCompiler` owns PostgreSQL entity and complete-recipe DDL
 compilation from the neutral facts and executes those frozen commands only on
@@ -452,26 +456,31 @@ The actual empty-source component retains the original empty source profile's
 `bootstrap-current-schema` entrypoint; naming it does not admit absent provider
 owners, and the historical profile cannot enter this empty-source operation.
 This single-provider step is not a complete admissible DAG. Known-legacy target
-preparation, MySQL/SQLite execution owners, runtime composite alignment and real
+preparation, MySQL/SQLite execution owners, runtime journal-terminal alignment and real
 three-provider qualification remain pending. No original producer/native operation
 has been executed for this source component. Source cases include original-vs-compiled PostgreSQL
 schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
 
-`PgCurrentSchemaCatalogObserver` is Migration-owned generic PostgreSQL catalog
-measurement, not a second current expected-schema authority. Its four catalog
-queries and decoding semantics match the original Server read-only observer;
-it uses the caller's already-open native connection and original RepeatableRead
-transaction, propagates cancellation through queries/rows, and never opens,
-commits or captures another database session. Both observation scopes use the
-sole Shared physical models, comparer and original `ComputeObservationDigest`.
-The measurement alone grants nothing: the issuer must use its sole session's
-observed native database identity and independently verified complete owned
-target input. Complete-artifact target identity must still be aligned with the
-original runtime consumer; neither an entity-only target nor a caller-supplied
-plan/receipt can establish that binding. The source-only observer parity,
-snapshot reuse and invalid-transaction cases are not actual PostgreSQL evidence.
+`PgCurrentSchemaCatalogObserver`, `PgCurrentSchemaEffectObserver` and
+`PgCurrentSchemaExpressionParser` are the single current native PostgreSQL
+measurement/parser implementation in Shared.Algorithms, not another expected-schema
+authority. Their original queries and decoding/comparison semantics are retained;
+they use the caller's native connection and RepeatableRead transaction, propagate
+cancellation through queries/rows, and never open, commit or capture another session.
+Migration retains the original owned-target/journal wrapper. Server's
+`CurrentSchemaReadObserver` owns a read-only RepeatableRead transaction and binds
+native database identity before and after the complete observation on that same
+connection. It derives its composite target from the original entity inspector
+and recipe fact extractor, without a producer-identity substitute, and refuses
+unknown tables/effects rather than allowing rollup names. Both scopes retain the
+original complete native `ComputeObservationDigest` semantics. A migration journal
+is not approved by a table-name exception: its original owner's legitimate terminal
+runtime contract remains pending. The measurement alone grants nothing; the issuer
+still needs its sole session's observed database identity and independently verified
+owned target. Source-only parity/refusal cases are not actual PostgreSQL evidence,
+and no provider, startup or whole-issue qualification is claimed here.
 
 `tools/db/check-current-schema-authority.mjs` checks both the neutral contract
 and original Server extractor, and prevents a second production

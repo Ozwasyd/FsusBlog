@@ -41,6 +41,17 @@ only produces current-run mutation/terminal receipts and independently verifies 
 
 `src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from the Server-side `OnlineSchemaMigrationCatalog` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/shared/Contracts/Schema/` owns the single neutral current-schema description, identity/generation/projection/comparison and complete typed recipe-effect/owned-target contracts; it contains no provider SQL templates or legacy input. `src/backend/Infrastructure/SchemaMigration/` retains the current entity extractor/inspector, current-owned PostgreSQL recipes, their single fact extractor and read-only projection/artifact exporter, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. Migration's bootstrap compiler consumes independently bound neutral current facts, not Server code or a second handwritten current field mapping. Same-transaction observation, original apply/journal integration, actual owned export and native three-provider qualification remain pending; unknown capabilities fail closed and this source component does not qualify as full bootstrap. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
 
+`src/shared/Algorithms/Schema/` owns the single current-only PostgreSQL native catalog,
+expression/effect reader and comparer. Its connection boundary is the BCL
+`DbConnection`/`DbTransaction`; it has no provider package, Server/Migration dependency,
+legacy mapping, journal validation or DDL authority. Server and Migration consume
+the same measurement/comparison implementation. Migration retains its original
+owned-artifact and journal validation wrapper. Server derives the composite target
+from its sole entity extractor and original recipe fact extractor, then reads all
+native schema effects on one read-only snapshot. Unknown control tables are not
+admitted by name; the migration journal's legitimate terminal/runtime contract
+and actual native qualification remain separate pending work.
+
 ## Configuration ownership
 
 Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.

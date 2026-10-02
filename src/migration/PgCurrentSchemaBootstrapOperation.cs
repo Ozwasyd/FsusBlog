@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Shared.Algorithms;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Migration;
 

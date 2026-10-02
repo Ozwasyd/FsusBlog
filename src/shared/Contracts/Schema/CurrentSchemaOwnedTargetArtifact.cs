@@ -24,26 +24,35 @@ public static class CurrentSchemaOwnedTargetProjection
     public static CurrentSchemaIdentity Observe(CurrentSchemaBootstrapInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        CurrentSchemaCanonicalAuthority.VerifyIdentity(input.EntityProjection.Schema, input.EntityProjection.Identity);
-        if (input.RequiredRecipes.Count == 0 || input.RequiredRecipes.Any(static reference =>
+        return Observe(input.EntityProjection, input.RequiredRecipes);
+    }
+
+    /// <summary>Projects the same original owner facts without inventing an artifact producer identity for a live reader.</summary>
+    public static CurrentSchemaIdentity Observe(CurrentSchemaProjection entityProjection,
+        IReadOnlyList<CurrentSchemaRequiredRecipeReference> requiredRecipes)
+    {
+        ArgumentNullException.ThrowIfNull(entityProjection);
+        ArgumentNullException.ThrowIfNull(requiredRecipes);
+        CurrentSchemaCanonicalAuthority.VerifyIdentity(entityProjection.Schema, entityProjection.Identity);
+        if (requiredRecipes.Count == 0 || requiredRecipes.Any(static reference =>
             reference.SemanticDescription is null || reference.TableName != reference.SemanticDescription.Table.Name
             || reference.RecipeDigest.Length != 64
             || reference.RecipeDigest.Any(static value => value is not (>= '0' and <= '9' or >= 'a' and <= 'f')))
-            || input.RequiredRecipes.Select(static reference => reference.TableName).Distinct(StringComparer.Ordinal).Count() != input.RequiredRecipes.Count)
+            || requiredRecipes.Select(static reference => reference.TableName).Distinct(StringComparer.Ordinal).Count() != requiredRecipes.Count)
         {
             throw new InvalidOperationException("current_schema_owned_target_recipe_closure_invalid");
         }
         string source = Hash(JsonSerializer.Serialize(new
         {
-            Entity = input.EntityProjection.Identity.SourceDigest,
-            Recipes = input.RequiredRecipes.Select(static reference => new { reference.TableName, reference.RecipeDigest }).ToArray()
+            Entity = entityProjection.Identity.SourceDigest,
+            Recipes = requiredRecipes.Select(static reference => new { reference.TableName, reference.RecipeDigest }).ToArray()
         }));
         string content = Hash(JsonSerializer.Serialize(new
         {
-            Entity = input.EntityProjection.Identity.ContentDigest,
-            Recipes = input.RequiredRecipes.Select(static reference => reference.SemanticDescription).ToArray()
+            Entity = entityProjection.Identity.ContentDigest,
+            Recipes = requiredRecipes.Select(static reference => reference.SemanticDescription).ToArray()
         }));
-        return input.EntityProjection.Identity with { SourceDigest = source, ContentDigest = content };
+        return entityProjection.Identity with { SourceDigest = source, ContentDigest = content };
     }
 
     private static string Hash(string value)

@@ -7,6 +7,7 @@ using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Server.Tests;
 
@@ -210,11 +211,12 @@ public sealed class CurrentSchemaReceiptTests
     public async Task ReadObserver_ValidSchemaReturnsCanonicalAndActualIdentities()
     {
         var inspector = new ReceiptSchemaInspector();
-        var observer = new CurrentSchemaReadObserver(null!, inspector);
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
 
         CurrentSchemaReadObservation observation = await observer.ReadAsync(CancellationToken.None);
 
-        Assert.Equal(inspector.Canonical.Identity, observation.CanonicalIdentity);
+        Assert.Equal(inspector.CompleteIdentity, observation.CanonicalIdentity);
+        Assert.NotEqual(inspector.Canonical.Identity, observation.CanonicalIdentity);
         Assert.Equal(
             CurrentSchemaCanonicalAuthority.ComputeObservationDigest(inspector.Actual.Tables),
             observation.ActualDigest);
@@ -230,7 +232,7 @@ public sealed class CurrentSchemaReceiptTests
     public async Task ReadObserver_ActualSchemaDriftFailsClosed(string drift)
     {
         var inspector = new ReceiptSchemaInspector();
-        var observer = new CurrentSchemaReadObserver(null!, inspector);
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
         _ = await observer.ReadAsync(CancellationToken.None);
         var tables = inspector.Actual.Tables.ToDictionary(
             static table => table.Key,
@@ -269,14 +271,14 @@ public sealed class CurrentSchemaReceiptTests
 
         Assert.Equal("fsusblog.current-schema.mismatch", exception.MismatchRef);
         Assert.NotEmpty(exception.Errors);
-        Assert.Equal(inspector.Canonical.Identity.ContentDigest, exception.ExpectedDigest);
+        Assert.Equal(inspector.CompleteIdentity.ContentDigest, exception.ExpectedDigest);
     }
 
     [Fact]
     public async Task ReadObserver_UnreadableSchemaDoesNotBecomeAnObservation()
     {
         var inspector = new ReceiptSchemaInspector { ReadFailure = new InvalidOperationException("unavailable") };
-        var observer = new CurrentSchemaReadObserver(null!, inspector);
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
 
         CurrentSchemaMismatchException exception = await Assert.ThrowsAsync<CurrentSchemaMismatchException>(
             () => observer.ReadAsync(CancellationToken.None));
@@ -289,7 +291,7 @@ public sealed class CurrentSchemaReceiptTests
     public async Task ReadObserver_CancellationBeforeReadDoesNotRead()
     {
         var inspector = new ReceiptSchemaInspector();
-        var observer = new CurrentSchemaReadObserver(null!, inspector);
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
@@ -302,13 +304,163 @@ public sealed class CurrentSchemaReceiptTests
     public async Task ReadObserver_CancellationDuringReadDoesNotPublishObservation()
     {
         var inspector = new ReceiptSchemaInspector();
-        var observer = new CurrentSchemaReadObserver(null!, inspector);
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
         using var cancellation = new CancellationTokenSource();
         inspector.OnRead = cancellation.Cancel;
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => observer.ReadAsync(cancellation.Token));
 
         Assert.Equal(1, inspector.ReadCount);
+    }
+
+    [Theory]
+    [InlineData("missing-recipe-table")]
+    [InlineData("missing-recipe-column")]
+    [InlineData("unknown-control-table")]
+    [InlineData("default")]
+    [InlineData("check")]
+    [InlineData("predicate")]
+    [InlineData("sequence")]
+    [InlineData("function")]
+    [InlineData("trigger")]
+    [InlineData("duplicate-effect")]
+    [InlineData("string-context")]
+    public async Task ReadObserver_CompleteOriginalRecipeEffectsRejectDriftAfterPositiveControl(string drift)
+    {
+        var inspector = new ReceiptSchemaInspector();
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
+        CurrentSchemaReadObservation valid = await observer.ReadAsync(CancellationToken.None);
+        Assert.Equal(inspector.CompleteIdentity, valid.CanonicalIdentity);
+        PgCurrentSchemaEffectObservation original = inspector.Effects;
+        string recipe = CurrentSchemaRuntimeRollupTables.TableNames.First();
+        var tables = inspector.Actual.Tables.ToDictionary(static entry => entry.Key, static entry => entry.Value,
+            StringComparer.Ordinal);
+        switch (drift)
+        {
+            case "missing-recipe-table":
+                tables.Remove(recipe);
+                break;
+            case "missing-recipe-column":
+                SchemaTableModel table = tables[recipe];
+                var columns = new Dictionary<string, SchemaColumnModel>(table.Columns, StringComparer.Ordinal);
+                columns.Remove(columns.Keys.First());
+                tables[recipe] = new SchemaTableModel(table.Name, columns, table.Indexes,
+                    table.IndexDefinitions, table.Constraints, table.Owner);
+                break;
+            case "unknown-control-table":
+                tables.Add("__fsus_schema_offline_apply_journal", new SchemaTableModel("__fsus_schema_offline_apply_journal", [], []));
+                break;
+            case "default":
+            case "check":
+            case "predicate":
+                string kind = drift == "predicate" ? "index-predicate" : drift;
+                PgCurrentRawExpression expression = original.Expressions.First(value => value.Kind == kind);
+                inspector.Effects = original with { Expressions = original.Expressions.Select(value =>
+                    value == expression ? value with { Expression = drift == "default" ? "987654321" : "TRUE" } : value).ToArray() };
+                break;
+            case "sequence":
+                inspector.Effects = original with { Sequences = [original.Sequences[0] with { Increment = 2 }, .. original.Sequences.Skip(1)] };
+                break;
+            case "function":
+                inspector.Effects = original with { Functions = [original.Functions[0] with { SecurityDefiner = true }, .. original.Functions.Skip(1)] };
+                break;
+            case "trigger":
+                inspector.Effects = original with { Triggers = [original.Triggers[0] with { Enabled = "D" }, .. original.Triggers.Skip(1)] };
+                break;
+            case "duplicate-effect":
+                inspector.Effects = original with { Functions = [.. original.Functions, original.Functions[0]] };
+                break;
+            case "string-context":
+                inspector.Effects = original with { StandardConformingStrings = false };
+                break;
+            default:
+                throw new InvalidOperationException("Unknown complete native drift.");
+        }
+        inspector.Actual = new SchemaModelSnapshot(tables, provider: SchemaProviderKind.PostgreSql);
+
+        CurrentSchemaMismatchException rejected = await Assert.ThrowsAsync<CurrentSchemaMismatchException>(
+            () => observer.ReadAsync(CancellationToken.None));
+
+        Assert.NotEmpty(rejected.Errors);
+        Assert.Equal(inspector.CompleteIdentity.ContentDigest, rejected.ExpectedDigest);
+    }
+
+    [Fact]
+    public async Task ReadObserver_UnitNativeFactsCannotBecomeDatabaseAdmission()
+    {
+        var inspector = new ReceiptSchemaInspector();
+        var observer = new CurrentSchemaReadObserver(inspector, inspector.ReadNativeAsync);
+        _ = await observer.ReadAsync(CancellationToken.None);
+
+        InvalidOperationException rejected = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => observer.ReadAdmissionAsync(CancellationToken.None));
+
+        Assert.Equal("current_schema_native_admission_requires_actual_database", rejected.Message);
+        Assert.Equal(1, inspector.ReadCount);
+    }
+
+    private static PgCurrentSchemaEffectObservation CreateEffects(CurrentSchemaCompletePhysicalProjection complete)
+    {
+        var expressions = new List<PgCurrentRawExpression>();
+        foreach (SchemaTableModel table in complete.Tables.Tables.Values)
+        {
+            foreach (SchemaColumnModel column in table.Columns.Values)
+            {
+                if (column.GenerationKind == "owned-sequence-default")
+                {
+                    SchemaOwnedSequenceModel sequence = column.OwnedSequence!;
+                    expressions.Add(new("default", table.Name, column.Name,
+                        $"nextval('{sequence.Schema}.{sequence.Name}'::regclass)", [], [$"{sequence.Schema}.{sequence.Name}"]));
+                }
+                else if (!column.IsIdentity && column.DefaultValue is string value)
+                {
+                    string raw = column.DataType == "string" && !value.StartsWith('\'')
+                        && !value.Equals("NULL", StringComparison.OrdinalIgnoreCase)
+                        ? "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'::text" : value;
+                    expressions.Add(new("default", table.Name, column.Name, raw, [], []));
+                }
+            }
+            foreach (SchemaConstraintModel constraint in table.Constraints.Values.Where(static value => value.Kind == "check"))
+            {
+                SchemaExpressionNode node = PgCurrentSchemaExpressionParser.Parse(constraint.Expression!, table.Columns);
+                expressions.Add(new("check", table.Name, constraint.Name, constraint.Expression!,
+                    BoundColumns(node).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(), []));
+            }
+            foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static value => value.Predicate is not null))
+            {
+                expressions.Add(new("index-predicate", table.Name, index.Name, index.Predicate!, [], []));
+            }
+        }
+        var sequences = new List<PgCurrentSequence>();
+        var functions = new List<PgCurrentFunction>();
+        var triggers = new Dictionary<string, PgCurrentTrigger>(StringComparer.Ordinal);
+        foreach (CurrentSchemaRecipeOperation operation in complete.SchemaEffects)
+        {
+            switch (operation.Kind)
+            {
+                case CurrentSchemaRecipeOperationKind.CreateSequence:
+                    sequences.Add(new(operation.Name, "bigint", 1, 1, 1, long.MaxValue, 1, false));
+                    break;
+                case CurrentSchemaRecipeOperationKind.DefineImmutableGuard:
+                    functions.Add(new(operation.Name, "plpgsql", "trigger", 0,
+                        $"BEGIN RAISE EXCEPTION '{operation.ErrorCode}'; END;", "v", false, false, "u", false, null));
+                    break;
+                case CurrentSchemaRecipeOperationKind.RemoveTrigger:
+                    triggers.Remove(operation.Table + "." + operation.Name);
+                    break;
+                case CurrentSchemaRecipeOperationKind.CreateImmutableTrigger:
+                    triggers.Add(operation.Table + "." + operation.Name,
+                        new(operation.Table!, operation.Name, operation.Function!, 27, "O", null, 0, "", false, false, false, null, null));
+                    break;
+                default:
+                    throw new InvalidOperationException("Unknown current fixture effect.");
+            }
+        }
+        return new(true, expressions, sequences, functions, triggers.Values.ToArray());
+
+        static IEnumerable<string> BoundColumns(SchemaExpressionNode node)
+            => (node.Kind == "column" ? new[] { node.Value } : Array.Empty<string>())
+                .Concat(node.Arguments.SelectMany(BoundColumns));
     }
 
     private static CurrentSchemaReceipt CreateReceipt()
@@ -352,19 +504,19 @@ public sealed class CurrentSchemaReceiptTests
         public ReceiptSchemaInspector()
         {
             Canonical = CurrentSchemaEntityExtractor.Extract([typeof(ReceiptSchemaEntity)]);
-            SchemaModelSnapshot current = CurrentSchemaCanonicalAuthority.ProjectProvider(
-                Canonical,
-                SchemaProviderKind.PostgreSql);
-            var tables = current.Tables.ToDictionary(static table => table.Key, static table => table.Value);
-            foreach (string required in CurrentSchemaRuntimeRollupTables.TableNames)
-            {
-                tables.TryAdd(required, new SchemaTableModel(required, [], []));
-            }
-            Actual = new SchemaModelSnapshot(tables, provider: SchemaProviderKind.PostgreSql);
+            CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(Canonical);
+            IReadOnlyList<CurrentSchemaRequiredRecipeReference> recipes = CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes();
+            CompleteIdentity = CurrentSchemaOwnedTargetProjection.Observe(entity, recipes);
+            CurrentSchemaCompletePhysicalProjection complete = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+                entity, recipes, SchemaProviderKind.PostgreSql);
+            Actual = complete.Tables;
+            Effects = CreateEffects(complete);
         }
 
         public CurrentSchemaCanonicalModel Canonical { get; }
+        public CurrentSchemaIdentity CompleteIdentity { get; }
         public SchemaModelSnapshot Actual { get; set; }
+        public PgCurrentSchemaEffectObservation Effects { get; set; }
         public Exception? ReadFailure { get; init; }
         public Action? OnRead { get; set; }
         public int ReadCount { get; private set; }
@@ -383,6 +535,15 @@ public sealed class CurrentSchemaReceiptTests
             return ReadFailure is null
                 ? Task.FromResult(Actual)
                 : Task.FromException<SchemaModelSnapshot>(ReadFailure);
+        }
+
+        public Task<PgCurrentSchemaNativeObservation> ReadNativeAsync(CancellationToken cancellationToken)
+        {
+            ReadCount++;
+            OnRead?.Invoke();
+            return ReadFailure is null
+                ? Task.FromResult(new PgCurrentSchemaNativeObservation(Actual, Effects))
+                : Task.FromException<PgCurrentSchemaNativeObservation>(ReadFailure);
         }
 
         public Task ValidateAsync(

@@ -4,26 +4,33 @@ using System.Text.RegularExpressions;
 
 using FsusBlog.Contracts.Schema;
 
-namespace FsusBlog.Migration;
+namespace FsusBlog.Shared.Algorithms.Schema;
 
-internal sealed record PgCurrentRawExpression(string Kind, string Table, string Name, string Expression, string[] Columns, string[] SequenceReferences);
-internal sealed record PgCurrentSequence(string Name, string DataType, long Start, long Increment, long Minimum, long Maximum, long Cache, bool Cyclic);
-internal sealed record PgCurrentFunction(string Name, string Language, string ReturnType, int ArgumentCount, string Body,
+/// <summary>Untruncated native expression and actual column/sequence dependencies.</summary>
+public sealed record PgCurrentRawExpression(string Kind, string Table, string Name, string Expression, string[] Columns, string[] SequenceReferences);
+/// <summary>Native unowned sequence configuration, not its mutable current value.</summary>
+public sealed record PgCurrentSequence(string Name, string DataType, long Start, long Increment, long Minimum, long Maximum, long Cache, bool Cyclic);
+/// <summary>Native function body and full current-contract execution/security semantics.</summary>
+public sealed record PgCurrentFunction(string Name, string Language, string ReturnType, int ArgumentCount, string Body,
     string Volatility, bool Strict, bool SecurityDefiner, string Parallel, bool Leakproof, string? Configuration,
     string Kind = "f", bool ReturnsSet = false, bool Variadic = false, int DefaultArguments = 0, string? AllArgumentTypes = null,
     string? ArgumentModes = null);
-internal sealed record PgCurrentTrigger(string Table, string Name, string Function, int Type, string Enabled, string? Condition,
+/// <summary>Native trigger identity, invocation shape and enabled/constraint semantics.</summary>
+public sealed record PgCurrentTrigger(string Table, string Name, string Function, int Type, string Enabled, string? Condition,
     int ArgumentCount, string ArgumentsHex, bool Constraint, bool Deferrable, bool InitiallyDeferred, string? OldTable, string? NewTable,
     string ColumnNumbers = "", bool IsClone = false);
-internal sealed record PgCurrentSchemaEffectObservation(bool StandardConformingStrings,
+/// <summary>Actual current PostgreSQL expression/effect facts and their string interpretation context.</summary>
+public sealed record PgCurrentSchemaEffectObservation(bool StandardConformingStrings,
     IReadOnlyList<PgCurrentRawExpression> Expressions, IReadOnlyList<PgCurrentSequence> Sequences,
     IReadOnlyList<PgCurrentFunction> Functions, IReadOnlyList<PgCurrentTrigger> Triggers);
 
 // Generic actual catalog measurement on the caller's sole native snapshot. Raw
 // expression/body bytes remain available; no truncated default substitutes for them.
-internal static class PgCurrentSchemaEffectObserver
+/// <summary>Measures complete actual current effects on the caller's sole native snapshot; never issues admission.</summary>
+public static class PgCurrentSchemaEffectObserver
 {
-    internal static async Task<PgCurrentSchemaEffectObservation> ReadAsync(
+    /// <summary>Reads raw expressions and sequence/function/trigger facts on the existing native RR transaction.</summary>
+    public static async Task<PgCurrentSchemaEffectObservation> ReadAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         RequireSnapshot(connection, transaction);
@@ -143,7 +150,8 @@ internal static class PgCurrentSchemaEffectObserver
         return new(Text(rows.Rows[0], "value") == "on", expressions, sequences, functions, triggers);
     }
 
-    internal static IReadOnlyList<string> CompareEffects(CurrentSchemaCompletePhysicalProjection expected, PgCurrentSchemaEffectObservation actual)
+    /// <summary>Compares every expected nonrelational effect and rejects unknown, duplicate, missing or altered facts.</summary>
+    public static IReadOnlyList<string> CompareEffects(CurrentSchemaCompletePhysicalProjection expected, PgCurrentSchemaEffectObservation actual)
     {
         var errors = new List<string>();
         var sequences = new Dictionary<string, PgCurrentSequence>(StringComparer.Ordinal);
@@ -191,14 +199,16 @@ internal static class PgCurrentSchemaEffectObserver
         }
     }
 
-    internal static string ParseGuard(string body)
+    /// <summary>Decodes only the original immutable guard body grammar; unrelated executable bodies refuse.</summary>
+    public static string ParseGuard(string body)
     {
         Match match = Regex.Match(body, "^\\s*BEGIN\\s+RAISE\\s+EXCEPTION\\s+'(?<code>[a-z_][a-z0-9_]*)'\\s*;\\s*END\\s*;\\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
         return match.Success ? match.Groups["code"].Value : throw new InvalidOperationException("current_schema_pg_guard_body_unknown");
     }
 
-    internal static void RequireSnapshot(DbConnection connection, DbTransaction transaction)
+    /// <summary>Requires the actual open PostgreSQL connection and its same RepeatableRead transaction.</summary>
+    public static void RequireSnapshot(DbConnection connection, DbTransaction transaction)
     {
         if (connection.GetType().FullName != "Npgsql.NpgsqlConnection" || connection.State != ConnectionState.Open
             || !ReferenceEquals(transaction.Connection, connection) || transaction.IsolationLevel != IsolationLevel.RepeatableRead)

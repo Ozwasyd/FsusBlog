@@ -1,4 +1,5 @@
 using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 
 using Xunit;
 

@@ -11,6 +11,25 @@ namespace FsusBlog.Server.Tests;
 public sealed class CurrentSchemaOwnedProjectionExporterTests
 {
     [Fact]
+    public void LiveReaderProjectionOverloads_KeepTheOriginalCompositeIdentityAndPhysicalFacts()
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+            inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        IReadOnlyList<CurrentSchemaRequiredRecipeReference> recipes = CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes();
+        var producer = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+            new string('b', 64), new string('c', 64));
+        var input = new CurrentSchemaBootstrapInput(entity, producer, recipes);
+
+        CurrentSchemaIdentity composite = CurrentSchemaOwnedTargetProjection.Observe(input);
+        Assert.NotEqual(entity.Identity, composite);
+        Assert.Equal(composite, CurrentSchemaOwnedTargetProjection.Observe(entity, recipes));
+        CurrentSchemaCompletePhysicalProjection bound = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.PostgreSql);
+        CurrentSchemaCompletePhysicalProjection live = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(entity, recipes, SchemaProviderKind.PostgreSql);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(bound), System.Text.Json.JsonSerializer.Serialize(live));
+    }
+
+    [Fact]
     public async Task OriginalOwnerInvocation_PublishesCompleteFactsAndRetainsActualChildEvidence()
     {
         Assembly producerAssembly = typeof(CurrentSchemaOwnedProjectionExporter).Assembly;

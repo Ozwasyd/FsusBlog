@@ -77,13 +77,21 @@ public static class CurrentSchemaCanonicalAuthority
     /// <returns>The relational target and the separate effects which native observers/apply postconditions must still verify.</returns>
     public static CurrentSchemaCompletePhysicalProjection ProjectOwnedTarget(CurrentSchemaBootstrapInput input, SchemaProviderKind provider)
     {
-        CurrentSchemaIdentity target = CurrentSchemaOwnedTargetProjection.Observe(input);
-        if (provider != SchemaProviderKind.PostgreSql || input.RequiredRecipes.Any(reference => reference.Provider != provider))
+        ArgumentNullException.ThrowIfNull(input);
+        return ProjectOwnedTarget(input.EntityProjection, input.RequiredRecipes, provider);
+    }
+
+    /// <summary>Projects the same original entity/recipe facts for live read-only comparison, without a fabricated producer.</summary>
+    public static CurrentSchemaCompletePhysicalProjection ProjectOwnedTarget(CurrentSchemaProjection entityProjection,
+        IReadOnlyList<CurrentSchemaRequiredRecipeReference> requiredRecipes, SchemaProviderKind provider)
+    {
+        CurrentSchemaIdentity target = CurrentSchemaOwnedTargetProjection.Observe(entityProjection, requiredRecipes);
+        if (provider != SchemaProviderKind.PostgreSql || requiredRecipes.Any(reference => reference.Provider != provider))
         {
             throw new InvalidOperationException("current_schema_complete_target_provider_unavailable");
         }
-        var semantic = new Dictionary<string, SchemaTableModel>(input.EntityProjection.Schema.Tables, StringComparer.Ordinal);
-        foreach (CurrentSchemaRequiredRecipeReference reference in input.RequiredRecipes)
+        var semantic = new Dictionary<string, SchemaTableModel>(entityProjection.Schema.Tables, StringComparer.Ordinal);
+        foreach (CurrentSchemaRequiredRecipeReference reference in requiredRecipes)
         {
             if (!semantic.TryAdd(reference.TableName, reference.SemanticDescription!.Table))
             {
@@ -92,7 +100,7 @@ public static class CurrentSchemaCanonicalAuthority
         }
         SchemaModelSnapshot projected = ProjectProvider(Create(semantic, target.SourceDigest), provider);
         var tables = new Dictionary<string, SchemaTableModel>(projected.Tables, StringComparer.Ordinal);
-        foreach (CurrentSchemaRequiredRecipeReference reference in input.RequiredRecipes)
+        foreach (CurrentSchemaRequiredRecipeReference reference in requiredRecipes)
         {
             SchemaTableModel original = reference.SemanticDescription!.Table;
             SchemaTableModel physical = tables[reference.TableName];
@@ -117,7 +125,7 @@ public static class CurrentSchemaCanonicalAuthority
         }
         var schemaEffects = new List<CurrentSchemaRecipeOperation>();
         var dataEffects = new List<CurrentSchemaRecipeOperation>();
-        foreach (CurrentSchemaRecipeOperation operation in input.RequiredRecipes.SelectMany(static reference => reference.SemanticDescription!.AdditionalOperations))
+        foreach (CurrentSchemaRecipeOperation operation in requiredRecipes.SelectMany(static reference => reference.SemanticDescription!.AdditionalOperations))
         {
             if (operation.Kind is CurrentSchemaRecipeOperationKind.CreateSequence
                 or CurrentSchemaRecipeOperationKind.DefineImmutableGuard

@@ -4,17 +4,18 @@ using System.Text.Json;
 
 using FsusBlog.Contracts.Schema;
 
-namespace FsusBlog.Migration;
+namespace FsusBlog.Shared.Algorithms.Schema;
 
 /// <summary>
-/// Migration-owned measurement of the actual PostgreSQL catalog, not a current
+/// Single current-schema algorithm measuring the actual PostgreSQL catalog, not a current
 /// expected-schema producer. It uses only the caller's open native RR session and
 /// leaves connection, transaction, commit, target authority and admission ownership
 /// with the original caller. SQL never enters the neutral Shared contracts.
 /// </summary>
-internal static class PgCurrentSchemaCatalogObserver
+public static class PgCurrentSchemaCatalogObserver
 {
-    internal static async Task<SchemaModelSnapshot> ReadAsync(
+    /// <summary>Reads all public relational catalog facts on the caller's open PostgreSQL RR transaction.</summary>
+    public static async Task<SchemaModelSnapshot> ReadAsync(
         DbConnection connection,
         DbTransaction transaction,
         CancellationToken cancellationToken)
@@ -435,7 +436,8 @@ internal static class PgCurrentSchemaCatalogObserver
         return SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(dataType);
     }
 
-    internal static string NormalizePostgresForeignKeyAction(string? action)
+    /// <summary>Decodes the closed native foreign-key action vocabulary; unknown codes refuse.</summary>
+    public static string NormalizePostgresForeignKeyAction(string? action)
         => action switch
         {
             "a" => "no-action",
@@ -446,7 +448,8 @@ internal static class PgCurrentSchemaCatalogObserver
             _ => throw new InvalidOperationException($"Unsupported PostgreSQL foreign-key action: {action ?? "null"}.")
         };
 
-    internal static string NormalizePostgresForeignKeyMatchType(string? matchType)
+    /// <summary>Decodes native foreign-key match semantics without substituting a default.</summary>
+    public static string NormalizePostgresForeignKeyMatchType(string? matchType)
         => matchType switch
         {
             "s" => "simple",
@@ -455,7 +458,8 @@ internal static class PgCurrentSchemaCatalogObserver
             _ => throw new InvalidOperationException($"Unsupported PostgreSQL foreign-key match type: {matchType ?? "null"}.")
         };
 
-    internal static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(
+    /// <summary>Decodes complete native index-key metadata; expression keys outside the current contract refuse.</summary>
+    public static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(
         string? json,
         bool hasExpressions)
     {
@@ -512,7 +516,8 @@ internal static class PgCurrentSchemaCatalogObserver
         return keys;
     }
 
-    internal static string[] ParsePostgresIncludedColumns(string? json)
+    /// <summary>Preserves ordered native included-column identities and rejects malformed metadata.</summary>
+    public static string[] ParsePostgresIncludedColumns(string? json)
     {
         using JsonDocument document = JsonDocument.Parse(json ?? "null");
         if (document.RootElement.ValueKind != JsonValueKind.Array)
@@ -553,7 +558,8 @@ internal static class PgCurrentSchemaCatalogObserver
         return value;
     }
 
-    internal static string ResolvePostgresGenerationKind(
+    /// <summary>Checks native identity/default/owned-sequence consistency before selecting a generation kind.</summary>
+    public static string ResolvePostgresGenerationKind(
         string? identityKind,
         string? rawDefault,
         bool hasOwnedSequence)
@@ -657,7 +663,8 @@ internal static class PgCurrentSchemaCatalogObserver
         return Convert.ToBoolean(row[field]);
     }
 
-    internal static string NormalizePostgresCollation(string? value)
+    /// <summary>Decodes native default or schema-qualified collation identity without an unknown-value fallback.</summary>
+    public static string NormalizePostgresCollation(string? value)
     {
         string normalized = NormalizeRequiredPostgresIdentifier(value, "column collation");
         if (normalized != "n/a" && normalized != "default" && !normalized.Contains('.', StringComparison.Ordinal))
@@ -668,7 +675,8 @@ internal static class PgCurrentSchemaCatalogObserver
         return normalized;
     }
 
-    internal static string NormalizePostgresPhysicalType(string value)
+    /// <summary>Retains the original native physical-type normalization used by the physical snapshot digest.</summary>
+    public static string NormalizePostgresPhysicalType(string value)
     {
         string normalized = SchemaPhysicalTypeProjection.NormalizePhysical(value);
         return normalized switch
@@ -679,7 +687,8 @@ internal static class PgCurrentSchemaCatalogObserver
         };
     }
 
-    internal static string? NormalizePostgresDefault(string? rawDefault)
+    /// <summary>Retains the original catalog snapshot representation; full expression comparison uses raw native facts.</summary>
+    public static string? NormalizePostgresDefault(string? rawDefault)
     {
         if (string.IsNullOrWhiteSpace(rawDefault))
         {
