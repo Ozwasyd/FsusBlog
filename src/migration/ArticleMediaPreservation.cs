@@ -113,7 +113,9 @@ internal static class ArticleMediaPreservation
             files.Add(new(pair.Key, evidence.Bytes, evidence.Sha256, pair.Value.ToImmutableArray()));
         }
         var inventory = new ArticleMediaInventory(root.Identity, Hex(documents.GetHashAndReset()), files.ToImmutable(), total, "");
-        return inventory with { ManifestDigest = ComputeManifestDigest(inventory) };
+        inventory = inventory with { ManifestDigest = ComputeManifestDigest(inventory) };
+        ValidateInventory(inventory, limits);
+        return inventory;
     }
 
     public static async Task<ArticleMediaPublication> StageAndPublishAsync(ArticleMediaInventory inventory,
@@ -137,7 +139,7 @@ internal static class ArticleMediaPreservation
         using var published = parent.TryOpenDirectory(targetDirectoryName);
         if (published is not null)
         {
-            await published.VerifyAsync(inventory.Files, limits.FileBytes, token);
+            await published.VerifyAsync(inventory.Files, limits.FileBytes, limits.MetadataBytes, token);
             await VerifySourceAsync(source, inventory, limits, token);
             var existing = new ArticleMediaPublication(binding, published.Identity);
             if (state == ArticleMediaJournalState.Prepared)
@@ -150,14 +152,14 @@ internal static class ArticleMediaPreservation
         {
             foreach (var file in inventory.Files)
                 await stage.CopyVerifiedAsync(source, file, limits.FileBytes, token);
-            await stage.VerifyAsync(inventory.Files, limits.FileBytes, token);
+            await stage.VerifyAsync(inventory.Files, limits.FileBytes, limits.MetadataBytes, token);
             await VerifySourceAsync(source, inventory, limits, token);
         }
         // A crash after this rename but before journal CAS is recovered through the existing branch above.
         parent.Publish(stageName, targetDirectoryName);
         using var generation = parent.TryOpenDirectory(targetDirectoryName)
             ?? throw new ArticleMediaException("published_generation_missing");
-        await generation.VerifyAsync(inventory.Files, limits.FileBytes, token);
+        await generation.VerifyAsync(inventory.Files, limits.FileBytes, limits.MetadataBytes, token);
         var publication = new ArticleMediaPublication(binding, generation.Identity);
         await journal.RecordPublishedAsync(publication, ArticleMediaJournalState.Prepared, token);
         // This is physical publication evidence, never a database commit or an apply step proof.
@@ -372,6 +374,7 @@ internal static class ArticleMediaPreservation
                 metadata = checked(metadata + s_strictUtf8.GetByteCount(file.RelativePath) + s_strictUtf8.GetByteCount(alias.Url) + 64);
             }
         }
+        metadata = checked(metadata + ArticleMediaDirectory.CountDirectoryMetadataBytes(inventory.Files, limits.MetadataBytes));
         if (bytes != inventory.TotalBytes || bytes > limits.TotalBytes || metadata > limits.MetadataBytes || references > limits.References || articles.Count > limits.Articles)
             throw new ArticleMediaException("inventory_budget");
         if (ComputeManifestDigest(inventory) != inventory.ManifestDigest) throw new ArticleMediaException("inventory_binding");

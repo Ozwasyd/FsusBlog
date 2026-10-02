@@ -144,6 +144,20 @@ public sealed class ArticleMediaPreservationTests
     }
 
     [Fact]
+    public async Task Inventory_AccountsForAllDeepDirectoryPrefixesBeforeTargetWrites()
+    {
+        using var fixture = new MediaFixture();
+        var relative = string.Join('/', Enumerable.Repeat("deep", 20)) + "/a.bin";
+        fixture.WriteSource(relative, [1]);
+        var markdown = "[a](/uploads/" + relative + ")";
+        var small = s_limits with { MetadataBytes = 1000 };
+        var error = await Assert.ThrowsAsync<ArticleMediaException>(() => ArticleMediaPreservation.InventoryAsync(
+            Articles(new(1, null, markdown, s_origin)), fixture.Source, s_origin, "/uploads/", small, default));
+        Assert.Equal("directory_metadata_budget", error.Message);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(fixture.Target));
+    }
+
+    [Fact]
     public async Task Publish_CopiesActualBytesAndCanResumeWithoutDuplicateGeneration()
     {
         using var fixture = new MediaFixture();

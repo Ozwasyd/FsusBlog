@@ -170,19 +170,10 @@ internal sealed class ArticleMediaDirectory : IDisposable
         Sync(destination._handle);
     }
 
-    public async Task VerifyAsync(ImmutableArray<ArticleMediaFile> expected, long maximumBytes, CancellationToken token)
+    public async Task VerifyAsync(ImmutableArray<ArticleMediaFile> expected, long maximumBytes, long maximumMetadataBytes, CancellationToken token)
     {
         var files = expected.ToDictionary(file => file.RelativePath, StringComparer.Ordinal);
-        var directories = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var path in files.Keys)
-        {
-            var slash = path.IndexOf('/');
-            while (slash >= 0)
-            {
-                directories.Add(path[..slash]);
-                slash = path.IndexOf('/', slash + 1);
-            }
-        }
+        var directories = CollectDirectories(expected, maximumMetadataBytes, out _);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Stack<string>();
         pending.Push("");
@@ -207,6 +198,34 @@ internal sealed class ArticleMediaDirectory : IDisposable
             }
         }
         if (seen.Count != files.Count) throw new ArticleMediaException("generation_readset_missing");
+    }
+
+    internal static long CountDirectoryMetadataBytes(ImmutableArray<ArticleMediaFile> files, long budget)
+    {
+        CollectDirectories(files, budget, out var bytes);
+        return bytes;
+    }
+
+    private static HashSet<string> CollectDirectories(ImmutableArray<ArticleMediaFile> files, long budget, out long bytes)
+    {
+        var directories = new HashSet<string>(StringComparer.Ordinal);
+        bytes = 0;
+        foreach (var file in files)
+        {
+            var path = file.RelativePath;
+            var slash = path.IndexOf('/');
+            while (slash >= 0)
+            {
+                var prefix = path[..slash];
+                if (directories.Add(prefix))
+                {
+                    bytes = checked(bytes + System.Text.Encoding.UTF8.GetByteCount(prefix) + 64);
+                    if (bytes > budget) throw new ArticleMediaException("directory_metadata_budget");
+                }
+                slash = path.IndexOf('/', slash + 1);
+            }
+        }
+        return directories;
     }
 
     private ArticleMediaDirectory OpenRelativeDirectory(string path)
