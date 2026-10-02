@@ -5,6 +5,7 @@ namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 /// <summary>Runs the original current owner without starting the Web host or observing a database.</summary>
 public static class CurrentSchemaOwnedTargetExportCommand
 {
+    /// <summary>The explicit read-only producer command; it does not select a runtime host mode.</summary>
     public const string Command = "export-current-schema-owned-target";
 
     /// <summary>Recognizes the export-only command before runtime host configuration.</summary>

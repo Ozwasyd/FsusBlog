@@ -76,7 +76,7 @@ internal sealed class OwnedCurrentSchemaTarget
         }
         RequireRegularPath(assemblyPath);
         RequireRegularPath(outputRoot);
-        string revision = ReadOriginalOwnerSourceRevision(assemblyPath);
+        string revision = ReadOriginalOwnerSourceRevision(assemblyPath, cancellationToken);
         if (revision != expectedSourceRevision)
         {
             throw new InvalidOperationException("current_schema_owned_producer_source_mismatch");
@@ -121,7 +121,7 @@ internal sealed class OwnedCurrentSchemaTarget
                 throw new InvalidOperationException($"current_schema_owned_producer_failed:{exitCode}");
             }
             RequireRegularPath(artifactPath);
-            byte[] bytes = await File.ReadAllBytesAsync(artifactPath, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await ReadOriginalBytesAsync(artifactPath, cancellationToken).ConfigureAwait(false);
             CurrentSchemaOwnedTargetArtifact artifact = ReadArtifact(bytes, expectedProducer);
             var execution = new CurrentSchemaProducerExecution(assemblyPath, revision, dotnetHost, hostDigest,
                 before, evidenceDirectory, artifactPath, Hash(bytes), exitCode);
@@ -313,9 +313,10 @@ internal sealed class OwnedCurrentSchemaTarget
         return result;
     }
 
-    private static string ReadOriginalOwnerSourceRevision(string assemblyPath)
+    private static string ReadOriginalOwnerSourceRevision(string assemblyPath, CancellationToken cancellationToken)
     {
-        using var stream = File.OpenRead(assemblyPath);
+        using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(assemblyPath, cancellationToken);
+        using var stream = new FileStream(handle, FileAccess.Read, 4096);
         using var pe = new PEReader(stream);
         MetadataReader reader = pe.GetMetadataReader();
         AssemblyDefinition assembly = reader.GetAssemblyDefinition();
@@ -379,8 +380,22 @@ internal sealed class OwnedCurrentSchemaTarget
 
     private static async Task<string> HashFileAsync(string path, CancellationToken cancellationToken)
     {
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(Path.GetFullPath(path), cancellationToken);
+        await using var stream = new FileStream(handle, FileAccess.Read, 4096);
         return Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();
+    }
+
+    private static async Task<byte[]> ReadOriginalBytesAsync(string path, CancellationToken cancellationToken)
+    {
+        using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, cancellationToken);
+        await using var stream = new FileStream(handle, FileAccess.Read, 4096);
+        byte[] bytes = new byte[checked((int)stream.Length)];
+        await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
+        if (await stream.ReadAsync(new byte[1], cancellationToken).ConfigureAwait(false) != 0)
+        {
+            throw new InvalidOperationException("current_schema_owned_artifact_changed_during_read");
+        }
+        return bytes;
     }
 
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
