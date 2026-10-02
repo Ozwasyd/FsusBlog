@@ -7,6 +7,75 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed partial class RevisionSourceDiffTests
 {
     [Fact]
+    public async Task ComputeAsync_MemoryRefusalStillRejectsDraftDriftAtCompletion()
+    {
+        var (engine, plan, reader, provider) = await SetupLowMemoryDraftAsync();
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(plan, DateTimeOffset.UtcNow);
+        await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        reader.Baseline = DraftPackage("epoch-b", 5, string.Concat(Enumerable.Repeat("x\n", 100)));
+        provider.Release.TrySetResult();
+
+        RevisionSourceDiffResult result = await pending;
+
+        Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
+        Assert.Equal("revision_compare_source_stale", result.Receipt.ReasonCode);
+        Assert.Equal(0, result.Receipt.EstimatedMemoryBytes);
+        Assert.Empty(result.Chunks);
+        Assert.Empty(result.BaseLines);
+        Assert.Empty(result.CompareLines);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_UnchangedDraftPublishesTheProspectiveMemoryRefusal()
+    {
+        var (engine, plan, _, provider) = await SetupLowMemoryDraftAsync();
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(plan, DateTimeOffset.UtcNow);
+        await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        provider.Release.TrySetResult();
+
+        RevisionSourceDiffResult result = await pending;
+
+        Assert.Equal(RevisionComparePlanStatus.BudgetExceeded, result.Status);
+        Assert.Equal("revision_diff_memory_budget_exceeded", result.Receipt.ReasonCode);
+        Assert.Equal(56_368, result.Receipt.EstimatedMemoryBytes);
+        Assert.Empty(result.Chunks);
+        Assert.Empty(result.BaseLines);
+        Assert.Empty(result.CompareLines);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_LowMemoryDraftRetainsCancellationPriority()
+    {
+        var (engine, plan, _, provider) = await SetupLowMemoryDraftAsync();
+        using var cancellation = new CancellationTokenSource();
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(plan, DateTimeOffset.UtcNow, cancellation.Token);
+        await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        provider.Release.TrySetResult();
+
+        RevisionSourceDiffResult result = await pending;
+
+        Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+        Assert.Equal("revision_diff_cancelled", result.Receipt.ReasonCode);
+        Assert.Equal(0, result.Receipt.EstimatedMemoryBytes);
+        Assert.Empty(result.Chunks);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_LowMemoryDraftRetainsExpiredObservationPriority()
+    {
+        var (engine, plan, _, provider) = await SetupLowMemoryDraftAsync();
+
+        RevisionSourceDiffResult result = await engine.ComputeAsync(plan, plan.Plan.ExpiresAtUtc.AddTicks(1));
+
+        Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
+        Assert.Equal("revision_compare_plan_expired", result.Receipt.ReasonCode);
+        Assert.Equal(0, result.Receipt.EstimatedMemoryBytes);
+        Assert.False(provider.Started.Task.IsCompleted);
+        Assert.Empty(result.Chunks);
+    }
+
+    [Fact]
     public async Task ComputeAsync_RejectsDenseSymbolsBeforeTokenWorkspaceAllocation()
     {
         byte[] baseline = Encoding.UTF8.GetBytes(new string('^', 250_000));
@@ -201,5 +270,33 @@ public sealed partial class RevisionSourceDiffTests
             };
             Assert.False(RevisionSourceDiffVerifier.Verify(plan, tampered));
         }
+    }
+
+    private static async Task<(RevisionSourceDiffEngine Engine, RevisionComparePlanBundle Plan,
+        MutableReader Reader, CoordinatedStructureProvider Provider)> SetupLowMemoryDraftAsync()
+    {
+        RevisionComparePackage draft = DraftPackage("epoch-a", 4, string.Concat(Enumerable.Repeat("x\n", 100)));
+        RevisionComparePackage historical = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1,
+            Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("y\n", 100))));
+        var reader = new MutableReader(draft, historical);
+        var request = new RevisionComparePlanRequest(
+            7,
+            new RevisionCompareReadContext(5, "primary", Guid.Parse("f6cc3f8c-b06f-437c-8c0f-91da744ad783")),
+            new RevisionCompareSourceSelector(RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key", ExpectedServerRevision: 4, DocumentEpoch: "epoch-a"),
+            new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 11),
+            new RevisionCompareOptions(RevisionCompareViewMode.Unified,
+                RevisionCompareWordSegmentation.UnicodeTextElementsV1, 3, true, ["title"]),
+            Budgets() with { MaxMemoryBytes = 20_000 },
+            "diff:7:draft:11",
+            DateTimeOffset.UtcNow.AddMinutes(5));
+        RevisionComparePlanResult planned = await new RevisionComparePlanner(reader).CreateAsync(request);
+        Assert.True(planned.IsSuccess, planned.Receipt.ReasonCode);
+        Assert.Equal(14_528, planned.Bundle!.Plan.Admission.InitialEstimatedMemoryBytes);
+        var provider = new CoordinatedStructureProvider(
+            Structure(draft.RawMarkdown.ToArray()), Structure(historical.RawMarkdown.ToArray()));
+        var engine = new RevisionSourceDiffEngine(new RevisionComparePlanVerifier(reader),
+            new RevisionMarkdownStructureAuthority([provider]));
+        return (engine, planned.Bundle!, reader, provider);
     }
 }

@@ -82,7 +82,20 @@ public sealed partial class RevisionSourceDiffEngine(
             }
 
             RevisionSourceDiffResult result = await Task.Run(
-                    () => ComputeVerified(bundle, baseStructure, compareStructure, linked.Token),
+                    () =>
+                    {
+                        try
+                        {
+                            return ComputeVerified(bundle, baseStructure, compareStructure, linked.Token);
+                        }
+                        catch (MemoryBudgetExceededException error)
+                        {
+                            // A worker refusal is still subject to cancellation,
+                            // expiry and exact package rereads before publication.
+                            return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded,
+                                "revision_diff_memory_budget_exceeded", error.RequestedBytes);
+                        }
+                    },
                     linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
@@ -105,13 +118,6 @@ public sealed partial class RevisionSourceDiffEngine(
             }
             linked.Token.ThrowIfCancellationRequested();
             return WithElapsed(result, stopwatch.ElapsedMilliseconds);
-        }
-        catch (MemoryBudgetExceededException error)
-        {
-            return WithElapsed(
-                Failure(bundle, RevisionComparePlanStatus.BudgetExceeded,
-                    "revision_diff_memory_budget_exceeded", error.RequestedBytes),
-                stopwatch.ElapsedMilliseconds);
         }
         catch (OperationCanceledException)
         {
