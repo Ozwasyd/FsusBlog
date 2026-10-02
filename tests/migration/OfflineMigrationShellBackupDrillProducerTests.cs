@@ -165,7 +165,7 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
     {
         // /dev/full is an actual kernel ENOSPC writer, not a status flag or an authenticated
         // package fixture. Only the internal IO-fault seam chooses it; production cannot.
-        using var fixture = new ShellFixture("trap 'exit 143' TERM\nwhile :; do printf '%8192s' x; printf '%8192s' y >&2; done\n");
+        using var fixture = new ShellFixture("trap 'printf teardown-stdout; printf teardown-stderr >&2; exit 143' TERM\nwhile :; do printf '%8192s' x; printf '%8192s' y >&2; done\n");
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.RunAsync(
             token: cancellation.Token, createRaw: path => path.EndsWith(".invocation." + pipe, StringComparison.Ordinal)
@@ -173,6 +173,8 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
                 : ShellFixture.CreateRaw(path)));
         Assert.Contains(pipe + "_pipe_failed", error.Message);
         Assert.DoesNotContain("invocation_failed_or_cancelled", error.Message);
+        string healthy = pipe == "stdout" ? "stderr" : "stdout";
+        Assert.Contains("teardown-" + healthy, File.ReadAllText(fixture.OutputRoot + ".invocation." + healthy));
         fixture.TerminalObserved = !error.Message.Contains("cleanup_unverified", StringComparison.Ordinal);
     }
 
@@ -223,6 +225,34 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
             }
         }
         Assert.Equal("writer-closed", File.ReadAllText(fixture.OutputRoot + ".invocation.stdout"));
+    }
+
+    [Fact]
+    public async Task LargeTermOutputIsFairlyRetainedBeforeActualTerminalNotBlockedOrDiscarded()
+    {
+        using var fixture = new ShellFixture("trap 'for ((i=0; i<512; i++)); do printf \"shutdown-stdout-%04d:%1024s\\n\" \"$i\" x; printf \"shutdown-stderr-%04d:%1024s\\n\" \"$i\" y >&2; done; printf stdout-terminal; printf stderr-terminal >&2; exit 143' TERM\nprintf ready >\"$FSUSBLOG_DRILL_OUTPUT_DIR.ready\"\nwhile :; do sleep 0.05; done\n");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task<OfflineMigrationBackupDrillTerminal> pending = fixture.RunAsync(token: cancellation.Token);
+        try
+        {
+            while (!File.Exists(fixture.OutputRoot + ".ready")) await Task.Delay(10, cancellation.Token);
+            cancellation.Cancel();
+            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => pending);
+            Assert.Equal("offline_backup_shell_invocation_failed_or_cancelled", error.Message);
+            fixture.TerminalObserved = true;
+            string stdout = File.ReadAllText(fixture.OutputRoot + ".invocation.stdout");
+            string stderr = File.ReadAllText(fixture.OutputRoot + ".invocation.stderr");
+            Assert.Equal(512, stdout.Split("shutdown-stdout-", StringSplitOptions.None).Length - 1);
+            Assert.Equal(512, stderr.Split("shutdown-stderr-", StringSplitOptions.None).Length - 1);
+            Assert.EndsWith("stdout-terminal", stdout);
+            Assert.EndsWith("stderr-terminal", stderr);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try { await pending; }
+            catch (InvalidOperationException) { }
+        }
     }
 
     private sealed class FixtureClock : TimeProvider

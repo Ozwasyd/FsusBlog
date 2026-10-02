@@ -367,6 +367,15 @@ test('original shell adapter owns nonblocking pipe reads and every actual raw wr
     assert.match(adapter, /flags \| 0x800/);
     assert.match(adapter, /stdoutPipe\?\.Dispose\(\);\s+stderrPipe\?\.Dispose\(\);/);
     assert.match(adapter, /"cleanup_unverified:" \+ firstCause/);
+    const cleanup = adapter.match(/private async Task<CleanupOutcome> StopOwnedAndDrainAsync[\s\S]*?\n    private static bool SignalOwned/);
+    assert.ok(cleanup);
+    assert.match(cleanup[0], /while \(!cleanupDeadline.IsCancellationRequested\)/);
+    assert.match(cleanup[0], /await stdoutPipe.TransferNextAsync/);
+    assert.match(cleanup[0], /await stderrPipe.TransferNextAsync/);
+    assert.match(cleanup[0], /groupTerminal && pipesTerminal/);
+    assert.match(cleanup[0], /captureStdout = false/);
+    assert.match(cleanup[0], /captureStderr = false/);
+    assert.match(adapter, /if \(destination is null\) return true/);
 });
 
 test('embedded operation JavaScript parses without importing or executing its production body', async () =>
