@@ -184,6 +184,13 @@ internal static class OfflineMigrationPostgreSqlNativeSession
                 }
             }
         }
+        ThrowAfterCleanup(failure, transactionCleanup, connectionCleanup, adapterCleanup, cancellationToken);
+        return result;
+    }
+
+    internal static void ThrowAfterCleanup(Exception? failure, CleanupState transactionCleanup,
+        CleanupState connectionCleanup, CleanupState adapterCleanup, CancellationToken cancellationToken)
+    {
         if (transactionCleanup == CleanupState.Unverified || connectionCleanup == CleanupState.Unverified
             || adapterCleanup == CleanupState.Unverified)
         {
@@ -196,13 +203,18 @@ internal static class OfflineMigrationPostgreSqlNativeSession
         }
         if (failure is not null)
         {
+            if (failure is OfflineMigrationSourceFingerprintException fingerprint)
+            {
+                // Only the closed, redacted owner type survives this boundary. This branch
+                // is reached after every actual disposal was awaited and none was unverified.
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(fingerprint).Throw();
+            }
             // Driver and callback exception messages/inner exceptions may contain credentials,
             // SQL or row data. Only this owner's fixed codes may cross the CLI/receipt boundary.
             string code = failure is NativeSessionFailure owned
                 ? owned.Message : "offline_source_native_operation_failed";
             throw new InvalidOperationException(code);
         }
-        return result;
     }
 
     internal enum CleanupState
@@ -220,6 +232,7 @@ internal static class OfflineMigrationPostgreSqlNativeSession
             null => "none",
             OperationCanceledException => "cancelled",
             NativeSessionFailure owned => owned.Message,
+            OfflineMigrationSourceFingerprintException fingerprint => fingerprint.Code,
             _ => "operation_failed"
         };
         // Fixed categories only: no primary/secondary driver text, SQL, rows or credentials.

@@ -71,8 +71,12 @@ public sealed class OfflineMigrationSourceObserverTests
         OfflineMigrationSourceObservation old = Observation(provider, true);
         Assert.Throws<InvalidOperationException>(() => registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
         Assert.Throws<InvalidOperationException>(() => registry.Match(old with { History = [new("history.state", "partial")] }));
-        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceFingerprints.RequireKnownSchema(provider,
-            old.Schema.Add(new("table/schema_migration", "base"))));
+        OfflineMigrationSourceFingerprintException schemaRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema.Add(new("table/schema_migration", "base"))));
+        Assert.Equal("source_fingerprint_unknown", schemaRefusal.Code);
+        Assert.Contains(schemaRefusal.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Schema
+            && difference.Kind == OfflineMigrationFingerprintDifferenceKind.Extra
+            && difference.FactNameSha256 == OfflineMigrationSourceFingerprintException.HashText("table/schema_migration"));
         Assert.False(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, empty.Schema));
         Assert.True(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema));
     }
@@ -256,7 +260,7 @@ public sealed class OfflineMigrationSourceObserverTests
     }
 
     [Theory]
-    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown:")]
+    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown")]
     [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'2026-05-17 10:00:00',2)", "offline_source_boolean_value_invalid")]
     [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'not-a-date',0)", "offline_source_sqlite_timestamp_value_invalid")]
     [InlineData("INSERT INTO category(id,name) VALUES(1,zeroblob(1))", "offline_source_sqlite_storage_class_invalid")]
@@ -265,8 +269,20 @@ public sealed class OfflineMigrationSourceObserverTests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             await WriteSqliteAsync(path, sql, null, cancellation);
-            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
-            Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
+            if (refusal == "source_fingerprint_unknown")
+            {
+                OfflineMigrationSourceFingerprintException error = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() =>
+                    ReadSqliteAsync(path, cancellation));
+                Assert.Equal(refusal, error.Code);
+                Assert.Contains(error.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Schema
+                    && difference.Kind == OfflineMigrationFingerprintDifferenceKind.Extra
+                    && difference.FactNameSha256 == OfflineMigrationSourceFingerprintException.HashText("table/unknown_source"));
+            }
+            else
+            {
+                InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
+                Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
+            }
         });
     }
 
