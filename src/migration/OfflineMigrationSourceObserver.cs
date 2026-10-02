@@ -76,9 +76,9 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
     /// dump child has terminated and its pre-bound file has been independently hashed.
     /// The callback is transport/lifecycle coordination, not backup authentication.
     /// </summary>
-    public async Task<(OfflineMigrationSourceObservation Source, string SnapshotId, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
+    public async Task<(OfflineMigrationSourceObservation Source, string SnapshotId, DateTimeOffset CapturedAt, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
         string connectionString,
-        Func<OfflineMigrationSourceObservation, string, CancellationToken, Task<string>> awaitCompletedDumpPath,
+        Func<OfflineMigrationSourceObservation, string, DateTimeOffset, CancellationToken, Task<string>> awaitCompletedDumpPath,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(awaitCompletedDumpPath);

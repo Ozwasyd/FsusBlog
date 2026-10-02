@@ -12,6 +12,12 @@ public sealed class OfflineMigrationSourceCommandLineTests
     private const string Digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     [Fact]
+    public void Observe_FactoryBindsActualHistoricalObserverWithoutOpeningSession()
+    {
+        Assert.IsType<OfflineMigrationSourceObserver>(OfflineMigrationPlanEvidence.CreateOwnedSourceObserver());
+    }
+
+    [Fact]
     public void Parse_SourceCaptureBindsProviderEnvironmentAndAbsoluteDumpBeforeReadingControl()
     {
         string dump = Path.GetFullPath("contract-test-dump");

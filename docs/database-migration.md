@@ -188,8 +188,10 @@ independently hashes the pre-bound dump, closes its read-only transaction, and o
 then the host emits completed capture evidence. EOF, unknown control or cancellation
 produces no completed evidence. MySQL/SQLite snapshot capture is explicitly unsupported
 until their actual owner capability exists. Stdio contract fixtures are not native
-database or backup proof, and the source-observer factory currently also refuses
-unconfigured owners rather than interpreting empty input as an empty database.
+database or backup proof. The source-observer factory binds the unique native
+session and historical observer; missing full-content provider capability refuses
+rather than interpreting empty input as an empty database. This source wiring is
+not evidence of native execution or an independent resource/backup admission.
 
 The migration-owned source-observation component registers the checked-in
 `2026-05-17` representative legacy shape, not an already qualified production dump.
@@ -224,10 +226,25 @@ verified by the current-receipt owner; the pure binding helper is not a receipt
 issuer or an execution grant.
 
 The current `CreateOwnedReader` fails with
-`schema_offline_plan_evidence_owner_not_configured`: the existing backup manifest
-and drill do not yet prove source instance/fingerprint binding, and the current-only
-schema observer cannot register historical source shapes. Contract-test observations
-are not production registry entries. Until those actual owner capabilities are
+`schema_offline_plan_evidence_owner_not_configured`: source profiles are registered,
+but the original backup owner still needs its authenticated read-only inspect port
+and exact drill-proof binding, and the complete current target/compiled operation
+closure is not configured. The Host-owned evidence consumer resolves complete
+authority before native or package work, consumes only that original authenticated
+backup port, then independently reads the actual source database. The complete
+backup admission port also owns a real invocation of the original restore-drill
+producer, its finite deadline and actual terminal, and the same invocation's new
+private raw/report artifacts. It consumes the producer's actual native restored
+observation before the task-owned isolated target is disposed; no later connection
+to that retired endpoint is required. Pure package inspect is only a partial proof
+and cannot implement that complete admission port. External manifest bytes must be the actual authenticated inner-manifest
+bytes, not an independently edited JSON approval. Package, manifest and drill
+references are bound to their exact canonical paths and actual byte digests. A
+caller report's restored-source field never substitutes for the owned native observation, and
+authority is re-read after observation to reject target/DAG/tool drift. A `status`
+field, six caller hashes or an entity-only target subset cannot supply a missing
+capability. Owner-port unit fixtures prove these consumer decisions only, not
+encryption authentication, a real database or backup restoration. Until those actual owner capabilities are
 integrated and independently verified, no CLI plan is admitted; the existing
 `schema_offline_contract_not_supported` guard remains unchanged. The typed contract,
 planner and source regressions alone are not three-provider or whole migration

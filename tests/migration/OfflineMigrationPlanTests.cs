@@ -88,6 +88,43 @@ public sealed class OfflineMigrationPlanTests
     }
 
     [Fact]
+    public async Task OwnedEvidence_ReadsActualSourceAndOwnedInvocationRestoreObservationsBeforeFreezing()
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        EvidenceFixture evidence = new(fixture);
+        VerifiedOfflineMigrationPlan verified = await OfflineMigrationPlanEvidence.ReadAndVerifyAsync(
+            evidence.Options, evidence.CreateReader(), CancellationToken.None);
+        Assert.Equal(fixture.Source, verified.Plan.Source);
+        Assert.Equal(evidence.Backup.RestoredSource, verified.Plan.Backup.RestoredSource);
+        Assert.Equal(new[] { "source.env" }, evidence.SourceConnections);
+        Assert.Equal(1, evidence.Inspections);
+        Assert.Equal(2, evidence.AuthorityReads);
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("restore")]
+    [InlineData("manifest")]
+    [InlineData("authority")]
+    public async Task OwnedEvidence_RejectsActualSourceRestoreAuthenticatedReferenceOrAuthorityDrift(string drift)
+    {
+        var evidence = new EvidenceFixture(CreateFixture(CurrentSchemaProviderKind.PostgreSql, true)) { Drift = drift };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => OfflineMigrationPlanEvidence.ReadAndVerifyAsync(
+            evidence.Options, evidence.CreateReader(), CancellationToken.None));
+        Assert.Equal(1, evidence.Inspections);
+    }
+
+    [Fact]
+    public async Task OwnedEvidence_MissingCompleteTargetRefusesBeforeCredentialBackupOrNativeReads()
+    {
+        var evidence = new EvidenceFixture(CreateFixture(CurrentSchemaProviderKind.PostgreSql, true)) { Drift = "missing-capability" };
+        Assert.Equal("contract_complete_target_missing", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationPlanEvidence.ReadAndVerifyAsync(evidence.Options, evidence.CreateReader(), CancellationToken.None))).Message);
+        Assert.Equal(0, evidence.Inspections);
+        Assert.Empty(evidence.SourceConnections);
+    }
+
+    [Fact]
     public void Plan_OneColumnDriftReportsExactDifferenceWithoutNearestBaseline()
     {
         Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
@@ -337,6 +374,80 @@ public sealed class OfflineMigrationPlanTests
             [new("entry", "source:exact", "target:entry", [], "idempotency:entry", true, resume, operations),
                 new("finish", "target:entry", "target:current", ["entry"], "idempotency:finish", false, resume, operations)]);
         return new(source, backup, target, tool, new("v1", Definitions()), dag);
+    }
+
+    // Pure owner-port fixtures, not authenticated packages, native databases or actual targets.
+    private sealed class EvidenceFixture : IOfflineMigrationSourceObserver,
+        IOfflineMigrationOwnedBackupAdmission, IOfflineMigrationPlanningAuthorityReader
+    {
+        private readonly Fixture _fixture;
+        internal EvidenceFixture(Fixture fixture)
+        {
+            _fixture = fixture;
+            Options = new(fixture.Source.Database, "source.env", Path.GetFullPath("contract-package"),
+                Path.GetFullPath("contract-manifest"), Path.GetFullPath("contract-drill"), "restore.env",
+                Path.GetFullPath("contract-plan"));
+            Backup = fixture.Backup with
+            {
+                Package = new(Options.BackupPackagePath, DigestA),
+                Manifest = new(Options.BackupManifestPath, DigestA),
+                RestoreDrill = new(Options.RestoreDrillPath, DigestA),
+                BackupOwner = "tools/operations/backup-site.sh",
+                BackupOwnerVersion = "3"
+            };
+        }
+
+        internal OfflineMigrationPlanCommandOptions Options { get; }
+        internal OfflineMigrationBackupObservation Backup { get; }
+        internal string? Drift { get; init; }
+        internal List<string> SourceConnections { get; } = [];
+        internal int Inspections { get; private set; }
+        internal int AuthorityReads { get; private set; }
+        internal IOfflineMigrationPlanningEvidence CreateReader()
+            => new OfflineMigrationOwnedPlanningEvidence(this, this, this, _fixture.Registry,
+                (path, token) => { token.ThrowIfCancellationRequested(); return Task.FromResult(path); }, new AdmissionClock());
+
+        public Task<OfflineMigrationBackupObservation> ReadAndVerifyAsync(OfflineMigrationPlanCommandOptions options, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            Assert.Equal(Options, options);
+            Inspections++;
+            OfflineMigrationBackupObservation result = Drift == "manifest"
+                ? Backup with { Manifest = new(Path.GetFullPath("another-manifest"), DigestA) }
+                : Drift == "restore" ? Backup with { RestoredSource = Backup.RestoredSource with { ContentDigest = DigestB } } : Backup;
+            return Task.FromResult(result);
+        }
+
+        public Task<OfflineMigrationSourceObservation> ObserveAsync(CurrentSchemaProviderKind provider, string connectionString, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            Assert.Equal(_fixture.Source.Database.Provider, provider);
+            SourceConnections.Add(connectionString);
+            OfflineMigrationSourceObservation source = _fixture.Source;
+            if (Drift == "source" && connectionString == "source.env")
+            {
+                source = source with { ContentDigest = DigestB };
+            }
+            return Task.FromResult(source);
+        }
+
+        public Task<OfflineMigrationPlanningAuthority> ReadAsync(CurrentSchemaProviderKind provider, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            AuthorityReads++;
+            if (Drift == "missing-capability")
+            {
+                throw new InvalidOperationException("contract_complete_target_missing");
+            }
+            var target = Drift == "authority" && AuthorityReads == 2
+                ? _fixture.Target with { SourceDigest = DigestB } : _fixture.Target;
+            return Task.FromResult(new OfflineMigrationPlanningAuthority(target, _fixture.Tool, _fixture.Dag, TimeSpan.FromHours(24)));
+        }
+
+        private sealed class AdmissionClock : TimeProvider
+        {
+            public override DateTimeOffset GetUtcNow() => AdmissionTime;
+        }
     }
 
     private sealed record Fixture(
