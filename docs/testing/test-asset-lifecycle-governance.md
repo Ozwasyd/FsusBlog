@@ -40,7 +40,13 @@ and the durable event roll back together without publishing. Injecting local
 projection facts alone cannot replace these mutation and transaction oracles.
 
 Admin validation, bounded last-seen scheduling, bearer-token propagation and
-credential/session binding are separate owners. Article-view projection behavior
+credential/session binding are separate owners. Default-handler bearer coverage
+must drive the real bounded validator through active acceptance and Invalid-to-401
+rejection, proving admin-only cookie clearing and ordinary-session isolation.
+Joined endpoint coverage must observe real credential/principal/session reads,
+challenge consumption, persisted session/token identity and row-version conflicts;
+a cryptographic verifier test port is not WebAuthn acceptance or distributed
+projection convergence. Article-view projection behavior
 and real Redis service reads jointly replace the retired per-request overlay;
 related-reading ranking, database command counting and benchmark budgets jointly
 replace private hot-path source shapes. An unresolved owner remains a failing

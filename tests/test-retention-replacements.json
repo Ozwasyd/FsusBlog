@@ -5138,9 +5138,13 @@
             "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate",
-                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen"
+                "xunit:tests/backend/Integration/AdminPasskeyJoinedEndpointPostgresTests.cs#AdminPasskeyJoinedEndpointPostgresTests.Login_JoinedCredentialAndPrincipalIssueMatchingPersistedSessionAndRejectReplay",
+                "xunit:tests/backend/Integration/AdminPasskeyJoinedEndpointPostgresTests.cs#AdminPasskeyJoinedEndpointPostgresTests.Login_JoinedReadRejectsMissingOrInactivePrincipalBeforeFidoAndSessionIssuance",
+                "xunit:tests/backend/Integration/AdminPasskeyJoinedEndpointPostgresTests.cs#AdminPasskeyJoinedEndpointPostgresTests.StepUp_JoinedOwnedCredentialAndLiveSessionMintOnlyBoundOneUseProof",
+                "xunit:tests/backend/Integration/AdminPasskeyJoinedEndpointPostgresTests.cs#AdminPasskeyJoinedEndpointPostgresTests.StepUp_JoinedReadRechecksCredentialPrincipalAndSessionBeforeFidoOrProof",
+                "xunit:tests/backend/Integration/AdminPasskeyJoinedEndpointPostgresTests.cs#AdminPasskeyJoinedEndpointPostgresTests.JoinedRowVersion_ConcurrentMetadataChangeRejectsAssertionWithoutSessionOrProof"
             ],
-            "reason": "Database concurrency and admin-session validation retain credential ownership and freshness behavior without private query text."
+            "reason": "Real binary login and step-up endpoints use PostgreSQL joined credential/principal/session reads and one-use Redis challenges/proofs. Actual command counts, persisted JWT/session hashes, missing/inactive/foreign/expired joins and a second writer's xmin change retain read-boundary, ownership and freshness assertions; the existing sign-count race retains concurrent update coverage. The verifier is a declared test port, not WebAuthn cryptographic acceptance or hot-projection convergence."
         },
         {
             "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyAssertion_SourceUsesOptimisticSignCountUpdate",
@@ -5305,9 +5309,10 @@
             "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_ValidateAdminSessionAfterTokenSignature",
             "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature"
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminBearer_InvalidRealProjectionReturns401AndClearsOnlyAdminCookies",
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminBearer_ActiveRealProjectionIsAcceptedWithoutOrdinaryValidation"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The production default JWT handler passes the validated encoded admin bearer to the real bounded AdminSessionValidationService. Active acceptance and unknown/revoked/expired/inactive-principal rejection exercise the token hash and Invalid-to-401 path, clear only admin cookies, never call the ordinary validator or synchronously read authority, and enqueue a touch only after acceptance. No synchronous cache/DB validator or retired password login is restored."
         },
         {
             "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_SourceUsesRowVersionGuardForLastSeenTouch",
