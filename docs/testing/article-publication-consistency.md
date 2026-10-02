@@ -45,3 +45,14 @@ worker, and repository data:
 - fault injection: failure in a publication record, pointer, or outbox write rolls back the transaction and leaves the old public version readable.
 
 Full production environments, PRs, releases, and external validation platforms are not acceptance requirements for this issue.
+
+The `public-minimal` fixture's published articles use the existing
+`ICanonicalArticlePublicationFixturePort` and `CanonicalArticlePublicationVerifier`,
+including revision/publication pointers, rights/responsibility bindings and outbox/audit
+evidence. A status-only article created without a verified publication cannot stand in
+for a published article in runtime-cache acceptance. The related-reading producer retains
+the actual response bytes for all 102 requests; its independent checker requires HTTP
+200, AEDS v2 `ArticleRelatedReading` type and valid payload CRC, same-key/hot byte parity,
+cold DB commands at most two, one same-key build, and a zero-command hot L1 frame.
+Negative-cache 404 responses cannot satisfy these assertions. Checker unit fixtures are
+not a substitute for the source-bound real PostgreSQL/Redis/Kestrel run.

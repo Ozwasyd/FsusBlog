@@ -431,7 +431,22 @@ public sealed class PublicContentFixtureSeeder(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        // public-minimal: exactly 3 published articles, stable relative order, mixed cover, distinct views.
+        ICanonicalArticlePublicationFixturePort publicationPort =
+            serviceProvider.GetService<ICanonicalArticlePublicationFixturePort>()
+            ?? throw new InvalidOperationException(
+                "canonical article publication fixture port is required for published public fixtures");
+        CanonicalArticleLifecycleFixtureBinding actorBinding = lifecycleBinding
+            ?? await BuildLifecycleBindingAsync(request, capabilities, cancellationToken).ConfigureAwait(false);
+        var publicationBinding = new CanonicalArticlePublicationFixtureBinding(
+            actorBinding.RunId,
+            actorBinding.Namespace,
+            "public-minimal",
+            actorBinding.Capabilities,
+            actorBinding.AdminPrincipalId,
+            ComputeDigest(CanonicalArticlePublicationFixturePort.DefaultWriterContract),
+            actorBinding.TemporalContextDigest);
+
+        // public-minimal: exactly 3 canonical publications, never status-only article rows.
         var publishedPlan = new[]
         {
             new SeedArticlePlan(
@@ -464,7 +479,14 @@ public sealed class PublicContentFixtureSeeder(
         string searchToken = "FXPC_PRIMARY_BODY";
         foreach (SeedArticlePlan plan in publishedPlan)
         {
-            int articleId = await CreateArticleAsync(plan, category.Id, tag.Id, cancellationToken).ConfigureAwait(false);
+            CanonicalArticlePublicationResult publication = await publicationPort.PublishAsync(
+                BuildPublishedArticleRequest(
+                    publicationBinding, plan.Role, plan.Title, plan.Markdown, plan.Summary,
+                    plan.CoverImageUrl, category.Id, tag.Id),
+                cancellationToken).ConfigureAwait(false);
+            (await CanonicalArticlePublicationVerifier.VerifyAsync(
+                db, publication.Receipt, cancellationToken).ConfigureAwait(false)).ThrowIfInvalid();
+            int articleId = publication.Receipt.ArticleId;
             await SetViewsAsync(articleId, plan.Views, cancellationToken).ConfigureAwait(false);
             publishedIds.Add(articleId);
             entityIdentities.Add(new("article", articleId.ToString(System.Globalization.CultureInfo.InvariantCulture), plan.Title, "article-published"));
@@ -484,6 +506,8 @@ public sealed class PublicContentFixtureSeeder(
                     ["isDeleted"] = false,
                     ["currentPublicationId"] = row.CurrentPublicationId,
                     ["currentRevisionId"] = row.CurrentRevisionId,
+                    ["publicationReceiptDigest"] = publication.Receipt.ReceiptDigest,
+                    ["publicationNo"] = publication.Receipt.PublicationNo,
                     ["revisionIds"] = revisionIds.Select(static id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray(),
                     ["publicDetailReadable"] = true,
                     ["featured"] = plan.CoverImageUrl is not null,
@@ -1646,6 +1670,28 @@ public sealed class PublicContentFixtureSeeder(
         using IDisposable executionScope = releaseExecutionContext.Push(ticket);
         await articleOutboxDispatcher.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    internal static CanonicalArticlePublicationRequest BuildPublishedArticleRequest(
+        CanonicalArticlePublicationFixtureBinding binding,
+        string role,
+        string title,
+        string markdown,
+        string? summary,
+        string? coverImageUrl,
+        int categoryId,
+        int tagId)
+        => new(
+            binding,
+            new CanonicalArticlePublicationPlan(
+                SemanticRole: role,
+                Title: title,
+                Content: markdown,
+                Summary: summary,
+                CoverImageUrl: coverImageUrl,
+                CategoryId: categoryId,
+                TagIds: [tagId],
+                Rights: null,
+                Responsibility: BuildLifecycleResponsibility(role, null)));
 
     private async Task<int> CreateArticleAsync(
         SeedArticlePlan plan,
