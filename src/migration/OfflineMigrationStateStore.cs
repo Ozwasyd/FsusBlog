@@ -144,7 +144,7 @@ internal static class OfflineMigrationStateStore
         return command;
     }
 
-    private static async Task ValidateApplyJournalAsync(
+    internal static async Task ValidateApplyJournalAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         // IF NOT EXISTS is not evidence that an existing control table has the required
