@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 297,
+      "estimatedFacts": 310,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -156,6 +156,10 @@
         {
           "path": "Integration/CanonicalArticlePublicationFixturePortIntegrationTests.cs",
           "class": "CanonicalArticlePublicationFixturePortIntegrationTests"
+        },
+        {
+          "path": "Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
+          "class": "CanonicalArticleLifecycleFixturePortIntegrationTests"
         },
         {
           "path": "Integration/RuntimeCacheEvidenceHotFeaturedFrameIntegrationTests.cs",
