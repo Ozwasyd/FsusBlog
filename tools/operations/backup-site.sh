@@ -32,6 +32,7 @@ captureTimeoutSeconds="${FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS:-}"
 captureDeadline=0
 dumpPid=""
 captureCleanupVerified=1
+declare -A captureChildIdentities=()
 captureFailureLog=""
 KEYRING_KEY_COUNT=0
 WORK_DIR_OWNED=0
@@ -89,17 +90,51 @@ ChildGroupEmpty() {
     ! awk -v group="$pid" '$1 == group { found = 1 } END { exit(found ? 0 : 1) }' <<<"$groups"
 }
 
+ReadChildIdentity() {
+    local pid="$1" statLine fields
+    local -a statFields
+    [[ -r "/proc/$pid/stat" ]] || return 1
+    IFS= read -r statLine <"/proc/$pid/stat" || return 1
+    fields="${statLine##*) }"
+    read -r -a statFields <<<"$fields"
+    [[ "${statFields[2]:-}" == "$pid" && "${statFields[19]:-}" =~ ^[0-9]+$ ]] || return 1
+    printf '%s:%s\n' "$pid" "${statFields[19]}"
+}
+
+RegisterChildIdentity() {
+    local pid="$1" identity
+    while ChildRunning "$pid"; do
+        if identity="$(ReadChildIdentity "$pid")"; then
+            captureChildIdentities["$pid"]="$identity"
+            return 0
+        fi
+        CaptureRemaining >/dev/null || return 1
+        sleep 0.01
+    done
+    ChildGroupEmpty "$pid"
+}
+
+SignalOwnedChildGroup() {
+    local signal="$1" pid="$2" actual
+    if [[ -z "${captureChildIdentities[$pid]:-}" ]] || ! actual="$(ReadChildIdentity "$pid")" \
+        || [[ "$actual" != "${captureChildIdentities[$pid]}" ]]; then
+        AddBlocker "database-snapshot-child-ownership-unverified"
+        return 1
+    fi
+    kill "-$signal" -- "-$pid" >/dev/null 2>&1 || true
+}
+
 StopCaptureChild() {
     local pid="$1" deadline
     [[ -n "$pid" ]] || return 0
     if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
-        kill -TERM -- "-$pid" >/dev/null 2>&1 || true
+        SignalOwnedChildGroup TERM "$pid" || return 1
         deadline=$(( $(CaptureNow) + 1 ))
         while ChildRunning "$pid" && (( $(CaptureNow) < deadline )); do
             sleep 0.05
         done
         if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
-            kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+            SignalOwnedChildGroup KILL "$pid" || return 1
         fi
         deadline=$(( $(CaptureNow) + 1 ))
         while ChildRunning "$pid" && (( $(CaptureNow) < deadline )); do
@@ -111,6 +146,7 @@ StopCaptureChild() {
         return 1
     fi
     wait "$pid" >/dev/null 2>&1 || true
+    unset 'captureChildIdentities[$pid]'
 }
 
 WaitCaptureChild() {
@@ -374,6 +410,10 @@ CaptureDatabase() {
         AddBlocker "database-snapshot-capture-process-unavailable"
         return 1
     fi
+    if ! RegisterChildIdentity "$capturePid"; then
+        AddBlocker "database-snapshot-capture-ownership-unverified"
+        return 1
+    fi
     exec {captureReadFd}<&"$readOriginal"
     exec {captureWriteFd}>&"$writeOriginal"
     exec {readOriginal}<&-
@@ -397,6 +437,10 @@ CaptureDatabase() {
         pg_dump -h "$PG_CONN_HOST" -p "$PG_CONN_PORT" -U "$PG_CONN_USER" -d "$PG_CONN_DB" \
         --format=custom --snapshot="$snapshotId" --file="$target" 2>>"$captureFailureLog" &
     dumpPid="$!"
+    if ! RegisterChildIdentity "$dumpPid"; then
+        AddBlocker "database-snapshot-dump-ownership-unverified"
+        return 1
+    fi
     if ! WaitCaptureChild "$dumpPid"; then
         AddBlocker "database-snapshot-dump-failed"
         return 1
@@ -432,6 +476,10 @@ finally
 }
 NODE
     dumpPid="$!"
+    if ! RegisterChildIdentity "$dumpPid"; then
+        AddBlocker "database-snapshot-dump-synchronization-ownership-unverified"
+        return 1
+    fi
     if ! WaitCaptureChild "$dumpPid"; then
         AddBlocker "database-snapshot-dump-synchronization-failed"
         return 1

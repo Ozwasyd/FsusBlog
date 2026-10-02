@@ -150,8 +150,8 @@ test('source operations share one monotonic deadline and preserve direct child o
         assert.match(script, /FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS/);
         assert.match(script, /read -r uptimeValue ignored <\/proc\/uptime/);
         assert.match(script, /timeout --signal=TERM --kill-after=1s/);
-        assert.match(script, /kill -TERM -- "-\$pid"/);
-        assert.match(script, /kill -KILL -- "-\$pid"/);
+        assert.match(script, /SignalOwnedChildGroup TERM "\$pid"/);
+        assert.match(script, /SignalOwnedChildGroup KILL "\$pid"/);
         assert.match(script, /ChildGroupEmpty "\$pid" \|\| return 1\s+wait "\$pid"/);
         const runningCheck = script.match(/ChildRunning\(\) \{[\s\S]*?\n\}/);
         assert.ok(runningCheck);
@@ -166,6 +166,29 @@ test('source operations share one monotonic deadline and preserve direct child o
     {
         assert.match(script, /"\$@" <&0 >"\$outputPath"/);
         assert.equal((script.match(/sourceDeadline=\$\(/g) ?? []).length, 1);
+    }
+});
+
+test('owned child termination refuses a mismatched process-generation identity', async () =>
+{
+    for (const [path, prefix] of [
+        ['tools/operations/backup-site.sh', 'Capture'],
+        ['tools/operations/restore-site.sh', 'Source'],
+        ['tools/operations/backup-restore-drill.sh', 'Source']
+    ])
+    {
+        const script = await source(path);
+        const names = [`${prefix}Now`, `${prefix}Remaining`, 'ChildRunning', 'ChildGroupEmpty',
+            'ReadChildIdentity', 'RegisterChildIdentity', 'SignalOwnedChildGroup', `Stop${prefix}Child`];
+        const helpers = names.map(name =>
+        {
+            const match = script.match(new RegExp(`${name}\\(\\) \\{[\\s\\S]*?\\n\\}`));
+            assert.ok(match, name);
+            return match[0];
+        }).join('\n');
+        const low = prefix.toLowerCase();
+        const result = spawnSync('bash', ['-c', `set -euo pipefail\nblocked=0\nAddBlocker() { blocked=1; }\n${helpers}\ndeclare -A ${low}ChildIdentities=()\n${low}Deadline=$(( $(${prefix}Now) + 2 ))\ntimeout 2s sleep 0.3 &\npid=$!\nRegisterChildIdentity "$pid"\n[[ -n "\${${low}ChildIdentities[$pid]:-}" ]]\n${low}ChildIdentities["$pid"]="$pid:999999999999999999"\nif Stop${prefix}Child "$pid"; then exit 2; fi\n[[ "$blocked" == 1 ]]\nwait "$pid"\nblocked=0\ntimeout 2s sleep 1 &\npid=$!\nRegisterChildIdentity "$pid"\nStop${prefix}Child "$pid"\n[[ "$blocked" == 0 ]]\n! ChildRunning "$pid"\nChildGroupEmpty "$pid"`], { encoding: 'utf8', timeout: 5000 });
+        assert.equal(result.status, 0, `${path}: ${result.stderr}`);
     }
 });
 
