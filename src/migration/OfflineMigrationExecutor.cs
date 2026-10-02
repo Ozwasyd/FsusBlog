@@ -72,6 +72,18 @@ internal static class OfflineMigrationExecutor
         bool admissionWritesStarted = false;
         var operations = new Dictionary<string, OfflineMigrationApplyOperation>(StringComparer.Ordinal);
         var cleanupCodes = new List<string>();
+        Exception? firstFailure = null;
+        string? firstFailureCode = null;
+        bool transactionBodyCompleted = false;
+        void RememberFirstFailure(Exception failure)
+        {
+            if (firstFailure is null)
+            {
+                firstFailure = failure;
+                firstFailureCode = failure is OperationCanceledException && cancellationToken.IsCancellationRequested
+                    ? "offline_apply_cancelled" : "offline_apply_rejected";
+            }
+        }
         CancellationTokenSource? cleanupCancellation = null;
         CancellationToken CleanupToken()
         {
@@ -120,50 +132,61 @@ internal static class OfflineMigrationExecutor
                 await using (DbTransaction admissionTransaction = await connection.BeginTransactionAsync(
                     IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false))
                 {
-                    await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, admissionTransaction,
-                        plan.ContentDigest, plan.Source.Database, request, progress, cancellationToken).ConfigureAwait(false);
-                    await admission.RevalidateAsync(verified, artifact, progress, connection,
-                        admissionTransaction, cancellationToken).ConfigureAwait(false);
-                    await VerifyRecordedStepsAsync(admissionTransaction).ConfigureAwait(false);
-                    if (progress.Completed)
+                    try
                     {
-                        await admissionTransaction.RollbackAsync(CleanupToken()).ConfigureAwait(false);
-                        return Result(OfflineMigrationApplyStatus.NoOpVerified);
-                    }
+                        await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, admissionTransaction,
+                            plan.ContentDigest, plan.Source.Database, request, progress, cancellationToken).ConfigureAwait(false);
+                        await admission.RevalidateAsync(verified, artifact, progress, connection,
+                            admissionTransaction, cancellationToken).ConfigureAwait(false);
+                        await VerifyRecordedStepsAsync(admissionTransaction).ConfigureAwait(false);
+                        if (progress.Completed)
+                        {
+                            await admissionTransaction.RollbackAsync(CleanupToken()).ConfigureAwait(false);
+                            transactionBodyCompleted = true;
+                            return Result(OfflineMigrationApplyStatus.NoOpVerified);
+                        }
 
-                    int previousAttempt = progress.Last?.Attempt ?? 0;
-                    if (request.Attempt != previousAttempt + 1)
-                    {
-                        throw new InvalidOperationException("offline_apply_attempt_not_successor");
-                    }
+                        int previousAttempt = progress.Last?.Attempt ?? 0;
+                        if (request.Attempt != previousAttempt + 1)
+                        {
+                            throw new InvalidOperationException("offline_apply_attempt_not_successor");
+                        }
 
-                    OfflineMigrationApplyJournalVerifier staged = progress.Fork();
-                    admissionWritesStarted = true;
-                    await OfflineMigrationStateStore.EnsureApplyJournalAsync(connection, admissionTransaction,
-                        cancellationToken).ConfigureAwait(false);
-                    if (progress.Last is { State: OfflineMigrationApplyJournalState.AttemptStarted
-                        or OfflineMigrationApplyJournalState.TransactionCommitted
-                        or OfflineMigrationApplyJournalState.BatchCommitted
-                        or OfflineMigrationApplyJournalState.StepVerified } interrupted)
-                    {
+                        OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                        admissionWritesStarted = true;
+                        await OfflineMigrationStateStore.EnsureApplyJournalAsync(connection, admissionTransaction,
+                            cancellationToken).ConfigureAwait(false);
+                        if (progress.Last is { State: OfflineMigrationApplyJournalState.AttemptStarted
+                            or OfflineMigrationApplyJournalState.TransactionCommitted
+                            or OfflineMigrationApplyJournalState.BatchCommitted
+                            or OfflineMigrationApplyJournalState.StepVerified } interrupted)
+                        {
+                            await AppendAsync(staged, admissionTransaction, Control(staged,
+                                OfflineMigrationApplyJournalState.RecoveryRequired, interrupted.Attempt,
+                                "offline_apply_prior_attempt_interrupted"), cancellationToken).ConfigureAwait(false);
+                        }
+
                         await AppendAsync(staged, admissionTransaction, Control(staged,
-                            OfflineMigrationApplyJournalState.RecoveryRequired, interrupted.Attempt,
-                            "offline_apply_prior_attempt_interrupted"), cancellationToken).ConfigureAwait(false);
+                            OfflineMigrationApplyJournalState.AttemptStarted, request.Attempt), cancellationToken).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        commitUnknown = true;
+                        await admissionTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                        commitUnknown = false;
+                        progress = staged;
+                        started = true;
+                        admissionWritesStarted = false;
+                        transactionBodyCompleted = true;
                     }
-
-                    await AppendAsync(staged, admissionTransaction, Control(staged,
-                        OfflineMigrationApplyJournalState.AttemptStarted, request.Attempt), cancellationToken).ConfigureAwait(false);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    commitUnknown = true;
-                    await admissionTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                    commitUnknown = false;
-                    progress = staged;
-                    started = true;
-                    admissionWritesStarted = false;
+                    catch (Exception originalFailure)
+                    {
+                        RememberFirstFailure(originalFailure);
+                        throw;
+                    }
                 }
 
                 while (progress.StepProofs.Length < plan.OrderedSteps.Length)
                 {
+                    transactionBodyCompleted = false;
                     cancellationToken.ThrowIfCancellationRequested();
                     OfflineMigrationStep step = plan.OrderedSteps[progress.StepProofs.Length];
                     OfflineMigrationProviderOperation identity = step.Operations.Single(
@@ -234,9 +257,11 @@ internal static class OfflineMigrationExecutor
                         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                         commitUnknown = false;
                         progress = staged;
+                        transactionBodyCompleted = true;
                     }
-                    catch
+                    catch (Exception originalFailure)
                     {
+                        RememberFirstFailure(originalFailure);
                         if (!commitUnknown)
                         {
                             try { await transaction.RollbackAsync(CleanupToken()).ConfigureAwait(false); }
@@ -251,20 +276,30 @@ internal static class OfflineMigrationExecutor
                     }
                 }
 
+                transactionBodyCompleted = false;
                 await using (DbTransaction terminalTransaction = await connection.BeginTransactionAsync(
                     IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false))
                 {
-                    await admission.RevalidateAsync(verified, artifact, progress, connection,
-                        terminalTransaction, cancellationToken).ConfigureAwait(false);
-                    await VerifyRecordedStepsAsync(terminalTransaction).ConfigureAwait(false);
-                    OfflineMigrationApplyJournalVerifier staged = progress.Fork();
-                    await AppendAsync(staged, terminalTransaction, Control(staged,
-                        OfflineMigrationApplyJournalState.ApplyCompleted, request.Attempt), cancellationToken).ConfigureAwait(false);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    commitUnknown = true;
-                    await terminalTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                    commitUnknown = false;
-                    progress = staged;
+                    try
+                    {
+                        await admission.RevalidateAsync(verified, artifact, progress, connection,
+                            terminalTransaction, cancellationToken).ConfigureAwait(false);
+                        await VerifyRecordedStepsAsync(terminalTransaction).ConfigureAwait(false);
+                        OfflineMigrationApplyJournalVerifier staged = progress.Fork();
+                        await AppendAsync(staged, terminalTransaction, Control(staged,
+                            OfflineMigrationApplyJournalState.ApplyCompleted, request.Attempt), cancellationToken).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        commitUnknown = true;
+                        await terminalTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                        commitUnknown = false;
+                        progress = staged;
+                        transactionBodyCompleted = true;
+                    }
+                    catch (Exception originalFailure)
+                    {
+                        RememberFirstFailure(originalFailure);
+                        throw;
+                    }
                 }
 
                 return Result(OfflineMigrationApplyStatus.Completed);
@@ -274,9 +309,17 @@ internal static class OfflineMigrationExecutor
                 // Never publish provider messages, SQL parameters, private facts or connection
                 // strings. Ambiguous commit/rollback requires exact re-reading or backup restore,
                 // not a guessed retry or a marker claiming effects did not commit.
+                if ((firstFailure is not null && !ReferenceEquals(firstFailure, failure))
+                    || (firstFailure is null && transactionBodyCompleted))
+                {
+                    cleanupCodes.Add("offline_apply_disposal_terminal_unknown");
+                    commitUnknown = true;
+                }
+
+                RememberFirstFailure(failure);
                 commitUnknown |= admissionWritesStarted;
-                bool cancelled = failure is OperationCanceledException && cancellationToken.IsCancellationRequested;
-                string code = cancelled ? "offline_apply_cancelled" : "offline_apply_rejected";
+                bool cancelled = firstFailureCode == "offline_apply_cancelled";
+                string code = firstFailureCode!;
                 if (started && !commitUnknown)
                 {
                     try
