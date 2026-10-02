@@ -19,6 +19,76 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class LifecycleHostedBootstrapServiceTests
 {
+    [Theory]
+    [InlineData(Environments.Development, "")]
+    [InlineData(Environments.Development, "relative/receipt.json")]
+    [InlineData(Environments.Production, "")]
+    [InlineData(Environments.Production, "relative/receipt.json")]
+    public async Task RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(string environmentName, string receiptPath)
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            // A real host is the oracle for Development exception swallowing. The
+            // normal control keeps the original non-receipt bootstrap behavior;
+            // it is not a valid native-schema/receipt acceptance fixture.
+            using ServiceProvider controlServices = CreateServices(out _, out _, out _);
+            var controlProbe = new BusinessHostProbe();
+            var controlBootstrap = new LifecycleHostedBootstrapService(controlServices,
+                new TestWebHostEnvironment(root) { EnvironmentName = environmentName }, new StartupRuntimeState(),
+                Options.Create(new LifecycleBootstrapOptions()), Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+            using (IHost controlHost = new HostBuilder().ConfigureServices((_, services) =>
+            {
+                services.AddSingleton<IHostedService>(controlBootstrap);
+                services.AddSingleton<IHostedService>(controlProbe);
+            }).Build())
+            {
+                await controlHost.StartAsync();
+                Assert.Equal(1, controlProbe.Starts);
+                await controlHost.StopAsync();
+            }
+
+            // Confirm the production refusal precondition through its real API.
+            // No DB client exists: these explicit-path cases must fail before access.
+            InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                CurrentSchemaReceiptAdmission.VerifyAsync(receiptPath, new string('a', 64), new string('a', 40),
+                    null!, null!, CancellationToken.None));
+            Assert.Equal("current_schema_explicit_receipt_required", refusal.Message);
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+                new Dictionary<string, string?> { ["SchemaMigration:CurrentReceipt:Path"] = receiptPath }).Build();
+            var admissionState = new CurrentSchemaAdmissionState();
+            var actualRunner = new CurrentSchemaStartupVerifier(null!, null!, configuration, admissionState);
+            var downstreamGate = Substitute.For<IAccountSubjectHashInvariantGate>();
+            using ServiceProvider refusingServices = new ServiceCollection()
+                .AddSingleton<ISchemaMigrationRunner>(actualRunner)
+                .AddSingleton(downstreamGate)
+                .BuildServiceProvider();
+            var runtimeState = new StartupRuntimeState();
+            var businessProbe = new BusinessHostProbe();
+            var bootstrap = new LifecycleHostedBootstrapService(refusingServices,
+                new TestWebHostEnvironment(root) { EnvironmentName = environmentName }, runtimeState,
+                Options.Create(new LifecycleBootstrapOptions()), Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+            using IHost host = new HostBuilder().ConfigureServices((_, services) =>
+            {
+                services.AddSingleton<IHostedService>(bootstrap);
+                services.AddSingleton<IHostedService>(businessProbe);
+            }).Build();
+
+            CurrentSchemaAdmissionException error = await Assert.ThrowsAsync<CurrentSchemaAdmissionException>(() => host.StartAsync());
+
+            Assert.Equal("current_schema_receipt_admission_failed", error.Message);
+            Assert.Equal(0, businessProbe.Starts);
+            Assert.Null(admissionState.Current);
+            await downstreamGate.DidNotReceive().EnsureAsync(Arg.Any<CancellationToken>());
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["schemaMigration"].Status);
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["bootstrap"].Status);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled()
     {
@@ -501,6 +571,19 @@ public sealed class LifecycleHostedBootstrapServiceTests
         Directory.CreateDirectory(searchRoot);
         File.WriteAllText(Path.Combine(searchRoot, fileName), content);
         return searchRoot;
+    }
+
+    private sealed class BusinessHostProbe : IHostedService
+    {
+        public int Starts { get; private set; }
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            Starts++;
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
