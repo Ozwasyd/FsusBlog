@@ -7,10 +7,12 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
     private readonly IOfflineMigrationPlanningAuthorityReader _planning;
     private readonly OfflineMigrationShellBackupDrillConfiguration _backup;
     private readonly OfflineMigrationCurrentSchemaVerificationCapabilities _verification;
+    private readonly IOfflineMigrationOwnedBackupAdmission? _retainedBackupAdmission;
 
     internal OfflineMigrationHostOwnedConfiguration(IOfflineMigrationPlanningAuthorityReader planning,
         OfflineMigrationShellBackupDrillConfiguration backup,
-        OfflineMigrationCurrentSchemaVerificationCapabilities verification, TimeProvider? timeProvider = null)
+        OfflineMigrationCurrentSchemaVerificationCapabilities verification, TimeProvider? timeProvider = null,
+        IOfflineMigrationOwnedBackupAdmission? retainedBackupAdmission = null)
     {
         ArgumentNullException.ThrowIfNull(planning);
         ArgumentNullException.ThrowIfNull(backup);
@@ -30,13 +32,14 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         _planning = planning;
         _backup = backup;
         _verification = verification;
+        _retainedBackupAdmission = retainedBackupAdmission;
         Clock = timeProvider ?? TimeProvider.System;
     }
 
     internal static async Task<OfflineMigrationHostOwnedConfiguration> CreateAsync(
         IOfflineMigrationPlanningAuthorityReader planning, OfflineMigrationShellBackupDrillOwnedInputs backupInputs,
         OfflineMigrationCurrentSchemaVerificationCapabilities verification, CancellationToken cancellationToken,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, IOfflineMigrationOwnedBackupAdmission? retainedBackupAdmission = null)
     {
         ArgumentNullException.ThrowIfNull(planning);
         ArgumentNullException.ThrowIfNull(backupInputs);
@@ -51,13 +54,15 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         OfflineMigrationShellBackupDrillConfiguration backup = await backupInputs.CreateConfigurationAsync(
             cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        return new(planning, backup, verification, timeProvider);
+        return new(planning, backup, verification, timeProvider, retainedBackupAdmission);
     }
 
     internal TimeProvider Clock { get; }
     internal OfflineMigrationShellBackupDrillConfiguration ShellBackupConfiguration => _backup;
     internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()
-        => OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _backup, Clock);
+        => _retainedBackupAdmission is null
+            ? OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _backup, Clock)
+            : OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _retainedBackupAdmission, Clock);
     internal IOfflineMigrationApplyProducer CreateApplyProducer()
         => OfflineMigrationApplyEvidence.ComposeOwned(new(_verification.Artifacts, _planning,
             _verification.Authority, _verification.Operations), Clock);

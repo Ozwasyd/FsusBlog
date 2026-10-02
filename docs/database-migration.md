@@ -266,6 +266,22 @@ leaf or directory chain remain drift; empty logs remain valid. This does not
 enlarge the current-receipt reader's independent byte limit.
 Its producer port must await the real operation and its children/pipes to terminal;
 cancellation cannot convert an unverified cleanup into a normal cancellation result.
+`ReadAndRetainAsync` may retain that successful invocation as a migration-owned
+opaque capability in the same process. Only the actual original shell producer
+with original owned tool/input binding can create it; neither an isolated fake
+producer, a plan's backup fields nor caller JSON can do so. It rehashes the encrypted
+package plus all seven actual raw references through the same terminal file guard,
+then reuses the original capture/restore/source predicate. Fresh source admission
+also consumes the original native observer and unchanged age policy. This is not
+a permanent inode lease, a new restore invocation, or proof of remote release.
+No cross-process importer exists: newly restoring the same archive supplies fresh
+recoverability evidence but cannot replace immutable old plan references or label
+a newly isolated database as the old invocation's database. That provenance chain
+remains refused until the original owner closes and verifies both actual facts.
+The compiled Host can consume the retention owner's original backup-admission port
+while planning, so that owner keeps the successful opaque capability for later
+commands in the same process. The wrapper cannot replace authentication, run a
+second producer or import a backup observation from a plan.
 The Host also supplies one invocation-only monotonic deadline through the evidence
 options. The producer reads its remaining whole seconds at launch, never restarts
 the CLI total, and refuses a remainder below the shell's one-second representation

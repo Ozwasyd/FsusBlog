@@ -149,8 +149,20 @@ internal static class OfflineMigrationPlanEvidence
     {
         ArgumentNullException.ThrowIfNull(authority);
         ArgumentNullException.ThrowIfNull(backupConfiguration);
-        return new OfflineMigrationOwnedPlanningEvidence(CreateOwnedSourceObserver(),
-            new OfflineMigrationBackupAdmission(new OfflineMigrationShellBackupDrillProducer(backupConfiguration)),
+        return ComposeOwnedReader(authority,
+            new OfflineMigrationBackupAdmission(new OfflineMigrationShellBackupDrillProducer(backupConfiguration)), timeProvider);
+    }
+
+    // The original retention owner may wrap its successful invocation to preserve
+    // the opaque capability for later commands in the same configured process.
+    // It still uses the original producer; this port cannot import a report/plan.
+    internal static IOfflineMigrationPlanningEvidence ComposeOwnedReader(
+        IOfflineMigrationPlanningAuthorityReader authority, IOfflineMigrationOwnedBackupAdmission backupAdmission,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(authority);
+        ArgumentNullException.ThrowIfNull(backupAdmission);
+        return new OfflineMigrationOwnedPlanningEvidence(CreateOwnedSourceObserver(), backupAdmission,
             authority, OfflineMigrationSourceFingerprints.CreateRegistry(),
             OfflineMigrationHost.ReadRequiredConnectionStringAsync, timeProvider ?? TimeProvider.System);
     }

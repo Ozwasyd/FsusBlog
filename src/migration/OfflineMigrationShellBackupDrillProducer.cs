@@ -39,6 +39,8 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
     private readonly OfflineMigrationShellBackupDrillConfiguration _configuration;
     private readonly Func<string, FileStream> _createRaw;
 
+    internal OfflineMigrationShellBackupDrillOwnedInputs? OwnedInputs => _configuration.OwnedInputs;
+
     internal OfflineMigrationShellBackupDrillProducer(OfflineMigrationShellBackupDrillConfiguration configuration)
         : this(configuration, CreateRaw)
     {

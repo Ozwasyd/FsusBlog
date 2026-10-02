@@ -61,6 +61,86 @@ public sealed class OfflineMigrationBackupAdmissionTests
     }
 
     [Fact]
+    public async Task FakeInvocationCannotCreateRetainedProductionBackupCapability()
+    {
+        using var fixture = new EvidenceFixture();
+        var admission = new OfflineMigrationBackupAdmission(fixture);
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            admission.ReadAndRetainAsync(fixture.Options, CancellationToken.None));
+        Assert.Equal("offline_backup_owned_retained_original_bound_producer_required", failure.Message);
+        Assert.Equal(0, fixture.Calls);
+        Assert.False(Directory.Exists(fixture.OutputRoot));
+        // The original explicitly fake invocation fixture remains valid only for
+        // retained-file consumer coverage; it does not become an authenticated cap.
+        OfflineMigrationBackupObservation observed = await fixture.ReadAsync();
+        Assert.Equal(1, fixture.Calls);
+        Assert.Equal(fixture.Options.BackupPackagePath, observed.Package.Reference);
+    }
+
+    [Fact]
+    public void RetainedBackupCannotBeImportedFromPlanObservationOrCallerJson()
+    {
+        var constructors = typeof(OfflineMigrationRetainedOwnedBackup).GetConstructors(
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        Assert.True(Assert.Single(constructors).IsPrivate);
+        Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<OfflineMigrationRetainedOwnedBackup>("{}"));
+    }
+
+    [Theory]
+    [InlineData("unchanged")]
+    [InlineData("empty-log")]
+    [InlineData("changed")]
+    [InlineData("duplicate")]
+    [InlineData("missing")]
+    [InlineData("cancelled")]
+    public async Task RetainedRawClosureUsesOriginalWholeByteAndTerminalFilePredicate(string mutation)
+    {
+        // Byte-retention fixture only: this does not construct an invocation cap,
+        // authenticate a package or prove an actual restore operation.
+        using var fixture = new EvidenceFixture();
+        var artifacts = System.Collections.Immutable.ImmutableArray.CreateBuilder<CurrentSchemaArtifactReference>();
+        for (int index = 0; index < 8; index++)
+        {
+            string path = Path.Combine(fixture.Parent, "retained-" + index);
+            byte[] bytes = mutation == "empty-log" && index == 7 ? [] : Encoding.UTF8.GetBytes("raw-" + index);
+            await File.WriteAllBytesAsync(path, bytes);
+            artifacts.Add(new(path, Hash(bytes)));
+        }
+        var originals = artifacts.ToImmutable();
+        if (mutation == "changed")
+        {
+            await File.WriteAllTextAsync(originals[7].Reference, "new-7");
+        }
+        else if (mutation == "duplicate")
+        {
+            originals = originals.SetItem(7, originals[0]);
+        }
+        else if (mutation == "missing")
+        {
+            originals = originals.RemoveAt(7);
+        }
+        using var cancellation = new CancellationTokenSource();
+        if (mutation == "cancelled")
+        {
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                OfflineMigrationBackupAdmission.ValidateRetainedArtifactsAsync(originals, cancellation.Token));
+        }
+        else if (mutation is "changed" or "duplicate" or "missing")
+        {
+            string code = mutation == "changed" ? "offline_backup_owned_retained_artifact_bytes_changed"
+                : "offline_backup_owned_retained_artifact_closure_changed";
+            Assert.Equal(code, (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                OfflineMigrationBackupAdmission.ValidateRetainedArtifactsAsync(originals, cancellation.Token))).Message);
+        }
+        else
+        {
+            await OfflineMigrationBackupAdmission.ValidateRetainedArtifactsAsync(originals, cancellation.Token);
+        }
+        Assert.Equal(0, fixture.Calls);
+    }
+
+    [Fact]
     public async Task ExternalManifestPathCannotReplaceTheOwnedInnerManifest()
     {
         using var fixture = new EvidenceFixture();
