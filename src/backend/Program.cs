@@ -105,6 +105,7 @@ if (builder.Environment.IsDevelopment() &&
 }
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddScoped<ServerCommandHost>();
+builder.Services.AddScoped<CurrentSchemaReceiptCommandHost>();
 // Last registration wins: Server serve verifies the unique current schema
 // projection and never loads the migration catalog or executes descriptors.
 builder.Services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
@@ -115,7 +116,6 @@ await using var app = builder.Build();
 if (command.Kind != ServerCommandKind.Serve)
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-    var commandHost = scope.ServiceProvider.GetRequiredService<ServerCommandHost>();
     using var commandCancellation = new CancellationTokenSource();
     ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
     {
@@ -125,7 +125,11 @@ if (command.Kind != ServerCommandKind.Serve)
     Console.CancelKeyPress += cancelHandler;
     try
     {
-        Environment.ExitCode = await commandHost.RunAsync(command, commandCancellation.Token);
+        Environment.ExitCode = command.Kind == ServerCommandKind.CurrentSchemaCheck
+            ? await scope.ServiceProvider.GetRequiredService<CurrentSchemaReceiptCommandHost>()
+                .RunAsync(command, commandCancellation.Token)
+            : await scope.ServiceProvider.GetRequiredService<ServerCommandHost>()
+                .RunAsync(command, commandCancellation.Token);
     }
     catch (OperationCanceledException)
     {
@@ -158,6 +162,8 @@ static void WriteCommandError(string message, string fallbackCode)
             || code.StartsWith("server_command_", StringComparison.Ordinal)
             || code.StartsWith("server_env_file_", StringComparison.Ordinal)
             || code.StartsWith("passkey_projection_", StringComparison.Ordinal)
+            || code.StartsWith("current_receipt_", StringComparison.Ordinal)
+            || code.StartsWith("current_schema_", StringComparison.Ordinal)
             ? code
             : fallbackCode
     }));

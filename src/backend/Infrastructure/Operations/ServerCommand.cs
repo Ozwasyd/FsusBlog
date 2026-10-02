@@ -1,6 +1,10 @@
 using System.Text.Json;
 
+using FsusBlog.Contracts.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Security;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
@@ -9,15 +13,23 @@ public enum ServerCommandKind
 {
     Serve = 0,
     PasskeyProjectionCheck = 1,
-    PasskeyProjectionRepair = 2
+    PasskeyProjectionRepair = 2,
+    CurrentSchemaCheck = 3
 }
 
-/// <summary>Parsed Server intent, with passkey repair confirmation separate from host configuration.</summary>
+/// <summary>Explicit read-only current receipt inputs; this command intent is not a receipt or migration plan.</summary>
+public sealed record CurrentSchemaCheckArguments(
+    string ReceiptPath,
+    string ArtifactSha256,
+    string CandidateSourceRevision);
+
+/// <summary>Parsed Server intent, with maintenance inputs separate from ordinary host configuration.</summary>
 public sealed record ServerCommand(
     ServerCommandKind Kind,
     string? EnvironmentFilePath,
     bool ConfirmRepair,
-    IReadOnlyList<string> HostArguments);
+    IReadOnlyList<string> HostArguments,
+    CurrentSchemaCheckArguments? SchemaCheck = null);
 
 /// <summary>Rejects migration commands before Server construction while preserving ordinary host arguments.</summary>
 public static class ServerCommandLine
@@ -44,6 +56,11 @@ public static class ServerCommandLine
         if (string.Equals(args[0], "passkey-projection", StringComparison.OrdinalIgnoreCase))
         {
             return ParsePasskeyProjection(args);
+        }
+
+        if (string.Equals(args[0], "current-schema-check", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseCurrentSchemaCheck(args);
         }
 
         throw new InvalidOperationException("server_command_unknown");
@@ -107,6 +124,50 @@ public static class ServerCommandLine
             environmentFilePath,
             confirmRepair,
             []);
+    }
+
+    private static ServerCommand ParseCurrentSchemaCheck(IReadOnlyList<string> args)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int index = 1; index < args.Count; index++)
+        {
+            string argument = args[index];
+            if (argument is not ("--receipt" or "--receipt-sha256" or "--candidate-source-revision" or "--env-file"))
+            {
+                throw new InvalidOperationException("server_command_current_schema_argument_unknown");
+            }
+            if (++index >= args.Count || args[index].StartsWith("--", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("server_command_current_schema_value_missing");
+            }
+            string value = args[index];
+            if (string.IsNullOrWhiteSpace(value) || value != value.Trim() || value.Any(char.IsControl)
+                || !values.TryAdd(argument, value))
+            {
+                throw new InvalidOperationException("server_command_current_schema_argument_invalid");
+            }
+        }
+        if (values.Count != 4)
+        {
+            throw new InvalidOperationException("server_command_current_schema_inputs_required");
+        }
+        if (!Path.IsPathFullyQualified(values["--receipt"]) || !Path.IsPathFullyQualified(values["--env-file"]))
+        {
+            throw new InvalidOperationException("server_command_current_schema_absolute_path_required");
+        }
+        CurrentSchemaReceiptCodec.RequireDigest(values["--receipt-sha256"]);
+        string source = values["--candidate-source-revision"];
+        if (source.Length != 40 || source == new string('0', 40)
+            || source.Any(character => character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f')))
+        {
+            throw new InvalidOperationException("server_command_current_schema_source_invalid");
+        }
+        return new ServerCommand(
+            ServerCommandKind.CurrentSchemaCheck,
+            values["--env-file"],
+            false,
+            [],
+            new CurrentSchemaCheckArguments(values["--receipt"], values["--receipt-sha256"], source));
     }
 
     private static string ReadValue(IReadOnlyList<string> args, ref int index, string argument)
@@ -173,6 +234,64 @@ public sealed class ServerCommandHost(
                     || code.StartsWith("server_command_", StringComparison.Ordinal)
                     ? code
                     : "server_command_failed"
+            }, cancellationToken).ConfigureAwait(false);
+            return 1;
+        }
+    }
+
+    private static async Task WriteJsonAsync<T>(T value, CancellationToken cancellationToken)
+    {
+        string json = JsonSerializer.Serialize(value, s_machineJsonOptions);
+        await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken).ConfigureAwait(false);
+    }
+}
+
+/// <summary>Invokes the sole fresh current-schema observer without issuing migration writes or publishing readiness.</summary>
+public sealed class CurrentSchemaReceiptCommandHost(
+    ISqlSugarClient db,
+    ISchemaModelInspector inspector,
+    ILogger<CurrentSchemaReceiptCommandHost> logger)
+{
+    private static readonly JsonSerializerOptions s_machineJsonOptions = new(JsonSerializerDefaults.Web);
+
+    /// <summary>Returns zero only after explicit artifact, actual candidate assembly and fresh database observation agree.</summary>
+    public async Task<int> RunAsync(ServerCommand command, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (command.Kind != ServerCommandKind.CurrentSchemaCheck || command.SchemaCheck is not { } inputs
+                || command.ConfirmRepair || command.HostArguments.Count != 0
+                || command.EnvironmentFilePath is null || !Path.IsPathFullyQualified(command.EnvironmentFilePath))
+            {
+                throw new InvalidOperationException("server_command_current_schema_intent_invalid");
+            }
+            CurrentSchemaAdmissionResult result = await CurrentSchemaReceiptAdmission.VerifyAsync(
+                inputs.ReceiptPath, inputs.ArtifactSha256, inputs.CandidateSourceRevision,
+                db, inspector, cancellationToken).ConfigureAwait(false);
+            using JsonDocument receipt = JsonDocument.Parse(CurrentSchemaReceiptCodec.Serialize(result.Receipt));
+            await WriteJsonAsync(new
+            {
+                status = receipt.RootElement.GetProperty("status").GetString(),
+                candidateSourceRevision = result.CandidateSourceRevision,
+                artifactSha256 = result.ArtifactSha256,
+                target = receipt.RootElement.GetProperty("target"),
+                database = receipt.RootElement.GetProperty("database"),
+                actualSchemaDigest = receipt.RootElement.GetProperty("actualSchemaDigest").GetString()
+            }, cancellationToken).ConfigureAwait(false);
+            return 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Read-only current-schema admission failed closed.");
+            string code = exception.Message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
+            await WriteJsonAsync(new
+            {
+                status = "failed",
+                code = code.StartsWith("current_receipt_", StringComparison.Ordinal)
+                    || code.StartsWith("current_schema_", StringComparison.Ordinal)
+                    || code.StartsWith("server_command_", StringComparison.Ordinal)
+                    ? code
+                    : "current_schema_check_failed"
             }, cancellationToken).ConfigureAwait(false);
             return 1;
         }

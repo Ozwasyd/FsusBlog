@@ -79,6 +79,26 @@ create the old bridge table, upsert an old-shape record, or grant readiness.
 Their final removal requires the original route-inventory producer update; route
 presence is not compatibility support or receipt verification.
 
+## Read-only current receipt command
+
+The candidate's Server executable exposes `current-schema-check --receipt
+<absolute-file> --receipt-sha256 <exact-whole-file-sha256>
+--candidate-source-revision <exact-40-hex-candidate> --env-file <absolute-file>`.
+All four inputs are explicit; duplicates, missing values, relative paths,
+noncanonical identities, mutation flags and unknown options are rejected before
+host construction. The command calls the original
+`CurrentSchemaReceiptAdmission.VerifyAsync`, re-reading the bound artifact and
+the actual database/current target using the candidate assembly. It never parses
+the offline execution plan, performs migration writes, or publishes startup
+readiness. Its output uses the canonical receipt codec for status, target and
+database identities, plus the observed artifact hash and candidate source revision.
+
+This observer consumer is not a receipt issuer or a release grant. The rollout
+consumer must still compare its actual output to the immutable release inputs;
+the manifest, rollout-stage and health integration is not completed merely by
+adding the command. Missing original source/backup/native-operation capabilities
+remain blockers to genuine production receipt issuance and acceptance.
+
 ## Recovery constraints
 
 Permitted recovery is an unactivated candidate fallback, restoration of a verified

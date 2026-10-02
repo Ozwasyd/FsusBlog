@@ -146,6 +146,101 @@ public sealed class ServerCommandTests
         });
     }
 
+    [Fact]
+    public void Parse_CurrentSchemaCheckPreservesExactExplicitInputsWithoutHostFallback()
+    {
+        string receiptPath = Path.Combine(Path.GetTempPath(), "current-receipt.json");
+        string environmentPath = Path.Combine(Path.GetTempPath(), "current.env");
+        string artifactDigest = new('a', 64);
+        string sourceRevision = new('b', 40);
+        ServerCommand command = ServerCommandLine.Parse([
+            "current-schema-check", "--receipt", receiptPath, "--receipt-sha256", artifactDigest,
+            "--candidate-source-revision", sourceRevision, "--env-file", environmentPath
+        ]);
+
+        Assert.Equal(ServerCommandKind.CurrentSchemaCheck, command.Kind);
+        Assert.Equal(environmentPath, command.EnvironmentFilePath);
+        Assert.False(command.ConfirmRepair);
+        Assert.Empty(command.HostArguments);
+        Assert.Equal(new CurrentSchemaCheckArguments(receiptPath, artifactDigest, sourceRevision), command.SchemaCheck);
+    }
+
+    [Theory]
+    [InlineData("--receipt")]
+    [InlineData("--receipt-sha256")]
+    [InlineData("--candidate-source-revision")]
+    [InlineData("--env-file")]
+    public void Parse_CurrentSchemaCheckRejectsMissingAndDuplicateInputs(string option)
+    {
+        string[] complete = CurrentSchemaCheckArgumentsForTest();
+        int index = Array.IndexOf(complete, option);
+        string[] missing = [.. complete[..index], .. complete[(index + 2)..]];
+        Assert.Throws<InvalidOperationException>(() => ServerCommandLine.Parse(missing));
+        string[] duplicate = [.. complete, option, complete[index + 1]];
+        Assert.Throws<InvalidOperationException>(() => ServerCommandLine.Parse(duplicate));
+        string[] missingValue = [.. complete[..(index + 1)]];
+        Assert.Throws<InvalidOperationException>(() => ServerCommandLine.Parse(missingValue));
+    }
+
+    [Theory]
+    [InlineData("--phase")]
+    [InlineData("--confirm-destructive")]
+    [InlineData("--release-manifest")]
+    [InlineData("--receipt=other.json")]
+    [InlineData("--unknown")]
+    public void Parse_CurrentSchemaCheckRejectsMutationAndUnknownOptions(string option)
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            ServerCommandLine.Parse([.. CurrentSchemaCheckArgumentsForTest(), option, "other"]));
+        Assert.Equal("server_command_current_schema_argument_unknown", error.Message);
+    }
+
+    [Theory]
+    [InlineData("--receipt", "relative.json")]
+    [InlineData("--env-file", "relative.env")]
+    [InlineData("--receipt", " /tmp/receipt.json")]
+    [InlineData("--receipt", "/tmp/receipt.json\n")]
+    [InlineData("--receipt-sha256", "missing")]
+    [InlineData("--receipt-sha256", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("--candidate-source-revision", "latest")]
+    [InlineData("--candidate-source-revision", "0000000000000000000000000000000000000000")]
+    public void Parse_CurrentSchemaCheckRejectsNonExactPathsOrIdentities(string option, string value)
+    {
+        string[] args = CurrentSchemaCheckArgumentsForTest();
+        args[Array.IndexOf(args, option) + 1] = value;
+        Assert.Throws<InvalidOperationException>(() => ServerCommandLine.Parse(args));
+    }
+
+    [Theory]
+    [InlineData(ServerCommandKind.Serve)]
+    [InlineData(ServerCommandKind.PasskeyProjectionRepair)]
+    [InlineData((ServerCommandKind)999)]
+    [InlineData(ServerCommandKind.CurrentSchemaCheck)]
+    public async Task CurrentSchemaHost_RejectsMissingOrForeignIntentBeforeDatabase(ServerCommandKind kind)
+    {
+        var host = new CurrentSchemaReceiptCommandHost(
+            null!, null!, NullLogger<CurrentSchemaReceiptCommandHost>.Instance);
+        int exitCode = await host.RunAsync(new ServerCommand(kind, null, false, []), CancellationToken.None);
+        Assert.Equal(1, exitCode);
+    }
+
+    [Fact]
+    public async Task CurrentSchemaHost_UsesOriginalReadOnlyVerifierAndPropagatesCancellationBeforeDatabase()
+    {
+        var host = new CurrentSchemaReceiptCommandHost(
+            null!, null!, NullLogger<CurrentSchemaReceiptCommandHost>.Instance);
+        ServerCommand command = ServerCommandLine.Parse(CurrentSchemaCheckArgumentsForTest());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.RunAsync(command, cancellation.Token));
+    }
+
+    private static string[] CurrentSchemaCheckArgumentsForTest() => [
+        "current-schema-check", "--receipt", Path.Combine(Path.GetTempPath(), "current-receipt.json"),
+        "--receipt-sha256", new string('a', 64), "--candidate-source-revision", new string('b', 40),
+        "--env-file", Path.Combine(Path.GetTempPath(), "current.env")
+    ];
+
     private static void WithEnvironmentFile(string contents, Action<string> action)
     {
         string path = Path.Combine(Path.GetTempPath(), $"fsusblog-server-command-{Guid.NewGuid():N}.env");
