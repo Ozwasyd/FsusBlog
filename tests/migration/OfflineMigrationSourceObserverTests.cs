@@ -260,7 +260,7 @@ public sealed class OfflineMigrationSourceObserverTests
     }
 
     [Theory]
-    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown:")]
+    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown")]
     [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'2026-05-17 10:00:00',2)", "offline_source_boolean_value_invalid")]
     [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'not-a-date',0)", "offline_source_sqlite_timestamp_value_invalid")]
     [InlineData("INSERT INTO category(id,name) VALUES(1,zeroblob(1))", "offline_source_sqlite_storage_class_invalid")]
@@ -269,6 +269,14 @@ public sealed class OfflineMigrationSourceObserverTests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             await WriteSqliteAsync(path, sql, null, cancellation);
+            if (refusal == "source_fingerprint_unknown")
+            {
+                OfflineMigrationSourceFingerprintException unknown = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(
+                    () => ReadSqliteAsync(path, cancellation));
+                Assert.Equal(refusal, unknown.Code);
+                Assert.Contains(unknown.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Schema);
+                return;
+            }
             InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
             Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
         });
