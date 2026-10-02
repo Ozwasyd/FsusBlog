@@ -519,6 +519,21 @@ qualification. Missing complete provider/entry owners and the formal current
 control-shape binding remain failures, not aliases, empty operations or table-name
 exceptions.
 
+The original source observer now dispatches MySQL and SQLite reads through their
+actual native session owners. MySQL holds its private read-only consistent snapshot;
+SQLite holds the original main-file transaction and native interrupt lifecycle.
+SQLite instance identity requires the original optional FILESTAT result and the
+same non-owning held FD before and after the full source read, not a caller path or
+VFS name. Missing native capability remains a refusal; the file owner never opens
+or closes another SQLite database leaf to manufacture an identity. The added MySQL
+current-catalog entry returns raw measured definitions through that same native
+session; it is not a complete canonical target comparison or independent allocator
+proof. PostgreSQL continues to use the sole issuer identity and unchanged content
+framing. These source/session capabilities do not supply non-PostgreSQL dump capture,
+restore qualification, provider operation descriptors or a current receipt. Actual
+driver restoration, SQLite native FILESTAT availability and database execution are
+still pending the original producers and isolated runtime checks.
+
 Article/media compiled owners cannot use the original no-media `ExecuteAsync` path.
 The Host binds every original provider operation before reading the first journal
 entry; Core repeats that binding under its exclusive ownership. Core retains the

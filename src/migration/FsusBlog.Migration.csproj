@@ -10,6 +10,8 @@
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Markdig" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="MySqlConnector" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="SqlSugarCoreNoDrive" />
   </ItemGroup>

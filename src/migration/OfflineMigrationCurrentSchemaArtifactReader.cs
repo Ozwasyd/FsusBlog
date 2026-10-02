@@ -70,8 +70,50 @@ internal sealed class OfflineMigrationCurrentSchemaArtifactReader : IOfflineMigr
         initial.Validate(path, handle, cancellationToken);
     }
 
+    // A live database owner supplies its actual native FD through a non-owning
+    // wrapper. Never reopen/close the DB leaf: POSIX record locks are process-wide
+    // and closing another FD for that inode can release SQLite's held locks.
+    internal static OriginalHeldRegularFileIdentity CaptureOriginalHeldRegularFileIdentity(
+        string path, SafeFileHandle nonOwningActualFd, CancellationToken cancellationToken)
+        => OriginalHeldRegularFileIdentity.Capture(path, nonOwningActualFd, cancellationToken);
+
+    internal static void ValidateOriginalHeldRegularFileUnchanged(
+        string path, SafeFileHandle nonOwningActualFd, OriginalHeldRegularFileIdentity initial,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(initial);
+        initial.Validate(path, nonOwningActualFd, cancellationToken);
+    }
+
     private static SafeFileHandle OpenOriginalRegularFileCore(
         string path, CancellationToken cancellationToken, out NativeDirectoryIdentity[] directories)
+        => WithOriginalParentDirectory(path, cancellationToken, (directory, name) =>
+        {
+            const int fileFlags = 0x800 | 0x20000 | 0x80000; // RDONLY, NONBLOCK, NOFOLLOW, CLOEXEC
+            NativeFileIdentity before = Observe(directory.DangerousGetHandle().ToInt32(), name, 0x100); // SYMLINK_NOFOLLOW
+            RequireRegular(before);
+            SafeFileHandle file = Own(OpenAt(directory.DangerousGetHandle().ToInt32(), name, fileFlags));
+            try
+            {
+                // A replaced FIFO cannot block open: NONBLOCK precedes same-FD
+                // validation. A replaced symlink cannot be followed at any depth.
+                NativeFileIdentity opened = Observe(file.DangerousGetHandle().ToInt32(), "", 0x1000); // EMPTY_PATH
+                RequireRegular(opened);
+                if (!SameFileIdentity(before, opened))
+                    throw new InvalidOperationException("current_verify_artifact_identity_changed");
+                cancellationToken.ThrowIfCancellationRequested();
+                return file;
+            }
+            catch
+            {
+                file.Dispose();
+                throw;
+            }
+        }, out directories);
+
+    private static TResult WithOriginalParentDirectory<TResult>(
+        string path, CancellationToken cancellationToken, Func<SafeFileHandle, string, TResult> observeLeaf,
+        out NativeDirectoryIdentity[] directories)
     {
         directories = [];
         cancellationToken.ThrowIfCancellationRequested();
@@ -83,7 +125,6 @@ internal sealed class OfflineMigrationCurrentSchemaArtifactReader : IOfflineMigr
         if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
             throw new InvalidOperationException("current_verify_native_file_owner_unavailable");
         const int directoryFlags = 0x200000 | 0x10000 | 0x20000 | 0x80000; // PATH, DIRECTORY, NOFOLLOW, CLOEXEC
-        const int fileFlags = 0x800 | 0x20000 | 0x80000; // RDONLY, NONBLOCK, NOFOLLOW, CLOEXEC
         string[] components = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (components.Length == 0)
             throw new InvalidOperationException("current_verify_regular_artifact_required");
@@ -100,27 +141,10 @@ internal sealed class OfflineMigrationCurrentSchemaArtifactReader : IOfflineMigr
                 observedDirectories.Add(ObserveDirectory(directory));
             }
             cancellationToken.ThrowIfCancellationRequested();
-            string name = components[^1];
-            NativeFileIdentity before = Observe(directory.DangerousGetHandle().ToInt32(), name, 0x100); // SYMLINK_NOFOLLOW
-            RequireRegular(before);
-            SafeFileHandle file = Own(OpenAt(directory.DangerousGetHandle().ToInt32(), name, fileFlags));
-            try
-            {
-                // A replaced FIFO cannot block open: NONBLOCK precedes same-FD
-                // validation. A replaced symlink cannot be followed at any depth.
-                NativeFileIdentity opened = Observe(file.DangerousGetHandle().ToInt32(), "", 0x1000); // EMPTY_PATH
-                RequireRegular(opened);
-                if (!SameFileIdentity(before, opened))
-                    throw new InvalidOperationException("current_verify_artifact_identity_changed");
-                cancellationToken.ThrowIfCancellationRequested();
-                directories = observedDirectories.ToArray();
-                return file;
-            }
-            catch
-            {
-                file.Dispose();
-                throw;
-            }
+            NativeDirectoryIdentity[] completedDirectories = observedDirectories.ToArray();
+            TResult result = observeLeaf(directory, components[^1]);
+            directories = completedDirectories;
+            return result;
         }
         finally
         {
@@ -212,6 +236,71 @@ internal sealed class OfflineMigrationCurrentSchemaArtifactReader : IOfflineMigr
                 throw new InvalidOperationException("current_verify_artifact_identity_changed");
             cancellationToken.ThrowIfCancellationRequested();
         }
+    }
+
+    internal sealed class OriginalHeldRegularFileIdentity
+    {
+        private readonly string _path;
+        private readonly SafeFileHandle _handle;
+        private readonly NativeDirectoryIdentity[] _directories;
+
+        // Only the actual native observation constructs this identity. Live DB
+        // content/size/time/link-count changes are not namespace-incarnation drift.
+        internal uint DeviceMajor { get; }
+        internal uint DeviceMinor { get; }
+        internal ulong Inode { get; }
+
+        private OriginalHeldRegularFileIdentity(string path, SafeFileHandle handle,
+            NativeFileIdentity identity, NativeDirectoryIdentity[] directories)
+        {
+            _path = path;
+            _handle = handle;
+            _directories = directories;
+            DeviceMajor = identity.DeviceMajor;
+            DeviceMinor = identity.DeviceMinor;
+            Inode = identity.Inode;
+        }
+
+        internal static OriginalHeldRegularFileIdentity Capture(
+            string path, SafeFileHandle handle, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            NativeFileIdentity named = ObserveHeldPath(path, cancellationToken, out NativeDirectoryIdentity[] directories);
+            NativeFileIdentity actual = ObserveHandle(handle);
+            RequireRegular(actual);
+            if (!SameIncarnation(actual, named) || !SameIncarnation(actual, ObserveHandle(handle)))
+                throw new InvalidOperationException("current_verify_held_file_identity_changed");
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(path, handle, actual, directories);
+        }
+
+        internal void Validate(string path, SafeFileHandle handle, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (path != _path || !ReferenceEquals(handle, _handle) || !Matches(ObserveHandle(handle)))
+                throw new InvalidOperationException("current_verify_held_file_identity_changed");
+            NativeFileIdentity named = ObserveHeldPath(path, cancellationToken, out NativeDirectoryIdentity[] directories);
+            if (!_directories.SequenceEqual(directories) || !Matches(named) || !Matches(ObserveHandle(handle)))
+                throw new InvalidOperationException("current_verify_held_file_identity_changed");
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        private bool Matches(NativeFileIdentity identity)
+            => (identity.Mode & 0xf000) == 0x8000 && identity.DeviceMajor == DeviceMajor
+                && identity.DeviceMinor == DeviceMinor && identity.Inode == Inode;
+
+        private static bool SameIncarnation(NativeFileIdentity left, NativeFileIdentity right)
+            => (right.Mode & 0xf000) == 0x8000 && left.DeviceMajor == right.DeviceMajor
+                && left.DeviceMinor == right.DeviceMinor && left.Inode == right.Inode;
+
+        private static NativeFileIdentity ObserveHeldPath(
+            string path, CancellationToken cancellationToken, out NativeDirectoryIdentity[] directories)
+            => WithOriginalParentDirectory(path, cancellationToken, (directory, name) =>
+            {
+                NativeFileIdentity named = Observe(directory.DangerousGetHandle().ToInt32(), name, 0x100); // SYMLINK_NOFOLLOW
+                RequireRegular(named);
+                return named;
+            }, out directories);
     }
 
     private readonly record struct NativeDirectoryIdentity(uint DeviceMajor, uint DeviceMinor, ulong Inode, ushort Mode);
