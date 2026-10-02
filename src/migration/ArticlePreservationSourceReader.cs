@@ -23,15 +23,37 @@ internal static class ArticlePreservationSourceReader
 {
     private static readonly UTF8Encoding s_utf8 = new(false, true);
 
-    internal static async Task<ArticlePreservationSourceReadResult> ReadAsync(
+    internal static Task<ArticlePreservationSourceReadResult> ReadAsync(
         CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
         OfflineMigrationSourceObserver observer, CurrentSchemaArtifactReference originArtifact,
         Uri documentBase, ArticlePreservationLimits limits, TimeSpan readBudget,
         CancellationToken cancellationToken)
+        => ReadCoreAsync(provider, connection, transaction, observer,
+            token => observer.ObserveAsync(provider, connection, transaction, token),
+            originArtifact, documentBase, limits, readBudget, cancellationToken);
+
+    // Apply-phase only: the original observer validates the complete journal DDL
+    // before excluding that exact infrastructure object. Planning above still
+    // observes all objects and refuses a journal or an unknown/partial schema.
+    internal static Task<ArticlePreservationSourceReadResult> ReadApplyAsync(
+        DbConnection connection, DbTransaction transaction, OfflineMigrationSourceObserver observer,
+        CurrentSchemaArtifactReference originArtifact, Uri documentBase,
+        ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken)
+        => ReadCoreAsync(CurrentSchemaProviderKind.PostgreSql, connection, transaction, observer,
+            token => observer.ObserveLegacyAfterValidatedJournalAsync(connection, transaction, token),
+            originArtifact, documentBase, limits, readBudget, cancellationToken);
+
+    private static async Task<ArticlePreservationSourceReadResult> ReadCoreAsync(
+        CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
+        OfflineMigrationSourceObserver observer,
+        Func<CancellationToken, Task<OfflineMigrationSourceObservation>> observe,
+        CurrentSchemaArtifactReference originArtifact, Uri documentBase,
+        ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(observer);
+        ArgumentNullException.ThrowIfNull(observe);
         ArgumentNullException.ThrowIfNull(limits);
         if (!Enum.IsDefined(provider) || connection.State != ConnectionState.Open
             || transaction.Connection != connection
@@ -49,8 +71,7 @@ internal static class ArticlePreservationSourceReader
         deadline.CancelAfter(readBudget);
         CancellationToken token = deadline.Token;
         token.ThrowIfCancellationRequested();
-        OfflineMigrationSourceObservation observation = await observer.ObserveAsync(
-            provider, connection, transaction, token).ConfigureAwait(false);
+        OfflineMigrationSourceObservation observation = await observe(token).ConfigureAwait(false);
         if (OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation).Id != OfflineMigrationSourceFingerprints.LegacyId)
             throw new InvalidOperationException("article_preservation_source_fingerprint_unsupported");
 
@@ -129,8 +150,7 @@ internal static class ArticlePreservationSourceReader
         }
         token.ThrowIfCancellationRequested();
         // Recheck the original full observation in the same snapshot, including non-MVCC sequence state.
-        OfflineMigrationSourceObservation rechecked = await observer.ObserveAsync(
-            provider, connection, transaction, token).ConfigureAwait(false);
+        OfflineMigrationSourceObservation rechecked = await observe(token).ConfigureAwait(false);
         if (ArticlePreservationSemanticReceipt.Digest("article-source-observation-v1", observation)
             != ArticlePreservationSemanticReceipt.Digest("article-source-observation-v1", rechecked))
             throw new InvalidOperationException("article_preservation_source_changed");
