@@ -400,7 +400,7 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         }
     }
 
-    private static async Task<CurrentSchemaDatabaseIdentity> ReadNativeIdentityAsync(
+    internal static async Task<CurrentSchemaDatabaseIdentity> ReadNativeIdentityAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         await using DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, transaction, """
