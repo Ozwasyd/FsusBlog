@@ -28,6 +28,11 @@ sitePackageSha256=""
 siteManifestSha256=""
 migrationDll="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
 sourceBinding="null"
+sourceTimeoutSeconds="${FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS:-}"
+sourceDeadline=0
+sourceChildPid=""
+sourceCleanupVerified=1
+sourceFailureLog="$OUT_DIR/backup-restore-drill-${RUN_ID}.source-stderr.log"
 restoredSource="null"
 restoredDatabaseDumpSha256=""
 
@@ -45,6 +50,87 @@ redisOwned=0
 
 mkdir -p "$OUT_DIR"
 
+ReadSourceBudget() {
+    if [[ ! -r /proc/uptime || ! "$sourceTimeoutSeconds" =~ ^[1-9][0-9]{0,6}$ ]] || ((sourceTimeoutSeconds > 2147483)); then
+        AddBlocker "database-snapshot-timeout-invalid-or-missing"
+        return 1
+    fi
+    sourceDeadline=$(( $(SourceNow) + sourceTimeoutSeconds ))
+}
+
+SourceNow() {
+    local uptimeValue ignored
+    read -r uptimeValue ignored </proc/uptime
+    printf '%s\n' "${uptimeValue%%.*}"
+}
+
+SourceRemaining() {
+    local remaining=$((sourceDeadline - $(SourceNow)))
+    ((remaining > 0)) || return 1
+    printf '%s\n' "$remaining"
+}
+
+ChildRunning() {
+    local pid="$1" running
+    while IFS= read -r running; do
+        [[ "$running" != "$pid" ]] || return 0
+    done < <(jobs -pr)
+    return 1
+}
+
+ChildGroupEmpty() {
+    local pid="$1" groups
+    groups="$(ps -eo pgid=)" || return 1
+    ! awk -v group="$pid" '$1 == group { found = 1 } END { exit(found ? 0 : 1) }' <<<"$groups"
+}
+
+StopSourceChild() {
+    local pid="$1" deadline
+    [[ -n "$pid" ]] || return 0
+    if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+        kill -TERM -- "-$pid" >/dev/null 2>&1 || true
+        deadline=$(( $(SourceNow) + 1 ))
+        while ChildRunning "$pid" && (( $(SourceNow) < deadline )); do
+            sleep 0.05
+        done
+        if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+            kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+        fi
+        deadline=$(( $(SourceNow) + 1 ))
+        while ChildRunning "$pid" && (( $(SourceNow) < deadline )); do
+            sleep 0.05
+        done
+    fi
+    if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+        AddBlocker "database-snapshot-child-cleanup-unverified"
+        return 1
+    fi
+    wait "$pid" >/dev/null 2>&1 || true
+}
+
+WaitSourceChild() {
+    local pid="$1"
+    while ChildRunning "$pid"; do
+        SourceRemaining >/dev/null || return 1
+        sleep 0.05
+    done
+    ChildGroupEmpty "$pid" || return 1
+    wait "$pid"
+}
+
+RunSourceCommand() {
+    local outputPath="$1" remaining
+    shift
+    remaining="$(SourceRemaining)" || return 1
+    timeout --signal=TERM --kill-after=1s "${remaining}s" "$@" <&0 >"$outputPath" 2>>"$sourceFailureLog" &
+    sourceChildPid="$!"
+    if ! WaitSourceChild "$sourceChildPid"; then
+        StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
+        return 1
+    fi
+    sourceChildPid=""
+}
+
 Log() {
     printf '[backup-restore-drill] %s\n' "$1"
 }
@@ -59,6 +145,7 @@ AddBlocker() {
 }
 
 Cleanup() {
+    StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
     if [[ "$workDirOwned" == "1" ]]; then
         rm -f "$WORK_DIR/site-package.plaintext.tar.gz"
     fi
@@ -74,7 +161,7 @@ Cleanup() {
         if [[ "$redisOwned" == "1" ]]; then
             docker rm -f "$redis_container" >/dev/null 2>&1 || true
         fi
-        if [[ "$workDirOwned" == "1" ]]; then
+        if [[ "$workDirOwned" == "1" && "$sourceCleanupVerified" == "1" ]]; then
             rm -rf "$WORK_DIR"
         fi
     fi
@@ -141,6 +228,8 @@ WriteReport() {
         --arg restoredDatabaseDumpSha256 "$restoredDatabaseDumpSha256" \
         --argjson sourceBinding "$sourceBinding" \
         --argjson restoredSource "$restoredSource" \
+        --arg sourceFailureLog "$sourceFailureLog" \
+        --argjson sourceCleanupVerified "$sourceCleanupVerified" \
         --argjson checks "$checksJson" \
         --argjson blockers "$blockersJson" \
         --argjson rpoSeconds "$rpoSeconds" \
@@ -156,6 +245,8 @@ WriteReport() {
       manifestSha256: (if $manifestSha256 == "" then null else $manifestSha256 end),
       sourceBinding: $sourceBinding,
       restoredSource: $restoredSource,
+      sourceFailureLog: $sourceFailureLog,
+      sourceCleanupVerified: ($sourceCleanupVerified == 1),
       restoredDatabaseDumpSha256: (if $restoredDatabaseDumpSha256 == "" then null else $restoredDatabaseDumpSha256 end),
       checks: $checks,
       timings: {
@@ -461,6 +552,13 @@ RestorePostgres() {
         return
     }
 
+    if [[ "$sourceBinding" != "null" ]]; then
+        if ! RunSourceCommand "$WORK_DIR/.database-restore.stdout" \
+            docker exec -i "$postgres_container" pg_restore -U fsusblog -d fsusblog --exit-on-error --clean --if-exists <"$POSTGRES_BACKUP"; then
+            AddBlocker "database-restore-failed"
+            return
+        fi
+    else
     case "$POSTGRES_BACKUP" in
         *.dump | *.backup)
             docker exec -i "$postgres_container" pg_restore -U fsusblog -d fsusblog --clean --if-exists <"$POSTGRES_BACKUP"
@@ -472,6 +570,7 @@ RestorePostgres() {
             docker exec -i "$postgres_container" psql -v ON_ERROR_STOP=1 -U fsusblog -d fsusblog >/dev/null <"$POSTGRES_BACKUP"
             ;;
     esac
+    fi
 
     if [[ "$sourceBinding" != "null" ]]; then
         VerifyRestoredSource || return
@@ -498,12 +597,14 @@ VerifyRestoredSource() {
     fi
     printf 'ConnectionStrings__DefaultConnection=Host=%s;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev\n' \
         "$pgIp" >"$environmentFile"
-    if ! restoredSource="$("${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql --env-file "$environmentFile")"; then
+    if ! RunSourceCommand "$WORK_DIR/.source-observer.stdout" "${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql \
+        --env-file "$environmentFile" --timeout-seconds "$(SourceRemaining)"; then
         rm -f "$environmentFile"
         restoredSource="null"
         AddBlocker "database-restored-source-observation-failed"
         return 1
     fi
+    restoredSource="$(<"$WORK_DIR/.source-observer.stdout")"
     rm -f "$environmentFile"
     if ! jq -e --argjson binding "$sourceBinding" \
         '. as $restored | .Database.Provider == 0 and .Database != $binding.capture.Source.Database
@@ -679,6 +780,12 @@ PrepareSiteBackupPackage() {
             return
         fi
         sourceBinding="$(jq -c '.sourceBinding' "$packageDir/manifest.json")"
+        if ! ReadSourceBudget; then
+            return
+        fi
+        RequireCommand timeout
+        RequireCommand ps
+        RequireCommand sleep
         if [[ ! -f "$migrationDll" || -L "$migrationDll" ]]; then
             AddBlocker "site-backup-source-observer-unavailable"
             return

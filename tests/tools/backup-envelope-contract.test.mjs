@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -105,13 +106,14 @@ test('migration capture holds the native snapshot until the original dump has co
     assert.match(backup, /--capture-session --dump-output "\$target"/);
     assert.match(backup, /--format=custom --snapshot="\$snapshotId" --file="\$target"/);
     assert.match(backup, /printf 'DUMP_COMPLETED\\n'/);
-    assert.match(backup, /wait "\$capturePid"/);
+    assert.match(backup, /WaitCaptureChild "\$capturePid"/);
     assert.match(backup, /\.capture\.Source == \$start\.Source/);
     assert.match(backup, /\.capture\.DatabaseDumpSha256 == \$digest/);
     assert.match(backup, /database-backup-provider-unsupported/);
     assert.match(backup, /version: \(if \$sourceCapture == null then 2 else 3 end\)/);
     assert.ok(backup.indexOf('--snapshot="$snapshotId"') < backup.indexOf("printf 'DUMP_COMPLETED\\n'"));
-    assert.ok(backup.indexOf('wait "$capturePid"') < backup.indexOf('sourceCapture="$(jq -c'));
+    assert.ok(backup.indexOf('WaitCaptureChild "$capturePid"') < backup.indexOf('sourceCapture="$(jq -c'));
+    assert.ok(backup.indexOf('await handle.sync()') < backup.indexOf("printf 'DUMP_COMPLETED\\n'"));
 });
 
 test('bound restore independently observes an isolated target and exact restored content', async () =>
@@ -129,9 +131,67 @@ test('bound restore independently observes an isolated target and exact restored
     assert.match(drill, /restoredDatabaseDumpSha256:/);
     for (const script of [restore, drill])
     {
-        assert.match(script, /observe-source --provider postgresql --env-file/);
+        assert.match(script, /observe-source --provider postgresql\s+(?:\\\n\s*)?--env-file/);
         assert.match(script, /\.sourceBinding\.capture\.Source\.ContentDigest/);
         assert.match(script, /\.sourceBinding\.capture\.DatabaseDumpSha256 == \.artifactDigests\.database/);
+    }
+});
+
+test('source operations share one monotonic deadline and preserve direct child ownership', async () =>
+{
+    const [backup, restore, drill] = await Promise.all([
+        source('tools/operations/backup-site.sh'),
+        source('tools/operations/restore-site.sh'),
+        source('tools/operations/backup-restore-drill.sh')
+    ]);
+
+    for (const script of [backup, restore, drill])
+    {
+        assert.match(script, /FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS/);
+        assert.match(script, /read -r uptimeValue ignored <\/proc\/uptime/);
+        assert.match(script, /timeout --signal=TERM --kill-after=1s/);
+        assert.match(script, /kill -TERM -- "-\$pid"/);
+        assert.match(script, /kill -KILL -- "-\$pid"/);
+        assert.match(script, /ChildGroupEmpty "\$pid" \|\| return 1\s+wait "\$pid"/);
+        const runningCheck = script.match(/ChildRunning\(\) \{[\s\S]*?\n\}/);
+        assert.ok(runningCheck);
+        assert.doesNotMatch(runningCheck[0], /kill -0/);
+    }
+    assert.match(backup, /read -r -t "\$remaining" -u "\$captureReadFd"/);
+    assert.match(backup, /\.capture\.TimeoutSeconds == \$start\.TimeoutSeconds/);
+    assert.match(backup, /\[\[ -n "\$migrationDll" \]\] && ! ReadCaptureBudget/);
+    assert.doesNotMatch(restore, /\$\(ObserveDatabase\)/);
+    assert.match(restore, /targetSource="\$observedDatabase"/);
+    for (const script of [restore, drill])
+    {
+        assert.match(script, /"\$@" <&0 >"\$outputPath"/);
+        assert.equal((script.match(/sourceDeadline=\$\(/g) ?? []).length, 1);
+    }
+});
+
+test('the production shell budget parsers reject noncanonical or overflowing values', async () =>
+{
+    for (const [path, prefix] of [
+        ['tools/operations/backup-site.sh', 'Capture'],
+        ['tools/operations/restore-site.sh', 'Source'],
+        ['tools/operations/backup-restore-drill.sh', 'Source']
+    ])
+    {
+        const script = await source(path);
+        const parser = script.match(new RegExp(`Read${prefix}Budget\\(\\) \\{[\\s\\S]*?\\n\\}`));
+        const clock = script.match(new RegExp(`${prefix}Now\\(\\) \\{[\\s\\S]*?\\n\\}`));
+        assert.ok(parser && clock);
+        const variable = prefix === 'Capture' ? 'captureTimeoutSeconds' : 'sourceTimeoutSeconds';
+        for (const [value, accepted] of [
+            ['', false], ['0', false], ['01', false], ['+1', false], ['-1', false],
+            [' 1', false], ['1 ', false], ['1e3', false], ['１２', false],
+            ['2147484', false], ['99999999999999999999', false], ['1', true], ['2147483', true]
+        ])
+        {
+            // Only the actual parser and monotonic clock functions run: no script Main, files, or database tools.
+            const result = spawnSync('bash', ['-c', `AddBlocker() { :; }\n${clock[0]}\n${parser[0]}\n${variable}="$1"\nRead${prefix}Budget`, 'budget-parser', value], { encoding: 'utf8' });
+            assert.equal(result.status, accepted ? 0 : 1, `${path}: ${JSON.stringify(value)}: ${result.stderr}`);
+        }
     }
 });
 
