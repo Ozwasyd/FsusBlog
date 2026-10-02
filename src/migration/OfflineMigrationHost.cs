@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Security.Cryptography;
@@ -270,12 +271,48 @@ public static class OfflineMigrationHost
         }
     }
 
-    internal static async Task WritePlanWithinBudgetAsync(
+    // Explicit compiled process entry. Selectors are held by the original invocation
+    // owner, not added to CLI JSON or inferred from a plan/current database. The returned
+    // same-process configuration retains the actual backup invocation for apply/verify.
+    internal static async Task<OfflineMigrationHostOwnedConfiguration> RunOriginalArticlePlanAsync(
+        string[] args, ArticlePreservationProducerInputs inputs,
+        OwnedCurrentSchemaTarget target, OwnedRetainedMigrationTool tool,
+        PgArticlePreservationMediaConfiguration media, PgArticlePreservationRecoveryConfiguration recovery,
+        ImmutableArray<OfflineMigrationApplyOperation> otherProviderOwners, TimeSpan maximumBackupAge,
+        OfflineMigrationShellBackupDrillOwnedInputs backupInputs, TimeProvider? timeProvider = null)
+    {
+        OfflineMigrationPlanCommandOptions options = OfflineMigrationCommandLine.ParsePlan(args);
+        OfflineMigrationHostOwnedConfiguration? configured = null;
+        await RunReadOnlyCommandWithSignalsAsync(callerToken => WritePlanWithinBudgetAsync(options,
+            async (bound, token) =>
+            {
+                configured = await OfflineMigrationHostOwnedConfiguration.CreateOriginalArticlePreservationAsync(
+                    bound, inputs, target, tool, media, recovery, otherProviderOwners, maximumBackupAge,
+                    backupInputs, token, timeProvider).ConfigureAwait(false);
+                return configured.CreatePlanningEvidence();
+            }, callerToken, timeProvider)).ConfigureAwait(false);
+        return configured ?? throw new InvalidOperationException("offline_article_original_host_configuration_missing");
+    }
+
+    internal static Task WritePlanWithinBudgetAsync(
         OfflineMigrationPlanCommandOptions options,
         Func<IOfflineMigrationPlanningEvidence> createEvidence,
         CancellationToken callerToken,
         TimeProvider? timeProvider = null)
     {
+        ArgumentNullException.ThrowIfNull(createEvidence);
+        return WritePlanWithinBudgetAsync(options,
+            (_, _) => Task.FromResult(createEvidence()), callerToken, timeProvider);
+    }
+
+    internal static async Task WritePlanWithinBudgetAsync(
+        OfflineMigrationPlanCommandOptions options,
+        Func<OfflineMigrationPlanCommandOptions, CancellationToken, Task<IOfflineMigrationPlanningEvidence>> createEvidence,
+        CancellationToken callerToken,
+        TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(createEvidence);
         if (options.TimeoutSeconds is <= 0 or > (int.MaxValue / 1000))
         {
             throw new InvalidOperationException("schema_plan_timeout_invalid");
@@ -285,9 +322,13 @@ public static class OfflineMigrationHost
         using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)), clock);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
         operation.Token.ThrowIfCancellationRequested();
-        IOfflineMigrationPlanningEvidence evidence = createEvidence();
+        OfflineMigrationPlanCommandOptions invocation = options with { OperationDeadline = invocationDeadline };
+        // Compiled owner composition may read retained inputs and publish article inputs.
+        // It is part of this original operation, not a fresh per-stage timeout or a CLI plugin.
+        IOfflineMigrationPlanningEvidence evidence = await createEvidence(invocation, operation.Token).ConfigureAwait(false);
         operation.Token.ThrowIfCancellationRequested();
-        await WritePlanAsync(options with { OperationDeadline = invocationDeadline }, evidence, operation.Token).ConfigureAwait(false);
+        _ = invocationDeadline.RemainingWholeSeconds(operation.Token);
+        await WritePlanAsync(invocation, evidence, operation.Token).ConfigureAwait(false);
         // WritePlanAsync checks the same token before atomic publication. Do not turn an
         // already published immutable artifact into a later cancellation outcome.
     }

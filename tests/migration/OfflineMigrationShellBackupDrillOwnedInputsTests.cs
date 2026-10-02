@@ -13,6 +13,31 @@ namespace FsusBlog.Migration.Tests;
 public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
 {
     [Fact]
+    public void PlanningScopeLocatorIsTheOriginalImmutableScopeWithoutToolReadsOrInvocation()
+    {
+        using var fixture = new InputsFixture(_ => throw new InvalidOperationException("tool_read_not_expected"));
+        Assert.Same(fixture.Scope, fixture.Inputs.InputScope);
+        Assert.Equal(fixture.Scope.ExpectedDatabase, fixture.Inputs.InputScope.ExpectedDatabase);
+        Assert.Equal(fixture.Scope.EnvironmentFilePath, fixture.Inputs.InputScope.EnvironmentFilePath);
+        Assert.Equal(fixture.Scope.RestoreEnvironmentFilePath, fixture.Inputs.InputScope.RestoreEnvironmentFilePath);
+        Assert.Equal(fixture.Scope.BackupPackagePath, fixture.Inputs.InputScope.BackupPackagePath);
+        Assert.Equal(fixture.Scope.OutputParent, fixture.Inputs.InputScope.OutputParent);
+        Assert.Equal(fixture.Scope.PlanOutputPath, fixture.Inputs.InputScope.PlanOutputPath);
+        Assert.False(Directory.Exists(fixture.PrivateRoot));
+        Assert.False(File.Exists(fixture.PrivateRoot + ".invocation.stdout"));
+    }
+
+    [Fact]
+    public void CloningALocatorCannotChangeTheOriginalOwnedPlanningScope()
+    {
+        using var fixture = new InputsFixture();
+        var other = fixture.Inputs.InputScope with { BackupPackagePath = fixture.Scope.EnvironmentFilePath };
+        Assert.NotEqual(other.BackupPackagePath, fixture.Inputs.InputScope.BackupPackagePath);
+        Assert.Same(fixture.Scope, fixture.Inputs.InputScope);
+        Assert.False(Directory.Exists(fixture.PrivateRoot));
+    }
+
+    [Fact]
     public async Task CompleteExplicitConfigurationHasAUsableOriginalInvocationBinding()
     {
         using var fixture = new InputsFixture();

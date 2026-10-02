@@ -582,6 +582,29 @@ record. Actual original target/operation factories and retained-backup/tool prov
 must supply those ports; the ordinary default entry remains refused while that
 complete process-owned configuration is absent.
 
+The compiled `RunOriginalArticlePlanAsync` entry parses the same original plan
+arguments and creates article planning owners inside that invocation's one finite
+deadline and linked cancellation token. The original process supplies the retained
+tool and owned target capabilities, immutable backup scope, explicit original origin
+artifact/document base, owned media run/root selections, finite limits, and current
+publication transition/audit selections. These are locators and selections, not JSON
+approval; the Host neither copies Backend constants nor recovers historical inputs
+from a plan or current database facts. Missing actual provider owners refuse before
+credentials, native access or article publication. The original PostgreSQL session
+holds the same read-only snapshot for the sole article producer and matched route;
+the Host retains that actual route only after the native owner returns from cleanup.
+The producer uses the sole source reader, policy defaults and publisher for complete
+source/taxonomy/graph/current artifacts. Planning then authenticates the original
+backup invocation, re-observes source, and matches the same route before and after
+terminal authority revalidation before publishing the plan. The returned same-process
+Host configuration retains the original backup capability for apply and independent
+verification. Interrupted article publication may leave immutable task-owned inputs,
+not an admitted plan or committed migration; they are not silently overwritten or
+reused as grants. This initial historical-source producer must not run for a committed
+resume, which uses the original accepted journal and published recovery proof instead.
+Source integration does not establish actual SDK, loaded-image, backup, database,
+physical cleanup, complete provider operation or cross-process qualification.
+
 The offline Host's `verify` command requires explicit PostgreSQL instance/database
 identity, environment file, original plan/apply paths and their whole-byte SHA-256,
 invocation ID, ordered `--checkpoint <absolute-path> <sha256>` pairs, output path and

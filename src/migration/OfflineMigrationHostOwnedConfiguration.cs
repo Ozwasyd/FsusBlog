@@ -1,3 +1,7 @@
+using System.Collections.Immutable;
+
+using FsusBlog.Contracts.Migration;
+
 namespace FsusBlog.Migration;
 
 // Process-owned compiled composition only. CLI/artifact JSON cannot supply owner
@@ -141,12 +145,110 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
             maximumBackupAge, backupInputs, cancellationToken, timeProvider).ConfigureAwait(false);
     }
 
+    internal static async Task<OfflineMigrationHostOwnedConfiguration> CreateOriginalArticlePreservationAsync(
+        OfflineMigrationPlanCommandOptions options, ArticlePreservationProducerInputs inputs,
+        OwnedCurrentSchemaTarget target, OwnedRetainedMigrationTool tool,
+        PgArticlePreservationMediaConfiguration media, PgArticlePreservationRecoveryConfiguration recovery,
+        ImmutableArray<OfflineMigrationApplyOperation> otherProviderOwners, TimeSpan maximumBackupAge,
+        OfflineMigrationShellBackupDrillOwnedInputs backupInputs, CancellationToken cancellationToken,
+        TimeProvider? timeProvider = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // The whole-route requirement is checked before any retained-file, credential,
+        // native or publication work. A PG descriptor cannot stand in for the other owners.
+        ArticlePreservationProducer.RequireProviderOwners(otherProviderOwners);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(tool);
+        ArgumentNullException.ThrowIfNull(backupInputs);
+        RequireArticlePlanningScope(options, inputs, backupInputs.InputScope, cancellationToken);
+        ArticlePreservationProducer.RequireInputs(inputs);
+        PgArticlePreservationOperation.RequireConfiguration(media);
+        PgArticlePreservationOperation.RequireRecoveryConfiguration(recovery);
+        if (!ReferenceEquals(recovery.Tool, tool))
+        {
+            throw new InvalidOperationException("article_preservation_producer_original_tool_changed");
+        }
+        if (maximumBackupAge <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException("offline_backup_age_policy_invalid");
+        }
+        OfflineMigrationOperationDeadline deadline = options.OperationDeadline
+            ?? throw new InvalidOperationException("offline_article_original_plan_deadline_required");
+        _ = deadline.RemainingWholeSeconds(cancellationToken);
+        _ = await backupInputs.CreateConfigurationAsync(cancellationToken).ConfigureAwait(false);
+        CurrentSchemaVerifierIdentity actualTool = await tool.RevalidateAsync(cancellationToken).ConfigureAwait(false);
+        await target.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
+        _ = deadline.RemainingWholeSeconds(cancellationToken);
+        string connectionString = await OfflineMigrationHost.ReadRequiredConnectionStringAsync(
+            options.EnvironmentFilePath, cancellationToken).ConfigureAwait(false);
+        OfflineMigrationArticlePreservationRoute? matched = null;
+        _ = await OfflineMigrationPostgreSqlNativeSession.ObserveAsync(connectionString, async (connection, transaction, token) =>
+        {
+            OfflineMigrationSourceObservation source = await new OfflineMigrationSourceObserver().ObserveAsync(
+                CurrentSchemaProviderKind.PostgreSql, connection, transaction, token).ConfigureAwait(false);
+            if (source.Database != options.ExpectedDatabase)
+            {
+                throw new InvalidOperationException("schema_offline_plan_database_identity_mismatch");
+            }
+            _ = OfflineMigrationSourceFingerprints.CreateRegistry().Match(source);
+            OfflineMigrationArticlePreservationRoute route = await ArticlePreservationProducer.CreateMatchedRouteAsync(
+                inputs, target, tool, media, recovery, otherProviderOwners, connection, transaction, token).ConfigureAwait(false);
+            OfflineMigrationSourceRouteSelection selection = route.MatchSource(source, token);
+            if (!ReferenceEquals(selection.Dag, route.Dag))
+            {
+                throw new InvalidOperationException("article_preservation_producer_route_changed");
+            }
+            matched = route;
+            return source;
+        }, cancellationToken).ConfigureAwait(false);
+        // No capability is published to the Host until the unique native session owner
+        // has awaited its cleanup. Disposal returned is not physical remote-release proof.
+        _ = deadline.RemainingWholeSeconds(cancellationToken);
+        if (matched is null || await tool.RevalidateAsync(cancellationToken).ConfigureAwait(false) != actualTool)
+        {
+            throw new InvalidOperationException("article_preservation_producer_original_tool_changed");
+        }
+        await target.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
+        return await CreateOriginalPostgreSqlAsync(target, tool, matched.Dag, matched,
+            maximumBackupAge, backupInputs, cancellationToken, timeProvider).ConfigureAwait(false);
+    }
+
+    internal static void RequireArticlePlanningScope(OfflineMigrationPlanCommandOptions options,
+        ArticlePreservationProducerInputs inputs, OfflineMigrationShellBackupDrillInputScope scope, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(scope);
+        token.ThrowIfCancellationRequested();
+        if (options.ExpectedDatabase is null || options.ExpectedDatabase != scope.ExpectedDatabase
+            || options.ExpectedDatabase.Provider != CurrentSchemaProviderKind.PostgreSql
+            || options.EnvironmentFilePath != scope.EnvironmentFilePath
+            || options.RestoreEnvironmentFilePath != scope.RestoreEnvironmentFilePath
+            || options.BackupPackagePath != scope.BackupPackagePath
+            || options.PlanOutputPath != scope.PlanOutputPath)
+        {
+            throw new InvalidOperationException("offline_backup_tool_configuration_invocation_scope_changed");
+        }
+        // The caller selects the original run's output locators; do not invent a new run,
+        // copy current facts into historical inputs or accept a mutable latest alias.
+        ArticlePreservationProducer.RequireInputs(inputs);
+        if (!Path.IsPathFullyQualified(scope.OutputParent) || Path.GetFullPath(scope.OutputParent) != scope.OutputParent
+            || inputs.OutputDirectory == scope.OutputParent
+            || !inputs.OutputDirectory.StartsWith(Path.TrimEndingDirectorySeparator(scope.OutputParent)
+                + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("offline_article_original_output_scope_changed");
+        }
+    }
+
     internal TimeProvider Clock { get; }
     internal OfflineMigrationShellBackupDrillConfiguration ShellBackupConfiguration => _backup;
     internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()
         => _retainedBackupAdmission is null
-            ? OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _backup, Clock)
-            : OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _retainedBackupAdmission, Clock);
+            ? OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _backup, Clock,
+                _verification.Operations as IOfflineMigrationMatchedSourceRoute)
+            : OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _retainedBackupAdmission, Clock,
+                _verification.Operations as IOfflineMigrationMatchedSourceRoute);
     internal IOfflineMigrationApplyProducer CreateApplyProducer()
         => OfflineMigrationApplyEvidence.ComposeOwned(new(_verification.Artifacts, _planning,
             _verification.Authority, _verification.Operations), Clock);

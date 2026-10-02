@@ -101,6 +101,55 @@ public sealed class OfflineMigrationPlanTests
         Assert.Equal(2, evidence.AuthorityReads);
     }
 
+    [Fact]
+    public async Task OwnedEvidence_MatchesActualRouteBeforeAndAfterTerminalAuthorityRead()
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        var evidence = new EvidenceFixture(fixture);
+        var route = new MatchedRouteFixture(fixture);
+        _ = await OfflineMigrationPlanEvidence.ReadAndVerifyAsync(evidence.Options,
+            evidence.CreateReader(route), CancellationToken.None);
+        Assert.Equal(2, route.Matches);
+        Assert.Equal(new[] { fixture.Source, fixture.Source }, route.Sources);
+    }
+
+    [Theory]
+    [InlineData("fingerprint")]
+    [InlineData("dag")]
+    [InlineData("ordered-steps")]
+    [InlineData("terminal")]
+    public async Task OwnedEvidence_RejectsMatchedRouteDriftWithoutSubstitutingPlanSteps(string drift)
+    {
+        Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        var evidence = new EvidenceFixture(fixture);
+        var route = new MatchedRouteFixture(fixture) { Drift = drift };
+        Assert.Equal("offline_plan_matched_source_route_changed", (await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationPlanEvidence.ReadAndVerifyAsync(evidence.Options, evidence.CreateReader(route),
+                CancellationToken.None))).Message);
+        Assert.Equal(drift == "terminal" ? 2 : 1, route.Matches);
+    }
+
+    // Structural route controls, not actual compiled provider or native capabilities.
+    private sealed class MatchedRouteFixture(Fixture fixture) : IOfflineMigrationMatchedSourceRoute
+    {
+        internal string? Drift { get; init; }
+        internal int Matches { get; private set; }
+        internal List<OfflineMigrationSourceObservation> Sources { get; } = [];
+
+        public OfflineMigrationSourceRouteSelection MatchSource(OfflineMigrationSourceObservation source, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            Sources.Add(source);
+            Matches++;
+            OfflineMigrationFingerprintDefinition fingerprint = fixture.Registry.Match(source);
+            OfflineMigrationDag dag = fixture.Dag;
+            ImmutableArray<OfflineMigrationStep> steps = OfflineMigrationPlanValidation.OrderSteps(dag, fingerprint.EntryStepId);
+            return new(Drift == "fingerprint" ? fingerprint with { Id = "changed-route" } : fingerprint,
+                Drift == "dag" || Drift == "terminal" && Matches == 2 ? dag with { Version = "changed-route" } : dag,
+                Drift == "ordered-steps" ? [] : steps);
+        }
+    }
+
     [Theory]
     [InlineData("source")]
     [InlineData("restore")]
@@ -413,9 +462,9 @@ public sealed class OfflineMigrationPlanTests
         internal List<string> SourceConnections { get; } = [];
         internal int Inspections { get; private set; }
         internal int AuthorityReads { get; private set; }
-        internal IOfflineMigrationPlanningEvidence CreateReader()
+        internal IOfflineMigrationPlanningEvidence CreateReader(IOfflineMigrationMatchedSourceRoute? route = null)
             => new OfflineMigrationOwnedPlanningEvidence(this, this, this, _fixture.Registry,
-                (path, token) => { token.ThrowIfCancellationRequested(); return Task.FromResult(path); }, new AdmissionClock());
+                (path, token) => { token.ThrowIfCancellationRequested(); return Task.FromResult(path); }, new AdmissionClock(), route);
 
         public Task<OfflineMigrationBackupObservation> ReadAndVerifyAsync(OfflineMigrationPlanCommandOptions options, CancellationToken token)
         {

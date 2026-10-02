@@ -55,7 +55,8 @@ internal sealed class OfflineMigrationOwnedPlanningEvidence(
     IOfflineMigrationPlanningAuthorityReader authorityReader,
     OfflineMigrationSourceRegistry registry,
     Func<string, CancellationToken, Task<string>> readConnectionString,
-    TimeProvider timeProvider) : IOfflineMigrationPlanningEvidence
+    TimeProvider timeProvider,
+    IOfflineMigrationMatchedSourceRoute? matchedRoute = null) : IOfflineMigrationPlanningEvidence
 {
     public async Task<OfflineMigrationPlanningSnapshot> ReadAsync(
         OfflineMigrationPlanCommandOptions options, CancellationToken cancellationToken)
@@ -93,7 +94,8 @@ internal sealed class OfflineMigrationOwnedPlanningEvidence(
         {
             throw new InvalidOperationException("schema_offline_plan_database_identity_mismatch");
         }
-        _ = registry.Match(source);
+        OfflineMigrationFingerprintDefinition fingerprint = registry.Match(source);
+        RequireMatchedRoute(source, fingerprint, authority.Dag, cancellationToken);
 
         // RestoredSource is the original owned drill invocation's actual native observation,
         // not caller JSON. Its task-owned target is retired only after that producer terminal;
@@ -109,9 +111,27 @@ internal sealed class OfflineMigrationOwnedPlanningEvidence(
         {
             throw new InvalidOperationException("offline_plan_authority_changed_during_observation");
         }
+        RequireMatchedRoute(source, fingerprint, terminalAuthority.Dag, cancellationToken);
 
         return new(source, backup, authority.Target, authority.Tool, registry, authority.Dag,
             admissionTime, authority.MaximumBackupAge);
+    }
+
+    private void RequireMatchedRoute(OfflineMigrationSourceObservation source,
+        OfflineMigrationFingerprintDefinition fingerprint, OfflineMigrationDag dag, CancellationToken token)
+    {
+        if (matchedRoute is null)
+        {
+            return;
+        }
+        OfflineMigrationSourceRouteSelection selection = matchedRoute.MatchSource(source, token);
+        if (!OfflineMigrationPlanValidation.Equal(selection.Fingerprint, fingerprint)
+            || !OfflineMigrationPlanValidation.Equal(selection.Dag, dag)
+            || !OfflineMigrationPlanValidation.Equal(selection.OrderedSteps,
+                OfflineMigrationPlanValidation.OrderSteps(dag, fingerprint.EntryStepId)))
+        {
+            throw new InvalidOperationException("offline_plan_matched_source_route_changed");
+        }
     }
 
     private static void RequireObservedPath(CurrentSchemaArtifactReference observed, string expectedPath)
@@ -145,12 +165,12 @@ internal static class OfflineMigrationPlanEvidence
     internal static IOfflineMigrationPlanningEvidence ComposeOwnedReader(
         IOfflineMigrationPlanningAuthorityReader authority,
         OfflineMigrationShellBackupDrillConfiguration backupConfiguration,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, IOfflineMigrationMatchedSourceRoute? matchedRoute = null)
     {
         ArgumentNullException.ThrowIfNull(authority);
         ArgumentNullException.ThrowIfNull(backupConfiguration);
         return ComposeOwnedReader(authority,
-            new OfflineMigrationBackupAdmission(new OfflineMigrationShellBackupDrillProducer(backupConfiguration)), timeProvider);
+            new OfflineMigrationBackupAdmission(new OfflineMigrationShellBackupDrillProducer(backupConfiguration)), timeProvider, matchedRoute);
     }
 
     // The original retention owner may wrap its successful invocation to preserve
@@ -158,13 +178,13 @@ internal static class OfflineMigrationPlanEvidence
     // It still uses the original producer; this port cannot import a report/plan.
     internal static IOfflineMigrationPlanningEvidence ComposeOwnedReader(
         IOfflineMigrationPlanningAuthorityReader authority, IOfflineMigrationOwnedBackupAdmission backupAdmission,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, IOfflineMigrationMatchedSourceRoute? matchedRoute = null)
     {
         ArgumentNullException.ThrowIfNull(authority);
         ArgumentNullException.ThrowIfNull(backupAdmission);
         return new OfflineMigrationOwnedPlanningEvidence(CreateOwnedSourceObserver(), backupAdmission,
             authority, OfflineMigrationSourceFingerprints.CreateRegistry(),
-            OfflineMigrationHost.ReadRequiredConnectionStringAsync, timeProvider ?? TimeProvider.System);
+            OfflineMigrationHost.ReadRequiredConnectionStringAsync, timeProvider ?? TimeProvider.System, matchedRoute);
     }
 
     internal static async Task<VerifiedOfflineMigrationPlan> ReadAndVerifyAsync(
