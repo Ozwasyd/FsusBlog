@@ -258,7 +258,7 @@ test('owned migration drill proves pre-migration recoverability without claiming
     const drill = await source('tools/operations/backup-restore-drill.sh');
     assert.match(drill, /--migration-evidence/);
     assert.match(drill, /sourceDeadline="\$2"; evidenceNonce="\$3"; RunEvidenceWorker/);
-    assert.match(drill, /RunEvidenceWorker\(\) \{\s+RunPreMigrationRestore/);
+    assert.match(drill, /RunEvidenceWorker\(\) \{[\s\S]*?\n    RunPreMigrationRestore/);
     assert.match(drill, /StartRestoredBackend\s+RunSmokeChecks/);
     assert.match(drill, /--cidfile "\$OUT_DIR\/owned-postgres.cid"/);
     assert.match(drill, /--cidfile "\$OUT_DIR\/owned-redis.cid"/);
@@ -337,6 +337,21 @@ test('owned migration drill rejects missing or invalid budget before creating ou
         assert.equal(result.stdout, '');
         assert.match(result.stderr, /owned-drill-timeout-invalid-or-missing/);
     }
+});
+
+test('actual owned worker signal handler refuses success and invokes its exit cleanup path', () =>
+{
+    const script = new URL('tools/operations/backup-restore-drill.sh', root).pathname;
+    // Only signal plumbing is exercised. The explicitly fake cleanup below is not Docker,
+    // native-session cleanup or restore proof, and the real operation body never runs.
+    const result = spawnSync('bash', ['-c',
+        'source "$1"; evidenceMode=1; evidenceWorker=1; '
+        + 'RunPreMigrationRestore() { kill -TERM "$BASHPID"; }; '
+        + 'Cleanup() { printf cleanup-path >&2; }; RunEvidenceWorker',
+        'owned-signal-fixture', script], { encoding: 'utf8' });
+    assert.equal(result.status, 143);
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr, 'cleanup-path');
 });
 
 test('embedded operation JavaScript parses without importing or executing its production body', async () =>
