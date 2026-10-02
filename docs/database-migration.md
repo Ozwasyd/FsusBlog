@@ -114,6 +114,45 @@ destructive work unguarded. `backfill-resume` executes resumable handlers
 declared in the migration assembly (for example
 `AccountSubjectHashOnlineBackfillHandler`).
 
+### Immutable offline planning boundary
+
+The separate `plan` command parses an explicit provider, observed instance/database
+identity to match, source and isolated restore environment files, original backup
+package/manifest/restore-drill references, and a new output path. It does not invoke
+legacy phases, apply SQL, write a migration journal, or start the Server. Release,
+slot, latest-backup, manual-step and legacy-phase selectors are rejected.
+
+`OfflineMigrationPlanContracts` owns the immutable cross-assembly payload. The
+migration-owned planner matches complete schema/history/business-shape observations
+against a closed, versioned registry with owner, proof tests and entry step. Unknown,
+partial and ambiguous observations are rejected with exact differences, not a nearest
+baseline. The shared semantic DAG freezes dependencies, step order, idempotency,
+destructiveness, checkpoint policy and all three provider operation references.
+Operation semantic digests identify definitions, not actual row-data verification.
+The independent plan verifier rebuilds that closure from owner inputs and fresh
+observations; merely resealing a modified payload does not authorize it.
+
+Backup admission distinguishes the original database at capture from the isolated
+restore database. The original authenticated backup owner must bind package,
+manifest and drill bytes to the captured source and independently observed restore;
+their complete shapes must match the fresh source. All six original site-package
+artifact digests remain required. Freshness is checked at admission using owner
+policy; invocation clock, release, slot, PID and random values do not enter plan
+bytes. Receipt capture/restore times are immutable input evidence, not a newly
+generated plan timestamp. The shared codec verifies integrity only, not backup,
+registry or execution authority. Apply must still revalidate under its exclusive
+database lock and use exact journal progress rather than rediscovering steps.
+
+The current `CreateOwnedReader` fails with
+`schema_offline_plan_evidence_owner_not_configured`: the existing backup manifest
+and drill do not yet prove source instance/fingerprint binding, and the current-only
+schema observer cannot register historical source shapes. Contract-test observations
+are not production registry entries. Until those actual owner capabilities are
+integrated and independently verified, no CLI plan is admitted; the existing
+`schema_offline_contract_not_supported` guard remains unchanged. The typed contract,
+planner and source regressions alone are not three-provider or whole migration
+acceptance, and do not authorize applying a deserialized plan.
+
 `artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
 project, assembly and namespace identities, every old/new source path and declared
 symbol, old/new SHA-256 digests, deleted Server paths, the aggregate content digest

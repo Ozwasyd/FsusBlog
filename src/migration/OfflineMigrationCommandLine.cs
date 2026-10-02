@@ -1,3 +1,5 @@
+using FsusBlog.Contracts.Migration;
+
 namespace FsusBlog.Migration;
 
 internal sealed record OfflineMigrationCommandOptions(
@@ -9,8 +11,62 @@ internal sealed record OfflineMigrationCommandOptions(
     bool ConfirmDestructive,
     bool DryRun);
 
+internal sealed record OfflineMigrationPlanCommandOptions(
+    OfflineMigrationDatabaseIdentity ExpectedDatabase,
+    string EnvironmentFilePath,
+    string BackupPackagePath,
+    string BackupManifestPath,
+    string RestoreDrillPath,
+    string RestoreEnvironmentFilePath,
+    string PlanOutputPath);
+
 internal static class OfflineMigrationCommandLine
 {
+    internal static OfflineMigrationPlanCommandOptions ParsePlan(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "plan")
+        {
+            throw new InvalidOperationException("schema_plan_command_required");
+        }
+
+        string[] allowed = ["--provider", "--instance-id", "--database-id", "--env-file", "--backup-package",
+            "--backup-manifest", "--restore-drill", "--restore-env-file", "--output"];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int index = 1; index < args.Count; index++)
+        {
+            string argument = args[index];
+            if (!allowed.Contains(argument, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException($"schema_plan_argument_unknown:{argument}");
+            }
+
+            string value = ReadValue(args, ref index, argument);
+            if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
+            {
+                throw new InvalidOperationException($"schema_plan_argument_invalid_or_duplicate:{argument}");
+            }
+        }
+
+        foreach (string argument in allowed)
+        {
+            if (!values.ContainsKey(argument))
+            {
+                throw new InvalidOperationException($"schema_plan_argument_required:{argument}");
+            }
+        }
+
+        OfflineMigrationProvider provider = values["--provider"] switch
+        {
+            "postgresql" => OfflineMigrationProvider.PostgreSql,
+            "mysql" => OfflineMigrationProvider.MySql,
+            "sqlite" => OfflineMigrationProvider.Sqlite,
+            _ => throw new InvalidOperationException("schema_plan_provider_unknown")
+        };
+        return new(new(provider, values["--instance-id"], values["--database-id"]), values["--env-file"],
+            values["--backup-package"], values["--backup-manifest"], values["--restore-drill"],
+            values["--restore-env-file"], values["--output"]);
+    }
+
     public static OfflineMigrationCommandOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0

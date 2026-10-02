@@ -2,6 +2,8 @@ using System.Text.Json;
 
 using SqlSugar;
 
+using FsusBlog.Contracts.Migration;
+
 namespace FsusBlog.Migration;
 
 /// <summary>
@@ -16,6 +18,21 @@ public static class OfflineMigrationHost
 
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "plan")
+        {
+            try
+            {
+                OfflineMigrationPlanCommandOptions options = OfflineMigrationCommandLine.ParsePlan(args);
+                await WritePlanAsync(options, OfflineMigrationPlanEvidence.CreateOwnedReader(), CancellationToken.None).ConfigureAwait(false);
+                return 0;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                WriteJson(new { status = "failed", code = exception.Message });
+                return 1;
+            }
+        }
+
         OfflineMigrationCommandOptions parsed;
         try
         {
@@ -64,6 +81,43 @@ public static class OfflineMigrationHost
                 detail = exception.Message
             });
             return 1;
+        }
+    }
+
+    internal static async Task WritePlanAsync(
+        OfflineMigrationPlanCommandOptions options,
+        IOfflineMigrationPlanningEvidence evidence,
+        CancellationToken cancellationToken)
+    {
+        VerifiedOfflineMigrationPlan verified = await OfflineMigrationPlanEvidence.ReadAndVerifyAsync(
+            options, evidence, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Never overwrite an earlier immutable plan. Publication is after all read-only
+        // admission, outside any database transaction and without invoking legacy phases.
+        string target = Path.GetFullPath(options.PlanOutputPath);
+        string staging = target + "." + Guid.NewGuid().ToString("N") + ".staging";
+        try
+        {
+            await using (var output = new FileStream(staging, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                Options = FileOptions.Asynchronous,
+                UnixCreateMode = OperatingSystem.IsWindows() ? null : UnixFileMode.UserRead | UnixFileMode.UserWrite
+            }))
+            {
+                await output.WriteAsync(OfflineMigrationPlanCodec.Serialize(verified.Plan), cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+                output.Flush(flushToDisk: true);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(staging, target, overwrite: false);
+        }
+        finally
+        {
+            File.Delete(staging);
         }
     }
 
