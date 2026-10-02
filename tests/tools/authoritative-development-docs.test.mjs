@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
     mkdirSync,
     mkdtempSync,
@@ -11,6 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const checker = path.join(root, 'tools/docs/check-authoritative-development-docs.mjs');
@@ -80,6 +82,39 @@ test('authoritative development documentation authoritative development document
         const result = runChecker(overlay);
         assert.equal(result.status, 0, output(result));
         assert.match(result.stdout, /\[authoritative-development-docs] ok/);
+    });
+});
+
+test('authoritative development documentation assigns only the sealed FsusUI migration archive to its generated owner', () =>
+{
+    const archivePath = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
+    const manifest = readManifest();
+    const generated = manifest.pathClassifications.find((entry) => entry.id === 'generated');
+    assert.ok(generated.patterns.includes(archivePath));
+    assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
+    assert.ok(!generated.patterns.includes('config/dependencies/**'));
+
+    const archive = readFileSync(path.join(root, archivePath));
+    const owner = read('tools/dependencies/migrate-fsusui-public-npm.mjs');
+    const digest = owner.match(/FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256 = '([0-9a-f]{64})'/u)?.[1];
+    assert.ok(digest, 'the existing migration owner must seal the archive bytes');
+    assert.equal(createHash('sha256').update(archive).digest('hex'), digest);
+    assert.match(gunzipSync(archive).toString('utf8'), /^diff --git /u);
+});
+
+test('authoritative development documentation rejects the FsusUI migration archive without its exact generated ownership', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        const generated = manifest.pathClassifications.find((entry) => entry.id === 'generated');
+        generated.patterns = generated.patterns.filter((pattern) =>
+            pattern !== 'config/dependencies/fsusui-public-npm-migration.patch.gz');
+        writeManifest(overlay, manifest);
+
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        assert.match(output(result), /config\/dependencies\/fsusui-public-npm-migration\.patch\.gz has no style owner or non-source classification/u);
     });
 });
 
