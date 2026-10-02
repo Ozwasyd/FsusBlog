@@ -236,7 +236,7 @@ internal static class ArticlePreservationStorageWriter
         command.CommandText = $"UPDATE public.{Quote(row.Table)} SET {assignments} WHERE {predicate} AND {string.Join(" AND ", pointers.Select(static column => Quote(column.Name) + " IS NULL"))};";
     }
 
-    private static async Task VerifyRowsAsync(IEnumerable<IGrouping<string, ArticlePreservationStorageRow>> groups,
+    internal static async Task VerifyRowsAsync(IEnumerable<IGrouping<string, ArticlePreservationStorageRow>> groups,
         DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token)
     {
         foreach (IGrouping<string, ArticlePreservationStorageRow> group in groups)
