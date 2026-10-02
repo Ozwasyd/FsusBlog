@@ -7438,21 +7438,21 @@
             "reason": "PostgreSQL-backed login and session commands now drive real JWT validation through the mapped protected account-mutation endpoint, including authoritative context, expiry, revocation, identity, refresh, business-execution, and zero-side-effect evidence."
         },
         {
-            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.LoginWithMfa_RequiresPartialAuthBeforeFullSession",
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#FsusBlog.Server.Tests.Unit.BackendAuthStateMachineTests.LoginWithMfa_RequiresPartialAuthBeforeFullSession#case-0000",
             "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes",
-                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.NonMfaPasskeyLogin_PreservesDirectSessionAndCookieSemantics"
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#FsusBlog.Server.Tests.Unit.MfaLoginEndpointPostgresTests.MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes#case-0000",
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#FsusBlog.Server.Tests.Unit.MfaLoginEndpointPostgresTests.NonMfaPasskeyLogin_PreservesDirectSessionAndCookieSemantics#case-0000"
             ],
             "reason": "The hand-written password and PoW transition table is replaced by canonical Passkey endpoint execution that proves MFA-pending users remain sessionless in PostgreSQL and only verified continuation creates cookies, tokens, and one session."
         },
         {
-            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.IllegalTransitions_AreRejected",
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#FsusBlog.Server.Tests.Unit.BackendAuthStateMachineTests.IllegalTransitions_AreRejected#case-0000",
             "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes",
-                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaContinuation_ConcurrentTotpCompletionCreatesExactlyOnePostgresSession",
-                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaContinuation_RejectsMissingCrossUserCrossDeviceExpiredAndRevokedUseWithoutSession"
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#FsusBlog.Server.Tests.Unit.MfaLoginEndpointPostgresTests.MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes#case-0000",
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#FsusBlog.Server.Tests.Unit.MfaLoginEndpointPostgresTests.MfaContinuation_ConcurrentTotpCompletionCreatesExactlyOnePostgresSession#case-0000",
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#FsusBlog.Server.Tests.Unit.MfaLoginEndpointPostgresTests.MfaContinuation_RejectsMissingCrossUserCrossDeviceExpiredAndRevokedUseWithoutSession#case-0000"
             ],
             "reason": "Dynamic TestServer requests now reject early refresh, missing, cross-user, cross-device, expired, revoked, concurrent, and replayed MFA continuations with canonical errors and PostgreSQL side-effect assertions."
         },

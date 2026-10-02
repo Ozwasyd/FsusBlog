@@ -10,6 +10,7 @@ governance:
             - tests/anonymous-nullifier-concurrency-retirement-baseline.json
             - tests/ci-local-matrix-retirement-baseline.json
             - tests/lightweight-acceptance-baseline.json
+            - tests/mfa-login-continuation-retirement-baseline.json
             - tests/moderation-regions-datalist-retirement-baseline.json
             - tests/public-aot-byte-shape-retirement-baseline.json
             - tests/public-article-reading-layout-retirement-baseline.json
@@ -491,7 +492,12 @@ commandGroups:
               access: "write"
               stage: "postbuild"
               reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence."
-              consumedInputs: ["src/frontend/dist", "config/performance/static-client-payload-budget.v1.json", "config/schemas/static-client-payload-budget.schema.json", "tools/operations/static-client-payload-budget.mjs", "tests/frontend/checks/static/check-asset-size-budget.mjs"]
+              consumedInputs:
+                  - "src/frontend/dist"
+                  - "config/performance/static-client-payload-budget.v1.json"
+                  - "config/schemas/static-client-payload-budget.schema.json"
+                  - "tools/operations/static-client-payload-budget.mjs"
+                  - "tests/frontend/checks/static/check-asset-size-budget.mjs"
               ownedOutputs: [".tmp/frontend/asset-size-budget.json"]
               dependsOn: []
               resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}
