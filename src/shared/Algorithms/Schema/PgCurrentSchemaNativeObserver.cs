@@ -145,4 +145,3 @@ public static class PgCurrentSchemaNativeObserver
     private static IEnumerable<string> BoundColumns(SchemaExpressionNode expression)
         => (expression.Kind == "column" ? new[] { expression.Value } : Array.Empty<string>()).Concat(expression.Arguments.SelectMany(BoundColumns));
 }
-
