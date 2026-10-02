@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 using FsusBlog.Core.Services.Articles;
@@ -56,6 +57,65 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
         await authority.DidNotReceiveWithAnyArgs().GetRevisionAsync(default, default, default);
         await authority.DidNotReceiveWithAnyArgs().GetDraftAsync(default, default!, default);
+    }
+
+    [Theory]
+    [InlineData(RevisionCompareSourceKind.CurrentDraft)]
+    [InlineData(RevisionCompareSourceKind.CurrentRevision)]
+    [InlineData(RevisionCompareSourceKind.HistoricalRevision)]
+    public async Task ReadAuthorizedAsync_RejectsReturnedArticleIdentityBeforeReadingSource(
+        RevisionCompareSourceKind sourceKind)
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetAuthorizedArticleAsync(Context(), 7, Arg.Any<CancellationToken>())
+            .Returns(new AuthoringRevisionCompareArticle(8, 11));
+        var reader = Reader(authority);
+        RevisionCompareSourceSelector selector = sourceKind == RevisionCompareSourceKind.CurrentDraft
+            ? new RevisionCompareSourceSelector(
+                sourceKind,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 3,
+                DocumentEpoch: "document-epoch-3")
+            : new RevisionCompareSourceSelector(sourceKind, RevisionId: 11);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(Context(), 7, selector);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
+        Assert.Equal("revision_compare_source_unavailable", result.ReasonCode);
+        Assert.Null(result.Package);
+        await authority.DidNotReceiveWithAnyArgs().GetRevisionAsync(default, default, default);
+        await authority.DidNotReceiveWithAnyArgs().GetDraftAsync(default, default!, default);
+        await authority.DidNotReceiveWithAnyArgs().GetCurrentRevisionIdAsync(default, default);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("other-draft-key")]
+    public async Task ReadAuthorizedAsync_RejectsReturnedDraftKeyBeforeReadingContext(string? returnedDraftKey)
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>())
+            .Returns(Draft(7, 3, "client-write-3") with
+            {
+                DraftKey = returnedDraftKey!
+            });
+        IAuthoringRevisionCompareDraftContextProvider provider = DraftContextProvider();
+        var reader = Reader(authority, provider);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
+            Context(),
+            7,
+            new RevisionCompareSourceSelector(
+                RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 3,
+                DocumentEpoch: "document-epoch-3"));
+
+        Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
+        Assert.Equal("revision_compare_source_unavailable", result.ReasonCode);
+        Assert.Null(result.Package);
+        await provider.DidNotReceiveWithAnyArgs().ReadAsync(default!, default);
     }
 
     [Fact]
@@ -144,6 +204,111 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
         Assert.Equal(11, result.Package!.RevisionId);
         await authority.DidNotReceiveWithAnyArgs().GetCurrentRevisionIdAsync(default, default);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("12")]
+    [InlineData("011")]
+    [InlineData("+11")]
+    [InlineData(" 11")]
+    [InlineData("11 ")]
+    [InlineData("-11")]
+    [InlineData("9223372036854775808")]
+    [InlineData("invalid")]
+    public async Task ReadAuthorizedAsync_RejectsReturnedRevisionIdentity(string? returnedRevisionId)
+    {
+        foreach (RevisionCompareSourceKind sourceKind in new[]
+        {
+            RevisionCompareSourceKind.CurrentRevision,
+            RevisionCompareSourceKind.HistoricalRevision
+        })
+        {
+            IAuthoringRevisionCompareAuthority authority = Authority();
+            authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>())
+                .Returns(Revision(articleId: 7) with
+                {
+                    Id = returnedRevisionId!
+                });
+            var reader = Reader(authority);
+
+            RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
+                Context(),
+                7,
+                new RevisionCompareSourceSelector(sourceKind, RevisionId: 11));
+
+            Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
+            Assert.Equal("revision_compare_source_unavailable", result.ReasonCode);
+            Assert.Null(result.Package);
+            await authority.DidNotReceiveWithAnyArgs().GetCurrentRevisionIdAsync(default, default);
+        }
+    }
+
+    [Theory]
+    [InlineData(RevisionCompareSourceKind.CurrentRevision, 11L)]
+    [InlineData(RevisionCompareSourceKind.HistoricalRevision, 11L)]
+    [InlineData(RevisionCompareSourceKind.CurrentRevision, long.MaxValue)]
+    [InlineData(RevisionCompareSourceKind.HistoricalRevision, long.MaxValue)]
+    public async Task ReadAuthorizedAsync_AcceptsExactCanonicalRevisionIdentity(
+        RevisionCompareSourceKind sourceKind,
+        long revisionId)
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority(currentRevisionId: revisionId);
+        authority.GetRevisionAsync(7, revisionId, Arg.Any<CancellationToken>())
+            .Returns(Revision(articleId: 7) with
+            {
+                Id = revisionId.ToString(CultureInfo.InvariantCulture)
+            });
+        var reader = Reader(authority);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
+            Context(),
+            7,
+            new RevisionCompareSourceSelector(sourceKind, RevisionId: revisionId));
+
+        Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
+        Assert.Equal(revisionId, result.Package!.RevisionId);
+        Assert.Equal($"revision:{revisionId.ToString(CultureInfo.InvariantCulture)}:1", result.Package.SourceIdentity);
+        Assert.True(RevisionComparePackageSeal.Verify(result.Package));
+    }
+
+    [Fact]
+    public async Task CreateAsync_ReturnedRevisionIdentityMismatchDoesNotLeakPackageReceipt()
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>())
+            .Returns(Revision(articleId: 7) with
+            {
+                Id = "12"
+            });
+        var request = new RevisionComparePlanRequest(
+            7,
+            Context(),
+            HistoricalSelector(),
+            new RevisionCompareSourceSelector(RevisionCompareSourceKind.CurrentRevision, RevisionId: 11),
+            new RevisionCompareOptions(
+                RevisionCompareViewMode.Unified,
+                RevisionCompareWordSegmentation.UnicodeTextElementsV1,
+                3,
+                true,
+                ["title"]),
+            new RevisionCompareBudgets(1_024, 100, 1_000, 32_768, 1_048_576, 100, 10, 1_000),
+            "compare:7:identity-mismatch",
+            DateTimeOffset.UtcNow.AddMinutes(5));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(Reader(authority)).CreateAsync(request);
+
+        Assert.Equal(RevisionComparePlanStatus.Unavailable, result.Status);
+        Assert.Equal("revision_compare_source_unavailable", result.Receipt.ReasonCode);
+        Assert.Null(result.Bundle);
+        Assert.Null(result.Receipt.PlanDigest);
+        Assert.Null(result.Receipt.BasePackageDigest);
+        Assert.Null(result.Receipt.ComparePackageDigest);
+        Assert.Null(result.Receipt.BasePackageReference);
+        Assert.Null(result.Receipt.ComparePackageReference);
+        Assert.Null(result.Receipt.AdmissionDigest);
+        await authority.Received(1).GetRevisionAsync(7, 11, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -257,6 +422,33 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             Assert.NotEqual(RevisionComparePackageReadStatus.Available, result.Status);
             Assert.Null(result.Context);
         }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("other-draft-key")]
+    public async Task DraftContextProvider_RejectsReturnedDraftKeyEvenWhenEpochMatches(string? returnedDraftKey)
+    {
+        ServerDraftResponse draft = Draft(7, 3, "client-write-3") with
+        {
+            DraftKey = returnedDraftKey!
+        };
+        IAuthoringDraftLifecycle authoring = Substitute.For<IAuthoringDraftLifecycle>();
+        authoring.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>()).Returns(draft);
+        var provider = new AuthoringRevisionCompareDraftContextProvider(authoring);
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(Context(), 7, draft),
+            RightsPayloadDigest(draft));
+
+        AuthoringRevisionCompareDraftContextResult result = await provider.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
+        Assert.Null(result.Context);
     }
 
     [Fact]
