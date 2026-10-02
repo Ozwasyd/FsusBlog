@@ -230,6 +230,21 @@ export function prepareRunOwnedDirectories({
     }
 }
 
+/** No directory deletion is allowed while the original physical owner cannot verify terminal zero residue. */
+export function finalizeRunOwnedDirectoriesAfterPhysical(prepared, { physicalStarted, physicalExecution })
+{
+    if (physicalStarted && physicalExecution?.postObservation !== 'zero-members')
+    {
+        const recoveryObligation = { ownedRoot: prepared.fragment.ownedRoot,
+            reason: 'original physical owner has not verified a zero-member terminal' };
+        prepared.fragment.cleanup = { status: 'retained-for-physical-recovery', removedOwnedRoot: false };
+        throw Object.assign(new Error('Run-owned directories retained for unverifiable physical residue'), {
+            recoveryObligation, physicalExecution
+        });
+    }
+    return finalizeRunOwnedDirectories(prepared);
+}
+
 export function finalizeRunOwnedDirectories(prepared, {
     cleanup = true
 } = {})

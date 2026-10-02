@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     finalizeRunOwnedDirectories,
+    finalizeRunOwnedDirectoriesAfterPhysical,
     prepareRunOwnedDirectories
 } from './execution-envelope-directories.mjs';
 import { prepareCorrectnessEnvironment } from './execution-envelope-environment.mjs';
@@ -394,6 +395,8 @@ async function main(argv)
     process.once('SIGTERM', onSigterm);
     let directoryEnvelope;
     let firstFailure = null;
+    let physicalStarted = false;
+    let terminalEvidence = null;
     try
     {
         directoryEnvelope = prepareRunOwnedDirectories({
@@ -566,17 +569,27 @@ async function main(argv)
             let networkFragment = networkSandbox.fragment;
             let directoryFragment = directoryEnvelope.fragment;
             let actualHostFacts = null;
+            if (physicalStarted && terminalEvidence?.postObservation !== 'zero-members')
+            {
+                try
+                {
+                    finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
+                        physicalStarted, physicalExecution: terminalEvidence
+                    });
+                }
+                catch (error) { postflightError = error; }
+            }
             try
             {
-                networkFragment = finalizeNetworkSandbox(networkSandbox);
+                if (!postflightError) networkFragment = finalizeNetworkSandbox(networkSandbox);
             }
             catch (error)
             {
-                postflightError = error;
+                postflightError ??= error;
             }
             try
             {
-                actualHostFacts = observeExecutionEnvelopeHostFacts({
+                if (!postflightError) actualHostFacts = observeExecutionEnvelopeHostFacts({
                     directory: directoryEnvelope.fragment.ownedRoot
                 });
             }
@@ -586,7 +599,9 @@ async function main(argv)
             }
             try
             {
-                directoryFragment = finalizeRunOwnedDirectories(directoryEnvelope);
+                directoryFragment = finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
+                    physicalStarted, physicalExecution: terminalEvidence
+                });
             }
             catch (error)
             {
@@ -602,6 +617,7 @@ async function main(argv)
                     attemptId: options.key,
                     planDigest: plan.envelopeDigest,
                     reason: postflightError.message,
+                    recoveryObligation: postflightError.recoveryObligation ?? null,
                     fragments: {
                         environment: correctnessEnvironment.fragment,
                         directories: directoryFragment,
@@ -655,6 +671,7 @@ async function main(argv)
                 let executionError = null;
                 try
                 {
+                    physicalStarted = true;
                     physicalExecution = await spawnCommand(
                         observedCommand,
                         cwd,
@@ -672,6 +689,7 @@ async function main(argv)
                     executionError = error;
                     physicalExecution = error?.physicalExecution ?? null;
                 }
+                terminalEvidence = physicalExecution;
                 let envelopeError = null;
                 try
                 {
@@ -686,6 +704,7 @@ async function main(argv)
                     if (executionError)
                     {
                         executionError.cleanupError = envelopeError;
+                        executionError.recoveryObligation ??= envelopeError.recoveryObligation;
                         throw executionError;
                     }
                     envelopeError.physicalExecution = physicalExecution;
@@ -746,7 +765,7 @@ async function main(argv)
             {
                 if (firstFailure)
                 {
-                    firstFailure.cleanupError = finalizationError;
+                    firstFailure.cleanupError ??= finalizationError;
                 }
                 else
                 {
@@ -767,10 +786,16 @@ async function main(argv)
         process.off('SIGTERM', onSigterm);
         if (directoryEnvelope && fs.existsSync(directoryEnvelope.fragment.ownedRoot))
         {
-            try { finalizeRunOwnedDirectories(directoryEnvelope); }
+            try { finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
+                physicalStarted, physicalExecution: terminalEvidence
+            }); }
             catch (cleanupError)
             {
-                if (firstFailure) firstFailure.cleanupError ??= cleanupError;
+                if (firstFailure)
+                {
+                    firstFailure.cleanupError ??= cleanupError;
+                    firstFailure.recoveryObligation ??= cleanupError.recoveryObligation;
+                }
                 else throw cleanupError;
             }
         }
@@ -784,5 +809,7 @@ main(process.argv.slice(2)).catch((error) =>
     {
         console.error(`[physical-execution] cleanup-failure ${error.cleanupError.message ?? String(error.cleanupError)}`);
     }
+    const recovery = error?.recoveryObligation ?? error?.cleanupError?.recoveryObligation;
+    if (recovery) console.error(`[physical-execution] recovery-obligation ${JSON.stringify(recovery)}`);
     process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
 });

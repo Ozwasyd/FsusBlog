@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
+const {finalizeRunOwnedDirectories, finalizeRunOwnedDirectoriesAfterPhysical, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
 const {inventoryNugetOfflineFeed, inventoryPreparedNuget, seedPreparedNuget, validatePreparedNugetPackages} = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
 const {bindBehaviorDocNugetPreparationDiskDemand, bindBehaviorDocNugetDiskDemand, defaultProductionDiskRoots, readProductionDiskDemandCatalog} = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
 const {runProtectedBehaviorDocAdmission} = await import(new URL('../../tools/test-matrix/protected-behavior-doc-admission.mjs', import.meta.url));
@@ -366,4 +366,44 @@ test('offline preparation capacity retains original uncertainty and reserves arc
     assert.equal(artifact.peakAdditionalBytes, bound.allocatedBytes + bound.expandedAllocatedBytes
         + originalArtifacts.reduce((sum, demand) => sum + demand.peakAdditionalBytes, 0));
     assert.equal(artifact.uncertaintyBytes, originalArtifacts.reduce((sum, demand) => sum + demand.uncertaintyBytes, 0));
+});
+
+test('unverifiable physical terminal preserves the owned directory and explicit recovery obligation', (context) =>
+{
+    // State-only unit fixture: no child process or physical acceptance is simulated.
+    for (const evidence of [null, { postObservation: 'unverifiable' }, { postObservation: 'nonempty' }])
+    {
+        const { root } = fixture(context);
+        const owned = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+            runId: 'run', producerId: 'behavior-doc-static-admission', attemptId: 'retained' });
+        const sentinel = path.join(owned.environment.TMPDIR, 'active-resource-canary');
+        fs.writeFileSync(sentinel, 'must remain');
+        assert.throws(() => finalizeRunOwnedDirectoriesAfterPhysical(owned, {
+            physicalStarted: true, physicalExecution: evidence
+        }), (error) =>
+        {
+            assert.equal(error.physicalExecution, evidence);
+            assert.equal(error.recoveryObligation.ownedRoot, owned.fragment.ownedRoot);
+            return /retained/u.test(error.message);
+        });
+        assert.equal(fs.readFileSync(sentinel, 'utf8'), 'must remain');
+        assert.equal(owned.fragment.cleanup.removedOwnedRoot, false);
+    }
+});
+
+test('verified zero-member terminal and before-spawn failure remove only their current owned directory', (context) =>
+{
+    for (const state of [{ physicalStarted: false, physicalExecution: null },
+        { physicalStarted: true, physicalExecution: { postObservation: 'zero-members' } }])
+    {
+        const { root } = fixture(context);
+        const owned = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+            runId: 'run', producerId: 'behavior-doc-static-admission', attemptId: 'terminal' });
+        const retained = path.join(root, 'outside-current-attempt');
+        fs.writeFileSync(retained, 'retained');
+        const terminal = finalizeRunOwnedDirectoriesAfterPhysical(owned, state);
+        assert.equal(terminal.cleanup.removedOwnedRoot, true);
+        assert.equal(fs.existsSync(owned.fragment.ownedRoot), false);
+        assert.equal(fs.readFileSync(retained, 'utf8'), 'retained');
+    }
 });
