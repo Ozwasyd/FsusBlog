@@ -137,12 +137,15 @@ public sealed class OfflineMigrationSqliteNativeSessionTests
     }
 
     [Theory]
-    [InlineData(OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned)]
-    [InlineData(OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned)]
-    [InlineData(OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified)]
+    [InlineData(2, 1, 1)]
+    [InlineData(1, 2, 1)]
+    [InlineData(1, 1, 2)]
     public void AnyUnverifiedCleanupRefusesBeforeTypedFingerprintTransport(
-        OfflineMigrationPostgreSqlNativeSession.CleanupState transaction, OfflineMigrationPostgreSqlNativeSession.CleanupState connection, OfflineMigrationPostgreSqlNativeSession.CleanupState adapter)
+        int transactionValue, int connectionValue, int adapterValue)
     {
+        var transaction = (OfflineMigrationPostgreSqlNativeSession.CleanupState)transactionValue;
+        var connection = (OfflineMigrationPostgreSqlNativeSession.CleanupState)connectionValue;
+        var adapter = (OfflineMigrationPostgreSqlNativeSession.CleanupState)adapterValue;
         OfflineMigrationSourceFingerprintException primary = UnknownFingerprint();
         InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
             OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(primary, transaction, connection, adapter, CancellationToken.None));
