@@ -11,7 +11,7 @@
             ],
             "selectionPolicy": {
                 "path": "config/development/native-tooling-style-policy.json",
-                "sha256": "98ff88b56520873835016ef0bf02a09ebad73f2baa881cdddd8e6339b7d98d91"
+                "sha256": "29203de3f4e5654f8344b6cd310e234d4aed5dcae609c3a98090c5decf86c6ae"
             },
             "compileBinding": {
                 "schema": "fsusblog.command-wrapper-compile-binding.v1",

@@ -266,6 +266,59 @@ test('native tooling style governance publishes standard native and tooling conf
     assert.ok(searchScalarBoundary.paths.every((path) => !path.includes('*')));
 });
 
+test('native tooling style preserves only the exact registered Migration NuGet lock owner', () =>
+{
+    const lockPath = 'tests/migration/packages.lock.json';
+    const authority = JSON.parse(fs.readFileSync(
+        path.join(root, 'config/development/authoritative-development-docs.json'), 'utf8'));
+    const lockClassification = authority.pathClassifications.find((entry) => entry.id === 'lock');
+    assert.equal(lockClassification.owner, 'PackageManager');
+    assert.deepEqual(lockClassification.patterns.filter((entry) => entry.includes('packages.lock')), [lockPath]);
+    assert.deepEqual(sourcePolicy.excludedPaths.filter((entry) => entry.includes('packages.lock')), [lockPath]);
+    const ownerBytes = fs.readFileSync(path.join(root, lockPath));
+
+    WithFixture((fixtureRoot) =>
+    {
+        WriteFile(fixtureRoot, lockPath, ownerBytes);
+        for (const operation of [
+            ['--operation', 'lint'],
+            ['--operation', 'format', '--write']
+        ])
+        {
+            const result = RunChecker(fixtureRoot, [lockPath], ['--domain', 'scripts', ...operation]);
+            assert.equal(result.status, 0, Output(result));
+            assert.match(result.stdout, /selected=0 checked=0 .*violations=0/u);
+            assert.deepEqual(fs.readFileSync(path.join(fixtureRoot, lockPath)), ownerBytes);
+        }
+    });
+});
+
+test('native tooling style rejects unregistered paths resembling the Migration NuGet lock owner', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const neighbors = [
+            'tests/migration/extra/packages.lock.json',
+            'tests/migration/packages.lock.additional.json',
+            'config/testing/packages.lock.json',
+            'tests/migration/handwritten.json'
+        ];
+        for (const file of neighbors)
+        {
+            WriteFile(fixtureRoot, file, '{\n  "value": 1\n}');
+        }
+        const result = RunChecker(fixtureRoot, neighbors, ['--domain', 'scripts']);
+        const output = Output(result);
+        assert.notEqual(result.status, 0, output);
+        assert.match(output, /selected=4 checked=4/u);
+        for (const file of neighbors)
+        {
+            assert.ok(output.includes(file + ':1 json-format:'), output);
+            assert.ok(output.includes(file + ':3 final-newline:'), output);
+        }
+    });
+});
+
 test('native tooling style governance accepts positive C++, CMake, Shell, YAML, JSON and Markdown fixtures', () =>
 {
     WithFixture((fixtureRoot) =>

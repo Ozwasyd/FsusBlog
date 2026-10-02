@@ -266,6 +266,7 @@
             "owner": "DependencyOwner",
             "patterns": [
                 "tools/vcpkg-overlays/**",
+                "config/dependencies/fsusui-public-npm-migration.patch.gz",
                 "**/vendor/**",
                 "**/node_modules/**"
             ],
@@ -290,7 +291,8 @@
             "patterns": [
                 "**/package-lock.json",
                 "**/pnpm-lock.yaml",
-                "**/yarn.lock"
+                "**/yarn.lock",
+                "tests/migration/packages.lock.json"
             ],
             "reason": "package managers own lock ordering and formatting"
         },

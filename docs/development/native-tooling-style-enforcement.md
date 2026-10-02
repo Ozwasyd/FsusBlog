@@ -97,6 +97,14 @@ cmake --build --preset lint
 
 An exception preserves only the boundary spelling. Internal wrappers still return to PascalCase/camelCase. Generated, vendor, lock, minified, report and intentionally invalid fixture paths are excluded explicitly; a linter failure cannot create a new wildcard exception.
 
+The NuGet-produced `tests/migration/packages.lock.json` is registered as the exact
+`lock` / `PackageManager` owner path in both the authority registry and native/tooling
+selection policy. Its package-manager byte layout is preserved in lint and write-format
+modes. This is not a directory-wide or filename-only exclusion: neighboring handwritten
+JSON and nested or additional `packages.lock` paths remain governed. Source-style
+selection does not validate dependencies; the Migration owner still requires NuGet
+locked restore and canonical execution evidence.
+
 ## Migration discipline
 
 Each formatter-only migration is isolated from semantic changes and recorded by its real, reachable commit SHA. Dependency-ordered integration required a few current-baseline batches where later issues added files after the first migration; every batch remains purely mechanical.
