@@ -10,6 +10,7 @@ import { createReleaseManifestValueContract } from '../../tools/release/release-
 import {
     createReleaseManifest,
     LEGACY_RELEASE_MANIFEST_RETIREMENT,
+    readCurrentSchemaReleaseBinding,
     readReleaseManifest,
     readLegacyReleaseManifestV1,
     RELEASE_MANIFEST_SCHEMA,
@@ -657,4 +658,66 @@ test('creator and input reader reject removed window or duplicate options before
         assert.match(result.stderr, /unknown, duplicate or missing argument/u);
         assert.doesNotMatch(result.stderr, /unable to read/u);
     }
+});
+
+test('build reference projection binds whole receipt bytes without granting database admission', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-reference-projection-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'current.json');
+    const binding = createInput().currentSchema;
+    // Deliberately only a projection fixture, not a sealed Shared receipt or native observation.
+    const projection = {
+        format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current',
+        target: binding.target, database: binding.database, actualSchemaDigest: binding.actualSchemaDigest
+    };
+    const bytes = Buffer.from(JSON.stringify(projection));
+    const wholeSha = crypto.createHash('sha256').update(bytes).digest('hex');
+    fs.writeFileSync(file, bytes);
+    const actual = readCurrentSchemaReleaseBinding(file, wholeSha);
+    assert.deepEqual(actual, { ...binding, receipt: { reference: file, sha256: wholeSha } });
+    assert.equal(Object.hasOwn(actual, 'status'), false);
+    assert.notEqual(actual.target.contentDigest, actual.actualSchemaDigest);
+    assert.deepEqual(createReleaseManifest({ ...createInput(), currentSchema: actual }).currentSchema, actual);
+    fs.appendFileSync(file, '\n');
+    assert.throws(() => readCurrentSchemaReleaseBinding(file, wholeSha), /whole-artifact SHA-256 mismatch/u);
+});
+
+test('reference projection rejects missing, aliased, oversized, malformed or non-current artifacts', (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-reference-refusal-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'current.json');
+    const binding = createInput().currentSchema;
+    const base = {
+        format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current',
+        target: binding.target, database: binding.database, actualSchemaDigest: binding.actualSchemaDigest
+    };
+    const attempt = value =>
+    {
+        const bytes = Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value));
+        fs.writeFileSync(file, bytes);
+        const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+        assert.throws(() => readCurrentSchemaReleaseBinding(file, sha));
+    };
+    for (const value of [
+        {}, { ...base, status: undefined }, { ...base, status: 'rejected' },
+        { ...base, format: 'fsusblog.current-schema-receipt.v0' },
+        { ...base, target: { ...base.target, sourceDigest: null } },
+        { ...base, database: { ...base.database, provider: 3 } },
+        Buffer.from('{not-json'), Buffer.from([0xff]), Buffer.alloc(1024 * 1024 + 1, 32)
+    ]) attempt(value);
+    const bytes = Buffer.from(JSON.stringify(base));
+    fs.writeFileSync(file, bytes);
+    const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+    for (const hash of [null, '', 'sha256:' + sha, sha.toUpperCase()])
+    {
+        assert.throws(() => readCurrentSchemaReleaseBinding(file, hash));
+    }
+    assert.throws(() => readCurrentSchemaReleaseBinding('relative.json', sha));
+    assert.throws(() => readCurrentSchemaReleaseBinding(path.join(directory, 'missing.json'), sha));
+    assert.throws(() => readCurrentSchemaReleaseBinding(directory, sha));
+    const alias = path.join(directory, 'alias.json');
+    fs.symlinkSync(file, alias);
+    assert.throws(() => readCurrentSchemaReleaseBinding(alias, sha), /no symlinks/u);
 });

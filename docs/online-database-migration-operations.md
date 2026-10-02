@@ -192,3 +192,8 @@ They do not establish real provider startup, zero database writes, release
 admission, rollback restoration, performance, or residue-zero acceptance. Those
 claims require the original PostgreSQL/MySQL/SQLite, release, mutation, and
 independent terminal evidence specified by #2218 and the parent migration work.
+## Final-image current receipt references
+
+`tools/build-final-image.sh` retains its original build/publish owner and toolchain gates. A registry-publishing build must explicitly provide `FSUSBLOG_CURRENT_SCHEMA_RECEIPT` (canonical absolute regular file, no symlink aliases) and `FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256` (raw lowercase SHA-256 of the complete artifact bytes). The original 1 MiB receipt bound applies. The producer projects the existing current target, database and physical-observation fields into manifest v3; it does not issue a receipt, verify its semantic seal, observe a database or grant deployment admission. The sole Shared codec and candidate Server's fresh read-only admission remain mandatory.
+
+The same whole-byte reference is checked before build work, immediately before registry publication and again when the manifest is emitted. Any missing, malformed or changed reference fails closed; no compatibility-window default or auto-upgrade is available. `FSUSBLOG_SCHEMA_MINIMUM_COORDINATE` and `FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE` are retired. Local-only image builds still emit no deployable manifest and reject deployment receipt inputs. The image's manifest-schema label is v3; original build-input/observation producers must bind this changed Dockerfile through their normal gates before deployment.

@@ -58,6 +58,68 @@ export function sha256File(file)
     return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 }
 
+/** Projects explicit references only. The candidate Server must separately perform fresh database admission. */
+export function readCurrentSchemaReleaseBinding(file, expectedWholeArtifactSha256)
+{
+    if (typeof file !== 'string' || !path.isAbsolute(file) || file !== file.trim()
+        || /[\u0000-\u001f\u007f-\u009f]/u.test(file)
+        || typeof expectedWholeArtifactSha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(expectedWholeArtifactSha256))
+    {
+        throw new Error('current receipt requires an exact absolute file and raw lowercase whole-artifact SHA-256');
+    }
+    const resolved = path.resolve(file);
+    if (resolved !== file || fs.realpathSync(file) !== resolved)
+    {
+        throw new Error('current receipt path must be canonical and contain no symlinks');
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    let bytes;
+    try
+    {
+        const stat = fs.fstatSync(descriptor);
+        // Same artifact bound as the sole Shared receipt codec, not a new deployment budget.
+        if (!stat.isFile() || stat.size < 1 || stat.size > 1024 * 1024)
+        {
+            throw new Error('current receipt must be a regular artifact within the original 1 MiB bound');
+        }
+        bytes = Buffer.alloc(stat.size);
+        let offset = 0;
+        while (offset < bytes.length)
+        {
+            const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, null);
+            if (count === 0) throw new Error('current receipt changed while reading');
+            offset += count;
+        }
+        if (fs.readSync(descriptor, Buffer.alloc(1), 0, 1, null) !== 0)
+        {
+            throw new Error('current receipt changed while reading');
+        }
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+    if (crypto.createHash('sha256').update(bytes).digest('hex') !== expectedWholeArtifactSha256)
+    {
+        throw new Error('current receipt whole-artifact SHA-256 mismatch');
+    }
+    const receipt = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+    if (!receipt || receipt.format !== 'fsusblog.current-schema-receipt.v1' || receipt.status !== 'verified-current')
+    {
+        throw new Error('current receipt format and explicit verified-current status are required for reference projection');
+    }
+    const binding = {
+        receipt: { reference: file, sha256: expectedWholeArtifactSha256 },
+        target: structuredClone(receipt.target),
+        database: structuredClone(receipt.database),
+        actualSchemaDigest: receipt.actualSchemaDigest
+    };
+    const errors = [];
+    validateCurrentSchemaBinding(binding, errors);
+    if (errors.length > 0) throw new Error(errors.join('\n'));
+    return binding;
+}
+
 export function createReleaseManifest(input)
 {
     if (Object.hasOwn(input, 'schemaMinimumCoordinate') || Object.hasOwn(input, 'schemaMaximumCoordinate'))
