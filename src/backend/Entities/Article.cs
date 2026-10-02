@@ -80,7 +80,7 @@ public class Article
     [SugarColumn(IsIgnore = true)]
     public string Content { get; set; } = string.Empty;
 
-    public int Views { get; set; } = 0;
+    public int Views { get; set; } = ArticleCurrentPolicyDefaults.InitialLiveViews;
 
     public DateTime CreateTime { get; set; } = DateTime.UtcNow;
 

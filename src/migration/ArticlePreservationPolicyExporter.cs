@@ -9,7 +9,7 @@ namespace FsusBlog.Migration;
 internal sealed record ArticlePreservationDefaultPolicyData(
     CurrentSchemaArtifactReference SourceArtifact, string FingerprintId, string SourceContentDigest,
     string SiteAuthor, int ArticleStatus, long RevisionCreatorId, int ResponsibilityVersion,
-    ArticleRightsNormalizedModel Rights, ArticleResponsibilityDraft Responsibility, string PolicyDigest);
+    ArticleRightsNormalizedModel Rights, ArticleResponsibilityDraft Responsibility, int InitialLiveViews, string PolicyDigest);
 internal sealed record ArticlePreservationDefaultPolicyExport(
     CurrentSchemaArtifactReference Artifact, ImmutableArray<byte> Bytes, ArticlePreservationDefaultPolicyData Data);
 
@@ -149,7 +149,7 @@ internal static class ArticlePreservationPolicyExporter
             ArticleCurrentPolicyDefaults.Status, ArticleCurrentPolicyDefaults.UnattributedCreatorId,
             ArticleCurrentPolicyDefaults.ResponsibilityVersion,
             ArticleProductionNormalizers.NormalizeArticleRights(null),
-            ArticleCurrentPolicyDefaults.ResponsibilityDraft(), string.Empty);
+            ArticleCurrentPolicyDefaults.ResponsibilityDraft(), ArticleCurrentPolicyDefaults.InitialLiveViews, string.Empty);
         return policy with { PolicyDigest = ArticlePreservationSemanticReceipt.Digest("article-current-stored-defaults-v1", policy) };
     }
 

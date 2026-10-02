@@ -3,6 +3,8 @@ namespace FsusBlog.Contracts.Articles;
 /// <summary>The existing current stored article defaults; none of these values grants authoring admission.</summary>
 public static class ArticleCurrentPolicyDefaults
 {
+    /// <summary>The current new-article live view counter starts at zero; historical counts are not imported into it.</summary>
+    public const int InitialLiveViews = 0;
     /// <summary>The current default state for an article with no explicitly supplied lifecycle state.</summary>
     public const int Status = ArticleStatusValues.Published;
     /// <summary>The stored creator marker when no current administrator created the revision.</summary>

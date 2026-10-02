@@ -7,7 +7,8 @@ namespace FsusBlog.Migration;
 
 internal sealed record ArticlePreservationStorageField(string Property, object? Value);
 internal sealed record ArticlePreservationLogicalRow(string EntityOwner, ImmutableArray<ArticlePreservationStorageField> Fields);
-internal sealed record ArticlePreservationStorageColumn(string Name, string PropertyOwner, object? Value, bool IsPrimaryKey, bool IsIdentity);
+internal sealed record ArticlePreservationStorageColumn(
+    string Name, string PropertyOwner, object? Value, bool IsPrimaryKey, bool IsIdentity, string DataType, bool IsNullable);
 internal sealed record ArticlePreservationStorageRow(string Table, string EntityOwner, ImmutableArray<ArticlePreservationStorageColumn> Columns);
 
 // This is an immutable value/column binding, not apply admission. Physical column names
@@ -87,7 +88,7 @@ internal sealed class ArticlePreservationStorageProgram
                 || (value is string text && column.MaxLength is > 0 && text.Length > column.MaxLength.Value)
                 || !ValueMatches(column.DataType, value))
                 throw new InvalidOperationException("article_preservation_current_column_binding_changed");
-            columns.Add(new(column.Name, column.Owner.Owner, value, column.IsPrimaryKey, column.IsIdentity));
+            columns.Add(new(column.Name, column.Owner.Owner, value, column.IsPrimaryKey, column.IsIdentity, column.DataType, column.IsNullable));
         }
         if (!columns.Any(static column => column.IsPrimaryKey))
             throw new InvalidOperationException("article_preservation_current_primary_key_missing");
@@ -127,7 +128,7 @@ internal sealed class ArticlePreservationStorageProgram
             int revisionNo = article.RevisionNo.Value;
             DateTime created = graph.Source.CreateTime;
             rows.Add(Row("Article", F("Id", article.ArticleId), F("Title", article.Title), F("Summary", article.Summary),
-                F("CoverImageUrl", article.CoverImageUrl), F("CategoryId", article.CategoryId), F("Views", graph.Source.Views),
+                F("CoverImageUrl", article.CoverImageUrl), F("CategoryId", article.CategoryId), F("Views", ArticleCurrentPolicyDefaults.InitialLiveViews),
                 F("CreateTime", created), F("MetadataUpdatedAt", created), F("Status", article.Status),
                 F("ScheduledPublishAt", article.ScheduledPublishAt), F("PublishedAt", article.PublishedAt),
                 F("LastPublishedAt", article.PublishedAt), F("PublicUpdatedAt", article.PublishedAt),
@@ -180,7 +181,7 @@ internal sealed class ArticlePreservationStorageProgram
     }
 
     private static ArticlePreservationStorageField F(string property, object? value) => new(property, value);
-    private static bool ValueMatches(string type, object? value)
+    internal static bool ValueMatches(string type, object? value)
         => type switch
         {
             "string" => value is null or string,

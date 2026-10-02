@@ -315,6 +315,7 @@ public sealed class ArticlePreservationProjectionTests
         Assert.NotEqual(fixture.Source.Artifact.Sha256, changedSource.Artifact.Sha256);
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.RequireDefaultPolicy(changedSource, policy));
         Assert.NotEqual(policy.Artifact.Sha256, policy.Data.PolicyDigest);
+        Assert.Equal(ArticleCurrentPolicyDefaults.InitialLiveViews, policy.Data.InitialLiveViews);
     }
 
     [Fact]
@@ -415,6 +416,10 @@ public sealed class ArticlePreservationProjectionTests
         ImmutableArray<ArticlePreservationLogicalRow> rows = ArticlePreservationStorageProgram.BuildLogicalRows(plan, default);
         string prefix = "FsusBlog.Server.Entities.";
         Assert.Equal(11, rows.Length);
+        Assert.Equal(37, plan.Articles[0].Source.Views);
+        ArticlePreservationLogicalRow article = Assert.Single(rows, row => row.EntityOwner == prefix + "Article");
+        Assert.Equal(ArticleCurrentPolicyDefaults.InitialLiveViews, article.Fields.Single(static field => field.Property == "Views").Value);
+        Assert.NotEqual(plan.Articles[0].Source.Views, article.Fields.Single(static field => field.Property == "Views").Value);
         Assert.Single(rows, row => row.EntityOwner == prefix + "ArticlePublicationRecord");
         ArticlePreservationLogicalRow revision = Assert.Single(rows, row => row.EntityOwner == prefix + "ArticleRevision");
         Assert.Equal("1", revision.Fields.Single(static field => field.Property == "TagIds").Value);
