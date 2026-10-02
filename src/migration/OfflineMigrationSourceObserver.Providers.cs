@@ -82,7 +82,14 @@ public sealed partial class OfflineMigrationSourceObserver
             (SqliteConnection)connection, (SqliteTransaction)transaction, legacy, budget, cancellationToken).ConfigureAwait(false);
         if (!OfflineMigrationPlanValidation.Equal(business, OfflineMigrationSourceFingerprints.Business(legacy, 0, 0, 0, 0)))
         {
-            throw new InvalidOperationException("source_fingerprint_unknown:business_shape");
+            // These are actual native business facts, not receipt assertions.
+            // Preserve their closed redacted differences without fabricating a
+            // database incarnation just to construct an observation DTO.
+            throw OfflineMigrationSourceFingerprintException.Unknown(
+                [(OfflineMigrationSourceFingerprints.EmptyId, OfflineMigrationSourceFingerprints.Shape(CurrentSchemaProviderKind.Sqlite, false)),
+                 (OfflineMigrationSourceFingerprints.LegacyId, OfflineMigrationSourceFingerprints.Shape(CurrentSchemaProviderKind.Sqlite, true))],
+                new(CurrentSchemaProviderKind.Sqlite, OfflineMigrationSourceFingerprints.ExtractorId,
+                    OfflineMigrationSourceFingerprints.ExtractorVersion, schema, [new("history.state", "absent")], business));
         }
         if (!OfflineMigrationPlanValidation.Equal(schema,
             await ReadSqliteSchemaAsync(connection, transaction, budget, cancellationToken).ConfigureAwait(false))

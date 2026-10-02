@@ -128,6 +128,33 @@ public sealed class MySqlCurrentSchemaCatalogObserverTests
         Assert.Throws<InvalidOperationException>(budget.AddRow);
     }
 
+    [Fact]
+    public void SameNamedFunctionAndProcedureParametersCannotExchangeTheirActualOwner()
+    {
+        IReadOnlyList<string> fields = MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(MySqlCatalogPart.RoutineParameters);
+        Assert.Contains("ROUTINE_TYPE", fields); // Identity must come from the actual query, not just the fixture.
+        Assert.Equal(8, fields.Count);
+        MySqlCatalogRow Parameter(string type, string nativeType)
+        {
+            var values = new Dictionary<string, string?>
+            {
+                ["SPECIFIC_NAME"] = "same_original_name", ["ROUTINE_TYPE"] = type,
+                ["ORDINAL_POSITION"] = "1", ["PARAMETER_MODE"] = "IN", ["PARAMETER_NAME"] = "p",
+                ["DTD_IDENTIFIER"] = nativeType, ["CHARACTER_SET_NAME"] = null, ["COLLATION_NAME"] = null
+            };
+            return new(MySqlCatalogPart.RoutineParameters,
+                fields.Select(name => new MySqlCatalogCell(name, values[name])).ToImmutableArray());
+        }
+        var before = new MySqlCurrentSchemaCatalog(MySqlCurrentSchemaCatalogObserver.RequireObservedSession(Session()), Session(),
+            [Parameter("FUNCTION", "int"), Parameter("PROCEDURE", "bigint")]);
+        var benign = before with { Rows = [Parameter("FUNCTION", "int"), Parameter("PROCEDURE", "bigint")] };
+        MySqlCurrentSchemaCatalogObserver.RequireUnchanged(before, benign);
+        var swapped = before with { Rows = [Parameter("FUNCTION", "bigint"), Parameter("PROCEDURE", "int")] };
+        // Without the native owner type, the two parameter signature multisets
+        // would be identical even though their FUNCTION/PROCEDURE owners differ.
+        Assert.Throws<InvalidOperationException>(() => MySqlCurrentSchemaCatalogObserver.RequireUnchanged(before, swapped));
+    }
+
     private static ImmutableArray<MySqlCatalogCell> Session() =>
     [
         new("server_uuid", "bb18f914-82ef-4e3d-85e5-e65e4c805b60"), new("database", "CaseSensitiveOriginalDb"),

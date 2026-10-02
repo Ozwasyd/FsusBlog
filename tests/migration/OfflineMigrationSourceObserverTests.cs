@@ -280,8 +280,31 @@ public sealed class OfflineMigrationSourceObserverTests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)", "a\0" + new string('x', 511), cancellation);
-            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
-            Assert.Equal("source_fingerprint_unknown:business_shape", error.Message);
+            OfflineMigrationSourceFingerprintException error = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() => ReadSqliteAsync(path, cancellation));
+            Assert.Equal("source_fingerprint_unknown", error.Code);
+            Assert.Contains(error.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Business);
+        });
+    }
+
+    [Fact]
+    public async Task SqlitePublicNativeSessionRetainsActualBusinessFingerprintDifferences()
+    {
+        await WithSqliteFixtureAsync(async (path, cancellation) =>
+        {
+            string connectionString = new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString();
+            var observer = new OfflineMigrationSourceObserver();
+            // Actual identity/native capability must succeed before exercising
+            // the refusal; unavailable FILESTAT cannot satisfy this control.
+            OfflineMigrationSourceObservation before = await observer.ObserveAsync(
+                CurrentSchemaProviderKind.Sqlite, connectionString, cancellation);
+            Assert.Equal(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.BusinessShape);
+            await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)",
+                "a\0" + new string('x', 511), cancellation);
+            OfflineMigrationSourceFingerprintException refusal = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(
+                () => observer.ObserveAsync(CurrentSchemaProviderKind.Sqlite, connectionString, cancellation));
+            Assert.Equal("source_fingerprint_unknown", refusal.Code);
+            Assert.Contains(refusal.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Business);
+            Assert.Null(refusal.InnerException);
         });
     }
 

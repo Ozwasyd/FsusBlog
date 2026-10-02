@@ -194,6 +194,10 @@ internal static class MySqlCurrentSchemaCatalogObserver
         => string.Join(',', expressions.Select(expression => $"LEFT(CAST({expression} AS CHAR),{OfflineMigrationSourceObserver.MaximumCellCharacters + 1})"));
 
     private sealed record CatalogQuery(MySqlCatalogPart Part, string Sql, string[] Names);
+    // Defensive descriptor copy for controls. Actual reads use this same owned
+    // descriptor, never a fixture-only identity column or caller-supplied SQL.
+    internal static IReadOnlyList<string> ObservedFieldNames(MySqlCatalogPart part)
+        => Queries.Single(query => query.Part == part).Names.ToArray();
     private static readonly string[] SessionNames =
         ["server_uuid", "database", "isolation", "read_only", "sql_mode", "connection_charset",
             "connection_collation", "auto_increment_increment", "auto_increment_offset", "gipk_visible"];
@@ -228,8 +232,8 @@ internal static class MySqlCurrentSchemaCatalogObserver
             "ROUTINE_NAME", "ROUTINE_TYPE", "DTD_IDENTIFIER", "ROUTINE_BODY", "ROUTINE_DEFINITION", "EXTERNAL_LANGUAGE",
             "PARAMETER_STYLE", "IS_DETERMINISTIC", "SQL_DATA_ACCESS", "SECURITY_TYPE", "SQL_MODE", "DEFINER",
             "CHARACTER_SET_CLIENT", "COLLATION_CONNECTION", "DATABASE_COLLATION"),
-        Q(MySqlCatalogPart.RoutineParameters, "PARAMETERS", "SPECIFIC_SCHEMA=DATABASE()", "BINARY SPECIFIC_NAME,ORDINAL_POSITION",
-            "SPECIFIC_NAME", "ORDINAL_POSITION", "PARAMETER_MODE", "PARAMETER_NAME", "DTD_IDENTIFIER", "CHARACTER_SET_NAME", "COLLATION_NAME"),
+        Q(MySqlCatalogPart.RoutineParameters, "PARAMETERS", "SPECIFIC_SCHEMA=DATABASE()", "BINARY SPECIFIC_NAME,ROUTINE_TYPE,ORDINAL_POSITION",
+            "SPECIFIC_NAME", "ROUTINE_TYPE", "ORDINAL_POSITION", "PARAMETER_MODE", "PARAMETER_NAME", "DTD_IDENTIFIER", "CHARACTER_SET_NAME", "COLLATION_NAME"),
         Q(MySqlCatalogPart.Events, "EVENTS", "EVENT_SCHEMA=DATABASE()", "BINARY EVENT_NAME",
             "EVENT_NAME", "DEFINER", "TIME_ZONE", "EVENT_BODY", "EVENT_DEFINITION", "EVENT_TYPE", "EXECUTE_AT",
             "INTERVAL_VALUE", "INTERVAL_FIELD", "SQL_MODE", "STARTS", "ENDS", "STATUS", "ON_COMPLETION",
