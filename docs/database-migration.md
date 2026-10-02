@@ -34,6 +34,16 @@ remain required. This component does not admit a legacy database as empty, issue
 current receipt, or qualify a full bootstrap. Cancellation/physical interrupt and
 cleanup deadlines remain owned by the caller's native session, not this reader.
 
+`SqliteCurrentSchemaEffectObserver` reuses that same native catalog and the single
+`Shared.Algorithms.SqliteImmutableTriggerObserver` decoder. It records the actual
+unconditional `BEFORE UPDATE` or `BEFORE DELETE` event, `RAISE` action and exact
+literal message; it does not equate `ABORT`, `ROLLBACK`, `FAIL` and `IGNORE`, invent
+a two-event trigger, or choose a SQLite policy for the original PostgreSQL guard.
+Conditional/narrow events, extra statements and unsupported bodies fail closed.
+These are measured effects, not an expected current mapping or a bootstrap grant.
+Complete provider recipes, independent sequence semantics and target/DAG admission
+remain with their original owners; an empty observed effect vector is not success.
+
 `SchemaMigrationRegistry` is a thin runtime adapter over the explicit
 `SchemaMigrationManifest`; it no longer owns descriptor implementations or a single
 ever-growing array. The manifest composes these immutable version catalogs:
