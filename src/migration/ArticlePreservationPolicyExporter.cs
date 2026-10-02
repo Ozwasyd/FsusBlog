@@ -17,9 +17,58 @@ internal sealed record ArticlePreservationDefaultPolicyExport(
 /// Prepares exact artifacts from the current compiled pure owners and an already captured source.
 /// Artifact bytes and their SHA are separate from the semantic policy digest. Preparing bytes is
 /// not publication, source admission, a historical human approval, or permission to write a target.
+/// Publish methods use the single Migration artifact publisher and retain the exact prepared byte seal.
 /// </summary>
 internal static class ArticlePreservationPolicyExporter
 {
+    internal static async Task<ArticlePreservationSourceExport> PublishSourceAsync(
+        ArticlePreservationSourceReadResult read, string absoluteOutputPath, CancellationToken cancellationToken)
+    {
+        ArticlePreservationSourceExport prepared = PrepareSource(read, absoluteOutputPath, cancellationToken);
+        CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
+            absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_source_publication_binding");
+        return prepared;
+    }
+
+    internal static async Task<ArticlePreservationDefaultPolicyExport> PublishDefaultPolicyAsync(
+        ArticlePreservationSourceExport source, string absoluteOutputPath, CancellationToken cancellationToken)
+    {
+        ArticlePreservationDefaultPolicyExport prepared = PrepareDefaultPolicy(source, absoluteOutputPath, cancellationToken);
+        CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
+            absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_policy_publication_binding");
+        return prepared;
+    }
+
+    internal static async Task<ArticlePreservationCurrentPackage> PublishCurrentPackageAsync(
+        ArticlePreservationSourceExport source, LegacyArticlePreservationRow row,
+        ArticlePreservationDefaultPolicyExport policy, int categoryId, ImmutableArray<int> tagIds,
+        ArticlePreservationGraphCoordinates coordinates, string absoluteOutputPath,
+        CancellationToken cancellationToken)
+    {
+        ArticlePreservationCurrentPackage prepared = PrepareCurrentPackage(
+            source, row, policy, categoryId, tagIds, coordinates, absoluteOutputPath, cancellationToken);
+        CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
+            absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_package_publication_binding");
+        return prepared;
+    }
+
+    internal static async Task<ArticlePreservationCurrentExport> PublishCurrentExportAsync(
+        ArticlePreservationSourceExport source, ArticlePreservationDefaultPolicyExport policy,
+        ImmutableArray<ArticlePreservationTaxonomyMap> categories, ImmutableArray<ArticlePreservationTaxonomyMap> tags,
+        ImmutableArray<ArticlePreservationCurrentPackage> articles, string absoluteOutputPath,
+        CancellationToken cancellationToken)
+    {
+        ArticlePreservationCurrentExport prepared = PrepareCurrentExport(
+            source, policy, categories, tags, articles, absoluteOutputPath, cancellationToken);
+        CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
+            absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_current_publication_binding");
+        return prepared;
+    }
+
     internal static ArticlePreservationSourceExport PrepareSource(
         ArticlePreservationSourceReadResult read, string artifactReference, CancellationToken cancellationToken)
     {
