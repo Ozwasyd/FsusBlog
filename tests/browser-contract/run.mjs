@@ -184,6 +184,10 @@ function enforceConfiguredCleanAttemptAdmission()
     {
         requireCleanAttemptConsumerAdmission({
             consumerId: 'browser-contract',
+            candidateBinding: { sourceCommit: verifiedBuild.sourceState.commit,
+                worktreeFingerprint: `sha256:${verifiedBuild.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')}`,
+                buildIdentity: verifiedBuild.receiptContentDigest,
+                schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID },
             repositoryRoot: root
         });
     }
@@ -382,7 +386,6 @@ async function main()
         playwright: managed.metadata,
         scenarios: selectedScenarios
     });
-    const productFailures = [];
     let primaryOutcome = null;
 
     try
@@ -521,17 +524,7 @@ async function main()
                         scenarioReceipt.artifacts.push(screenshot);
                     }
                 }
-                if (scenarioReceipt.classification === 'product')
-                {
-                    productFailures.push({
-                        scenario: scenario.id,
-                        error: scenarioReceipt.error
-                    });
-                }
-                else
-                {
-                    throw error;
-                }
+                throw error;
             }
             finally
             {
@@ -555,15 +548,6 @@ async function main()
                 scenarioReceipt.durationMs = performance.now() - scenarioStartedAtMs;
                 activeScenario = null;
             }
-        }
-
-        if (productFailures.length > 0)
-        {
-            throw new BrowserContractFailure(
-                `${productFailures.length} browser contract product scenario(s) failed`,
-                'product',
-                { failures: productFailures }
-            );
         }
 
         const publicPreviewStaging = path.join(runOutputRoot, 'public-preview-docs');

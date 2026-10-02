@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const {AttemptContractError, digestCanonical, validateAggregateAttemptReceipt} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
+const {AttemptContractError, canonicalJson, digestCanonical, validateAggregateAttemptReceipt} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 export const cleanFirstAttemptVerdictSchema = 'fsusblog.clean-first-attempt-verdict.v1';
 
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
@@ -229,6 +229,8 @@ function mismatch(receipt, field, expected, actual)
     );
 }
 
+export { mismatch as cleanAttemptIdentityMismatchReason };
+
 export class CleanFirstAttemptAdmissionError extends Error
 {
     constructor(verdict)
@@ -246,7 +248,11 @@ export function cleanFirstAttemptVerdict({
     loadAttempt,
     verifyAuthority,
     verifyArtifact,
-    expectedIdentity = {}
+    expectedIdentity = {},
+    expectedAttemptIdentity = {},
+    candidateBindings = [],
+    expectedConsumerIdentity = {},
+    requiredConsumerIdentityFields = []
 })
 {
     let aggregate;
@@ -334,6 +340,34 @@ export function cleanFirstAttemptVerdict({
         });
     }
 
+    for (const field of requiredConsumerIdentityFields)
+    {
+        if (typeof expectedConsumerIdentity[field] !== 'string' || !expectedConsumerIdentity[field].trim())
+        {
+            return Object.freeze({ schema: cleanFirstAttemptVerdictSchema, eligible: false,
+                reasons: Object.freeze([reason('attempt.consumer-identity-missing',
+                    `consumer must supply the expected ${field}`, attempt, { field })]), aggregate, attempt });
+        }
+    }
+    for (const [field, expected] of Object.entries(expectedAttemptIdentity))
+    {
+        if (expected !== undefined && attempt[field] !== expected)
+        {
+            return Object.freeze({ schema: cleanFirstAttemptVerdictSchema, eligible: false,
+                reasons: Object.freeze([mismatch(attempt, field, expected, attempt[field])]), aggregate, attempt });
+        }
+    }
+    for (const { expected, actual } of candidateBindings)
+    {
+        for (const [field, value] of Object.entries(actual))
+        {
+            if (value === undefined || canonicalJsonValue(value) !== canonicalJsonValue(expected[field]))
+            {
+                return Object.freeze({ schema: cleanFirstAttemptVerdictSchema, eligible: false,
+                    reasons: Object.freeze([mismatch(attempt, field, expected[field], value ?? null)]), aggregate, attempt });
+            }
+        }
+    }
     return Object.freeze({
         schema: cleanFirstAttemptVerdictSchema,
         eligible: true,
@@ -341,6 +375,11 @@ export function cleanFirstAttemptVerdict({
         aggregate,
         attempt
     });
+}
+
+function canonicalJsonValue(value)
+{
+    return value === undefined ? undefined : canonicalJson(value);
 }
 
 export function requireCleanFirstAttempt(options)

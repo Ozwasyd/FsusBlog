@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+const { finalizeBrowserContractReceipt } = await import(new URL('../browser-contract/contract.mjs', import.meta.url));
 
 const { inventoryByDomain } = await import(new URL('../../tools/test/correctness-attempt-producers.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
@@ -36,4 +38,77 @@ test('Playwright correctness settings cannot enable retries', () =>
     assert.match(diagnostics, /retries\s*:\s*0/u);
     const runner = fs.readFileSync(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8');
     assert.doesNotMatch(runner, /FSUSBLOG_PLAYWRIGHT_RETRIES[^\n]*[1-9]/u);
+});
+
+test('the production scenario loop stops on first product failure and seals failed-no-retry', async () =>
+{
+    const source = fs.readFileSync(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8');
+    const loop = source.slice(source.indexOf('        for (const scenario of selectedScenarios)'),
+        source.indexOf('        const publicPreviewStaging'));
+    assert.ok(loop.includes('throw error;'));
+    const execute = async (body) =>
+    {
+        let laterCalls = 0;
+        let closed = 0;
+        const failure = new Error('first product failure');
+        const receipt = { scenarios: ['first', 'later'].map((id) => ({ id, status: 'pending', artifacts: [] })),
+            topology: { contextCount: 0 } };
+        const page = { setDefaultTimeout()
+        {}, setDefaultNavigationTimeout()
+        {}, isClosed: () => true };
+        const bindings = {
+            selectedScenarios: receipt.scenarios.map(({ id }) => ({ id, role: 'authenticated' })),
+            receivedSignal: null, browserDisconnected: false, browserTemporalObservation: {},
+            browserContractScenarioRunners: { first: async () =>
+            {
+                throw failure;
+            }, later: async () =>
+            {
+                laterCalls++;
+            } },
+            receipt, activeScenario: null, browser: { newContext: async () => ({ newPage: async () => page,
+                close: async () =>
+                {
+                    closed++;
+                } }) },
+            contextOptions: () => ({}), fixture: {}, managed: { plan: { rendering: {} } },
+            traceRoot: '/unused-traces', path, browserContractAppReadyTimeoutMs: 1,
+            createPageAudit: () => ({ issues: [] }), outputRoot: '/unused-output',
+            classifyBrowserContractFailure: () => 'product',
+            serializeBrowserContractError: (error) => ({ message: error.message })
+        };
+        const AsyncFunction = Object.getPrototypeOf(async () =>
+        {}).constructor;
+        try
+        {
+            await new AsyncFunction(...Object.keys(bindings), body)(...Object.values(bindings));
+        }
+        catch (error)
+        {
+            assert.equal(error, failure);
+        }
+        finalizeBrowserContractReceipt(receipt, { primary: { status: 'failure', classification: 'product',
+            error: { message: failure.message } }, cleanup: { status: 'success' } });
+        assert.equal(receipt.attemptStatus, 'failed-no-retry');
+        assert.equal(receipt.qualificationEligible, false);
+        assert.equal(receipt.cleanFirstAttempt, false);
+        assert.equal(receipt.scenarios[0].classification, 'product');
+        assert.equal(closed, laterCalls + 1);
+        return { laterCalls, receipt };
+    };
+    const actual = await execute(loop);
+    assert.equal(actual.laterCalls, 0);
+    assert.equal(actual.receipt.scenarios[1].status, 'pending');
+    const mutated = await execute(loop.replace('                throw error;', '                /* mutation: keep running */'));
+    assert.equal(mutated.laterCalls, 1, 'mutation must expose execution of the forbidden later scenario');
+    if (process.env.FSUSBLOG_FIRST_STOP_FIXTURE_RECEIPT)
+    {
+        fs.writeFileSync(process.env.FSUSBLOG_FIRST_STOP_FIXTURE_RECEIPT, `${JSON.stringify({
+            schema: 'fsusblog.browser-first-stop-negative-fixture.v1', evidenceClass: 'checker-selftest',
+            qualificationEligible: false, runner: path.join(root, 'tests/browser-contract/run.mjs'),
+            runnerFileDigest: `sha256:${createHash('sha256').update(source).digest('hex')}`,
+            laterScenarioCalls: actual.laterCalls, mutationLaterScenarioCalls: mutated.laterCalls,
+            receipt: actual.receipt
+        }, null, 2)}\n`);
+    }
 });

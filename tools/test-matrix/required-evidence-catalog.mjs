@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { validateDispositionLedger } from './release-domain-ledger.mjs';
 import {
-    loadCanonicalReleaseFinalEvidenceInputs
+    loadCanonicalReleaseFinalEvidenceInputs, validateCanonicalReleaseFinalEvidenceInputs
 } from './release-final-evidence-contract.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -488,6 +488,26 @@ export function checkRequiredEvidenceCatalog(ledger = loadCanonicalRequiredEvide
         throw new Error(`required evidence catalog is invalid:\n${errors.join('\n')}`);
     }
     return ledger.entries;
+}
+
+export function requiredEvidenceAuthoritiesForContext(canonical = loadCanonicalReleaseFinalEvidenceInputs(),
+    entries = checkRequiredEvidenceCatalog())
+{
+    const errors = validateCanonicalReleaseFinalEvidenceInputs(canonical);
+    if (errors.length)
+    {
+        throw new Error(errors.join('; '));
+    }
+    const required = new Set(canonical.inputs);
+    const selected = entries.filter((entry) => !entry.allowDiagnostic
+        && entry.producerTierIds?.some((tierId) => required.has(tierId)));
+    const covered = new Set(selected.flatMap((entry) => entry.producerTierIds.filter((tierId) => required.has(tierId))));
+    const missing = canonical.inputs.filter((tierId) => !covered.has(tierId));
+    if (missing.length)
+    {
+        throw new Error(`formal ${canonical.targetTier} context is missing required authority families: ${missing.join(', ')}`);
+    }
+    return selected;
 }
 
 export function createRequiredEvidenceCatalogBinding(

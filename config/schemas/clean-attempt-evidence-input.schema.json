@@ -16,9 +16,14 @@
         "aggregateReference",
         "domainReceiptReference",
         "expectedIdentity",
+        "buildIdentity",
         "transport"
     ],
     "properties": {
+        "buildIdentity": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
         "schema": {
             "const": "fsusblog.clean-attempt-evidence-input.v1"
         },
