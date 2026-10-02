@@ -211,12 +211,44 @@ function sampleObservation(overrides = {})
                 'Unknown',
                 'Validation'
             ],
+            'error-codes.transport-authority': {
+                sourceOwner: 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs',
+                sourceMember: 'ApiErrorSemanticMapper.PublicStatusMappings',
+                closed: true,
+                entries: [
+                    [400, 'Validation'], [401, 'Unauthorized'], [403, 'Forbidden'], [404, 'NotFound'],
+                    [405, 'InfraFailure'], [406, 'InfraFailure'], [409, 'Conflict'], [410, 'InfraFailure'],
+                    [411, 'InfraFailure'],
+                    [413, 'InfraFailure'], [415, 'InfraFailure'], [416, 'InfraFailure'],
+                    [422, 'InfraFailure'], [423, 'Forbidden'],
+                    [426, 'InfraFailure'], [428, 'InfraFailure'], [429, 'InfraFailure'],
+                    [500, 'InfraFailure'], [503, 'InfraFailure']
+                ].map(([httpStatus, errorCode]) => ({ httpStatus, errorCode }))
+            },
             'error-codes.transport-mapping': {
                 '400': { httpStatus: 400, errorCode: 'Validation', direction: 'status-to-error-code' },
                 '401': { httpStatus: 401, errorCode: 'Unauthorized', direction: 'status-to-error-code' },
+                '403': { httpStatus: 403, errorCode: 'Forbidden', direction: 'status-to-error-code' },
+                '404': { httpStatus: 404, errorCode: 'NotFound', direction: 'status-to-error-code' },
+                '405': { httpStatus: 405, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '406': { httpStatus: 406, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '409': { httpStatus: 409, errorCode: 'Conflict', direction: 'status-to-error-code' },
+                '410': { httpStatus: 410, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '411': { httpStatus: 411, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '413': { httpStatus: 413, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '415': { httpStatus: 415, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '416': { httpStatus: 416, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '422': { httpStatus: 422, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '423': { httpStatus: 423, errorCode: 'Forbidden', direction: 'status-to-error-code' },
+                '426': { httpStatus: 426, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '428': { httpStatus: 428, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '429': { httpStatus: 429, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '500': { httpStatus: 500, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
+                '503': { httpStatus: 503, errorCode: 'InfraFailure', direction: 'status-to-error-code' },
                 'code:Conflict': { errorCode: 'Conflict', httpStatus: 409, direction: 'error-code-to-status' },
                 'code:Forbidden': { errorCode: 'Forbidden', httpStatus: 403, direction: 'error-code-to-status' },
                 'code:InfraFailure': { errorCode: 'InfraFailure', httpStatus: 500, direction: 'error-code-to-status' },
+                'code:NotFound': { errorCode: 'NotFound', httpStatus: 404, direction: 'error-code-to-status' },
                 'code:Unauthorized': { errorCode: 'Unauthorized', httpStatus: 401, direction: 'error-code-to-status' },
                 'code:Validation': { errorCode: 'Validation', httpStatus: 400, direction: 'error-code-to-status' }
             },
@@ -423,6 +455,58 @@ test('positive sample observation extracts typed config/error/security facts', (
         rmSync(directory, { recursive: true, force: true });
     }
 });
+
+test('compiled transport projection retains all five originally omitted public statuses', (t) =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-transport-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const result = runExtract(directory, sampleObservation());
+    assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+    for (const status of [413, 415, 428, 429, 503])
+    {
+        const entry = observationMapEntry(observationFact(result, 'error-codes.transport-mapping'), String(status));
+        assert.deepEqual(entry, { httpStatus: status, errorCode: 'InfraFailure', direction: 'status-to-error-code' });
+    }
+});
+
+const transportMutations = [
+    ...[413, 415, 428, 429, 503].map((status) => [
+        `missing ${status}`, (facts) => { delete facts['error-codes.transport-mapping'][String(status)]; }
+    ]),
+    ['missing authority', (facts) => { delete facts['error-codes.transport-authority']; }],
+    ['open authority', (facts) => { facts['error-codes.transport-authority'].closed = false; }],
+    ['foreign owner', (facts) => { facts['error-codes.transport-authority'].sourceOwner = 'docs/catalog.md'; }],
+    ['foreign member', (facts) => { facts['error-codes.transport-authority'].sourceMember = 'Manual.Catalog'; }],
+    ['empty authority', (facts) => { facts['error-codes.transport-authority'].entries = []; }],
+    ['duplicate status', (facts) => { facts['error-codes.transport-authority'].entries.push({ httpStatus: 503, errorCode: 'InfraFailure' }); }],
+    ['unsorted status', (facts) => { facts['error-codes.transport-authority'].entries.reverse(); }],
+    ['unregistered code', (facts) => { facts['error-codes.transport-authority'].entries[0].errorCode = 'NotRegistered'; }],
+    ['non-error status', (facts) => { facts['error-codes.transport-authority'].entries[0].httpStatus = 200; }],
+    ['extra status', (facts) => { facts['error-codes.transport-mapping']['599'] = { httpStatus: 599, errorCode: 'InfraFailure', direction: 'status-to-error-code' }; }],
+    ['wildcard', (facts) => { facts['error-codes.transport-mapping']['*'] = { httpStatus: '*', errorCode: 'InfraFailure', direction: 'status-to-error-code' }; }],
+    ['value drift', (facts) => { facts['error-codes.transport-mapping']['413'].errorCode = 'Validation'; }],
+    ['status drift', (facts) => { facts['error-codes.transport-mapping']['415'].httpStatus = 413; }],
+    ['direction drift', (facts) => { facts['error-codes.transport-mapping']['428'].direction = 'error-code-to-status'; }],
+    ['extra entry field', (facts) => { facts['error-codes.transport-mapping']['429'].fallback = true; }],
+    ['missing reverse code', (facts) => { delete facts['error-codes.transport-mapping']['code:NotFound']; }],
+    ['extra reverse code', (facts) => { facts['error-codes.transport-mapping']['code:Unknown'] = { httpStatus: 500, errorCode: 'Unknown', direction: 'error-code-to-status' }; }],
+    ['reverse identity drift', (facts) => { facts['error-codes.transport-mapping']['code:NotFound'].errorCode = 'Forbidden'; }],
+    ['unregistered reverse status', (facts) => { facts['error-codes.transport-mapping']['code:NotFound'].httpStatus = 599; }]
+];
+
+for (const [label, mutate] of transportMutations)
+{
+    test(`compiled transport projection refuses ${label}`, (t) =>
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-transport-'));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const observation = sampleObservation();
+        mutate(observation.facts);
+        const result = runExtract(directory, observation);
+        assert.equal(result.status, 'failed');
+        assert.ok(result.failureReasons.some((reason) => /transport/iu.test(reason)), result.failureReasons.join('\n'));
+    });
+}
 
 test('1) backend new error code forces projection failure when frontend lacks it', () =>
 {

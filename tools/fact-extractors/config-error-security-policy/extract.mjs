@@ -14,6 +14,7 @@ const requiredFactKeys = Object.freeze([
     'configuration.allowed-values',
     'configuration.required-production-values',
     'error-codes.public',
+    'error-codes.transport-authority',
     'error-codes.transport-mapping',
     'error-codes.domain',
     'security.challenge-kinds',
@@ -63,6 +64,69 @@ function isBoundary(value)
     && typeof value.inclusiveMin === 'boolean'
     && typeof value.inclusiveMax === 'boolean'
     && typeof value.bound === 'string';
+}
+
+function exactKeys(value, keys)
+{
+    return value != null && typeof value === 'object' && !Array.isArray(value)
+        && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0');
+}
+
+function validateTransportProjection(authority, transport, publicCodes, failureReasons)
+{
+    // The sealed compiled artifact supplies the production enumeration. Never
+    // derive a finite public set by evaluating the mapper's catch-all fallback.
+    if (!exactKeys(authority, ['sourceOwner', 'sourceMember', 'closed', 'entries'])
+        || authority.sourceOwner !== 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs'
+        || authority.sourceMember !== 'ApiErrorSemanticMapper.PublicStatusMappings'
+        || authority.closed !== true || !Array.isArray(authority.entries)
+        || authority.entries.length === 0)
+    {
+        failureReasons.push('error-codes.transport-authority must be the closed compiled production enumeration');
+        return;
+    }
+    if (transport == null || typeof transport !== 'object' || Array.isArray(transport)
+        || !Array.isArray(publicCodes)) return;
+
+    const statuses = [];
+    let previousStatus = 399;
+    for (const entry of authority.entries)
+    {
+        if (!exactKeys(entry, ['httpStatus', 'errorCode'])
+            || !Number.isInteger(entry.httpStatus) || entry.httpStatus <= previousStatus
+            || entry.httpStatus > 599 || !publicCodes.includes(entry.errorCode)
+            || entry.errorCode === 'Unknown')
+        {
+            failureReasons.push('error-codes.transport-authority entries must be sorted unique concrete public error mappings');
+            return;
+        }
+        previousStatus = entry.httpStatus;
+        const identity = String(entry.httpStatus);
+        statuses.push(identity);
+        const projected = transport[identity];
+        if (!exactKeys(projected, ['httpStatus', 'errorCode', 'direction'])
+            || projected.httpStatus !== entry.httpStatus || projected.errorCode !== entry.errorCode
+            || projected.direction !== 'status-to-error-code')
+        {
+            failureReasons.push(`transport projection disagrees with compiled authority for ${identity}`);
+        }
+    }
+    const reverse = publicCodes.filter((code) => code !== 'Unknown').map((code) => `code:${code}`);
+    const expectedKeys = [...statuses, ...reverse].sort();
+    if (JSON.stringify(Object.keys(transport).sort()) !== JSON.stringify(expectedKeys))
+    {
+        failureReasons.push('transport projection must exactly cover compiled statuses and public reverse codes (missing/extra/wildcard refused)');
+    }
+    for (const identity of reverse)
+    {
+        const projected = transport[identity];
+        if (!exactKeys(projected, ['httpStatus', 'errorCode', 'direction'])
+            || projected.errorCode !== identity.slice(5) || projected.direction !== 'error-code-to-status'
+            || !Number.isInteger(projected.httpStatus) || !statuses.includes(String(projected.httpStatus)))
+        {
+            failureReasons.push(`invalid production reverse transport projection ${identity}`);
+        }
+    }
 }
 
 function isRangeBoundary(value)
@@ -507,6 +571,7 @@ export function extract(context)
     {
         failureReasons.push('error-codes.transport-mapping must be a non-empty map');
     }
+    validateTransportProjection(facts['error-codes.transport-authority'], transport, publicCodes, failureReasons);
     validateDomainErrors(facts['error-codes.domain'], transport, failureReasons);
 
     // challenges
@@ -755,6 +820,7 @@ export function extract(context)
         'configuration.allowed-values': facts['configuration.allowed-values'],
         'configuration.required-production-values': facts['configuration.required-production-values'],
         'error-codes.public': facts['error-codes.public'],
+        'error-codes.transport-authority': facts['error-codes.transport-authority'],
         'error-codes.transport-mapping': facts['error-codes.transport-mapping'],
         'error-codes.domain': facts['error-codes.domain'],
         'security.challenge-kinds': facts['security.challenge-kinds'],

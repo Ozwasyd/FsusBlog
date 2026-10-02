@@ -66,6 +66,15 @@ Message-content validation errors use `ErrorCode.Validation`: `message_subject_e
 
 ### General errors
 
+`ApiErrorSemanticMapper.PublicStatusMappings` is the sole executable and enumerable
+HTTP-status-to-`ErrorCode` authority. Runtime lookup and the compiled error-policy
+observation consume the same immutable entries; the extractor requires the forward
+projection to match those entries exactly. The unknown-status fallback is not an
+enumerated public mapping. This mapping does not override an endpoint's explicit
+error code or change the separate `ErrorCode`-to-status policy. The generated
+transport table below is a projection of the compiled observation, not a second
+handwritten catalog.
+
 | Error code | HTTP status | Meaning |
 | -------- | ----------- | ------ |
 | `InvalidRequest` | 400 | Request-parameter format is invalid. |

@@ -124,6 +124,7 @@ internal static class ConfigErrorSecurityObservationHost
                 ["configuration.allowed-values"] = configurationFacts["configuration.allowed-values"]!.DeepClone(),
                 ["configuration.required-production-values"] = configurationFacts["configuration.required-production-values"]!.DeepClone(),
                 ["error-codes.public"] = errorFacts["error-codes.public"]!.DeepClone(),
+                ["error-codes.transport-authority"] = errorFacts["error-codes.transport-authority"]!.DeepClone(),
                 ["error-codes.transport-mapping"] = errorFacts["error-codes.transport-mapping"]!.DeepClone(),
                 ["error-codes.domain"] = errorFacts["error-codes.domain"]!.DeepClone(),
                 ["security.challenge-kinds"] = securityFacts["security.challenge-kinds"]!.DeepClone(),
@@ -423,21 +424,22 @@ internal static class ConfigErrorSecurityObservationHost
 
         var transport = new JsonObject();
         // Status → ErrorCode authority from ApiErrorSemanticMapper (production mapper).
-        foreach ((int status, string label) in new (int, string)[]
-                 {
-                     (400, "400"),
-                     (401, "401"),
-                     (403, "403"),
-                     (404, "404"),
-                     (409, "409"),
-                     (423, "423"),
-                     (500, "500")
-                 })
+        var authorityEntries = new JsonArray();
+        foreach (KeyValuePair<int, ErrorCode> entry in ApiErrorSemanticMapper.PublicStatusMappings.OrderBy(entry => entry.Key))
         {
-            ErrorCode mapped = ApiErrorSemanticMapper.MapErrorCode(status);
-            transport[label] = new JsonObject
+            ErrorCode mapped = ApiErrorSemanticMapper.MapErrorCode(entry.Key);
+            if (mapped != entry.Value)
             {
-                ["httpStatus"] = status,
+                failures.Add($"production transport enumeration disagrees with runtime lookup for {entry.Key}");
+            }
+            authorityEntries.Add(new JsonObject
+            {
+                ["httpStatus"] = entry.Key,
+                ["errorCode"] = entry.Value.ToString()
+            });
+            transport[entry.Key.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new JsonObject
+            {
+                ["httpStatus"] = entry.Key,
                 ["errorCode"] = mapped.ToString(),
                 ["direction"] = "status-to-error-code"
             };
@@ -481,6 +483,13 @@ internal static class ConfigErrorSecurityObservationHost
         return new JsonObject
         {
             ["error-codes.public"] = ToJsonArray(publicCodes),
+            ["error-codes.transport-authority"] = new JsonObject
+            {
+                ["sourceOwner"] = "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+                ["sourceMember"] = "ApiErrorSemanticMapper.PublicStatusMappings",
+                ["closed"] = true,
+                ["entries"] = authorityEntries
+            },
             ["error-codes.transport-mapping"] = SortObject(transport),
             ["error-codes.domain"] = new JsonObject
             {
