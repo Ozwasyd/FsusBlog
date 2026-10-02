@@ -21,7 +21,11 @@ internal sealed record OfflineMigrationPlanCommandOptions(
     string RestoreDrillPath,
     string RestoreEnvironmentFilePath,
     string PlanOutputPath,
-    int TimeoutSeconds);
+    int TimeoutSeconds)
+{
+    // Invocation-only Host state; never serialized into a plan or supplied by CLI JSON.
+    internal OfflineMigrationOperationDeadline? OperationDeadline { get; init; }
+}
 
 internal sealed record OfflineMigrationSourceCommandOptions(
     CurrentSchemaProviderKind Provider,

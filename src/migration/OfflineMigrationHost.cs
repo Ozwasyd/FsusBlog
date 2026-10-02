@@ -191,13 +191,14 @@ public static class OfflineMigrationHost
         {
             throw new InvalidOperationException("schema_plan_timeout_invalid");
         }
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
-            timeProvider ?? TimeProvider.System);
+        TimeProvider clock = timeProvider ?? TimeProvider.System;
+        var invocationDeadline = new OfflineMigrationOperationDeadline(clock, options.TimeoutSeconds);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)), clock);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
         operation.Token.ThrowIfCancellationRequested();
         IOfflineMigrationPlanningEvidence evidence = createEvidence();
         operation.Token.ThrowIfCancellationRequested();
-        await WritePlanAsync(options, evidence, operation.Token).ConfigureAwait(false);
+        await WritePlanAsync(options with { OperationDeadline = invocationDeadline }, evidence, operation.Token).ConfigureAwait(false);
         // WritePlanAsync checks the same token before atomic publication. Do not turn an
         // already published immutable artifact into a later cancellation outcome.
     }

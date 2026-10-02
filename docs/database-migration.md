@@ -257,6 +257,11 @@ are read from actual bytes, the inner manifest/report/native restored observatio
 are cross-bound, and a fresh private output root and invocation nonce are required.
 Its producer port must await the real operation and its children/pipes to terminal;
 cancellation cannot convert an unverified cleanup into a normal cancellation result.
+The Host also supplies one invocation-only monotonic deadline through the evidence
+options. The producer reads its remaining whole seconds at launch, never restarts
+the CLI total, and refuses a remainder below the shell's one-second representation
+rather than rounding past the original operation deadline. This state is not stored
+in the immutable plan and is not a backup or execution authorization.
 The pre-migration evidence scope is `pre-migration-backup`, with report mode
 `migration-recoverability`: it proves isolated database restoration and recovery of
 all six original artifacts. It neither starts the current Server against historical
