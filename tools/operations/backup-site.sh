@@ -28,6 +28,11 @@ sourceCapture="null"
 capturePid=""
 captureReadFd=""
 captureWriteFd=""
+captureTimeoutSeconds="${FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS:-}"
+captureDeadline=0
+dumpPid=""
+captureCleanupVerified=1
+captureFailureLog=""
 KEYRING_KEY_COUNT=0
 WORK_DIR_OWNED=0
 
@@ -42,14 +47,80 @@ Cleanup() {
     if [[ -n "$captureReadFd" ]]; then
         exec {captureReadFd}<&-
     fi
-    if [[ -n "$capturePid" ]]; then
-        kill "$capturePid" >/dev/null 2>&1 || true
-        wait "$capturePid" >/dev/null 2>&1 || true
-    fi
+    StopCaptureChild "$dumpPid" || captureCleanupVerified=0
+    StopCaptureChild "$capturePid" || captureCleanupVerified=0
     rm -f "$PLAINTEXT_PACKAGE_PATH"
-    if [[ "$WORK_DIR_OWNED" == "1" ]]; then
+    if [[ "$WORK_DIR_OWNED" == "1" && "$captureCleanupVerified" == "1" ]]; then
         rm -rf "$WORK_DIR"
     fi
+}
+
+ReadCaptureBudget() {
+    if [[ ! -r /proc/uptime || ! "$captureTimeoutSeconds" =~ ^[1-9][0-9]{0,6}$ ]] || ((captureTimeoutSeconds > 2147483)); then
+        AddBlocker "database-snapshot-timeout-invalid-or-missing"
+        return 1
+    fi
+    captureDeadline=$(( $(CaptureNow) + captureTimeoutSeconds ))
+}
+
+CaptureNow() {
+    local uptimeValue ignored
+    read -r uptimeValue ignored </proc/uptime
+    printf '%s\n' "${uptimeValue%%.*}"
+}
+
+CaptureRemaining() {
+    local remaining=$((captureDeadline - $(CaptureNow)))
+    ((remaining > 0)) || return 1
+    printf '%s\n' "$remaining"
+}
+
+ChildRunning() {
+    local pid="$1" running
+    while IFS= read -r running; do
+        [[ "$running" != "$pid" ]] || return 0
+    done < <(jobs -pr)
+    return 1
+}
+
+ChildGroupEmpty() {
+    local pid="$1" groups
+    groups="$(ps -eo pgid=)" || return 1
+    ! awk -v group="$pid" '$1 == group { found = 1 } END { exit(found ? 0 : 1) }' <<<"$groups"
+}
+
+StopCaptureChild() {
+    local pid="$1" deadline
+    [[ -n "$pid" ]] || return 0
+    if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+        kill -TERM -- "-$pid" >/dev/null 2>&1 || true
+        deadline=$(( $(CaptureNow) + 1 ))
+        while ChildRunning "$pid" && (( $(CaptureNow) < deadline )); do
+            sleep 0.05
+        done
+        if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+            kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+        fi
+        deadline=$(( $(CaptureNow) + 1 ))
+        while ChildRunning "$pid" && (( $(CaptureNow) < deadline )); do
+            sleep 0.05
+        done
+    fi
+    if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+        AddBlocker "database-snapshot-child-cleanup-unverified"
+        return 1
+    fi
+    wait "$pid" >/dev/null 2>&1 || true
+}
+
+WaitCaptureChild() {
+    local pid="$1"
+    while ChildRunning "$pid"; do
+        CaptureRemaining >/dev/null || return 1
+        sleep 0.05
+    done
+    ChildGroupEmpty "$pid" || return 1
+    wait "$pid"
 }
 
 trap Cleanup EXIT
@@ -87,6 +158,8 @@ WriteReport() {
         --arg packageSha256 "$packageSha256" \
         --arg manifestSha256 "$manifestSha256" \
         --argjson sourceCapture "$sourceCapture" \
+        --arg captureFailureLog "$captureFailureLog" \
+        --argjson captureCleanupVerified "$captureCleanupVerified" \
         --arg backupRoot "$BACKUP_ROOT" \
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg contentEncryption "AES-256-GCM" \
@@ -103,6 +176,8 @@ WriteReport() {
       packageSha256: (if $packageSha256 == "" then null else $packageSha256 end),
       manifestSha256: (if $manifestSha256 == "" then null else $manifestSha256 end),
       sourceCapture: $sourceCapture,
+      captureFailureLog: (if $captureFailureLog == "" then null else $captureFailureLog end),
+      captureCleanupVerified: ($captureCleanupVerified == 1),
       backupRoot: $backupRoot,
       packageEncryption: {
         format: $envelopeFormat,
@@ -245,6 +320,12 @@ DumpDatabase() {
     }
     if [[ -n "$migrationDll" ]]; then
         if ! CaptureDatabase "$target"; then
+            StopCaptureChild "$dumpPid" || captureCleanupVerified=0
+            StopCaptureChild "$capturePid" || captureCleanupVerified=0
+            if [[ "$captureCleanupVerified" == "1" ]]; then
+                dumpPid=""
+                capturePid=""
+            fi
             return
         fi
     elif ! PGPASSWORD="$PG_CONN_PASSWORD" pg_dump -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --format=custom --file="$target"; then
@@ -257,7 +338,7 @@ DumpDatabase() {
 
 CaptureDatabase() {
     local target="$1" environmentFile="$WORK_DIR/source-capture.env"
-    local hostValue databaseValue userValue passwordValue start final snapshotId readOriginal writeOriginal
+    local hostValue databaseValue userValue passwordValue start final snapshotId readOriginal writeOriginal remaining nativeTimeout
     hostValue="${PG_CONN_HOST//\"/\"\"}"
     databaseValue="${PG_CONN_DB//\"/\"\"}"
     userValue="${PG_CONN_USER//\"/\"\"}"
@@ -270,12 +351,22 @@ CaptureDatabase() {
         AddBlocker "database-capture-environment-invalid"
         return 1
     fi
+    captureFailureLog="$BACKUP_ROOT/backup-site-${RUN_ID}.capture-stderr.log"
+    if [[ -e "$captureFailureLog" ]]; then
+        AddBlocker "database-snapshot-failure-log-already-exists"
+        return 1
+    fi
     printf 'ConnectionStrings__DefaultConnection=Host="%s";Port=%s;Database="%s";Username="%s";Password="%s"\n' \
         "$hostValue" "$PG_CONN_PORT" "$databaseValue" "$userValue" "$passwordValue" >"$environmentFile"
+    if ! nativeTimeout="$(CaptureRemaining)"; then
+        AddBlocker "database-snapshot-deadline-expired"
+        return 1
+    fi
     coproc SourceCapture {
-        exec "${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql \
-            --env-file "$environmentFile" --capture-session --dump-output "$target"
-    }
+        exec timeout --signal=TERM --kill-after=1s "${nativeTimeout}s" \
+            "${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql \
+            --env-file "$environmentFile" --capture-session --dump-output "$target" --timeout-seconds "$nativeTimeout"
+    } 2>"$captureFailureLog"
     capturePid="${SourceCapture_PID:-}"
     readOriginal="${SourceCapture[0]:-}"
     writeOriginal="${SourceCapture[1]:-}"
@@ -287,22 +378,67 @@ CaptureDatabase() {
     exec {captureWriteFd}>&"$writeOriginal"
     exec {readOriginal}<&-
     exec {writeOriginal}>&-
-    if ! IFS= read -r -u "$captureReadFd" start || ! jq -e \
+    if ! remaining="$(CaptureRemaining)" || ! IFS= read -r -t "$remaining" -u "$captureReadFd" start || ! jq -e --argjson timeout "$nativeTimeout" \
         '.Source.Database.Provider == 0 and (.Source.ContentDigest | test("^[0-9a-f]{64}$"))
          and (.SnapshotId | type == "string" and length > 0)
          and (.CapturedAt | type == "string" and length > 0)
          and (.ObserverId | type == "string" and length > 0)
-         and (.ObserverVersion | type == "string" and length > 0)' <<<"$start" >/dev/null; then
+         and (.ObserverVersion | type == "string" and length > 0)
+         and .TimeoutSeconds == $timeout' <<<"$start" >/dev/null; then
         AddBlocker "database-snapshot-capture-start-invalid"
         return 1
     fi
     snapshotId="$(jq -r '.SnapshotId' <<<"$start")"
-    if ! PGPASSWORD="$PG_CONN_PASSWORD" pg_dump -h "$PG_CONN_HOST" -p "$PG_CONN_PORT" -U "$PG_CONN_USER" -d "$PG_CONN_DB" \
-        --format=custom --snapshot="$snapshotId" --file="$target"; then
+    if ! remaining="$(CaptureRemaining)"; then
+        AddBlocker "database-snapshot-deadline-expired"
+        return 1
+    fi
+    PGPASSWORD="$PG_CONN_PASSWORD" timeout --signal=TERM --kill-after=1s "${remaining}s" \
+        pg_dump -h "$PG_CONN_HOST" -p "$PG_CONN_PORT" -U "$PG_CONN_USER" -d "$PG_CONN_DB" \
+        --format=custom --snapshot="$snapshotId" --file="$target" 2>>"$captureFailureLog" &
+    dumpPid="$!"
+    if ! WaitCaptureChild "$dumpPid"; then
         AddBlocker "database-snapshot-dump-failed"
         return 1
     fi
-    if ! printf 'DUMP_COMPLETED\n' >&"$captureWriteFd" || ! IFS= read -r -u "$captureReadFd" final; then
+    dumpPid=""
+    if ! remaining="$(CaptureRemaining)"; then
+        AddBlocker "database-snapshot-deadline-expired"
+        return 1
+    fi
+    timeout --signal=TERM --kill-after=1s "${remaining}s" node --input-type=module - "$target" 2>>"$captureFailureLog" <<'NODE' &
+import { constants } from 'node:fs';
+import { lstat, open } from 'node:fs/promises';
+
+const path = process.argv[2];
+const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+try
+{
+    const before = await handle.stat();
+    if (!before.isFile() || before.nlink !== 1)
+    {
+        throw new Error('dump is not an exclusive regular file');
+    }
+    await handle.sync();
+    const after = await lstat(path);
+    if (!after.isFile() || after.nlink !== 1 || before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size)
+    {
+        throw new Error('dump path changed during synchronization');
+    }
+}
+finally
+{
+    await handle.close();
+}
+NODE
+    dumpPid="$!"
+    if ! WaitCaptureChild "$dumpPid"; then
+        AddBlocker "database-snapshot-dump-synchronization-failed"
+        return 1
+    fi
+    dumpPid=""
+    if ! remaining="$(CaptureRemaining)" || ! printf 'DUMP_COMPLETED\n' >&"$captureWriteFd" \
+        || ! IFS= read -r -t "$remaining" -u "$captureReadFd" final; then
         AddBlocker "database-snapshot-capture-terminal-missing"
         return 1
     fi
@@ -310,8 +446,7 @@ CaptureDatabase() {
     captureWriteFd=""
     exec {captureReadFd}<&-
     captureReadFd=""
-    if ! wait "$capturePid"; then
-        capturePid=""
+    if ! WaitCaptureChild "$capturePid"; then
         AddBlocker "database-snapshot-capture-failed"
         return 1
     fi
@@ -320,7 +455,8 @@ CaptureDatabase() {
     if ! jq -e --argjson start "$start" --arg digest "$(sha256sum "$target" | awk '{print $1}')" \
         '.status == "ok" and .capture.Source == $start.Source and .capture.SnapshotId == $start.SnapshotId
          and .capture.CapturedAt == $start.CapturedAt and .capture.ObserverId == $start.ObserverId
-         and .capture.ObserverVersion == $start.ObserverVersion and .capture.DatabaseDumpSha256 == $digest' <<<"$final" >/dev/null; then
+         and .capture.ObserverVersion == $start.ObserverVersion and .capture.TimeoutSeconds == $start.TimeoutSeconds
+         and .capture.DatabaseDumpSha256 == $digest' <<<"$final" >/dev/null; then
         AddBlocker "database-snapshot-capture-binding-invalid"
         return 1
     fi
@@ -491,6 +627,10 @@ ResolveRecipient() {
 }
 
 Main() {
+    if [[ -n "$migrationDll" ]] && ! ReadCaptureBudget; then
+        printf '%s\n' '{"status":"blocked","code":"database-snapshot-timeout-invalid-or-missing"}' >&2
+        return 1
+    fi
     mkdir -p "$BACKUP_ROOT"
     if [[ "$WORK_DIR" == "$BACKUP_ROOT" || "$WORK_DIR" == "/" ]]; then
         AddBlocker "backup-work-dir-unsafe"
@@ -510,6 +650,9 @@ Main() {
     RequireCommand sha256sum
     if [[ -n "$migrationDll" ]]; then
         RequireCommand "${DOTNET_BIN:-dotnet}"
+        RequireCommand timeout
+        RequireCommand ps
+        RequireCommand sleep
     fi
     if [[ "$databaseProvider" != "postgresql" ]]; then
         AddBlocker "database-backup-provider-unsupported:$databaseProvider"

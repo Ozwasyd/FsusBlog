@@ -22,7 +22,13 @@ packageSha256=""
 manifestSha256=""
 migrationDll="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
 sourceBinding="null"
+sourceTimeoutSeconds="${FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS:-}"
+sourceDeadline=0
+sourceChildPid=""
+sourceCleanupVerified=1
+sourceFailureLog="$REPORT_PATH.source-stderr.log"
 restoredSource="null"
+observedDatabase="null"
 restoreRootExisted=0
 [[ ! -e "$RESTORE_ROOT" ]] || restoreRootExisted=1
 checks=()
@@ -30,6 +36,7 @@ blockers=()
 status="ok"
 
 Cleanup() {
+    StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
     rm -f "$DECRYPTED_PACKAGE"
 }
 
@@ -56,6 +63,87 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+ReadSourceBudget() {
+    if [[ ! -r /proc/uptime || ! "$sourceTimeoutSeconds" =~ ^[1-9][0-9]{0,6}$ ]] || ((sourceTimeoutSeconds > 2147483)); then
+        AddBlocker "database-snapshot-timeout-invalid-or-missing"
+        return 1
+    fi
+    sourceDeadline=$(( $(SourceNow) + sourceTimeoutSeconds ))
+}
+
+SourceNow() {
+    local uptimeValue ignored
+    read -r uptimeValue ignored </proc/uptime
+    printf '%s\n' "${uptimeValue%%.*}"
+}
+
+SourceRemaining() {
+    local remaining=$((sourceDeadline - $(SourceNow)))
+    ((remaining > 0)) || return 1
+    printf '%s\n' "$remaining"
+}
+
+ChildRunning() {
+    local pid="$1" running
+    while IFS= read -r running; do
+        [[ "$running" != "$pid" ]] || return 0
+    done < <(jobs -pr)
+    return 1
+}
+
+ChildGroupEmpty() {
+    local pid="$1" groups
+    groups="$(ps -eo pgid=)" || return 1
+    ! awk -v group="$pid" '$1 == group { found = 1 } END { exit(found ? 0 : 1) }' <<<"$groups"
+}
+
+StopSourceChild() {
+    local pid="$1" deadline
+    [[ -n "$pid" ]] || return 0
+    if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+        kill -TERM -- "-$pid" >/dev/null 2>&1 || true
+        deadline=$(( $(SourceNow) + 1 ))
+        while ChildRunning "$pid" && (( $(SourceNow) < deadline )); do
+            sleep 0.05
+        done
+        if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+            kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+        fi
+        deadline=$(( $(SourceNow) + 1 ))
+        while ChildRunning "$pid" && (( $(SourceNow) < deadline )); do
+            sleep 0.05
+        done
+    fi
+    if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
+        AddBlocker "database-snapshot-child-cleanup-unverified"
+        return 1
+    fi
+    wait "$pid" >/dev/null 2>&1 || true
+}
+
+WaitSourceChild() {
+    local pid="$1"
+    while ChildRunning "$pid"; do
+        SourceRemaining >/dev/null || return 1
+        sleep 0.05
+    done
+    ChildGroupEmpty "$pid" || return 1
+    wait "$pid"
+}
+
+RunSourceCommand() {
+    local outputPath="$1" remaining
+    shift
+    remaining="$(SourceRemaining)" || return 1
+    timeout --signal=TERM --kill-after=1s "${remaining}s" "$@" <&0 >"$outputPath" 2>>"$sourceFailureLog" &
+    sourceChildPid="$!"
+    if ! WaitSourceChild "$sourceChildPid"; then
+        StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
+        return 1
+    fi
+    sourceChildPid=""
+}
 
 Log() {
     printf '[restore-site] %s\n' "$1"
@@ -92,6 +180,8 @@ WriteReport() {
         --arg manifestSha256 "$manifestSha256" \
         --argjson sourceBinding "$sourceBinding" \
         --argjson restoredSource "$restoredSource" \
+        --arg sourceFailureLog "$sourceFailureLog" \
+        --argjson sourceCleanupVerified "$sourceCleanupVerified" \
         --arg restoreRoot "$RESTORE_ROOT" \
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg recipientKeyId "$RECIPIENT_KEY_ID" \
@@ -107,6 +197,8 @@ WriteReport() {
       manifestSha256:(if $manifestSha256 == "" then null else $manifestSha256 end),
       sourceBinding:$sourceBinding,
       restoredSource:$restoredSource,
+      sourceFailureLog:$sourceFailureLog,
+      sourceCleanupVerified:($sourceCleanupVerified == 1),
       restoreRoot:$restoreRoot,
       packageEncryption:{format:$envelopeFormat, recipientKeyId:(if $recipientKeyId == "" then null else $recipientKeyId end)},
       checks:$checks,
@@ -249,23 +341,31 @@ RestoreDatabase() {
     }
     local targetSource
     if [[ "$sourceBinding" != "null" ]]; then
-        if ! targetSource="$(ObserveDatabase)" || ! jq -e --argjson binding "$sourceBinding" \
-            '.Database.Provider == 0 and .Database != $binding.capture.Source.Database' <<<"$targetSource" >/dev/null; then
+        if ! ObserveDatabase || ! jq -e --argjson binding "$sourceBinding" \
+            '.Database.Provider == 0 and .Database != $binding.capture.Source.Database' <<<"$observedDatabase" >/dev/null; then
             AddBlocker "database-restore-target-not-isolated-or-unobserved"
             return
         fi
+        targetSource="$observedDatabase"
     fi
-    if ! PGPASSWORD="$PG_CONN_PASSWORD" pg_restore -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --exit-on-error --clean --if-exists "$dump"; then
+    if [[ "$sourceBinding" != "null" ]]; then
+        if ! PGPASSWORD="$PG_CONN_PASSWORD" RunSourceCommand "$RESTORE_ROOT/.database-restore.stdout" \
+            pg_restore -h "$PG_CONN_HOST" -p "$PG_CONN_PORT" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --exit-on-error --clean --if-exists "$dump"; then
+            AddBlocker "database-restore-failed"
+            return
+        fi
+    elif ! PGPASSWORD="$PG_CONN_PASSWORD" pg_restore -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --exit-on-error --clean --if-exists "$dump"; then
         AddBlocker "database-restore-failed"
         return
     fi
     if [[ "$sourceBinding" != "null" ]]; then
-        if ! restoredSource="$(ObserveDatabase)" || ! jq -e --argjson binding "$sourceBinding" --argjson target "$targetSource" \
-            '.Database == $target.Database and . == ($binding.capture.Source | .Database = $target.Database)' <<<"$restoredSource" >/dev/null; then
+        if ! ObserveDatabase || ! jq -e --argjson binding "$sourceBinding" --argjson target "$targetSource" \
+            '.Database == $target.Database and . == ($binding.capture.Source | .Database = $target.Database)' <<<"$observedDatabase" >/dev/null; then
             restoredSource="null"
             AddBlocker "database-restored-source-content-mismatch"
             return
         fi
+        restoredSource="$observedDatabase"
         AddCheck "database-restored-source" "verified"
     fi
 
@@ -273,7 +373,8 @@ RestoreDatabase() {
 }
 
 ObserveDatabase() {
-    local environmentFile="$RESTORE_ROOT/.source-observer.env" observed
+    local environmentFile="$RESTORE_ROOT/.source-observer.env"
+    observedDatabase="null"
     local hostValue databaseValue userValue passwordValue
     if [[ ! -f "$migrationDll" || -L "$migrationDll" ]]; then
         return 1
@@ -287,12 +388,13 @@ ObserveDatabase() {
     passwordValue="${PG_CONN_PASSWORD//\"/\"\"}"
     printf 'ConnectionStrings__DefaultConnection=Host="%s";Port=%s;Database="%s";Username="%s";Password="%s"\n' \
         "$hostValue" "$PG_CONN_PORT" "$databaseValue" "$userValue" "$passwordValue" >"$environmentFile"
-    if ! observed="$("${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql --env-file "$environmentFile")"; then
+    if ! RunSourceCommand "$RESTORE_ROOT/.source-observer.stdout" "${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql \
+        --env-file "$environmentFile" --timeout-seconds "$(SourceRemaining)"; then
         rm -f "$environmentFile"
         return 1
     fi
+    observedDatabase="$(<"$RESTORE_ROOT/.source-observer.stdout")"
     rm -f "$environmentFile"
-    printf '%s\n' "$observed"
 }
 
 VerifyIsolatedRestorePaths() {
@@ -438,6 +540,13 @@ VerifyPackageManifest() {
             return
         fi
         sourceBinding="$(jq -c '.sourceBinding' "$manifest")"
+        if ! ReadSourceBudget; then
+            return
+        fi
+        RequireCommand timeout
+        RequireCommand ps
+        RequireCommand sleep
+        mkdir -p "$(dirname "$sourceFailureLog")"
         VerifyIsolatedRestorePaths
     fi
 
