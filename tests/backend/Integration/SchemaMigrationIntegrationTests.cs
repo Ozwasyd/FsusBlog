@@ -3168,6 +3168,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         }
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
+        services.AddSingleton<CurrentSchemaAdmissionState>();
         services.AddSingleton<IReleaseIdentityProvider>(new ReleaseIdentityProvider(configuration));
         services.AddSingleton(ReleaseStorageTestPaths.Create(storageRoot ?? Path.Combine(
             Path.GetTempPath(),

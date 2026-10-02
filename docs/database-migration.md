@@ -213,6 +213,36 @@ and requires `anonymous_account|basic|active`.
 
 ## Canonical Current Schema
 
+### Explicit production current receipt admission
+
+Production startup requires an explicit absolute `SchemaMigration:CurrentReceipt:Path`,
+its complete file-byte SHA-256 in `SchemaMigration:CurrentReceipt:Sha256`, and the
+candidate assembly's exact nonzero `FsusBlog.SourceCommit` in
+`SchemaMigration:CurrentReceipt:CandidateSourceRevision`. These are not `latest`
+selectors. The receipt's payload self-digest is separate from its artifact-byte hash;
+its verifier source revision is the offline producer identity, not necessarily the
+later Server candidate revision.
+
+`CurrentSchemaReceiptCodec` owns the closed `fsusblog.current-schema-receipt.v1`
+current-only envelope. Its opaque plan, apply, checkpoint, backup and recovery
+references do not load migration histories into the Server. Structural validity,
+a self-digest, or a `verified-current` string alone is not fresh database evidence.
+`CurrentSchemaReceiptAdmission.VerifyAsync` re-reads the explicitly bound artifact
+and the current schema through the original canonical authority, checking the
+five-field target identity, actual physical schema digest and native PostgreSQL
+`system_identifier` plus database OID/name. Unsupported native observers fail
+closed. This route performs no DDL, backfill, journal or migration-history writes.
+Only successful startup admission publishes `CurrentSchemaAdmissionState.Current`;
+an absent state is never readiness. The same read-only verification API does not
+publish readiness when used by an operational consumer.
+
+The test-only materialization receipt remains a separate isolated-run artifact.
+Its schema check uses `CurrentSchemaReadObserver`, not an optional production
+receipt bypass. Offline receipt issuance additionally requires the original sealed
+plan/backup authorities, durable native journal and independent compiled-operation
+postcondition observations. Missing providers or operation owners must refuse
+issuance; the current-only codec and startup consumer cannot supply those facts.
+
 `CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
 extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
 public properties, nullability metadata, defaults, conversions and explicit
@@ -263,7 +293,7 @@ five-field identity through the sole
 `CurrentSchemaCanonicalAuthority`, materializes those entity types once, applies
 the PostCodeFirst visit-log and author-analytics rollup `EnsureTable` SQL from
 `CurrentSchemaRuntimeRollupTables` (without referencing the migration assembly),
-then runs `CurrentSchemaStartupVerifier`. Missing rollup tables fail closed instead
+then runs the read-only `CurrentSchemaReadObserver`. Missing rollup tables fail closed instead
 of remaining optional extras. A partial or stale schema fails before any write.
 DDL and verification remain inside one PostgreSQL transaction. Before commit the
 producer atomically publishes only a `prepared`, qualification-ineligible staging
