@@ -2,6 +2,1078 @@
     "schema": "fsusblog.test-retention-replacements.v1",
     "deletedTests": [
         {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-bundle-delegates-shard-sizing-to-the-runtime-cpu-2db86d1eda",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-bundle-delegates-shard-sizing-to-the-runtime-cpu-2db86d1eda"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-category-discovery-reports-every-independently-f-d49ed90c46",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-category-discovery-reports-every-independently-f-d49ed90c46"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-postgresql-manifest-projects-exact-classes-as-so-f939f87722",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#backend-postgresql-manifest-projects-exact-classes-as-so-f939f87722"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-postgresql-planning-admits-only-source-proven-cl-49a4cccab7",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#backend-postgresql-planning-admits-only-source-proven-cl-49a4cccab7"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-admits-one-memory-proven-ordinary-bri-1206a22a1e",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-admits-one-memory-proven-ordinary-bri-1206a22a1e"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-build-server-cleanup-is-limited-to-th-ed71e89350",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-build-server-cleanup-is-limited-to-th-ed71e89350"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-category-discovery-binds-special-tier-fbfb753212",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-production-category-discovery-binds-special-tier-fbfb753212"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-database-namespace-is-short-determini-64001c3e47",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-database-namespace-is-short-determini-64001c3e47"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-derives-more-rolling-partitions-than--b13ea02adc",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-derives-more-rolling-partitions-than--b13ea02adc"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-discovery-captures-a-rejected-authori-d9339e10d0",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-discovery-captures-a-rejected-authori-d9339e10d0"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-executes-fixed-exact-coverage-shards--948d47c9c1",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-production-executes-fixed-exact-coverage-shards--948d47c9c1"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-expansion-assigns-all-newly-admitted--8c4511f18f",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-expansion-assigns-all-newly-admitted--8c4511f18f"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-parallelism-derives-rolling-process-c-56153f7f3b",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-parallelism-derives-rolling-process-c-56153f7f3b"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-partition-environment-replaces-every--926994a69f",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-partition-environment-replaces-every--926994a69f"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-reserves-distinct-shards-for-independ-c590c74de8",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-reserves-distinct-shards-for-independ-c590c74de8"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-resource-cleanup-selects-only-contain-24e64584d1",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-resource-cleanup-selects-only-contain-24e64584d1"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-rolling-partitions-bind-unstarted-slo-b808f61bc9",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-rolling-partitions-bind-unstarted-slo-b808f61bc9"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-rolling-partitions-expand-determinist-6b03b79b6f",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-rolling-partitions-expand-determinist-6b03b79b6f"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-rolling-partitions-keep-the-process-b-b08306cd75",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-rolling-partitions-keep-the-process-b-b08306cd75"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-rolling-partitions-start-affinity-sha-3470fafc57",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-rolling-partitions-start-affinity-sha-3470fafc57"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-rolling-partitions-start-lpt-heavy-sh-e453c3546a",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-rolling-partitions-start-lpt-heavy-sh-e453c3546a"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-scheduler-grant-validation-fails-clos-181e40dbaf",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-capacity.test.mjs#backend-production-scheduler-grant-validation-fails-clos-181e40dbaf"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-shard-plan-is-deterministic-mutually--e3f7416ab3",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-shard-plan-is-deterministic-mutually--e3f7416ab3"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-shard-plan-keeps-a-discovered-affinit-37ae4632b4",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-shard-plan-keeps-a-discovered-affinit-37ae4632b4"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-shard-plan-keeps-ordinary-test-classe-a916fc3432",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-shard-plan-keeps-ordinary-test-classe-a916fc3432"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-shard-plan-merges-overlapping-affinit-300e0543d1",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-shard-plan-merges-overlapping-affinit-300e0543d1"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-shard-plan-weights-docker-cases-indep-e1052971f5",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-plan.test.mjs#backend-production-shard-plan-weights-docker-cases-indep-e1052971f5"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-shard-validation-rejects-omissions-an-85d485cbb5",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-shard-validation-rejects-omissions-an-85d485cbb5"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-summary-binds-one-coverage-exact-unio-b8c3d23a60",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-production-summary-binds-one-coverage-exact-unio-b8c3d23a60"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-summary-binds-rolling-process-capacit-ae413bd6e4",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-summary-binds-rolling-process-capacit-ae413bd6e4"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-summary-records-global-8-planned-5-in-fa7c9fddbb",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-production-summary-records-global-8-planned-5-in-fa7c9fddbb"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-trx-execution-evidence-rejects-skips--adee043f87",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-trx-execution-evidence-rejects-skips--adee043f87"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-trx-parser-retains-result-names-and-o-a4be3a0197",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-trx-parser-retains-result-names-and-o-a4be3a0197"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-trx-timing-evidence-records-first-tes-ccc989112f",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-trx-timing-evidence-records-first-tes-ccc989112f"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-union-consumes-the-canonical-unix-pla-e7b540414f",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#backend-production-union-consumes-the-canonical-unix-pla-e7b540414f"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-production-waits-for-the-run-bound-benchmark-mar-431c20d0b8",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-rolling.test.mjs#backend-production-waits-for-the-run-bound-benchmark-mar-431c20d0b8"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-projection-discovery-aggregates-category-affinit-55dc1c841f",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#backend-projection-discovery-aggregates-category-affinit-55dc1c841f"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#backend-requirement-governance-remains-exact-once-inside-9306b8f694",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#backend-requirement-governance-remains-exact-once-inside-9306b8f694"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#exact-union-requirement-governance-remains-a-pure-json-a-c242e162f2",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-evidence.test.mjs#exact-union-requirement-governance-remains-a-pure-json-a-c242e162f2"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#postgresql-affinity-groups-scale-deterministically-and-k-77c104bbd3",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#postgresql-affinity-groups-scale-deterministically-and-k-77c104bbd3"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#raw-passed-counters-without-a-concrete-execution-row-are-97749273b5",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#raw-passed-counters-without-a-concrete-execution-row-are-97749273b5"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#rolling-production-splits-postgresql-collections-by-clas-5be4152953",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#rolling-production-splits-postgresql-collections-by-clas-5be4152953"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#unix-symlink-boundary-evidence-binds-physical-escape-den-4a50b32fae",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#unix-symlink-boundary-evidence-binds-physical-escape-den-4a50b32fae"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "node-test:tests/tools/backend-production-shards.test.mjs#unix-symlink-boundary-evidence-rejects-missing-execution-bc0165079e",
+            "path": "tests/tools/backend-production-shards.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-production-platform-boundary.test.mjs#unix-symlink-boundary-evidence-rejects-missing-execution-bc0165079e"
+            ],
+            "reason": "The focused backend Production owner preserves this exact historical case and its original assertions and reached helper/import identities after the #2792 split. The platform-union case additionally excludes LocalRedis; the environment case additionally binds repository root and locale. Neither enhanced case drops its original checks. No support-file or aggregate evidence replaces a case."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0000",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0000"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0001",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0001"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0002",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0002"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0003",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0003"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0004",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0004"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0005",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0005"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0006",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0006"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0007",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0007"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0008",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0008"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsAllowedExtension_ReturnsExpected#case-0009",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsAllowedExtension_ReturnsExpected#case-0009"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0000",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0000"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0001",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0001"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0002",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0002"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0003",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0003"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0004",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0004"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0005",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0005"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0006",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0006"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0007",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0007"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0008",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0008"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0009",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsMimeCompatibleWithFormat_ReturnsExpected#case-0009"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0000",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0000"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0001",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0001"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0002",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0002"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0003",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0003"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0004",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0004"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0005",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0005"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0006",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0006"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0007",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0007"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0008",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0008"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0009",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0009"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsSupportedImageMime_ReturnsExpected#case-0010",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsSupportedImageMime_ReturnsExpected#case-0010"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsValidSha256_ReturnsExpected#case-0000",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsValidSha256_ReturnsExpected#case-0000"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsValidSha256_ReturnsExpected#case-0001",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsValidSha256_ReturnsExpected#case-0001"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsValidSha256_ReturnsExpected#case-0002",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsValidSha256_ReturnsExpected#case-0002"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.IsValidSha256_ReturnsExpected#case-0003",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.IsValidSha256_ReturnsExpected#case-0003"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeExtension_ReturnsExpected#case-0000",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeExtension_ReturnsExpected#case-0000"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeExtension_ReturnsExpected#case-0001",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeExtension_ReturnsExpected#case-0001"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeExtension_ReturnsExpected#case-0002",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeExtension_ReturnsExpected#case-0002"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeExtension_ReturnsExpected#case-0003",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeExtension_ReturnsExpected#case-0003"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeExtension_ReturnsExpected#case-0004",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeExtension_ReturnsExpected#case-0004"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeExtension_ReturnsExpected#case-0005",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeExtension_ReturnsExpected#case-0005"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeHash_ReturnsExpected#case-0000",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeHash_ReturnsExpected#case-0000"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeHash_ReturnsExpected#case-0001",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeHash_ReturnsExpected#case-0001"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileServiceTests.cs#FsusBlog.Server.Tests.FileServiceTests.NormalizeHash_ReturnsExpected#case-0002",
+            "path": "tests/backend/Unit/FileServiceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FileServiceValidationTests.cs#FsusBlog.Server.Tests.FileServiceValidationTests.NormalizeHash_ReturnsExpected#case-0002"
+            ],
+            "reason": "The FileServiceValidationTests owner preserves this exact Theory case and InlineData ordinal, expected value, private FileService reflection helper and equality assertion after the #2792 split. All six original method/InlineData/helper blocks are retained; no case is merged or retired."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#acceptance-backend-derives-thread-pool-capacity-from-mac-11b33d96fb",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#acceptance-backend-derives-thread-pool-capacity-from-mac-11b33d96fb"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#acceptance-bootstrap-starts-independent-services-within--42aea99bdf",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#acceptance-bootstrap-starts-independent-services-within--42aea99bdf"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#acceptance-service-ports-use-sealed-role-leases-below-th-f97acb6244",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#acceptance-service-ports-use-sealed-role-leases-below-th-f97acb6244"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#acceptance-services-enforce-a-bounded-log-file-size-92c7f0fff4",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#acceptance-services-enforce-a-bounded-log-file-size-92c7f0fff4"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#artifact-substitutions-use-a-parser-compatible-flat-cont-4a2a0bf7d8",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#artifact-substitutions-use-a-parser-compatible-flat-cont-4a2a0bf7d8"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#backend-bundle-exposes-run-bound-readiness-and-exact-uni-b071a0c428",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#backend-bundle-exposes-run-bound-readiness-and-exact-uni-b071a0c428"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#bootstrap-projection-counts-self-bootstrap-tiers-only-in-6d55439417",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#bootstrap-projection-counts-self-bootstrap-tiers-only-in-6d55439417"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#bundle-child-processes-inherit-their-admitted-machine-re-8418935970",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#bundle-child-processes-inherit-their-admitted-machine-re-8418935970"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#bundle-evidence-is-bound-to-matrix-runtime-declarations--1228e2bff9",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#bundle-evidence-is-bound-to-matrix-runtime-declarations--1228e2bff9"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#bundle-evidence-must-prove-every-member-with-executed-id-17834a276f",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#bundle-evidence-must-prove-every-member-with-executed-id-17834a276f"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#bundle-execution-waits-derive-deadlines-from-matrix-budg-0a64a75f69",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#bundle-execution-waits-derive-deadlines-from-matrix-budg-0a64a75f69"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#bundle-step-timing-derives-duration-and-finish-from-one--8b1957ddfa",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#bundle-step-timing-derives-duration-and-finish-from-one--8b1957ddfa"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#cold-frontend-static-phases-move-to-frontend-tests-while-f58148fe44",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#cold-frontend-static-phases-move-to-frontend-tests-while-f58148fe44"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#declared-output-digests-fail-closed-for-missing-direct-a-10c4dafe36",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#declared-output-digests-fail-closed-for-missing-direct-a-10c4dafe36"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#fresh-production-cleanup-preserves-an-external-temp-root-0c50f2df34",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#fresh-production-cleanup-preserves-an-external-temp-root-0c50f2df34"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#fresh-production-cleanup-removes-outputs-and-preserves-d-6a1d39b74e",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#fresh-production-cleanup-removes-outputs-and-preserves-d-6a1d39b74e"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#frontend-steady-admission-floor-follows-machine-capacity-e9b1836609",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#frontend-steady-admission-floor-follows-machine-capacity-e9b1836609"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#local-bundle-runner-never-silently-drops-a-declared-arti-072ca0c598",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#local-bundle-runner-never-silently-drops-a-declared-arti-072ca0c598"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#local-production-derives-full-cpu-safe-memory-and-launch-50525373fb",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#local-production-derives-full-cpu-safe-memory-and-launch-50525373fb"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#logical-bootstrap-fixture-identity-is-projected-only-ont-abd31a403f",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#logical-bootstrap-fixture-identity-is-projected-only-ont-abd31a403f"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#only-physical-build-static-receives-the-attempt-producti-5012f96e94",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#only-physical-build-static-receives-the-attempt-producti-5012f96e94"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#performance-deadline-evidence-binds-the-mixed-floor-to-s-e6a3f8dcbc",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#performance-deadline-evidence-binds-the-mixed-floor-to-s-e6a3f8dcbc"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#performance-marker-producers-are-exact-and-quiet-markers-c8f7a713da",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#performance-marker-producers-are-exact-and-quiet-markers-c8f7a713da"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-creation-rejects-malformed-resolved-star-6968c10513",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#physical-bundle-creation-rejects-malformed-resolved-star-6968c10513"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-evidence.test.mjs#physical-bundle-dag-preserves-dependencies-and-derives-d-73eaaf4040"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#production-bundle-resources-resolve-from-each-machine-an-43587c6c18",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#production-bundle-resources-resolve-from-each-machine-an-43587c6c18"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#production-checkpoint-projection-binds-every-logical-tie-e068ab8b08",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-projection.test.mjs#production-checkpoint-projection-binds-every-logical-tie-e068ab8b08"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#production-evidence-is-assigned-to-the-earliest-safe-phy-f9723052f7",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#production-evidence-is-assigned-to-the-earliest-safe-phy-f9723052f7"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#production-profile-rejects-invalid-resource-declarations-1d193b197c",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#production-profile-rejects-invalid-resource-declarations-1d193b197c"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#production-profile-requires-exact-fresh-logical-tier-cov-ed040a78e7",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#production-profile-requires-exact-fresh-logical-tier-cov-ed040a78e7"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#repository-production-profile-maps-every-logical-tier-ex-0bb387e1c0",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#repository-production-profile-maps-every-logical-tier-ex-0bb387e1c0"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#repository-production-t0-grants-scale-by-weights-without-ca67aa6906",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-resources.test.mjs#repository-production-t0-grants-scale-by-weights-without-ca67aa6906"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "node-test:tests/tools/local-production-profile.test.mjs#runtime-early-start-is-guarded-by-run-bound-backend-fron-3ff7505281",
+            "path": "tests/tools/local-production-profile.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/local-production-profile-bundles.test.mjs#runtime-early-start-is-guarded-by-run-bound-backend-fron-3ff7505281"
+            ],
+            "reason": "The focused local Production profile owner preserves this exact historical callback and its reached assertion/helper/import closure after the #2792 split. Temporary artifact and real fresh-cleanup cases remain executable in task-owned trees; static checks do not claim runtime Production qualification or restore retired runner behavior."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamTargetTests2.NotificationStreamGroupTarget_StoresGroupName#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamFrameContractTests.NotificationStreamGroupTarget_StoresGroupName#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamTargetTests2.NotificationStreamMultiUserTarget_StoresUserIds#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamFrameContractTests.NotificationStreamMultiUserTarget_StoresUserIds#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamTargetTests2.NotificationStreamTargetCollections_AllCollectionsAreDistinct#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamFrameContractTests.NotificationStreamTargetCollections_AllCollectionsAreDistinct#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamTargetTests2.NotificationStreamTargetCollections_AllNonEmpty#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamFrameContractTests.NotificationStreamTargetCollections_AllNonEmpty#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamTargetTests2.NotificationStreamUserTarget_StoresAccountId#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.NotificationStreamFrameContractTests.NotificationStreamUserTarget_StoresAccountId#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_MemoryMatchesPayload#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_MemoryMatchesPayload#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_StoresPayload#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_StoresPayload#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_HasCorrectLength#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_HasCorrectLength#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_PublicFactoryBindsSharedPool#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_PublicFactoryBindsSharedPool#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Release_WhenCalledMoreThanRetain_Throws#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Release_WhenCalledMoreThanRetain_Throws#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Retain_AfterRelease_Throws#case-0000",
+            "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NotificationStreamFrameContractTests.cs#FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Retain_AfterRelease_Throws#case-0000"
+            ],
+            "reason": "The notification frame contract owner preserves this exact historical target/frame fact after the #2792 split, including payload/reference-count assertions and the original tracking ArrayPool/IL helper behavior where applicable. File existence or aggregate pass counts do not replace an old fact."
+        },
+        {
             "id": "xunit:tests/backend/Unit/BackendPropertyTests.cs#BackendPropertyTests.UploadRangeProperty_NormalizesOverlapAndRequiresAllPartsForComplete",
             "path": "tests/backend/Unit/BackendPropertyTests.cs",
             "replacementTestIds": [
