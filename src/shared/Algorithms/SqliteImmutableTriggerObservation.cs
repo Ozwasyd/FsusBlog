@@ -60,6 +60,35 @@ public static class SqliteImmutableTriggerObserver
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.NonBacktracking);
 
     /// <summary>
+    /// Renders explicit native facts without selecting a provider policy. The
+    /// complete current owner must supply the expected event/action/message; an
+    /// observed fact or this SQL alone is not an approved immutable recipe.
+    /// </summary>
+    /// <param name="facts">One unconditional native trigger, with no inferred defaults.</param>
+    /// <returns>One quoted, closed native declaration retaining every supplied fact.</returns>
+    public static string Render(SqliteImmutableTriggerObservation facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        if (!Enum.IsDefined(facts.Event) || !Enum.IsDefined(facts.Action)
+            || string.IsNullOrEmpty(facts.Name) || string.IsNullOrEmpty(facts.Table)
+            || facts.Name.Contains('\0') || facts.Table.Contains('\0')
+            || (facts.Action == SqliteTriggerRaiseAction.Ignore ? facts.Message is not null
+                : facts.Message is null || facts.Message.Contains('\0')))
+        {
+            throw new InvalidOperationException("sqlite_current_trigger_facts_invalid");
+        }
+        string arguments = facts.Action == SqliteTriggerRaiseAction.Ignore ? "IGNORE"
+            : facts.Action.ToString().ToUpperInvariant() + ", '"
+                + facts.Message!.Replace("'", "''", StringComparison.Ordinal) + "'";
+        string sql = $"CREATE TRIGGER {Quote(facts.Name)} BEFORE {facts.Event.ToString().ToUpperInvariant()} ON {Quote(facts.Table)} FOR EACH ROW BEGIN SELECT RAISE({arguments}); END;";
+        if (Decode(sql) != facts)
+        {
+            throw new InvalidOperationException("sqlite_current_trigger_facts_invalid");
+        }
+        return sql;
+    }
+
+    /// <summary>
     /// Decode only a single native unconditional BEFORE UPDATE/DELETE RAISE body.
     /// The caller bounds original metadata before invoking this non-backtracking parser.
     /// </summary>
@@ -114,6 +143,8 @@ public static class SqliteImmutableTriggerObserver
     }
 
     private static bool Inside(Group group, int index) => group.Success && index >= group.Index && index < group.Index + group.Length;
+
+    private static string Quote(string value) => "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 
     private static string DecodeIdentifier(string value) => value[0] switch
     {

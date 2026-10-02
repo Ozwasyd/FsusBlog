@@ -197,6 +197,136 @@ public sealed class SqliteCurrentSchemaEffectObserverTests
         Assert.Equal("sqlite_current_trigger_effect_not_supported", actual.Message);
     }
 
+    [Theory]
+    [InlineData(SqliteTriggerRaiseAction.Abort)]
+    [InlineData(SqliteTriggerRaiseAction.Rollback)]
+    public async Task RenderedExplicitFactsMatchOriginalNativeSnapshotWithoutChoosingAction(SqliteTriggerRaiseAction action)
+    {
+        var update = new SqliteImmutableTriggerObservation("guard_update", "item",
+            SqliteImmutableTriggerEvent.Update, action, "it's \\original");
+        var delete = update with { Name = "guard_delete", Event = SqliteImmutableTriggerEvent.Delete };
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY, value TEXT);"
+            + SqliteImmutableTriggerObserver.Render(update) + SqliteImmutableTriggerObserver.Render(delete));
+        SqliteCurrentSchemaEffectObservation actual = await SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(
+            fixture.Connection, fixture.Transaction, [delete, update], CancellationToken.None);
+        Assert.Equal(2, actual.Triggers.Length);
+        Assert.Contains(update, actual.Triggers);
+        Assert.Contains(delete, actual.Triggers);
+        Assert.Same(fixture.Connection, fixture.Transaction.Connection);
+        // These two modes stay distinct. Neither parameter admits the original
+        // PostgreSQL recipe, a target, an allocator or a production operation.
+    }
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("table")]
+    [InlineData("event")]
+    [InlineData("action")]
+    [InlineData("message")]
+    public async Task MatchingNameAloneCannotHideDifferentActualTriggerFacts(string changed)
+    {
+        var original = new SqliteImmutableTriggerObservation("guard", "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "original_message");
+        SqliteImmutableTriggerObservation expected = changed switch
+        {
+            "name" => original with { Name = "other_guard" },
+            "table" => original with { Table = "other_item" },
+            "event" => original with { Event = SqliteImmutableTriggerEvent.Delete },
+            "action" => original with { Action = SqliteTriggerRaiseAction.Rollback },
+            "message" => original with { Message = "changed_message" },
+            _ => throw new InvalidOperationException()
+        };
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);"
+            + SqliteImmutableTriggerObserver.Render(original));
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+                [expected], CancellationToken.None));
+        Assert.Equal("sqlite_current_trigger_effect_mismatch", actual.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingOrAdditionalNativeGuardIsNotACompleteExpectedVector(bool additional)
+    {
+        var update = new SqliteImmutableTriggerObservation("guard_update", "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "message");
+        var delete = update with { Name = "guard_delete", Event = SqliteImmutableTriggerEvent.Delete };
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);"
+            + SqliteImmutableTriggerObserver.Render(update)
+            + (additional ? SqliteImmutableTriggerObserver.Render(delete) : ""));
+        SqliteImmutableTriggerObservation[] expected = additional ? [update] : [update, delete];
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+                expected, CancellationToken.None));
+        Assert.Equal("sqlite_current_trigger_effect_mismatch", actual.Message);
+    }
+
+    [Theory]
+    [InlineData("WHEN 0")]
+    [InlineData("WHEN 1")]
+    public async Task MatchingExpectedVectorDoesNotSkipActualNativeWhenClause(string condition)
+    {
+        var expected = new SqliteImmutableTriggerObservation("guard", "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "message");
+        string sql = SqliteImmutableTriggerObserver.Render(expected)
+            .Replace("FOR EACH ROW BEGIN", "FOR EACH ROW " + condition + " BEGIN", StringComparison.Ordinal);
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);" + sql);
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+                [expected], CancellationToken.None));
+        Assert.Equal("sqlite_current_trigger_effect_not_supported", actual.Message);
+    }
+
+    [Fact]
+    public async Task ExpectedDuplicateNativeNamesAreRefusedBeforeObservation()
+    {
+        var expected = new SqliteImmutableTriggerObservation("guard", "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "message");
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);"
+            + SqliteImmutableTriggerObserver.Render(expected));
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+                [expected, expected with { Name = "GUARD" }], CancellationToken.None));
+        Assert.Equal("sqlite_current_trigger_facts_invalid", actual.Message);
+    }
+
+    [Fact]
+    public async Task RenderedTwoEventFactsActuallyRejectBothMutationsWithoutCommittingCallerTransaction()
+    {
+        var update = new SqliteImmutableTriggerObservation("guard_update", "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "original_message");
+        var delete = update with { Name = "guard_delete", Event = SqliteImmutableTriggerEvent.Delete };
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY, value TEXT);"
+            + "INSERT INTO item VALUES(1, 'original');"
+            + SqliteImmutableTriggerObserver.Render(update) + SqliteImmutableTriggerObserver.Render(delete));
+        await SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+            [update, delete], CancellationToken.None);
+        foreach (string sql in new[] { "UPDATE item SET value = 'changed'", "DELETE FROM item" })
+        {
+            SqliteException actual = await Assert.ThrowsAsync<SqliteException>(() => fixture.ExecuteAsync(sql));
+            Assert.Contains("original_message", actual.Message);
+        }
+        Assert.Same(fixture.Connection, fixture.Transaction.Connection);
+        await fixture.Transaction.RollbackAsync();
+        await using SqliteCommand read = fixture.Connection.CreateCommand();
+        read.CommandText = "SELECT value FROM item WHERE id = 1";
+        Assert.Equal("original", await read.ExecuteScalarAsync());
+    }
+
+    [Theory]
+    [InlineData(999, 0, "message")]
+    [InlineData(0, 999, "message")]
+    [InlineData(0, 0, null)]
+    [InlineData(0, 3, "message")]
+    public void RenderingRefusesUnknownEventActionOrWrongMessageShape(int nativeEvent, int action, string? message)
+    {
+        var facts = new SqliteImmutableTriggerObservation("guard", "item",
+            (SqliteImmutableTriggerEvent)nativeEvent, (SqliteTriggerRaiseAction)action, message);
+        InvalidOperationException actual = Assert.Throws<InvalidOperationException>(() => SqliteImmutableTriggerObserver.Render(facts));
+        Assert.Equal("sqlite_current_trigger_facts_invalid", actual.Message);
+    }
+
     private sealed class NativeFixture(SqliteConnection connection, SqliteTransaction transaction) : IAsyncDisposable
     {
         internal SqliteConnection Connection { get; } = connection;

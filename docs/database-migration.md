@@ -44,6 +44,17 @@ These are measured effects, not an expected current mapping or a bootstrap grant
 Complete provider recipes, independent sequence semantics and target/DAG admission
 remain with their original owners; an empty observed effect vector is not success.
 
+The same closed decoder also renders explicit native trigger facts, escaping names
+and literal messages without inventing an action or merging update/delete events.
+`ReadAndMatchTriggerFactsAsync` freezes the supplied vector before observation and
+compares every actual name, table, event, action and message, rejecting missing,
+additional, conditional or different effects in the caller's original transaction.
+This comparison does not authenticate expected facts: only the complete original
+current provider projection may supply production expectations. The original
+PostgreSQL exception does not by itself choose SQLite `ABORT` versus `ROLLBACK`;
+no such provider policy, independent allocator, full target or step registration
+is granted by this rendering/measurement adapter.
+
 `SchemaMigrationRegistry` is a thin runtime adapter over the explicit
 `SchemaMigrationManifest`; it no longer owns descriptor implementations or a single
 ever-growing array. The manifest composes these immutable version catalogs:
