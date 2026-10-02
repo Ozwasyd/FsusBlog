@@ -123,6 +123,35 @@ public sealed class OfflineMigrationApplyCommandTests
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationOwnedApplyEvidence.DecodeCheckpoint(Reference("original", invalid), invalid, "invocation"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Apply_CheckpointParserPreservesOnlyOriginalNonMediaAndMediaAnchorFormats(bool media)
+    {
+        // Lexical/whole-byte control only. Native acceptance still requires the
+        // actual full journal and exact checkpoint; this entry is not DB proof.
+        using var directory = new OwnedDirectory();
+        Fixture fixture = CreateFixture(directory.Path);
+        OfflineMigrationApplyJournalEntry entry = CompletedProgress(fixture, new BindingRegistry(false)).Last!;
+        entry = entry with { Format = media ? OfflineMigrationApplyJournalVerifier.MediaFormat : OfflineMigrationApplyJournalVerifier.Format };
+        entry = entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) };
+        var checkpoint = new OfflineMigrationApplyCheckpoint(OfflineMigrationApplyJournalVerifier.Reference(entry),
+            entry.InvocationId, entry.Sequence);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(checkpoint);
+        Assert.Equal(checkpoint, OfflineMigrationOwnedApplyEvidence.DecodeCheckpoint(Reference("original-checkpoint", bytes),
+            bytes, fixture.Options.InvocationId));
+        foreach (string invalid in new[] { "v3", "v02", "latest" })
+        {
+            byte[] changed = JsonSerializer.SerializeToUtf8Bytes(checkpoint with
+            {
+                JournalHead = checkpoint.JournalHead with { Reference = "offline-apply/" + invalid + "/" + entry.ContentDigest }
+            });
+            InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() =>
+                OfflineMigrationOwnedApplyEvidence.DecodeCheckpoint(Reference("original-checkpoint", changed), changed, fixture.Options.InvocationId));
+            Assert.Equal("offline_apply_original_checkpoint_binding_invalid", failure.Message);
+        }
+    }
+
     [Fact]
     public void Apply_IndependentAuthorityAndOriginalAdmissionTimeCloseTheCarrier()
     {

@@ -195,7 +195,8 @@ internal sealed class OfflineMigrationOwnedApplyEvidence(
         }
         if (!bytes.SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(checkpoint)) || checkpoint.InvocationId != invocation
             || checkpoint.Sequence <= 0 || checkpoint.JournalHead is null
-            || checkpoint.JournalHead.Reference != "offline-apply/v1/" + checkpoint.JournalHead.EntryDigest)
+            || (checkpoint.JournalHead.Reference != "offline-apply/v1/" + checkpoint.JournalHead.EntryDigest
+                && checkpoint.JournalHead.Reference != "offline-apply/v2/" + checkpoint.JournalHead.EntryDigest))
         {
             throw new InvalidOperationException("offline_apply_original_checkpoint_binding_invalid");
         }
