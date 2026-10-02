@@ -280,7 +280,7 @@ test('missing offline preparation refuses admission before launch or reading old
     assert.equal(launches, 0);
     assert.equal(fs.readFileSync(receipt, 'utf8'), 'old invalid receipt must not be parsed');
 });
-+
+
 function offlineFeedFixture(context)
 {
     const { root } = fixture(context);
