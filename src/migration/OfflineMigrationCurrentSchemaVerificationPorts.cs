@@ -11,8 +11,11 @@ internal interface IOfflineMigrationCurrentSchemaObserver
 {
     // Use the original current authority and exact provider projection on this native
     // read-only snapshot; reject every unknown, missing or extra physical object.
+    // observedDatabase comes from the issuer's native identity read on this exact
+    // session, not request/plan fields or an observer-owned second capture.
     Task<CurrentSchemaAdmissionObservation> ObserveAsync(
-        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken);
+        DbConnection connection, DbTransaction transaction,
+        CurrentSchemaDatabaseIdentity observedDatabase, CancellationToken cancellationToken);
 }
 
 internal sealed record OfflineMigrationCurrentSchemaAuthoritySnapshot(
