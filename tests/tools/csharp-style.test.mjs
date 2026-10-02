@@ -750,11 +750,19 @@ for (const layout of ['multiline', 'inline'])
         withFixture((fixtureRoot) =>
         {
             const initializer = layout === 'inline'
-                ? '            record with { Value = record.Value + 1 },'
+                ? '            record with { Values = new[] { record.Value }, Value = record.Value + 1 },'
                 : `            record with
             {
+                Values = new[] { record.Value },
                 Value = record.Value + 1
             },`;
+            const returnedInitializer = layout === 'inline'
+                ? '            record with { Values = new[] { record.Value }, Value = record.Value + 1 };'
+                : `            record with
+            {
+                Values = new[] { record.Value },
+                Value = record.Value + 1
+            };`;
             const relativePath = 'src/sample/ContextualRecord.cs';
             writeFixture(
                 fixtureRoot,
@@ -763,6 +771,8 @@ for (const layout of ['multiline', 'inline'])
 
 public sealed record ContextualRecord(int Value)
 {
+    public int[] Values { get; init; } = [];
+
     public ContextualRecord Copy(ContextualRecord record)
     {
         // Literal and comment punctuation must not change argument context: (((
@@ -779,6 +789,12 @@ ${initializer}
                 Value = Value + 1
             },
             "))]");
+    }
+
+    public ContextualRecord CopyReturn(ContextualRecord record)
+    {
+        return
+${returnedInitializer}
     }
 
     private static ContextualRecord Select(ContextualRecord value, string marker) => value;
@@ -879,4 +895,36 @@ ${flags ? '[Flags]\n' : ''}public enum ${name}
             }
         });
     });
+}
+
+for (const disabledPunctuation of ['Unused(', 'Unused)', 'return'])
+{
+    for (const [shape, declaration] of [
+        ['primary-constructor', 'record with(int Value);\n'],
+        ['body', 'record with\n{\n}\n']
+    ])
+    {
+        test(`C# style governance rejects lowercase record ${shape} after disabled ${disabledPunctuation}`, () =>
+        {
+            withFixture((fixtureRoot) =>
+            {
+                const relativePath = 'src/sample/DisabledPunctuation.cs';
+                writeFixture(
+                    fixtureRoot,
+                    relativePath,
+                    `namespace Fixture;
+
+#if false
+${disabledPunctuation}
+#endif
+${declaration}`
+                );
+                const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath]);
+                assert.notEqual(result.status, 0);
+                const diagnostics = output(result).split('\n').filter((line) => line.includes(' type-name:'));
+                assert.equal(diagnostics.length, 1, output(result));
+                assert.ok(diagnostics[0].endsWith('[with]'), output(result));
+            });
+        });
+    }
 }

@@ -575,6 +575,85 @@ function hasInlineBlockOpeningBrace(value, recordWithExpression = false)
     return false;
 }
 
+function isContextualRecordWithExpression(codeLines, declarationIndex)
+{
+    const firstLine = codeLines[declarationIndex].trim();
+    const contextualPrefix = firstLine.match(/^record\s+with\b/u);
+    if (!contextualPrefix)
+    {
+        return false;
+    }
+
+    // Match only this initializer, not ambient parentheses or disabled code.
+    // A record declaration cannot end in an argument comma/closing parenthesis,
+    // or follow a standalone return; a primary constructor is not an initializer.
+    let initializerStarted = false;
+    let braceDepth = 0;
+    for (let index = declarationIndex; index < codeLines.length; index += 1)
+    {
+        const fragment = index === declarationIndex
+            ? firstLine.slice(contextualPrefix[0].length)
+            : codeLines[index].trim();
+        if (fragment.trimStart().startsWith('#'))
+        {
+            return false;
+        }
+        for (let position = 0; position < fragment.length; position += 1)
+        {
+            const character = fragment[position];
+            if (!initializerStarted)
+            {
+                if (/\s/u.test(character))
+                {
+                    continue;
+                }
+                if (character !== '{')
+                {
+                    return false;
+                }
+                initializerStarted = true;
+                braceDepth = 1;
+                continue;
+            }
+            if (character === '{')
+            {
+                braceDepth += 1;
+            }
+            else if (character === '}')
+            {
+                braceDepth -= 1;
+                if (braceDepth !== 0)
+                {
+                    continue;
+                }
+                let tail = fragment.slice(position + 1).trim();
+                for (let next = index + 1; !tail && next < codeLines.length; next += 1)
+                {
+                    tail = codeLines[next].trim();
+                }
+                if (/^[,)]/u.test(tail))
+                {
+                    return true;
+                }
+                if (!tail.startsWith(';'))
+                {
+                    return false;
+                }
+                for (let previous = declarationIndex - 1; previous >= 0; previous -= 1)
+                {
+                    const prefix = codeLines[previous].trim();
+                    if (prefix)
+                    {
+                        return prefix === 'return';
+                    }
+                }
+                return false;
+            }
+        }
+    }
+    return false;
+}
+
 function isStructuralIndentLine(value)
 {
     return /^(?:public|protected|private|internal|file|namespace|class|struct|record|interface|enum|delegate|if|else|for|foreach|while|switch|case|default|try|catch|finally|do|lock|using|fixed|return|throw|break|continue)\b/u.test(value);
@@ -1013,7 +1092,6 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
     const xmlScope = isXmlDocScope(file, xmlScopePatterns);
     const xmlMemberScope = isXmlDocScope(file, xmlMemberScopePatterns);
     const segmentedMethodNames = isXmlDocScope(file, segmentedMethodScopePatterns);
-    let parenthesisDepth = 0;
 
     for (let index = 0; index < lines.length; index += 1)
     {
@@ -1021,20 +1099,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         const raw = lines[index];
         const code = codeLines[index];
         const trimmed = code.trim();
-        // A type declaration cannot occur inside argument parentheses. In that
-        // expression context, record is a contextual identifier, not a keyword.
-        const recordWithExpression = parenthesisDepth > 0 && /^record\s+with\b/u.test(trimmed);
-        for (const character of code)
-        {
-            if (character === '(')
-            {
-                parenthesisDepth += 1;
-            }
-            else if (character === ')')
-            {
-                parenthesisDepth -= 1;
-            }
-        }
+        const recordWithExpression = isContextualRecordWithExpression(codeLines, index);
         if (/\t/u.test(raw))
         {
             violations.push(makeViolation(file, lineNumber, 'tab', raw, 'Tab indentation is forbidden'));
