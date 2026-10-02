@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 using SqlSugar;
@@ -69,13 +70,31 @@ public sealed record SchemaColumnDefinition
         => dialect switch
         {
             SchemaDdlDialect.PostgreSql => Value,
-            SchemaDdlDialect.MySql => Regex.Replace(Value, "\\bnow\\(\\)", "CURRENT_TIMESTAMP", RegexOptions.IgnoreCase),
+            SchemaDdlDialect.MySql => ToMySqlDefinition(Value),
             SchemaDdlDialect.Sqlite => ToSqliteDefinition(Value),
             _ => throw new ArgumentOutOfRangeException(nameof(dialect), dialect, null)
         };
 
     private static string NormalizeLegacyLiteralEscapes(string value)
         => Regex.Replace(value, "''([^']+)''", "'$1'", RegexOptions.CultureInvariant);
+
+    private static string ToMySqlDefinition(string value)
+    {
+        Match literal = Regex.Match(
+            value,
+            "\\bDEFAULT\\s+'(?<value>(?:[^']|'')*)'$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+        if (literal.Success)
+        {
+            // The shared literal uses doubled quotes, not MySQL's optional
+            // backslash escapes. Preserve its value under either SQL mode.
+            string text = literal.Groups["value"].Value.Replace("''", "'", StringComparison.Ordinal);
+            string hex = Convert.ToHexString(Encoding.UTF8.GetBytes(text));
+            return $"{value[..literal.Index]}DEFAULT (CONVERT(X'{hex}' USING utf8mb4))";
+        }
+
+        return Regex.Replace(value, "\\bnow\\(\\)", "CURRENT_TIMESTAMP", RegexOptions.IgnoreCase);
+    }
 
     private static string ToSqliteDefinition(string value)
     {
@@ -338,14 +357,86 @@ public sealed class MySqlSchemaDdlProvider : SchemaDdlProviderBase
     }
 
     public override string EnsureColumn(SchemaIdentifier table, SchemaIdentifier column, SchemaColumnDefinition definition)
-        => $"ALTER TABLE {Quote(table)} ADD COLUMN IF NOT EXISTS {Quote(column)} {definition.ForDialect(Dialect)};";
+    {
+        string ddl = $"ALTER TABLE {Quote(table)} ADD COLUMN {Quote(column)} {definition.ForDialect(Dialect)};";
+        return PrepareDdl($"""
+            CASE
+                WHEN DATABASE() IS NULL THEN NULL
+                WHEN EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = '{table.Value}'
+                      AND column_name = '{column.Value}'
+                ) THEN 'DO 0'
+                ELSE {SqlText(ddl)}
+            END
+            """);
+    }
+
     public override string RenameTable(SchemaIdentifier oldTable, SchemaIdentifier newTable)
         => $"RENAME TABLE {Quote(oldTable)} TO {Quote(newTable)};";
     public override string RenameColumn(SchemaIdentifier table, SchemaIdentifier oldColumn, SchemaIdentifier newColumn)
         => $"ALTER TABLE {Quote(table)} RENAME COLUMN {Quote(oldColumn)} TO {Quote(newColumn)};";
     public override string DropColumn(SchemaIdentifier table, SchemaIdentifier column)
         => $"ALTER TABLE {Quote(table)} DROP COLUMN {Quote(column)};";
-    public override string DropIndex(SchemaIdentifier index) => $"DROP INDEX {Quote(index)};";
+    // Metadata collation can collapse case-only table names. Binary DISTINCT
+    // must preserve that ambiguity so the scalar subquery fails before a drop.
+    public override string DropIndex(SchemaIdentifier index)
+        => PrepareDdl($"""
+            CASE
+                WHEN DATABASE() IS NULL THEN NULL
+                ELSE COALESCE((
+                    SELECT DISTINCT CAST(CONCAT(
+                        {SqlText($"DROP INDEX {Quote(index)} ON ")},
+                        CHAR(96), REPLACE(table_schema, CHAR(96), CHAR(96, 96)),
+                        CHAR(96), '.', CHAR(96), REPLACE(table_name, CHAR(96), CHAR(96, 96)), CHAR(96), ';') AS BINARY)
+                    FROM information_schema.statistics
+                    WHERE table_schema = DATABASE()
+                      AND index_name = '{index.Value}'
+                ), 'DO 0')
+            END
+            """);
+
+    public override string CreateIndex(SchemaIdentifier index, string createIndexTemplate)
+    {
+        string template = ValidateCreateIndexTemplate(createIndexTemplate, index);
+        Match target = Regex.Match(
+            template,
+            "^CREATE\\s+(?<unique>UNIQUE\\s+)?INDEX(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+[A-Za-z_][A-Za-z0-9_]{0,62}\\s+ON\\s+(?<table>[A-Za-z_][A-Za-z0-9_]{0,62})(?<tail>\\s*\\([\\s\\S]+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+        if (!target.Success || template.Contains('#'))
+        {
+            throw new ArgumentException("MySQL index templates require an explicit unqualified table and column list.", nameof(createIndexTemplate));
+        }
+
+        SchemaIdentifier table = SchemaIdentifier.Parse(target.Groups["table"].Value, "table");
+        string unique = target.Groups["unique"].Success ? "UNIQUE " : string.Empty;
+        string ddl = $"CREATE {unique}INDEX {Quote(index)} ON {Quote(table)}{target.Groups["tail"].Value}";
+        return PrepareDdl($"""
+            CASE
+                WHEN DATABASE() IS NULL THEN NULL
+                WHEN EXISTS (
+                    SELECT 1 FROM information_schema.statistics
+                    WHERE table_schema = DATABASE()
+                      AND table_name = '{table.Value}'
+                      AND index_name = '{index.Value}'
+                ) THEN 'DO 0'
+                ELSE {SqlText(ddl)}
+            END
+            """);
+    }
+
+    private static string PrepareDdl(string expression)
+        => $"""
+            SET @fsus_schema_ddl = {expression};
+            PREPARE fsus_schema_ddl_statement FROM @fsus_schema_ddl;
+            EXECUTE fsus_schema_ddl_statement;
+            DEALLOCATE PREPARE fsus_schema_ddl_statement;
+            SET @fsus_schema_ddl = NULL;
+            """;
+
+    private static string SqlText(string value)
+        => $"CONVERT(X'{Convert.ToHexString(Encoding.UTF8.GetBytes(value))}' USING utf8mb4)";
 }
 
 public sealed class SqliteSchemaDdlProvider : SchemaDdlProviderBase

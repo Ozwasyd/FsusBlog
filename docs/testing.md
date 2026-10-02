@@ -849,6 +849,19 @@ External execution can only be bound via an explicit `FSUSBLOG_EXTERNAL_EVIDENCE
 
 `SchemaMigrationDdlPrimitivesTests` covers typed identifier / column definition, PostgreSQL / MySQL / SQLite provider, all DDL step kind, dry-run preview and descriptor transaction wrapper. MySQL/SQLite generated results must match `tests/migration/schema-ddl-provider-snapshots.json` item by item; illegal identifier, arbitrary column SQL, wrong DDL kind, multi-statement injection and comment escape all fail closed.
 
+`MySqlDdlExecutionTests` executes the independent Migration provider against
+actual MySQL 8.4 in a task-owned container, without a Server reference, external
+database, network or published port. The fixture requires its digest-pinned
+official image to be present locally; an unavailable Docker daemon/image fails
+instead of skipping or substituting another SQL engine. It verifies first and
+repeat execution, table-scoped uniqueness, absent targets, exact database/table
+identity, ambiguous index rejection (including case-only table differences),
+metadata quoting, string defaults under both backslash modes, session cleanup
+and real implicit DDL commit behavior. The fixture checks container ID, image,
+creation time and ownership labels before removing only its container and
+anonymous volumes. Startup health polling does not retry failed test commands.
+SQL snapshots remain structural evidence, not real-engine acceptance.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.

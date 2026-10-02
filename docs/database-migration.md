@@ -65,6 +65,28 @@ only `FsusBlog.Shared`, and carries the SqlSugar provider abstraction required t
 build and test the PostgreSQL, MySQL and SQLite DDL adapters without loading the
 Server or a web host.
 
+The MySQL typed provider resolves add-column and create-index idempotence from
+the selected database's metadata, then prepares one admitted DDL statement.
+It does not emit MariaDB's `ADD COLUMN IF NOT EXISTS` or `CREATE INDEX IF NOT
+EXISTS` syntax. A missing target table, missing indexed column or missing
+selected database is an error, not a successful ensure. An existing column or
+table-scoped index is left unchanged; ensure does not reconcile a different
+existing definition.
+`DropIndex` resolves the unique owning table in the selected database, quotes
+the schema/table identity, and no-ops only when the index is absent. Multiple
+owners fail before a drop, including tables whose names differ only by case;
+deduplication must compare the constructed identities as binary strings.
+
+MySQL string defaults preserve the shared doubled-quote literal value through
+a UTF-8 constant expression, including backslashes under either SQL mode.
+Prepared DDL uses the migration connection's reserved
+`fsus_schema_ddl_statement` / `@fsus_schema_ddl` session state and clears it
+after success; callers must dispose the failed session rather than treating a
+failed batch as completed. MySQL DDL may implicitly commit: a descriptor's
+`Transactional` flag and preview `BEGIN`/`COMMIT` wrapper do not promise DDL
+rollback. Operational plan/apply/verify and backup authority are separate;
+these primitive tests do not certify execution of every historical SQL template.
+
 Server production no longer references `FsusBlog.Migration`. Startup loads the
 #2211 current schema projection through `CurrentSchemaStartupVerifier` and
 fail-closes on semantic schema mismatch before admission, with zero DDL or backfill. The
