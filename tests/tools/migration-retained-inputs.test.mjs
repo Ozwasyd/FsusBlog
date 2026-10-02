@@ -159,6 +159,82 @@ function retainedByteFixture(t)
     return { ...value, artifactRoot, receipt };
 }
 
+// Execute the exact fixed loader source owned by the C# producer. This is a
+// lightweight Node control, not compilation or an executing Migration capability.
+const producerSource = fs.readFileSync(new URL('../../src/migration/CurrentSchemaOwnedTargetProducer.cs', import.meta.url), 'utf8');
+const compiledLoader = producerSource.match(/private const string s_retainedCompiledReaderBootstrap = """\n([\s\S]*?)\n        """;/u)?.[1];
+const compiledModuleNames = ['tools/ci/migration-retained-inputs.mjs', 'tools/ci/production-build-artifacts.mjs',
+    'tools/fact-extractors/identity.mjs', 'tools/fact-extractors/lib/canonicalize.mjs'];
+const compiledFixtureSources = compiledModuleNames.map(name => fs.readFileSync(new URL(`../../${name}`, import.meta.url), 'base64'));
+function invokeCompiledFixture(value, sources = compiledFixtureSources, extra = [])
+{
+    assert.ok(compiledLoader, 'original C# fixed loader must exist');
+    return spawnSync('/usr/bin/node', ['--experimental-vm-modules', '--input-type=module', '--eval', compiledLoader, '--',
+        value.root, value.artifactRoot, value.sdkRoot, ...sources, ...extra], { env: process.env, encoding: 'utf8' });
+}
+
+test('compiled original four-module closure preserves import metadata and matches the original byte reader', t =>
+{
+    const value = retainedByteFixture(t);
+    const observed = invokeCompiledFixture(value);
+    assert.equal(observed.status, 0, observed.stderr);
+    assert.deepEqual(JSON.parse(observed.stdout), readProductionRetainedMigrationTool(value));
+    assert.equal(observed.stdout.trim().split('\n').length, 1);
+});
+
+test('compiled reader never executes replacement checkout JavaScript', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const name of compiledModuleNames)
+    {
+        fs.mkdirSync(path.dirname(path.join(value.root, name)), { recursive: true });
+        fs.writeFileSync(path.join(value.root, name), "throw new Error('mutable_checkout_executed');\n");
+    }
+    const observed = invokeCompiledFixture(value);
+    assert.notEqual(observed.status, 0);
+    assert.doesNotMatch(observed.stderr, /mutable_checkout_executed/u);
+    assert.equal(observed.stdout, '');
+});
+
+test('compiled reader rejects omitted, extra, malformed and oversized source payloads', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const sources of [compiledFixtureSources.slice(0, 3), [...compiledFixtureSources, compiledFixtureSources[0]],
+        ['!', ...compiledFixtureSources.slice(1)], [Buffer.alloc(98304).toString('base64'), ...compiledFixtureSources.slice(1)]])
+    {
+        const observed = invokeCompiledFixture(value, sources);
+        assert.notEqual(observed.status, 0);
+        if (observed.status === null) assert.equal(observed.error?.code, 'E2BIG');
+        assert.equal(observed.stdout ?? '', '');
+    }
+});
+
+test('compiled linker rejects filesystem, package, escape and unknown builtin fallbacks', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const dependency of ['file:///tmp/caller.mjs', 'caller-package', '../../../caller.mjs', 'node:module'])
+    {
+        const entry = `import '${dependency}'; export function readProductionRetainedMigrationTool() { return {}; }`;
+        const observed = invokeCompiledFixture(value, [Buffer.from(entry).toString('base64'), ...compiledFixtureSources.slice(1)]);
+        assert.notEqual(observed.status, 0);
+        assert.match(observed.stderr, /migration_retained_compiled_reader_(?:unknown|unbound)_import/u);
+        assert.equal(observed.stdout, '');
+    }
+});
+
+test('compiled linker rejects dynamic imports and a disconnected original closure', t =>
+{
+    const value = retainedByteFixture(t);
+    for (const entry of ["await import('node:fs'); export function readProductionRetainedMigrationTool() { return {}; }",
+        'export function readProductionRetainedMigrationTool() { return {}; }'])
+    {
+        const observed = invokeCompiledFixture(value, [Buffer.from(entry).toString('base64'), ...compiledFixtureSources.slice(1)]);
+        assert.notEqual(observed.status, 0);
+        assert.match(observed.stderr, /migration_retained_compiled_reader_(?:dynamic_import|incomplete_closure)/u);
+        assert.equal(observed.stdout, '');
+    }
+});
+
 test('original before and after byte measurements are fully covered by the original production receipt', t =>
 {
     const value = retainedByteFixture(t);

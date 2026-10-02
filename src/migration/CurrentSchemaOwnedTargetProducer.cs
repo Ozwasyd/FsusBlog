@@ -220,24 +220,35 @@ internal sealed class OwnedCurrentSchemaTarget
         // A stable caller checkout is not an approved reader. These exact original
         // source bytes were compiled into the actual executing Migration DLL.
         // Derive their identities here; never accept hashes from caller JSON.
+        var compiledSources = new List<string>();
         foreach (CurrentSchemaProducerFile input in before.Skip(1))
         {
             string relative = Path.GetRelativePath(configuration.SourceRoot, input.RelativePath).Replace(Path.DirectorySeparatorChar, '.');
             await using Stream compiled = typeof(OwnedCurrentSchemaTarget).Assembly.GetManifestResourceStream(
                 "FsusBlog.Migration.RetainedReader." + relative)
                 ?? throw new InvalidOperationException("migration_retained_compiled_reader_input_missing");
-            string digest = Convert.ToHexString(await SHA256.HashDataAsync(compiled, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();
+            using var bytes = new MemoryStream();
+            await compiled.CopyToAsync(bytes, cancellationToken).ConfigureAwait(false);
+            byte[] source = bytes.ToArray();
+            string encoded = Convert.ToBase64String(source);
+            if (encoded.Length >= 128 * 1024)
+            {
+                throw new InvalidOperationException("migration_retained_compiled_reader_argument_too_large");
+            }
+            string digest = Convert.ToHexString(SHA256.HashData(source)).ToLowerInvariant();
             if (digest != input.Sha256)
             {
                 throw new InvalidOperationException("migration_retained_compiled_reader_input_changed");
             }
+            compiledSources.Add(encoded);
         }
         string evidence = Path.Combine(configuration.EvidenceRoot, "migration-retained-read-" + Guid.NewGuid().ToString("N"));
         RequireRegularPath(configuration.EvidenceRoot);
         Directory.CreateDirectory(evidence);
         await WriteNewJsonAsync(Path.Combine(evidence, "producer-before.json"), before, cancellationToken).ConfigureAwait(false);
         int exit = await InvokeArgumentsAsync(node, configuration.SourceRoot,
-            [script, "read", configuration.SourceRoot, configuration.ArtifactRoot, configuration.SdkRoot],
+            ["--experimental-vm-modules", "--input-type=module", "--eval", s_retainedCompiledReaderBootstrap, "--",
+                configuration.SourceRoot, configuration.ArtifactRoot, configuration.SdkRoot, .. compiledSources],
             evidence, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CurrentSchemaProducerFile> after = await SnapshotRetainedReaderInputsAsync(inputs,
             cancellationToken).ConfigureAwait(false);
@@ -268,6 +279,62 @@ internal sealed class OwnedCurrentSchemaTarget
         cancellationToken.ThrowIfCancellationRequested();
         return observation;
     }
+
+    // Only original compiled resource bytes execute. Identifiers preserve the
+    // original import.meta/defaultRoot semantics but never authorize a disk read.
+    // Keep this one fixed loader with the sole process owner, not a caller plugin.
+    private const string s_retainedCompiledReaderBootstrap = """
+        import vm from 'node:vm';
+        import path from 'node:path';
+        import { pathToFileURL } from 'node:url';
+        const args = process.argv.slice(1);
+        if (args.length !== 7) throw new Error('migration_retained_compiled_reader_input_count');
+        const [root, artifactRoot, sdkRoot, ...encoded] = args;
+        const names = ['tools/ci/migration-retained-inputs.mjs', 'tools/ci/production-build-artifacts.mjs',
+            'tools/fact-extractors/identity.mjs', 'tools/fact-extractors/lib/canonicalize.mjs'];
+        const builtins = new Set(['node:fs', 'node:path', 'node:url', 'node:crypto', 'node:child_process', 'node:process']);
+        const modules = new Map();
+        let total = 0;
+        for (let index = 0; index < names.length; ++index) {
+            const value = encoded[index];
+            if (!value || value.length >= 131072 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value))
+                throw new Error('migration_retained_compiled_reader_encoding');
+            const bytes = Buffer.from(value, 'base64');
+            total += bytes.length;
+            if (total >= 4 * 96 * 1024 || bytes.toString('base64') !== value)
+                throw new Error('migration_retained_compiled_reader_byte_bound');
+            const identifier = pathToFileURL(path.join(root, names[index])).href;
+            modules.set(identifier, new vm.SourceTextModule(new TextDecoder('utf-8', { fatal: true }).decode(bytes), {
+                identifier, initializeImportMeta(meta) { meta.url = identifier; },
+                importModuleDynamically() { throw new Error('migration_retained_compiled_reader_dynamic_import'); }
+            }));
+        }
+        const builtinModules = new Map();
+        async function link(specifier, referencing) {
+            if (builtins.has(specifier)) {
+                if (!builtinModules.has(specifier)) {
+                    const namespace = await import(specifier);
+                    const exports = Object.keys(namespace);
+                    builtinModules.set(specifier, new vm.SyntheticModule(exports, function () {
+                        for (const name of exports) this.setExport(name, namespace[name]);
+                    }, { identifier: specifier }));
+                }
+                return builtinModules.get(specifier);
+            }
+            if (!specifier.startsWith('./') && !specifier.startsWith('../'))
+                throw new Error('migration_retained_compiled_reader_unknown_import');
+            const resolved = new URL(specifier, referencing.identifier).href;
+            if (!modules.has(resolved)) throw new Error('migration_retained_compiled_reader_unbound_import');
+            return modules.get(resolved);
+        }
+        const original = modules.get(pathToFileURL(path.join(root, names[0])).href);
+        await original.link(link);
+        await original.evaluate();
+        if ([...modules.values()].some(module => module.status !== 'evaluated'))
+            throw new Error('migration_retained_compiled_reader_incomplete_closure');
+        const observation = original.namespace.readProductionRetainedMigrationTool({ root, artifactRoot, sdkRoot });
+        process.stdout.write(JSON.stringify(observation) + '\n');
+        """;
 
     private static async Task<IReadOnlyList<CurrentSchemaProducerFile>> SnapshotRetainedReaderInputsAsync(
         IEnumerable<string> inputs, CancellationToken cancellationToken)
@@ -371,8 +438,9 @@ internal sealed class OwnedCurrentSchemaTarget
         {
             throw new InvalidOperationException("current_schema_owned_export_start_failed");
         }
-        Task outputTask = process.StandardOutput.BaseStream.CopyToAsync(stdout);
-        Task errorTask = process.StandardError.BaseStream.CopyToAsync(stderr);
+        using var pipeCancellation = new CancellationTokenSource();
+        Task outputTask = process.StandardOutput.BaseStream.CopyToAsync(stdout, pipeCancellation.Token);
+        Task errorTask = process.StandardError.BaseStream.CopyToAsync(stderr, pipeCancellation.Token);
         Exception? failure = null;
         try
         {
@@ -402,6 +470,38 @@ internal sealed class OwnedCurrentSchemaTarget
             catch (Exception cleanupFailure)
             {
                 failure = new AggregateException("current_schema_owned_export_terminal_unproven", exception, cleanupFailure);
+                // The original terminal deadline is a failure, not permission to
+                // dispose destinations while background copy tasks still own them.
+                // Close/cancel the actual pipe reads and await their real terminal
+                // states before leaving this sole resource owner. This does not
+                // prove a physical descendant process group has terminated.
+                try
+                {
+                    pipeCancellation.Cancel();
+                }
+                catch (Exception cancellationFailure)
+                {
+                    failure = new AggregateException("current_schema_owned_export_terminal_unproven", failure, cancellationFailure);
+                }
+                foreach (Stream pipe in new[] { process.StandardOutput.BaseStream, process.StandardError.BaseStream })
+                {
+                    try
+                    {
+                        pipe.Dispose();
+                    }
+                    catch (Exception closeFailure)
+                    {
+                        failure = new AggregateException("current_schema_owned_export_terminal_unproven", failure, closeFailure);
+                    }
+                }
+                try
+                {
+                    await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false);
+                }
+                catch (Exception pipeFailure)
+                {
+                    failure = new AggregateException("current_schema_owned_export_terminal_unproven", failure, pipeFailure);
+                }
             }
         }
         try
@@ -414,6 +514,10 @@ internal sealed class OwnedCurrentSchemaTarget
                 processId = process.Id,
                 childTerminalObserved = process.HasExited,
                 childExitCode = process.HasExited ? process.ExitCode : (int?)null,
+                stdoutCopyTerminalObserved = outputTask.IsCompleted,
+                stderrCopyTerminalObserved = errorTask.IsCompleted,
+                stdoutEndOfFileObserved = outputTask.IsCompletedSuccessfully,
+                stderrEndOfFileObserved = errorTask.IsCompletedSuccessfully,
                 taskTreeQualification = false
             }, evidenceCancellation.Token).ConfigureAwait(false);
         }
