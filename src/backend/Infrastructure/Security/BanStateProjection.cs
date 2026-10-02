@@ -6,6 +6,10 @@ using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>
+/// Describes a process-local ban fact. Unknown is not a normal-account fact or
+/// permission to admit a request; these values are not database status codes.
+/// </summary>
 public enum BanStateProjectionStatus
 {
     Unknown = 0,
@@ -14,23 +18,49 @@ public enum BanStateProjectionStatus
     Deleted = 3
 }
 
+/// <summary>
+/// Carries a subject-scoped source fact for local validation and generation ordering.
+/// Constructing an update does not apply it or commit an authority transaction.
+/// </summary>
+/// <param name="AccountSubjectHash">Account subject hash normalized when the update is applied.</param>
+/// <param name="Status">Normal, banned, or deleted fact; unknown is not an admissible source payload.</param>
+/// <param name="ReasonCode">Ban reason validated as trimmed UTF-8; ignored for non-banned facts.</param>
+/// <param name="Generation">Positive source generation used to reject older or conflicting facts.</param>
 public readonly record struct BanStateProjectionUpdate(
     string AccountSubjectHash,
     BanStateProjectionStatus Status,
     string? ReasonCode,
     long Generation);
 
+/// <summary>
+/// Returns the local status and generation fence without certifying authority
+/// availability or request authorization. Unknown may retain a conflict generation.
+/// </summary>
+/// <param name="Status">Known local fact or unknown when no usable fact is stored.</param>
+/// <param name="ReasonCode">Stored ban reason, or null for normal, deleted, and unknown results.</param>
+/// <param name="Generation">Stored source generation, or zero when no subject fence is available.</param>
 public readonly record struct BanStateProjectionLookup(
     BanStateProjectionStatus Status,
     string? ReasonCode,
     long Generation)
 {
+    /// <summary>
+    /// Reports only whether the status differs from unknown; it performs no
+    /// authority read and does not turn a banned or deleted fact into permission.
+    /// </summary>
     public bool IsKnown => Status is not BanStateProjectionStatus.Unknown;
 
+    /// <summary>Creates an unknown result while retaining the supplied generation fence.</summary>
+    /// <param name="generation">Fence to carry, or zero when no generation is known.</param>
+    /// <returns>An unknown lookup with no reason code.</returns>
     public static BanStateProjectionLookup Unknown(long generation = 0)
         => new(BanStateProjectionStatus.Unknown, null, generation);
 }
 
+/// <summary>
+/// Distinguishes local application from validation, ordering, conflict, and
+/// capacity outcomes. A conflict can replace a known fact with an unknown fence.
+/// </summary>
 public enum BanStateProjectionApplyResult
 {
     Applied = 0,
@@ -41,12 +71,28 @@ public enum BanStateProjectionApplyResult
     RejectedOverBudget = 5
 }
 
+/// <summary>
+/// Bounds stored entry count and UTF-8 subject/reason payload accounting.
+/// These limits do not measure or cap CLR objects, dictionaries, or total heap use.
+/// </summary>
 public sealed class BanStateProjectionLimits
 {
+    /// <summary>
+    /// Maximum stored subjects, including unknown fences. Capacity admission
+    /// evicts earlier-written entries; local reads stay unknown until a fact is restored.
+    /// </summary>
     public int MaxEntries { get; init; } = 100_000;
 
+    /// <summary>
+    /// Maximum sum of UTF-8 bytes for stored normalized subjects and ban reasons,
+    /// excluding collection and managed-object overhead.
+    /// </summary>
     public long MaxUtf8ResidentBytes { get; init; } = 8 * 1024 * 1024;
 
+    /// <summary>
+    /// Maximum UTF-8 byte length, not character count, of a trimmed nonempty ban reason.
+    /// A banned fact with an invalid reason is rejected rather than truncated.
+    /// </summary>
     public int MaxReasonCodeUtf8Bytes { get; init; } = 64;
 
     internal bool IsValid()
@@ -56,6 +102,26 @@ public sealed class BanStateProjectionLimits
             && MaxReasonCodeUtf8Bytes <= MaxUtf8ResidentBytes;
 }
 
+/// <summary>
+/// Captures local capacity accounting, outcome counters, and generation watermarks
+/// for diagnostics; it is not a per-subject convergence or readiness certificate.
+/// </summary>
+/// <param name="Entries">Stored subjects, including unknown fences.</param>
+/// <param name="Utf8ResidentBytes">Accounted subject and reason UTF-8 payload bytes.</param>
+/// <param name="MaxEntries">Configured stored-subject limit.</param>
+/// <param name="MaxUtf8ResidentBytes">Configured payload-byte limit, not a managed-heap limit.</param>
+/// <param name="AppliedUpdates">Updates accepted into the local projection.</param>
+/// <param name="InvalidUpdates">Updates rejected for invalid subject, generation, status, or reason.</param>
+/// <param name="StaleUpdates">Updates rejected because a newer subject generation is stored.</param>
+/// <param name="DuplicateUpdates">Same-generation updates whose payload matches the stored fact.</param>
+/// <param name="Conflicts">Same-generation payload conflicts replaced by unknown fences.</param>
+/// <param name="Evictions">Entries removed by capacity eviction.</param>
+/// <param name="OverBudgetUpdates">Updates rejected by payload or entry capacity admission.</param>
+/// <param name="KnownReads">Counted read outcomes with a status other than unknown.</param>
+/// <param name="UnknownReads">Counted unknown read outcomes, including invalid or absent subjects.</param>
+/// <param name="SourceLoads">Authority loads started after the local known-value recheck.</param>
+/// <param name="HighestObservedGeneration">Largest generation observed by Apply, including rejected facts.</param>
+/// <param name="HighestAppliedGeneration">Largest generation accepted into the local projection.</param>
 public readonly record struct BanStateProjectionSnapshot(
     int Entries,
     long Utf8ResidentBytes,
@@ -74,6 +140,10 @@ public readonly record struct BanStateProjectionSnapshot(
     long HighestObservedGeneration,
     long HighestAppliedGeneration)
 {
+    /// <summary>
+    /// Nonnegative difference between observed and applied global watermarks.
+    /// Zero does not prove that every subject is current or ready for admission.
+    /// </summary>
     public long VersionLag => Math.Max(0, HighestObservedGeneration - HighestAppliedGeneration);
 }
 
@@ -118,6 +188,11 @@ public sealed class BanStateProjection
     private long _highestObservedGeneration;
     private long _highestAppliedGeneration;
 
+    /// <summary>Creates an initially empty local projection backed by the supplied authority source.</summary>
+    /// <param name="source">Authority used only for unknown asynchronous reads.</param>
+    /// <param name="limits">Payload and entry limits, or null to use the default limits.</param>
+    /// <exception cref="ArgumentNullException">The source is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The supplied limits are invalid.</exception>
     public BanStateProjection(
         IBanStateProjectionSource source,
         BanStateProjectionLimits? limits = null)
@@ -185,11 +260,28 @@ public sealed class BanStateProjection
         return new ValueTask<BanStateProjectionLookup>(LoadUnknownAsync(accountId, normalized, cancellationToken));
     }
 
+    /// <summary>
+    /// Reads by subject alone, forwarding account ID zero to the existing load path.
+    /// This does not supply the physical account identity an authority may require.
+    /// Source failures propagate rather than becoming successful lookups.
+    /// </summary>
+    /// <param name="accountSubjectHash">Subject hash to normalize and resolve locally or through the source.</param>
+    /// <param name="cancellationToken">Cancels this wait, not a shared authority load for other waiters.</param>
+    /// <returns>A known local result or the lookup remaining after the shared load.</returns>
     public ValueTask<BanStateProjectionLookup> GetAsync(
         string? accountSubjectHash,
         CancellationToken cancellationToken = default)
         => GetAsync(0, accountSubjectHash, cancellationToken);
 
+    /// <summary>
+    /// Validates and applies a fact under the local write lock, rejecting older
+    /// generations and duplicates. Same-generation conflicts and invalid payloads
+    /// at the stored generation or newer fail closed to unknown; capacity admission
+    /// can evict other subjects.
+    /// No authority write or cross-node acknowledgement is performed here.
+    /// </summary>
+    /// <param name="update">Source fact whose generation is observed before payload validation.</param>
+    /// <returns>The local validation, ordering, conflict, capacity, or application outcome.</returns>
     public BanStateProjectionApplyResult Apply(BanStateProjectionUpdate update)
     {
         ObserveGeneration(update.Generation);
@@ -280,6 +372,11 @@ public sealed class BanStateProjection
         }
     }
 
+    /// <summary>
+    /// Reads entry and payload accounting under the write lock and samples counters
+    /// with volatile reads. Counters updated outside that lock are not one transaction.
+    /// </summary>
+    /// <returns>Local diagnostic accounting without an all-subject freshness guarantee.</returns>
     public BanStateProjectionSnapshot Snapshot()
     {
         lock (_writeLock)
@@ -550,6 +647,13 @@ public sealed class BanStateProjection
 
 internal static class InterlockedExtensions
 {
+    /// <summary>
+    /// Raises a shared signed 64-bit value only while the candidate exceeds the
+    /// observed value. A lost compare-exchange retries against the winning value;
+    /// a candidate no larger than that observation leaves the location unchanged.
+    /// </summary>
+    /// <param name="location">Shared generation watermark read with volatile and compare-exchange operations.</param>
+    /// <param name="value">Candidate watermark; values no larger than the current observation are ignored.</param>
     public static void Max(ref long location, long value)
     {
         long current = Volatile.Read(ref location);
