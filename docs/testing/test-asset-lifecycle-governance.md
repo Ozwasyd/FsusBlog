@@ -23,6 +23,29 @@ For each removed test ID:
 
 A historical filename, fixed count, elapsed-time target, or prior campaign snapshot is not proof that a test remains valuable or obsolete. If a unique assertion has no current owner, the asset stays until a replacement is implemented and tested.
 
+## Runtime projection replacements
+
+A cache or authentication implementation cutover requires a semantic disposition,
+not a test-name substitution. Map retained behavior to all current owners and name
+the retired mechanism in the replacement reason; do not restore obsolete cache
+strings, synchronous touches, Redis overlays or legacy identities to preserve a
+source-shape assertion.
+
+Ban/unban ownership remains with real `BlacklistService` mutations and the existing
+`DistributedInvalidationTargetConvergenceIntegrationTests` PostgreSQL/Redis fixture.
+Replacement evidence must retain normalized persisted ban reasons, a normal-account
+unban, authority generation and the matching durable event, actual publication and
+restart replay. A prepare-failure test must prove that authority state, generation
+and the durable event roll back together without publishing. Injecting local
+projection facts alone cannot replace these mutation and transaction oracles.
+
+Admin validation, bounded last-seen scheduling, bearer-token propagation and
+credential/session binding are separate owners. Article-view projection behavior
+and real Redis service reads jointly replace the retired per-request overlay;
+related-reading ranking, database command counting and benchmark budgets jointly
+replace private hot-path source shapes. An unresolved owner remains a failing
+retention prerequisite rather than a guessed alias or waiver.
+
 ## Local verification
 
 ```bash

@@ -986,10 +986,11 @@
                 "vitest:tests/frontend/unit/api/admin.test.ts#adminChangeStatus sends binary status request for accountId with admin step-up proof",
                 "vitest:tests/frontend/unit/api/message.test.ts#uses binary admin message endpoints",
                 "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#gates replies and exposes mobile back plus admin status actions without real writes",
-                "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
-                "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey"
+                "xunit:tests/backend/Integration/DistributedInvalidationTargetConvergenceIntegrationTests.cs#DistributedInvalidationTargetConvergenceIntegrationTests.BanMutation_CommitSurvivesSkippedPublishAndRestartReplaysThroughRealPostgresAndRedis",
+                "xunit:tests/backend/Integration/DistributedInvalidationTargetConvergenceIntegrationTests.cs#DistributedInvalidationTargetConvergenceIntegrationTests.UnbanMutation_CommitsNormalGenerationAndDurableEventThenReplaysAfterTargetRestart",
+                "xunit:tests/backend/Integration/DistributedInvalidationTargetConvergenceIntegrationTests.cs#DistributedInvalidationTargetConvergenceIntegrationTests.UnbanMutation_PrepareFailureRollsBackAuthorityGenerationAndDurableEvent"
             ],
-            "reason": "Production adapters own each mutation frame, mounted message state owns admin UI, and backend tests own durable ban/cache behavior."
+            "reason": "Production adapters retain mutation frames and mounted message state retains admin UI. Real BlacklistService PostgreSQL/Redis tests retain trimmed persisted BanReason, normal-account unban, authority generation, transactional durable event preparation, actual publication, restart replay and rollback on prepare failure. The retired versioned cache-string write/remove mechanism is replaced by the current generation-bound local projection and durable delivery ledger, not restored or represented by injected projection facts."
         },
         {
             "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#dashboard-article-write-and-admin-workbench-actions-stay-b1a6a0529b",
@@ -5225,10 +5226,10 @@
             "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.JwtBearerEvents_SourceSharesAdminRawAccessTokenThroughHttpContextItems",
             "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath",
                 "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookiePreference_CachesDecisionInHttpContextItems"
             ],
-            "reason": "Executed bearer-event validation and per-request decision caching replace private handler text."
+            "reason": "The production JWT middleware is executed through TestServer and passes the exact issued raw admin token to the independent admin validator without calling the ordinary validator. The retained cookie-preference test owns request-local decision reuse. Private HttpContext token-cache assignment and cookie reread source shapes are implementation dispositions, not authentication or cache-correctness oracles."
         },
         {
             "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureLogin_IsDevelopmentOnlyAndUsesAuthCookieService",
@@ -5312,9 +5313,13 @@
             "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_SourceUsesRowVersionGuardForLastSeenTouch",
             "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch"
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch",
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded",
+                "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#AdminSessionProjectionTouchIntegrationTests.TouchCasConflict_PerformsOneAuthorityRefreshOutsideRequestPath",
+                "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#AdminSessionProjectionTouchIntegrationTests.DatabaseFailure_IsBoundedAndRecordedWithoutBlockingValidation",
+                "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#AdminSessionProjectionTouchIntegrationTests.ShutdownFlush_DrainsQueuedTouchBeforeWorkerStops"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The current bounded AdminSessionProjection/TouchScheduler contract replaces the retired ten-second validation cache and synchronous row-version touch. Concurrent validation proves zero authority reads and coalescing, scheduler tests prove queue/tracking bounds, and real PostgreSQL tests prove version-CAS conflict refresh, nonblocking database failure and persisted last-seen shutdown flush. This is a multi-owner semantic replacement, not restoration of the old private cache, dictionary or xmin SQL shape."
         },
         {
             "id": "xunit:tests/backend/Unit/AedsFrameNamingContractTests.cs#AedsFrameNamingContractTests.PasskeyCredentialFriendlyNameUpdateFrame_ReplacesRenameContract",
@@ -6562,9 +6567,12 @@
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_SourceOverlaysProjectedViewsOnCachedArticleDetail",
             "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail"
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay",
+                "xunit:tests/backend/Unit/ArticleDetailViewProjectionTests.cs#ArticleDetailViewProjectionTests.Project_UsesMaximumWithoutAllowingOutOfOrderRegression",
+                "xunit:tests/backend/Integration/ArticleDetailViewProjectionIntegrationTests.cs#ArticleDetailViewProjectionIntegrationTests.L1L2AndDbMiss_RealRedisCaptureContainsNoPerRequestViewOverlay",
+                "xunit:tests/backend/Integration/ArticleDetailViewProjectionIntegrationTests.cs#ArticleDetailViewProjectionIntegrationTests.LatentDisconnectedAndRecoveredRedis_L1DetailNeverWaitsForRedis"
             ],
-            "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+            "reason": "The current process-local article-view projection replaces the retired per-request Redis ZSCORE overlay. Runtime metadata binds the existing service to the local projection, direct behavior retains maximum/out-of-order view semantics, and real Redis service reads retain projected cached-detail values during pause, disconnect and recovery while proving no per-request ZSCORE. The old helper name and Redis lookup are explicitly retired mechanisms, not retained contracts."
         },
         {
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetPageListAsync_SourceRejectsInvalidPaginationWithoutSilentCoercion",
@@ -8385,9 +8393,9 @@
             "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction",
-                "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked"
+                "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.BannedWrite_ReturnsLocked"
             ],
-            "reason": "TestServer decodes the stable 423 AEDS error and direct middleware behavior proves rejection."
+            "reason": "TestServer retains the stable 423 AEDS ACCOUNT_BANNED_WRITE_LOCKED error, private-reason non-disclosure and prohibited mutation, while direct middleware execution retains rejection without calling next. The retired legacy-user/account-reader cache path is replaced by current subject-bound account and ban projections; no legacy identity or cache compatibility path is restored."
         },
         {
             "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinaryArticleTrashClear_IsDestructiveAdminMutationWithStepUpRateLimitAndHighValueAudit",
@@ -10534,10 +10542,12 @@
             "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.BuildAsync_SourceConvergesRoundTripsAndKeywordAllocations",
             "path": "tests/backend/Unit/RelatedReadingServiceTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+                "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.RankingProjection_PreservesLegacyBusinessWeightsAndReasons",
+                "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation",
+                "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.BuildAsync_ColdReadIsBoundedAndMemoryHitExecutesNoDatabaseCommand",
                 "shell:tools/test/lanes/backend-benchmark-regression.sh"
             ],
-            "reason": "Scoring semantics are direct and allocation/mean is constrained by the benchmark budget."
+            "reason": "Direct ranking behavior retains all category/tag/keyword/publication-time reasons and distance, strengthening the former score lower bound to the exact legacy weight total 165. Tag deduplication and cross-field keyword semantics remain executed, PostgreSQL command counting owns cold/hit round trips, and the unchanged benchmark lane owns allocation/mean budgets. Private collection/helper shapes are retired without reducing behavioral or performance oracles."
         },
         {
             "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.BuildAsync_SourceUsesLightweightCandidatesAndUnifiedCache",
