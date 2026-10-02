@@ -297,6 +297,18 @@ The compiled Host can consume the retention owner's original backup-admission po
 while planning, so that owner keeps the successful opaque capability for later
 commands in the same process. The wrapper cannot replace authentication, run a
 second producer or import a backup observation from a plan.
+
+The original `production-build-artifacts` entry supports the explicitly selected
+`migration-runtime` domain; it is not a new default CI domain. It captures the
+actual source, SDK and configuration before the original fresh build, checks them
+again afterwards, and seals the Migration DLL plus both measurements in the
+original receipt. `FSUSBLOG_RETAINED_DOTNET_ROOT` must be the complete physical SDK
+root owning the actual PATH-selected host. Reused output cannot produce this domain.
+The read-only input reader does not repair a missing seal. Its four original source
+files are embedded in the Migration assembly as compiled inputs, and the build
+passes the original source commit into assembly metadata. These input bindings do
+not by themselves qualify a compiled tool, native provider, backup or migration.
+
 The Host also supplies one invocation-only monotonic deadline through the evidence
 options. The producer reads its remaining whole seconds at launch, never restarts
 the CLI total, and refuses a remainder below the shell's one-second representation

@@ -197,6 +197,23 @@ function digestInput(root, declaration)
     };
 }
 
+// Reuse the production owner's complete regular-file inventory for retained SDK
+// inputs. Version strings and a selected handful of executables are not this tree.
+export function collectProductionInputTree(root)
+{
+    const absolute = path.resolve(root);
+    if (fs.realpathSync(absolute) !== absolute || !fs.lstatSync(absolute).isDirectory())
+    {
+        throw new Error('production input tree must be a canonical non-symlink directory');
+    }
+    const files = walkRootFiles(absolute, 'production input tree').sort();
+    if (files.length === 0)
+    {
+        throw new Error('production input tree must not be empty');
+    }
+    return files.map(relative => fileRecord(absolute, relative));
+}
+
 function validateSourceState(sourceState)
 {
     const commit = String(sourceState?.commit ?? '').trim();

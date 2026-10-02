@@ -17,4 +17,12 @@
   <ItemGroup>
     <ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="FsusBlog.SourceCommit" Value="$(FsusBlogCommitSha)" />
+    <EmbeddedResource Include="../../tools/ci/migration-retained-inputs.mjs" LogicalName="FsusBlog.Migration.RetainedReader.tools.ci.migration-retained-inputs.mjs" />
+    <EmbeddedResource Include="../../tools/ci/production-build-artifacts.mjs" LogicalName="FsusBlog.Migration.RetainedReader.tools.ci.production-build-artifacts.mjs" />
+    <EmbeddedResource Include="../../tools/fact-extractors/identity.mjs" LogicalName="FsusBlog.Migration.RetainedReader.tools.fact-extractors.identity.mjs" />
+    <EmbeddedResource Include="../../tools/fact-extractors/lib/canonicalize.mjs" LogicalName="FsusBlog.Migration.RetainedReader.tools.fact-extractors.lib.canonicalize.mjs" />
+  </ItemGroup>
 </Project>

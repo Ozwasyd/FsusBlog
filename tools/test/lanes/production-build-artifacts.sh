@@ -69,7 +69,7 @@ if ((${#DOMAIN_LIST[@]} == 0)); then
 fi
 for domain in "${DOMAIN_LIST[@]}"; do
     case "$domain" in
-        backend-runtime | test-runtime | frontend-dist | ssr-runtime | wasm | generated-contracts) ;;
+        backend-runtime | test-runtime | migration-runtime | frontend-dist | ssr-runtime | wasm | generated-contracts) ;;
         *)
             printf '[production-build-artifacts] unknown smart-gate artifact domain: %s\n' "$domain" >&2
             exit 1
@@ -140,7 +140,16 @@ AdoptDirectory() {
 
 mkdir -p "$PAYLOAD_ROOT"
 
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDomain test-runtime; }; then
+if HasDomain migration-runtime; then
+    if [[ "$REUSE_BUILD_OUTPUTS" == "1" ]]; then
+        printf '[production-build-artifacts] migration retention requires this original fresh build invocation\n' >&2
+        exit 1
+    fi
+    node "$ROOT_DIR/tools/ci/migration-retained-inputs.mjs" begin "$ROOT_DIR" "$ARTIFACT_ROOT" \
+        "${FSUSBLOG_RETAINED_DOTNET_ROOT:?physical retained SDK root is required}"
+fi
+
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDomain test-runtime || HasDomain migration-runtime; }; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet restore "$ROOT_DIR/FsusBlog.slnx" -v minimal /p:NuGetAudit=false
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
@@ -148,10 +157,13 @@ if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDoma
         -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=false \
         -p:FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?production build source commit is required}"
 fi
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain test-runtime || HasDomain migration-runtime; }; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/migration/FsusBlog.Migration.csproj" \
-        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
+        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false \
+        -p:FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?production build source commit is required}"
+fi
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
@@ -169,6 +181,18 @@ fi
 if HasDomain test-runtime; then
     RequireFile "${FSUSBLOG_BACKEND_TEST_DLL:?FSUSBLOG_BACKEND_TEST_DLL is required}"
     AdoptDirectory "$(dirname "$FSUSBLOG_BACKEND_TEST_DLL")" "$PAYLOAD_ROOT/test-runtime"
+fi
+if HasDomain migration-runtime; then
+    MIGRATION_OUTPUT="$(node --input-type=module - "$ROOT_DIR" <<'NODE'
+const root = process.argv[2];
+const { dotnetProjectLayout, resolveProductionBuildLayout } = await import(root + '/tools/test-matrix/production-build-layout.mjs');
+process.stdout.write(dotnetProjectLayout(resolveProductionBuildLayout({ root }), 'src/migration/FsusBlog.Migration.csproj').outputDirectory);
+NODE
+)"
+    RequireFile "$MIGRATION_OUTPUT/FsusBlog.Migration.dll"
+    AdoptDirectory "$MIGRATION_OUTPUT" "$PAYLOAD_ROOT/migration-runtime"
+    node "$ROOT_DIR/tools/ci/migration-retained-inputs.mjs" finish "$ROOT_DIR" "$ARTIFACT_ROOT" \
+        "$FSUSBLOG_RETAINED_DOTNET_ROOT"
 fi
 if HasDomain frontend-dist; then
     AdoptDirectory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
@@ -248,7 +272,7 @@ CREATE_ARGS=(
     --input tools/test/run-with-dotnet-release-build-lock.sh
     --input tools/test/lanes/production-build-artifacts.sh
 )
-if HasDomain backend-runtime || HasDomain test-runtime; then
+if HasDomain backend-runtime || HasDomain test-runtime || HasDomain migration-runtime; then
     CREATE_ARGS+=(
         --input src/backend/FsusBlog.Server.csproj
         --input src/backend/packages.lock.json
@@ -258,10 +282,19 @@ if HasDomain backend-runtime || HasDomain test-runtime; then
         --input src/shared/packages.lock.json
     )
 fi
-if HasDomain test-runtime; then
+if HasDomain test-runtime || HasDomain migration-runtime; then
     CREATE_ARGS+=(
         --input src/migration/FsusBlog.Migration.csproj
         --input src/migration/packages.lock.json
+    )
+fi
+if HasDomain migration-runtime; then
+    CREATE_ARGS+=(
+        --input tools/ci/migration-retained-inputs.mjs
+    )
+fi
+if HasDomain test-runtime; then
+    CREATE_ARGS+=(
         --input tests/backend/FsusBlog.Server.Tests.csproj
         --input tests/backend/packages.lock.json
     )

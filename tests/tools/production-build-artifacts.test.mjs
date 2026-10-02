@@ -49,6 +49,11 @@ function verifyMigrationBuildDependency(source)
         /-c Release --no-restore --no-dependencies --no-incremental -warnaserror/u,
         'Migration must use the explicit Release no-dependencies build contract'
     );
+    assert.match(
+        migrationCommand,
+        /-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        'Migration assembly metadata must exact-bind the production build source commit'
+    );
     const testCommand = source.slice(testIndex, source.indexOf('\nfi', testIndex));
     assert.match(
         testCommand,
@@ -163,7 +168,7 @@ test('lane builds and binds Migration before the no-dependencies backend test co
 test('lane dependency contract rejects missing, reordered, implicit and unbound Migration builds', () =>
 {
     const lane = fs.readFileSync(new URL('../../tools/test/lanes/production-build-artifacts.sh', import.meta.url), 'utf8');
-    const migrationCommand = / {4}"\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n {8}"\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n {8}-c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false\n/u;
+    const migrationCommand = / {4}"\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n {8}"\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n {8}-c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false \\\n {8}-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"\n/u;
     const match = lane.match(migrationCommand);
     assert.ok(match, 'test fixture must locate the exact Migration build command');
     const withoutMigration = lane.replace(migrationCommand, '');
@@ -188,6 +193,15 @@ test('lane dependency contract rejects missing, reordered, implicit and unbound 
     assert.throws(
         () => verifyMigrationBuildDependency(unboundServerAssembly),
         /assembly metadata must exact-bind/u
+    );
+
+    const unboundMigrationAssembly = lane.replace(match[0], match[0].replace(
+        / \\\n {8}-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        ''
+    ));
+    assert.throws(
+        () => verifyMigrationBuildDependency(unboundMigrationAssembly),
+        /Migration assembly metadata must exact-bind/u
     );
 
     for (const input of ['--input src/migration/FsusBlog.Migration.csproj', '--input src/migration/packages.lock.json'])
