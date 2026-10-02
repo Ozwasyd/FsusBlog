@@ -164,7 +164,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 fs.chmodSync(directory, 0o555);
             };
             sealTree(packagesRoot);
-            try { validatePreparedNugetPackages(inventoryPreparedNuget(packagesRoot), closure); }
+            try { validatePreparedNugetPackages(inventoryPreparedNuget(packagesRoot), closure, feed); }
             catch (error) { error.physicalExecution = physicalExecution; throw error; }
             reservation.completeProducer('behavior-doc-nuget-preparation');
             return { ...physicalExecution, phase: 'independent-dependency-transfer', qualificationEligible: false,

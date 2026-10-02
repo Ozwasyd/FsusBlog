@@ -113,7 +113,7 @@ export function behaviorDocNugetClosure(repositoryRoot)
         packages: [...packages.values()].sort((left, right) => left.path.localeCompare(right.path)) };
 }
 
-export function validatePreparedNugetPackages(seed, closure)
+export function validatePreparedNugetPackages(seed, closure, feed)
 {
     const expected = new Set(closure.packages.map((value) => value.path));
     const ids = new Set(closure.packages.map((value) => value.path.split('/')[0]));
@@ -130,20 +130,22 @@ export function validatePreparedNugetPackages(seed, closure)
     {
         const [id, version] = record.path.split('/');
         const archive = path.join(seed.root, record.path, id + '.' + version + '.nupkg');
-        if (createHash('sha512').update(regular(archive)).digest('base64') !== record.contentHash)
-        {
-            throw new Error('NuGet seed package content differs from its lock');
-        }
-        const metadata = regular(path.join(seed.root, record.path, '.nupkg.metadata'));
+        const archiveBytes = regular(archive);
+        const archiveHash = createHash('sha512').update(archiveBytes).digest('base64');
+        const metadata = JSON.parse(regular(path.join(seed.root, record.path, '.nupkg.metadata')));
         const sha512 = regular(path.join(seed.root, record.path, id + '.' + version + '.nupkg.sha512'));
-        if (!metadata.length || sha512.toString('utf8').trim() !== record.contentHash)
+        // NuGet contentHash excludes package signatures; .sha512 seals the raw archive.
+        // This metadata is consumed only after the real empty-cache locked restore.
+        if (metadata.contentHash !== record.contentHash || sha512.toString('utf8').trim() !== archiveHash
+            || (feed && feed.entries.find((entry) => entry.path === id + '.' + version + '.nupkg')?.sha256
+                !== digest(archiveBytes)))
         {
-            throw new Error('NuGet seed lacks complete extracted package metadata');
+            throw new Error('NuGet seed package content or raw archive binding differs from its completed restore');
         }
     }
 }
 
-/** Read only the resource sizes of lock-approved ZIP entries; NuGet alone performs extraction. */
+/** Bind finite archive input and resource sizes; NuGet alone verifies locked content and extracts it. */
 export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4096)
 {
     const feed = inventoryPreparedNuget(root, allocationBlockSize);
@@ -159,8 +161,9 @@ export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4
     for (const record of expected)
     {
         const bytes = regular(path.join(feed.root, record.file));
-        if (createHash('sha512').update(bytes).digest('base64') !== record.contentHash)
-        { throw new Error('Offline feed archive differs from the exact package lock'); }
+        if (!/^[A-Za-z0-9+/]{86}==$/u.test(record.contentHash ?? ''))
+        { throw new Error('Offline feed requires an exact package lock content hash'); }
+        record.archiveSha512 = createHash('sha512').update(bytes).digest('base64');
         let footer = -1;
         for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset--)
         {
@@ -292,7 +295,7 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
     {
         throw new Error('NuGet transfer command, source, output or payload binding drifted');
     }
-    validatePreparedNugetPackages(seed, closure);
+    validatePreparedNugetPackages(seed, closure, feed);
     return { ...seed, file: input, preparation, closure,
         inputPaths: [input, verified.receiptFile, verified.projectionFile],
         bindingDigest: digest(Buffer.concat([bytes, verified.receiptBytes, verified.projectionBytes])) };
