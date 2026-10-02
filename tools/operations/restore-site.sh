@@ -18,6 +18,13 @@ IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
 ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
 DECRYPTED_PACKAGE="$RESTORE_ROOT/.site-package.plaintext.tar.gz"
 RECIPIENT_KEY_ID=""
+PACKAGE_SHA256=""
+MANIFEST_SHA256=""
+MIGRATION_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+SOURCE_BINDING="null"
+RESTORED_SOURCE="null"
+RESTORE_ROOT_EXISTED=0
+[[ ! -e "$RESTORE_ROOT" ]] || RESTORE_ROOT_EXISTED=1
 checks=()
 blockers=()
 status="ok"
@@ -81,6 +88,10 @@ WriteReport() {
         --arg status "$status" \
         --arg runId "$RUN_ID" \
         --arg packagePath "$BACKUP_PACKAGE" \
+        --arg packageSha256 "$PACKAGE_SHA256" \
+        --arg manifestSha256 "$MANIFEST_SHA256" \
+        --argjson sourceBinding "$SOURCE_BINDING" \
+        --argjson restoredSource "$RESTORED_SOURCE" \
         --arg restoreRoot "$RESTORE_ROOT" \
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg recipientKeyId "$RECIPIENT_KEY_ID" \
@@ -92,6 +103,10 @@ WriteReport() {
       runId:$runId,
       generatedAt:$generatedAt,
       packagePath:$packagePath,
+      packageSha256:(if $packageSha256 == "" then null else $packageSha256 end),
+      manifestSha256:(if $manifestSha256 == "" then null else $manifestSha256 end),
+      sourceBinding:$sourceBinding,
+      restoredSource:$restoredSource,
       restoreRoot:$restoreRoot,
       packageEncryption:{format:$envelopeFormat, recipientKeyId:(if $recipientKeyId == "" then null else $recipientKeyId end)},
       checks:$checks,
@@ -232,9 +247,71 @@ RestoreDatabase() {
         AddBlocker "database-connection-invalid"
         return
     }
-    PGPASSWORD="$PG_CONN_PASSWORD" pg_restore -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --clean --if-exists "$dump"
+    local targetSource
+    if [[ "$SOURCE_BINDING" != "null" ]]; then
+        if ! targetSource="$(ObserveDatabase)" || ! jq -e --argjson binding "$SOURCE_BINDING" \
+            '.Database.Provider == 0 and .Database != $binding.capture.Source.Database' <<<"$targetSource" >/dev/null; then
+            AddBlocker "database-restore-target-not-isolated-or-unobserved"
+            return
+        fi
+    fi
+    if ! PGPASSWORD="$PG_CONN_PASSWORD" pg_restore -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --exit-on-error --clean --if-exists "$dump"; then
+        AddBlocker "database-restore-failed"
+        return
+    fi
+    if [[ "$SOURCE_BINDING" != "null" ]]; then
+        if ! RESTORED_SOURCE="$(ObserveDatabase)" || ! jq -e --argjson binding "$SOURCE_BINDING" --argjson target "$targetSource" \
+            '.Database == $target.Database and . == ($binding.capture.Source | .Database = $target.Database)' <<<"$RESTORED_SOURCE" >/dev/null; then
+            RESTORED_SOURCE="null"
+            AddBlocker "database-restored-source-content-mismatch"
+            return
+        fi
+        AddCheck "database-restored-source" "verified"
+    fi
 
     AddCheck "database" "restored"
+}
+
+ObserveDatabase() {
+    local environmentFile="$RESTORE_ROOT/.source-observer.env" observed
+    local hostValue databaseValue userValue passwordValue
+    if [[ ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+        return 1
+    fi
+    if [[ ! "$PG_CONN_PORT" =~ ^[0-9]+$ || "$PG_CONN_HOST$PG_CONN_DB$PG_CONN_USER$PG_CONN_PASSWORD" == *$'\n'* || "$PG_CONN_HOST$PG_CONN_DB$PG_CONN_USER$PG_CONN_PASSWORD" == *$'\r'* ]]; then
+        return 1
+    fi
+    hostValue="${PG_CONN_HOST//\"/\"\"}"
+    databaseValue="${PG_CONN_DB//\"/\"\"}"
+    userValue="${PG_CONN_USER//\"/\"\"}"
+    passwordValue="${PG_CONN_PASSWORD//\"/\"\"}"
+    printf 'ConnectionStrings__DefaultConnection=Host="%s";Port=%s;Database="%s";Username="%s";Password="%s"\n' \
+        "$hostValue" "$PG_CONN_PORT" "$databaseValue" "$userValue" "$passwordValue" >"$environmentFile"
+    if ! observed="$("${DOTNET_BIN:-dotnet}" "$MIGRATION_DLL" observe-source --provider postgresql --env-file "$environmentFile")"; then
+        rm -f "$environmentFile"
+        return 1
+    fi
+    rm -f "$environmentFile"
+    printf '%s\n' "$observed"
+}
+
+VerifyIsolatedRestorePaths() {
+    local rootPath targetPath
+    if [[ "$RESTORE_ROOT_EXISTED" == "1" ]] || ! command -v realpath >/dev/null 2>&1; then
+        AddBlocker "database-bound-restore-root-not-fresh"
+        return
+    fi
+    rootPath="$(realpath -m -- "$RESTORE_ROOT")"
+    WEB_ROOT="${FSUSBLOG_WEB_ROOT:-$RESTORE_ROOT/restored/webroot}"
+    UPLOADS_DIR="${FSUSBLOG_UPLOADS_DIR:-$WEB_ROOT/uploads}"
+    KEYRING_DIR="${FSUSBLOG_DATA_PROTECTION_KEY_RING:-$RESTORE_ROOT/restored/data-protection-keys}"
+    for targetPath in "$WEB_ROOT" "$UPLOADS_DIR" "$KEYRING_DIR"; do
+        targetPath="$(realpath -m -- "$targetPath")"
+        if [[ "$targetPath" != "$rootPath/"* || -e "$targetPath" ]]; then
+            AddBlocker "database-bound-restore-path-not-isolated"
+            return
+        fi
+    done
 }
 
 RestoreTree() {
@@ -270,8 +347,14 @@ DecryptPackage() {
     fi
 
     local envelopeInfo
+    PACKAGE_SHA256="$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')"
     if ! envelopeInfo="$(node "$ENVELOPE_TOOL" "${decryptArgs[@]}")"; then
         AddBlocker "backup-envelope-authentication-or-decryption-failed"
+        rm -f "$DECRYPTED_PACKAGE"
+        return
+    fi
+    if [[ "$PACKAGE_SHA256" != "$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')" ]]; then
+        AddBlocker "backup-package-changed-during-authentication"
         rm -f "$DECRYPTED_PACKAGE"
         return
     fi
@@ -307,7 +390,7 @@ VerifyPackageManifest() {
     if ! jq -e \
         --arg recipientKeyId "$RECIPIENT_KEY_ID" \
         '.kind == "fsusblog-site-backup"
-      and .version == 2
+      and (.version == 2 or .version == 3)
       and .envelope.format == "fsusblog-site-backup-envelope-v1"
       and .envelope.contentEncryption == "AES-256-GCM"
       and .envelope.keyWrap == "RSA-OAEP-SHA256"
@@ -319,6 +402,7 @@ VerifyPackageManifest() {
         AddBlocker "backup-manifest-invalid"
         return
     fi
+    MANIFEST_SHA256="$(sha256sum "$manifest" | awk '{print $1}')"
 
     local label artifact digest actual
     for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
@@ -334,6 +418,20 @@ VerifyPackageManifest() {
             return
         fi
     done
+
+    if [[ "$(jq -r '.version' "$manifest")" == "3" ]]; then
+        if ! jq -e '.sourceBinding.owner == "tools/operations/backup-site.sh" and .sourceBinding.ownerVersion == "3"
+            and .sourceBinding.capture.Source.Database.Provider == 0
+            and (.sourceBinding.capture.Source.ContentDigest | test("^[0-9a-f]{64}$"))
+            and (.sourceBinding.capture.SnapshotId | type == "string" and length > 0)
+            and .sourceBinding.capture.DatabaseDumpSha256 == .artifactDigests.database
+            and .sourceBinding.databaseDumpSha256 == .artifactDigests.database' "$manifest" >/dev/null; then
+            AddBlocker "backup-source-snapshot-binding-invalid"
+            return
+        fi
+        SOURCE_BINDING="$(jq -c '.sourceBinding' "$manifest")"
+        VerifyIsolatedRestorePaths
+    fi
 
     local keyringVerify="$RESTORE_ROOT/keyring-verify"
     mkdir -p "$keyringVerify"
@@ -399,6 +497,8 @@ Main() {
 
     if (("${#blockers[@]}" == 0)); then
         RestoreDatabase
+    fi
+    if (("${#blockers[@]}" == 0)); then
         RestoreTree "$RESTORE_ROOT/package/uploads.tar.gz" "$UPLOADS_DIR" "uploads"
         RestoreTree "$RESTORE_ROOT/package/data-protection-keyring.tar.gz" "$KEYRING_DIR" "data-protection-keyring"
         RestoreTree "$RESTORE_ROOT/package/aot-cache.tar.gz" "$WEB_ROOT/aot-cache" "aot-cache"

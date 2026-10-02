@@ -24,6 +24,12 @@ SITE_BACKUP_PACKAGE="${FSUSBLOG_SITE_BACKUP_PACKAGE:-}"
 BACKUP_IDENTITY_FILE="${FSUSBLOG_BACKUP_IDENTITY_FILE:-}"
 BACKUP_IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
 BACKUP_ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
+SITE_PACKAGE_SHA256=""
+SITE_MANIFEST_SHA256=""
+MIGRATION_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+SOURCE_BINDING="null"
+RESTORED_SOURCE="null"
+RESTORED_DATABASE_DUMP_SHA256=""
 
 status="ok"
 blockers=()
@@ -118,6 +124,11 @@ WriteReport() {
         --arg runId "$RUN_ID" \
         --arg workDir "$WORK_DIR" \
         --arg baseUrl "$BASE_URL" \
+        --arg packageSha256 "$SITE_PACKAGE_SHA256" \
+        --arg manifestSha256 "$SITE_MANIFEST_SHA256" \
+        --arg restoredDatabaseDumpSha256 "$RESTORED_DATABASE_DUMP_SHA256" \
+        --argjson sourceBinding "$SOURCE_BINDING" \
+        --argjson restoredSource "$RESTORED_SOURCE" \
         --argjson checks "$checksJson" \
         --argjson blockers "$blockersJson" \
         --argjson rpoSeconds "$rpoSeconds" \
@@ -129,6 +140,11 @@ WriteReport() {
       runId: $runId,
       workDir: $workDir,
       baseUrl: $baseUrl,
+      packageSha256: (if $packageSha256 == "" then null else $packageSha256 end),
+      manifestSha256: (if $manifestSha256 == "" then null else $manifestSha256 end),
+      sourceBinding: $sourceBinding,
+      restoredSource: $restoredSource,
+      restoredDatabaseDumpSha256: (if $restoredDatabaseDumpSha256 == "" then null else $restoredDatabaseDumpSha256 end),
       checks: $checks,
       timings: {
         rpoSeconds: $rpoSeconds,
@@ -441,7 +457,47 @@ RestorePostgres() {
             ;;
     esac
 
+    if [[ "$SOURCE_BINDING" != "null" ]]; then
+        VerifyRestoredSource || return
+    fi
+
     AddCheck "postgres-restore" "ok"
+}
+
+VerifyRestoredSource() {
+    local environmentFile="$WORK_DIR/.source-observer.env" pgIp actualDigest
+    if [[ ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+        AddBlocker "database-restored-source-observer-unavailable"
+        return 1
+    fi
+    pgIp="$(ContainerIp "$postgres_container")"
+    if [[ -z "$pgIp" ]]; then
+        AddBlocker "database-restored-source-instance-missing"
+        return 1
+    fi
+    actualDigest="$(sha256sum "$POSTGRES_BACKUP" | awk '{print $1}')"
+    if [[ "$actualDigest" != "$(jq -r '.databaseDumpSha256' <<<"$SOURCE_BINDING")" ]]; then
+        AddBlocker "database-restored-dump-binding-mismatch"
+        return 1
+    fi
+    printf 'ConnectionStrings__DefaultConnection=Host=%s;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev\n' \
+        "$pgIp" >"$environmentFile"
+    if ! RESTORED_SOURCE="$("${DOTNET_BIN:-dotnet}" "$MIGRATION_DLL" observe-source --provider postgresql --env-file "$environmentFile")"; then
+        rm -f "$environmentFile"
+        RESTORED_SOURCE="null"
+        AddBlocker "database-restored-source-observation-failed"
+        return 1
+    fi
+    rm -f "$environmentFile"
+    if ! jq -e --argjson binding "$SOURCE_BINDING" \
+        '. as $restored | .Database.Provider == 0 and .Database != $binding.capture.Source.Database
+         and . == ($binding.capture.Source | .Database = $restored.Database)' <<<"$RESTORED_SOURCE" >/dev/null; then
+        RESTORED_SOURCE="null"
+        AddBlocker "database-restored-source-not-isolated-or-content-mismatch"
+        return 1
+    fi
+    RESTORED_DATABASE_DUMP_SHA256="$actualDigest"
+    AddCheck "database-restored-source" "verified"
 }
 
 RestoreRedis() {
@@ -511,6 +567,11 @@ PrepareSiteBackupPackage() {
         return
     fi
 
+    if [[ -n "$POSTGRES_BACKUP" || -n "$REDIS_BACKUP" || -n "$UPLOADS_BACKUP" || -n "$AOT_BACKUP" || -n "$SEARCH_BACKUP" ]]; then
+        AddBlocker "site-backup-artifact-override-forbidden"
+        return
+    fi
+
     local packageDir="$WORK_DIR/site-package"
     local decryptedPackage="$WORK_DIR/site-package.plaintext.tar.gz"
     mkdir -p "$packageDir"
@@ -528,8 +589,14 @@ PrepareSiteBackupPackage() {
         decryptArgs+=(--passphrase-file "$BACKUP_IDENTITY_PASSPHRASE_FILE")
     fi
     local envelopeInfo recipientKeyId
+    SITE_PACKAGE_SHA256="$(sha256sum "$SITE_BACKUP_PACKAGE" | awk '{print $1}')"
     if ! envelopeInfo="$(node "$BACKUP_ENVELOPE_TOOL" "${decryptArgs[@]}")"; then
         AddBlocker "site-backup-envelope-invalid"
+        return
+    fi
+    if [[ "$SITE_PACKAGE_SHA256" != "$(sha256sum "$SITE_BACKUP_PACKAGE" | awk '{print $1}')" ]]; then
+        AddBlocker "site-backup-package-changed-during-authentication"
+        rm -f "$decryptedPackage"
         return
     fi
     recipientKeyId="$(jq -r '.recipientKeyId // empty' <<<"$envelopeInfo")"
@@ -543,7 +610,7 @@ PrepareSiteBackupPackage() {
 
     if ! jq -e --arg recipientKeyId "$recipientKeyId" \
         '.kind == "fsusblog-site-backup"
-      and .version == 2
+      and (.version == 2 or .version == 3)
       and .envelope.recipientKeyId == $recipientKeyId
       and .dataProtection.encryptedAtRest == true
       and .dataProtection.plaintextMasterKeyPresent == false
@@ -568,6 +635,24 @@ PrepareSiteBackupPackage() {
         fi
     done
 
+    SITE_MANIFEST_SHA256="$(sha256sum "$packageDir/manifest.json" | awk '{print $1}')"
+    if [[ "$(jq -r '.version' "$packageDir/manifest.json")" == "3" ]]; then
+        if ! jq -e '.sourceBinding.owner == "tools/operations/backup-site.sh" and .sourceBinding.ownerVersion == "3"
+            and .sourceBinding.capture.Source.Database.Provider == 0
+            and (.sourceBinding.capture.Source.ContentDigest | test("^[0-9a-f]{64}$"))
+            and (.sourceBinding.capture.SnapshotId | type == "string" and length > 0)
+            and .sourceBinding.capture.DatabaseDumpSha256 == .artifactDigests.database
+            and .sourceBinding.databaseDumpSha256 == .artifactDigests.database' "$packageDir/manifest.json" >/dev/null; then
+            AddBlocker "site-backup-source-snapshot-binding-invalid"
+            return
+        fi
+        SOURCE_BINDING="$(jq -c '.sourceBinding' "$packageDir/manifest.json")"
+        if [[ ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+            AddBlocker "site-backup-source-observer-unavailable"
+            return
+        fi
+    fi
+
     local keyringDir="$WORK_DIR/data-protection-keyring"
     mkdir -p "$keyringDir"
     if ! ArchiveIsSafe "$packageDir/data-protection-keyring.tar.gz"; then
@@ -588,14 +673,14 @@ PrepareSiteBackupPackage() {
         return
     fi
 
-    POSTGRES_BACKUP="${POSTGRES_BACKUP:-$packageDir/database.dump}"
+    POSTGRES_BACKUP="$packageDir/database.dump"
     if [[ -z "$REDIS_BACKUP" ]]; then
         mkdir -p "$packageDir/redis-empty"
         REDIS_BACKUP="$packageDir/redis-empty"
     fi
-    UPLOADS_BACKUP="${UPLOADS_BACKUP:-$packageDir/uploads.tar.gz}"
-    AOT_BACKUP="${AOT_BACKUP:-$packageDir/aot-cache.tar.gz}"
-    SEARCH_BACKUP="${SEARCH_BACKUP:-$packageDir/search.tar.gz}"
+    UPLOADS_BACKUP="$packageDir/uploads.tar.gz"
+    AOT_BACKUP="$packageDir/aot-cache.tar.gz"
+    SEARCH_BACKUP="$packageDir/search.tar.gz"
     AddCheck "site-backup-package" "authenticated-unpacked"
     AddCheck "data-protection-current-previous-generations" "$generationCount"
 }
@@ -633,6 +718,9 @@ StartRestoredBackend() {
             ASPNETCORE_ENVIRONMENT=Development \
             ASPNETCORE_URLS="$BASE_URL" \
             ASPNETCORE_WEBROOT="$WORK_DIR/webroot" \
+            FSUSBLOG_DATA_ROOT="$WORK_DIR/data" \
+            FSUSBLOG_DATA_PROTECTION_KEY_RING="$WORK_DIR/data-protection-keyring" \
+            DataProtection__KeyRingPath="$WORK_DIR/data-protection-keyring" \
             ConnectionStrings__DefaultConnection="Host=${pgIp};Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Pooling=false" \
             ConnectionStrings__Redis="${redisIp}:6379,abortConnect=false,connectTimeout=5000" \
             RedisOptions__Configuration="${redisIp}:6379,abortConnect=false,connectTimeout=5000" \
