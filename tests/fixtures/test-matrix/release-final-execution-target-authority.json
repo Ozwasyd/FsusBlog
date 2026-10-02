@@ -2750,8 +2750,8 @@
         },
         {
             "path": "tools/post-baseline-history.test.mjs",
-            "contentDigest": "sha256:4b0c5354172b48967b46c459f30efa7e49cfd640f81872261f7088adeb025229",
-            "indexDigest": "sha256:4b0c5354172b48967b46c459f30efa7e49cfd640f81872261f7088adeb025229"
+            "contentDigest": "sha256:eb9d977766e34b7a00738b369ce1de1ff4d227ff37fcb95c54e821d080f38963",
+            "indexDigest": "sha256:eb9d977766e34b7a00738b369ce1de1ff4d227ff37fcb95c54e821d080f38963"
         },
         {
             "path": "tools/release/browser-contract-receipt-contract.mjs",
@@ -3020,8 +3020,8 @@
         },
         {
             "path": "tools/test-convergence/post-baseline-history.mjs",
-            "contentDigest": "sha256:ae55da7542c620f5bd3a332e319422f7a8aa7b57b55bbb61438bbcdd12113ae8",
-            "indexDigest": "sha256:ae55da7542c620f5bd3a332e319422f7a8aa7b57b55bbb61438bbcdd12113ae8"
+            "contentDigest": "sha256:6a642e7753b9eb3d3c5ea63e4b65b49c58ca0fc31b625e33789e3c133c25849e",
+            "indexDigest": "sha256:6a642e7753b9eb3d3c5ea63e4b65b49c58ca0fc31b625e33789e3c133c25849e"
         },
         {
             "path": "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
