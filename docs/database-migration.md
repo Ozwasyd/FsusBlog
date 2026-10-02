@@ -207,11 +207,12 @@ each business unit and its journal append share a database transaction, and fork
 state is published only after commit. Resume reads the exact checkpoint's whole
 chain, not a latest-row shortcut. Bounded step proofs use O(step-count) memory and
 are not a current-schema receipt. Unknown commit or rollback outcomes require
-recovery rather than blind replay. Current native Apply is PostgreSQL-only;
-The invocation supplies its explicit finite cleanup budget; primary failure and
+recovery rather than blind replay. The invocation supplies its explicit finite
+cleanup budget; primary failure and
 cleanup failure are recorded separately, and actual native disposal remains a
 separate integration/terminal proof, not a declaration inferred from a token.
-missing compiled bootstrap/legacy operations, production admission or non-PG
+Current native Apply is PostgreSQL-only; missing compiled bootstrap/legacy
+operations, production admission or non-PG
 capabilities refuse before the first write. Legacy Contract guards are unchanged.
 
 Completed-Apply plan-binding verification independently hashes the original raw
