@@ -18,13 +18,13 @@ IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
 ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
 DECRYPTED_PACKAGE="$RESTORE_ROOT/.site-package.plaintext.tar.gz"
 RECIPIENT_KEY_ID=""
-PACKAGE_SHA256=""
-MANIFEST_SHA256=""
-MIGRATION_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
-SOURCE_BINDING="null"
-RESTORED_SOURCE="null"
-RESTORE_ROOT_EXISTED=0
-[[ ! -e "$RESTORE_ROOT" ]] || RESTORE_ROOT_EXISTED=1
+packageSha256=""
+manifestSha256=""
+migrationDll="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+sourceBinding="null"
+restoredSource="null"
+restoreRootExisted=0
+[[ ! -e "$RESTORE_ROOT" ]] || restoreRootExisted=1
 checks=()
 blockers=()
 status="ok"
@@ -88,10 +88,10 @@ WriteReport() {
         --arg status "$status" \
         --arg runId "$RUN_ID" \
         --arg packagePath "$BACKUP_PACKAGE" \
-        --arg packageSha256 "$PACKAGE_SHA256" \
-        --arg manifestSha256 "$MANIFEST_SHA256" \
-        --argjson sourceBinding "$SOURCE_BINDING" \
-        --argjson restoredSource "$RESTORED_SOURCE" \
+        --arg packageSha256 "$packageSha256" \
+        --arg manifestSha256 "$manifestSha256" \
+        --argjson sourceBinding "$sourceBinding" \
+        --argjson restoredSource "$restoredSource" \
         --arg restoreRoot "$RESTORE_ROOT" \
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg recipientKeyId "$RECIPIENT_KEY_ID" \
@@ -248,8 +248,8 @@ RestoreDatabase() {
         return
     }
     local targetSource
-    if [[ "$SOURCE_BINDING" != "null" ]]; then
-        if ! targetSource="$(ObserveDatabase)" || ! jq -e --argjson binding "$SOURCE_BINDING" \
+    if [[ "$sourceBinding" != "null" ]]; then
+        if ! targetSource="$(ObserveDatabase)" || ! jq -e --argjson binding "$sourceBinding" \
             '.Database.Provider == 0 and .Database != $binding.capture.Source.Database' <<<"$targetSource" >/dev/null; then
             AddBlocker "database-restore-target-not-isolated-or-unobserved"
             return
@@ -259,10 +259,10 @@ RestoreDatabase() {
         AddBlocker "database-restore-failed"
         return
     fi
-    if [[ "$SOURCE_BINDING" != "null" ]]; then
-        if ! RESTORED_SOURCE="$(ObserveDatabase)" || ! jq -e --argjson binding "$SOURCE_BINDING" --argjson target "$targetSource" \
-            '.Database == $target.Database and . == ($binding.capture.Source | .Database = $target.Database)' <<<"$RESTORED_SOURCE" >/dev/null; then
-            RESTORED_SOURCE="null"
+    if [[ "$sourceBinding" != "null" ]]; then
+        if ! restoredSource="$(ObserveDatabase)" || ! jq -e --argjson binding "$sourceBinding" --argjson target "$targetSource" \
+            '.Database == $target.Database and . == ($binding.capture.Source | .Database = $target.Database)' <<<"$restoredSource" >/dev/null; then
+            restoredSource="null"
             AddBlocker "database-restored-source-content-mismatch"
             return
         fi
@@ -275,7 +275,7 @@ RestoreDatabase() {
 ObserveDatabase() {
     local environmentFile="$RESTORE_ROOT/.source-observer.env" observed
     local hostValue databaseValue userValue passwordValue
-    if [[ ! -f "$MIGRATION_DLL" || -L "$MIGRATION_DLL" ]]; then
+    if [[ ! -f "$migrationDll" || -L "$migrationDll" ]]; then
         return 1
     fi
     if [[ ! "$PG_CONN_PORT" =~ ^[0-9]+$ || "$PG_CONN_HOST$PG_CONN_DB$PG_CONN_USER$PG_CONN_PASSWORD" == *$'\n'* || "$PG_CONN_HOST$PG_CONN_DB$PG_CONN_USER$PG_CONN_PASSWORD" == *$'\r'* ]]; then
@@ -287,7 +287,7 @@ ObserveDatabase() {
     passwordValue="${PG_CONN_PASSWORD//\"/\"\"}"
     printf 'ConnectionStrings__DefaultConnection=Host="%s";Port=%s;Database="%s";Username="%s";Password="%s"\n' \
         "$hostValue" "$PG_CONN_PORT" "$databaseValue" "$userValue" "$passwordValue" >"$environmentFile"
-    if ! observed="$("${DOTNET_BIN:-dotnet}" "$MIGRATION_DLL" observe-source --provider postgresql --env-file "$environmentFile")"; then
+    if ! observed="$("${DOTNET_BIN:-dotnet}" "$migrationDll" observe-source --provider postgresql --env-file "$environmentFile")"; then
         rm -f "$environmentFile"
         return 1
     fi
@@ -297,7 +297,7 @@ ObserveDatabase() {
 
 VerifyIsolatedRestorePaths() {
     local rootPath targetPath
-    if [[ "$RESTORE_ROOT_EXISTED" == "1" ]] || ! command -v realpath >/dev/null 2>&1; then
+    if [[ "$restoreRootExisted" == "1" ]] || ! command -v realpath >/dev/null 2>&1; then
         AddBlocker "database-bound-restore-root-not-fresh"
         return
     fi
@@ -347,13 +347,13 @@ DecryptPackage() {
     fi
 
     local envelopeInfo
-    PACKAGE_SHA256="$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')"
+    packageSha256="$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')"
     if ! envelopeInfo="$(node "$ENVELOPE_TOOL" "${decryptArgs[@]}")"; then
         AddBlocker "backup-envelope-authentication-or-decryption-failed"
         rm -f "$DECRYPTED_PACKAGE"
         return
     fi
-    if [[ "$PACKAGE_SHA256" != "$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')" ]]; then
+    if [[ "$packageSha256" != "$(sha256sum "$BACKUP_PACKAGE" | awk '{print $1}')" ]]; then
         AddBlocker "backup-package-changed-during-authentication"
         rm -f "$DECRYPTED_PACKAGE"
         return
@@ -402,13 +402,21 @@ VerifyPackageManifest() {
         AddBlocker "backup-manifest-invalid"
         return
     fi
-    MANIFEST_SHA256="$(sha256sum "$manifest" | awk '{print $1}')"
+    manifestSha256="$(sha256sum "$manifest" | awk '{print $1}')"
 
-    local label artifact digest actual
+    local label artifact digest actual expectedArtifact
     for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
+        case "$label" in
+            database) expectedArtifact="database.dump" ;;
+            uploads) expectedArtifact="uploads.tar.gz" ;;
+            dataProtectionKeyRing) expectedArtifact="data-protection-keyring.tar.gz" ;;
+            configRedacted) expectedArtifact="config.redacted.tar.gz" ;;
+            aotCache) expectedArtifact="aot-cache.tar.gz" ;;
+            searchIndex) expectedArtifact="search.tar.gz" ;;
+        esac
         artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$manifest")"
         digest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$manifest")"
-        if [[ -z "$artifact" || "$artifact" == */* || ! "$digest" =~ ^[0-9a-f]{64}$ || ! -f "$RESTORE_ROOT/package/$artifact" ]]; then
+        if [[ "$artifact" != "$expectedArtifact" || ! "$digest" =~ ^[0-9a-f]{64}$ || ! -f "$RESTORE_ROOT/package/$artifact" ]]; then
             AddBlocker "backup-manifest-artifact-invalid:$label"
             return
         fi
@@ -429,7 +437,7 @@ VerifyPackageManifest() {
             AddBlocker "backup-source-snapshot-binding-invalid"
             return
         fi
-        SOURCE_BINDING="$(jq -c '.sourceBinding' "$manifest")"
+        sourceBinding="$(jq -c '.sourceBinding' "$manifest")"
         VerifyIsolatedRestorePaths
     fi
 
@@ -455,6 +463,27 @@ VerifyPackageManifest() {
     rm -rf "$keyringVerify"
     AddCheck "backup-manifest" "verified"
     AddCheck "data-protection-key-generations" "$keyCount"
+}
+
+VerifyConsumedArtifacts() {
+    local manifest="$RESTORE_ROOT/package/manifest.json" label artifact expected actual
+    if [[ "$(sha256sum "$manifest" | awk '{print $1}')" != "$manifestSha256" ]]; then
+        AddBlocker "backup-manifest-changed-before-restore"
+        return
+    fi
+    for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
+        artifact="$(jq -r --arg label "$label" '.artifacts[$label]' "$manifest")"
+        expected="$(jq -r --arg label "$label" '.artifactDigests[$label]' "$manifest")"
+        actual="$(sha256sum "$RESTORE_ROOT/package/$artifact" | awk '{print $1}')"
+        if [[ "$actual" != "$expected" ]]; then
+            AddBlocker "backup-artifact-changed-before-restore:$label"
+            return
+        fi
+        if [[ "$label" != "database" ]] && ! ArchiveIsSafe "$RESTORE_ROOT/package/$artifact"; then
+            AddBlocker "backup-inner-artifact-archive-unsafe:$label"
+            return
+        fi
+    done
 }
 
 Main() {
@@ -495,6 +524,9 @@ Main() {
         AddBlocker "restore-confirmation-required"
     fi
 
+    if (("${#blockers[@]}" == 0)); then
+        VerifyConsumedArtifacts
+    fi
     if (("${#blockers[@]}" == 0)); then
         RestoreDatabase
     fi

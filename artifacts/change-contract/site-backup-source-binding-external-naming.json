@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/operations/backup-restore-drill.sh",
+                "tools/operations/backup-site.sh",
+                "tools/operations/restore-site.sh",
+                "tools/operations/test-backup-envelope-fixture.sh",
+                "tools/operations/test-backup-restore-drill-fixture.sh"
+            ],
+            "reason": "Preserve the caller-visible backup, restore, drill, Migration host and process environment keys while using camelCase for newly introduced internal aliases."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/security/site-backup-envelope.md"
+            ],
+            "reason": "Preserve literal caller-visible command options and contract spellings in the security Markdown path covered by the existing documentation exception; no DOM selector or token spelling is changed."
+        }
+    ]
+}

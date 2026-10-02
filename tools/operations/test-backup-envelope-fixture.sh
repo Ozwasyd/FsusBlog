@@ -97,8 +97,8 @@ PATH="$TMP_DIR/fake-bin:$PATH" \
     "$ROOT_DIR/tools/operations/backup-site.sh" >/dev/null
 
 test -s "$PACKAGE"
-PACKAGE_SHA256="$(sha256sum "$PACKAGE" | awk '{print $1}')"
-jq -e --arg packageSha256 "$PACKAGE_SHA256" '.packageSha256 == $packageSha256' \
+packageSha256="$(sha256sum "$PACKAGE" | awk '{print $1}')"
+jq -e --arg packageSha256 "$packageSha256" '.packageSha256 == $packageSha256' \
     "$TMP_DIR/backups/backup-site-issue-1099-fixture.json" >/dev/null
 jq -e '.status == "ok" and .packageEncryption.contentEncryption == "AES-256-GCM" and .packageEncryption.keyWrap == "RSA-OAEP-SHA256"' \
     "$TMP_DIR/backups/backup-site-issue-1099-fixture.json" >/dev/null
@@ -120,6 +120,29 @@ mkdir -p "$TMP_DIR/decrypted"
 tar -xzf "$DECRYPTED" -C "$TMP_DIR/decrypted"
 jq -e '.version == 2 and .dataProtection.encryptedKeyCount == 2 and .dataProtection.plaintextMasterKeyPresent == false' \
     "$TMP_DIR/decrypted/manifest.json" >/dev/null
+
+mkdir -p "$TMP_DIR/wrong-artifact-package"
+cp -a "$TMP_DIR/decrypted/." "$TMP_DIR/wrong-artifact-package/"
+cp "$TMP_DIR/wrong-artifact-package/database.dump" "$TMP_DIR/wrong-artifact-package/alternate.dump"
+jq '.artifacts.database = "alternate.dump"' "$TMP_DIR/wrong-artifact-package/manifest.json" \
+    >"$TMP_DIR/wrong-artifact-manifest.json"
+mv "$TMP_DIR/wrong-artifact-manifest.json" "$TMP_DIR/wrong-artifact-package/manifest.json"
+tar -czf "$TMP_DIR/wrong-artifact-package.tar.gz" -C "$TMP_DIR/wrong-artifact-package" .
+node "$ROOT_DIR/tools/operations/backup-envelope.mjs" encrypt \
+    --input "$TMP_DIR/wrong-artifact-package.tar.gz" \
+    --output "$TMP_DIR/wrong-artifact-package.fsbenc" \
+    --recipient "$TMP_DIR/recipient.pem" >/dev/null
+if PATH="$TMP_DIR/fake-bin:$PATH" \
+    FSUSBLOG_RESTORE_ROOT="$TMP_DIR/wrong-artifact-restore" \
+    FSUSBLOG_RESTORE_REPORT="$TMP_DIR/wrong-artifact-restore-report.json" \
+    FSUSBLOG_BACKUP_IDENTITY_FILE="$TMP_DIR/identity.pem" \
+    "$ROOT_DIR/tools/operations/restore-site.sh" \
+    --backup "$TMP_DIR/wrong-artifact-package.fsbenc" --dry-run >/dev/null 2>&1; then
+    printf '%s\n' 'restore-site accepted a digest-checked artifact other than its consumed filename' >&2
+    exit 1
+fi
+jq -e '.status == "blocked" and (.blockers | index("backup-manifest-artifact-invalid:database")) != null' \
+    "$TMP_DIR/wrong-artifact-restore-report.json" >/dev/null
 
 if node "$ROOT_DIR/tools/operations/backup-envelope.mjs" decrypt \
     --input "$PACKAGE" \
@@ -193,7 +216,7 @@ PATH="$TMP_DIR/fake-bin:$PATH" \
 
 jq -e '.status == "ok" and (.checks | index("site-package-envelope:authenticated")) != null and (.checks | index("data-protection-key-generations:2")) != null' \
     "$TMP_DIR/restore-report.json" >/dev/null
-jq -e --arg packageSha256 "$PACKAGE_SHA256" '.packageSha256 == $packageSha256' \
+jq -e --arg packageSha256 "$packageSha256" '.packageSha256 == $packageSha256' \
     "$TMP_DIR/restore-report.json" >/dev/null
 test -f "$TMP_DIR/restored-keyring/key-old.xml"
 test -f "$TMP_DIR/restored-keyring/key-current.xml"
