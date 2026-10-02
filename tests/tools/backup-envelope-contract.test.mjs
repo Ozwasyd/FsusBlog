@@ -195,6 +195,41 @@ test('the production shell budget parsers reject noncanonical or overflowing val
     }
 });
 
+test('read-only inspection reuses authenticated restore validation and never restores a target', async () =>
+{
+    const restore = await source('tools/operations/restore-site.sh');
+    const body = restore.match(/InspectAuthenticatedPackage\(\) \{[\s\S]*?\n\}/);
+    const entry = restore.match(/InspectPackage\(\) \{[\s\S]*?\n\}/);
+    assert.ok(body && entry);
+    assert.match(body[0], /DecryptPackage/);
+    assert.match(body[0], /ArchiveIsSafe/);
+    assert.match(body[0], /VerifyPackageManifest/);
+    assert.match(body[0], /VerifyConsumedArtifacts/);
+    assert.match(body[0], /manifestBase64:/);
+    assert.match(body[0], /sourceBinding:/);
+    assert.doesNotMatch(body[0], /RestoreDatabase|ObserveDatabase|RestoreTree|pg_restore|dotnet/);
+    assert.match(entry[0], /RunSourceCommand[\s\S]*InspectAuthenticatedPackage/);
+    assert.match(entry[0], /CleanupInspection/);
+    assert.ok(restore.indexOf('    if [[ "$inspectOnly" == "1" ]]; then\n        InspectPackage') < restore.indexOf('    mkdir -p "$RESTORE_ROOT/package"'));
+});
+
+test('inspection rejects missing or invalid explicit budget before any staging writes', () =>
+{
+    const script = new URL('tools/operations/restore-site.sh', root).pathname;
+    for (const value of [null, '0', '01', '+1', '2147484', '999999999999999999999'])
+    {
+        const args = [script, '--inspect-only', '--backup', '/nonexistent-inspection-package'];
+        if (value !== null)
+        {
+            args.push('--timeout-seconds', value);
+        }
+        const result = spawnSync('bash', args, { encoding: 'utf8', env: { ...process.env, FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS: '1' } });
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '');
+        assert.match(result.stderr, /inspection-timeout-invalid-or-missing/);
+    }
+});
+
 test('restore validators bind the canonical artifact names actually consumed', async () =>
 {
     const [restore, drill] = await Promise.all([
