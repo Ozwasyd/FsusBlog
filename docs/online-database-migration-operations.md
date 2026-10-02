@@ -168,6 +168,12 @@ perform fresh read-only admission; only uniquely labelled admission containers
 created by this invocation are removed. Command bytes and failed terminal reports
 are retained. Success additionally requires durable current rollout completion
 and replay of all 15 stages, six artifacts and 24 auxiliary references.
+Command stdout/stderr stream to invocation-owned raw files rather than accumulating
+in memory. Typed reads use the existing receipt limit or exact Docker identity
+projection bounds. Cleanup reuses the original process policy, verifies kernel
+group/start identity and invocation ownership before signalling, and requires two
+fresh zero-live-member observations; missing identity or pipe closure is a failed,
+retained terminal, not native process-tree qualification.
 
 The summary's `current-release-consumption` scope is not offline migration,
 real-provider crash/recovery, restored-backup, performance or complete issue

@@ -8,6 +8,8 @@ import { pathToFileURL } from 'node:url';
 import { isValidReleaseId } from '../release/release-id.mjs';
 import { spawn } from 'node:child_process';
 import { isDeepStrictEqual } from 'node:util';
+import { processGroupOrJobIdentityMatches } from '../test/process-identity.mjs';
+import { loadPhysicalExecutionProcessPolicy, terminatePhysicalExecutionAuthoritySync } from '../test/physical-execution-process-tree.mjs';
 
 export const CURRENT_REHEARSAL_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-plan.v2';
 const CURRENT_INPUT_FLAGS = Object.freeze({
@@ -136,48 +138,141 @@ export async function resolveCurrentRehearsalPlan(raw, context) {
     inputs, notificationResyncScenario, perceptionPolicyVersion: raw.perceptionPolicyVersion, timeoutSeconds };
 }
 
+function currentProcIdentity(pid, procRoot = '/proc') {
+  try {
+    const stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
+    const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u);
+    const bootId = fs.readFileSync(path.join(procRoot, 'sys/kernel/random/boot_id'), 'utf8').trim();
+    if (!/^\d+$/u.test(tail[19] ?? '') || !bootId) fail('current command kernel identity is incomplete');
+    return { pid, state: tail[0], processGroupId: Number(tail[2]), sessionId: Number(tail[3]),
+      processStartIdentity: `linux:${bootId}:${tail[19]}` };
+  } catch (error) { if (error.code === 'ENOENT' || error.code === 'ESRCH') return null; throw error; }
+}
+
+/** Only kernel group/start identity and an inherited invocation nonce; never a full executable-digest claim. */
+export function observeCurrentCommandGroup(authority, ownerToken, { procRoot = '/proc', knownStarts = new Map() } = {}) {
+  try {
+    const leader = currentProcIdentity(authority.leaderPid, procRoot);
+    if (leader && (leader.sessionId !== authority.groupId || !processGroupOrJobIdentityMatches(authority, { ...authority,
+      groupId: leader.processGroupId, leaderProcessStartIdentity: leader.processStartIdentity }))) fail('current command leader identity changed');
+    const identities = [];
+    for (const entry of fs.readdirSync(procRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !/^\d+$/u.test(entry.name)) continue;
+      const before = currentProcIdentity(Number(entry.name), procRoot);
+      if (!before || before.processGroupId !== authority.groupId || before.state === 'Z') continue;
+      const environment = fs.readFileSync(path.join(procRoot, entry.name, 'environ'), 'utf8').split('\0');
+      const after = currentProcIdentity(before.pid, procRoot);
+      if (!after) continue;
+      if (after.state === 'Z') continue;
+      if (after.processStartIdentity !== before.processStartIdentity || after.processGroupId !== authority.groupId
+        || after.sessionId !== authority.groupId
+        || !environment.includes(`FSUSBLOG_CURRENT_REHEARSAL_COMMAND_OWNER=${ownerToken}`)
+        || (knownStarts.has(after.pid) && knownStarts.get(after.pid) !== after.processStartIdentity)) fail('current command group ownership is unconfirmed');
+      knownStarts.set(after.pid, after.processStartIdentity);
+      identities.push(after);
+    }
+    return { status: 'verified', identities };
+  } catch (error) {
+    return { status: 'unverifiable', identities: [], reason: message(error) };
+  }
+}
+
 async function currentCommand(command, args, options) {
+  if (process.platform !== 'linux') fail('current command requires verifiable Linux process-group ownership');
+  const policy = loadPhysicalExecutionProcessPolicy();
   return new Promise(resolve => {
     const stdoutFd = fs.openSync(options.stdoutPath, 'wx', 0o600);
     const stderrFd = fs.openSync(options.stderrPath, 'wx', 0o600);
     const stdoutHash = crypto.createHash('sha256'), stderrHash = crypto.createHash('sha256');
-    const child = spawn(command, args, { cwd: options.cwd, env: options.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    const stdoutChunks = [], stderrChunks = [];
-    let failure = null, closed = false;
-    let hardTimer;
+    const ownerToken = crypto.randomUUID();
+    const child = spawn(command, args, { cwd: options.cwd,
+      env: { ...options.env, FSUSBLOG_CURRENT_REHEARSAL_COMMAND_OWNER: ownerToken }, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let failure = null, closed = false, finishing = false, pipeTimer = null;
+    let authority = null, termination = null;
+    const knownStarts = new Map();
+    try {
+      const initial = currentProcIdentity(child.pid);
+      if (!initial || initial.processGroupId !== child.pid || initial.sessionId !== child.pid) fail('spawned current command group identity is unconfirmed');
+      knownStarts.set(child.pid, initial.processStartIdentity);
+      authority = { schema: 'fsusblog.process-group-or-job-identity.v1', platform: 'linux', kind: 'process-group',
+        groupId: child.pid, leaderPid: child.pid, leaderProcessStartIdentity: initial.processStartIdentity };
+    } catch (error) { failure = error; }
+    const collectMembers = () => authority
+      ? observeCurrentCommandGroup(authority, ownerToken, { knownStarts })
+      : { status: 'unverifiable', identities: [], reason: 'spawn identity was not established' };
     const terminate = () => {
-      if (!closed && child.pid) {
-        try { process.kill(-child.pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
-        hardTimer ??= setTimeout(() => {
-          if (!closed) {
-            try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
-          }
-        }, 30_000);
+      if (closed || !authority) return;
+      termination = terminatePhysicalExecutionAuthoritySync({ authority, reason: 'current-rehearsal-owned-command', policy,
+        collectMembers, validateMembers: () => ({ status: 'verified' }) });
+      if (!termination.terminated || termination.postObservation !== 'zero-members') {
+        failure ??= new Error(`current command termination unconfirmed: ${termination.reason}`);
       }
     };
-    const onSignal = () => { failure ??= new Error('current rehearsal interrupted'); terminate(); };
+    const boundPipeClosure = () => {
+      if (closed || pipeTimer !== null) return;
+      pipeTimer = setTimeout(() => {
+        if (closed) return;
+        failure ??= new Error('current command pipes did not close within the original process policy');
+        terminate();
+        // An unconfirmed inventory remains a failure, never a successful terminal. Closing our
+        // readers cannot prove an escaped process absent; retain the observed authority below.
+        child.stdout.destroy(); child.stderr.destroy(); child.unref();
+        complete(null, null);
+      }, policy.pipeCloseTimeoutMs);
+    };
+    const onSignal = () => { failure ??= new Error('current rehearsal interrupted'); terminate(); boundPipeClosure(); };
     for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, onSignal);
-    const timer = setTimeout(() => { failure ??= new Error('current rehearsal command timed out'); terminate(); }, options.timeoutSeconds * 1000);
+    const timer = setTimeout(() => { failure ??= new Error('current rehearsal command timed out'); terminate(); boundPipeClosure(); }, options.timeoutSeconds * 1000);
     for (const [stream, key] of [[child.stdout, 'stdout'], [child.stderr, 'stderr']]) stream.on('data', chunk => {
+      if (closed) return;
       try {
         fs.writeFileSync(key === 'stdout' ? stdoutFd : stderrFd, chunk);
         (key === 'stdout' ? stdoutHash : stderrHash).update(chunk);
-        if (options.capture !== false) {
-          (key === 'stdout' ? stdoutChunks : stderrChunks).push(chunk);
-        }
       } catch (error) {
-        failure ??= error; terminate();
+        failure ??= error; terminate(); boundPipeClosure();
       }
     });
     const cleanup = () => {
-      clearTimeout(timer); clearTimeout(hardTimer);
+      clearTimeout(timer);
+      if (pipeTimer !== null) clearTimeout(pipeTimer);
       for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.off(signal, onSignal);
       fs.closeSync(stdoutFd); fs.closeSync(stderrFd);
     };
     child.once('error', error => { failure ??= error; });
-    child.once('close', (exitCode, signal) => { closed = true; cleanup(); resolve({ command, args, pid: child.pid,
-      exitCode, signal, stdout: Buffer.concat(stdoutChunks).toString('utf8'), stderr: Buffer.concat(stderrChunks).toString('utf8'),
-      stdoutSha256: stdoutHash.digest('hex'), stderrSha256: stderrHash.digest('hex'), failure: failure?.message ?? null }); });
+    child.once('exit', () => {
+      const observed = collectMembers();
+      if (observed.status === 'verified' && observed.identities.length > 0) {
+        failure ??= new Error('current command leader exited with live group members');
+        terminate();
+      } else if (observed.status !== 'verified') {
+        failure ??= new Error(`current command exit inventory unconfirmed: ${observed.reason}`);
+      }
+      boundPipeClosure();
+    });
+    const complete = async (exitCode, signal) => {
+      if (closed || finishing) return;
+      finishing = true;
+      const initial = collectMembers();
+      if (initial.status === 'verified' && initial.identities.length > 0) {
+        failure ??= new Error('current command leader closed with live group members');
+        terminate();
+      }
+      let zeroObservations = 0;
+      for (let index = 0; index < policy.zeroMemberObservations; index += 1) {
+        const observed = collectMembers();
+        if (observed.status !== 'verified' || observed.identities.length !== 0) {
+          failure ??= new Error(`current command group terminal unconfirmed: ${observed.reason ?? 'live members remain'}`);
+          break;
+        }
+        zeroObservations += 1;
+        if (index + 1 < policy.zeroMemberObservations) await delay(policy.observationIntervalMs);
+      }
+      closed = true; cleanup(); resolve({ command, args, pid: child.pid, exitCode, signal,
+        processGroup: { authority, ownerToken, zeroObservations, termination,
+          postObservation: zeroObservations === policy.zeroMemberObservations ? 'zero-members' : 'unverifiable' },
+        stdoutSha256: stdoutHash.digest('hex'), stderrSha256: stderrHash.digest('hex'), failure: failure?.message ?? null });
+    };
+    child.once('close', complete);
   });
 }
 
@@ -207,14 +302,18 @@ export async function runCurrentRehearsal(resolved, { mode, runId }) {
   fs.mkdirSync(path.dirname(runRoot), { recursive: true, mode: 0o700 });
   fs.mkdirSync(runRoot, { mode: 0o700 });
   const commands = [], errors = [];
-  const command = async (name, binary, args, env = process.env, { allowFailure = false, capture = true, timeoutSeconds = resolved.timeoutSeconds } = {}) => {
+  const command = async (name, binary, args, env = process.env, { allowFailure = false, stdoutMaximum = null, timeoutSeconds = resolved.timeoutSeconds } = {}) => {
     const stdout = path.join(runRoot, `${commands.length}-${name}.stdout`);
     const stderr = path.join(runRoot, `${commands.length}-${name}.stderr`);
-    const result = await currentCommand(binary, args, { cwd: resolved.repoRoot, env, timeoutSeconds, capture, stdoutPath: stdout, stderrPath: stderr });
+    const result = await currentCommand(binary, args, { cwd: resolved.repoRoot, env, timeoutSeconds, stdoutPath: stdout, stderrPath: stderr });
     commands.push({ name, command: binary, args, pid: result.pid, exitCode: result.exitCode, signal: result.signal,
-      failure: result.failure, stdout: { path: stdout, sha256: result.stdoutSha256 },
+      failure: result.failure, processGroup: result.processGroup, stdout: { path: stdout, sha256: result.stdoutSha256 },
       stderr: { path: stderr, sha256: result.stderrSha256 } });
     if (!allowFailure && (result.failure || result.exitCode !== 0)) fail(`${name} failed: ${result.failure ?? result.exitCode ?? result.signal}`);
+    // Only bounded typed stdout is read. stderr and release/rm output stay in their original raw files.
+    if (!result.failure && result.exitCode === 0 && stdoutMaximum !== null) {
+      result.stdout = new TextDecoder('utf-8', { fatal: true }).decode(currentFileBytes(stdout, stdoutMaximum));
+    }
     return result;
   };
   const verifyInputsUnchanged = () => {
@@ -243,10 +342,12 @@ export async function runCurrentRehearsal(resolved, { mode, runId }) {
           '--mount', `type=bind,source=${receipt.reference},target=/run/current/receipt.json,readonly`,
           '--entrypoint', '/app/FsusBlog.Server', manifest.value.imageRef,
           'current-schema-check', '--env-file', '/run/current/production.env', '--receipt', '/run/current/receipt.json',
-          '--receipt-sha256', receipt.sha256, '--candidate-source-revision', manifest.value.commitSha])).stdout.trim();
+          '--receipt-sha256', receipt.sha256, '--candidate-source-revision', manifest.value.commitSha], process.env, { stdoutMaximum: 65 })).stdout.trim();
         if (!/^[0-9a-f]{64}$/u.test(created)) fail('admission container ID is invalid');
         container = created;
-        const output = JSON.parse((await command(`${role}-admission`, 'docker', ['start', '--attach', container])).stdout);
+        // The sole Server projects six fields from the original <=1MiB Shared receipt codec; no new global log limit.
+        const output = JSON.parse((await command(`${role}-admission`, 'docker', ['start', '--attach', container], process.env,
+          { stdoutMaximum: 1024 * 1024 })).stdout);
         const bindingErrors = validateCurrentSchemaAdmissionOutput(output, manifest.value.currentSchema, manifest.value.commitSha);
         if (bindingErrors.length) fail(bindingErrors.join('\n'));
         if (currentWholeSha(currentFileBytes(manifest.file)) !== manifest.sha256
@@ -256,15 +357,17 @@ export async function runCurrentRehearsal(resolved, { mode, runId }) {
         throw error;
       } finally {
         // A lost create response is not success. Inspect the uniquely labelled task container before cleanup.
-        const inspect = await command(`${role}-inspect`, 'docker', ['inspect', name], process.env, { allowFailure: true, timeoutSeconds: 30 });
+        const format = '{"Id":{{json .Id}},"Name":{{json .Name}},"Owner":{{json (index .Config.Labels "io.fsusblog.rehearsal.owner")}}}';
+        const maximum = Buffer.byteLength(JSON.stringify({ Id: 'f'.repeat(64), Name: `/${name}`, Owner: name })) + 1;
+        const inspect = await command(`${role}-inspect`, 'docker', ['inspect', '--format', format, name], process.env,
+          { allowFailure: true, timeoutSeconds: 30, stdoutMaximum: maximum });
         if (inspect.exitCode === 0 && !inspect.failure) {
           const value = JSON.parse(inspect.stdout);
-          const owned = value.length === 1 && value[0].Name === `/${name}`
-            && value[0].Config?.Labels?.['io.fsusblog.rehearsal.owner'] === name
-            && /^[0-9a-f]{64}$/u.test(value[0].Id)
-            && (container === null || container === value[0].Id);
+          const owned = isDeepStrictEqual(Object.keys(value).sort(), ['Id', 'Name', 'Owner'])
+            && value.Name === `/${name}` && value.Owner === name && /^[0-9a-f]{64}$/u.test(value.Id)
+            && (container === null || container === value.Id);
           if (!owned) fail('admission cleanup ownership is not confirmed');
-          await command(`${role}-remove`, 'docker', ['rm', '--force', value[0].Id]);
+          await command(`${role}-remove`, 'docker', ['rm', '--force', value.Id]);
         } else fail('admission container absence or cleanup could not be confirmed; inspect failure retained');
       }
     }
@@ -290,7 +393,7 @@ export async function runCurrentRehearsal(resolved, { mode, runId }) {
       FSUSBLOG_GATEWAY_EVIDENCE_DIR: path.join(runtime, 'gateway-evidence'),
       FSUSBLOG_ROLLOUT_DISK_PATH: runtime, FSUSBLOG_ROLLOUT_SOURCE_MANIFEST: resolved.manifests.source.file,
       FSUSBLOG_ROLLOUT_NOTIFICATION_RESYNC_SCENARIO: resolved.notificationResyncScenario };
-    await command('current-release', 'bash', [path.join(resolved.repoRoot, 'tools/deployment/release-rollout.sh'), ...args], env, { capture: false });
+    await command('current-release', 'bash', [path.join(resolved.repoRoot, 'tools/deployment/release-rollout.sh'), ...args], env);
     verifyInputsUnchanged();
     for (const manifest of Object.values(resolved.manifests)) {
       if (currentWholeSha(currentFileBytes(manifest.file)) !== manifest.sha256

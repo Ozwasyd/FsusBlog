@@ -450,6 +450,90 @@ if (runsFixtureShard('base'))
         assert.notEqual(different.status, 0);
         assert.match(currentSummary(fixture, 'different-report-rollout').errors.join('\n'), /completed current evidence bindings differ/u);
     });
+
+    test('native stderr stays in raw files while oversized typed create and admission stdout refuse without heap capture', async t =>
+    {
+        const fixture = createCurrentFixture(t);
+        for (const [name, flag, commandName] of [
+            ['create', 'FSUSBLOG_CURRENT_FIXTURE_LARGE_CREATE', 'source-create'],
+            ['admission', 'FSUSBLOG_CURRENT_FIXTURE_LARGE_ADMISSION', 'source-admission']
+        ])
+        {
+            const rejected = await runCurrentFixture(fixture, 'normal', 'large-typed-' + name, { [flag]: '1' });
+            assert.notEqual(rejected.status, 0);
+            const report = currentSummary(fixture, 'large-typed-' + name);
+            assert.equal(fs.statSync(report.commands.find(command => command.name === commandName).stdout.path).size, 2 * 1024 * 1024);
+            assert.equal(report.commands.some(command => command.name === 'current-release'), false);
+            assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+        const control = await runCurrentFixture(fixture, 'normal', 'large-stderr-control', { FSUSBLOG_CURRENT_FIXTURE_STDERR: '1' });
+        assert.equal(control.status, 0, control.stderr);
+        const report = currentSummary(fixture, 'large-stderr-control');
+        assert.equal(fs.statSync(report.commands.find(command => command.name === 'source-create').stderr.path).size, 2 * 1024 * 1024);
+        for (const command of report.commands)
+        {
+            assert.equal(command.processGroup.postObservation, 'zero-members');
+            assert.equal(command.processGroup.zeroObservations, 2);
+            assert.equal(command.processGroup.authority.leaderPid, command.pid);
+            assert.match(command.processGroup.authority.leaderProcessStartIdentity, /^linux:[0-9a-f-]+:\d+$/u);
+        }
+    });
+
+    test('command deadline terminates actual owned TERM and KILL leaders and observes stable zero membership', async t =>
+    {
+        for (const kind of ['term', 'kill'])
+        {
+            const fixture = createCurrentFixture(t);
+            const result = await runCurrentFixture(fixture, 'normal', 'deadline-' + kind,
+                { FSUSBLOG_CURRENT_FIXTURE_HANG: kind });
+            assert.notEqual(result.status, 0, result.stderr);
+            const report = currentSummary(fixture, 'deadline-' + kind);
+            const command = report.commands.find(command => command.name === 'current-release');
+            assert.match(command.failure, /timed out/u);
+            assert.equal(command.processGroup.termination.terminated, true);
+            assert.equal(command.processGroup.termination.forced, kind === 'kill');
+            assert.equal(command.processGroup.zeroObservations, 2);
+            assert.equal(command.processGroup.postObservation, 'zero-members');
+            const pid = Number(fs.readFileSync(path.join(fixture.root, 'owned-command.pid'), 'utf8'));
+            assert.equal(command.pid, pid);
+            assert.equal(fs.existsSync('/proc/' + pid), false);
+            assert.equal(fs.existsSync(fixture.raw.rollout.stateFile), false);
+            assert.deepEqual(fs.readdirSync(fixture.containers), []);
+        }
+    });
+
+    test('kernel group collector refuses reused leader and unowned members instead of treating leader close as terminal', async t =>
+    {
+        const { observeCurrentCommandGroup } = await import('../../tools/deployment/zero-downtime-rehearsal-plan.mjs');
+        const procRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-group-kernel-fixture-'));
+        t.after(() => fs.rmSync(procRoot, { recursive: true, force: true }));
+        fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+        fs.writeFileSync(path.join(procRoot, 'sys/kernel/random/boot_id'), 'fixture-boot\n');
+        const writeProcess = (pid, start, token, group = 42) => {
+            const directory = path.join(procRoot, String(pid)); fs.mkdirSync(directory, { recursive: true });
+            const fields = Array(20).fill('0');
+            fields[0] = 'S'; fields[1] = '1'; fields[2] = String(group); fields[3] = '42'; fields[19] = String(start);
+            fs.writeFileSync(path.join(directory, 'stat'), String(pid) + ' (fixture) ' + fields.join(' '));
+            fs.writeFileSync(path.join(directory, 'environ'), 'FSUSBLOG_CURRENT_REHEARSAL_COMMAND_OWNER=' + token + '\0');
+        };
+        const authority = { schema: 'fsusblog.process-group-or-job-identity.v1', platform: 'linux', kind: 'process-group',
+            groupId: 42, leaderPid: 42, leaderProcessStartIdentity: 'linux:fixture-boot:100' };
+        writeProcess(42, 100, 'owned'); writeProcess(43, 200, 'owned');
+        const knownStarts = new Map();
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).identities.length, 2);
+        writeProcess(42, 101, 'owned');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).status, 'unverifiable');
+        writeProcess(42, 100, 'owned'); writeProcess(43, 200, 'foreign');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).status, 'unverifiable');
+        writeProcess(43, 201, 'owned');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).status, 'unverifiable');
+        fs.rmSync(path.join(procRoot, '42'), { recursive: true });
+        writeProcess(43, 200, 'owned');
+        assert.equal(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }).identities.length, 1);
+        fs.rmSync(path.join(procRoot, '43'), { recursive: true });
+        assert.deepEqual(observeCurrentCommandGroup(authority, 'owned', { procRoot, knownStarts }), { status: 'verified', identities: [] });
+    });
 }
 
 /** Recording component actors only; never issued/native/provider/backup qualification. */
@@ -555,8 +639,9 @@ if (kind === 'create') {
     if (!role || !args.includes(config.manifests[role].imageRef)) process.exit(40);
     fs.writeFileSync(path.join(config.containers, name + '.json'), JSON.stringify({
         Id: id, Name: '/' + name, Config: { Labels: { 'io.fsusblog.rehearsal.owner': name } }, role }));
+    if (process.env.FSUSBLOG_CURRENT_FIXTURE_STDERR === '1') process.stderr.write('e'.repeat(2 * 1024 * 1024));
     if (process.env.FSUSBLOG_CURRENT_FIXTURE_LOST_CREATE === '1') process.exit(22);
-    process.stdout.write(id + '\n');
+    process.stdout.write(process.env.FSUSBLOG_CURRENT_FIXTURE_LARGE_CREATE === '1' ? 'f'.repeat(2 * 1024 * 1024) : id + '\n');
 } else if (kind === 'start') {
     const owned = fs.readdirSync(config.containers).map(name => JSON.parse(fs.readFileSync(path.join(config.containers, name))))
         .find(value => value.Id === args.at(-1));
@@ -575,9 +660,11 @@ if (kind === 'create') {
         else if (bad === 'status') delete output.status;
         else if (bad === 'extra') output.approved = true;
     }
-    process.stdout.write(JSON.stringify(output) + '\n');
+    process.stdout.write(process.env.FSUSBLOG_CURRENT_FIXTURE_LARGE_ADMISSION === '1' ? 'x'.repeat(2 * 1024 * 1024) : JSON.stringify(output) + '\n');
 } else if (kind === 'inspect') {
-    process.stdout.write(JSON.stringify([JSON.parse(fs.readFileSync(path.join(config.containers, args[1] + '.json')))]) + '\n');
+    const value = JSON.parse(fs.readFileSync(path.join(config.containers, args.at(-1) + '.json')));
+    process.stdout.write(JSON.stringify({ Id: value.Id, Name: value.Name,
+        Owner: value.Config.Labels['io.fsusblog.rehearsal.owner'] }) + '\n');
 } else if (kind === 'rm') {
     const name = fs.readdirSync(config.containers).find(name => JSON.parse(fs.readFileSync(path.join(config.containers, name))).Id === args.at(-1));
     if (!name) process.exit(42);
@@ -590,7 +677,11 @@ const fs = require('node:fs'), path = require('node:path');
 const config = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_CURRENT_FIXTURE_CONFIG));
 const args = process.argv.slice(2);
 fs.appendFileSync(config.log, JSON.stringify({ kind: 'release', args }) + '\n');
-if (process.env.FSUSBLOG_CURRENT_FIXTURE_KILL === '1') {
+if (process.env.FSUSBLOG_CURRENT_FIXTURE_HANG) {
+    fs.writeFileSync(path.join(config.root, 'owned-command.pid'), String(process.pid));
+    if (process.env.FSUSBLOG_CURRENT_FIXTURE_HANG === 'kill') process.on('SIGTERM', () => {});
+    setInterval(() => {}, 1000);
+} else if (process.env.FSUSBLOG_CURRENT_FIXTURE_KILL === '1') {
     fs.copyFileSync(config.fixtureState, config.raw.rollout.stateFile);
     process.kill(process.pid, 'SIGKILL');
 } else {
@@ -630,7 +721,6 @@ function runCurrentFixture(fixture, mode, runId, overrides = {})
             if (status !== 0 && fs.existsSync(summary)) {
                 const report = readJson(summary);
                 stderr += JSON.stringify(report.errors);
-                for (const command of report.commands) stderr += fs.readFileSync(command.stderr.path, 'utf8');
             }
             resolve({ status, signal, stdout, stderr });
         });
