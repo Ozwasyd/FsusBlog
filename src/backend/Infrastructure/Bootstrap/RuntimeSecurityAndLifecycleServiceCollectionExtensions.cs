@@ -157,6 +157,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ICacheInitializer, CacheInitializer>();
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
+        services.AddSingleton<CurrentSchemaAdmissionState>();
         services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
         services.AddScoped<IAccountSubjectHashInvariantGate, AccountSubjectHashInvariantGate>();
         if (!OpenApiExportMode.IsEnabled(configuration))
