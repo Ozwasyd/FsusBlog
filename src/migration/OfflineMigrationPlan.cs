@@ -163,6 +163,40 @@ internal static class OfflineMigrationPlanBuilder
 
 internal static class OfflineMigrationPlanVerifier
 {
+    // A completed apply no longer has the pre-migration live shape. Its owner must
+    // authenticate the original backup observations and first AttemptStarted journal
+    // time before entering this pure closure verifier; payload assertions are not evidence.
+    // Fresh current schema and each actual postcondition remain the independent verifier's
+    // responsibility. Revalidation here neither executes nor authorizes the old plan.
+    internal static VerifiedOfflineMigrationPlan VerifyForCompletedApplyBindings(
+        OfflineMigrationPlan plan,
+        ReadOnlySpan<byte> observedPlanArtifact,
+        CurrentSchemaArtifactReference artifact,
+        OfflineMigrationBackupObservation authenticatedBackup,
+        CurrentSchemaTargetIdentity currentTarget,
+        CurrentSchemaVerifierIdentity retainedPlanTool,
+        OfflineMigrationSourceRegistry registry,
+        OfflineMigrationDag dag,
+        DateTimeOffset recordedFirstApplyAdmissionTime,
+        TimeSpan maximumBackupAge)
+    {
+        OfflineMigrationPlanValidation.RequireText(artifact.Reference, "offline_plan_artifact_reference_invalid");
+        OfflineMigrationPlanValidation.RequireDigest(artifact.Sha256, "offline_plan_artifact_digest_invalid");
+        if (Convert.ToHexStringLower(SHA256.HashData(observedPlanArtifact)) != artifact.Sha256
+            || !observedPlanArtifact.SequenceEqual(OfflineMigrationPlanCodec.Serialize(plan)))
+        {
+            throw new InvalidOperationException("offline_plan_artifact_bytes_mismatch");
+        }
+
+        if (recordedFirstApplyAdmissionTime == default || recordedFirstApplyAdmissionTime.Offset != TimeSpan.Zero)
+        {
+            throw new InvalidOperationException("offline_plan_apply_admission_time_invalid");
+        }
+
+        return Verify(plan, authenticatedBackup.SourceAtCapture, authenticatedBackup, currentTarget,
+            retainedPlanTool, registry, dag, recordedFirstApplyAdmissionTime, maximumBackupAge);
+    }
+
     // Rebuild closure from the authority's registry/DAG and fresh observations, not from the
     // payload's assertions. Do not invoke the builder or trust a public "verified" flag.
     internal static VerifiedOfflineMigrationPlan Verify(
