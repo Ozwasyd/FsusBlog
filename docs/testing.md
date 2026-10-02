@@ -874,6 +874,8 @@ before output. Existing dispositions retain their semantic owners; the generated
 registry's locations, source/syntax identities and content seal come only from
 the original producer. Adding this source input is not a regenerated registry,
 service admission, current MySQL result or issue acceptance.
+The `validate-matrix` cache inputs and its physical producer's declared inputs
+both include this exact seed module and `tests/migration/MySqlDdlFixture.cs`.
 
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 

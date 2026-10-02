@@ -7,6 +7,7 @@ import test from 'node:test';
 const {readRetryPolicyRegistry, sealContentDigest} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const {hiddenRetryScannerVersion, scanHiddenRetries, sourceDigest, validateRetryDispositionRegistry} = await import(new URL('../../tools/test/hidden-retry-scanner.mjs', import.meta.url));
 const {retryDispositionSeeds, resolveRetryDispositionSeeds} = await import(new URL('../../tools/test/retry-disposition-seeds.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 
 function fixture(files)
@@ -89,6 +90,20 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     );
     assert.doesNotMatch(execute, /\b(?:for|while)\s*\(|Task\.Delay/u);
     assert.match(execute, /return DockerAsync\(\[\.\. args\], cancellationToken\);/u);
+});
+
+test('MySQL startup source authority is registered in matrix cache and physical producer inputs', () =>
+{
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const tier = matrix.tiers.find((entry) => entry.id === 'validate-matrix');
+    assert.equal(tier.command, 'tools/test/run-matrix-governance-once.sh validate-matrix');
+    const script = fs.readFileSync(path.join(root, 'tools/test/run-matrix-governance-once.sh'), 'utf8');
+    const declaredPhysicalInputs = [...script.matchAll(/^    --path ([^\s]+) \\/gmu)].map((match) => match[1]);
+    for (const source of ['tools/test/retry-disposition-seeds.mjs', 'tests/migration/MySqlDdlFixture.cs'])
+    {
+        assert.equal(tier.cacheInputs.filter((input) => input === source).length, 1, source);
+        assert.equal(declaredPhysicalInputs.filter((input) => input === source).length, 1, source);
+    }
 });
 
 test('MySQL startup disposition resolves one actual scanner finding without generated seed fields', () =>

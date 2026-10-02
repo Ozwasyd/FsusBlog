@@ -1437,6 +1437,8 @@ tiers:
               tools/test/verify-execution-envelope.mjs,
               tools/test/attempt-provenance.mjs,
               tools/test/hidden-retry-scanner.mjs,
+              tools/test/retry-disposition-seeds.mjs,
+              tests/migration/MySqlDdlFixture.cs,
               tools/test/check-hidden-retries.mjs,
               tools/test/check-clean-attempt-consumers.mjs,
               tools/test/correctness-attempt-producers.mjs,
