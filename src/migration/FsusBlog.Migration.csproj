@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="SqlSugarCoreNoDrive" />
   </ItemGroup>
