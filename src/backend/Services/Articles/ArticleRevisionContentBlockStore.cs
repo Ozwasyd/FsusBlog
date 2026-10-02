@@ -1,7 +1,6 @@
 using System.Data.Common;
-using System.Security.Cryptography;
-using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Data;
 
@@ -45,9 +44,9 @@ public static class ArticleRevisionContentBlockStore
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string content = markdownContent ?? string.Empty;
-        byte[] utf8 = Encoding.UTF8.GetBytes(content);
-        string hash = Convert.ToHexString(SHA256.HashData(utf8));
+        ArticleRevisionContentAddress address = ArticleRevisionContentAddress.Compute(markdownContent);
+        string content = address.MarkdownContent;
+        string hash = address.ContentHash;
 
         // Content blocks are immutable and may outlive a rolled-back revision transaction.
         // Committing the block independently prevents unrelated article transactions that use
@@ -65,7 +64,7 @@ public static class ArticleRevisionContentBlockStore
             """,
             new SugarParameter("@ContentHash", hash),
             new SugarParameter("@MarkdownContent", content),
-            new SugarParameter("@ByteLength", utf8.Length),
+            new SugarParameter("@ByteLength", address.ByteLength),
             new SugarParameter("@CreatedAt", createdAtUtc));
         if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {

@@ -47,7 +47,8 @@ internal sealed record ArticlePreservationLimits(int MaximumArticles, int Maximu
 internal sealed record ArticlePreservationArticleWritePlan(
     LegacyArticlePreservationRow Source, ArticlePreservationCurrentData Current,
     CurrentSchemaArtifactReference CurrentArtifact, ArticleRightsCanonicalBinding Canonical,
-    string RawMarkdownSha256, string ResponsibilityDigest, string SemanticDigest);
+    string RawMarkdownSha256, string ResponsibilityDigest, string SemanticDigest,
+    ArticleRevisionContentAddress ContentAddress);
 /// <summary>
 /// Pure immutable write input and content-addressed obligations, not a grant, database commit,
 /// physical media verification, or current-schema receipt.

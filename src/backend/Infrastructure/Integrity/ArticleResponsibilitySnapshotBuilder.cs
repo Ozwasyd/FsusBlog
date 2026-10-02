@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 
@@ -7,8 +5,6 @@ namespace FsusBlog.Server.Infrastructure.Integrity;
 
 public static class ArticleResponsibilitySnapshotBuilder
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-
     public static ArticleResponsibilitySnapshot Build(
         int articleId,
         long revisionId,
@@ -27,9 +23,7 @@ public static class ArticleResponsibilitySnapshotBuilder
             throw new InvalidOperationException($"responsibility_evaluation_failed:{firstError.Code}");
         }
 
-        string authorsJson = JsonSerializer.Serialize(draft.Authors, s_jsonOptions);
-        string? reviewerJson = draft.Reviewer is null ? null : JsonSerializer.Serialize(draft.Reviewer, s_jsonOptions);
-        string sourcesJson = JsonSerializer.Serialize(draft.Sources, s_jsonOptions);
+        ArticleResponsibilityStorageEncoding encoded = ArticleResponsibilityStorageEncoding.Encode(draft);
 
         return new ArticleResponsibilitySnapshot
         {
@@ -39,9 +33,9 @@ public static class ArticleResponsibilitySnapshotBuilder
             ResponsibilityVersion = responsibilityVersion,
             PreviousSnapshotId = previousSnapshotId,
             InheritSiteAuthor = draft.InheritSiteAuthor,
-            AuthorsJson = authorsJson,
-            ReviewerJson = reviewerJson,
-            SourcesJson = sourcesJson,
+            AuthorsJson = encoded.AuthorsJson,
+            ReviewerJson = encoded.ReviewerJson,
+            SourcesJson = encoded.SourcesJson,
             UpdateSummary = draft.UpdateSummary,
             UpdateReason = draft.UpdateReason,
             EffectiveAt = draft.EffectiveAt,

@@ -140,4 +140,48 @@ public sealed class CurrentArticleContractTests
         Assert.False(draft.ResponsiblePersonConfirmed);
         Assert.Contains(ArticleResponsibilityGovernance.Evaluate(draft), static issue => issue.Severity == "error");
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("body")]
+    [InlineData("body\n")]
+    [InlineData("Cafe\u0301 中文 😀\r\n")]
+    public void CurrentContentBlockAddress_PreservesOriginalRawUtf8LengthAndUppercaseHash(string? markdown)
+    {
+        ArticleRevisionContentAddress address = ArticleRevisionContentAddress.Compute(markdown);
+        byte[] original = System.Text.Encoding.UTF8.GetBytes(markdown ?? string.Empty);
+        Assert.Equal(markdown ?? string.Empty, address.MarkdownContent);
+        Assert.Equal(original.Length, address.ByteLength);
+        Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(original)), address.ContentHash);
+        Assert.Equal(address.ContentHash.ToUpperInvariant(), address.ContentHash);
+    }
+
+    [Fact]
+    public void CurrentRevisionTagEncoding_PreservesOriginalSortingAndDoesNotAddFilteringOrDeduplication()
+    {
+        int[] tags = [3, -1, 3, 1];
+        Assert.Equal("-1,1,3,3", ArticleRevisionStorageEncoding.EncodeTagIds(tags));
+        Assert.Equal(string.Empty, ArticleRevisionStorageEncoding.EncodeTagIds([]));
+        Assert.Equal(string.Join(',', tags.OrderBy(static id => id)), ArticleRevisionStorageEncoding.EncodeTagIds(tags));
+    }
+
+    [Fact]
+    public void CurrentResponsibilityJson_PreservesAllThreeOriginalWebEncodedFieldsWithoutApprovingTheDraft()
+    {
+        ArticleResponsibilityDraft draft = ArticleCurrentPolicyDefaults.ResponsibilityDraft() with
+        {
+            Authors = [new("中文作者", "https://author.example/profile")],
+            Reviewer = new("reviewer", null),
+            Sources = [new("source", "https://source.example/reference", "primary", new(2026, 5, 17), "v1", "citation", false)]
+        };
+        var originalOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        ArticleResponsibilityStorageEncoding encoded = ArticleResponsibilityStorageEncoding.Encode(draft);
+        Assert.Equal(JsonSerializer.Serialize(draft.Authors, originalOptions), encoded.AuthorsJson);
+        Assert.Equal(JsonSerializer.Serialize(draft.Reviewer, originalOptions), encoded.ReviewerJson);
+        Assert.Equal(JsonSerializer.Serialize(draft.Sources, originalOptions), encoded.SourcesJson);
+        Assert.False(draft.ResponsiblePersonConfirmed);
+        Assert.Contains(ArticleResponsibilityGovernance.Evaluate(draft), static issue => issue.Severity == "error");
+        Assert.Null(ArticleResponsibilityStorageEncoding.Encode(draft with { Reviewer = null }).ReviewerJson);
+    }
 }

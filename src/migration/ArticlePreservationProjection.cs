@@ -146,7 +146,8 @@ internal static class ArticlePreservationProjection
                 "article-preservation-responsibility-v1", new { target.Responsibility, target.ConfiguredSiteAuthor });
             string semanticDigest = ArticlePreservationSemanticReceipt.Digest(
                 "article-preservation-article-v1", new { Source = row, Current = target, canonical, markdownDigest, responsibilityDigest });
-            articles.Add(new(row, target, package.Artifact, canonical, markdownDigest, responsibilityDigest, semanticDigest));
+            articles.Add(new(row, target, package.Artifact, canonical, markdownDigest, responsibilityDigest, semanticDigest,
+                ArticleRevisionContentAddress.Compute(row.Markdown)));
             ArticleMediaPreservation.AppendSourceDocument(documents, new(row.Id, null, row.Markdown, data.DocumentBase));
         }
         ArticleMediaPreservation.ValidateInventory(media, mediaLimits);
