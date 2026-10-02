@@ -532,7 +532,7 @@ function isAutoPropertyAccessorLine(value)
     ).test(value);
 }
 
-function hasInlineBlockOpeningBrace(value)
+function hasInlineBlockOpeningBrace(value, recordWithExpression = false)
 {
     if (value === '{')
     {
@@ -546,7 +546,7 @@ function hasInlineBlockOpeningBrace(value)
             continue;
         }
 
-        if (/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix))
+        if (!recordWithExpression && /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix))
         {
             return true;
         }
@@ -1013,6 +1013,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
     const xmlScope = isXmlDocScope(file, xmlScopePatterns);
     const xmlMemberScope = isXmlDocScope(file, xmlMemberScopePatterns);
     const segmentedMethodNames = isXmlDocScope(file, segmentedMethodScopePatterns);
+    let parenthesisDepth = 0;
 
     for (let index = 0; index < lines.length; index += 1)
     {
@@ -1020,6 +1021,20 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         const raw = lines[index];
         const code = codeLines[index];
         const trimmed = code.trim();
+        // A type declaration cannot occur inside argument parentheses. In that
+        // expression context, record is a contextual identifier, not a keyword.
+        const recordWithExpression = parenthesisDepth > 0 && /^record\s+with\b/u.test(trimmed);
+        for (const character of code)
+        {
+            if (character === '(')
+            {
+                parenthesisDepth += 1;
+            }
+            else if (character === ')')
+            {
+                parenthesisDepth -= 1;
+            }
+        }
         if (/\t/u.test(raw))
         {
             violations.push(makeViolation(file, lineNumber, 'tab', raw, 'Tab indentation is forbidden'));
@@ -1034,7 +1049,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             violations.push(makeViolation(file, lineNumber, 'indent', raw, `indentation ${indent} is not a 4-space multiple`));
         }
         const autoPropertyAccessorLine = isAutoPropertyAccessorLine(trimmed);
-        if (hasInlineBlockOpeningBrace(trimmed) && !autoPropertyAccessorLine)
+        if (hasInlineBlockOpeningBrace(trimmed, recordWithExpression) && !autoPropertyAccessorLine)
         {
             violations.push(makeViolation(file, lineNumber, 'allman-brace', code, 'opening brace must be on its own line'));
         }
@@ -1073,7 +1088,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             violations.push(makeViolation(file, lineNumber, 'interface-name', interfaceMatch[1], 'interface must use I + PascalCase'));
         }
         const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u);
-        if (typeMatch && !isPascalCase(typeMatch[1]))
+        if (typeMatch && !recordWithExpression && !isPascalCase(typeMatch[1]))
         {
             violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'));
         }

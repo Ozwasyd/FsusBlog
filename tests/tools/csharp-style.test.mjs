@@ -742,3 +742,141 @@ test('full static governance runs only the full C# gate', () =>
     assert.match(implementation, /check-csharp-style\.mjs" --mode full/u);
     assert.doesNotMatch(implementation, /--mode changed/u);
 });
+
+for (const layout of ['multiline', 'inline'])
+{
+    test(`C# style governance accepts contextual record with call arguments (${layout})`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const initializer = layout === 'inline'
+                ? '            record with { Value = record.Value + 1 },'
+                : `            record with
+            {
+                Value = record.Value + 1
+            },`;
+            const relativePath = 'src/sample/ContextualRecord.cs';
+            writeFixture(
+                fixtureRoot,
+                relativePath,
+                `namespace Fixture;
+
+public sealed record ContextualRecord(int Value)
+{
+    public ContextualRecord Copy(ContextualRecord record)
+    {
+        // Literal and comment punctuation must not change argument context: (((
+        return Select(
+${initializer}
+            "(([");
+    }
+
+    public ContextualRecord CopyThis()
+    {
+        return Select(
+            this with
+            {
+                Value = Value + 1
+            },
+            "))]");
+    }
+
+    private static ContextualRecord Select(ContextualRecord value, string marker) => value;
+}
+
+public sealed record MultiLineRecord(
+    string DisplayName,
+    int ItemCount);
+`
+            );
+            const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath]);
+            assert.equal(result.status, 0, output(result));
+            assert.match(result.stdout, /\[csharp-style\] ok files=1 violations=0 new=0/u);
+        });
+    });
+}
+
+for (const [shape, declaration] of [
+    ['class', 'public sealed class lowercase\n{\n}\n'],
+    ['bare record', 'record with\n{\n}\n'],
+    ['primary-constructor record', 'public sealed record with(int Value);\n'],
+    ['multiline primary-constructor record', 'public sealed record with(\n    int Value);\n']
+])
+{
+    test(`C# style governance rejects genuine lowercase ${shape} declarations`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const relativePath = 'src/sample/LowercaseDeclaration.cs';
+            writeFixture(
+                fixtureRoot,
+                relativePath,
+                `namespace Fixture;
+
+public sealed record GoodRecord(int Value)
+{
+    public GoodRecord Copy(GoodRecord record)
+    {
+        return Select(
+            record with
+            {
+                Value = record.Value + 1
+            });
+    }
+
+    private static GoodRecord Select(GoodRecord value) => value;
+}
+
+${declaration}`
+            );
+            const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath]);
+            assert.notEqual(result.status, 0);
+            const diagnostics = output(result).split('\n').filter((line) => line.includes(' type-name:'));
+            assert.equal(diagnostics.length, 1, output(result));
+            assert.ok(diagnostics[0].endsWith(shape === 'class' ? '[lowercase]' : '[with]'), output(result));
+        });
+    });
+}
+
+for (const [name, flags, expectedRule] of [
+    ['PublicHotReadServingMiss', false, null],
+    ['ServingOptions', false, 'enum-name'],
+    ['ServingOptions', true, null],
+    ['PublicHotReadServingMiss', true, 'flags-enum-name']
+])
+{
+    test(`C# style governance classifies ${flags ? 'flags' : 'non-flags'} ${name} by the semantic singular catalog`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const relativePath = `src/sample/${name}.cs`;
+            writeFixture(
+                fixtureRoot,
+                relativePath,
+                `using System;
+
+namespace Fixture;
+
+${flags ? '[Flags]\n' : ''}public enum ${name}
+{
+    None = 0,
+    NotResident = 1
+}
+`
+            );
+            const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath]);
+            if (expectedRule)
+            {
+                assert.notEqual(result.status, 0);
+                const diagnostics = output(result).split('\n').filter((line) => line.includes(` ${expectedRule}:`));
+                assert.equal(diagnostics.length, 1, output(result));
+                assert.ok(diagnostics[0].endsWith(`[${name}]`), output(result));
+            }
+            else
+            {
+                assert.equal(result.status, 0, output(result));
+                assert.match(result.stdout, /\[csharp-style\] ok files=1 violations=0 new=0/u);
+            }
+        });
+    });
+}
