@@ -20,13 +20,6 @@
             "reason": "Preserve the architecture authority's closed document-export and self-contained HTML identifiers while carrying its frozen complete-fragment EOF refusal clarification."
         },
         {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/testing.md"
-            ],
-            "reason": "The original registry classifies maintained Markdown paths under this external naming surface. Preserve the testing authority's established external tool, CLI and receipt spellings; the frozen diagnostic clarification does not rename internal adapters or documented external contracts."
-        },
-        {
             "id": "json-wire-key",
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
