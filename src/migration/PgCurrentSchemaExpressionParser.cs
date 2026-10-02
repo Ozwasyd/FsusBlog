@@ -47,9 +47,16 @@ internal sealed class PgCurrentSchemaExpressionParser
 
     private static SchemaExpressionNode NormalizeDefaultLiteral(SchemaExpressionNode value, SchemaColumnModel column)
     {
+        if (IntegralRange(column.DataType) is not null && IntegralLiteral(value) is not null)
+            return NormalizeIntegralStorageLiteral(value, column);
         if (column.DataType is not ("single" or "double")) return value;
         string type = column.DataType == "single" ? "real" : "double precision";
         if (value.Kind == "cast" && value.Value == type && value.Arguments.Count == 1) value = value.Arguments[0];
+        if (value.Kind == "operator" && value.Value == "negate" && value.Arguments.Count == 1 && value.Arguments[0].Kind == "number")
+        {
+            SchemaExpressionNode literal = value.Arguments[0];
+            value = literal with { Value = literal.Value == "0" ? "0" : literal.Value.StartsWith("-", StringComparison.Ordinal) ? literal.Value[1..] : "-" + literal.Value };
+        }
         if (value.Kind is not ("number" or "string")) return value;
         // This is the independently observed physical floating-point domain, not
         // decimal-literal normalization. The expected assignment and native cast
@@ -74,9 +81,9 @@ internal sealed class PgCurrentSchemaExpressionParser
         {
             string sign = _tokens[_position - 1].Value;
             SchemaExpressionNode value = Expression(70);
-            left = sign == "+" ? value : value.Kind == "number"
-                ? Node("number", value.Value == "0" ? "0" : value.Value.StartsWith("-", StringComparison.Ordinal) ? value.Value[1..] : "-" + value.Value)
-                : Operation("negate", value);
+            // Do not fold nonzero negation: nested integer negation can overflow,
+            // even when its mathematical value equals another valid literal.
+            left = sign == "+" || value.Kind == "number" && value.Value == "0" ? value : Operation("negate", value);
         }
         else
         {
@@ -186,7 +193,7 @@ internal sealed class PgCurrentSchemaExpressionParser
         Token token = Peek;
         _position++;
         if (token.Kind == "string") return Node("string", token.Value);
-        if (token.Kind == "number") return Node("number", NormalizeNumber(token.Value));
+        if (token.Kind == "number") return Number(token.Value, InferredNumericType(token.Value));
         if (token.Value == "(")
         {
             SchemaExpressionNode value = Expression(0);
@@ -291,7 +298,8 @@ internal sealed class PgCurrentSchemaExpressionParser
             || expression.Kind == "column" && _columns[expression.Value].DataType == "string")) return expression;
         if (type is "integer" or "int4" or "bigint" or "int8" or "smallint" or "int2")
         {
-            if ((expression.Kind is "number" or "string") && TryIntegralLiteral(expression.Value, out BigInteger number))
+            if ((expression.Kind == "number" || expression.Kind == "string" && IsIntegerInputLiteral(expression.Value))
+                && TryIntegralLiteral(expression.Value, out BigInteger number))
             {
                 (BigInteger minimum, BigInteger maximum) = type switch
                 {
@@ -299,11 +307,23 @@ internal sealed class PgCurrentSchemaExpressionParser
                     "integer" or "int4" => (int.MinValue, int.MaxValue),
                     _ => (long.MinValue, long.MaxValue)
                 };
-                if (number >= minimum && number <= maximum) return Node("number", NormalizeNumber(number.ToString(CultureInfo.InvariantCulture)));
+                if (number >= minimum && number <= maximum)
+                    return Node("cast", type switch
+                    {
+                        "smallint" or "int2" => "smallint",
+                        "integer" or "int4" => "integer",
+                        _ => "bigint"
+                    }, Number(number.ToString(CultureInfo.InvariantCulture), type switch
+                    {
+                        "smallint" or "int2" => "smallint",
+                        "integer" or "int4" => "integer",
+                        _ => "bigint"
+                    }));
             }
         }
         if (type == "boolean" && expression.Kind == "boolean") return expression;
-        if ((type is "numeric" or "decimal") && (expression.Kind is "number" or "string")) return Node("number", NormalizeNumber(expression.Value));
+        if ((type is "numeric" or "decimal") && (expression.Kind is "number" or "string"))
+            return Node("cast", "numeric", Number(expression.Value, "numeric"));
         if (type == "text[]" && expression.Kind == "array" && expression.Arguments.All(static item => item.Kind == "string")) return expression;
         return Node("cast", type, expression);
     }
@@ -316,7 +336,82 @@ internal sealed class PgCurrentSchemaExpressionParser
         {
             return arguments[1].Value == "true" ? arguments[0] : Node("operator", "not", arguments[0]);
         }
+        // A direct integral-column comparison is mathematical for an exact,
+        // in-range integral constant. This does not normalize arithmetic operands:
+        // integer division, overflow and overload resolution retain native types.
+        if (operation is "=" or "<>" or ">" or "<" or ">=" or "<=")
+        {
+            NormalizeColumnComparison(arguments, 0, 1);
+            NormalizeColumnComparison(arguments, 1, 0);
+        }
         return Node("operator", operation, arguments);
+    }
+
+    private void NormalizeColumnComparison(SchemaExpressionNode[] arguments, int columnIndex, int literalIndex)
+    {
+        SchemaExpressionNode column = arguments[columnIndex];
+        SchemaExpressionNode literal = arguments[literalIndex];
+        if (column.Kind == "column" && IntegralLiteral(literal) is { } number
+            && IntegralRange(_columns[column.Value].DataType) is { } range
+            && number >= range.Minimum && number <= range.Maximum)
+            arguments[literalIndex] = NormalizeIntegralStorageLiteral(literal, _columns[column.Value]);
+    }
+
+    internal static SchemaExpressionNode NormalizeIntegralStorageLiteral(SchemaExpressionNode value, SchemaColumnModel column)
+    {
+        if (IntegralLiteral(value) is not { } number || IntegralRange(column.DataType) is not { } range
+            || number < range.Minimum || number > range.Maximum)
+            throw Refused();
+        return Node("physical-integer", NormalizeNumber(number.ToString(CultureInfo.InvariantCulture)), Node("numeric-type", range.Type));
+    }
+
+    private static BigInteger? IntegralLiteral(SchemaExpressionNode value)
+    {
+        if (value.Kind == "number" && TryIntegralLiteral(value.Value, out BigInteger number)) return number;
+        if (value.Kind == "operator" && value.Value == "negate" && value.Arguments.Count == 1
+            && value.Arguments[0].Kind == "number" && TryIntegralLiteral(value.Arguments[0].Value, out number))
+            return -number;
+        if (value.Kind == "cast" && value.Arguments.Count == 1 && value.Arguments[0].Kind == "number"
+            && value.Value is "smallint" or "integer" or "bigint" or "numeric"
+            && TryIntegralLiteral(value.Arguments[0].Value, out number))
+        {
+            // A literal cast is admitted only when its exact value fits its own
+            // destination too. Overflow/rounding casts remain distinct syntax.
+            var range = value.Value switch
+            {
+                "smallint" => IntegralRange("int16"),
+                "integer" => IntegralRange("int32"),
+                "bigint" => IntegralRange("int64"),
+                _ => null
+            };
+            if (range is null || number >= range.Value.Minimum && number <= range.Value.Maximum) return number;
+        }
+        return null;
+    }
+
+    private static (BigInteger Minimum, BigInteger Maximum, string Type)? IntegralRange(string type)
+        => type switch
+        {
+            "short" or "int16" => (short.MinValue, short.MaxValue, "smallint"),
+            "int" or "int32" => (int.MinValue, int.MaxValue, "integer"),
+            "long" or "int64" => (long.MinValue, long.MaxValue, "bigint"),
+            _ => null
+        };
+
+    private static SchemaExpressionNode Number(string value, string type)
+        => Node("number", NormalizeNumber(value), Node("numeric-type", type));
+
+    private static bool IsIntegerInputLiteral(string value)
+        => Regex.IsMatch(value, "\\A[+-]?[0-9]+\\z", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static string InferredNumericType(string source)
+    {
+        // PostgreSQL infers a decimal-point/exponent token as numeric even when
+        // its mathematical value is integral. Preserve that before canonicalizing.
+        if (source.Contains('.') || source.Contains('e') || source.Contains('E')) return "numeric";
+        if (!BigInteger.TryParse(source, CultureInfo.InvariantCulture, out BigInteger value)) throw Refused();
+        if (value >= int.MinValue && value <= int.MaxValue) return "integer";
+        return value >= long.MinValue && value <= long.MaxValue ? "bigint" : "numeric";
     }
 
     private bool IsBoolean(SchemaExpressionNode expression)

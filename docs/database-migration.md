@@ -410,7 +410,10 @@ expression/effect measurement now has a Migration-owned PostgreSQL component:
 complete `pg_get_expr` defaults/checks/index predicates, their bound dependencies,
 unowned sequences and function/trigger semantics are observed on the same native
 RepeatableRead transaction. Typed expression comparison retains literal bytes,
-casts and exact decimal identity; unsupported syntax refuses rather than dropping
+casts, PostgreSQL numeric operand types and exact decimal identity; only proven
+direct integral-column literal comparisons and literal assignments normalize to
+the already compared storage domain. Arithmetic operand types are not erased.
+Unsupported syntax refuses rather than dropping
 checks/defaults. Shared owns only neutral AST/identity and exact decimal syntax,
 not PostgreSQL parsing or SQL. The actual physical digest still uses the original
 unmodified native snapshot. Composite target alignment with the original runtime

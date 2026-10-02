@@ -188,7 +188,8 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
     internal static SchemaExpressionNode ExpectedKey(SchemaColumnModel column, SchemaExpressionNode value)
     {
         if (column.DataType == "string" && value.Kind == "string") return value;
-        if ((column.DataType is "int16" or "int32" or "int64") && value.Kind == "number") return value;
+        if (column.DataType is "int16" or "int32" or "int64")
+            return PgCurrentSchemaExpressionParser.NormalizeIntegralStorageLiteral(value, column);
         if (column.DataType == "boolean" && value.Kind == "boolean") return value;
         if (column.DataType == "uuid")
         {
@@ -202,13 +203,17 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         => column.DataType switch
         {
             "string" when value is string text => new("string", text, []),
-            "int16" when value is short => new("number", ExactDecimalLiteral.Normalize(Convert.ToString(value, CultureInfo.InvariantCulture)!), []),
-            "int32" when value is int => new("number", ExactDecimalLiteral.Normalize(Convert.ToString(value, CultureInfo.InvariantCulture)!), []),
-            "int64" when value is long => new("number", ExactDecimalLiteral.Normalize(Convert.ToString(value, CultureInfo.InvariantCulture)!), []),
+            "int16" when value is short => NativeIntegralKey(column, value),
+            "int32" when value is int => NativeIntegralKey(column, value),
+            "int64" when value is long => NativeIntegralKey(column, value),
             "boolean" when value is bool boolean => new("boolean", boolean ? "true" : "false", []),
             "uuid" when value is Guid identity => new("uuid", identity.ToString("D"), []),
             _ => throw new InvalidOperationException("current_schema_bootstrap_native_seed_key_type_unknown")
         };
+
+    private static SchemaExpressionNode NativeIntegralKey(SchemaColumnModel column, object value)
+        => PgCurrentSchemaExpressionParser.NormalizeIntegralStorageLiteral(
+            new("number", ExactDecimalLiteral.Normalize(Convert.ToString(value, CultureInfo.InvariantCulture)!), []), column);
 
     private static string SeedName(int index, string fact) => "seed." + index.ToString("D4", CultureInfo.InvariantCulture) + "." + fact;
 

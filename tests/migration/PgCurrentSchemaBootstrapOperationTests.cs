@@ -36,6 +36,22 @@ public sealed class PgCurrentSchemaBootstrapOperationTests
     }
 
     [Theory]
+    [InlineData("1000")]
+    [InlineData("'1000'::bigint")]
+    [InlineData("1000.0")]
+    public void SeedIntegralAssignment_UsesNativeStorageTypeWithoutErasingExpressionTypes(string expression)
+    {
+        var column = new SchemaColumnModel("key", false, true, false, null, "int64");
+        SchemaExpressionNode literal = PgCurrentSchemaExpressionParser.Parse(expression, new Dictionary<string, SchemaColumnModel>());
+        Assert.True(SchemaExpressionIdentity.Equal(PgCurrentSchemaBootstrapOperation.ExpectedKey(column, literal),
+            PgCurrentSchemaBootstrapOperation.ActualKey(column, 1000L)));
+        SchemaExpressionNode division = PgCurrentSchemaExpressionParser.Parse("1000 / 2", new Dictionary<string, SchemaColumnModel>());
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaBootstrapOperation.ExpectedKey(column, division));
+        SchemaExpressionNode overflow = PgCurrentSchemaExpressionParser.Parse("9223372036854775808", new Dictionary<string, SchemaColumnModel>());
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaBootstrapOperation.ExpectedKey(column, overflow));
+    }
+
+    [Theory]
     [InlineData("now()")]
     [InlineData("current_setting('max_connections')")]
     public void DynamicSeedKeys_CannotMasqueradeAsStableReplayAnchors(string expression)
