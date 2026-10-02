@@ -30,8 +30,8 @@
         },
         {
             "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-            "contentDigest": "sha256:352e6e921d48ecba6e06f1a19540fbd1b724298c7bdc96cd5aefa4b0b112d2e0",
-            "indexDigest": "sha256:352e6e921d48ecba6e06f1a19540fbd1b724298c7bdc96cd5aefa4b0b112d2e0"
+            "contentDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103",
+            "indexDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103"
         },
         {
             "path": "src/frontend/package.json",
