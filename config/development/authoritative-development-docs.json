@@ -257,7 +257,8 @@
             "owner": "GeneratorOwner",
             "patterns": [
                 "artifacts/**",
-                "**/generated/**"
+                "**/generated/**",
+                "config/dependencies/fsusui-public-npm-migration.patch.gz"
             ],
             "reason": "generated outputs are changed through their source or generator"
         },
