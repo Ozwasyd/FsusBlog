@@ -1,0 +1,48 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/contracts/article-relation-catalog.json",
+                "config/schemas/article-relation-contract.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve canonical JSON contract and catalog key spellings consumed by the existing producers and checkers; regenerated bindings do not authorize alternate wire keys or widen the contract."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the registered document, coverage, and lifecycle authority keys while adding the issue-scoped contract; existing claim joins and canonical owner names remain unchanged."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the registered generated testing-document naming boundary and existing search-index sections while the original matrix producer adds the article-relation registration; this manifest grants no search-index behavior exception."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationDigest.cs",
+                "tools/governance/check-article-relations.mjs"
+            ],
+            "reason": "Preserve existing runtime and process-environment naming at the registered source/tooling boundaries; these issue-scoped changes do not introduce, normalize, or rename external environment contracts."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve caller-visible shell environment key spellings and the original canonical static-governance lane; no renamed environment contract or alternate execution entry is introduced."
+        }
+    ]
+}
