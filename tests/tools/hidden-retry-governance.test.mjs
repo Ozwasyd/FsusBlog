@@ -6,6 +6,7 @@ import test from 'node:test';
 
 const {readRetryPolicyRegistry, sealContentDigest} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const {hiddenRetryScannerVersion, scanHiddenRetries, sourceDigest, validateRetryDispositionRegistry} = await import(new URL('../../tools/test/hidden-retry-scanner.mjs', import.meta.url));
+const {retryDispositionSeeds, resolveRetryDispositionSeeds} = await import(new URL('../../tools/test/retry-disposition-seeds.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 
 function fixture(files)
@@ -88,6 +89,153 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     );
     assert.doesNotMatch(execute, /\b(?:for|while)\s*\(|Task\.Delay/u);
     assert.match(execute, /return DockerAsync\(\[\.\. args\], cancellationToken\);/u);
+});
+
+test('MySQL startup disposition resolves one actual scanner finding without generated seed fields', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    assert.equal(retryDispositionSeeds.length, 1);
+    assert.deepEqual(Object.keys(seed).sort(), [
+        'action', 'classification', 'owner', 'path', 'policyId',
+        'producerId', 'ruleId', 'sourceText', 'syntaxText'
+    ]);
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    const registry = JSON.parse(fs.readFileSync(
+        path.join(root, 'config/testing/retry-disposition-registry.json'), 'utf8'
+    ));
+    const before = structuredClone(registry.entries);
+    const resolved = resolveRetryDispositionSeeds(root, findings, { priorEntries: registry.entries });
+    assert.equal(resolved.length, 1);
+    assert.equal(resolved[0].finding, findings[0]);
+    assert.deepEqual(resolved[0].disposition, {
+        producerId: 'csharp-mysqlddlfixture',
+        ruleId: 'retry.csharp-attempt-loop',
+        classification: 'non-retry',
+        policyId: null,
+        action: 'restore-only',
+        owner: 'schema-migration'
+    });
+    assert.deepEqual(registry.entries, before);
+    assert.equal(registry.entries.filter((entry) => entry.location.path !== seed.path).length, 6);
+});
+
+test('MySQL startup source seed accepts its unchanged prior generated disposition', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    const [first] = resolveRetryDispositionSeeds(root, findings);
+    const prior = {
+        ...first.finding, ...first.disposition,
+        sourceDigest: sourceDigest(path.join(root, seed.path))
+    };
+    const [again] = resolveRetryDispositionSeeds(root, findings, { priorEntries: [prior] });
+    assert.deepEqual(again, first);
+});
+
+test('MySQL startup source seed rejects missing and duplicate scanner findings', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    assert.equal(findings.length, 1);
+    for (const invalid of [[], [findings[0], findings[0]]])
+    {
+        assert.throws(() => resolveRetryDispositionSeeds(root, invalid), /exactly one scanner finding/u);
+    }
+});
+
+test('MySQL startup source seed refuses wrong producer path rule or syntax identity', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const [finding] = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    for (const wrong of [
+        { ...finding, producerId: 'csharp-otherfixture' },
+        { ...finding, location: { ...finding.location, path: 'tests/migration/OtherFixture.cs' } },
+        { ...finding, ruleId: 'retry.csharp-catch-reinvoke' },
+        { ...finding, syntaxDigest: 'sha256:' + '0'.repeat(64) }
+    ])
+    {
+        assert.throws(() => resolveRetryDispositionSeeds(root, [wrong]), /exactly one scanner finding/u);
+    }
+});
+
+test('MySQL startup source seed rejects an absent physical source', () => withFixture({}, (directory) =>
+{
+    assert.throws(() => resolveRetryDispositionSeeds(directory, []), /Missing retry disposition seed source/u);
+}));
+
+test('MySQL startup source seed rejects command comment and line-ending source drift', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    for (const drifted of [
+        seed.sourceText.replace('SELECT VERSION();', 'SELECT 1;'),
+        seed.sourceText + '// unrelated change still requires explicit source review\n',
+        seed.sourceText.replaceAll('\n', '\r\n')
+    ])
+    {
+        assert.notEqual(drifted, seed.sourceText);
+        withFixture({ [seed.path]: drifted }, (directory) =>
+        {
+            const findings = scanHiddenRetries(directory).findings;
+            assert.throws(() => resolveRetryDispositionSeeds(directory, findings), /seed source drift/u);
+        });
+    }
+});
+
+test('MySQL startup source seed rejects duplicate authored seeds', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    assert.throws(() => resolveRetryDispositionSeeds(root, findings, {
+        seeds: [seed, seed]
+    }), /Duplicate retry disposition seed/u);
+});
+
+test('MySQL startup source seed rejects wildcards and caller-computed finding fields', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    for (const invalid of [
+        { ...seed, path: 'tests/migration/*' },
+        { ...seed, path: 'tests/migration/../MySqlDdlFixture.cs' },
+        { ...seed, findingId: findings[0].findingId },
+        { ...seed, syntaxDigest: findings[0].syntaxDigest },
+        { ...seed, location: findings[0].location },
+        { ...seed, sourceDigest: sourceDigest(path.join(root, seed.path)) }
+    ])
+    {
+        assert.throws(() => resolveRetryDispositionSeeds(root, findings, {
+            seeds: [invalid]
+        }), /exact raw source and explicit non-retry semantics/u);
+    }
+});
+
+test('MySQL startup source seed refuses a conflicting existing disposition', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    const [resolved] = resolveRetryDispositionSeeds(root, findings);
+    for (const override of [
+        { classification: 'correctness' },
+        { policyId: 'correctness-first-attempt' },
+        { action: 'remove' },
+        { owner: 'another-owner' }
+    ])
+    {
+        assert.throws(() => resolveRetryDispositionSeeds(root, findings, {
+            priorEntries: [{ ...resolved.finding, ...resolved.disposition, ...override }]
+        }), /Conflicting prior retry disposition seed/u);
+    }
+});
+
+test('MySQL startup source seed refuses duplicate prior disposition owners', () =>
+{
+    const [seed] = retryDispositionSeeds;
+    const findings = scanHiddenRetries(root, { files: [seed.path] }).findings;
+    const [resolved] = resolveRetryDispositionSeeds(root, findings);
+    const prior = { ...resolved.finding, ...resolved.disposition };
+    assert.throws(() => resolveRetryDispositionSeeds(root, findings, {
+        priorEntries: [prior, prior]
+    }), /Duplicate prior retry disposition seed/u);
 });
 
 test('dev container selection is an exact non-retry disposition', () =>
