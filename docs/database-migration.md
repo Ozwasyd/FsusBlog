@@ -49,6 +49,8 @@ and literal messages without inventing an action or merging update/delete events
 `ReadAndMatchTriggerFactsAsync` freezes the supplied vector before observation and
 compares every actual name, table, event, action and message, rejecting missing,
 additional, conditional or different effects in the caller's original transaction.
+Duplicate-name admission uses SQLite's ASCII-only case fold; distinct Unicode
+case pairs remain separate native names, without normalizing event/action/message.
 This comparison does not authenticate expected facts: only the complete original
 current provider projection may supply production expectations. The original
 PostgreSQL exception does not by itself choose SQLite `ABORT` versus `ROLLBACK`;

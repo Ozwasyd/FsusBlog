@@ -29,7 +29,7 @@ internal static class SqliteCurrentSchemaEffectObserver
         // Freeze before the native await: a mutable caller list cannot change the
         // admitted vector midway through the original snapshot observation.
         var frozen = ImmutableArray.CreateBuilder<SqliteImmutableTriggerObservation>(expected.Count);
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new HashSet<string>(StringComparer.Ordinal);
         long characters = 0;
         foreach (SqliteImmutableTriggerObservation facts in expected)
         {
@@ -42,7 +42,7 @@ internal static class SqliteCurrentSchemaEffectObserver
                 throw new InvalidOperationException("sqlite_current_trigger_facts_invalid");
             string sql = SqliteImmutableTriggerObserver.Render(facts);
             characters += sql.Length;
-            if (!names.Add(facts.Name) || sql.Length > OfflineMigrationSourceObserver.MaximumCellCharacters
+            if (!names.Add(FoldAsciiIdentifier(facts.Name)) || sql.Length > OfflineMigrationSourceObserver.MaximumCellCharacters
                 || characters > OfflineMigrationSourceObserver.MaximumMetadataCharacters)
                 throw new InvalidOperationException("sqlite_current_trigger_facts_invalid");
             frozen.Add(facts);
@@ -62,6 +62,18 @@ internal static class SqliteCurrentSchemaEffectObserver
         // target, recipe closure, completed apply, registry or receipt authority.
         return observation;
     }
+
+    private static string FoldAsciiIdentifier(string value) => string.Create(value.Length, value,
+        static (result, original) =>
+        {
+            // SQLite identifier comparison folds ASCII only. Unicode case pairs
+            // remain different native names and must not become duplicate facts.
+            for (int index = 0; index < original.Length; index++)
+            {
+                char character = original[index];
+                result[index] = character is >= 'A' and <= 'Z' ? (char)(character + ('a' - 'A')) : character;
+            }
+        });
 
     internal static async Task<SqliteCurrentSchemaEffectObservation> ReadAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)

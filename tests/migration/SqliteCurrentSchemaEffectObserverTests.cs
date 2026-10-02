@@ -327,6 +327,51 @@ public sealed class SqliteCurrentSchemaEffectObserverTests
         Assert.Equal("sqlite_current_trigger_facts_invalid", actual.Message);
     }
 
+    [Theory]
+    [InlineData("guardä", "guardÄ")]
+    [InlineData("GUARDä", "guardÄ")]
+    public async Task UnicodeCaseDistinctNativeNamesRemainDifferentCompleteFacts(string updateName, string deleteName)
+    {
+        var update = new SqliteImmutableTriggerObservation(updateName, "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "message");
+        var delete = update with { Name = deleteName, Event = SqliteImmutableTriggerEvent.Delete };
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);"
+            + SqliteImmutableTriggerObserver.Render(update) + SqliteImmutableTriggerObserver.Render(delete));
+        SqliteCurrentSchemaEffectObservation actual = await SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(
+            fixture.Connection, fixture.Transaction, [delete, update], CancellationToken.None);
+        Assert.Equal(2, actual.Triggers.Length);
+        Assert.Contains(update, actual.Triggers);
+        Assert.Contains(delete, actual.Triggers);
+    }
+
+    [Theory]
+    [InlineData("guard", "GUARD")]
+    [InlineData("GUARDä", "guardä")]
+    public async Task AsciiCaseEquivalentNamesStillRefuseDuplicateExpectedFacts(string firstName, string duplicateName)
+    {
+        var expected = new SqliteImmutableTriggerObservation(firstName, "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "message");
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);"
+            + SqliteImmutableTriggerObserver.Render(expected));
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+                [expected, expected with { Name = duplicateName }], CancellationToken.None));
+        Assert.Equal("sqlite_current_trigger_facts_invalid", actual.Message);
+    }
+
+    [Fact]
+    public async Task UnicodeIdentifierSupportDoesNotNormalizeDifferentNativeRaisePolicy()
+    {
+        var original = new SqliteImmutableTriggerObservation("guardä", "item",
+            SqliteImmutableTriggerEvent.Update, SqliteTriggerRaiseAction.Abort, "message");
+        await using var fixture = await NativeFixture.CreateAsync("CREATE TABLE item(id INTEGER PRIMARY KEY);"
+            + SqliteImmutableTriggerObserver.Render(original));
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SqliteCurrentSchemaEffectObserver.ReadAndMatchTriggerFactsAsync(fixture.Connection, fixture.Transaction,
+                [original with { Action = SqliteTriggerRaiseAction.Rollback }], CancellationToken.None));
+        Assert.Equal("sqlite_current_trigger_effect_mismatch", actual.Message);
+    }
+
     private sealed class NativeFixture(SqliteConnection connection, SqliteTransaction transaction) : IAsyncDisposable
     {
         internal SqliteConnection Connection { get; } = connection;
