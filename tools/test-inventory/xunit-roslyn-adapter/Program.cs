@@ -51,7 +51,7 @@ internal static partial class XunitAdapterProgram
         try
         {
             referenceContext = BuildReferences(projectDir, projectPath, configuration);
-            sources = CollectSourceFiles(projectDir, referenceContext.IntermediateOutputPath);
+            sources = referenceContext.SourceFiles;
         }
         catch (Exception error)
         {

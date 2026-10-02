@@ -97,15 +97,18 @@ test('xunit configuration binds references, constants, generated sources and exa
         adapterAssembly: relocatedAdapterAssembly
     });
     for (const [name, expectedMethods] of [
-        ['debug', ['DebugCase', 'SharedCase']],
-        ['release', ['ReleaseCase', 'SharedCase']],
-        ['releaseIgnoresDebugGenerated', ['ReleaseCase', 'SharedCase']],
-        ['restoredRelease', ['ReleaseCase', 'SharedCase']]
+        ['debug', ['DebugCase', 'DebugIncludedCase', 'GeneratedCase', 'LinkedCase', 'SharedCase']],
+        ...['release', 'releaseIgnoresDebugGenerated', 'restoredRelease',
+            'releaseIgnoresUnownedGenerated', 'restoredLinkedSource'].map((name) =>
+            [name, ['GeneratedCase', 'LinkedCase', 'ReleaseCase', 'ReleaseIncludedCase', 'SharedCase']])
     ])
     {
         assert.equal(evidence[name].status, 0, JSON.stringify(evidence[name]));
         assert.deepEqual(evidence[name].report.diagnostics, []);
         assert.deepEqual(evidence[name].report.testCases.map((entry) => entry.methodName).sort(), expectedMethods);
+        assert.equal(evidence[name].report.testCases.some((entry) =>
+            ['ExcludedCase', 'ForeignDependencyCase'].includes(entry.methodName)), false);
+        assert.equal(casesForMethod(evidence[name].report, 'LinkedCase')[0].ownerFile, 'linked/LinkedCases.cs');
     }
     assert.deepEqual(evidence.defaultConfiguration.report, evidence.debug.report);
     assert.equal(
@@ -128,6 +131,10 @@ test('xunit configuration binds references, constants, generated sources and exa
         assert.equal(evidence[name].report.diagnostics[0].code, 'xunit-compile-context-unavailable');
         assert.match(evidence[name].report.diagnostics[0].message, /Release build output or intermediate context is missing/u);
     }
+    assert.equal(evidence.missingLinkedSource.status, 1);
+    assert.deepEqual(evidence.missingLinkedSource.report.testCases, []);
+    assert.equal(evidence.missingLinkedSource.report.diagnostics[0].code, 'xunit-compile-context-unavailable');
+    assert.match(evidence.missingLinkedSource.report.diagnostics[0].message, /LinkedCases\.cs/u);
 });
 
 test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassData and nested/partial/generic owners', () =>

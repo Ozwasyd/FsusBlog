@@ -27,43 +27,32 @@ internal static partial class XunitAdapterProgram
         return testAttribute is not null;
     }
 
-    private static string[] CollectSourceFiles(string projectDir, string intermediateOutputPath)
+    private static string[] CollectSourceFiles(string projectDir, System.Text.Json.JsonElement compileItems)
     {
-        var files = new List<string>();
-        CollectCsFiles(projectDir, files);
-        foreach (string generated in Directory.EnumerateFiles(intermediateOutputPath, "*.g.cs", SearchOption.AllDirectories))
+        if (compileItems.ValueKind != System.Text.Json.JsonValueKind.Array)
         {
-            files.Add(generated);
+            throw new InvalidOperationException("MSBuild Compile did not return a source item array");
         }
-        return files
-            .Where(file =>
+        var files = new HashSet<string>(StringComparer.Ordinal);
+        foreach (System.Text.Json.JsonElement item in compileItems.EnumerateArray())
+        {
+            string value = item.GetProperty("FullPath").GetString() ?? "";
+            if (value.Length == 0 || !Path.IsPathFullyQualified(value))
             {
-                string relative = Path.GetRelativePath(projectDir, file).Replace(Path.DirectorySeparatorChar, '/');
-                if (relative.StartsWith("Fixtures/security-source-analysis/", StringComparison.Ordinal))
-                    return false;
-                if (relative.StartsWith("Fixtures/", StringComparison.Ordinal) && file.Contains("/Fixtures/", StringComparison.Ordinal))
-                {
-                    return !relative.Contains("security-source-analysis", StringComparison.Ordinal);
-                }
-                return true;
-            })
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(file => file, StringComparer.Ordinal)
-            .ToArray();
-    }
-
-    private static void CollectCsFiles(string directory, List<string> files)
-    {
-        foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
-        {
-            string name = Path.GetFileName(entry);
-            if (name is "bin" or "obj" or "node_modules")
-                continue;
-            if (Directory.Exists(entry))
-                CollectCsFiles(entry, files);
-            else if (entry.EndsWith(".cs", StringComparison.Ordinal))
-                files.Add(entry);
+                throw new InvalidOperationException("MSBuild Compile returned a source without an absolute FullPath");
+            }
+            string file = Path.GetFullPath(value, projectDir);
+            if (!File.Exists(file) || !file.EndsWith(".cs", StringComparison.Ordinal)
+                || !files.Add(file))
+            {
+                throw new InvalidOperationException($"MSBuild Compile returned a missing, unsupported or duplicate source: {file}");
+            }
         }
+        if (files.Count == 0)
+        {
+            throw new InvalidOperationException("MSBuild Compile returned no source items");
+        }
+        return files.OrderBy(file => file, StringComparer.Ordinal).ToArray();
     }
 
 }

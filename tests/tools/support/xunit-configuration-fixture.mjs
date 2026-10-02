@@ -13,6 +13,7 @@ export function exerciseXunitConfigurationFixture({ repositoryRoot, adapterAssem
         const project = path.join(root, 'tests/ConfigurationFixtureTests.csproj');
         mkdirSync(path.dirname(project), { recursive: true });
         mkdirSync(path.join(root, 'dependency'));
+        mkdirSync(path.join(root, 'linked'));
         writeFileSync(project, `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -24,7 +25,25 @@ export function exerciseXunitConfigurationFixture({ repositoryRoot, adapterAssem
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../dependency/ConfigurationDependency.csproj" />
+    <Compile Remove="Excluded.cs" />
+    <Compile Include="../linked/LinkedCases.cs" Link="LinkedCases.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <Compile Remove="ReleaseOnly.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Compile Remove="DebugOnly.cs" />
+  </ItemGroup>
+  <Target Name="ConfigurationFixtureGeneratedSource" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(IntermediateOutputPath)BoundGenerated.cs"
+      Lines="public sealed class GeneratedCases { [Xunit.Fact] public void GeneratedCase() { } }"
+      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)BoundGenerated.cs" />
+      <Compile Include="$(IntermediateOutputPath)InvalidOtherConfiguration.g.cs"
+        Condition="'$(Configuration)' == 'Debug' and Exists('$(IntermediateOutputPath)InvalidOtherConfiguration.g.cs')" />
+    </ItemGroup>
+  </Target>
 </Project>
 `);
         writeFileSync(path.join(root, 'dependency/ConfigurationDependency.csproj'), `<Project Sdk="Microsoft.NET.Sdk">
@@ -57,6 +76,21 @@ public sealed class ConfigurationCases
     [Xunit.Fact]
     public unsafe void ReleaseCase() { int value = Values.ReleaseValue; int* pointer = &value; _ = *pointer; }
 #endif
+}
+`);
+        writeFileSync(path.join(root, 'tests/Excluded.cs'), `#error Compile Remove must exclude this file
+public sealed class ExcludedCases { [Xunit.Fact] public void ExcludedCase() { } }
+`);
+        writeFileSync(path.join(root, 'tests/DebugOnly.cs'),
+            'public sealed class DebugOnlyCases { [Xunit.Fact] public void DebugIncludedCase() { } }\n');
+        writeFileSync(path.join(root, 'tests/ReleaseOnly.cs'),
+            'public sealed class ReleaseOnlyCases { [Xunit.Fact] public void ReleaseIncludedCase() { } }\n');
+        writeFileSync(path.join(root, 'linked/LinkedCases.cs'),
+            'public sealed class LinkedCases { [Xunit.Fact] public void LinkedCase() { } }\n');
+        writeFileSync(path.join(root, 'dependency/DependencyCases.cs'), `namespace DependencyFixture
+{
+    public sealed class FactAttribute : System.Attribute { }
+    public sealed class DependencyCases { [Fact] public void ForeignDependencyCase() { } }
 }
 `);
         const environment = {
@@ -120,6 +154,12 @@ public sealed class ConfigurationCases
         rmSync(releaseIntermediate, { recursive: true, force: true });
         renameSync(`${releaseIntermediate}.fixture-backup`, releaseIntermediate);
         const restoredRelease = explicit('Release');
+        writeFileSync(path.join(releaseIntermediate, 'NotACompileItem.g.cs'), '#error not a Compile item\n');
+        const releaseIgnoresUnownedGenerated = explicit('Release');
+        renameSync(path.join(root, 'linked/LinkedCases.cs'), path.join(root, 'linked/LinkedCases.cs.backup'));
+        const missingLinkedSource = explicit('Release');
+        renameSync(path.join(root, 'linked/LinkedCases.cs.backup'), path.join(root, 'linked/LinkedCases.cs'));
+        const restoredLinkedSource = explicit('Release');
         return {
             debug,
             release,
@@ -129,7 +169,10 @@ public sealed class ConfigurationCases
             debugRejectsInvalidGenerated,
             missingReleaseAssembly,
             missingReleaseIntermediate,
-            restoredRelease
+            restoredRelease,
+            releaseIgnoresUnownedGenerated,
+            missingLinkedSource,
+            restoredLinkedSource
         };
     }
     finally
