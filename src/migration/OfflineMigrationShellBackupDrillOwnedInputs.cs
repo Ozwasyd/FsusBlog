@@ -32,11 +32,23 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
     private readonly OfflineMigrationShellBackupDrillConfiguration _configuration;
     private readonly OfflineMigrationShellBackupDrillTools _tools;
     private readonly OfflineMigrationShellBackupDrillInputScope _scope;
+    private readonly Action<string>? _afterToolReadForFixture;
 
     internal OfflineMigrationShellBackupDrillOwnedInputs(
         OfflineMigrationShellBackupDrillConfiguration configuration,
         OfflineMigrationShellBackupDrillTools tools,
         OfflineMigrationShellBackupDrillInputScope scope)
+        : this(configuration, tools, scope, null)
+    {
+    }
+
+    // Deterministic filesystem-race fixture only: it cannot supply hash/identity results
+    // or skip the original FD predicate. Production composition uses the three arguments.
+    internal OfflineMigrationShellBackupDrillOwnedInputs(
+        OfflineMigrationShellBackupDrillConfiguration configuration,
+        OfflineMigrationShellBackupDrillTools tools,
+        OfflineMigrationShellBackupDrillInputScope scope,
+        Action<string>? afterToolReadForFixture)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(tools);
@@ -50,6 +62,7 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
         };
         _tools = tools;
         _scope = scope;
+        _afterToolReadForFixture = afterToolReadForFixture;
     }
 
     internal async Task<OfflineMigrationShellBackupDrillConfiguration> CreateConfigurationAsync(
@@ -137,9 +150,14 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
                 && artifact.Sha256.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'),
                 "original_tool_identity_required");
             using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, cancellationToken);
+            var initial = OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(
+                path, handle, cancellationToken);
             await using var input = new FileStream(handle, FileAccess.Read, 64 * 1024);
             long length = input.Length;
             string digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(input, cancellationToken).ConfigureAwait(false));
+            _afterToolReadForFixture?.Invoke(path);
+            OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(
+                path, handle, initial, cancellationToken);
             Require(input.Position == length && input.Length == length && digest == artifact.Sha256,
                 "original_tool_bytes_changed");
         }

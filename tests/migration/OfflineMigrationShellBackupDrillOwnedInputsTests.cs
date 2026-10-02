@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 
-using FsusBlog.Contracts.Migration;
-
 using Xunit;
+
+using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration.Tests;
 
@@ -151,6 +151,72 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
         Assert.False(Directory.Exists(fixture.PrivateRoot));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SameBytesAtAReplacementLeafOrAncestorCannotPassTheTerminalGuard(bool replaceAncestor)
+    {
+        using var fixture = new InputsFixture(path =>
+        {
+            if (Path.GetFileName(path) != "backup-site.sh")
+            {
+                return;
+            }
+            byte[] originalBytes = File.ReadAllBytes(path);
+            if (replaceAncestor)
+            {
+                string directory = Path.GetDirectoryName(path)!;
+                string originalDirectory = directory + ".original";
+                Directory.Move(directory, originalDirectory);
+                Directory.CreateDirectory(directory);
+                foreach (string original in Directory.GetFiles(originalDirectory))
+                {
+                    File.WriteAllBytes(Path.Combine(directory, Path.GetFileName(original)), File.ReadAllBytes(original));
+                }
+            }
+            else
+            {
+                File.Move(path, path + ".original");
+                File.WriteAllBytes(path, originalBytes);
+            }
+            // The negative is identity drift, not a deliberately different digest.
+            Assert.Equal(originalBytes, File.ReadAllBytes(path));
+        });
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ResolveAsync());
+        Assert.Equal("current_verify_artifact_identity_changed", error.Message);
+        Assert.False(Directory.Exists(fixture.PrivateRoot));
+    }
+
+    [Fact]
+    public async Task SameLengthInPlaceChangeAfterTheHashCannotPassTheTerminalGuard()
+    {
+        using var fixture = new InputsFixture(path =>
+        {
+            if (Path.GetFileName(path) != "backup-site.sh")
+            {
+                return;
+            }
+            byte[] changed = File.ReadAllBytes(path);
+            long length = changed.Length;
+            changed[0] ^= 1;
+            File.WriteAllBytes(path, changed);
+            Assert.Equal(length, new FileInfo(path).Length);
+        });
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ResolveAsync());
+        Assert.Equal("current_verify_artifact_identity_changed", error.Message);
+    }
+
+    [Fact]
+    public async Task UnrelatedSiblingCreationDoesNotInventDirectoryTimestampRejection()
+    {
+        using var fixture = new InputsFixture(path => File.WriteAllText(
+            Path.Combine(Path.GetDirectoryName(path)!, "unrelated-note"), "sibling only"));
+        OfflineMigrationShellBackupDrillConfiguration configuration = await fixture.ResolveAsync();
+        await fixture.VerifyAsync(configuration);
+        Assert.Same(fixture.Inputs, configuration.OwnedInputs);
+        Assert.False(Directory.Exists(fixture.PrivateRoot));
+    }
+
     private sealed class InputsFixture : IDisposable
     {
         internal string Root { get; } = Path.Combine(Path.GetTempPath(), "fsusblog-owned-tools-" + Guid.NewGuid().ToString("N"));
@@ -164,7 +230,7 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
         internal OfflineMigrationPlanCommandOptions Options { get; }
         internal FixtureClock Clock { get; } = new();
 
-        internal InputsFixture()
+        internal InputsFixture(Action<string>? afterToolRead = null)
         {
             Directory.CreateDirectory(Root);
             string repository = Path.Combine(Root, "repository");
@@ -198,7 +264,8 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
                 Artifact("Session"), Artifact("DotNet"), Artifact("Migration"));
             Scope = new(new(CurrentSchemaProviderKind.PostgreSql, "actual-instance-placeholder", "actual-db-placeholder"),
                 sourceEnvironment, restoreEnvironment, package, outputParent, Path.Combine(outputParent, "plan.json"));
-            Inputs = new(Configuration, Tools, Scope);
+            Inputs = afterToolRead is null ? new(Configuration, Tools, Scope)
+                : new(Configuration, Tools, Scope, afterToolRead);
             Options = new(Scope.ExpectedDatabase, sourceEnvironment, package, Path.Combine(PrivateRoot, "package-manifest.json"),
                 Path.Combine(PrivateRoot, "backup-restore-drill.json"), restoreEnvironment, Scope.PlanOutputPath, 30)
             {
