@@ -381,6 +381,59 @@ before native access or publication. Validator unit fixtures exercise structural
 refusal rules only; they neither issue receipts through fake providers nor replace
 the required empty/old database, independent verifier and startup runtime gates.
 
+The Host's separate `apply` command consumes an original canonical plan file and
+its whole-byte SHA, explicit PostgreSQL instance/database identity and environment
+file, invocation ID, positive attempt, new apply/checkpoint output paths, finite
+`--timeout-seconds` and independent `--cleanup-timeout-seconds`. An existing run
+requires `--checkpoint <original-absolute-path> --checkpoint-sha256 <whole-sha>`;
+no `latest`, caller SQL, reconstructed checkpoint or implicit successor is allowed.
+`--confirm-destructive` is explicit when required by the sealed steps. A completed
+invocation may be independently re-verified with its original attempt/checkpoint;
+the original journal owner, not the argument parser, decides no-op or successor.
+
+`OfflineMigrationOwnedApplyEvidence` uses the original artifact reader, native
+identity reader, streaming journal verifier and ApplyEngine. Its preflight is one
+native read-only repeatable-read snapshot, closing independently obtained backup,
+retained tool, current target and compiled registry/DAG bindings without granting
+writes. Resume age is checked at `First.RecordedAt` from the fully accepted original
+journal chain, not the newest entry or this later command. The engine then acquires
+its original exclusive lock and repeats `OfflineMigrationOwnedPlanAdmission` on
+each actual transaction before writes: original plan bytes are re-read; source is
+re-observed only before progress exists; resumed progress uses the verified chain,
+actual native database identity and original operation predicates. No historical
+source shape is silently reconstructed from the plan after effects have begun.
+The engine retains its original all-three-provider operation closure requirement;
+a PostgreSQL-only registry cannot waive missing provider implementations.
+
+The same linked Host deadline covers active apply and publication, while the
+original engine alone owns the caller-selected independent failure-cleanup budget.
+Actual snapshot/connection disposal is awaited; unverified cleanup never becomes
+ordinary cancellation or a completed result. Native physical deadline/escalation
+and remote resource release still require actual runtime proof. The Host publishes
+canonical apply-result and checkpoint bytes through the sole immutable publisher;
+their whole-file hashes remain distinct from plan or journal semantic seals. Apply
+completion is not a current-schema receipt. Failed/recovery outcomes remain failed.
+If the active deadline expires after database effects, publication failure is
+`offline_apply_terminal_artifacts_unpublished`, not a harmless pre-write cancel.
+If only the checkpoint was published it is retained with
+`offline_apply_checkpoint_published_apply_unpublished`; if response delivery fails
+both published files remain with `offline_apply_artifacts_published_response_failed`.
+No automatic compensation or blind retry follows an unknown effect or partial
+publication: recovery must use the original exact journal and artifact bindings.
+
+The compiled `OfflineMigrationApplyEvidence.ComposeOwned` consumes the actual
+artifact, planning, authenticated retained-backup and operation ports. Current
+default CLI factories still refuse until complete original target/operation and
+tool/resource configuration is registered. These interfaces and source fixtures
+are neither actual database execution nor three-provider qualification.
+`OfflineMigrationHostOwnedConfiguration` assembles all three original consumer
+routes from the same compiled planning, verification and original shell configuration.
+`RunOwnedAsync` uses the same dispatcher and clock as the default entry, without a
+CLI plugin/registration API. This is a real composition path, not an authorization
+record. Actual original target/operation factories and retained-backup/tool provenance
+must supply those ports; the ordinary default entry remains refused while that
+complete process-owned configuration is absent.
+
 The offline Host's `verify` command requires explicit PostgreSQL instance/database
 identity, environment file, original plan/apply paths and their whole-byte SHA-256,
 invocation ID, ordered `--checkpoint <absolute-path> <sha256>` pairs, output path and

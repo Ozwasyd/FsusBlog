@@ -19,7 +19,15 @@ public static class OfflineMigrationHost
 {
     internal const string StateLockConstant = "fsusblog-offline-migration";
 
-    public static async Task<int> Main(string[] args)
+    public static Task<int> Main(string[] args) => RunAsync(args, null);
+
+    internal static Task<int> RunOwnedAsync(string[] args, OfflineMigrationHostOwnedConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return RunAsync(args, configuration);
+    }
+
+    private static async Task<int> RunAsync(string[] args, OfflineMigrationHostOwnedConfiguration? configuration)
     {
         if (args.Length > 0 && args[0] == "observe-source")
         {
@@ -36,7 +44,8 @@ public static class OfflineMigrationHost
                         throw new InvalidOperationException("schema_connection_string_missing");
                     }
                     return connectionString;
-                }, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver, Console.In, Console.Out, callerToken)).ConfigureAwait(false);
+                }, OfflineMigrationPlanEvidence.CreateOwnedSourceObserver, Console.In, Console.Out, callerToken,
+                    configuration?.Clock)).ConfigureAwait(false);
                 return 0;
             }
             catch (OperationCanceledException)
@@ -60,7 +69,8 @@ public static class OfflineMigrationHost
             {
                 OfflineMigrationPlanCommandOptions options = OfflineMigrationCommandLine.ParsePlan(args);
                 await RunReadOnlyCommandWithSignalsAsync(callerToken => WritePlanWithinBudgetAsync(options,
-                    OfflineMigrationPlanEvidence.CreateOwnedReader, callerToken)).ConfigureAwait(false);
+                    () => configuration is null ? OfflineMigrationPlanEvidence.CreateOwnedReader()
+                        : configuration.CreatePlanningEvidence(), callerToken, configuration?.Clock)).ConfigureAwait(false);
                 return 0;
             }
             catch (OperationCanceledException)
@@ -75,13 +85,44 @@ public static class OfflineMigrationHost
             }
         }
 
+        if (args.Length > 0 && args[0] == "apply")
+        {
+            try
+            {
+                OfflineMigrationApplyCommandOptions options = OfflineMigrationCommandLine.ParseApply(args);
+                bool completed = false;
+                await RunReadOnlyCommandWithSignalsAsync(async callerToken =>
+                {
+                    completed = await ApplyWithinBudgetAsync(options, () => configuration is null ? OfflineMigrationApplyEvidence.CreateOwned()
+                        : configuration.CreateApplyProducer(), Console.Out, callerToken, configuration?.Clock).ConfigureAwait(false);
+                }).ConfigureAwait(false);
+                return completed ? 0 : 1;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteJson(new { status = "failed", code = "schema_offline_apply_operation_cancelled" });
+                return 1;
+            }
+            catch (Exception error)
+            {
+                string code = error is InvalidOperationException
+                    && (error.Message.StartsWith("offline_", StringComparison.Ordinal)
+                        || error.Message.StartsWith("schema_", StringComparison.Ordinal)
+                        || error.Message.StartsWith("current_", StringComparison.Ordinal))
+                    ? error.Message.Split(':', 2)[0] : "schema_offline_apply_failed";
+                WriteJson(new { status = "failed", code });
+                return 1;
+            }
+        }
+
         if (args.Length > 0 && args[0] == "verify")
         {
             try
             {
                 OfflineMigrationVerifyCommandOptions options = OfflineMigrationCommandLine.ParseVerify(args);
                 await RunReadOnlyCommandWithSignalsAsync(callerToken => VerifyWithinBudgetAsync(
-                    options, OfflineMigrationVerifyEvidence.CreateOwned, Console.Out, callerToken)).ConfigureAwait(false);
+                    options, () => configuration is null ? OfflineMigrationVerifyEvidence.CreateOwned()
+                        : configuration.CreateVerifyProducer(), Console.Out, callerToken, configuration?.Clock)).ConfigureAwait(false);
                 return 0;
             }
             catch (OperationCanceledException)
@@ -259,6 +300,99 @@ public static class OfflineMigrationHost
         operation.Token.ThrowIfCancellationRequested();
         // Actual native/session drain belongs to the awaited observer, not a timed wait
         // followed by disposing still-active commands. Missing cleanup proof is failure.
+    }
+
+    internal static async Task<bool> ApplyWithinBudgetAsync(
+        OfflineMigrationApplyCommandOptions options, Func<IOfflineMigrationApplyProducer> createProducer,
+        TextWriter output, CancellationToken callerToken, TimeProvider? timeProvider = null)
+    {
+        if (options.TimeoutSeconds is <= 0 or > int.MaxValue / 1000
+            || options.CleanupTimeoutSeconds is <= 0 or > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_apply_explicit_budgets_invalid");
+        }
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
+            timeProvider ?? TimeProvider.System);
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
+        operation.Token.ThrowIfCancellationRequested();
+        // Existing evidence names are refused before connecting/writing. Final no-overwrite
+        // publication remains authoritative if another writer races this read-only check.
+        foreach (string path in new[] { options.OutputPath, options.CheckpointOutputPath })
+        {
+            if (File.Exists(path) || Directory.Exists(path) || new FileInfo(path).LinkTarget is not null)
+            {
+                throw new InvalidOperationException("offline_apply_output_already_exists");
+            }
+        }
+        IOfflineMigrationApplyProducer producer = createProducer();
+        operation.Token.ThrowIfCancellationRequested();
+        OfflineMigrationApplyResult result = await producer.ApplyAsync(options, operation.Token).ConfigureAwait(false);
+        ValidateApplyOutcome(options, result);
+        // Apply is NOT current-schema verification. Preserve a terminal failure/recovery
+        // result as such and never replace it with a synthetic successful receipt.
+        CurrentSchemaArtifactReference? checkpoint = null;
+        CurrentSchemaArtifactReference published;
+        try
+        {
+            operation.Token.ThrowIfCancellationRequested();
+            if (result.Checkpoint is { } actual)
+            {
+                checkpoint = await OfflineMigrationArtifactPublisher.PublishAsync(options.CheckpointOutputPath,
+                    JsonSerializer.SerializeToUtf8Bytes(actual), operation.Token).ConfigureAwait(false);
+            }
+            published = await OfflineMigrationArtifactPublisher.PublishAsync(options.OutputPath,
+                JsonSerializer.SerializeToUtf8Bytes(result), operation.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The database may already contain committed units. Keep any checkpoint
+            // artifact, do not delete/compensate them or report a harmless pre-write cancel.
+            throw new InvalidOperationException(checkpoint is null ? "offline_apply_terminal_artifacts_unpublished"
+                : "offline_apply_checkpoint_published_apply_unpublished");
+        }
+        bool completed = result.Status is OfflineMigrationApplyStatus.Completed or OfflineMigrationApplyStatus.NoOpVerified;
+        try
+        {
+            await output.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                status = completed ? "completed" : "failed",
+                outcome = result.Status.ToString(),
+                apply = published,
+                checkpoint
+            }).AsMemory(), operation.Token).ConfigureAwait(false);
+            await output.FlushAsync(operation.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            throw new InvalidOperationException("offline_apply_artifacts_published_response_failed");
+        }
+        return completed;
+    }
+
+    internal static void ValidateApplyOutcome(OfflineMigrationApplyCommandOptions options, OfflineMigrationApplyResult result)
+    {
+        if (!Enum.IsDefined(result.Status) || result.Plan != options.Plan || result.Database != options.Database
+            || result.StepProofs.IsDefault || result.Codes.IsDefault
+            || result.Codes.Any(code => string.IsNullOrEmpty(code) || !code.StartsWith("offline_apply_", StringComparison.Ordinal)
+                || code.Any(value => value is not (>= 'a' and <= 'z') and not (>= '0' and <= '9') and not '_')))
+        {
+            throw new InvalidOperationException("offline_apply_native_outcome_changed");
+        }
+        OfflineMigrationPlanValidation.RequireDigest(result.PlanContentDigest, "offline_apply_native_outcome_changed");
+        if ((result.Status is OfflineMigrationApplyStatus.Completed or OfflineMigrationApplyStatus.NoOpVerified)
+            && (result.Checkpoint is null || result.Codes.Length != 0))
+        {
+            throw new InvalidOperationException("offline_apply_native_outcome_changed");
+        }
+        if (result.Checkpoint is { } checkpoint)
+        {
+            if (checkpoint.InvocationId != options.InvocationId || checkpoint.Sequence <= 0 || checkpoint.JournalHead is null
+                || checkpoint.JournalHead.Reference != "offline-apply/v1/" + checkpoint.JournalHead.EntryDigest)
+            {
+                throw new InvalidOperationException("offline_apply_native_checkpoint_changed");
+            }
+            OfflineMigrationPlanValidation.RequireDigest(checkpoint.JournalHead.EntryDigest, "offline_apply_native_checkpoint_changed");
+        }
     }
 
     internal static async Task VerifyWithinBudgetAsync(

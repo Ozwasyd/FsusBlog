@@ -1,0 +1,37 @@
+namespace FsusBlog.Migration;
+
+// Process-owned compiled composition only. CLI/artifact JSON cannot supply owner
+// instances, select plugin types, register SQL or fill a missing capability.
+internal sealed class OfflineMigrationHostOwnedConfiguration
+{
+    private readonly IOfflineMigrationPlanningAuthorityReader _planning;
+    private readonly OfflineMigrationShellBackupDrillConfiguration _backup;
+    private readonly OfflineMigrationCurrentSchemaVerificationCapabilities _verification;
+
+    internal OfflineMigrationHostOwnedConfiguration(IOfflineMigrationPlanningAuthorityReader planning,
+        OfflineMigrationShellBackupDrillConfiguration backup,
+        OfflineMigrationCurrentSchemaVerificationCapabilities verification, TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(planning);
+        ArgumentNullException.ThrowIfNull(backup);
+        ArgumentNullException.ThrowIfNull(verification);
+        OfflineMigrationOwnedApplyEvidence.RequireOwners(new(verification.Artifacts, planning, verification.Authority, verification.Operations));
+        if (verification.CurrentSchema is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+        _planning = planning;
+        _backup = backup;
+        _verification = verification;
+        Clock = timeProvider ?? TimeProvider.System;
+    }
+
+    internal TimeProvider Clock { get; }
+    internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()
+        => OfflineMigrationPlanEvidence.ComposeOwnedReader(_planning, _backup, Clock);
+    internal IOfflineMigrationApplyProducer CreateApplyProducer()
+        => OfflineMigrationApplyEvidence.ComposeOwned(new(_verification.Artifacts, _planning,
+            _verification.Authority, _verification.Operations), Clock);
+    internal IOfflineMigrationVerifiedReceiptProducer CreateVerifyProducer()
+        => OfflineMigrationVerifyEvidence.ComposeOwned(_verification);
+}
