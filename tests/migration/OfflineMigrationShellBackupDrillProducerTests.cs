@@ -158,6 +158,73 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         fixture.AssertNotStarted();
     }
 
+    [Theory]
+    [InlineData("stdout")]
+    [InlineData("stderr")]
+    public async Task ActualRawWriteFailureStopsLiveProducerAndPreservesFirstPipeCause(string pipe)
+    {
+        // /dev/full is an actual kernel ENOSPC writer, not a status flag or an authenticated
+        // package fixture. Only the internal IO-fault seam chooses it; production cannot.
+        using var fixture = new ShellFixture("trap 'exit 143' TERM\nwhile :; do printf '%8192s' x; printf '%8192s' y >&2; done\n");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.RunAsync(
+            token: cancellation.Token, createRaw: path => path.EndsWith(".invocation." + pipe, StringComparison.Ordinal)
+                ? new FileStream("/dev/full", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, 4096, useAsync: true)
+                : ShellFixture.CreateRaw(path)));
+        Assert.Contains(pipe + "_pipe_failed", error.Message);
+        Assert.DoesNotContain("invocation_failed_or_cancelled", error.Message);
+        fixture.TerminalObserved = !error.Message.Contains("cleanup_unverified", StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PartialRawSetupFailureDisposesCreatedOwnerWithoutStartingChild()
+    {
+        using var fixture = new ShellFixture("exit 0\n");
+        int calls = 0;
+        await Assert.ThrowsAsync<IOException>(() => fixture.RunAsync(createRaw: path =>
+        {
+            calls++;
+            if (calls == 2) throw new IOException("fixture raw creation failure");
+            return ShellFixture.CreateRaw(path);
+        }));
+        Assert.Equal(2, calls);
+        Assert.True(File.Exists(fixture.OutputRoot + ".invocation.stdout"));
+        Assert.False(File.Exists(fixture.OutputRoot + ".invocation.stderr"));
+        // Exclusive reopen proves the first actual raw handle was disposed on partial setup.
+        using (File.Open(fixture.OutputRoot + ".invocation.stdout", FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+        fixture.TerminalObserved = true;
+    }
+
+    [Fact]
+    public async Task ParentExitCannotSubstituteForRetainedPipeEof()
+    {
+        using var fixture = new ShellFixture("(printf ready >\"$FSUSBLOG_DRILL_OUTPUT_DIR.ready\"; while [[ ! -f \"$FSUSBLOG_DRILL_OUTPUT_DIR.release\" ]]; do sleep 0.01; done; printf writer-closed) &\nexit 0\n");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task<OfflineMigrationBackupDrillTerminal> pending = fixture.RunAsync(token: cancellation.Token);
+        try
+        {
+            while (!File.Exists(fixture.OutputRoot + ".ready")) await Task.Delay(10, cancellation.Token);
+            // The parent exits independently; the actual descendant still owns stdout.
+            Assert.False(pending.IsCompleted);
+        }
+        finally
+        {
+            File.WriteAllText(fixture.OutputRoot + ".release", "release owned fixture writer");
+            try
+            {
+                _ = await pending;
+                fixture.TerminalObserved = true;
+            }
+            catch (InvalidOperationException error)
+            {
+                // A transient/unknown surviving group is a refusal, not fixture permission
+                // to signal it or to claim released ownership. Preserve its exact work root.
+                Assert.Contains("cleanup_unverified", error.Message);
+            }
+        }
+        Assert.Equal("writer-closed", File.ReadAllText(fixture.OutputRoot + ".invocation.stdout"));
+    }
+
     private sealed class FixtureClock : TimeProvider
     {
         internal long Seconds { get; set; }
@@ -198,9 +265,20 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         }
 
         internal Task<OfflineMigrationBackupDrillTerminal> RunAsync(OfflineMigrationPlanCommandOptions? options = null,
-            OfflineMigrationShellBackupDrillConfiguration? configuration = null, CancellationToken token = default)
-            => new OfflineMigrationShellBackupDrillProducer(configuration ?? Configuration)
+            OfflineMigrationShellBackupDrillConfiguration? configuration = null, CancellationToken token = default,
+            Func<string, FileStream>? createRaw = null)
+            => (createRaw is null ? new OfflineMigrationShellBackupDrillProducer(configuration ?? Configuration)
+                : new OfflineMigrationShellBackupDrillProducer(configuration ?? Configuration, createRaw))
                 .RunAsync(options ?? Options, OutputRoot, Invocation, token);
+
+        internal static FileStream CreateRaw(string path) => new(path, new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.None,
+            Options = FileOptions.Asynchronous,
+            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+        });
 
         internal void AssertNotStarted()
         {
