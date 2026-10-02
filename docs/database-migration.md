@@ -372,6 +372,27 @@ the offline evidence owner must independently bind its original producer, bytes
 and complete source closure before consumption. No owned target artifact has
 been produced by this source-only change.
 
+The original Server executable exposes `export-current-schema-owned-target
+--output <new-absolute-file>` before Web host, DI or database configuration.
+`OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync` invokes that original producer
+as a child with the explicit retained assembly and source revision, observes its
+actual source metadata/current Shared bytes and before/after producer-file closure,
+and retains stdout, stderr, terminal status and original artifact bytes. Its private
+capability constructor is reached only after an actual exit-zero invocation and
+strict artifact/input/target binding; deserializing caller JSON grants nothing.
+The caller/root process owner still owns full process-tree qualification: a child
+exit observation is not a canonical task-tree terminal receipt. Actual producer
+execution and native acceptance have not been performed for this source component.
+
+The single neutral `ProjectOwnedTarget` folds all original relational recipe facts,
+added columns/constraints and indexes into the provider target. It retains the
+nonrelational sequence/function/trigger effects and bootstrap seed effects
+separately: relational comparison alone does not prove those effects. Seed data
+postconditions belong to apply, not to permanent runtime schema identity. Native
+expression normalization/effect observation and the composite target's runtime
+consumer alignment are still pending; this projection is not an apply grant or
+a verified physical schema.
+
 `CurrentSchemaBootstrapCompiler` owns PostgreSQL entity and complete-recipe DDL
 compilation from the neutral facts and executes those frozen commands only on
 the caller's existing native connection/transaction. It does not open or commit

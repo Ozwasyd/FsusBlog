@@ -3,6 +3,7 @@ using System.Data;
 using SqlSugar;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.SchemaMigration;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;

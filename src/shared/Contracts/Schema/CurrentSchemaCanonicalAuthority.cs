@@ -70,6 +70,125 @@ public static class CurrentSchemaCanonicalAuthority
         return new SchemaModelSnapshot(tables, canonical.Identity, provider);
     }
 
+    /// <summary>Projects the original complete owned facts without maintaining another field mapping.</summary>
+    /// <param name="input">The complete original entity and recipe input, whose producer ownership is independently verified by the consumer.</param>
+    /// <param name="provider">The native provider; a recipe for another provider is not substituted.</param>
+    /// <returns>The relational target and the separate effects which native observers/apply postconditions must still verify.</returns>
+    public static CurrentSchemaCompletePhysicalProjection ProjectOwnedTarget(CurrentSchemaBootstrapInput input, SchemaProviderKind provider)
+    {
+        CurrentSchemaIdentity target = CurrentSchemaOwnedTargetProjection.Observe(input);
+        if (provider != SchemaProviderKind.PostgreSql || input.RequiredRecipes.Any(reference => reference.Provider != provider))
+        {
+            throw new InvalidOperationException("current_schema_complete_target_provider_unavailable");
+        }
+        var semantic = new Dictionary<string, SchemaTableModel>(input.EntityProjection.Schema.Tables, StringComparer.Ordinal);
+        foreach (CurrentSchemaRequiredRecipeReference reference in input.RequiredRecipes)
+        {
+            if (!semantic.TryAdd(reference.TableName, reference.SemanticDescription!.Table))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_table_overlap");
+            }
+        }
+        SchemaModelSnapshot projected = ProjectProvider(Create(semantic, target.SourceDigest), provider);
+        var tables = new Dictionary<string, SchemaTableModel>(projected.Tables, StringComparer.Ordinal);
+        foreach (CurrentSchemaRequiredRecipeReference reference in input.RequiredRecipes)
+        {
+            SchemaTableModel original = reference.SemanticDescription!.Table;
+            SchemaTableModel physical = tables[reference.TableName];
+            var columns = new Dictionary<string, SchemaColumnModel>(physical.Columns, StringComparer.Ordinal);
+            foreach ((string name, SchemaColumnModel column) in original.Columns)
+            {
+                // Original recipes use BY DEFAULT identity, unlike entity serials.
+                columns[name] = columns[name] with { GenerationKind = column.GenerationKind };
+            }
+            var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
+            var indexes = new Dictionary<string, SchemaIndexModel>(physical.IndexDefinitions, StringComparer.Ordinal);
+            foreach (SchemaConstraintModel constraint in physical.Constraints.Values)
+            {
+                string name = constraint.Kind == "primary-key" ? "pk_" + physical.Name : constraint.Name;
+                constraints.Add(name, constraint with { Name = name });
+                if (constraint.Kind == "unique")
+                {
+                    indexes.Add(name, ConstraintIndex(name, constraint.Columns));
+                }
+            }
+            tables[reference.TableName] = new SchemaTableModel(physical.Name, columns, indexes.Keys, indexes, constraints, physical.Owner);
+        }
+        var schemaEffects = new List<CurrentSchemaRecipeOperation>();
+        var dataEffects = new List<CurrentSchemaRecipeOperation>();
+        foreach (CurrentSchemaRecipeOperation operation in input.RequiredRecipes.SelectMany(static reference => reference.SemanticDescription!.AdditionalOperations))
+        {
+            if (operation.Kind is CurrentSchemaRecipeOperationKind.CreateSequence
+                or CurrentSchemaRecipeOperationKind.DefineImmutableGuard
+                or CurrentSchemaRecipeOperationKind.RemoveTrigger
+                or CurrentSchemaRecipeOperationKind.CreateImmutableTrigger)
+            {
+                schemaEffects.Add(operation);
+                continue;
+            }
+            if (operation.Kind == CurrentSchemaRecipeOperationKind.InsertIfAbsent)
+            {
+                dataEffects.Add(operation);
+                continue;
+            }
+            if (operation.Table is null || !tables.TryGetValue(operation.Table, out SchemaTableModel? table))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_effect_table_missing");
+            }
+            var columns = new Dictionary<string, SchemaColumnModel>(table.Columns, StringComparer.Ordinal);
+            var constraints = new Dictionary<string, SchemaConstraintModel>(table.Constraints, StringComparer.Ordinal);
+            var indexes = new Dictionary<string, SchemaIndexModel>(table.IndexDefinitions, StringComparer.Ordinal);
+            switch (operation.Kind)
+            {
+                case CurrentSchemaRecipeOperationKind.CreateIndex:
+                    SchemaIndexModel index = operation.Index ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    if (index.Name != operation.Name || !indexes.TryAdd(index.Name, index))
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
+                    }
+                    if (index.IsUnique)
+                    {
+                        constraints.Add(index.Name, new SchemaConstraintModel(index.Name, "unique", index.Keys.Select(static key => key.Column).ToArray()));
+                    }
+                    break;
+                case CurrentSchemaRecipeOperationKind.AddColumnIfAbsent:
+                    SchemaColumnModel column = operation.Column ?? throw new InvalidOperationException("current_schema_complete_target_effect_column_missing");
+                    if (column.Name != operation.Name || column.IsIdentity)
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_column_invalid");
+                    }
+                    if (columns.TryGetValue(column.Name, out SchemaColumnModel? existing))
+                    {
+                        if (existing != column)
+                        {
+                            throw new InvalidOperationException("current_schema_complete_target_effect_column_conflict");
+                        }
+                    }
+                    else
+                    {
+                        columns.Add(column.Name, column);
+                    }
+                    break;
+                case CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent:
+                    SchemaConstraintModel constraint = operation.Constraint ?? throw new InvalidOperationException("current_schema_complete_target_effect_constraint_missing");
+                    if (constraint.Name != operation.Name || !constraints.TryAdd(constraint.Name, constraint))
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_constraint_conflict");
+                    }
+                    break;
+                default:
+                    throw new InvalidOperationException("current_schema_complete_target_effect_unknown");
+            }
+            tables[table.Name] = new SchemaTableModel(table.Name, columns, indexes.Keys, indexes, constraints, table.Owner);
+        }
+        return new CurrentSchemaCompletePhysicalProjection(new SchemaModelSnapshot(tables, target, provider),
+            schemaEffects.ToArray(), dataEffects.ToArray());
+    }
+
+    private static SchemaIndexModel ConstraintIndex(string name, IReadOnlyList<string> columns)
+        => new(name, true, columns.Select(static column => new SchemaIndexKeyModel(column, "asc", "last", "default", "default")).ToArray(),
+            [], "btree", null, false);
+
     public static void VerifyIdentity(SchemaModelSnapshot snapshot, CurrentSchemaIdentity identity)
     {
         if (snapshot.Identity is not null && snapshot.Identity != identity)

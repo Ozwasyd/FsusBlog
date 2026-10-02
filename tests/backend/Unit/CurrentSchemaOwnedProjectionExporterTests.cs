@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,120 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class CurrentSchemaOwnedProjectionExporterTests
 {
+    [Fact]
+    public async Task OriginalOwnerInvocation_PublishesCompleteFactsAndRetainsActualChildEvidence()
+    {
+        Assembly producerAssembly = typeof(CurrentSchemaOwnedProjectionExporter).Assembly;
+        string sourceRevision = producerAssembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(static attribute => attribute.Key == "FsusBlog.SourceCommit").Value!;
+        Assert.NotEqual(new string('0', 40), sourceRevision);
+        string taskRoot = Directory.CreateTempSubdirectory("fsusblog-owned-target-invocation-").FullName;
+        using var cancellation = new CancellationTokenSource();
+        var owned = await FsusBlog.Migration.OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync(
+            producerAssembly.Location, sourceRevision, taskRoot, cancellation.Token);
+        CurrentSchemaBootstrapInput input = owned.ReadBoundInput();
+        Assert.Equal(0, owned.Execution.ExitCode);
+        Assert.Equal(sourceRevision, owned.Execution.SourceRevision);
+        Assert.Equal(CurrentSchemaRuntimeRollupTables.Tables.Count, input.RequiredRecipes.Count);
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), owned.Target);
+        Assert.Equal(input.Producer.ContractAssemblySha256, Convert.ToHexString(SHA256.HashData(
+            await File.ReadAllBytesAsync(typeof(CurrentSchemaCanonicalAuthority).Assembly.Location))).ToLowerInvariant());
+        Assert.Contains(owned.Execution.ProducerFiles, static file => file.RelativePath == "FsusBlog.Server.dll");
+        Assert.True(File.Exists(Path.Combine(owned.Execution.EvidenceDirectory, "stdout.log")));
+        Assert.True(File.Exists(Path.Combine(owned.Execution.EvidenceDirectory, "stderr.log")));
+        Assert.True(File.Exists(Path.Combine(owned.Execution.EvidenceDirectory, "child-terminal.json")));
+        Assert.True(File.Exists(Path.Combine(owned.Execution.EvidenceDirectory, "result.json")));
+        Assert.NotEmpty(owned.Compile(SchemaProviderKind.PostgreSql).Commands);
+        Assert.Throws<InvalidOperationException>(() => owned.Compile(SchemaProviderKind.MySql));
+        Assert.Throws<InvalidOperationException>(() => owned.Compile(SchemaProviderKind.Sqlite));
+        input.EntityProjection.Schema.Tables.Values.First().Columns.Clear();
+        Assert.NotEmpty(owned.ReadBoundInput().EntityProjection.Schema.Tables.Values.First().Columns);
+    }
+
+    [Fact]
+    public void ExportOnlyCommand_RequiresExactArgumentsAndANewAbsoluteOutput()
+    {
+        string directory = Directory.CreateTempSubdirectory("fsusblog-current-owner-command-").FullName;
+        string output = Path.Combine(directory, "owned-target.json");
+        Assert.True(CurrentSchemaOwnedTargetExportCommand.IsRequested([CurrentSchemaOwnedTargetExportCommand.Command]));
+        Assert.False(CurrentSchemaOwnedTargetExportCommand.IsRequested(["serve"]));
+        Assert.Equal(output, CurrentSchemaOwnedTargetExportCommand.ParseOutputPath(
+            [CurrentSchemaOwnedTargetExportCommand.Command, "--output", output]));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaOwnedTargetExportCommand.ParseOutputPath(
+            [CurrentSchemaOwnedTargetExportCommand.Command, "--output", "relative.json"]));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaOwnedTargetExportCommand.ParseOutputPath(
+            [CurrentSchemaOwnedTargetExportCommand.Command, "--output", output, "--serve"]));
+        File.WriteAllText(output, "retained existing bytes");
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaOwnedTargetExportCommand.ParseOutputPath(
+            [CurrentSchemaOwnedTargetExportCommand.Command, "--output", output]));
+        Assert.Equal("retained existing bytes", File.ReadAllText(output));
+    }
+
+    [Fact]
+    public void OwnedArtifactReader_BindsOriginalFactsAndRejectsDuplicateUnknownOrTamperedPayload()
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        var producer = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+            new string('b', 64), new string('c', 64));
+        var input = new CurrentSchemaBootstrapInput(projection, producer, CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes());
+        var artifact = new CurrentSchemaOwnedTargetArtifact(CurrentSchemaOwnedTargetProjection.ArtifactSchemaVersion,
+            input, CurrentSchemaOwnedTargetProjection.ComputeInputDigest(input), CurrentSchemaOwnedTargetProjection.Observe(input));
+        byte[] original = JsonSerializer.SerializeToUtf8Bytes(artifact);
+        Assert.Equal(artifact.Target, FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(original, producer).Target);
+        string json = Encoding.UTF8.GetString(original);
+        Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
+            Encoding.UTF8.GetBytes(json.Replace("{", "{\"SchemaVersion\":\"duplicate\",", StringComparison.Ordinal)), producer));
+        Assert.Throws<JsonException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
+            Encoding.UTF8.GetBytes("{\"UnknownApproval\":true," + json[1..]), producer));
+        Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
+            JsonSerializer.SerializeToUtf8Bytes(artifact with { InputSha256 = new string('d', 64) }), producer));
+        Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
+            original, producer with { SourceCommit = new string('e', 40) }));
+        Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
+            JsonSerializer.SerializeToUtf8Bytes(artifact with { Input = input with { RequiredRecipes = [] } }), producer));
+    }
+
+    [Fact]
+    public void CompletePhysicalProjection_RetainsEveryRecipeAndSeparateUnobservedEffects()
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entities = CurrentSchemaCanonicalAuthority.Generate(inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        var input = new CurrentSchemaBootstrapInput(entities,
+            new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+                new string('b', 64), new string('c', 64)), CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes());
+        CurrentSchemaCompletePhysicalProjection complete = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.PostgreSql);
+        Assert.Equal(entities.Schema.Tables.Count + input.RequiredRecipes.Count, complete.Tables.Tables.Count);
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), complete.Tables.Identity);
+        Assert.NotEmpty(complete.SchemaEffects);
+        Assert.NotEmpty(complete.BootstrapDataEffects);
+        foreach (CurrentSchemaRequiredRecipeReference recipe in input.RequiredRecipes)
+        {
+            SchemaTableModel table = complete.Tables.Tables[recipe.TableName];
+            foreach (SchemaColumnModel column in recipe.SemanticDescription!.Table.Columns.Values)
+            {
+                Assert.Equal(column.GenerationKind, table.Columns[column.Name].GenerationKind);
+            }
+            foreach (CurrentSchemaRecipeOperation operation in recipe.SemanticDescription.AdditionalOperations)
+            {
+                if (operation.Kind == CurrentSchemaRecipeOperationKind.CreateIndex)
+                {
+                    Assert.Equal(operation.Index, complete.Tables.Tables[operation.Table!].IndexDefinitions[operation.Name]);
+                }
+                else if (operation.Kind == CurrentSchemaRecipeOperationKind.AddColumnIfAbsent)
+                {
+                    Assert.Equal(operation.Column, complete.Tables.Tables[operation.Table!].Columns[operation.Name]);
+                }
+                else if (operation.Kind == CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent)
+                {
+                    Assert.Equal(operation.Constraint, complete.Tables.Tables[operation.Table!].Constraints[operation.Name]);
+                }
+            }
+        }
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.MySql));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.Sqlite));
+    }
+
     [Fact]
     public void RequiredRecipeReferences_UseEveryOriginalCurrentOwnerWithoutCopyingSql()
     {
