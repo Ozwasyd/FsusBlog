@@ -10,6 +10,7 @@ import { maskCSharpTrivia } from './test/csharp-source-mask.mjs';
 import {
     POST_BASELINE_BEFORE_ANCHOR,
     POST_BASELINE_HISTORY_ANCHOR,
+    historicalMethodMayBePresent,
     historicalXunitMethodPresent,
     validatePostBaselineHistory
 } from './test-convergence/post-baseline-history.mjs';
@@ -359,3 +360,139 @@ for (const graftInput of ['repository-local', 'ambient'])
         }
     });
 }
+
+test('historical xUnit source recognizes contiguous attribute lists without guessing aliased identity', () =>
+{
+    const method = (attributes) => `public class OldTests\n{\n${attributes}\npublic void Removed() {}\n}`;
+    for (const attributes of [
+        '[Fact]\n[Trait("Category", "governance")]',
+        '[Theory]\n[InlineData(1)]',
+        '[Xunit.Fact]',
+        '[global::Xunit.FactAttribute]',
+        '[Fact, Trait("Category", "governance")]',
+        '[Other.TheoryAttribute(Timeout = 1)]\n[InlineData(1)]'
+    ])
+    {
+        assert.equal(historicalXunitMethodPresentWithMask(method(attributes), 'OldTests', 'Removed'), true, attributes);
+    }
+    for (const source of [
+        'using Fact = DifferentAttribute;\npublic class DifferentAttribute : System.Attribute {}\n' + method('[Fact]'),
+        'using F\\u0061ct = DifferentAttribute;\n' + method('[Fact]'),
+        'using Xunit = DifferentNamespace;\n' + method('[Xunit.Fact]'),
+        'public class Fact : System.Attribute {}\n' + method('[Fact]')
+    ])
+    {
+        assert.equal(historicalXunitMethodPresentWithMask(source, 'OldTests', 'Removed'), false, source);
+    }
+    assert.equal(historicalXunitMethodPresentWithMask(
+        'public class FactAttribute : System.Attribute {}\n' + method('[Fact]'), 'OldTests', 'Removed'), true,
+    'original inventory accepts resolved simple FactAttribute names, not only the Xunit namespace');
+});
+
+test('real immutable result and anchor history refuse live methods with different or unknown syntax', () =>
+{
+    const forms = [
+        '[Fact]\n[Trait("Category", "governance")]\npublic void Removed() {}',
+        '[Theory]\n[InlineData(1)]\npublic void Removed(int value) {}',
+        '[Xunit.Fact]\npublic void Removed() {}',
+        '#if true\n[Fact]\npublic void Removed() {}\n#endif',
+        '#if FEATURE\n[Fact]\npublic void Removed() {}\n#endif',
+        '[UnknownAttribute]\npublic void Removed() {}',
+        '[Fact]\npublic\nTask Removed() => null;'
+    ];
+    for (const location of ['result', 'anchor'])
+    {
+        for (const form of forms)
+        {
+            const { repository, runGit, baseline, validate } = createGraftHistoryFixture();
+            try
+            {
+                assert.deepEqual(validate(baseline).errors, []);
+                const oldPath = baseline.records[0].path;
+                writeFileSync(resolve(repository, oldPath), `public class OldTests\n{\n${form}\n}\n`);
+                runGit(['add', oldPath]);
+                const liveTree = runGit(['write-tree']);
+                const liveBlob = runGit(['rev-parse', `:${oldPath}`]);
+                const emptyTree = runGit(['rev-parse', `${baseline.deletionCommit}^{tree}`]);
+                const deletionCommit = location === 'result'
+                    ? runGit(['commit-tree', liveTree, '-p', baseline.sourceCommit, '-m', 'still-live result'])
+                    : baseline.deletionCommit;
+                const anchorCommit = runGit(['commit-tree', location === 'anchor' ? liveTree : emptyTree,
+                    '-p', deletionCommit, '-m', 'immutable anchor']);
+                const snapshot = { ...baseline, deletionCommit,
+                    records: [{ ...baseline.records[0], resultBlobOid: location === 'result' ? liveBlob : null }] };
+                const result = validateHistory({
+                    root: repository, paths: ['tests/still-live-baseline.json'],
+                    replacements: [{ id: baseline.records[0].id, path: oldPath }],
+                    anchorCommit, beforeCommit: runGit(['rev-parse', `${baseline.sourceCommit}^`]),
+                    readCurrent: () => JSON.stringify(snapshot)
+                });
+                const refusal = location === 'result' ? /survives deletion commit/u : /survives trusted master anchor/u;
+                assert.ok(result.errors.some((error) => refusal.test(error)), `${location}: ${form}`);
+            }
+            finally
+            {
+                rmSync(repository, { recursive: true, force: true });
+            }
+        }
+    }
+});
+
+test('real immutable source history refuses local and global Fact aliases for a different attribute', () =>
+{
+    for (const globalAlias of [false, true])
+    {
+        const { repository, runGit, baseline } = createGraftHistoryFixture();
+        try
+        {
+            const oldPath = baseline.records[0].path;
+            if (globalAlias)
+            {
+                writeFileSync(resolve(repository, 'tests/backend/GlobalUsings.cs'), 'global\nusing Fact = DifferentAttribute;\n');
+                runGit(['add', 'tests/backend/GlobalUsings.cs']);
+            }
+            writeFileSync(resolve(repository, oldPath),
+                (globalAlias ? '' : 'using Fact = DifferentAttribute;\n')
+                + 'public class DifferentAttribute : System.Attribute {}\n'
+                + 'public class OldTests\n{\n[Fact]\npublic void Removed() {}\n}\n');
+            runGit(['add', oldPath]);
+            const sourceTree = runGit(['write-tree']);
+            const sourceBlobOid = runGit(['rev-parse', `:${oldPath}`]);
+            const beforeCommit = runGit(['rev-parse', `${baseline.sourceCommit}^`]);
+            const sourceCommit = runGit(['commit-tree', sourceTree, '-p', beforeCommit, '-m', 'aliased non-test source']);
+            const emptyTree = runGit(['rev-parse', `${baseline.deletionCommit}^{tree}`]);
+            const deletionCommit = runGit(['commit-tree', emptyTree, '-p', sourceCommit, '-m', 'delete non-test']);
+            const anchorCommit = runGit(['commit-tree', emptyTree, '-p', deletionCommit, '-m', 'immutable anchor']);
+            const result = validateHistory({
+                root: repository, paths: ['tests/alias-baseline.json'],
+                replacements: [{ id: baseline.records[0].id, path: oldPath }],
+                anchorCommit, beforeCommit,
+                readCurrent: () => JSON.stringify({ ...baseline, sourceCommit, deletionCommit,
+                    records: [{ ...baseline.records[0], sourceBlobOid }] })
+            });
+            assert.ok(result.errors.some((error) => /old attributed method is absent from source commit/u.test(error)));
+        }
+        finally
+        {
+            rmSync(repository, { recursive: true, force: true });
+        }
+    }
+});
+
+test('deletion evidence is independent of test attribution and refuses unresolved identifiers', () =>
+{
+    const mayBePresent = (source) => historicalMethodMayBePresent(source, 'OldTests', 'Removed', maskCSharpTrivia);
+    assert.equal(mayBePresent(undefined), false);
+    assert.equal(mayBePresent('public class OtherTests { public void Removed() {} }'), false);
+    assert.equal(mayBePresent('public class OldTests { string value = "Removed()"; /* Removed() */ }'), false);
+    assert.equal(mayBePresent('public class OldTests { class NestedTests { public void Removed() {} } }'), false);
+    assert.equal(mayBePresent('public class OldTests { [Unknown] public void Removed() {} }'), true);
+    assert.equal(mayBePresent('public class OldTests { public Task Removed<T>() => null; }'), true);
+    assert.equal(mayBePresent('public class @OldTests { public void @Removed() {} }'), true);
+    assert.equal(mayBePresent('public class OldTests { public void R\\u0065moved() {} }'), true);
+    assert.equal(mayBePresent('public class Old\\u0054ests { public void Removed() {} }'), true);
+    assert.equal(mayBePresent('public class OldTests { public void Removed() {}'), true);
+    assert.equal(mayBePresent('public class OldTests {\n#if FEATURE\n}\npublic class OtherTests {\n#else\n'
+        + '[Fact] public void Removed() {}\n}\n#endif'), true);
+    assert.throws(() => historicalMethodMayBePresent('', 'OldTests', 'Removed'), /C# source mask capability/u);
+});

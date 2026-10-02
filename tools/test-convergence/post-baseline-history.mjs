@@ -68,7 +68,66 @@ function historicalRegularBlobOid(root, commit, path, label, required = false)
     return match[1];
 }
 
-export function historicalXunitMethodPresent(source, className, methodName, maskCSharpTrivia)
+function precedingAttributeNames(masked, opening, methodOffset)
+{
+    const names = [];
+    let cursor = methodOffset;
+    while (cursor > opening)
+    {
+        while (cursor > opening && /\s/u.test(masked[cursor - 1])) cursor -= 1;
+        if (masked[cursor - 1] !== ']') break;
+        const end = cursor - 1;
+        let depth = 1;
+        cursor -= 1;
+        while (cursor > opening && depth > 0)
+        {
+            cursor -= 1;
+            if (masked[cursor] === ']') depth += 1;
+            else if (masked[cursor] === '[') depth -= 1;
+        }
+        if (depth !== 0) return [];
+        const content = masked.slice(cursor + 1, end);
+        let parentheses = 0;
+        let brackets = 0;
+        let start = 0;
+        for (let index = 0; index <= content.length; index += 1)
+        {
+            const character = content[index];
+            if (character === '(') parentheses += 1;
+            else if (character === ')') parentheses -= 1;
+            else if (character === '[') brackets += 1;
+            else if (character === ']') brackets -= 1;
+            if (parentheses < 0 || brackets < 0) return [];
+            if (index === content.length || (character === ',' && parentheses === 0 && brackets === 0))
+            {
+                const attribute = /^\s*((?:global::)?[A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*(?:\([\s\S]*\))?\s*$/u
+                    .exec(content.slice(start, index));
+                if (!attribute) return [];
+                names.push(attribute[1].replace(/\s/gu, ''));
+                start = index + 1;
+            }
+        }
+        if (parentheses !== 0 || brackets !== 0) return [];
+    }
+    return names;
+}
+
+function unambiguousTestAttribute(masked, name, attributeContext)
+{
+    const parts = name.replace(/^global::/u, '').split('.');
+    const simpleName = parts.at(-1);
+    if (!/^(?:Fact|Theory)(?:Attribute)?$/u.test(simpleName)) return false;
+    if (/\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/u.test(masked + attributeContext)) return false;
+    // Attribute spelling cannot establish the resolved identity of an alias.
+    const alias = new RegExp(`\\busing\\s+@?${parts[0]}\\s*=`, 'u');
+    if (alias.test(masked) || alias.test(attributeContext)) return false;
+    // A type literally named Fact/Theory is not the owner's FactAttribute/TheoryAttribute identity.
+    if (!simpleName.endsWith('Attribute')
+        && new RegExp(`\\b(?:class|struct|record)\\s+@?${simpleName}\\b`, 'u').test(masked)) return false;
+    return true;
+}
+
+function historicalMethodPresent(source, className, methodName, maskCSharpTrivia, proveXunit, attributeContext = '')
 {
     if (typeof maskCSharpTrivia !== 'function')
     {
@@ -79,6 +138,8 @@ export function historicalXunitMethodPresent(source, className, methodName, mask
         return false;
     }
     const masked = maskCSharpTrivia(source);
+    // Escaped identifiers are unresolved here, not evidence that a member disappeared.
+    if (!proveXunit && /\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})/u.test(masked)) return true;
     const conditionalDirectives = [...masked.matchAll(/^[ \t]*#\s*(if|endif)\b/gmu)];
     const insideConditional = (offset) =>
     {
@@ -111,23 +172,28 @@ export function historicalXunitMethodPresent(source, className, methodName, mask
         }
         depths[index + 1] = depth;
     }
-    const classDeclaration = /^[ \t]*(?:(?:public|internal|private|protected|abstract|sealed|static|partial)\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)\b/gmu;
-    const declaration = new RegExp(
+    const classDeclaration = proveXunit
+        ? /^[ \t]*(?:(?:public|internal|private|protected|abstract|sealed|static|partial)\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)\b/gmu
+        : /\b(?:class|struct|record(?:\s+class|\s+struct)?)\s+@?([A-Za-z_][A-Za-z0-9_]*)\b/gu;
+    const declaration = proveXunit ? new RegExp(
         `^[ \\t]*public[ \\t]+(?:async[ \\t]+)?(?:void|Task(?:<[^>\\n]+>)?|ValueTask(?:<[^>\\n]+>)?)[ \\t]+${methodName}[ \\t]*\\(`,
         'gmu'
-    );
+    ) : new RegExp(`\\b${methodName}\\s*(?:<[^;{}()]*>)?\\s*\\(`, 'gu');
     for (const classMatch of masked.matchAll(classDeclaration))
     {
         if (classMatch[1] !== className)
         {
             continue;
         }
+        // Mutually exclusive branches can change brace ownership; no symbols are evaluated here.
+        if (!proveXunit && conditionalDirectives.length > 0 && declaration.test(masked)) return true;
         const opening = masked.indexOf('{', classMatch.index + classMatch[0].length);
         if (opening < 0)
         {
+            if (!proveXunit) return true;
             continue;
         }
-        if (insideConditional(classMatch.index) || insideConditional(opening))
+        if (proveXunit && (insideConditional(classMatch.index) || insideConditional(opening)))
         {
             continue;
         }
@@ -139,9 +205,10 @@ export function historicalXunitMethodPresent(source, className, methodName, mask
         }
         if (closing === masked.length)
         {
+            if (!proveXunit) return true;
             continue;
         }
-        if (insideConditional(closing))
+        if (proveXunit && insideConditional(closing))
         {
             continue;
         }
@@ -155,19 +222,50 @@ export function historicalXunitMethodPresent(source, className, methodName, mask
             }
             // Without the historical compilation symbols, an attributed method in a
             // conditional region cannot be proven to have been an executable test.
-            if (insideConditional(methodOffset))
+            if (proveXunit && insideConditional(methodOffset))
             {
                 continue;
             }
-            const preceding = masked.slice(opening + 1, methodOffset)
-                .trimEnd().split(/\r?\n/u).at(-1)?.trim();
-            if (/^\[(?:Fact|Theory)\]$/u.test(preceding ?? ''))
+            if (!proveXunit || precedingAttributeNames(masked, opening, methodOffset)
+                .some((name) => unambiguousTestAttribute(masked, name, attributeContext)))
             {
                 return true;
             }
         }
     }
     return false;
+}
+
+export function historicalXunitMethodPresent(source, className, methodName, maskCSharpTrivia, { attributeContext = '' } = {})
+{
+    return historicalMethodPresent(source, className, methodName, maskCSharpTrivia, true, attributeContext);
+}
+
+// Deletion needs evidence of absence; unfamiliar attributes or conditional code cannot supply it.
+export function historicalMethodMayBePresent(source, className, methodName, maskCSharpTrivia)
+{
+    return historicalMethodPresent(source, className, methodName, maskCSharpTrivia, false);
+}
+
+function historicalGlobalAttributeAliases(root, commit, maskCSharpTrivia)
+{
+    const result = git(root, ['grep', '--no-textconv', '-l', '-z', '-F', '-w', 'global', commit, '--', 'tests/backend']);
+    if (result.status === 1) return '';
+    if (result.status !== 0) throw new Error(`historical global aliases unavailable: ${String(result.stderr).trim()}`);
+    const aliases = [];
+    for (const entry of result.stdout.split('\0').filter(Boolean))
+    {
+        const prefix = `${commit}:`;
+        if (!entry.startsWith(prefix)) throw new Error('historical global alias path is unbound');
+        const path = entry.slice(prefix.length);
+        if (!path.endsWith('.cs')) continue;
+        historicalRegularBlobOid(root, commit, path, 'historical global alias source', true);
+        const source = gitText(root, ['show', `${commit}:${path}`], 'historical global alias source');
+        const masked = maskCSharpTrivia(source);
+        aliases.push(...[...masked.matchAll(/\bglobal\s+using\s+[^;]+;/gu)]
+            .filter((match) => match[0].includes('=')).map((match) => match[0]));
+    }
+    return aliases.join('\n');
 }
 
 function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia })
@@ -184,10 +282,12 @@ function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTriv
     let result;
     let resultOid;
     let anchor;
+    let attributeContext;
     try
     {
         sourceOid = historicalRegularBlobOid(root, baseline.sourceCommit, path, `${record.id} source`, true);
         source = gitText(root, ['show', `${baseline.sourceCommit}:${path}`], `${record.id} source`);
+        attributeContext = historicalGlobalAttributeAliases(root, baseline.sourceCommit, maskCSharpTrivia);
         resultOid = historicalRegularBlobOid(root, baseline.deletionCommit, path, `${record.id} deletion result`);
         if (resultOid)
         {
@@ -211,15 +311,15 @@ function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTriv
     {
         errors.push(`${record.id}: deletion-result blob binding differs from Git history`);
     }
-    if (!historicalXunitMethodPresent(source, className, methodName, maskCSharpTrivia))
+    if (!historicalXunitMethodPresent(source, className, methodName, maskCSharpTrivia, { attributeContext }))
     {
         errors.push(`${record.id}: old attributed method is absent from source commit`);
     }
-    if (historicalXunitMethodPresent(result, className, methodName, maskCSharpTrivia))
+    if (historicalMethodMayBePresent(result, className, methodName, maskCSharpTrivia))
     {
         errors.push(`${record.id}: old attributed method survives deletion commit`);
     }
-    if (historicalXunitMethodPresent(anchor, className, methodName, maskCSharpTrivia))
+    if (historicalMethodMayBePresent(anchor, className, methodName, maskCSharpTrivia))
     {
         errors.push(`${record.id}: old attributed method survives trusted master anchor`);
     }
