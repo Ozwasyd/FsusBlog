@@ -22,7 +22,12 @@ internal sealed record OfflineMigrationShellBackupDrillConfiguration(
     string? IdentityPassphraseFile,
     IReadOnlyDictionary<string, string> ExecutionEnvironment,
     int TerminateGraceSeconds,
-    int KillReapSeconds);
+    int KillReapSeconds)
+{
+    // Only the original process composition creates this byte/scope binding. Existing
+    // raw configurations remain the isolated shell-fixture seam, not production admission.
+    internal OfflineMigrationShellBackupDrillOwnedInputs? OwnedInputs { get; init; }
+}
 
 /// <summary>
 /// Invoke only the original backup-drill owner. This adapter owns its actual child and
@@ -57,6 +62,11 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             "provider_capture_capability_missing");
         OfflineMigrationOperationDeadline deadline = options.OperationDeadline
             ?? throw Failure("original_operation_deadline_required");
+        if (_configuration.OwnedInputs is not null)
+        {
+            await _configuration.OwnedInputs.VerifyInvocationAsync(_configuration, options, privateRoot,
+                cancellationToken).ConfigureAwait(false);
+        }
         Require(_configuration.TerminateGraceSeconds is > 0 and <= int.MaxValue / 1000
             && _configuration.KillReapSeconds is > 0 and <= int.MaxValue / 1000, "cleanup_selection_invalid");
         string root = Canonical(privateRoot);
@@ -97,6 +107,11 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (_configuration.OwnedInputs is not null)
+            {
+                await _configuration.OwnedInputs.VerifyInvocationAsync(_configuration, options, root,
+                    cancellationToken).ConfigureAwait(false);
+            }
             producer.StartInfo.ArgumentList[^1] = deadline.RemainingWholeSeconds(cancellationToken)
                 .ToString(CultureInfo.InvariantCulture);
             Require(producer.Start(), "process_start_failed");
