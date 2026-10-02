@@ -7,7 +7,7 @@ using FsusBlog.Contracts.Migration;
 namespace FsusBlog.Migration;
 
 internal sealed record OfflineMigrationSourceShape(
-    OfflineMigrationProvider Provider,
+    CurrentSchemaProviderKind Provider,
     string ExtractorId,
     string ExtractorVersion,
     ImmutableArray<OfflineMigrationFact> Schema,
@@ -132,8 +132,8 @@ internal static class OfflineMigrationPlanBuilder
     internal static OfflineMigrationPlan Create(
         OfflineMigrationSourceObservation source,
         OfflineMigrationBackupObservation backup,
-        OfflineMigrationTargetIdentity target,
-        OfflineMigrationToolIdentity tool,
+        CurrentSchemaTargetIdentity target,
+        CurrentSchemaVerifierIdentity tool,
         OfflineMigrationSourceRegistry registry,
         OfflineMigrationDag dag,
         DateTimeOffset admissionTime,
@@ -169,8 +169,8 @@ internal static class OfflineMigrationPlanVerifier
         OfflineMigrationPlan plan,
         OfflineMigrationSourceObservation observedSource,
         OfflineMigrationBackupObservation observedBackup,
-        OfflineMigrationTargetIdentity currentTarget,
-        OfflineMigrationToolIdentity currentTool,
+        CurrentSchemaTargetIdentity currentTarget,
+        CurrentSchemaVerifierIdentity currentTool,
         OfflineMigrationSourceRegistry registry,
         OfflineMigrationDag dag,
         DateTimeOffset admissionTime,
@@ -236,10 +236,10 @@ internal static class OfflineMigrationPlanValidation
         }
     }
 
-    internal static void RequireProviders(IEnumerable<OfflineMigrationProvider> values)
+    internal static void RequireProviders(IEnumerable<CurrentSchemaProviderKind> values)
     {
-        OfflineMigrationProvider[] actual = values.OrderBy(value => value).ToArray();
-        if (!actual.SequenceEqual(Enum.GetValues<OfflineMigrationProvider>()))
+        CurrentSchemaProviderKind[] actual = values.OrderBy(value => value).ToArray();
+        if (!actual.SequenceEqual(Enum.GetValues<CurrentSchemaProviderKind>()))
         {
             throw new InvalidOperationException("offline_plan_provider_closure_invalid");
         }
@@ -263,6 +263,7 @@ internal static class OfflineMigrationPlanValidation
     {
         RequireText(observation.Database.InstanceId, "source_instance_identity_missing");
         RequireText(observation.Database.DatabaseId, "source_database_identity_missing");
+        RequireDigest(observation.ContentDigest, "source_content_digest_invalid");
         ValidateShape(Shape(observation));
     }
 
@@ -443,7 +444,7 @@ internal static class OfflineMigrationPlanValidation
         }
     }
 
-    internal static void ValidateTargetAndTool(OfflineMigrationTargetIdentity target, OfflineMigrationToolIdentity tool)
+    internal static void ValidateTargetAndTool(CurrentSchemaTargetIdentity target, CurrentSchemaVerifierIdentity tool)
     {
         RequireText(target.ModelVersion, "offline_target_model_version_missing");
         RequireText(target.ExtractorVersion, "offline_target_extractor_version_missing");
@@ -471,7 +472,7 @@ internal static class OfflineMigrationPlanValidation
             throw new InvalidOperationException("offline_backup_required");
         }
 
-        foreach (OfflineMigrationArtifactReference artifact in new[] { backup.Package, backup.Manifest, backup.RestoreDrill })
+        foreach (CurrentSchemaArtifactReference artifact in new[] { backup.Package, backup.Manifest, backup.RestoreDrill })
         {
             RequireText(artifact.Reference, "offline_backup_reference_missing");
             RequireDigest(artifact.Sha256, "offline_backup_digest_invalid");
@@ -479,6 +480,9 @@ internal static class OfflineMigrationPlanValidation
 
         RequireText(backup.BackupOwner, "offline_backup_owner_missing");
         RequireText(backup.BackupOwnerVersion, "offline_backup_owner_version_missing");
+        RequireText(backup.CaptureSnapshotId, "offline_backup_snapshot_identity_missing");
+        RequireDigest(backup.DatabaseDumpSha256, "offline_backup_dump_digest_invalid");
+        RequireDigest(backup.RestoredDatabaseDumpSha256, "offline_backup_restored_dump_digest_invalid");
         if (backup.CapturedAt > admissionTime || backup.RestoreVerifiedAt > admissionTime
             || backup.RestoreVerifiedAt < backup.CapturedAt || admissionTime - backup.CapturedAt > maximumBackupAge)
         {
@@ -494,6 +498,7 @@ internal static class OfflineMigrationPlanValidation
         }
 
         if (backup.RestoredSource.Database == source.Database
+            || backup.RestoredSource.ContentDigest != source.ContentDigest
             || Differences(Shape(source), Shape(backup.RestoredSource)).Length != 0)
         {
             throw new InvalidOperationException("offline_backup_restore_not_isolated_or_changed");
@@ -509,6 +514,12 @@ internal static class OfflineMigrationPlanValidation
         foreach (OfflineMigrationFact artifact in digests)
         {
             RequireDigest(artifact.Value, "offline_backup_artifact_digest_invalid");
+        }
+
+        string databaseDigest = digests.Single(fact => fact.Name == "database").Value;
+        if (backup.DatabaseDumpSha256 != databaseDigest || backup.RestoredDatabaseDumpSha256 != databaseDigest)
+        {
+            throw new InvalidOperationException("offline_backup_snapshot_dump_binding_mismatch");
         }
     }
 

@@ -122,11 +122,16 @@ package/manifest/restore-drill references, and a new output path. It does not in
 legacy phases, apply SQL, write a migration journal, or start the Server. Release,
 slot, latest-backup, manual-step and legacy-phase selectors are rejected.
 
-`OfflineMigrationPlanContracts` owns the immutable cross-assembly payload. The
-migration-owned planner matches complete schema/history/business-shape observations
+Migration-owned `OfflineMigrationPlanContracts` owns the immutable execution payload;
+historical source, backup, step and reader contracts never enter Shared or Server.
+Shared `CurrentSchemaMigrationIdentityContracts` contains only opaque current
+database/provider/artifact/target/verifier identities needed by the current receipt.
+Server consumes that formal receipt and fresh current-schema proof, not executable
+plans or migration assemblies. The migration-owned planner matches complete
+schema/history/business-shape observations
 against a closed, versioned registry with owner, proof tests and entry step. Unknown,
 partial and ambiguous observations are rejected with exact differences, not a nearest
-baseline. The shared semantic DAG freezes dependencies, step order, idempotency,
+baseline. The provider-neutral semantic DAG freezes dependencies, step order, idempotency,
 destructiveness, checkpoint policy and all three provider operation references.
 Operation semantic digests identify definitions, not actual row-data verification.
 The independent plan verifier rebuilds that closure from owner inputs and fresh
@@ -136,12 +141,38 @@ Backup admission distinguishes the original database at capture from the isolate
 restore database. The original authenticated backup owner must bind package,
 manifest and drill bytes to the captured source and independently observed restore;
 their complete shapes must match the fresh source. All six original site-package
-artifact digests remain required. Freshness is checked at admission using owner
+artifact digests remain required. Shape alone cannot prove current data: the native
+source observer must also hash every registered source row and column under the
+capture snapshot and independently at fresh plan/restore observation. Equal-length
+content changes must invalidate the backup even when schema, counts and business
+shape predicates do not change. The actual exported capture snapshot, independently
+hashed dump bytes and dump bytes consumed during restore are bound to the original
+database artifact; a new session's exported snapshot ID is not compared as if it were
+the old session's content identity. Freshness is checked at admission using owner
 policy; invocation clock, release, slot, PID and random values do not enter plan
 bytes. Receipt capture/restore times are immutable input evidence, not a newly
-generated plan timestamp. The shared codec verifies integrity only, not backup,
+generated plan timestamp. The migration-owned codec verifies integrity only, not backup,
 registry or execution authority. Apply must still revalidate under its exclusive
 database lock and use exact journal progress rather than rediscovering steps.
+
+An artifact reference's `Sha256` hashes the complete original file bytes, including
+the plan's own digest field. `Plan.ContentDigest` instead hashes the canonical
+payload with that self-referential field empty. These identities are distinct;
+journal and current-receipt artifact references must not substitute the semantic
+seal for the actual file hash or hash normalized bytes as if they were the original.
+
+The same host parses `observe-source --provider <provider> --env-file <path>`.
+PostgreSQL capture additionally requires `--capture-session --dump-output <new
+absolute path>`. The observer announces its actual source/exported snapshot before
+the original backup owner runs `pg_dump --snapshot`. Only the exact stdin line
+`DUMP_COMPLETED`, after the dump child is truly terminal, releases the callback;
+stdin cannot select a path, source observation, snapshot or hash. The native observer
+independently hashes the pre-bound dump, closes its read-only transaction, and only
+then the host emits completed capture evidence. EOF, unknown control or cancellation
+produces no completed evidence. MySQL/SQLite snapshot capture is explicitly unsupported
+until their actual owner capability exists. Stdio contract fixtures are not native
+database or backup proof, and the source-observer factory currently also refuses
+unconfigured owners rather than interpreting empty input as an empty database.
 
 The current `CreateOwnedReader` fails with
 `schema_offline_plan_evidence_owner_not_configured`: the existing backup manifest

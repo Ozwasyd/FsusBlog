@@ -2,21 +2,9 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Migration;
 
-/// <summary>The explicit database dialect; no connection-string or release inference selects it.</summary>
-public enum OfflineMigrationProvider
-{
-    PostgreSql,
-    MySql,
-    Sqlite
-}
-
-/// <summary>Identity observed from the selected database, not a release, slot, or display name.</summary>
-public sealed record OfflineMigrationDatabaseIdentity(
-    OfflineMigrationProvider Provider,
-    string InstanceId,
-    string DatabaseId);
+namespace FsusBlog.Migration;
 
 /// <summary>An exact, named observation owned by a versioned read-only extractor.</summary>
 public sealed record OfflineMigrationFact(string Name, string Value);
@@ -26,43 +14,42 @@ public sealed record OfflineMigrationFact(string Name, string Value);
 /// observation vocabulary; an empty list is not permission to omit an unobserved category.
 /// </summary>
 public sealed record OfflineMigrationSourceObservation(
-    OfflineMigrationDatabaseIdentity Database,
+    CurrentSchemaDatabaseIdentity Database,
     string ExtractorId,
     string ExtractorVersion,
     ImmutableArray<OfflineMigrationFact> Schema,
     ImmutableArray<OfflineMigrationFact> History,
-    ImmutableArray<OfflineMigrationFact> BusinessShape);
-
-/// <summary>Exact immutable artifact reference and digest; a path or latest selector alone is insufficient.</summary>
-public sealed record OfflineMigrationArtifactReference(string Reference, string Sha256);
+    ImmutableArray<OfflineMigrationFact> BusinessShape,
+    string ContentDigest);
 
 /// <summary>The original backup owner's verified package and restore drill plus its restored database observation.</summary>
 public sealed record OfflineMigrationBackupObservation(
-    OfflineMigrationArtifactReference Package,
-    OfflineMigrationArtifactReference Manifest,
-    OfflineMigrationArtifactReference RestoreDrill,
+    CurrentSchemaArtifactReference Package,
+    CurrentSchemaArtifactReference Manifest,
+    CurrentSchemaArtifactReference RestoreDrill,
     string BackupOwner,
     string BackupOwnerVersion,
     DateTimeOffset CapturedAt,
     DateTimeOffset RestoreVerifiedAt,
+    string CaptureSnapshotId,
+    string DatabaseDumpSha256,
+    string RestoredDatabaseDumpSha256,
     OfflineMigrationSourceObservation SourceAtCapture,
     OfflineMigrationSourceObservation RestoredSource,
     ImmutableArray<OfflineMigrationFact> ArtifactDigests);
 
-/// <summary>Source, worktree, executable closure, and configuration identity observed by their existing owners.</summary>
-public sealed record OfflineMigrationToolIdentity(
-    string SourceRevision,
-    string WorktreeDigest,
-    string ToolchainDigest,
-    string ConfigurationDigest);
-
-/// <summary>Owner-computed current target identity, independent of migration descriptors and source baselines.</summary>
-public sealed record OfflineMigrationTargetIdentity(
-    string ModelVersion,
-    string ExtractorVersion,
-    string GeneratorVersion,
-    string SourceDigest,
-    string ContentDigest);
+/// <summary>
+/// A completed native snapshot capture, produced only after the original dump owner's
+/// terminal handshake and the observer's independent hash of the pre-bound dump bytes.
+/// An initial source/snapshot announcement without a dump digest is not this evidence.
+/// </summary>
+public sealed record OfflineMigrationBackupCaptureEvidence(
+    OfflineMigrationSourceObservation Source,
+    string SnapshotId,
+    DateTimeOffset CapturedAt,
+    string ObserverId,
+    string ObserverVersion,
+    string DatabaseDumpSha256);
 
 /// <summary>How a step's provider operation preserves failure and replay boundaries.</summary>
 public enum OfflineMigrationExecutionMode
@@ -80,7 +67,7 @@ public sealed record OfflineMigrationResumePolicy(
 
 /// <summary>One dialect implementation of the same semantic step, bound to its compiled operation owner.</summary>
 public sealed record OfflineMigrationProviderOperation(
-    OfflineMigrationProvider Provider,
+    CurrentSchemaProviderKind Provider,
     string OperationReference,
     string OperationSourceDigest,
     string SemanticDigest,
@@ -107,13 +94,13 @@ public sealed record OfflineMigrationPlan(
     string SourceFingerprintId,
     string SourceFingerprintVersion,
     string SourceRegistryDigest,
-    OfflineMigrationTargetIdentity Target,
+    CurrentSchemaTargetIdentity Target,
     string DagId,
     string DagVersion,
     string DagDigest,
     ImmutableArray<OfflineMigrationStep> OrderedSteps,
     OfflineMigrationBackupObservation Backup,
-    OfflineMigrationToolIdentity Tool,
+    CurrentSchemaVerifierIdentity Tool,
     string ContentDigest);
 
 /// <summary>
@@ -123,14 +110,31 @@ public sealed record OfflineMigrationPlan(
 public interface IOfflineMigrationSourceObserver
 {
     Task<OfflineMigrationSourceObservation> ObserveAsync(
-        OfflineMigrationProvider provider,
+        CurrentSchemaProviderKind provider,
         string connectionString,
         CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// Pure plan byte identity used by independent receipt consumers without loading migration
-/// operations. A matching digest is integrity only, never registry, backup, or execution authorization.
+/// The source observer owns one PostgreSQL repeatable-read, read-only session until the
+/// original backup owner completes its dump of the actual exported snapshot. It does not
+/// run a dump, choose a backup, or confer restore/admission authority.
+/// </summary>
+public interface IOfflineMigrationSnapshotSourceObserver : IOfflineMigrationSourceObserver
+{
+    /// <summary>
+    /// Hold the native snapshot while the callback waits for the dump owner's actual terminal
+    /// boundary, then independently hash that callback's pre-bound dump path before disposing
+    /// the transaction. Callback errors, EOF, or cancellation must not produce capture evidence.
+    /// </summary>
+    Task<(OfflineMigrationSourceObservation Source, string SnapshotId, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
+        string connectionString,
+        Func<OfflineMigrationSourceObservation, string, CancellationToken, Task<string>> awaitCompletedDumpPath,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Pure plan byte identity owned by the migration assembly. A matching digest is integrity only, never registry, backup, or execution authorization.
 /// </summary>
 public static class OfflineMigrationPlanCodec
 {
