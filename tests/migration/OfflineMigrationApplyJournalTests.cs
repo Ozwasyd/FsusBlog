@@ -16,6 +16,34 @@ public sealed class OfflineMigrationApplyJournalTests
     private static readonly DateTimeOffset RecordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void First_entry_is_the_original_successfully_accepted_attempt_start_across_forks_and_resume()
+    {
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        Assert.Null(verifier.First);
+        OfflineMigrationApplyJournalEntry rejected = Seal(Control(plan, verifier,
+            OfflineMigrationApplyJournalState.AttemptStarted) with { Attempt = 2 });
+        Assert.Throws<InvalidOperationException>(() => verifier.Accept(rejected));
+        Assert.Null(verifier.First);
+        Assert.Null(verifier.Last);
+
+        OfflineMigrationApplyJournalEntry first = Seal(Control(plan, verifier,
+            OfflineMigrationApplyJournalState.AttemptStarted));
+        verifier.Accept(first);
+        OfflineMigrationApplyJournalVerifier fork = verifier.Fork();
+        Assert.Same(first, fork.First);
+        Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.RecoveryRequired,
+            failure: "offline_apply_prior_attempt_interrupted"));
+        Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2)
+            with { RecordedAt = RecordedAt.AddMinutes(1) });
+        Assert.Same(first, fork.First);
+        Assert.Equal(RecordedAt, fork.First!.RecordedAt);
+        Assert.Equal(RecordedAt.AddMinutes(1), fork.Last!.RecordedAt);
+        Assert.Same(first, verifier.First);
+        Assert.Same(first, verifier.Last);
+    }
+
+    [Fact]
     public void Complete_transaction_chain_requires_committed_unit_then_verified_step()
     {
         OfflineMigrationPlan plan = Plan();

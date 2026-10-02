@@ -21,6 +21,7 @@ public sealed class OfflineMigrationApplyJournalVerifier
     private readonly CurrentSchemaArtifactReference _reference;
     private readonly string _invocation;
     private readonly List<OfflineMigrationApplyJournalEntry> _proofs = [];
+    private OfflineMigrationApplyJournalEntry? _first;
     private OfflineMigrationApplyJournalEntry? _last;
     private OfflineMigrationApplyJournalEntry? _unit;
     private int _attempt;
@@ -43,6 +44,8 @@ public sealed class OfflineMigrationApplyJournalVerifier
         _invocation = invocationId;
     }
 
+    /// <summary>The first successfully accepted entry, or null before any entry is accepted.</summary>
+    public OfflineMigrationApplyJournalEntry? First => _first;
     /// <summary>The last verified entry, or null before the first entry.</summary>
     public OfflineMigrationApplyJournalEntry? Last => _last;
     /// <summary>One recorded final proof per completed step, not independently verified DB facts.</summary>
@@ -58,6 +61,7 @@ public sealed class OfflineMigrationApplyJournalVerifier
         _reference = source._reference;
         _invocation = source._invocation;
         _proofs.AddRange(source._proofs);
+        _first = source._first;
         _last = source._last;
         _unit = source._unit;
         _attempt = source._attempt;
@@ -132,6 +136,7 @@ public sealed class OfflineMigrationApplyJournalVerifier
             }
         }
 
+        _first ??= entry;
         _last = entry;
     }
 
