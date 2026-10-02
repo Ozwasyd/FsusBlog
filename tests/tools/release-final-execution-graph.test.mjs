@@ -417,6 +417,36 @@ test('release-final tier separates an empty execution graph from the canonical e
     );
 });
 
+test('matrix validation rejects an unknown release-final evidence producer at the canonical static boundary', () =>
+{
+    const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-unknown-producer-'));
+    try
+    {
+        const matrixFile = path.join(fixture, 'matrix.yml');
+        writeFileSync(matrixFile, replaceTierField(
+            readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'),
+            'release-final',
+            'requiresEvidenceFrom',
+            '[missing-evidence-producer]'
+        ));
+        const result = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate'], {
+            cwd: root,
+            encoding: 'utf8',
+            env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrixFile }
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '', 'invalid producer roster must be rejected before publishing a plan');
+        assert.match(result.stderr, /release-final static boundary rejected matrix parse/u);
+        assert.match(result.stderr, /release-final\.requiresEvidenceFrom must contain exactly 22 canonical evidence inputs; got 1/u);
+        assert.match(result.stderr, /release-final\.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer/u);
+    }
+    finally
+    {
+        rmSync(fixture, { recursive: true, force: true });
+    }
+});
+
 test('release-final exact-set binding rejects deletion, replacement, duplication, and addition', async (context) =>
 {
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
