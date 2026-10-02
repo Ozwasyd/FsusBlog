@@ -22,6 +22,7 @@ import {
   prepareGatewayFiles,
   renderUpstream
 } from '../../tools/deployment/gateway-control.mjs'
+import { createRolloutState, writeRolloutStateAtomic } from '../../tools/deployment/release-rollout-lib.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const blueRelease = '20260711010101-0123456789ab'
@@ -455,6 +456,60 @@ test('restart recovery refuses a persisted legacy rollback transition without ru
   assertUnchanged(fixture, before)
   assert.equal(fs.readFileSync(fixture.runtimeState, 'utf8'), beforeRuntime)
   assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
+})
+
+test('rollout rejects image-only rollback before input validation, lock creation or dry-run planning', (t) => {
+  const fixture = createGatewayFixture(t)
+  for (const mode of [[], ['--dry-run'], ['--resume'], ['--no-switch']]) {
+    const before = snapshot(fixture)
+    const beforeRuntime = fs.readFileSync(fixture.runtimeState, 'utf8')
+    const beforeLog = fs.readFileSync(fixture.openrestyLog, 'utf8')
+    const lockFile = path.join(fixture.directory, 'must-not-create.lock')
+    const result = runGateway(fixture, 'release-rollout.sh', [
+      '--rollback', '--release-manifest', path.join(fixture.directory, 'missing.json'), ...mode
+    ], { FSUSBLOG_DEPLOYMENT_LOCK_FILE: lockFile })
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+    assertUnchanged(fixture, before)
+    assert.equal(fs.readFileSync(fixture.runtimeState, 'utf8'), beforeRuntime)
+    assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
+    assert.equal(fs.existsSync(lockFile), false)
+  }
+})
+
+test('rollout cannot resume persisted image rollback or old-source recovery as deploy', (t) => {
+  const fixture = createGatewayFixture(t)
+  const manifest = path.join(fixture.directory, 'release-manifest.json')
+  fs.writeFileSync(manifest, '{}\n')
+  for (const kind of ['rollback', 'deploy']) {
+    const rolloutFile = path.join(fixture.directory, `${kind}-rollout.json`)
+    const state = createRolloutState({
+      rolloutId: `${kind}-fixture`, kind, manifestPath: manifest,
+      source: { slot: 'blue', releaseId: blueRelease, imageDigest: blueDigest, runtimeGeneration: 1 },
+      target: { slot: 'green', releaseId: greenRelease, imageDigest: greenDigest, runtimeGeneration: 2 }
+    })
+    if (kind === 'deploy') {
+      state.status = 'recovery_required'
+      state.recovery = {
+        action: 'rollback-gateway-to-source', automatic: true,
+        reason: 'post_switch_gate_failed_before_source_drain', failedStage: 'source-drain'
+      }
+    }
+    writeRolloutStateAtomic(rolloutFile, state)
+    const beforeRollout = fs.readFileSync(rolloutFile, 'utf8')
+    const before = snapshot(fixture)
+    const beforeRuntime = fs.readFileSync(fixture.runtimeState, 'utf8')
+    const beforeLog = fs.readFileSync(fixture.openrestyLog, 'utf8')
+    const result = runGateway(fixture, 'release-rollout.sh', [
+      '--resume', '--release-manifest', manifest, '--rollout-state-file', rolloutFile
+    ], { FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL: 'http://127.0.0.1:18080/health/ready' })
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /schema_image_only_rollback_retired/u)
+    assert.equal(fs.readFileSync(rolloutFile, 'utf8'), beforeRollout)
+    assertUnchanged(fixture, before)
+    assert.equal(fs.readFileSync(fixture.runtimeState, 'utf8'), beforeRuntime)
+    assert.equal(fs.readFileSync(fixture.openrestyLog, 'utf8'), beforeLog)
+  }
 })
 
 function createRunningState() {

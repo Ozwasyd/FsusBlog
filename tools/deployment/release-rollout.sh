@@ -37,7 +37,6 @@ ASSET_STORE="${FSUSBLOG_RELEASE_ASSET_STORE:-/var/lib/fsusblog/release-assets}"
 RETENTION_STATE="${FSUSBLOG_RELEASE_RETENTION_STATE:-}"
 DRY_RUN=0
 NO_SWITCH=0
-ROLLBACK=0
 RESUME=0
 TRAFFIC_PID=""
 RESOURCE_PID=""
@@ -114,7 +113,7 @@ Required evidence/configuration:
 Modes:
   --dry-run       Validate immutable inputs/state and print the exact ordered plan without mutation.
   --no-switch     Start, materialize and verify the candidate; do not mutate public traffic/fence.
-  --rollback      Roll out the manifest that exactly matches the durable previous slot/release.
+  --rollback      Retired: a previous image is not verified database recovery.
   --resume        Resume an existing durable rollout state after stage-specific recovery.
 
 Paths/config:
@@ -304,8 +303,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --rollback)
-            ROLLBACK=1
-            shift
+            RolloutFail "schema_image_only_rollback_retired"
             ;;
         --resume)
             RESUME=1
@@ -321,7 +319,6 @@ done
 
 [[ -n "$RELEASE_MANIFEST" ]] || RolloutFail "--release-manifest is required"
 [[ -f "$RELEASE_MANIFEST" ]] || RolloutFail "release manifest not found: $RELEASE_MANIFEST"
-[[ "$NO_SWITCH" == "0" || "$ROLLBACK" == "0" ]] || RolloutFail "--no-switch and --rollback are mutually exclusive"
 [[ "$DRY_RUN" == "0" || "$RESUME" == "0" ]] || RolloutFail "--dry-run cannot resume mutable state"
 [[ -z "$REQUESTED_ROLLOUT_ID" || "$REQUESTED_ROLLOUT_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{7,127}$ ]] ||
     RolloutFail "--rollout-id is invalid"
@@ -342,6 +339,9 @@ ReadInitialState() {
         [[ -f "$ROLLOUT_STATE_FILE" ]] || RolloutFail "--resume state is missing: $ROLLOUT_STATE_FILE"
         state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")" ||
             RolloutFail "unable to read durable rollout state"
+        [[ "$(jq -r '.kind' <<<"$state")" == "deploy" &&
+            "$(jq -r '.recovery.action // ""' <<<"$state")" != "rollback-gateway-to-source" ]] ||
+            RolloutFail "schema_image_only_rollback_retired"
         ROLLOUT_ID="$(jq -r '.rolloutId' <<<"$state")"
         [[ -z "$REQUESTED_ROLLOUT_ID" || "$REQUESTED_ROLLOUT_ID" == "$ROLLOUT_ID" ]] ||
             RolloutFail "--rollout-id does not match the durable resume state"
@@ -353,7 +353,6 @@ ReadInitialState() {
         TARGET_RELEASE="$(jq -r '.target.releaseId' <<<"$state")"
         TARGET_DIGEST="$(jq -r '.target.imageDigest' <<<"$state")"
         TARGET_GENERATION="$(jq -r '.target.runtimeGeneration' <<<"$state")"
-        [[ "$(jq -r '.kind' <<<"$state")" == "rollback" ]] && ROLLBACK=1
         SlotRequire "$SOURCE_SLOT"
         SlotRequire "$TARGET_SLOT"
         node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
@@ -376,11 +375,7 @@ ReadInitialState() {
     [[ "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || RolloutFail "active image digest is invalid"
     [[ "$SOURCE_GENERATION" =~ ^[0-9]+$ && "$SOURCE_GENERATION" -ge 1 ]] || RolloutFail "active runtime generation is invalid"
 
-    if [[ "$ROLLBACK" == "1" ]]; then
-        TARGET_SLOT="$(jq -r '.previousSlot // ""' <<<"$state")"
-    else
-        TARGET_SLOT="$([[ "$SOURCE_SLOT" == "blue" ]] && printf green || printf blue)"
-    fi
+    TARGET_SLOT="$([[ "$SOURCE_SLOT" == "blue" ]] && printf green || printf blue)"
     SlotRequire "$TARGET_SLOT"
 
     local manifestResult
@@ -391,13 +386,7 @@ ReadInitialState() {
     TARGET_DIGEST="$(jq -r '.imageDigest' <<<"$manifestResult")"
     [[ "$TARGET_RELEASE" != "$SOURCE_RELEASE" ]] || RolloutFail "target release must differ from active release"
     [[ "$TARGET_DIGEST" != "$SOURCE_DIGEST" ]] || RolloutFail "target digest must differ from active digest"
-    if [[ "$ROLLBACK" == "1" ]]; then
-        [[ "$(jq -r '.previousReleaseId' <<<"$state")" == "$TARGET_RELEASE" &&
-        "$(jq -r '.previousImageDigest' <<<"$state")" == "$TARGET_DIGEST" ]] ||
-            RolloutFail "rollback manifest does not exactly match the durable previous release"
-    fi
-
-    ROLLOUT_ID="${REQUESTED_ROLLOUT_ID:-$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)-${TARGET_RELEASE}}"
+    ROLLOUT_ID="${REQUESTED_ROLLOUT_ID:-deploy-${TARGET_RELEASE}}"
     [[ -n "$ROLLOUT_STATE_FILE" ]] || ROLLOUT_STATE_FILE="$ROLLOUT_EVIDENCE_ROOT/$ROLLOUT_ID/state.json"
     ConfigureRolloutPaths
 }
@@ -599,7 +588,7 @@ PrintDryRun() {
     plannedGeneration="$(($(jq -r '.runtimeGeneration' <<<"$state") + 1))"
     jq -cn \
         --arg rolloutId "$ROLLOUT_ID" \
-        --arg kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)" \
+        --arg kind deploy \
         --arg manifest "$(realpath "$RELEASE_MANIFEST")" \
         --arg sourceSlot "$SOURCE_SLOT" --arg sourceRelease "$SOURCE_RELEASE" --arg sourceDigest "$SOURCE_DIGEST" \
         --arg targetSlot "$TARGET_SLOT" --arg targetRelease "$TARGET_RELEASE" --arg targetDigest "$TARGET_DIGEST" \
@@ -807,7 +796,7 @@ CreateOrResumeState() {
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" create \
         --state "$ROLLOUT_STATE_FILE" \
         --rollout-id "$ROLLOUT_ID" \
-        --kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)" \
+        --kind deploy \
         --manifest "$(realpath "$RELEASE_MANIFEST")" \
         --slot-state "$SLOT_STATE_FILE" \
         --source-slot "$SOURCE_SLOT" --source-release "$SOURCE_RELEASE" --source-digest "$SOURCE_DIGEST" --source-generation "$SOURCE_GENERATION" \
@@ -1267,19 +1256,7 @@ RecoverPendingState() {
             set -e
             ;;
         rollback-gateway-to-source)
-            set +e
-            "$ROOT_DIR/tools/deployment/release-rollout-recovery.sh" rollback-to-source \
-                --rollout-state "$ROLLOUT_STATE_FILE" --slot-state "$SLOT_STATE_FILE" \
-                --env-file "$PRODUCTION_ENV_FILE" --source-manifest "${FSUSBLOG_ROLLOUT_SOURCE_MANIFEST:-}" \
-                --public-url "$PUBLIC_PROBE_URL" --admin-header-file "$ADMIN_HEADER_FILE" --control-origin "$CONTROL_ORIGIN" \
-                --out "$recoveryFile" >"$recoveryStdout" 2>"$recoveryStderr"
-            status=$?
-            set -e
-            if [[ "$status" == "0" ]]; then
-                node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-recovery \
-                    --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recoveryFile" --terminal-status rolled_back >/dev/null
-                return 0
-            fi
+            RolloutFail "schema_image_only_rollback_retired"
             ;;
         resume-release-activation-same-cutover | resume-release-evidence)
             jq -cn --arg action "$action" --arg failedStage "$failedStage" \
@@ -1331,13 +1308,9 @@ StageBackupRestoreGate() {
 
 StageExpandMigration() {
     local migrationOutput="$EVIDENCE_DIR/migration-expand.json"
-    if [[ "$ROLLBACK" == "1" ]]; then
-        jq -cn '{schema:"fsusblog.online-migration-rollout.v1",status:"ok",phase:"expand",action:"not-required-for-rollback",contractApplied:false,errors:[]}' >"$migrationOutput"
-    else
-        "$ROOT_DIR/tools/db/run-online-migrations.sh" \
-            --server-dll "$MIGRATION_SERVER_DLL" --release-manifest "$RELEASE_MANIFEST" \
-            --env-file "$PRODUCTION_ENV_FILE" --phase expand >"$migrationOutput"
-    fi
+    "$ROOT_DIR/tools/db/run-online-migrations.sh" \
+        --server-dll "$MIGRATION_SERVER_DLL" --release-manifest "$RELEASE_MANIFEST" \
+        --env-file "$PRODUCTION_ENV_FILE" --phase expand >"$migrationOutput"
     jq -e '
     type == "object"
     and (.status == "ok" or .status == "pass" or .status == "completed")
@@ -1426,7 +1399,7 @@ StageGatewaySwitch() {
     EnsureBackgroundProbesAlive
     "$ROOT_DIR/tools/deployment/gateway-switch.sh" \
         --to "$TARGET_SLOT" --release "$TARGET_RELEASE" --image-digest "$TARGET_DIGEST" \
-        --kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf switch)" \
+        --kind switch \
         --state-file "$SLOT_STATE_FILE" --public-url "$PUBLIC_PROBE_URL" \
         --admin-header-file "$ADMIN_HEADER_FILE" --control-origin "$CONTROL_ORIGIN" \
         --defer-source-drain --rollout-state-file "$ROLLOUT_STATE_FILE"

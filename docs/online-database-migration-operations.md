@@ -90,6 +90,13 @@ to the current schema. The old `gateway-rollback.sh` and
 `release-rollout-recovery.sh rollback-to-source` paths now refuse before reading
 state or launching an executable. Internal `gateway-switch.sh --kind rollback`
 also refuses before acquiring the deployment lock or changing an upstream.
+The outer `release-rollout.sh --rollback` option refuses during argument parsing,
+including dry-run/resume/no-switch combinations. A persisted legacy rollback or
+old-source rollback recovery cannot be resumed as a deploy. Its old synthetic
+`not-required-for-rollback` Expand success evidence is no longer produced. The
+remaining retired Expand-wrapper stage must still fail; its replacement by fresh
+current-only receipt admission is a separate pending integration, not a skipped
+migration or a successful offline apply.
 
 If a candidate has not activated, the same `gateway-switch.sh` invocation may
 preserve the existing source upstream without restarting an image. After target activation, the gateway
