@@ -128,7 +128,8 @@ test('empty and symlink SDK roots are refused by the original inventory owner', 
     assert.throws(() => collectProductionInputTree(alias), /canonical/u);
 });
 
-function retainedByteFixture(t)
+function retainedByteFixture(t, { backendPath = null, backendFiles = [
+    'FsusBlog.Server.dll', 'FsusBlog.Shared.dll', 'FsusBlog.Server.runtimeconfig.json', 'FsusBlog.Server.deps.json'] } = {})
 {
     const value = fixture(t);
     const artifactRoot = path.join(path.dirname(value.root), 'production-artifacts');
@@ -147,17 +148,69 @@ function retainedByteFixture(t)
     invoke('finish');
     assert.deepEqual(fs.readFileSync(path.join(artifactRoot, 'payload/migration-runtime/migration-inputs-before.json')), beforeBytes);
     assert.equal(fs.existsSync(path.join(artifactRoot, 'migration-inputs-before.json')), false);
+    const domains = [{ name: 'migration-runtime', path: 'payload/migration-runtime' }];
+    if (backendPath)
+    {
+        fs.mkdirSync(path.join(artifactRoot, backendPath), { recursive: true });
+        for (const name of backendFiles)
+            fs.writeFileSync(path.join(artifactRoot, backendPath, name), `original byte fixture: ${name}`);
+        domains.push({ name: 'backend-runtime', path: backendPath });
+    }
     const actual = captureMigrationRetainedInputs(value);
     const receipt = createProductionBuildReceipt({
         root: value.root, artifactRoot,
         sourceState: { commit: actual.sourceIdentity.sourceCommit, worktreeFingerprint: actual.sourceIdentity.worktreeFingerprint },
         producer: { workflow: 'Byte fixture only', runId: 'fixture', runAttempt: 1, job: 'fixture-not-build' },
         toolchain: { node: 'fixture', npm: 'fixture', dotnet: 'fixture', vite: 'fixture', vitest: 'fixture', playwright: 'fixture', emsdk: 'fixture' },
-        inputPaths: ['Directory.Build.props'], domains: [{ name: 'migration-runtime', path: 'payload/migration-runtime' }],
+        inputPaths: ['Directory.Build.props'], domains,
         build: { command: 'tools/test/lanes/production-build-artifacts.sh' }
     });
     return { ...value, artifactRoot, receipt };
 }
+
+test('Migration-only byte receipt does not manufacture an original current-target producer domain', t =>
+{
+    const value = retainedByteFixture(t);
+    assert.equal(readProductionRetainedMigrationTool(value).CurrentTargetProducer, null);
+});
+
+test('original current-target producer inputs are measured from the same sealed production receipt', t =>
+{
+    const value = retainedByteFixture(t, { backendPath: 'payload/backend-runtime' });
+    const original = readProductionRetainedMigrationTool(value);
+    const bound = original.CurrentTargetProducer;
+    for (const [pathKey, digestKey, name] of [['AssemblyPath', 'AssemblySha256', 'FsusBlog.Server.dll'],
+        ['SharedAssemblyPath', 'SharedAssemblySha256', 'FsusBlog.Shared.dll'],
+        ['RuntimeConfigurationPath', 'RuntimeConfigurationSha256', 'FsusBlog.Server.runtimeconfig.json'],
+        ['DependenciesPath', 'DependenciesSha256', 'FsusBlog.Server.deps.json']])
+    {
+        assert.equal(bound[pathKey], path.join(value.artifactRoot, 'payload/backend-runtime', name));
+        assert.equal(bound[digestKey], value.receipt.artifacts.find(item => item.path === `payload/backend-runtime/${name}`).sha256.slice(7));
+    }
+    const executed = invokeCompiledFixture(value);
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.deepEqual(JSON.parse(executed.stdout), original);
+});
+
+test('incomplete or redirected original current-target producer domains are refused', t =>
+{
+    const missing = retainedByteFixture(t, { backendPath: 'payload/backend-runtime', backendFiles: ['FsusBlog.Server.dll'] });
+    assert.throws(() => readProductionRetainedMigrationTool(missing), /producer input missing/u);
+    const redirected = retainedByteFixture(t, { backendPath: 'payload/caller-backend' });
+    assert.throws(() => readProductionRetainedMigrationTool(redirected), /original read-only backend runtime domain/u);
+});
+
+test('modified original current-target input bytes are refused by original receipt verification', t =>
+{
+    const value = retainedByteFixture(t, { backendPath: 'payload/backend-runtime' });
+    const file = path.join(value.artifactRoot, 'payload/backend-runtime/FsusBlog.Server.deps.json');
+    fs.chmodSync(file, 0o644);
+    fs.appendFileSync(file, 'replacement');
+    assert.throws(() => readProductionRetainedMigrationTool(value));
+    const executed = invokeCompiledFixture(value);
+    assert.notEqual(executed.status, 0);
+    assert.equal(executed.stdout, '');
+});
 
 // Execute the exact fixed loader source owned by the C# producer. This is a
 // lightweight Node control, not compilation or an executing Migration capability.

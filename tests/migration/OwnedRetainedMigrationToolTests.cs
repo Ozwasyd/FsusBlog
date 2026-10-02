@@ -47,6 +47,8 @@ public sealed class OwnedRetainedMigrationToolTests
             read.GetParameters().Select(parameter => parameter.Name).ToArray());
         Assert.DoesNotContain(type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static),
             method => method.Name is "FromPlan" or "Import" or "FromObservation");
+        MethodInfo invoke = type.GetMethod("InvokeCurrentSchemaOriginalOwnerAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Assert.Equal(new[] { "cancellationToken" }, invoke.GetParameters().Select(parameter => parameter.Name).ToArray());
         foreach (string resource in new[] { "tools.ci.migration-retained-inputs.mjs", "tools.ci.production-build-artifacts.mjs",
             "tools.fact-extractors.identity.mjs", "tools.fact-extractors.lib.canonicalize.mjs" })
         {

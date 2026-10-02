@@ -276,6 +276,28 @@ internal sealed class OwnedCurrentSchemaTarget
         {
             throw new InvalidOperationException("migration_retained_executing_tool_or_receipt_changed");
         }
+        if (observation.CurrentTargetProducer is { } producer)
+        {
+            foreach ((string file, string digest) in new[]
+            {
+                (producer.AssemblyPath, producer.AssemblySha256),
+                (producer.SharedAssemblyPath, producer.SharedAssemblySha256),
+                (producer.RuntimeConfigurationPath, producer.RuntimeConfigurationSha256),
+                (producer.DependenciesPath, producer.DependenciesSha256)
+            })
+            {
+                if (await HashFileAsync(file, cancellationToken).ConfigureAwait(false) != digest)
+                {
+                    throw new InvalidOperationException("migration_retained_original_current_target_input_changed");
+                }
+            }
+            if (ReadOriginalOwnerSourceRevision(producer.AssemblyPath, cancellationToken) != observation.Identity.SourceRevision
+                || await HashFileAsync(typeof(CurrentSchemaCanonicalAuthority).Assembly.Location, cancellationToken).ConfigureAwait(false)
+                    != producer.SharedAssemblySha256)
+            {
+                throw new InvalidOperationException("migration_retained_original_current_target_source_or_contract_mismatch");
+            }
+        }
         cancellationToken.ThrowIfCancellationRequested();
         return observation;
     }
@@ -361,6 +383,24 @@ internal sealed class OwnedCurrentSchemaTarget
             observation.Identity.ConfigurationDigest, observation.AssemblySha256, observation.ReceiptSha256 })
         {
             OfflineMigrationPlanValidation.RequireDigest(digest, "migration_retained_original_reader_digest_invalid");
+        }
+        if (observation.CurrentTargetProducer is { } producer)
+        {
+            string backend = Path.Combine(configuration.ArtifactRoot, "payload/backend-runtime");
+            foreach ((string file, string expected, string digest) in new[]
+            {
+                (producer.AssemblyPath, "FsusBlog.Server.dll", producer.AssemblySha256),
+                (producer.SharedAssemblyPath, "FsusBlog.Shared.dll", producer.SharedAssemblySha256),
+                (producer.RuntimeConfigurationPath, "FsusBlog.Server.runtimeconfig.json", producer.RuntimeConfigurationSha256),
+                (producer.DependenciesPath, "FsusBlog.Server.deps.json", producer.DependenciesSha256)
+            })
+            {
+                if (file != Path.Combine(backend, expected))
+                {
+                    throw new InvalidOperationException("migration_retained_original_current_target_input_path_invalid");
+                }
+                OfflineMigrationPlanValidation.RequireDigest(digest, "migration_retained_original_current_target_digest_invalid");
+            }
         }
     }
 

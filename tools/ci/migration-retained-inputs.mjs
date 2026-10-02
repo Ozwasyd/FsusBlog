@@ -99,10 +99,34 @@ export function readProductionRetainedMigrationTool({ root, artifactRoot, sdkRoo
     }
     const identity = validateMigrationRetainedInputs(
         JSON.parse(fs.readFileSync(path.join(artifactRoot, snapshotPath), 'utf8')), actual);
+    const backend = receipt.domains.find(value => value.name === 'backend-runtime');
+    let currentTargetProducer = null;
+    if (backend)
+    {
+        if (backend.consumerMode !== 'read-only' || backend.path !== 'payload/backend-runtime')
+        {
+            throw new Error('migration current target requires the original read-only backend runtime domain');
+        }
+        const artifact = name =>
+        {
+            const relative = `${backend.path}/${name}`;
+            const retained = receipt.artifacts.find(value => value.path === relative);
+            if (!retained) throw new Error(`migration original current target producer input missing: ${name}`);
+            return { path: path.resolve(artifactRoot, relative), sha256: retained.sha256.replace(/^sha256:/u, '') };
+        };
+        const server = artifact('FsusBlog.Server.dll');
+        const shared = artifact('FsusBlog.Shared.dll');
+        const runtime = artifact('FsusBlog.Server.runtimeconfig.json');
+        const dependencies = artifact('FsusBlog.Server.deps.json');
+        currentTargetProducer = { AssemblyPath: server.path, AssemblySha256: server.sha256,
+            SharedAssemblyPath: shared.path, SharedAssemblySha256: shared.sha256,
+            RuntimeConfigurationPath: runtime.path, RuntimeConfigurationSha256: runtime.sha256,
+            DependenciesPath: dependencies.path, DependenciesSha256: dependencies.sha256 };
+    }
     return { Identity: identity, AssemblyPath: path.resolve(artifactRoot, assemblyPath),
         AssemblySha256: assembly.sha256.replace(/^sha256:/u, ''),
         ReceiptPath: path.resolve(artifactRoot, 'receipt.json'),
-        ReceiptSha256: digestPath(artifactRoot, 'receipt.json') };
+        ReceiptSha256: digestPath(artifactRoot, 'receipt.json'), CurrentTargetProducer: currentTargetProducer };
 }
 
 function writeNew(file, value)

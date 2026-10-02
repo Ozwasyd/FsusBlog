@@ -7,7 +7,14 @@ internal sealed record RetainedMigrationToolReadConfiguration(
 
 internal sealed record RetainedMigrationToolObservation(
     CurrentSchemaVerifierIdentity Identity,
-    string AssemblyPath, string AssemblySha256, string ReceiptPath, string ReceiptSha256);
+    string AssemblyPath, string AssemblySha256, string ReceiptPath, string ReceiptSha256,
+    RetainedOriginalCurrentTargetProducer? CurrentTargetProducer);
+
+internal sealed record RetainedOriginalCurrentTargetProducer(
+    string AssemblyPath, string AssemblySha256,
+    string SharedAssemblyPath, string SharedAssemblySha256,
+    string RuntimeConfigurationPath, string RuntimeConfigurationSha256,
+    string DependenciesPath, string DependenciesSha256);
 
 // Only the original producer's actual successful read can create this capability.
 // The measured JSON is input data, never an import constructor or a status grant.
@@ -59,5 +66,22 @@ internal sealed class OwnedRetainedMigrationTool
         }
         cancellationToken.ThrowIfCancellationRequested();
         return _observation.Identity;
+    }
+
+    internal async Task<OwnedCurrentSchemaTarget> InvokeCurrentSchemaOriginalOwnerAsync(CancellationToken cancellationToken)
+    {
+        // Input references come only from the actual original receipt read held
+        // by this capability. This invocation is not an OS immutability lease or
+        // a claim that Assembly.Location proves the loaded image incarnation.
+        cancellationToken.ThrowIfCancellationRequested();
+        RetainedOriginalCurrentTargetProducer producer = _observation.CurrentTargetProducer
+            ?? throw new InvalidOperationException("migration_retained_original_current_target_domain_missing");
+        await RevalidateAsync(cancellationToken).ConfigureAwait(false);
+        OwnedCurrentSchemaTarget target = await OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync(
+            producer.AssemblyPath, _observation.Identity.SourceRevision, _configuration.EvidenceRoot,
+            cancellationToken).ConfigureAwait(false);
+        await target.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
+        await RevalidateAsync(cancellationToken).ConfigureAwait(false);
+        return target;
     }
 }
