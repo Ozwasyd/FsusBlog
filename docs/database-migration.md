@@ -255,6 +255,11 @@ capability. `OfflineMigrationBackupAdmission` consumes only the original produce
 versioned `migration-evidence` invocation: the package and each retained artifact
 are read from actual bytes, the inner manifest/report/native restored observation
 are cross-bound, and a fresh private output root and invocation nonce are required.
+Regular-file admission reuses the original artifact reader's Linux `openat` owner:
+each ancestor is opened relative to its owned directory FD with no-follow flags,
+not checked by a string path followed by a separate leaf-only open. The backup
+consumer retains its own input representation checks and whole-byte hashes; it
+does not enlarge the current-receipt reader's independent byte limit.
 Its producer port must await the real operation and its children/pipes to terminal;
 cancellation cannot convert an unverified cleanup into a normal cancellation result.
 The Host also supplies one invocation-only monotonic deadline through the evidence

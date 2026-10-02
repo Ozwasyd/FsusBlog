@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -217,36 +216,43 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         CancellationToken cancellationToken)
     {
         Require(Text(output, prefix + "Reference") == expectedPath, "artifact_reference_mismatch");
-        await using FileStream input = OpenRegularFile(expectedPath, out ArtifactIdentity identity);
-        using var retained = new MemoryStream();
-        await input.CopyToAsync(retained, cancellationToken).ConfigureAwait(false);
-        RequireUnchanged(input, expectedPath, identity);
-        byte[] bytes = retained.ToArray();
+        await using FileStream input = OpenRegularFile(expectedPath, cancellationToken);
+        long length = input.Length;
+        Require(length is > 0 and <= int.MaxValue, "json_artifact_representation_invalid");
+        byte[] bytes = new byte[checked((int)length)];
+        await input.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
+        byte[] trailing = new byte[1];
+        Require(await input.ReadAsync(trailing, cancellationToken).ConfigureAwait(false) == 0
+            && input.Length == length, "artifact_bytes_changed");
         Require(Convert.ToHexStringLower(SHA256.HashData(bytes)) == Digest(output, prefix + "Sha256"), "artifact_bytes_changed");
         return Parse(bytes);
     }
 
     private static async Task<string> HashRegularFileAsync(string path, CancellationToken cancellationToken)
     {
-        await using FileStream input = OpenRegularFile(path, out ArtifactIdentity identity);
+        await using FileStream input = OpenRegularFile(path, cancellationToken);
+        long length = input.Length;
         string digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(input, cancellationToken).ConfigureAwait(false));
-        RequireUnchanged(input, path, identity);
+        Require(input.Position == length && input.Length == length, "artifact_bytes_changed");
         return digest;
     }
 
-    private static FileStream OpenRegularFile(string path, out ArtifactIdentity identity)
+    private static FileStream OpenRegularFile(string path, CancellationToken cancellationToken)
     {
-        RequireDirectoryChain(Path.GetDirectoryName(path)!);
-        Require(OperatingSystem.IsLinux(), "regular_artifact_required");
-        identity = ReadIdentity(-100, path, 0x100); // AT_FDCWD, AT_SYMLINK_NOFOLLOW.
-        // O_NONBLOCK avoids blocking in open if a file was replaced by a FIFO; no-follow
-        // rejects a replacement symlink. Verify the actual FD before reading any bytes.
-        int descriptor = NativeMethods.Open(path, 0x800 | 0x20000 | 0x80000);
-        Require(descriptor >= 0, "regular_artifact_required");
-        var handle = new SafeFileHandle((IntPtr)descriptor, ownsHandle: true);
+        // Reuse the sole original openat owner. Each ancestor is opened relative to
+        // its already owned directory FD with DIRECTORY|NOFOLLOW; a leaf-only check
+        // followed by another full-path open cannot protect an ancestor rename race.
+        SafeFileHandle handle;
         try
         {
-            Require(ReadIdentity(descriptor, string.Empty, 0x1100) == identity, "artifact_identity_changed");
+            handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, cancellationToken);
+        }
+        catch (InvalidOperationException error) when (error.Message.StartsWith("current_verify_", StringComparison.Ordinal))
+        {
+            throw Failure("regular_artifact_required");
+        }
+        try
+        {
             return new FileStream(handle, FileAccess.Read, 64 * 1024, isAsync: false);
         }
         catch
@@ -254,56 +260,6 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
             handle.Dispose();
             throw;
         }
-    }
-
-    private static void RequireUnchanged(FileStream input, string path, ArtifactIdentity identity)
-    {
-        Require(ReadIdentity(input.SafeFileHandle.DangerousGetHandle().ToInt32(), string.Empty, 0x1100) == identity
-            && ReadIdentity(-100, path, 0x100) == identity, "artifact_identity_changed");
-    }
-
-    private static ArtifactIdentity ReadIdentity(int descriptor, string path, int flags)
-    {
-        const uint mask = 0x7df;
-        Require(NativeMethods.Statx(descriptor, path, flags, mask, out NativeStatx status) == 0
-            && (status.Mask & mask) == mask && (status.Mode & 0xf000) == 0x8000, "regular_artifact_required");
-        // Empty logs are valid. The encrypted package and native JSON validity are checked
-        // by their respective owners; do not inherit dump-only size/link-count restrictions.
-        return new(status.DeviceMajor, status.DeviceMinor, status.Inode, status.Links, status.Size,
-            status.Mode, status.Uid, status.Gid, status.ChangedSeconds, status.ChangedNanoseconds,
-            status.ModifiedSeconds, status.ModifiedNanoseconds);
-    }
-
-    private readonly record struct ArtifactIdentity(uint DeviceMajor, uint DeviceMinor, ulong Inode, uint Links,
-        ulong Size, ushort Mode, uint Uid, uint Gid, long ChangedSeconds, uint ChangedNanoseconds,
-        long ModifiedSeconds, uint ModifiedNanoseconds);
-
-    [StructLayout(LayoutKind.Explicit, Size = 256)]
-    private struct NativeStatx
-    {
-        [FieldOffset(0)] public uint Mask;
-        [FieldOffset(16)] public uint Links;
-        [FieldOffset(20)] public uint Uid;
-        [FieldOffset(24)] public uint Gid;
-        [FieldOffset(28)] public ushort Mode;
-        [FieldOffset(32)] public ulong Inode;
-        [FieldOffset(40)] public ulong Size;
-        [FieldOffset(96)] public long ChangedSeconds;
-        [FieldOffset(104)] public uint ChangedNanoseconds;
-        [FieldOffset(112)] public long ModifiedSeconds;
-        [FieldOffset(120)] public uint ModifiedNanoseconds;
-        [FieldOffset(136)] public uint DeviceMajor;
-        [FieldOffset(140)] public uint DeviceMinor;
-    }
-
-    private static class NativeMethods
-    {
-        [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-        internal static extern int Open([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
-
-        [DllImport("libc", EntryPoint = "statx", SetLastError = true)]
-        internal static extern int Statx(int descriptor, [MarshalAs(UnmanagedType.LPUTF8Str)] string path,
-            int flags, uint mask, out NativeStatx status);
     }
 
     private static void RequireDirectoryChain(string path)

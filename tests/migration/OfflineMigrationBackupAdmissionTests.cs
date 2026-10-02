@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -95,6 +96,40 @@ public sealed class OfflineMigrationBackupAdmissionTests
         using var fixture = new EvidenceFixture { Mutation = "symlink" };
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ReadAsync());
         Assert.Equal("offline_backup_owned_regular_artifact_required", error.Message);
+    }
+
+    [Fact]
+    public async Task FifoRawArtifactIsRefusedWithoutOpeningAWriterOrDiscardingARead()
+    {
+        using var fixture = new EvidenceFixture { Mutation = "fifo" };
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ReadAsync());
+        Assert.Equal("offline_backup_owned_regular_artifact_required", error.Message);
+    }
+
+    [Fact]
+    public async Task SoleOpenedArtifactFdDoesNotFollowAnAncestorReplacement()
+    {
+        using var fixture = new EvidenceFixture();
+        string ancestor = Path.Combine(fixture.Parent, "ancestor");
+        string retired = Path.Combine(fixture.Parent, "retired");
+        string substitute = Path.Combine(fixture.Parent, "substitute");
+        Directory.CreateDirectory(ancestor);
+        Directory.CreateDirectory(substitute);
+        string path = Path.Combine(ancestor, "original.bin");
+        byte[] original = "original fd bytes"u8.ToArray();
+        byte[] other = "substituted pathname bytes"u8.ToArray();
+        await File.WriteAllBytesAsync(path, original);
+        await File.WriteAllBytesAsync(Path.Combine(substitute, "original.bin"), other);
+        using var handle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, CancellationToken.None);
+        await using var input = new FileStream(handle, FileAccess.Read);
+        Directory.Move(ancestor, retired);
+        Directory.CreateSymbolicLink(ancestor, substitute);
+        using var bytes = new MemoryStream();
+        await input.CopyToAsync(bytes);
+        Assert.Equal(original, bytes.ToArray());
+        Assert.Equal(other, File.ReadAllBytes(path));
+        Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(path, CancellationToken.None));
     }
 
     [Fact]
@@ -280,6 +315,12 @@ public sealed class OfflineMigrationBackupAdmissionTests
                 File.Delete(path);
                 File.CreateSymbolicLink(path, options.BackupPackagePath);
             }
+            if (Mutation == "fifo")
+            {
+                string path = Path.Combine(privateRoot, "owned-drill.stdout");
+                File.Delete(path);
+                Assert.Equal(0, MakeFifo(path, 0x180));
+            }
             byte[] stdout = JsonSerializer.SerializeToUtf8Bytes(output);
             if (Mutation == "duplicate") stdout = Encoding.UTF8.GetBytes("{\"version\":1," + Encoding.UTF8.GetString(stdout)[1..]);
             try
@@ -304,4 +345,7 @@ public sealed class OfflineMigrationBackupAdmissionTests
 
         public void Dispose() => Directory.Delete(Parent, recursive: true);
     }
+
+    [DllImport("libc", EntryPoint = "mkfifo", SetLastError = true)]
+    private static extern int MakeFifo([MarshalAs(UnmanagedType.LPUTF8Str)] string path, uint mode);
 }
