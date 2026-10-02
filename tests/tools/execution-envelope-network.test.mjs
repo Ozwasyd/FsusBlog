@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
 const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox, projectPlannedEndpoints, validateExecutionNetworkPolicy} = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
@@ -153,6 +154,44 @@ test('empty observed network exact-matches a no-network correctness plan', (cont
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 
+test('Landlock helper accepts old and matching UAPI headers but rejects a conflicting right', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-uapi-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    for (const [variant, definition, expectedSuccess] of [
+        ['old-header', '', true],
+        ['matching-header', '#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)', true],
+        ['conflicting-header', '#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 14)', false]
+    ])
+    {
+        const includeRoot = path.join(directory, variant);
+        const headerDirectory = path.join(includeRoot, 'linux');
+        fs.mkdirSync(headerDirectory, { recursive: true });
+        fs.writeFileSync(path.join(headerDirectory, 'landlock.h'), [
+            '#include_next <linux/landlock.h>',
+            '#undef LANDLOCK_ACCESS_FS_IOCTL_DEV',
+            definition,
+            ''
+        ].join('\n'));
+        const compilation = spawnSync('cc', [
+            '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+            '-I', includeRoot, '-o', path.join(directory, `${variant}-helper`), source
+        ], { encoding: 'utf8' });
+        if (expectedSuccess)
+        {
+            assert.equal(compilation.status, 0, `${variant}: ${compilation.stderr}`);
+        }
+        else
+        {
+            assert.notEqual(compilation.status, 0, `${variant} unexpectedly compiled`);
+            assert.match(compilation.stderr, /Landlock ioctl right must match the Linux UAPI/u);
+        }
+    }
+});
+
 test('Landlock grants only the exact null device while retaining default-deny writes', {
     skip: process.platform !== 'linux'
 }, (context) =>
@@ -184,11 +223,12 @@ test('Landlock grants only the exact null device while retaining default-deny wr
         TMP: directories.temp,
         TEMP: directories.temp
     };
+    const allowedFile = path.join(directories.temp, 'allowed.txt');
     const prepared = prepareNetworkSandbox({
         command: [
             process.execPath,
             '-e',
-            `const fs = require('node:fs'); fs.writeFileSync('/dev/null', 'allowed'); try { fs.writeFileSync(${JSON.stringify(deniedFile)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`
+            `const fs = require('node:fs'); fs.writeFileSync('/dev/null', 'allowed'); fs.writeFileSync(${JSON.stringify(allowedFile)}, 'allowed'); try { fs.writeFileSync(${JSON.stringify(deniedFile)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`
         ],
         cwd: process.cwd(),
         directories,
@@ -207,8 +247,9 @@ test('Landlock grants only the exact null device while retaining default-deny wr
         return;
     }
     assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.readFileSync(allowedFile, 'utf8'), 'allowed');
     assert.equal(fs.readFileSync(deniedFile, 'utf8'), 'unchanged');
-    assert.deepEqual(prepared.linuxReadWritePaths.filter((entry) => entry.startsWith('/dev/')), ['/dev/null']);
+    assert.deepEqual(prepared.linuxReadWritePaths, ['/dev/null', ...Object.values(directories)].sort());
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 
@@ -411,4 +452,263 @@ test('physical runner permits declared canonical outputs and denies undeclared/r
     networkFinalized = true;
     assert.equal(finalizeRunOwnedDirectories(directoryEnvelope).cleanup.status, 'complete');
     directoryFinalized = true;
+});
+
+test('Landlock failures preserve exact diagnostics and exit 125 after diagnostic errno drift', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-errors-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    const wrapper = path.join(directory, 'syscall-errors.c');
+    const output = path.join(directory, 'landlock-errors-helper');
+    // These link-time fault adapters observe error branches, not actual confinement.
+    fs.writeFileSync(wrapper, [
+        '#define _GNU_SOURCE',
+        '#include <errno.h>',
+        '#include <stdarg.h>',
+        '#include <stdio.h>',
+        '#include <stdlib.h>',
+        '#include <string.h>',
+        '#include <linux/landlock.h>',
+        '#include <sys/prctl.h>',
+        '#include <sys/syscall.h>',
+        '',
+        'static int FailureAt(const char* stage, int error)',
+        '{',
+        '    if (strcmp(getenv("FSUSBLOG_LANDLOCK_FAULT"), stage) == 0)',
+        '    {',
+        '        errno = error;',
+        '        return 1;',
+        '    }',
+        '    return 0;',
+        '}',
+        '',
+        'long __wrap_syscall(long number, ...)',
+        '{',
+        '    if (number == __NR_landlock_create_ruleset)',
+        '    {',
+        '        va_list arguments;',
+        '        va_start(arguments, number);',
+        '        const struct landlock_ruleset_attr* attributes = va_arg(arguments, const struct landlock_ruleset_attr*);',
+        '        va_end(arguments);',
+        '        if (attributes == NULL)',
+        '        {',
+        '            return FailureAt("abi", EOPNOTSUPP) ? -1 : 5;',
+        '        }',
+        '        return FailureAt("create", EACCES) ? -1 : 10;',
+        '    }',
+        '    if (number == __NR_landlock_add_rule)',
+        '    {',
+        '        return FailureAt("add", EPERM) ? -1 : 0;',
+        '    }',
+        '    if (number == __NR_landlock_restrict_self)',
+        '    {',
+        '        return FailureAt("restrict", EPERM) ? -1 : 0;',
+        '    }',
+        '    errno = ENOSYS;',
+        '    return -1;',
+        '}',
+        '',
+        'int __wrap_open(const char* filename, int flags, ...)',
+        '{',
+        '    (void)filename;',
+        '    (void)flags;',
+        '    return FailureAt("open", ENOENT) ? -1 : 20;',
+        '}',
+        '',
+        'int __wrap_close(int descriptor)',
+        '{',
+        '    return FailureAt(descriptor == 10 ? "close-ruleset" : "close-path", EBADF) ? -1 : 0;',
+        '}',
+        '',
+        'int __wrap_prctl(int option, ...)',
+        '{',
+        '    if (option != PR_SET_NO_NEW_PRIVS)',
+        '    {',
+        '        errno = EINVAL;',
+        '        return -1;',
+        '    }',
+        '    return FailureAt("privileges", EPERM) ? -1 : 0;',
+        '}',
+        '',
+        'int __wrap_execv(const char* filename, char* const arguments[])',
+        '{',
+        '    if (strcmp(filename, "/declared-command") != 0',
+        '        || strcmp(arguments[0], filename) != 0',
+        '        || strcmp(arguments[1], "argument") != 0 || arguments[2] != NULL)',
+        '    {',
+        '        errno = EINVAL;',
+        '        return -1;',
+        '    }',
+        '    errno = ENOEXEC;',
+        '    return -1;',
+        '}',
+        '',
+        'int __real_fputs(const char* text, FILE* stream);',
+        'int __wrap_fputs(const char* text, FILE* stream)',
+        '{',
+        '    int result = __real_fputs(text, stream);',
+        '    errno = EIO;',
+        '    return result;',
+        '}',
+        ''
+    ].join('\n'));
+    const compilation = spawnSync('cc', [
+        '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+        '-o', output, source, wrapper,
+        '-Wl,--wrap=syscall,--wrap=open,--wrap=close,--wrap=prctl,--wrap=execv,--wrap=fputs'
+    ], { encoding: 'utf8', timeout: 30_000 });
+    assert.equal(compilation.status, 0, compilation.stderr);
+    const environment = {
+        PATH: process.env.PATH,
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        TZ: 'UTC'
+    };
+    const version = spawnSync(output, ['--version'], {
+        encoding: 'utf8', env: environment, timeout: 30_000
+    });
+    assert.equal(version.status, 0, version.stderr);
+    assert.equal(version.stdout, 'fsusblog-execution-envelope-landlock 2\n');
+    assert.equal(version.stderr, '');
+    const command = ['--writable', directory, '--', '/declared-command', 'argument'];
+    for (const [stage, argumentsList, diagnostic] of [
+        ['invalid', ['--unexpected'], 'invalid arguments'],
+        ['missing', ['--'], 'command is missing'],
+        ['relative', ['--', 'relative'], 'command must be absolute'],
+        ['abi', command, 'Landlock ABI is unavailable: Operation not supported'],
+        ['create', command, 'cannot create filesystem ruleset: Permission denied'],
+        ['open', command, 'cannot open declared filesystem path: No such file or directory'],
+        ['add', command, 'cannot add filesystem rule: Operation not permitted'],
+        ['close-path', command, 'cannot close filesystem rule path: Bad file descriptor'],
+        ['privileges', command, 'cannot set no-new-privileges: Operation not permitted'],
+        ['restrict', command, 'cannot apply filesystem ruleset: Operation not permitted'],
+        ['close-ruleset', command, 'cannot close filesystem ruleset: Bad file descriptor'],
+        ['exec', command, 'cannot execute correctness command: Exec format error']
+    ])
+    {
+        const result = spawnSync(output, argumentsList, {
+            encoding: 'utf8',
+            env: { ...environment, FSUSBLOG_LANDLOCK_FAULT: stage },
+            timeout: 30_000
+        });
+        assert.equal(result.status, 125, `${stage}: ${result.stderr}`);
+        assert.equal(result.stdout, '', stage);
+        assert.equal(result.stderr, `execution-envelope-landlock: ${diagnostic}\n`, stage);
+    }
+});
+
+test('Landlock error text adapts GNU pointer and POSIX status results with one conversion', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-error-text-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    // Typed adapters cover both API signatures without claiming a different real libc.
+    const variants = [
+        {
+            name: 'pointer',
+            returnType: 'char*',
+            body: [
+                '    static char text[] = "pointer-owned diagnostic";',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "null") == 0)',
+                '    {',
+                '        return NULL;',
+                '    }',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "buffer") == 0)',
+                '    {',
+                '        memcpy(buffer, "buffer-owned diagnostic", sizeof("buffer-owned diagnostic"));',
+                '        return buffer;',
+                '    }',
+                '    return text;'
+            ],
+            cases: [
+                ['pointer', 'pointer-owned diagnostic'],
+                ['buffer', 'buffer-owned diagnostic'],
+                ['null', 'error description unavailable']
+            ]
+        },
+        {
+            name: 'status',
+            returnType: 'int',
+            body: [
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "success") == 0)',
+                '    {',
+                '        memcpy(buffer, "buffer-owned diagnostic", sizeof("buffer-owned diagnostic"));',
+                '        return 0;',
+                '    }',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "range") == 0)',
+                '    {',
+                '        return ERANGE;',
+                '    }',
+                '    if (strcmp(getenv("FSUSBLOG_ERROR_TEXT_RESULT"), "invalid") == 0)',
+                '    {',
+                '        return EINVAL;',
+                '    }',
+                '    return -1;'
+            ],
+            cases: [
+                ['success', 'buffer-owned diagnostic'],
+                ['range', 'error description unavailable'],
+                ['invalid', 'error description unavailable'],
+                ['negative', 'error description unavailable']
+            ]
+        }
+    ];
+    for (const variant of variants)
+    {
+        const fixture = path.join(directory, `${variant.name}.c`);
+        const output = path.join(directory, variant.name);
+        fs.writeFileSync(fixture, [
+            '#define _GNU_SOURCE',
+            '#include <errno.h>',
+            '#include <stdlib.h>',
+            '#include <string.h>',
+            '',
+            'static int calls;',
+            `static ${variant.returnType} ErrorTextAdapter(int error, char* buffer, size_t length)`,
+            '{',
+            '    if (error != ENOENT || ++calls != 1 || length < 64)',
+            '    {',
+            '        _Exit(77);',
+            '    }',
+            '    errno = EIO;',
+            ...variant.body,
+            '}',
+            '',
+            '#define strerror_r ErrorTextAdapter',
+            '#define main LandlockProgramMain',
+            `#include ${JSON.stringify(source)}`,
+            '#undef main',
+            '',
+            'int main(void)',
+            '{',
+            '    errno = ENOENT;',
+            '    Fail("adapter probe");',
+            '    return 125;',
+            '}',
+            ''
+        ].join('\n'));
+        const compilation = spawnSync('cc', [
+            '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o', output, fixture
+        ], { encoding: 'utf8', timeout: 30_000 });
+        assert.equal(compilation.status, 0, compilation.stderr);
+        for (const [resultType, diagnostic] of variant.cases)
+        {
+            const result = spawnSync(output, [], {
+                encoding: 'utf8',
+                env: {
+                    PATH: process.env.PATH, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
+                    FSUSBLOG_ERROR_TEXT_RESULT: resultType
+                },
+                timeout: 30_000
+            });
+            assert.equal(result.status, 125, `${variant.name}/${resultType}: ${result.stderr}`);
+            assert.equal(result.stdout, '', resultType);
+            assert.equal(result.stderr, `execution-envelope-landlock: adapter probe: ${diagnostic}\n`, resultType);
+        }
+    }
 });

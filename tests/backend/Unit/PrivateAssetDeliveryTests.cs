@@ -10,14 +10,16 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.PrivateAssets;
 
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -433,30 +435,64 @@ public sealed class PrivateAssetDeliveryTests
     }
 
     [Fact]
-    public void ProductionTopology_BindsAppAndInternalAliasToOneHostRoot()
+    public async Task ProductionTopology_BindsAppAndInternalAliasToOneHostRoot()
     {
-        string root = RepositoryRoot();
-        string compose = File.ReadAllText(Path.Combine(root, "ops/docker/docker-compose.production.yml"));
-        string gateway = File.ReadAllText(Path.Combine(root, "ops/gateway/production-openresty.conf"));
+        // The production network baseline owns the Compose mount, host alias and ticket-log directives.
+        IPrivateAssetResponseWriter writer = PrivateAssetResponseWriterFactory.Create(
+            new TestHostEnvironment(),
+            new FakeStore());
+        Assert.IsType<OpenRestyPrivateAssetResponseWriter>(writer);
+        PrivateAssetReadHandle handle = FakeStore.CreateHandle(AssetId.New());
+        var context = new DefaultHttpContext();
 
-        Assert.Contains("device: /var/lib/fsusblog/storage", compose, StringComparison.Ordinal);
-        Assert.Contains("fsus-storage:/app/storage", compose, StringComparison.Ordinal);
-        Assert.Contains("location ^~ /_fsus/private-assets/", gateway, StringComparison.Ordinal);
-        Assert.Contains("internal;", gateway, StringComparison.Ordinal);
-        Assert.Contains("alias /var/lib/fsusblog/storage/shared/assets/private/;", gateway, StringComparison.Ordinal);
-        Assert.Contains("location ^~ /assets/private/", gateway, StringComparison.Ordinal);
-        Assert.Contains("access_log off;", gateway, StringComparison.Ordinal);
+        await writer.WriteAsync(context, handle);
+
+        Assert.Equal(
+            OpenRestyPrivateAssetResponseWriter.InternalLocationPrefix + handle.StorageKey.Value,
+            context.Response.Headers["X-Accel-Redirect"].ToString());
+        Assert.DoesNotContain("/var/lib/fsusblog/storage", context.Response.Headers["X-Accel-Redirect"].ToString());
+        Assert.Null(handle.Content);
     }
 
     [Fact]
     public void DeliveryBoundary_BusinessModulesCannotBypassTheAccessService()
     {
-        string root = RepositoryRoot();
-        string modulesRoot = Path.Combine(root, "src/backend/Modules");
-        string moduleSource = string.Join(
-            '\n',
-            Directory.GetFiles(modulesRoot, "*.cs", SearchOption.AllDirectories)
-                .Select(File.ReadAllText));
+        Type[] productionTypes = typeof(PrivateAssetTicketService).Assembly.GetTypes();
+        Type[] moduleTypes = productionTypes
+            .Where(type => type.Namespace is { } owner
+                && (owner == "FsusBlog.Server.Modules"
+                    || owner.StartsWith("FsusBlog.Server.Modules.", StringComparison.Ordinal)))
+            .ToArray();
+        Assert.NotEmpty(moduleTypes);
+        AssertModulesCannotBypassTheAccessService(moduleTypes);
+
+        Assert.Equal(
+            typeof(PrivateAssetTicketService),
+            Assert.Single(productionTypes, type => type.Name == nameof(PrivateAssetTicketService)));
+    }
+
+    [Theory]
+    [InlineData(typeof(TicketConstructorBypassFixture), "PrivateAssetTicketService")]
+    [InlineData(typeof(TicketInitializerBypassFixture), "PrivateAssetTicketService")]
+    [InlineData(typeof(HeaderConstructorBypassFixture), "X-Accel-Redirect")]
+    [InlineData(typeof(HeaderInitializerBypassFixture), "X-Accel-Redirect")]
+    public void DeliveryBoundary_RejectsCompiledConstructorAndInitializerBypasses(Type moduleType, string forbidden)
+    {
+        Assert.DoesNotContain(forbidden, RuntimeMetadataInspection.DescribeType(moduleType), StringComparison.Ordinal);
+
+        Xunit.Sdk.DoesNotContainException refusal = Assert.Throws<Xunit.Sdk.DoesNotContainException>(
+            () => AssertModulesCannotBypassTheAccessService([moduleType]));
+
+        Assert.Contains(forbidden, refusal.Message, StringComparison.Ordinal);
+    }
+
+    private static void AssertModulesCannotBypassTheAccessService(IEnumerable<Type> moduleTypes)
+    {
+        string moduleBehavior = string.Join('\n', moduleTypes.SelectMany(static type => new[]
+        {
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type)
+        }));
 
         foreach (string forbidden in new[]
         {
@@ -466,15 +502,38 @@ public sealed class PrivateAssetDeliveryTests
             "X-Accel-Redirect"
         })
         {
-            Assert.DoesNotContain(forbidden, moduleSource, StringComparison.Ordinal);
+            Assert.DoesNotContain(forbidden, moduleBehavior, StringComparison.Ordinal);
         }
+    }
 
-        Assert.Equal(
-            1,
-            Directory.GetFiles(Path.Combine(root, "src/backend"), "*.cs", SearchOption.AllDirectories)
-                .Count(path => File.ReadAllText(path).Contains(
-                    "class PrivateAssetTicketService",
-                    StringComparison.Ordinal)));
+    private sealed class TicketConstructorBypassFixture
+    {
+        public TicketConstructorBypassFixture()
+            => GC.KeepAlive(new PrivateAssetTicketService(
+                new EphemeralDataProtectionProvider(),
+                TimeProvider.System,
+                Options.Create(new PrivateAssetTicketOptions())));
+    }
+
+    private sealed class TicketInitializerBypassFixture
+    {
+        static TicketInitializerBypassFixture()
+            => GC.KeepAlive(new PrivateAssetTicketService(
+                new EphemeralDataProtectionProvider(),
+                TimeProvider.System,
+                Options.Create(new PrivateAssetTicketOptions())));
+    }
+
+    private sealed class HeaderConstructorBypassFixture
+    {
+        public HeaderConstructorBypassFixture()
+            => new DefaultHttpContext().Response.Headers["X-Accel-Redirect"] = "/_private_assets/fixture";
+    }
+
+    private sealed class HeaderInitializerBypassFixture
+    {
+        static HeaderInitializerBypassFixture()
+            => new DefaultHttpContext().Response.Headers["X-Accel-Redirect"] = "/_private_assets/fixture";
     }
 
     private static PrivateAssetTicketService CreateTickets(
@@ -558,8 +617,13 @@ public sealed class PrivateAssetDeliveryTests
     private static ClaimsPrincipal Principal(long id)
         => new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, id.ToString())], "test"));
 
-    private static string RepositoryRoot()
-        => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Production;
+        public string ApplicationName { get; set; } = nameof(PrivateAssetDeliveryTests);
+        public string ContentRootPath { get; set; } = string.Empty;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {

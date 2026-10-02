@@ -379,8 +379,19 @@ public sealed class AuthoringExtensionRpcAuthority(
             throw new AuthoringExtensionContractException("Mutation plan is stale; automatic rebasing is forbidden.");
         }
 
+        await grants.RequireAsync(
+            envelope.GrantDigest,
+            envelope,
+            AuthoringCapability.DocumentMutationRequest,
+            cancellationToken);
+
         lock (_gate)
         {
+            if (envelope.Deadline <= timeProvider.GetUtcNow())
+            {
+                throw new AuthoringExtensionContractException("Mutation request deadline has expired.");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
             if (!_committedRequestIds.Add(envelope.RequestId))
             {
                 throw new AuthoringExtensionContractException("Duplicate mutation request is rejected.");

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs"
+            ],
+            "reason": "Preserve existing runtime and process-environment naming at the registered source/tooling boundaries; these issue-scoped changes do not introduce, normalize, or rename external environment contracts."
+        }
+    ]
+}

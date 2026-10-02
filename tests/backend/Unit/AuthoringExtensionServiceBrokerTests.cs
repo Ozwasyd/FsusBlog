@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,6 +9,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -397,18 +399,210 @@ public sealed class AuthoringExtensionServiceBrokerTests
     [Fact]
     public void BrokerSource_DoesNotExposeShellDirectIoOrSecretArguments()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs"));
+        Type[] brokerTypes =
+        [
+            typeof(AuthoringProcessOwnershipMechanism),
+            typeof(AuthoringServiceResultStatus),
+            typeof(AuthoringFileGrantOperation),
+            typeof(AuthoringProcessOwnershipReport),
+            typeof(AuthoringServiceHealthReport),
+            typeof(AuthoringNetworkGrant),
+            typeof(AuthoringFileGrant),
+            typeof(AuthoringServiceLaunchDescriptor),
+            typeof(AuthoringServiceRequest),
+            typeof(AuthoringServiceResponse),
+            typeof(AuthoringServiceExecutionResult),
+            typeof(IAuthoringServiceProcess),
+            typeof(IAuthoringOwnedServiceProcessObservation),
+            typeof(IAuthoringServiceProcessRuntime),
+            typeof(IAuthoringNetworkAddressResolver),
+            typeof(IAuthoringFilePathVerifier),
+            typeof(AuthoringServiceGrantValidator),
+            typeof(AuthoringExtensionServiceBroker)
+        ];
+        Assert.All(brokerTypes, AssertNoBrokerSurface);
+    }
 
-        Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("File.Open", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("EnvironmentVariables", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Arguments", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Password", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("AccessToken", source, StringComparison.OrdinalIgnoreCase);
+    private static void AssertNoBrokerSurface(Type rootType)
+    {
+        foreach (Type type in EnumerateBrokerTypeTree(rootType))
+        {
+            AssertNoCompiledBrokerSurface(type);
+        }
+    }
+
+    private static void AssertNoCompiledBrokerSurface(Type type)
+    {
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("File.Open", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnvironmentVariables", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Arguments", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Password", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("AccessToken", compiled, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<Type> EnumerateBrokerTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateBrokerTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(typeof(ProcessBoundaryFixture), "Process.Start", StringComparison.Ordinal)]
+    [InlineData(typeof(NetworkBoundaryFixture), "HttpClient", StringComparison.Ordinal)]
+    [InlineData(typeof(FileBoundaryFixture), "File.Open", StringComparison.Ordinal)]
+    [InlineData(typeof(ServiceBoundaryFixture), "IServiceProvider", StringComparison.Ordinal)]
+    [InlineData(typeof(EnvironmentBoundaryFixture), "EnvironmentVariables", StringComparison.Ordinal)]
+    [InlineData(typeof(CommandBoundaryFixture), "Arguments", StringComparison.Ordinal)]
+    [InlineData(typeof(CredentialBoundaryFixture), "Password", StringComparison.OrdinalIgnoreCase)]
+    [InlineData(typeof(SessionBoundaryFixture), "AccessToken", StringComparison.OrdinalIgnoreCase)]
+    public void BrokerBoundary_RejectsUncalledNestedMemberReferences(
+        Type rootType,
+        string forbiddenFact,
+        StringComparison comparison)
+    {
+        Type nested = rootType.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Assert.Contains(nested, EnumerateBrokerTypeTree(rootType));
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.NotNull(method.GetMethodBody());
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(rootType),
+            RuntimeMetadataInspection.DescribeConstructors(rootType));
+        Assert.DoesNotContain(forbiddenFact, oldRoots, comparison);
+        AssertNoCompiledBrokerSurface(rootType);
+        string nestedBody = RuntimeMetadataInspection.DescribeMethods(nested, "Read");
+        Assert.Contains(forbiddenFact, nestedBody, comparison);
+
+        Xunit.Sdk.XunitException rejection = Assert.ThrowsAny<Xunit.Sdk.XunitException>(
+            () => AssertNoBrokerSurface(rootType));
+
+        Assert.Contains(forbiddenFact, rejection.Message, comparison);
+    }
+
+    [Fact]
+    public void BrokerBoundary_AcceptsBenignNestedMethodsAndConstructors()
+    {
+        Type rootType = typeof(BenignBrokerFixture);
+        Type nested = rootType.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Type descendant = nested.GetNestedType("Leaf", BindingFlags.NonPublic)!;
+        Assert.NotNull(descendant);
+        Assert.Equal(3, EnumerateBrokerTypeTree(rootType).Count());
+        Assert.Contains(descendant, EnumerateBrokerTypeTree(rootType));
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(rootType),
+            RuntimeMetadataInspection.DescribeConstructors(rootType));
+        Assert.Contains("closed-instance-body", oldRoots, StringComparison.Ordinal);
+        Assert.Contains("closed-static-body", oldRoots, StringComparison.Ordinal);
+        Assert.DoesNotContain("closed-nested-body", oldRoots, StringComparison.Ordinal);
+        Assert.DoesNotContain("closed-descendant-body", oldRoots, StringComparison.Ordinal);
+        Assert.Contains("closed-nested-body",
+            RuntimeMetadataInspection.DescribeMethods(nested, "Read"), StringComparison.Ordinal);
+        Assert.Contains("closed-descendant-body",
+            RuntimeMetadataInspection.DescribeMethods(descendant, "Read"), StringComparison.Ordinal);
+
+        AssertNoBrokerSurface(rootType);
+    }
+
+    private sealed class ProcessBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object? Read() => Process.Start("fixture");
+        }
+    }
+
+    private sealed class NetworkBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read() => new System.Net.Http.HttpClient();
+        }
+    }
+
+    private sealed class FileBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read() => File.Open("fixture", FileMode.Open);
+        }
+    }
+
+    private sealed class ServiceBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read(IServiceProvider value) => value;
+        }
+    }
+
+    private sealed class EnvironmentBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read() => new ProcessStartInfo().EnvironmentVariables;
+        }
+    }
+
+    private sealed class CommandBoundaryFixture
+    {
+        private static class Node
+        {
+            public static string Read() => new ProcessStartInfo().Arguments;
+        }
+    }
+
+    private sealed class CredentialBoundaryFixture
+    {
+        private static class Node
+        {
+            public static string Read() => BrokerFixtureActions.ReadPassword();
+        }
+    }
+
+    private sealed class SessionBoundaryFixture
+    {
+        private static class Node
+        {
+            public static string Read() => BrokerFixtureActions.ReadAccessToken();
+        }
+    }
+
+    private static class BrokerFixtureActions
+    {
+        public static string ReadPassword() => "closed-credential";
+
+        public static string ReadAccessToken() => "closed-session";
+    }
+
+    private sealed class BenignBrokerFixture
+    {
+        static BenignBrokerFixture() => GC.KeepAlive("closed-static-body");
+
+        private BenignBrokerFixture() => GC.KeepAlive("closed-instance-body");
+
+        private static class Node
+        {
+            public static string Read() => "closed-nested-body";
+
+            private static class Leaf
+            {
+                public static string Read() => "closed-descendant-body";
+            }
+        }
     }
 
     [Fact]

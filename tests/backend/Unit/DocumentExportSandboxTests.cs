@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
@@ -490,17 +493,382 @@ public sealed class DocumentExportSandboxTests : IDisposable
     [Fact]
     public void StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment()
     {
-        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "DocumentExportSandbox.cs");
+        MethodInfo builder = Assert.IsAssignableFrom<MethodInfo>(typeof(DocumentExportSandboxRuntime).GetMethod(
+            "BuildStartInfo", BindingFlags.Instance | BindingFlags.NonPublic));
+        AssertCompiledSandboxBoundary(typeof(DocumentExportSandboxRuntime), builder);
+        string runRoot = Path.Combine(_fixture.Root, "runs", "shape-check");
+        ProcessStartInfo start = Assert.IsType<ProcessStartInfo>(builder.Invoke(_fixture.CreateSandbox(),
+        [
+            runRoot,
+            Path.Combine(runRoot, "input"),
+            Path.Combine(runRoot, "output"),
+            Path.Combine(runRoot, "work"),
+            _fixture.Tool.ExecutablePath,
+            _fixture.Tool.RuntimeRoot,
+            _fixture.Tool
+        ]));
+        Assert.False(start.UseShellExecute);
+        Assert.Equal(runRoot, start.WorkingDirectory);
+        Assert.Equal("/usr/bin/bwrap", start.FileName);
+        Assert.Contains("--clearenv", start.ArgumentList);
+        Assert.DoesNotContain("PATH", start.ArgumentList);
+    }
 
-        Assert.Equal(0, source.Split("Process.Start(", StringSplitOptions.None).Length - 1);
-        Assert.Equal(1, source.Split("new ProcessStartInfo(", StringSplitOptions.None).Length - 1);
-        Assert.DoesNotContain("UseShellExecute = true", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("/bin/sh", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Environment.GetEnvironment", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("PATH", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("latest", source, StringComparison.OrdinalIgnoreCase);
+    [Theory]
+    [InlineData(typeof(BenignSandboxMetadataFixture))]
+    [InlineData(typeof(MemberLiteralSandboxMetadataFixture))]
+    public void CompiledSandboxBoundaryAcceptsBrokerAndIgnoresMemberShapedLiterals(Type type)
+    {
+        MethodInfo builder = RequireMetadataFixtureBuilder(type);
+        IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
+        Assert.Equal(builder, Assert.Single(sites.Where(IsStartInfoConstruction)).Method);
+        Assert.Equal(builder, Assert.Single(sites.Where(IsShellExecuteSetter)).Method);
+        if (type == typeof(MemberLiteralSandboxMetadataFixture))
+        {
+            string compiled = DescribeSandboxTypeTree(type);
+            Assert.Contains("System.Diagnostics.ProcessStartInfo..ctor", compiled, StringComparison.Ordinal);
+            Assert.Contains("System.Diagnostics.ProcessStartInfo.set_UseShellExecute", compiled, StringComparison.Ordinal);
+            Assert.Contains(sites, site => site.OpCode == OpCodes.Ldtoken && site.Member == typeof(ProcessStartInfo));
+        }
+
+        AssertCompiledSandboxBoundary(type, builder);
+    }
+
+    [Theory]
+    [InlineData(typeof(ConstructorLiteralSandboxMetadataFixture), "constructor-literal", 0, 0)]
+    [InlineData(typeof(SetterLiteralSandboxMetadataFixture), "setter-literal", 1, 0)]
+    [InlineData(typeof(ExtraConstructorSandboxMetadataFixture), "extra-constructor", 2, 1)]
+    [InlineData(typeof(ExtraSetterSandboxMetadataFixture), "extra-setter", 1, 2)]
+    [InlineData(typeof(OutsideBuilderConstructorSandboxMetadataFixture), "outside-builder-constructor", 1, 1)]
+    [InlineData(typeof(OutsideBuilderSetterSandboxMetadataFixture), "outside-builder-setter", 1, 1)]
+    [InlineData(typeof(NestedStartSandboxMetadataFixture), "process-start", 1, 1)]
+    [InlineData(typeof(NestedHttpClientSandboxMetadataFixture), "http-client", 1, 1)]
+    [InlineData(typeof(NestedEnvironmentSandboxMetadataFixture), "inherited-environment", 1, 1)]
+    [InlineData(typeof(NestedShellSandboxMetadataFixture), "/bin/sh", 1, 1)]
+    [InlineData(typeof(NestedPathSandboxMetadataFixture), "PATH", 1, 1)]
+    [InlineData(typeof(NestedLatestSandboxMetadataFixture), "latest", 1, 1)]
+    public void CompiledSandboxBoundaryRejectsActualViolationsAndLiteralSpoofs(
+        Type type,
+        string violation,
+        int constructions,
+        int setters)
+    {
+        MethodInfo builder = RequireMetadataFixtureBuilder(type);
+        IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
+        Assert.Equal(constructions, sites.Count(IsStartInfoConstruction));
+        Assert.Equal(setters, sites.Count(IsShellExecuteSetter));
+        string compiled = DescribeSandboxTypeTree(type);
+        switch (violation)
+        {
+            case "constructor-literal":
+                Assert.Contains("System.Diagnostics.ProcessStartInfo..ctor", compiled, StringComparison.Ordinal);
+                break;
+            case "setter-literal":
+                Assert.Contains("System.Diagnostics.ProcessStartInfo.set_UseShellExecute", compiled, StringComparison.Ordinal);
+                break;
+            case "extra-constructor":
+                Assert.Contains(sites, site => IsStartInfoConstruction(site) && site.Method.DeclaringType != type);
+                break;
+            case "extra-setter":
+                Assert.Contains(sites, site => IsShellExecuteSetter(site) && site.Method.DeclaringType != type);
+                break;
+            case "outside-builder-constructor":
+                Assert.NotEqual(builder, Assert.Single(sites.Where(IsStartInfoConstruction)).Method);
+                break;
+            case "outside-builder-setter":
+                Assert.NotEqual(builder, Assert.Single(sites.Where(IsShellExecuteSetter)).Method);
+                break;
+            case "process-start":
+                Assert.Contains(sites, site => IsProcessStart(site) && site.Method.DeclaringType != type);
+                break;
+            case "http-client":
+                Assert.Contains(sites, site => IsHttpClientMember(site) && site.Method.DeclaringType != type);
+                break;
+            case "inherited-environment":
+                Assert.Contains(sites, site => IsInheritedEnvironmentMember(site) && site.Method.DeclaringType != type);
+                break;
+            default:
+                Assert.Contains(violation, compiled, StringComparison.Ordinal);
+                Assert.Contains(type.GetNestedTypes(BindingFlags.NonPublic), nested => nested.Name == "Unused");
+                break;
+        }
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertCompiledSandboxBoundary(type, builder));
+    }
+
+    private static void AssertCompiledSandboxBoundary(Type type, MethodInfo builder)
+    {
+        IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
+        SandboxMemberSite construction = Assert.Single(sites.Where(IsStartInfoConstruction));
+        SandboxMemberSite setter = Assert.Single(sites.Where(IsShellExecuteSetter));
+        Assert.Equal(builder, construction.Method);
+        Assert.Equal(builder, setter.Method);
+        Assert.DoesNotContain(sites, IsProcessStart);
+        Assert.DoesNotContain(sites, IsHttpClientMember);
+        Assert.DoesNotContain(sites, IsInheritedEnvironmentMember);
+
+        string compiled = DescribeSandboxTypeTree(type);
+        Assert.DoesNotContain("System.Diagnostics.Process.Start", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("/bin/sh", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Net.Http.HttpClient", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Environment.GetEnvironment", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("PATH", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("latest", compiled, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStartInfoConstruction(SandboxMemberSite site)
+        => site.OpCode == OpCodes.Newobj
+            && site.Member is ConstructorInfo { DeclaringType: { } declaringType }
+            && declaringType == typeof(ProcessStartInfo);
+
+    private static bool IsShellExecuteSetter(SandboxMemberSite site)
+        => (site.OpCode == OpCodes.Call || site.OpCode == OpCodes.Callvirt)
+            && site.Member == typeof(ProcessStartInfo).GetProperty(nameof(ProcessStartInfo.UseShellExecute))!.SetMethod;
+
+    private static bool IsProcessStart(SandboxMemberSite site)
+        => site.Member is MethodInfo { DeclaringType: { } declaringType, Name: nameof(Process.Start) }
+            && declaringType == typeof(Process);
+
+    private static bool IsHttpClientMember(SandboxMemberSite site)
+        => site.Member == typeof(System.Net.Http.HttpClient)
+            || site.Member.DeclaringType == typeof(System.Net.Http.HttpClient);
+
+    private static bool IsInheritedEnvironmentMember(SandboxMemberSite site)
+        => site.Member is MethodInfo { DeclaringType: { } declaringType } method
+            && declaringType == typeof(Environment)
+            && method.Name.StartsWith("GetEnvironment", StringComparison.Ordinal);
+
+    private static MethodInfo RequireMetadataFixtureBuilder(Type type)
+        => Assert.IsAssignableFrom<MethodInfo>(type.GetMethod("BuildStartInfo", SandboxDeclaredMembers));
+
+    private static string DescribeSandboxTypeTree(Type type)
+        => string.Join('\n', EnumerateSandboxTypes(type).SelectMany(static inspected => new[]
+        {
+            RuntimeMetadataInspection.DescribeType(inspected),
+            RuntimeMetadataInspection.DescribeConstructors(inspected)
+        }));
+
+    private static IEnumerable<Type> EnumerateSandboxTypes(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateSandboxTypes(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static IReadOnlyList<SandboxMemberSite> ReadSandboxMemberSites(Type type)
+    {
+        // These are exact IL sites, not control-flow or receiver/value dataflow evidence.
+        var sites = new List<SandboxMemberSite>();
+        foreach (Type inspected in EnumerateSandboxTypes(type))
+        {
+            IEnumerable<MethodBase> methods = inspected.GetMethods(SandboxDeclaredMembers)
+                .Cast<MethodBase>()
+                .Concat(inspected.GetConstructors(SandboxDeclaredMembers));
+            if (inspected.TypeInitializer is { } initializer)
+            {
+                methods = methods.Append(initializer);
+            }
+            foreach (MethodBase method in methods.Distinct())
+            {
+                byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+                if (il is null)
+                {
+                    continue;
+                }
+                Type[] typeArguments = inspected.IsGenericType ? inspected.GetGenericArguments() : Type.EmptyTypes;
+                Type[] methodArguments = method.IsGenericMethod ? method.GetGenericArguments() : Type.EmptyTypes;
+                for (int offset = 0; offset < il.Length;)
+                {
+                    int instructionOffset = offset;
+                    ushort value = il[offset++];
+                    if (value == 0xfe)
+                    {
+                        Assert.True(offset < il.Length);
+                        value = (ushort)(0xfe00 | il[offset++]);
+                    }
+                    Assert.True(s_sandboxOpCodes.TryGetValue(value, out OpCode opCode));
+                    int operandSize = opCode.OperandType switch
+                    {
+                        OperandType.InlineNone => 0,
+                        OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                        OperandType.InlineVar => 2,
+                        OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineMethod
+                            or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType
+                            or OperandType.ShortInlineR => 4,
+                        OperandType.InlineI8 or OperandType.InlineR => 8,
+                        OperandType.InlineSwitch when offset + 4 <= il.Length
+                            => checked(4 + (BitConverter.ToInt32(il, offset) * 4)),
+                        _ => -1
+                    };
+                    Assert.True(operandSize >= 0 && operandSize <= il.Length - offset);
+                    if (opCode.OperandType is OperandType.InlineField or OperandType.InlineMethod
+                        or OperandType.InlineTok or OperandType.InlineType)
+                    {
+                        MemberInfo member = Assert.IsAssignableFrom<MemberInfo>(method.Module.ResolveMember(
+                            BitConverter.ToInt32(il, offset), typeArguments, methodArguments));
+                        sites.Add(new SandboxMemberSite(method, instructionOffset, opCode, member));
+                    }
+                    offset += operandSize;
+                }
+            }
+        }
+        return sites;
+    }
+
+    private const BindingFlags SandboxDeclaredMembers = BindingFlags.Instance | BindingFlags.Static
+        | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+    private static readonly IReadOnlyDictionary<ushort, OpCode> s_sandboxOpCodes = typeof(OpCodes)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(static field => field.FieldType == typeof(OpCode))
+        .Select(static field => (OpCode)field.GetValue(null)!)
+        .GroupBy(static opCode => unchecked((ushort)opCode.Value))
+        .ToDictionary(static group => group.Key, static group => group.First());
+
+    private sealed record SandboxMemberSite(MethodBase Method, int Offset, OpCode OpCode, MemberInfo Member);
+
+    private static class BenignSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+    }
+
+    private static class MemberLiteralSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo()
+        {
+            GC.KeepAlive("System.Diagnostics.ProcessStartInfo..ctor");
+            GC.KeepAlive("System.Diagnostics.ProcessStartInfo.set_UseShellExecute");
+            GC.KeepAlive(typeof(ProcessStartInfo));
+            return new ProcessStartInfo("broker") { UseShellExecute = false };
+        }
+    }
+
+    private static class ConstructorLiteralSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo()
+        {
+            GC.KeepAlive("System.Diagnostics.ProcessStartInfo..ctor");
+            return null!;
+        }
+    }
+
+    private static class SetterLiteralSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo()
+        {
+            GC.KeepAlive("System.Diagnostics.ProcessStartInfo.set_UseShellExecute");
+            return new ProcessStartInfo("broker");
+        }
+    }
+
+    private static class ExtraConstructorSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static ProcessStartInfo Build() => new("other");
+        }
+    }
+
+    private static class ExtraSetterSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static void Set(ProcessStartInfo start) => start.UseShellExecute = false;
+        }
+    }
+
+    private static class NestedStartSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static Process? Start(ProcessStartInfo start) => Process.Start(start);
+        }
+    }
+
+    private static class OutsideBuilderConstructorSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => Unused.Build();
+
+        private static class Unused
+        {
+            public static ProcessStartInfo Build() => new("broker") { UseShellExecute = false };
+        }
+    }
+
+    private static class OutsideBuilderSetterSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo()
+        {
+            var start = new ProcessStartInfo("broker");
+            Unused.Set(start);
+            return start;
+        }
+
+        private static class Unused
+        {
+            public static void Set(ProcessStartInfo start) => start.UseShellExecute = false;
+        }
+    }
+
+    private static class NestedHttpClientSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static System.Net.Http.HttpClient Create() => new();
+        }
+    }
+
+    private static class NestedEnvironmentSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static string? Read() => Environment.GetEnvironmentVariable("fixture-value");
+        }
+    }
+
+    private static class NestedShellSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static string Read() => "/bin/sh";
+        }
+    }
+
+    private static class NestedPathSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static string Read() => "PATH";
+        }
+    }
+
+    private static class NestedLatestSandboxMetadataFixture
+    {
+        public static ProcessStartInfo BuildStartInfo() => new("broker") { UseShellExecute = false };
+
+        private static class Unused
+        {
+            public static string Read() => "latest";
+        }
     }
 
     public void Dispose() => _fixture.Dispose();
