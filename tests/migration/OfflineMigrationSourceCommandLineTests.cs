@@ -168,6 +168,40 @@ public sealed class OfflineMigrationSourceCommandLineTests
         }
     }
 
+    [Fact]
+    public async Task Capture_DeadlineDoesNotOverwriteUnverifiedCleanupFailureWithOrdinaryCancellation()
+    {
+        var clock = new DeadlineTimeProvider();
+        var observer = new ContractObserver { FailCleanup = true };
+        using var control = new ControlledReader();
+        using var output = new StringWriter();
+        Task operation = OfflineMigrationHost.ObserveSourceWithinBudgetAsync(
+            new(CurrentSchemaProviderKind.PostgreSql, "source.env", true,
+                Path.GetFullPath($"contract-dump-{Guid.NewGuid():N}"), 30),
+            _ => Task.FromResult("contract-only"), () => observer, control, output, CancellationToken.None, clock);
+        try
+        {
+            await control.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            clock.Fire();
+            Assert.Equal(ContractObserver.CleanupFailureCode,
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => operation)).Message);
+            Assert.DoesNotContain("\"status\":\"ok\"", output.ToString());
+        }
+        finally
+        {
+            clock.Fire();
+            control.Release(null);
+            observer.Terminal.TrySetResult();
+            try
+            {
+                await operation;
+            }
+            catch (InvalidOperationException exception) when (exception.Message == ContractObserver.CleanupFailureCode)
+            {
+            }
+        }
+    }
+
     [Theory]
     [InlineData("0")]
     [InlineData("-1")]
@@ -299,6 +333,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
     private sealed class ContractObserver : IOfflineMigrationSnapshotSourceObserver
     {
         internal static readonly DateTimeOffset SnapshotTime = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
+        internal const string CleanupFailureCode = "offline_source_native_cleanup_unverified_primary_cancelled_transaction_unverified_connection_returned_adapter_returned";
         private static readonly OfflineMigrationSourceObservation Source = new(
             new(CurrentSchemaProviderKind.PostgreSql, "contract-source", "contract-database"),
             "contract-observer", "v1", ImmutableArray<OfflineMigrationFact>.Empty,
@@ -309,6 +344,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
         internal string? DumpPath { get; private set; }
         internal bool ScopeClosed { get; private set; }
         internal int CaptureCalls { get; private set; }
+        internal bool FailCleanup { get; init; }
 
         public Task<OfflineMigrationSourceObservation> ObserveAsync(CurrentSchemaProviderKind provider,
             string connectionString, CancellationToken cancellationToken)
@@ -332,6 +368,12 @@ public sealed class OfflineMigrationSourceCommandLineTests
             finally
             {
                 ScopeClosed = true;
+                if (FailCleanup)
+                {
+                    // A protocol fixture of the native owner's fixed failure category, not
+                    // evidence that a real native resource was disposed or released.
+                    throw new InvalidOperationException(CleanupFailureCode);
+                }
             }
         }
     }
