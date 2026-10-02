@@ -38,7 +38,7 @@ public sealed class CurrentSchemaReadObserver(ISqlSugarClient db, ISchemaModelIn
             throw new InvalidOperationException("current_schema_native_admission_requires_actual_database");
         }
         (PgCurrentSchemaNativeObservation native, CurrentSchemaDatabaseIdentity database) =
-            await ReadNativeAsync(cancellationToken).ConfigureAwait(false);
+            await ReadNativeAsync(cancellationToken, requireOwnReadOnlySnapshot: true).ConfigureAwait(false);
         CurrentSchemaReadObservation schema = CompareObservation(native);
         CurrentSchemaIdentity identity = schema.CanonicalIdentity;
         return new CurrentSchemaAdmissionObservation(
@@ -55,7 +55,7 @@ public sealed class CurrentSchemaReadObserver(ISqlSugarClient db, ISchemaModelIn
         {
             native = _testNativeReader is not null
                 ? await _testNativeReader(cancellationToken).ConfigureAwait(false)
-                : (await ReadNativeAsync(cancellationToken).ConfigureAwait(false)).Native;
+                : (await ReadNativeAsync(cancellationToken, requireOwnReadOnlySnapshot: false).ConfigureAwait(false)).Native;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -99,15 +99,24 @@ public sealed class CurrentSchemaReadObserver(ISqlSugarClient db, ISchemaModelIn
     }
 
     private async Task<(PgCurrentSchemaNativeObservation Native, CurrentSchemaDatabaseIdentity Database)> ReadNativeAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool requireOwnReadOnlySnapshot)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (db.CurrentConnectionConfig.DbType != SqlSugar.DbType.PostgreSQL
             || db.Ado.Connection is not DbConnection connection
-            || connection.GetType().FullName != "Npgsql.NpgsqlConnection"
-            || db.Ado.Transaction is not null)
+            || connection.GetType().FullName != "Npgsql.NpgsqlConnection")
         {
             throw new InvalidOperationException("current_schema_provider_snapshot_unavailable");
+        }
+        if (db.Ado.Transaction is { } supplied)
+        {
+            if (requireOwnReadOnlySnapshot || supplied is not DbTransaction borrowed)
+            {
+                throw new InvalidOperationException("current_schema_provider_snapshot_unavailable");
+            }
+            // Schema evidence can borrow the actual caller's RR snapshot. It never
+            // commits/disposes that owner, nor becomes production receipt admission.
+            return await ReadNativeSnapshotAsync(connection, borrowed, cancellationToken).ConfigureAwait(false);
         }
         bool opened = connection.State == ConnectionState.Closed;
         try
@@ -124,18 +133,8 @@ public sealed class CurrentSchemaReadObserver(ISqlSugarClient db, ISchemaModelIn
                 readOnly.CommandText = "SET TRANSACTION READ ONLY;";
                 await readOnly.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
-            CurrentSchemaDatabaseIdentity before = await ReadDatabaseIdentityAsync(
-                connection, transaction, cancellationToken).ConfigureAwait(false);
-            PgCurrentSchemaNativeObservation native = await PgCurrentSchemaNativeObserver.ReadAsync(
-                connection, transaction, cancellationToken).ConfigureAwait(false);
-            CurrentSchemaDatabaseIdentity after = await ReadDatabaseIdentityAsync(
-                connection, transaction, cancellationToken).ConfigureAwait(false);
-            if (before != after)
-            {
-                throw new InvalidOperationException("current_schema_database_identity_changed");
-            }
             // Read-only transaction disposal is actually awaited. No commit, DDL, journal or repair path exists here.
-            return (native, after);
+            return await ReadNativeSnapshotAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -144,6 +143,23 @@ public sealed class CurrentSchemaReadObserver(ISqlSugarClient db, ISchemaModelIn
                 await connection.CloseAsync().ConfigureAwait(false);
             }
         }
+    }
+
+    private static async Task<(PgCurrentSchemaNativeObservation Native, CurrentSchemaDatabaseIdentity Database)> ReadNativeSnapshotAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        PgCurrentSchemaEffectObserver.RequireSnapshot(connection, transaction);
+        CurrentSchemaDatabaseIdentity before = await ReadDatabaseIdentityAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        PgCurrentSchemaNativeObservation native = await PgCurrentSchemaNativeObserver.ReadAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        CurrentSchemaDatabaseIdentity after = await ReadDatabaseIdentityAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        if (before != after)
+        {
+            throw new InvalidOperationException("current_schema_database_identity_changed");
+        }
+        return (native, after);
     }
 
     private static async Task<CurrentSchemaDatabaseIdentity> ReadDatabaseIdentityAsync(

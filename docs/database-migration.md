@@ -482,6 +482,17 @@ still needs its sole session's observed database identity and independently veri
 owned target. Source-only parity/refusal cases are not actual PostgreSQL evidence,
 and no provider, startup or whole-issue qualification is claimed here.
 
+The original `SchemaModelInspector` current catalog API delegates to that same
+Shared reader; its entity extraction, expected projection and validation interface
+remain unchanged. Standalone reads own a read-only native RR transaction. Schema
+evidence may borrow a caller's actual same-connection RR transaction without
+committing or disposing it; unsupported isolation or a detached transaction refuses.
+The test-only materializer explicitly starts RR before its own DDL transaction and
+uses that schema-evidence path. Production `ReadAdmissionAsync` never borrows a
+writer transaction or accepts the unit native-fact seam: it still owns an actual
+read-only RR snapshot and fresh database identity observations. These source cases
+have not been executed against a native provider.
+
 `tools/db/check-current-schema-authority.mjs` checks both the neutral contract
 and original Server extractor, and prevents a second production
 extractor, hand-written table inventory, fixture reconstruction or migration

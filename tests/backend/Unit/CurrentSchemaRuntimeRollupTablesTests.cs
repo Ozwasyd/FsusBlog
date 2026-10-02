@@ -171,6 +171,66 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
 public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task CompleteRuntimeObserver_BorrowsActualCallerRrButCannotAdmitOrOwnItsTerminal()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        var inspector = new SchemaModelInspector();
+        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
+        System.Data.IDbTransaction callerTransaction = db.Ado.Transaction;
+        try
+        {
+            var observer = new CurrentSchemaReadObserver(db, inspector);
+            CurrentSchemaReadObservation observation = await observer.ReadAsync(CancellationToken.None);
+            CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+                inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+            CurrentSchemaIdentity complete = CurrentSchemaOwnedTargetProjection.Observe(
+                entity, CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes());
+            Assert.NotEqual(entity.Identity, complete);
+            Assert.Equal(complete, observation.CanonicalIdentity);
+            SchemaModelSnapshot snapshot = await inspector.ReadActualModelAsync(db, CancellationToken.None);
+            Assert.Equal(CurrentSchemaCanonicalAuthority.ComputeObservationDigest(snapshot.Tables), observation.ActualDigest);
+            Assert.Same(callerTransaction, db.Ado.Transaction);
+
+            InvalidOperationException rejected = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => observer.ReadAdmissionAsync(CancellationToken.None));
+            Assert.Equal("current_schema_provider_snapshot_unavailable", rejected.Message);
+            Assert.Same(callerTransaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Theory]
+    [InlineData(IsolationLevel.ReadCommitted)]
+    [InlineData(IsolationLevel.Serializable)]
+    public async Task CompleteRuntimeObserver_RejectsNonRrCallerWithoutDisposingIt(IsolationLevel isolation)
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        await db.Ado.BeginTranAsync(isolation);
+        System.Data.IDbTransaction callerTransaction = db.Ado.Transaction;
+        try
+        {
+            var observer = new CurrentSchemaReadObserver(db, new SchemaModelInspector());
+            CurrentSchemaMismatchException rejected = await Assert.ThrowsAsync<CurrentSchemaMismatchException>(
+                () => observer.ReadAsync(CancellationToken.None));
+            Assert.Equal("fsusblog.current-schema.mismatch.unreadable", rejected.MismatchRef);
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => new SchemaModelInspector().ReadActualModelAsync(db, CancellationToken.None));
+            Assert.Same(callerTransaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Fact]
     public async Task NativeCatalogObserver_OriginalServerParityUsesSamePhysicalModelsAndObservationDigest()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);

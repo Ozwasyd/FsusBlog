@@ -297,7 +297,7 @@ public static class CurrentSchemaTestMaterializer
         bool preparedPublished = false;
         bool verifiedPublished = false;
         bool committed = false;
-        await db.Ado.BeginTranAsync().ConfigureAwait(false);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead).ConfigureAwait(false);
         try
         {
             await ValidateLivePostgresInstanceAsync(db, serviceIdentity.PostgresInstance, cancellationToken)
