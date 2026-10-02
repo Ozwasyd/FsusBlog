@@ -83,7 +83,7 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         }
         else if (predicateReference == TargetPredicate)
         {
-            bool match = PgCurrentSchemaOwnedTargetObserver.Compare(_expected, snapshot.Domain, snapshot.Effects).Count == 0;
+            bool match = PgCurrentSchemaOwnedTargetObserver.Compare(_expected, snapshot.Complete, snapshot.Effects).Count == 0;
             expected = [.. Facts(("owned_shape_match", "true")), .. ExpectedSeedFacts()];
             IEnumerable<OfflineMigrationFact> seedFacts = match
                 ? await ReadSeedFactsAsync(connection, transaction, cancellationToken).ConfigureAwait(false)

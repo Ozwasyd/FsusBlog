@@ -6,9 +6,9 @@ namespace FsusBlog.Contracts.Schema;
 
 public static class CurrentSchemaCanonicalAuthority
 {
-    public const string ModelVersion = "fsusblog.current-schema.v2";
+    public const string ModelVersion = "fsusblog.current-schema.v3";
     public const string ExtractorVersion = "fsusblog.current-schema-reflection.v2";
-    public const string GeneratorVersion = "fsusblog.current-schema-projection.v2";
+    public const string GeneratorVersion = "fsusblog.current-schema-projection.v3";
 
     /// <summary>Seals facts supplied by the single current extractor, not by migration descriptors.</summary>
     /// <param name="tables">The current extractor's complete entity descriptions.</param>
@@ -196,6 +196,9 @@ public static class CurrentSchemaCanonicalAuthority
             }
             tables[table.Name] = new SchemaTableModel(table.Name, columns, indexes.Keys, indexes, constraints, table.Owner);
         }
+        SchemaTableModel control = CurrentSchemaControlShape.ProjectApplyJournal(provider);
+        if (!tables.TryAdd(control.Name, control))
+            throw new InvalidOperationException("current_schema_control_table_overlap");
         return new CurrentSchemaCompletePhysicalProjection(new SchemaModelSnapshot(tables, target, provider),
             schemaEffects.ToArray(), dataEffects.ToArray());
     }

@@ -85,6 +85,34 @@ public sealed class CurrentSchemaReceiptTests
             bytes, Convert.ToHexStringLower(SHA256.HashData(bytes)), actual));
     }
 
+    [Fact]
+    public void CurrentOnlyAdmission_ControlTargetV3RejectsPreviouslyValidV2ReceiptWithoutRewritingIt()
+    {
+        CurrentSchemaReceipt old = CreateReceipt() with
+        {
+            Target = CreateReceipt().Target with
+            {
+                ModelVersion = "fsusblog.current-schema.v2",
+                ExtractorVersion = "fsusblog.current-schema-reflection.v2",
+                GeneratorVersion = "fsusblog.current-schema-projection.v2"
+            }
+        };
+        old = old with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(old) };
+        byte[] original = CurrentSchemaReceiptCodec.Serialize(old);
+        string originalDigest = Convert.ToHexStringLower(SHA256.HashData(original));
+        var oldObservation = new CurrentSchemaAdmissionObservation(old.Target, old.Database, old.ActualSchemaDigest);
+        Assert.Equal(old.ContentDigest, CurrentSchemaReceiptAdmission.Validate(original, originalDigest, oldObservation).ContentDigest);
+        var inspector = new ReceiptSchemaInspector();
+        CurrentSchemaIdentity target = inspector.CompleteIdentity;
+        var currentObservation = oldObservation with
+        {
+            Target = new(target.ModelVersion, target.ExtractorVersion, target.GeneratorVersion, target.SourceDigest, target.ContentDigest)
+        };
+        Assert.Equal("fsusblog.current-schema.v3", target.ModelVersion);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaReceiptAdmission.Validate(original, originalDigest, currentObservation));
+        Assert.Equal(originalDigest, Convert.ToHexStringLower(SHA256.HashData(original)));
+    }
+
     [Theory]
     [InlineData("target-source")]
     [InlineData("target-content")]
@@ -348,7 +376,7 @@ public sealed class CurrentSchemaReceiptTests
                     table.IndexDefinitions, table.Constraints, table.Owner);
                 break;
             case "unknown-control-table":
-                tables.Add("__fsus_schema_offline_apply_journal", new SchemaTableModel("__fsus_schema_offline_apply_journal", [], []));
+                tables.Add("__fsus_schema_unknown_control", new SchemaTableModel("__fsus_schema_unknown_control", [], []));
                 break;
             case "default":
             case "check":

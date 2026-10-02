@@ -44,13 +44,22 @@ only produces current-run mutation/terminal receipts and independently verifies 
 `src/shared/Algorithms/Schema/` owns the single current-only PostgreSQL native catalog,
 expression/effect reader and comparer. Its connection boundary is the BCL
 `DbConnection`/`DbTransaction`; it has no provider package, Server/Migration dependency,
-legacy mapping, journal validation or DDL authority. Server and Migration consume
+legacy mapping or journal payload/history validation. Server and Migration consume
 the same measurement/comparison implementation. Migration retains its original
-owned-artifact and journal validation wrapper. Server derives the composite target
-from its sole entity extractor and original recipe fact extractor, then reads all
+owned-artifact and full journal-chain validation wrapper. The sole neutral
+`CurrentSchemaControlShape` describes the current apply journal's seven columns,
+four constraints and native backing indexes. The current-only
+`PgCurrentSchemaControlShape` renders that shape for original offline Core and
+test-only materialization and delegates native shape validation to the same
+catalog/effect comparer; production Server never creates it.
+Server derives the composite target
+from its sole entity extractor, original recipe fact extractor and these control
+facts, then reads all
 native schema effects on one read-only snapshot. Unknown control tables are not
-admitted by name; the migration journal's legitimate terminal/runtime contract
-and actual native qualification remain separate pending work.
+admitted by name. A same-name malformed journal refuses, and Server never parses
+its history or payload. The persistent journal is part of the versioned current
+physical closure, not a terminal cleanup exception; complete chain/resume remain
+offline-only. Native qualification is still separate pending work.
 
 ## Configuration ownership
 

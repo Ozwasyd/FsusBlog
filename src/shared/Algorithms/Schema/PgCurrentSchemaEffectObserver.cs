@@ -30,8 +30,23 @@ public sealed record PgCurrentSchemaEffectObservation(bool StandardConformingStr
 public static class PgCurrentSchemaEffectObserver
 {
     /// <summary>Reads raw expressions and sequence/function/trigger facts on the existing native RR transaction.</summary>
-    public static async Task<PgCurrentSchemaEffectObservation> ReadAsync(
+    public static Task<PgCurrentSchemaEffectObservation> ReadAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+        => ReadCoreAsync(connection, transaction, cancellationToken, null);
+
+    /// <summary>Measures every expression and trigger on one control table; global functions and unowned sequences are not its properties.</summary>
+    /// <param name="connection">The actual open PostgreSQL connection.</param>
+    /// <param name="transaction">Its same caller-owned RepeatableRead transaction.</param>
+    /// <param name="tableName">The explicit measured control table, not a name-based shape admission.</param>
+    /// <param name="cancellationToken">The original caller's cancellation boundary.</param>
+    /// <returns>Every raw expression and attached trigger on that table.</returns>
+    public static Task<PgCurrentSchemaEffectObservation> ReadControlTableAsync(
+        DbConnection connection, DbTransaction transaction, string tableName, CancellationToken cancellationToken)
+        => ReadCoreAsync(connection, transaction, cancellationToken,
+            CurrentSchemaCanonicalAuthority.NormalizeIdentifier(tableName));
+
+    private static async Task<PgCurrentSchemaEffectObservation> ReadCoreAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken, string? tableScope)
     {
         RequireSnapshot(connection, transaction);
         var expressions = new List<PgCurrentRawExpression>();
@@ -69,15 +84,16 @@ public static class PgCurrentSchemaEffectObserver
             JOIN pg_catalog.pg_class AS index_relation ON index_relation.oid = index_meta.indexrelid
             WHERE namespace.nspname = 'public' AND relation.relkind = 'r' AND index_meta.indpred IS NOT NULL
             ORDER BY kind, table_name, name;
-            """, cancellationToken).ConfigureAwait(false);
+            """, cancellationToken, tableScope).ConfigureAwait(false);
         foreach (DataRow row in rows.Rows)
         {
+            if (tableScope is not null && Text(row, "table_name") != tableScope) continue;
             expressions.Add(new(Text(row, "kind"), Text(row, "table_name"), Text(row, "name"), Text(row, "expression"),
                 Optional(row, "columns")?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? [],
                 Optional(row, "sequence_references")?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? []));
         }
         var sequences = new List<PgCurrentSequence>();
-        rows = await QueryAsync(connection, transaction, """
+        rows = tableScope is null ? await QueryAsync(connection, transaction, """
             SELECT relation.relname AS name, pg_catalog.format_type(sequence.seqtypid, NULL) AS data_type,
                    sequence.seqstart AS start, sequence.seqincrement AS increment,
                    sequence.seqmin AS minimum, sequence.seqmax AS maximum, sequence.seqcache AS cache, sequence.seqcycle AS cyclic
@@ -89,14 +105,15 @@ public static class PgCurrentSchemaEffectObserver
                 WHERE dependency.classid = 'pg_catalog.pg_class'::regclass AND dependency.objid = relation.oid
                   AND dependency.refclassid = 'pg_catalog.pg_class'::regclass AND dependency.deptype IN ('a', 'i'))
             ORDER BY relation.relname;
-            """, cancellationToken).ConfigureAwait(false);
+            """, cancellationToken).ConfigureAwait(false) : new DataTable();
         foreach (DataRow row in rows.Rows)
         {
+            if (tableScope is not null) continue;
             sequences.Add(new(Text(row, "name"), Text(row, "data_type"), Convert.ToInt64(row["start"]), Convert.ToInt64(row["increment"]),
                 Convert.ToInt64(row["minimum"]), Convert.ToInt64(row["maximum"]), Convert.ToInt64(row["cache"]), Convert.ToBoolean(row["cyclic"])));
         }
         var functions = new List<PgCurrentFunction>();
-        rows = await QueryAsync(connection, transaction, """
+        rows = tableScope is null ? await QueryAsync(connection, transaction, """
             SELECT function.proname AS name, language.lanname AS language,
                    pg_catalog.format_type(function.prorettype, NULL) AS return_type,
                    function.pronargs::integer AS argument_count, function.prosrc AS body,
@@ -111,9 +128,10 @@ public static class PgCurrentSchemaEffectObserver
             JOIN pg_catalog.pg_language AS language ON language.oid = function.prolang
             WHERE namespace.nspname = 'public'
             ORDER BY function.proname, function.oid;
-            """, cancellationToken).ConfigureAwait(false);
+            """, cancellationToken).ConfigureAwait(false) : new DataTable();
         foreach (DataRow row in rows.Rows)
         {
+            if (tableScope is not null) continue;
             functions.Add(new(Text(row, "name"), Text(row, "language"), Text(row, "return_type"), Convert.ToInt32(row["argument_count"]), Text(row, "body"),
                 Text(row, "volatility"), Convert.ToBoolean(row["strict"]), Convert.ToBoolean(row["security_definer"]), Text(row, "parallel"),
                 Convert.ToBoolean(row["leakproof"]), Optional(row, "configuration"), Text(row, "kind"), Convert.ToBoolean(row["returns_set"]),
@@ -136,9 +154,10 @@ public static class PgCurrentSchemaEffectObserver
             JOIN pg_catalog.pg_namespace AS function_namespace ON function_namespace.oid = function.pronamespace
             WHERE namespace.nspname = 'public' AND NOT trigger.tgisinternal
             ORDER BY relation.relname, trigger.tgname;
-            """, cancellationToken).ConfigureAwait(false);
+            """, cancellationToken, tableScope).ConfigureAwait(false);
         foreach (DataRow row in rows.Rows)
         {
+            if (tableScope is not null && Text(row, "table_name") != tableScope) continue;
             if (Text(row, "function_schema") != "public") throw new InvalidOperationException("current_schema_pg_trigger_function_schema_unknown");
             triggers.Add(new(Text(row, "table_name"), Text(row, "name"), Text(row, "function_name"), Convert.ToInt32(row["type"]), Text(row, "enabled"),
                 Optional(row, "condition"), Convert.ToInt32(row["argument_count"]), Text(row, "arguments_hex"), Convert.ToBoolean(row["is_constraint"]),
@@ -215,12 +234,21 @@ public static class PgCurrentSchemaEffectObserver
             throw new InvalidOperationException("current_schema_pg_effect_snapshot_mismatch");
     }
 
-    private static async Task<DataTable> QueryAsync(DbConnection connection, DbTransaction transaction, string sql, CancellationToken cancellationToken)
+    private static async Task<DataTable> QueryAsync(DbConnection connection, DbTransaction transaction, string sql,
+        CancellationToken cancellationToken, string? tableScope = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await using DbCommand command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = sql;
+        command.CommandText = tableScope is null ? sql
+            : $"SELECT * FROM ({sql.TrimEnd().TrimEnd(';')}) AS current_table_facts WHERE table_name = @current_table;";
+        if (tableScope is not null)
+        {
+            DbParameter parameter = command.CreateParameter();
+            parameter.ParameterName = "@current_table";
+            parameter.Value = tableScope;
+            command.Parameters.Add(parameter);
+        }
         await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         var table = new DataTable();
         for (int index = 0; index < reader.FieldCount; index++) table.Columns.Add(reader.GetName(index), reader.GetFieldType(index));

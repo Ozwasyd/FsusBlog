@@ -215,6 +215,36 @@ Current native Apply is PostgreSQL-only; missing compiled bootstrap/legacy
 operations, production admission or non-PG
 capabilities refuse before the first write. Legacy Contract guards are unchanged.
 
+The durable native apply journal remains present after completion: no delete or
+external-chain handoff is inferred from bounded step proofs or a receipt. Its
+single current control definition is `CurrentSchemaControlShape` (seven columns,
+four constraints); original Core creation/validation and the full current runtime
+projection derive from those facts. PostgreSQL explicit names retain the original
+63-byte implicit names without collision fallback. The native primary backing
+index and both unique indexes, raw check/default/predicate expressions,
+nullability/types/lengths, collation, generation/owned sequences and attached
+triggers are measured and compared. A same-name malformed table, additional historical
+table, undeclared raw default (including DEFAULT NULL), inheritance, RLS or rule
+effects, unavailable backing index or changed control constraint
+is not a name-based exemption. Server observes
+schema facts only; journal JSON, history, sequence/parent seals, media states and
+resume remain the original Migration owners' responsibility.
+
+This closure changes the current model to `fsusblog.current-schema.v3` and the
+projection generator to `fsusblog.current-schema-projection.v3`; the reflection
+extractor version remains v2. Both composite source/content identities include
+the explicit control version and complete sole shape. Previously sealed v2 owned
+targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
+through a second version path. A new candidate must invoke the original owned
+projection producer and obtain fresh exact authorized source/backup/DAG/target
+bindings, apply artifacts and independent current verification. An interrupted
+old run retains its original immutable tool/plan/artifacts and whole native chain
+for original-version recovery; changing the version is not permission to guess a
+checkpoint or re-plan partial effects. Rollback requires those original bindings
+and the authenticated backup/recovery procedure, not journal deletion. This
+source repair and unexecuted source cases do not establish native crash/resume,
+backup, three-provider or deployment qualification.
+
 Completed-Apply plan-binding verification independently hashes the original raw
 artifact bytes and rechecks closure against authenticated capture/restore evidence
 at the original journal's first admission time. It must not backfill those inputs
@@ -424,9 +454,9 @@ the already compared storage domain. Arithmetic operand types are not erased.
 Unsupported syntax refuses rather than dropping
 checks/defaults. Neutral facts/identity remain in Shared.Contracts; current native
 catalog SQL and expression parsing belong to Shared.Algorithms, with no provider
-package, DDL templates, legacy mapping or journal validation. The actual physical
+package, legacy mapping or journal payload/history validation. The actual physical
 digest still uses the original unmodified native snapshot. The Server reader now
-derives the same composite entity-plus-recipe target and compares the complete
+derives the same composite entity-plus-recipe-plus-control target and compares the complete
 native effects; this source alignment is not verified physical-schema evidence.
 
 `CurrentSchemaBootstrapCompiler` owns PostgreSQL entity and complete-recipe DDL
@@ -449,14 +479,17 @@ Native empty-source and complete target/effect predicates, initial
 seed values and unique seed-key cardinalities are independently read before a
 complete unit is returned. Replay checks the target and stable seed keys, not
 mutable bootstrap values as permanent runtime facts. The original journal owner
-alone validates its control table on that same transaction before separation from
-the current business comparison domain; no journal mapping is copied here.
+validates its control table through the sole current shape on that same
+transaction. Only the empty-source predicate separates that validated control
+from its business-domain view; final target/issuer/runtime comparison retains the
+complete native snapshot and all raw expressions. No journal mapping or payload
+parser is copied into Server.
 The core retains commit, rollback, journal and original plan/source/backup admission.
 The actual empty-source component retains the original empty source profile's
 `bootstrap-current-schema` entrypoint; naming it does not admit absent provider
 owners, and the historical profile cannot enter this empty-source operation.
 This single-provider step is not a complete admissible DAG. Known-legacy target
-preparation, MySQL/SQLite execution owners, runtime journal-terminal alignment and real
+preparation, MySQL/SQLite execution owners and real
 three-provider qualification remain pending. No original producer/native operation
 has been executed for this source component. Source cases include original-vs-compiled PostgreSQL
 schema/effect parity and immutable guard refusal, but have not been executed for

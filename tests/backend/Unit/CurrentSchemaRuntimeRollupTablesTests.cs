@@ -181,6 +181,9 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
         System.Data.IDbTransaction callerTransaction = db.Ado.Transaction;
         try
         {
+            await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(
+                (System.Data.Common.DbConnection)db.Ado.Connection,
+                (System.Data.Common.DbTransaction)callerTransaction, CancellationToken.None);
             var observer = new CurrentSchemaReadObserver(db, inspector);
             CurrentSchemaReadObservation observation = await observer.ReadAsync(CancellationToken.None);
             CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
@@ -197,6 +200,67 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
                 () => observer.ReadAdmissionAsync(CancellationToken.None));
             Assert.Equal("current_schema_provider_snapshot_unavailable", rejected.Message);
             Assert.Same(callerTransaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Theory]
+    [InlineData("default")]
+    [InlineData("default-null")]
+    [InlineData("collation")]
+    [InlineData("check")]
+    [InlineData("index")]
+    [InlineData("trigger")]
+    [InlineData("same-name-wrong-shape")]
+    [InlineData("unknown-history")]
+    [InlineData("no-inherit")]
+    [InlineData("row-security")]
+    [InlineData("rule")]
+    [InlineData("unowned-function")]
+    [InlineData("unowned-sequence")]
+    public async Task CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(string drift)
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        var inspector = new SchemaModelInspector();
+        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
+        System.Data.IDbTransaction caller = db.Ado.Transaction;
+        try
+        {
+            await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(
+                (System.Data.Common.DbConnection)db.Ado.Connection,
+                (System.Data.Common.DbTransaction)caller, CancellationToken.None);
+            const string Journal = CurrentSchemaControlShape.ApplyJournalTableName;
+            await db.Ado.ExecuteCommandAsync($"INSERT INTO public.{Journal} (plan_digest,database_digest,invocation_id,sequence,entry_digest,parent_digest,entry_payload) VALUES ('a','b','fixture',1,'c','d','not JSON and not a migration receipt');");
+            var observer = new CurrentSchemaReadObserver(db, inspector);
+            CurrentSchemaReadObservation valid = await observer.ReadAsync(CancellationToken.None);
+            Assert.Equal(CurrentSchemaCanonicalAuthority.ModelVersion, valid.CanonicalIdentity.ModelVersion);
+            Assert.Equal(1, await db.Ado.GetIntAsync($"SELECT count(*) FROM public.{Journal};"));
+            string sql = drift switch
+            {
+                "default" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT 'changed';",
+                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT NULL;",
+                "collation" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload TYPE text COLLATE \"C\";",
+                "check" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_sequence_check; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_sequence_check CHECK (sequence >= 0);",
+                "index" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_entry_digest_key; CREATE UNIQUE INDEX {Journal}_entry_digest_key ON public.{Journal} (entry_digest DESC);",
+                "trigger" => $"CREATE FUNCTION public.control_fixture_guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'unexpected_control_effect'; END; $$; CREATE TRIGGER control_fixture_trigger BEFORE UPDATE OR DELETE ON public.{Journal} FOR EACH ROW EXECUTE FUNCTION public.control_fixture_guard();",
+                "same-name-wrong-shape" => $"DROP TABLE public.{Journal}; CREATE TABLE public.{Journal} (plan_digest varchar(64) NOT NULL);",
+                "unknown-history" => "CREATE TABLE public.__fsus_schema_unregistered_history (value text NOT NULL);",
+                "no-inherit" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_sequence_check; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_sequence_check CHECK (sequence > 0) NO INHERIT;",
+                "row-security" => $"ALTER TABLE public.{Journal} ENABLE ROW LEVEL SECURITY;",
+                "rule" => $"CREATE RULE unexpected_control_rule AS ON UPDATE TO public.{Journal} DO INSTEAD NOTHING;",
+                "unowned-function" => "CREATE FUNCTION public.unexpected_current_function() RETURNS integer LANGUAGE sql AS 'SELECT 1';",
+                "unowned-sequence" => "CREATE SEQUENCE public.unexpected_current_sequence;",
+                _ => throw new InvalidOperationException("Unknown native control drift.")
+            };
+            await db.Ado.ExecuteCommandAsync(sql);
+            await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
+            Assert.Same(caller, db.Ado.Transaction);
             Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
         }
         finally

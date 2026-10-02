@@ -15,10 +15,25 @@ namespace FsusBlog.Shared.Algorithms.Schema;
 public static class PgCurrentSchemaCatalogObserver
 {
     /// <summary>Reads all public relational catalog facts on the caller's open PostgreSQL RR transaction.</summary>
-    public static async Task<SchemaModelSnapshot> ReadAsync(
+    public static Task<SchemaModelSnapshot> ReadAsync(
         DbConnection connection,
         DbTransaction transaction,
         CancellationToken cancellationToken)
+        => ReadCoreAsync(connection, transaction, cancellationToken, null);
+
+    /// <summary>Measures one actual table with the same complete decoder, before a legacy source becomes current.</summary>
+    /// <param name="connection">The actual open PostgreSQL connection.</param>
+    /// <param name="transaction">Its same caller-owned RepeatableRead transaction.</param>
+    /// <param name="tableName">The explicit measured table, not an allowed-extra-table grant.</param>
+    /// <param name="cancellationToken">The original caller's cancellation boundary.</param>
+    /// <returns>Every actual column, constraint and index of the selected table.</returns>
+    public static Task<SchemaModelSnapshot> ReadTableAsync(
+        DbConnection connection, DbTransaction transaction, string tableName, CancellationToken cancellationToken)
+        => ReadCoreAsync(connection, transaction, cancellationToken,
+            CurrentSchemaCanonicalAuthority.NormalizeIdentifier(tableName));
+
+    private static async Task<SchemaModelSnapshot> ReadCoreAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken, string? tableScope)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(transaction);
@@ -30,15 +45,33 @@ public static class PgCurrentSchemaCatalogObserver
             throw new InvalidOperationException("current_schema_native_catalog_transaction_mismatch");
         }
         DataTable tableRows = await QueryAsync(connection, transaction, """
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
-            """, cancellationToken).ConfigureAwait(false);
+            SELECT tables.table_name, relation.relkind::text AS relation_kind,
+                relation.relpersistence::text AS persistence, relation.relispartition AS is_partition,
+                relation.relrowsecurity AS row_security, relation.relforcerowsecurity AS force_row_security,
+                EXISTS (SELECT 1 FROM pg_inherits inheritance
+                    WHERE inheritance.inhrelid = relation.oid OR inheritance.inhparent = relation.oid) AS has_inheritance,
+                EXISTS (SELECT 1 FROM pg_rewrite rule WHERE rule.ev_class = relation.oid) AS has_rules,
+                EXISTS (SELECT 1 FROM pg_trigger trigger WHERE trigger.tgrelid = relation.oid) AS has_triggers
+            FROM information_schema.tables tables
+            JOIN pg_namespace namespace ON namespace.nspname = tables.table_schema
+            JOIN pg_class relation ON relation.relnamespace = namespace.oid AND relation.relname = tables.table_name
+            WHERE tables.table_schema = 'public' AND tables.table_type = 'BASE TABLE';
+            """, cancellationToken, tableScope).ConfigureAwait(false);
 
         var tables = new Dictionary<string, SchemaTableModel>(StringComparer.Ordinal);
         foreach (DataRow row in tableRows.Rows)
         {
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
+            if (tableScope is not null && tableName != tableScope) continue;
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
+            {
+                CurrentSchemaControlTableFacts control = CurrentSchemaControlShape.DescribeApplyJournalFacts();
+                if (Convert.ToString(row["relation_kind"]) != control.RelationKind || Convert.ToString(row["persistence"]) != control.Persistence
+                    || Convert.ToBoolean(row["is_partition"]) != control.IsPartition || Convert.ToBoolean(row["row_security"]) != control.RowSecurity
+                    || Convert.ToBoolean(row["force_row_security"]) != control.ForceRowSecurity || Convert.ToBoolean(row["has_inheritance"]) != control.HasInheritance
+                    || Convert.ToBoolean(row["has_rules"]) != control.HasRules || Convert.ToBoolean(row["has_triggers"]) != control.HasTriggers)
+                    throw new InvalidOperationException("current_schema_control_relation_effect_unavailable");
+            }
             tables[tableName] = NewActualTable(tableName, [], []);
         }
 
@@ -139,7 +172,7 @@ public static class PgCurrentSchemaCatalogObserver
                         c.column_name))
             ) sequence_observation ON TRUE
             WHERE c.table_schema = 'public';
-            """, cancellationToken).ConfigureAwait(false);
+            """, cancellationToken, tableScope).ConfigureAwait(false);
 
         foreach (DataRow row in columnRows.Rows)
         {
@@ -184,11 +217,16 @@ public static class PgCurrentSchemaCatalogObserver
                 OwnedSequence: ownedSequence);
         }
 
-        DataTable indexRows = await QueryAsync(connection, transaction, """
+        var primaryIndexes = new HashSet<string>(StringComparer.Ordinal);
+        DataTable indexRows = await QueryAsync(connection, transaction, $"""
             SELECT
                 table_rel.relname AS table_name,
                 index_rel.relname AS index_name,
                 index_meta.indisunique AS is_unique,
+                index_meta.indisprimary AS is_primary,
+                index_meta.indisvalid AS is_valid,
+                index_meta.indisready AS is_ready,
+                index_meta.indislive AS is_live,
                 access_method.amname AS access_method,
                 pg_get_expr(index_meta.indpred, index_meta.indrelid) AS predicate,
                 index_meta.indnullsnotdistinct AS nulls_not_distinct,
@@ -247,8 +285,9 @@ public static class PgCurrentSchemaCatalogObserver
                   FROM pg_constraint owning_constraint
                   WHERE owning_constraint.conindid = index_meta.indexrelid
                     AND owning_constraint.contype = 'p'
+                    AND table_rel.relname <> '{CurrentSchemaControlShape.ApplyJournalTableName}'
               );
-            """, cancellationToken).ConfigureAwait(false);
+            """, cancellationToken, tableScope).ConfigureAwait(false);
 
         foreach (DataRow row in indexRows.Rows)
         {
@@ -256,6 +295,10 @@ public static class PgCurrentSchemaCatalogObserver
             if (tables.TryGetValue(tableName, out SchemaTableModel? table))
             {
                 string indexName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["index_name"])!);
+                if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
+                    && (!Convert.ToBoolean(row["is_valid"]) || !Convert.ToBoolean(row["is_ready"]) || !Convert.ToBoolean(row["is_live"])))
+                    throw new InvalidOperationException("current_schema_control_index_unavailable");
+                if (Convert.ToBoolean(row["is_primary"])) primaryIndexes.Add(tableName + "." + indexName);
                 bool hasExpressions = Convert.ToBoolean(row["has_expressions"]);
                 IReadOnlyList<SchemaIndexKeyModel> keys = ParsePostgresIndexKeys(
                     Convert.ToString(row["keys"]),
@@ -275,7 +318,7 @@ public static class PgCurrentSchemaCatalogObserver
             }
         }
 
-        DataTable constraintRows = await QueryAsync(connection, transaction, """
+        DataTable constraintRows = await QueryAsync(connection, transaction, $"""
             SELECT
                 table_rel.relname AS table_name,
                 constraint_meta.conname AS constraint_name,
@@ -304,6 +347,9 @@ public static class PgCurrentSchemaCatalogObserver
                 constraint_meta.condeferrable AS is_deferrable,
                 constraint_meta.condeferred AS is_initially_deferred,
                 constraint_meta.convalidated AS is_validated,
+                constraint_meta.connoinherit AS no_inherit,
+                constraint_meta.conislocal AS is_local,
+                constraint_meta.coninhcount AS inheritance_count,
                 constraint_meta.confupdtype::text AS foreign_key_update_action,
                 constraint_meta.confdeltype::text AS foreign_key_delete_action,
                 constraint_meta.confmatchtype::text AS foreign_key_match_type
@@ -313,8 +359,9 @@ public static class PgCurrentSchemaCatalogObserver
             LEFT JOIN pg_class referenced_rel ON referenced_rel.oid = constraint_meta.confrelid
             LEFT JOIN pg_namespace referenced_namespace ON referenced_namespace.oid = referenced_rel.relnamespace
             WHERE table_namespace.nspname = 'public'
-              AND constraint_meta.contype IN ('p', 'u', 'f', 'c');
-            """, cancellationToken).ConfigureAwait(false);
+              AND (constraint_meta.contype IN ('p', 'u', 'f', 'c')
+                OR table_rel.relname = '{CurrentSchemaControlShape.ApplyJournalTableName}');
+            """, cancellationToken, tableScope).ConfigureAwait(false);
 
         foreach (DataRow row in constraintRows.Rows)
         {
@@ -325,6 +372,11 @@ public static class PgCurrentSchemaCatalogObserver
             }
 
             string physicalName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["constraint_name"])!);
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
+                && (Convert.ToBoolean(row["no_inherit"]) != (Convert.ToString(row["constraint_type"]) is "p" or "u")
+                    || !Convert.ToBoolean(row["is_local"])
+                    || Convert.ToInt32(row["inheritance_count"]) != 0))
+                throw new InvalidOperationException("current_schema_control_constraint_inheritance_unavailable");
             string kind = Convert.ToString(row["constraint_type"]) switch
             {
                 "p" => "primary-key",
@@ -379,6 +431,7 @@ public static class PgCurrentSchemaCatalogObserver
             var constraints = (Dictionary<string, SchemaConstraintModel>)table.Constraints;
             foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
             {
+                if (primaryIndexes.Contains(tableName + "." + index.Name)) continue;
                 constraints.TryAdd(index.Name, new SchemaConstraintModel(
                     index.Name,
                     "unique",
@@ -394,12 +447,20 @@ public static class PgCurrentSchemaCatalogObserver
         DbConnection connection,
         DbTransaction transaction,
         string sql,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? tableScope = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await using DbCommand command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = sql;
+        command.CommandText = tableScope is null ? sql
+            : $"SELECT * FROM ({sql.TrimEnd().TrimEnd(';')}) AS current_table_facts WHERE table_name = @current_table;";
+        if (tableScope is not null)
+        {
+            DbParameter parameter = command.CreateParameter();
+            parameter.ParameterName = "@current_table";
+            parameter.Value = tableScope;
+            command.Parameters.Add(parameter);
+        }
         await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         var table = new DataTable();
         for (int index = 0; index < reader.FieldCount; index++)

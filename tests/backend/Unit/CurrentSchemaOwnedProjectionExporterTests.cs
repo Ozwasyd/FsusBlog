@@ -104,6 +104,48 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
     }
 
     [Fact]
+    public void OwnedArtifact_PreviousV2ProjectionIsNotReinterpretedAsCurrentControlTarget()
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+            inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        CurrentSchemaIdentity previousEntityIdentity = entity.Identity with
+        {
+            ModelVersion = "fsusblog.current-schema.v2",
+            GeneratorVersion = "fsusblog.current-schema-projection.v2"
+        };
+        var previousEntity = new CurrentSchemaProjection(new SchemaModelSnapshot(entity.Schema.Tables,
+            previousEntityIdentity), previousEntityIdentity);
+        var producer = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+            new string('b', 64), new string('c', 64));
+        IReadOnlyList<CurrentSchemaRequiredRecipeReference> recipes = CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes();
+        // This is the previous original Observe serialization, without the new
+        // control facts. It is a contract fixture, not an executed old producer.
+        string source = Hash(JsonSerializer.Serialize(new
+        {
+            Entity = previousEntity.Identity.SourceDigest,
+            Recipes = recipes.Select(static reference => new { reference.TableName, reference.RecipeDigest }).ToArray()
+        }));
+        string content = Hash(JsonSerializer.Serialize(new
+        {
+            Entity = previousEntity.Identity.ContentDigest,
+            Recipes = recipes.Select(static reference => reference.SemanticDescription).ToArray()
+        }));
+        var input = new CurrentSchemaBootstrapInput(previousEntity, producer, recipes);
+        var previousTarget = previousEntityIdentity with { SourceDigest = source, ContentDigest = content };
+        var previous = new CurrentSchemaOwnedTargetArtifact(CurrentSchemaOwnedTargetProjection.ArtifactSchemaVersion,
+            input, CurrentSchemaOwnedTargetProjection.ComputeInputDigest(input), previousTarget);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(previous);
+        Assert.Equal(CurrentSchemaCanonicalAuthority.ComputeContentDigest(entity.Schema.Tables), previousEntityIdentity.ContentDigest);
+        Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(bytes, producer));
+        Assert.Equal(bytes, JsonSerializer.SerializeToUtf8Bytes(previous));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.Generate(
+            new(previousEntity.Schema, previousEntity.Identity)));
+
+        static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    }
+
+    [Fact]
     public void CompletePhysicalProjection_RetainsEveryRecipeAndSeparateUnobservedEffects()
     {
         var inspector = new SchemaModelInspector();
@@ -112,7 +154,9 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
             new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
                 new string('b', 64), new string('c', 64)), CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes());
         CurrentSchemaCompletePhysicalProjection complete = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.PostgreSql);
-        Assert.Equal(entities.Schema.Tables.Count + input.RequiredRecipes.Count, complete.Tables.Tables.Count);
+        Assert.Equal(entities.Schema.Tables.Count + input.RequiredRecipes.Count + 1, complete.Tables.Tables.Count);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.PostgreSql)),
+            System.Text.Json.JsonSerializer.Serialize(complete.Tables.Tables[CurrentSchemaControlShape.ApplyJournalTableName]));
         Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), complete.Tables.Identity);
         Assert.NotEmpty(complete.SchemaEffects);
         Assert.NotEmpty(complete.BootstrapDataEffects);

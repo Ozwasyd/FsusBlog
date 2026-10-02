@@ -33,7 +33,15 @@ public static class PgCurrentSchemaNativeObserver
         }
         SchemaModelSnapshot wanted = Normalize(expected.Tables, raw, expected: true);
         SchemaModelSnapshot observed = Normalize(actual, raw, expected: false);
-        return [.. SchemaModelComparer.Compare(wanted, observed), .. PgCurrentSchemaEffectObserver.CompareEffects(expected, effects)];
+        // The current control definition has no defaults. Even a raw DEFAULT
+        // NULL is an undeclared object, not an absent pg_attrdef fact.
+        IEnumerable<string> unexpectedControlDefaults = effects.Expressions.Where(expression =>
+            expression.Kind == "default" && expression.Table == CurrentSchemaControlShape.ApplyJournalTableName
+            && expected.Tables.Tables.TryGetValue(expression.Table, out SchemaTableModel? control)
+            && control.Columns.TryGetValue(expression.Name, out SchemaColumnModel? column) && column.DefaultValue is null)
+            .Select(static expression => "current_schema_control_default_unexpected:" + expression.Name);
+        return [.. SchemaModelComparer.Compare(wanted, observed), .. PgCurrentSchemaEffectObserver.CompareEffects(expected, effects),
+            .. unexpectedControlDefaults];
     }
 
     private static SchemaModelSnapshot Normalize(SchemaModelSnapshot snapshot, IReadOnlyDictionary<string, PgCurrentRawExpression> raw, bool expected)

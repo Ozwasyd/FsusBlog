@@ -62,6 +62,131 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
             original with { Expressions = [original.Expressions[0] with { Expression = "nextval('public.probe_revision_seq'::regclass) + 1" }] }));
     }
 
+    [Theory]
+    [InlineData("missing-column")]
+    [InlineData("extra-column")]
+    [InlineData("type")]
+    [InlineData("length")]
+    [InlineData("nullable")]
+    [InlineData("primary-key")]
+    [InlineData("identity")]
+    [InlineData("owned-sequence")]
+    [InlineData("collation")]
+    [InlineData("default")]
+    [InlineData("default-null")]
+    [InlineData("computed")]
+    [InlineData("index-direction")]
+    [InlineData("primary-index-direction")]
+    [InlineData("index-opclass")]
+    [InlineData("index-collation")]
+    [InlineData("index-include")]
+    [InlineData("index-null-distinct")]
+    [InlineData("missing-constraint")]
+    [InlineData("constraint-deferred")]
+    [InlineData("constraint-unvalidated")]
+    [InlineData("check")]
+    [InlineData("trigger")]
+    public void CurrentControlShape_RejectsNativeFactDriftAfterCompletePositiveControl(string drift)
+    {
+        SchemaTableModel control = CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.PostgreSql);
+        PgCurrentSchemaEffectObservation effects = ControlEffects(control);
+        var actual = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [control.Name] = control },
+            provider: SchemaProviderKind.PostgreSql);
+        Assert.Empty(PgCurrentSchemaControlShape.CompareApplyJournal(actual, effects));
+        Assert.Equal(7, control.Columns.Count);
+        Assert.Equal(4, control.Constraints.Count);
+        Assert.Equal(3, control.IndexDefinitions.Count); // Includes the native primary backing index.
+
+        var columns = new Dictionary<string, SchemaColumnModel>(control.Columns, StringComparer.Ordinal);
+        var indexes = new Dictionary<string, SchemaIndexModel>(control.IndexDefinitions, StringComparer.Ordinal);
+        var constraints = new Dictionary<string, SchemaConstraintModel>(control.Constraints, StringComparer.Ordinal);
+        SchemaColumnModel payload = columns["entry_payload"];
+        SchemaIndexModel index = indexes[control.Name + "_entry_digest_key"];
+        SchemaConstraintModel check = constraints[control.Name + "_sequence_check"];
+        switch (drift)
+        {
+            case "missing-column": columns.Remove("entry_payload"); break;
+            case "extra-column": columns.Add("unexpected", payload with { Name = "unexpected" }); break;
+            case "type": columns["entry_payload"] = payload with { DataType = "int64", PhysicalType = "bigint" }; break;
+            case "length": columns["plan_digest"] = columns["plan_digest"] with { MaxLength = 65 }; break;
+            case "nullable": columns["entry_payload"] = payload with { IsNullable = true }; break;
+            case "primary-key": columns["sequence"] = columns["sequence"] with { IsPrimaryKey = false }; break;
+            case "identity": columns["sequence"] = columns["sequence"] with { IsIdentity = true, GenerationKind = "identity-always" }; break;
+            case "owned-sequence":
+                columns["sequence"] = columns["sequence"] with
+                {
+                    OwnedSequence = new("public", "extra_sequence", control.Name, "sequence", "bigint", 1, 1, 1, long.MaxValue, 1, false)
+                };
+                break;
+            case "collation": columns["entry_payload"] = payload with { Collation = "pg_catalog.C" }; break;
+            case "default":
+                effects = effects with { Expressions = [.. effects.Expressions, new("default", control.Name, "entry_payload", "'changed'::text", [], [])] };
+                break;
+            case "default-null":
+                effects = effects with { Expressions = [.. effects.Expressions, new("default", control.Name, "entry_payload", "NULL::text", [], [])] };
+                break;
+            case "computed": columns["entry_payload"] = payload with { ComputedExpression = "'changed'" }; break;
+            case "index-direction": indexes[index.Name] = index with { Keys = [index.Keys[0] with { Direction = "desc" }] }; break;
+            case "primary-index-direction":
+                SchemaIndexModel primary = indexes[control.Name + "_pkey"];
+                indexes[primary.Name] = primary with { Keys = primary.Keys.Select((key, position) =>
+                    position == 0 ? key with { Direction = "desc" } : key).ToArray() };
+                break;
+            case "index-opclass": indexes[index.Name] = index with { Keys = [index.Keys[0] with { OperatorClass = "pg_catalog.text_pattern_ops" }] }; break;
+            case "index-collation": indexes[index.Name] = index with { Keys = [index.Keys[0] with { Collation = "pg_catalog.C" }] }; break;
+            case "index-include": indexes[index.Name] = index with { IncludedColumns = ["parent_digest"] }; break;
+            case "index-null-distinct": indexes[index.Name] = index with { NullsNotDistinct = true }; break;
+            case "missing-constraint": constraints.Remove(check.Name); effects = effects with { Expressions = [] }; break;
+            case "constraint-deferred": constraints[index.Name] = constraints[index.Name] with { IsDeferrable = true }; break;
+            case "constraint-unvalidated": constraints[check.Name] = check with { IsValidated = false }; break;
+            case "check": effects = effects with { Expressions = [effects.Expressions[0] with { Expression = "sequence >= 0" }] }; break;
+            case "trigger":
+                effects = effects with { Triggers = [new(control.Name, "unexpected", "unexpected", 27, "O", null, 0, "", false, false, false, null, null)] };
+                break;
+            default: throw new InvalidOperationException("Unknown native control drift.");
+        }
+        var changed = new SchemaTableModel(control.Name, columns, indexes.Keys, indexes, constraints, control.Owner);
+        var snapshot = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [changed.Name] = changed },
+            provider: SchemaProviderKind.PostgreSql);
+        Assert.NotEmpty(PgCurrentSchemaControlShape.CompareApplyJournal(snapshot, effects));
+    }
+
+    [Fact]
+    public void CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse()
+    {
+        SchemaTableModel control = CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.PostgreSql);
+        PgCurrentSchemaEffectObservation effects = ControlEffects(control);
+        Assert.Empty(PgCurrentSchemaControlShape.CompareApplyJournal(
+            new(new Dictionary<string, SchemaTableModel> { [control.Name] = control }, provider: SchemaProviderKind.PostgreSql), effects));
+        Assert.NotEmpty(PgCurrentSchemaControlShape.CompareApplyJournal(
+            new(new Dictionary<string, SchemaTableModel>(), provider: SchemaProviderKind.PostgreSql), effects with { Expressions = [] }));
+        Assert.NotEmpty(PgCurrentSchemaControlShape.CompareApplyJournal(new(new Dictionary<string, SchemaTableModel>
+        {
+            [control.Name] = control,
+            ["__fsus_schema_unregistered_control"] = new("__fsus_schema_unregistered_control", [], [])
+        }, provider: SchemaProviderKind.PostgreSql), effects));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.MySql));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.Sqlite));
+    }
+
+    [Fact]
+    public void CurrentControlRendering_IsDerivedFromFreshSoleFactsAndKeepsOriginalConstraintNames()
+    {
+        SchemaTableModel first = CurrentSchemaControlShape.DescribeApplyJournal();
+        first.Columns.Clear();
+        Assert.Equal(7, CurrentSchemaControlShape.DescribeApplyJournal().Columns.Count);
+        string sql = PgCurrentSchemaControlShape.CreateApplyJournalSql();
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.\"__fsus_schema_offline_apply_journal\"", sql);
+        Assert.Contains("\"__fsus_schema_offline_apply_j_plan_digest_database_digest_i_key\"", sql);
+        Assert.Contains("CHECK (sequence > 0)", sql);
+        Assert.DoesNotContain("DEFAULT", sql);
+        Assert.DoesNotContain("DROP", sql);
+        Assert.DoesNotContain("DELETE", sql);
+    }
+
+    private static PgCurrentSchemaEffectObservation ControlEffects(SchemaTableModel table)
+        => new(true, [new("check", table.Name, table.Name + "_sequence_check", "(sequence > 0)", ["sequence"], [])], [], [], []);
+
     private static CurrentSchemaCompletePhysicalProjection Expected()
     {
         SchemaColumnModel column = new("revision", false, false, false, null, "int64", "1", "none", PhysicalType: "bigint");
