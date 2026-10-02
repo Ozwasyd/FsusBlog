@@ -691,30 +691,13 @@ CoverageSummaryJson() {
 RuntimeTuningJson() {
     local cacheL1TelemetryPolicy publicHotReadCounterMode
     local benchmarkEvidence runtimeMatrixEvidence
-    cacheL1TelemetryPolicy="$(jq -c '.' "$ROOT_DIR/tests/performance/cache-l1-telemetry-policy.json" 2>/dev/null || printf 'null')"
-    publicHotReadCounterMode="$(awk -F'"' '
+    local publicHotReadFilter runtimeTuningFilter
+    publicHotReadFilter=$'
     /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
     in_public_hot_read && /"CounterMode"[[:space:]]*:/ { print $4; exit }
     in_public_hot_read && /^[[:space:]]*}/ { exit }
-  ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
-    cacheL1TelemetryPolicy="${cacheL1TelemetryPolicy:-null}"
-    publicHotReadCounterMode="${publicHotReadCounterMode:-unknown}"
-    benchmarkEvidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
-    runtimeMatrixEvidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
-    jq -n \
-        --arg readyToRun "${DOTNET_ReadyToRun:-}" \
-        --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
-        --arg tieredPgo "${DOTNET_TieredPGO:-}" \
-        --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
-        --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
-        --arg cacheL1TelemetryPolicy "$cacheL1TelemetryPolicy" \
-        --arg publicHotReadCounterMode "$publicHotReadCounterMode" \
-        --arg benchmarkEvidence "$benchmarkEvidence" \
-        --arg runtimeMatrixEvidence "$runtimeMatrixEvidence" \
-        --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
-        --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
-        --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
-        --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" '
+  '
+    runtimeTuningFilter=$'
     {
       profile: {
         id: (if $profileId == "" then null else $profileId end),
@@ -738,6 +721,26 @@ RuntimeTuningJson() {
       nonDefaultPresetsRequireBenchmarkEvidence: true,
       rollback: "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
     }'
+    cacheL1TelemetryPolicy="$(jq -c '.' "$ROOT_DIR/tests/performance/cache-l1-telemetry-policy.json" 2>/dev/null || printf 'null')"
+    publicHotReadCounterMode="$(awk -F'"' "$publicHotReadFilter" "$ROOT_DIR/src/backend/appsettings.Production.json")"
+    cacheL1TelemetryPolicy="${cacheL1TelemetryPolicy:-null}"
+    publicHotReadCounterMode="${publicHotReadCounterMode:-unknown}"
+    benchmarkEvidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
+    runtimeMatrixEvidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
+    jq -n \
+        --arg readyToRun "${DOTNET_ReadyToRun:-}" \
+        --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
+        --arg tieredPgo "${DOTNET_TieredPGO:-}" \
+        --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
+        --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
+        --arg cacheL1TelemetryPolicy "$cacheL1TelemetryPolicy" \
+        --arg publicHotReadCounterMode "$publicHotReadCounterMode" \
+        --arg benchmarkEvidence "$benchmarkEvidence" \
+        --arg runtimeMatrixEvidence "$runtimeMatrixEvidence" \
+        --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
+        --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
+        --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
+        --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" "$runtimeTuningFilter"
 }
 
 PRODUCTION_STATUS="$(CopyIfPresent "$SECURITY_DIR/production-exposure-status.json" production-exposure-status.json)"
