@@ -5,7 +5,7 @@ using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
 
-// Historical rows remain Migration-owned. No current writer defaults are inferred here.
+// Historical rows remain Migration-owned. Current defaults have a separate compiled-owner export.
 // These artifact inputs need independent source/current-owner admission; byte seals are integrity,
 // not provenance. No production exporter, native operation or database authority is fabricated.
 internal sealed record LegacyArticlePreservationRow(
@@ -17,7 +17,9 @@ internal sealed record ArticlePreservationSourceData(
     Uri DocumentBase, int ExpectedArticleCount, int ExpectedCategoryCount, int ExpectedTagCount,
     ImmutableArray<LegacyArticlePreservationRow> Articles,
     ImmutableArray<LegacyArticlePreservationTaxonomy> Categories,
-    ImmutableArray<LegacyArticlePreservationTaxonomy> Tags);
+    ImmutableArray<LegacyArticlePreservationTaxonomy> Tags,
+    string? ConfiguredSiteAuthor = null,
+    IReadOnlyList<ArticlePreservationDiscardedDomain>? DiscardedDomains = null);
 internal sealed record ArticlePreservationSourceExport(
     CurrentSchemaArtifactReference Artifact, ImmutableArray<byte> Bytes, ArticlePreservationSourceData Data);
 
@@ -30,14 +32,16 @@ internal sealed record ArticlePreservationGraphCoordinates(
 internal sealed record ArticlePreservationCurrentData(
     int SourceArticleId, ArticleCanonicalInput Article, ArticleRightsNormalizedModel Rights,
     ArticleResponsibilityDraft Responsibility, string? ConfiguredSiteAuthor,
-    ArticlePreservationGraphCoordinates Coordinates);
+    ArticlePreservationGraphCoordinates Coordinates,
+    CurrentSchemaArtifactReference? DefaultPolicyArtifact = null);
 internal sealed record ArticlePreservationCurrentPackage(
     CurrentSchemaArtifactReference Artifact, ImmutableArray<byte> Bytes, ArticlePreservationCurrentData Data);
 internal sealed record ArticlePreservationCurrentExport(
     CurrentSchemaArtifactReference Artifact, ImmutableArray<byte> Bytes,
     ImmutableArray<ArticlePreservationTaxonomyMap> Categories,
     ImmutableArray<ArticlePreservationTaxonomyMap> Tags,
-    ImmutableArray<ArticlePreservationCurrentPackage> Articles);
+    ImmutableArray<ArticlePreservationCurrentPackage> Articles,
+    ArticlePreservationDefaultPolicyExport? DefaultPolicy = null);
 
 internal sealed record ArticlePreservationLimits(int MaximumArticles, int MaximumTaxonomyRows, long MaximumMetadataBytes);
 internal sealed record ArticlePreservationArticleWritePlan(

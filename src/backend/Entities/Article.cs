@@ -1,5 +1,7 @@
 using SqlSugar;
 
+using FsusBlog.Contracts.Articles;
+
 namespace FsusBlog.Server.Entities;
 
 [SugarTable("article_tag")]
@@ -90,7 +92,7 @@ public class Article
     public DateTime MetadataUpdatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "status")]
-    public ArticleStatus Status { get; set; } = ArticleStatus.Published;
+    public ArticleStatus Status { get; set; } = (ArticleStatus)ArticleCurrentPolicyDefaults.Status;
 
     [SugarColumn(ColumnName = "scheduled_publish_at", IsNullable = true)]
     public DateTime? ScheduledPublishAt
@@ -365,7 +367,7 @@ public class ArticleRevision
     public long CreatedByAdminPrincipalId
     {
         get; set;
-    }
+    } = ArticleCurrentPolicyDefaults.UnattributedCreatorId;
 
     [SugarColumn(ColumnName = "rollback_source_revision_id", IsNullable = true)]
     public long? RollbackSourceRevisionId
@@ -504,7 +506,7 @@ public class ArticleResponsibilitySnapshot
     }
 
     [SugarColumn(ColumnName = "responsibility_version")]
-    public int ResponsibilityVersion { get; set; } = 1;
+    public int ResponsibilityVersion { get; set; } = ArticleCurrentPolicyDefaults.ResponsibilityVersion;
 
     [SugarColumn(ColumnName = "previous_snapshot_id", IsNullable = true)]
     public long? PreviousSnapshotId
@@ -513,10 +515,10 @@ public class ArticleResponsibilitySnapshot
     }
 
     [SugarColumn(ColumnName = "inherit_site_author")]
-    public bool InheritSiteAuthor { get; set; } = true;
+    public bool InheritSiteAuthor { get; set; } = ArticleCurrentPolicyDefaults.InheritSiteAuthor;
 
     [SugarColumn(ColumnName = "authors_json", ColumnDataType = "text")]
-    public string AuthorsJson { get; set; } = "[]";
+    public string AuthorsJson { get; set; } = ArticleCurrentPolicyDefaults.EmptyPeopleJson;
 
     [SugarColumn(ColumnName = "reviewer_json", ColumnDataType = "text", IsNullable = true)]
     public string? ReviewerJson
@@ -525,7 +527,7 @@ public class ArticleResponsibilitySnapshot
     }
 
     [SugarColumn(ColumnName = "sources_json", ColumnDataType = "text")]
-    public string SourcesJson { get; set; } = "[]";
+    public string SourcesJson { get; set; } = ArticleCurrentPolicyDefaults.EmptyPeopleJson;
 
     [SugarColumn(ColumnName = "update_summary", Length = 512, IsNullable = true)]
     public string? UpdateSummary
@@ -573,7 +575,7 @@ public class ArticleResponsibilitySnapshot
     public bool ResponsiblePersonConfirmed
     {
         get; set;
-    }
+    } = ArticleCurrentPolicyDefaults.ResponsiblePersonConfirmed;
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

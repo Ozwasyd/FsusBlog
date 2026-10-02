@@ -115,4 +115,29 @@ public sealed class CurrentArticleContractTests
         Assert.ThrowsAny<ArgumentException>(() => ArticleRightsCanonicalBinding.Build(article,
             ArticleProductionNormalizers.NormalizeArticleRights(null)));
     }
+
+    [Theory]
+    [InlineData(null, "Fsu")]
+    [InlineData("   ", "Fsu")]
+    [InlineData("  configured  ", "configured")]
+    [InlineData("中文中文中文中文", "中文中文中文")]
+    [InlineData("😀😀😀😀😀😀", "😀😀😀😀😀")]
+    public void CurrentSiteAuthor_PreservesTheOriginalFallbackTrimAndRuneSafeTwentyByteBound(string? raw, string expected)
+    {
+        Assert.Equal(expected, FsusBlog.Shared.Contracts.Outputs.PublicSiteAuthorPolicy.Resolve(raw));
+    }
+
+    [Fact]
+    public void CurrentStoredResponsibilityDefaults_DoNotAssertHumanApprovalOrAnAdministratorIdentity()
+    {
+        ArticleResponsibilityDraft draft = ArticleCurrentPolicyDefaults.ResponsibilityDraft();
+        Assert.Equal(0, ArticleCurrentPolicyDefaults.UnattributedCreatorId);
+        Assert.Equal(ArticleStatusValues.Published, ArticleCurrentPolicyDefaults.Status);
+        Assert.Equal(1, draft.ExpectedVersion);
+        Assert.True(draft.InheritSiteAuthor);
+        Assert.Empty(draft.Authors);
+        Assert.Empty(draft.Sources);
+        Assert.False(draft.ResponsiblePersonConfirmed);
+        Assert.Contains(ArticleResponsibilityGovernance.Evaluate(draft), static issue => issue.Severity == "error");
+    }
 }

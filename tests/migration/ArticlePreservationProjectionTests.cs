@@ -64,7 +64,7 @@ public sealed class ArticlePreservationProjectionTests
     [InlineData("responsibility-version")]
     [InlineData("publication")]
     [InlineData("publication-number")]
-    [InlineData("actor")]
+    [InlineData("actor-negative")]
     public void PureProjection_RejectsEveryMissingRequiredCurrentCoordinate(string missing)
     {
         var fixture = Fixture();
@@ -78,7 +78,7 @@ public sealed class ArticlePreservationProjectionTests
             "responsibility-version" => data.Coordinates with { ResponsibilityVersion = 0 },
             "publication" => data.Coordinates with { PublicationId = 0 },
             "publication-number" => data.Coordinates with { PublicationNo = 0 },
-            "actor" => data.Coordinates with { CreatedByAdminPrincipalId = 0 },
+            "actor-negative" => data.Coordinates with { CreatedByAdminPrincipalId = -1 },
             _ => throw new ArgumentOutOfRangeException(nameof(missing))
         };
         var changed = ReplaceCurrent(fixture, data with { Coordinates = coordinates });
@@ -91,10 +91,10 @@ public sealed class ArticlePreservationProjectionTests
             "responsibility-version" => coordinates.ResponsibilityVersion,
             "publication" => coordinates.PublicationId,
             "publication-number" => coordinates.PublicationNo,
-            "actor" => coordinates.CreatedByAdminPrincipalId,
+            "actor-negative" => coordinates.CreatedByAdminPrincipalId,
             _ => throw new ArgumentOutOfRangeException(nameof(missing))
         };
-        Assert.Equal(0L, selectedCoordinate);
+        Assert.Equal(missing == "actor-negative" ? -1L : 0L, selectedCoordinate);
         Assert.Throws<InvalidOperationException>(() => Project(changed));
     }
 
@@ -237,6 +237,143 @@ public sealed class ArticlePreservationProjectionTests
         Assert.Throws<InvalidOperationException>(() => Project(missing));
     }
 
+    [Fact]
+    public void KnownProfile_CurrentStoredDefaultsDoNotInventAHistoricalHumanOrAdminApproval()
+    {
+        InputFixture fixture = WithStoredDefaults(Fixture());
+        ArticlePreservationArticleWritePlan plan = Assert.Single(Project(fixture).Articles);
+
+        Assert.Equal(0, plan.Current.Coordinates.CreatedByAdminPrincipalId);
+        Assert.Equal(1, plan.Current.Article.RevisionNo);
+        Assert.Equal(1, plan.Current.Coordinates.PublicationNo);
+        Assert.False(plan.Current.Responsibility.ResponsiblePersonConfirmed);
+        Assert.True(plan.Current.Responsibility.InheritSiteAuthor);
+        Assert.Equal(FsusBlog.Shared.Contracts.Outputs.PublicSiteIdentityDefaults.SiteAuthor, plan.Current.ConfiguredSiteAuthor);
+        Assert.Contains(ArticleResponsibilityGovernance.Evaluate(plan.Current.Responsibility),
+            static issue => issue.Severity == "error");
+        Assert.Equal(ArticleRightsCanonicalBinding.Build(plan.Current.Article, plan.Current.Rights), plan.Canonical);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void KnownProfile_DefaultMappingPreservesSourceCreationAndDeletionWithoutMissingPublication(bool deleted)
+    {
+        InputFixture original = Fixture();
+        ArticlePreservationSourceData source = original.Source.Data with
+        {
+            Articles = [original.Source.Data.Articles[0] with { IsDeleted = deleted }]
+        };
+        InputFixture fixture = WithStoredDefaults(original with { Source = Source(source) });
+        ArticlePreservationArticleWritePlan article = Assert.Single(Project(fixture).Articles);
+
+        Assert.Equal(deleted ? ArticleStatusValues.Deleted : ArticleCurrentPolicyDefaults.Status, article.Current.Article.Status);
+        Assert.Equal(source.Articles[0].CreateTime, article.Current.Article.PublishedAt);
+        Assert.Equal(source.Articles[0].CreateTime, article.Current.Coordinates.PublicationTime);
+        Assert.True(article.Current.Coordinates.PublicationId > 0);
+        Assert.Null(article.Current.Article.CoverImageUrl);
+    }
+
+    [Theory]
+    [InlineData("actor")]
+    [InlineData("confirmation")]
+    [InlineData("rights")]
+    [InlineData("site-author")]
+    [InlineData("publication-time")]
+    public void KnownProfile_ResealedPackagesMustMatchEveryActualStoredDefault(string changedField)
+    {
+        InputFixture fixture = WithStoredDefaults(Fixture());
+        ArticlePreservationCurrentData original = fixture.Current.Articles[0].Data;
+        ArticlePreservationCurrentData data = changedField switch
+        {
+            "actor" => original with { Coordinates = original.Coordinates with { CreatedByAdminPrincipalId = 999 } },
+            "confirmation" => original with { Responsibility = original.Responsibility with { ResponsiblePersonConfirmed = true } },
+            "rights" => original with { Rights = original.Rights with { LicenseType = "CC-BY-4.0" } },
+            "site-author" => original with { ConfiguredSiteAuthor = "invented historical owner" },
+            "publication-time" => original with { Coordinates = original.Coordinates with { PublicationTime = original.Coordinates.PublicationTime.AddDays(1) } },
+            _ => throw new ArgumentOutOfRangeException(nameof(changedField))
+        };
+        InputFixture tampered = fixture with
+        {
+            Current = Current(fixture.Current.Categories, fixture.Current.Tags, [Package(data)], fixture.Current.DefaultPolicy)
+        };
+        Assert.Equal(fixture.Current.DefaultPolicy!.Artifact, data.DefaultPolicyArtifact);
+        Assert.Throws<InvalidOperationException>(() => Project(tampered));
+    }
+
+    [Fact]
+    public void KnownProfile_ResealedPolicyCannotChangeTheCompiledDefaultOrBorrowAnotherSource()
+    {
+        InputFixture fixture = WithStoredDefaults(Fixture());
+        ArticlePreservationDefaultPolicyExport policy = fixture.Current.DefaultPolicy!;
+        ArticlePreservationDefaultPolicyData data = policy.Data with { RevisionCreatorId = 777 };
+        byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(data);
+        var changedPolicy = new ArticlePreservationDefaultPolicyExport(
+            new(policy.Artifact.Reference, ArticlePreservationSemanticReceipt.HashBytes(bytes)), bytes.ToImmutableArray(), data);
+        Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.RequireDefaultPolicy(fixture.Source, changedPolicy));
+        var changedSource = Source(fixture.Source.Data with { ConfiguredSiteAuthor = "Different source setting" });
+        Assert.NotEqual(fixture.Source.Artifact.Sha256, changedSource.Artifact.Sha256);
+        Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.RequireDefaultPolicy(changedSource, policy));
+        Assert.NotEqual(policy.Artifact.Sha256, policy.Data.PolicyDigest);
+    }
+
+    [Fact]
+    public void KnownProfile_CurrentSiteAuthorSettingIsBoundToTheActualSourceAndResponsibilityDigest()
+    {
+        InputFixture original = WithStoredDefaults(Fixture());
+        InputFixture configured = WithStoredDefaults(Fixture() with
+        {
+            Source = Source(Fixture().Source.Data with { ConfiguredSiteAuthor = "  configured author  " })
+        });
+        ArticlePreservationArticleWritePlan first = Assert.Single(Project(original).Articles);
+        ArticlePreservationArticleWritePlan second = Assert.Single(Project(configured).Articles);
+
+        Assert.Equal("configured author", second.Current.ConfiguredSiteAuthor);
+        Assert.NotEqual(first.ResponsibilityDigest, second.ResponsibilityDigest);
+        Assert.NotEqual(original.Current.DefaultPolicy!.Data.PolicyDigest, configured.Current.DefaultPolicy!.Data.PolicyDigest);
+    }
+
+    [Fact]
+    public void SourceExport_RecordsExcludedDomainCountsWithoutRequiringHistoricalUserMappings()
+    {
+        InputFixture fixture = Fixture();
+        ImmutableArray<ArticlePreservationDiscardedDomain> discarded =
+        [new("sys_user", 4, "outside_article_preservation_scope"), new("comment", 42, "outside_article_preservation_scope"),
+            new("sys_message", 3, "outside_article_preservation_scope"), new("sys_user_message", 2, "outside_article_preservation_scope"),
+            new("sys_visit_log", 1, "outside_article_preservation_scope")];
+        ArticlePreservationSourceData data = fixture.Source.Data with { DiscardedDomains = discarded };
+        OfflineMigrationSourceShape shape = OfflineMigrationSourceFingerprints.Shape(CurrentSchemaProviderKind.PostgreSql, true);
+        // Unit observation only: actual SQL observation is an independent integration obligation.
+        var observation = new OfflineMigrationSourceObservation(new(CurrentSchemaProviderKind.PostgreSql, "unit-instance", "unit-database"),
+            shape.ExtractorId, shape.ExtractorVersion, shape.Schema, shape.History, shape.BusinessShape, data.FullSourceContentDigest);
+        var read = new ArticlePreservationSourceReadResult(data, observation, discarded, null);
+        ArticlePreservationSourceExport source = ArticlePreservationPolicyExporter.PrepareSource(read, "fixture://read-source", default);
+        ArticlePreservationArticleWritePlan article = Assert.Single(Project(WithStoredDefaults(fixture with { Source = source })).Articles);
+
+        Assert.Equal(0, article.Current.Coordinates.CreatedByAdminPrincipalId);
+        Assert.Equal(42, Assert.Single(source.Data.DiscardedDomains!, static domain => domain.Name == "comment").Count);
+        string bytes = System.Text.Encoding.UTF8.GetString(source.Bytes.AsSpan());
+        Assert.DoesNotContain("password", bytes, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("refreshtoken", bytes, StringComparison.OrdinalIgnoreCase);
+        Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.PrepareSource(
+            read with { Data = data with { FullSourceContentDigest = new string('c', 64) } }, "fixture://forged-source", default));
+    }
+
+    private static InputFixture WithStoredDefaults(InputFixture fixture)
+    {
+        ArticlePreservationDefaultPolicyExport policy = ArticlePreservationPolicyExporter.PrepareDefaultPolicy(
+            fixture.Source, "fixture://current-policy", default);
+        ArticlePreservationGraphCoordinates coordinates = fixture.Current.Articles[0].Data.Coordinates with
+        {
+            CreatedByAdminPrincipalId = ArticleCurrentPolicyDefaults.UnattributedCreatorId,
+            PublicationTime = fixture.Source.Data.Articles[0].CreateTime
+        };
+        ArticlePreservationCurrentPackage package = ArticlePreservationPolicyExporter.PrepareCurrentPackage(
+            fixture.Source, fixture.Source.Data.Articles[0], policy, 1, [1], coordinates, "fixture://stored-default-current/1", default);
+        return fixture with { Current = ArticlePreservationPolicyExporter.PrepareCurrentExport(
+            fixture.Source, policy, fixture.Current.Categories, fixture.Current.Tags, [package], "fixture://stored-default-current", default) };
+    }
+
     // Synthetic input fixtures exercise pure computation only. They are not source/current
     // exporters, backup evidence, filesystem observations, or permission to register a native step.
     private sealed record InputFixture(ArticlePreservationSourceExport Source, ArticlePreservationCurrentExport Current, ArticleMediaInventory Media);
@@ -269,10 +406,11 @@ public sealed class ArticlePreservationProjectionTests
         return new(new($"fixture://current/{data.SourceArticleId}", ArticlePreservationSemanticReceipt.HashBytes(bytes)), bytes.ToImmutableArray(), data);
     }
     private static ArticlePreservationCurrentExport Current(ImmutableArray<ArticlePreservationTaxonomyMap> categories,
-        ImmutableArray<ArticlePreservationTaxonomyMap> tags, ImmutableArray<ArticlePreservationCurrentPackage> articles)
+        ImmutableArray<ArticlePreservationTaxonomyMap> tags, ImmutableArray<ArticlePreservationCurrentPackage> articles,
+        ArticlePreservationDefaultPolicyExport? defaultPolicy = null)
     {
-        byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(new { Categories = categories, Tags = tags, Articles = articles });
-        return new(new("fixture://current", ArticlePreservationSemanticReceipt.HashBytes(bytes)), bytes.ToImmutableArray(), categories, tags, articles);
+        byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(new { Categories = categories, Tags = tags, Articles = articles, DefaultPolicy = defaultPolicy });
+        return new(new("fixture://current", ArticlePreservationSemanticReceipt.HashBytes(bytes)), bytes.ToImmutableArray(), categories, tags, articles, defaultPolicy);
     }
     private static ArticleMediaInventory Media(ArticlePreservationSourceData source)
     {

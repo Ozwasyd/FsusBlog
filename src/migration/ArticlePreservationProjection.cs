@@ -6,8 +6,8 @@ using FsusBlog.Contracts.Articles;
 namespace FsusBlog.Migration;
 
 /// <summary>
-/// Lossless source projection using the actual current pure article rules. The missing production
-/// source/current artifact exporters and native writers cannot be replaced by this computation.
+/// Lossless source projection using the actual current pure article rules. Artifact integrity and
+/// this computation cannot replace independent source admission, publication or native writers.
 /// </summary>
 internal static class ArticlePreservationProjection
 {
@@ -39,7 +39,9 @@ internal static class ArticlePreservationProjection
             Reject("source_origin");
         ArticlePreservationSemanticReceipt.RequireArtifact(source.Artifact, source.Bytes, data);
         ArticlePreservationSemanticReceipt.RequireArtifact(current.Artifact, current.Bytes,
-            new { current.Categories, current.Tags, current.Articles });
+            new { current.Categories, current.Tags, current.Articles, current.DefaultPolicy });
+        if (current.DefaultPolicy is not null)
+            ArticlePreservationPolicyExporter.RequireDefaultPolicy(source, current.DefaultPolicy);
         long metadataBytes = checked((long)source.Bytes.Length + current.Bytes.Length);
         if (metadataBytes > limits.MaximumMetadataBytes) Reject("metadata_budget");
 
@@ -89,12 +91,28 @@ internal static class ArticlePreservationProjection
             if (graph is null || target.Rights is null || target.Responsibility is null
                 || graph.ContentBlockId <= 0 || graph.RightsPolicyId <= 0 || graph.RightsSnapshotId <= 0
                 || graph.ResponsibilitySnapshotId <= 0 || graph.ResponsibilityVersion <= 0
-                || graph.PublicationId <= 0 || graph.PublicationNo <= 0 || graph.CreatedByAdminPrincipalId <= 0
+                || graph.PublicationId <= 0 || graph.PublicationNo <= 0 || graph.CreatedByAdminPrincipalId < 0
                 || string.IsNullOrWhiteSpace(graph.DiffSummary) || string.IsNullOrWhiteSpace(graph.PublicationTransitionKind)
                 || target.Responsibility.Authors is null || target.Responsibility.Sources is null
                 || target.Responsibility.InheritSiteAuthor && string.IsNullOrWhiteSpace(target.ConfiguredSiteAuthor))
                 Reject("required_current_graph_or_policy");
-            if (ArticleResponsibilityGovernance.Evaluate(target.Responsibility).Any(static issue => issue.Severity == "error"))
+            if (target.DefaultPolicyArtifact is not null)
+            {
+                ArticlePreservationDefaultPolicyExport? policy = current.DefaultPolicy;
+                if (policy is null || target.DefaultPolicyArtifact != policy.Artifact
+                    || graph.CreatedByAdminPrincipalId != policy.Data.RevisionCreatorId
+                    || graph.ResponsibilityVersion != policy.Data.ResponsibilityVersion
+                    || graph.PublicationTime != row.CreateTime || article.PublishedAt != row.CreateTime
+                    || article.ScheduledPublishAt is not null
+                    || article.Status != (row.IsDeleted ? ArticleStatusValues.Deleted : policy.Data.ArticleStatus)
+                    || target.ConfiguredSiteAuthor != policy.Data.SiteAuthor
+                    || !ArticlePreservationSemanticReceipt.Serialize(target.Rights).AsSpan().SequenceEqual(
+                        ArticlePreservationSemanticReceipt.Serialize(policy.Data.Rights))
+                    || !ArticlePreservationSemanticReceipt.Serialize(target.Responsibility).AsSpan().SequenceEqual(
+                        ArticlePreservationSemanticReceipt.Serialize(policy.Data.Responsibility)))
+                    Reject("stored_default_policy_binding");
+            }
+            else if (ArticleResponsibilityGovernance.Evaluate(target.Responsibility).Any(static issue => issue.Severity == "error"))
                 Reject("responsibility_policy");
             // Deleted historical rows require a separate, explicit deletion-flow write obligation;
             // they are not admitted as ordinary current authoring creates or updates.
@@ -149,15 +167,18 @@ internal static class ArticlePreservationProjection
         var sourceIds = new HashSet<int>();
         var targetIds = new HashSet<int>();
         var targetNames = new HashSet<string>(StringComparer.Ordinal);
+        var mapsBySourceId = new Dictionary<int, ArticlePreservationTaxonomyMap>(maps.Length);
+        foreach (ArticlePreservationTaxonomyMap map in maps)
+            if (map is null || !mapsBySourceId.TryAdd(map.SourceId, map)) Reject("taxonomy_explicit_mapping");
         var result = ImmutableArray.CreateBuilder<ArticlePreservationTaxonomyMap>(source.Length);
         foreach (LegacyArticlePreservationTaxonomy row in source.OrderBy(static row => row.Id))
         {
             if (row is null || row.Id <= 0 || row.Name is null || !sourceIds.Add(row.Id)) Reject("taxonomy_source_identity");
-            ArticlePreservationTaxonomyMap[] matches = maps.Where(map => map is not null && map.SourceId == row.Id).ToArray();
-            if (matches.Length != 1 || matches[0].SourceName != row.Name || matches[0].TargetId <= 0
-                || string.IsNullOrWhiteSpace(matches[0].TargetName) || !targetIds.Add(matches[0].TargetId)
-                || !targetNames.Add(matches[0].TargetName)) Reject("taxonomy_explicit_mapping");
-            result.Add(matches[0]);
+            if (!mapsBySourceId.TryGetValue(row.Id, out ArticlePreservationTaxonomyMap? map)
+                || map.SourceName != row.Name || map.TargetId <= 0
+                || string.IsNullOrWhiteSpace(map.TargetName) || !targetIds.Add(map.TargetId)
+                || !targetNames.Add(map.TargetName)) Reject("taxonomy_explicit_mapping");
+            result.Add(map);
         }
         return result.ToImmutable();
     }
