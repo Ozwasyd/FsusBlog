@@ -143,6 +143,73 @@ export function validatePreparedNugetPackages(seed, closure)
     }
 }
 
+/** Read only the resource sizes of lock-approved ZIP entries; NuGet alone performs extraction. */
+export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4096)
+{
+    const feed = inventoryPreparedNuget(root, allocationBlockSize);
+    const expected = closure.packages.map((record) =>
+    {
+        const [id, version] = record.path.split('/');
+        return { ...record, file: id + '.' + version + '.nupkg' };
+    });
+    if (!equal(feed.entries.map((entry) => entry.path).sort(), expected.map((record) => record.file).sort())
+        || feed.entries.some((entry) => entry.kind !== 'file'))
+    { throw new Error('Offline feed must contain only the complete finite locked archive roster'); }
+    let expandedAllocatedBytes = allocationBlockSize;
+    for (const record of expected)
+    {
+        const bytes = regular(path.join(feed.root, record.file));
+        if (createHash('sha512').update(bytes).digest('base64') !== record.contentHash)
+        { throw new Error('Offline feed archive differs from the exact package lock'); }
+        let footer = -1;
+        for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset--)
+        {
+            if (bytes.readUInt32LE(offset) === 0x06054b50
+                && offset + 22 + bytes.readUInt16LE(offset + 20) === bytes.length)
+            { footer = offset; break; }
+        }
+        if (footer < 0 || bytes.readUInt16LE(footer + 4) || bytes.readUInt16LE(footer + 6)
+            || bytes.readUInt16LE(footer + 8) !== bytes.readUInt16LE(footer + 10))
+        { throw new Error('Offline feed has no bounded single-volume ZIP resource directory'); }
+        const count = bytes.readUInt16LE(footer + 10);
+        const start = bytes.readUInt32LE(footer + 16);
+        if (count === 0xffff || start + bytes.readUInt32LE(footer + 12) !== footer)
+        { throw new Error('Offline feed ZIP64 resource sizes are unsupported'); }
+        let cursor = start;
+        for (let index = 0; index < count; index++)
+        {
+            if (cursor + 46 > footer || bytes.readUInt32LE(cursor) !== 0x02014b50)
+            { throw new Error('Offline feed ZIP resource directory is incomplete'); }
+            const size = bytes.readUInt32LE(cursor + 24);
+            if (size === 0xffffffff) throw new Error('Offline feed ZIP64 entry resource sizes are unsupported');
+            // Each file and each possible ancestor gets a full additional allocation block.
+            const nameLength = bytes.readUInt16LE(cursor + 28);
+            const name = bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+            expandedAllocatedBytes += (Math.ceil(size / allocationBlockSize)
+                + 2 + name.split('/').length) * allocationBlockSize;
+            cursor += 46 + nameLength + bytes.readUInt16LE(cursor + 30) + bytes.readUInt16LE(cursor + 32);
+            if (cursor > footer || !Number.isSafeInteger(expandedAllocatedBytes))
+            { throw new Error('Offline feed expanded resource bound is invalid'); }
+        }
+        if (cursor !== footer) throw new Error('Offline feed ZIP resource directory is not fully consumed');
+    }
+    // NuGet retains each archive, hash and metadata in addition to expanded entries.
+    expandedAllocatedBytes += feed.allocatedBytes + expected.length * 4 * allocationBlockSize;
+    if (!Number.isSafeInteger(expandedAllocatedBytes)) throw new Error('Offline feed expanded resource bound overflow');
+    return { ...feed, archives: expected, expandedAllocatedBytes };
+}
+
+export function behaviorDocNugetFeedConfiguration({ feedRoot, packagesRoot })
+{
+    const escape = (value) => String(value).replace(/&/gu, '&amp;').replace(/"/gu, '&quot;')
+        .replace(/</gu, '&lt;').replace(/>/gu, '&gt;');
+    return '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n'
+        + '  <packageSources><clear/><add key="sealed-offline-feed" value="' + escape(feedRoot) + '"/></packageSources>\n'
+        + '  <fallbackPackageFolders><clear/></fallbackPackageFolders>\n'
+        + '  <config><add key="globalPackagesFolder" value="' + escape(packagesRoot) + '"/></config>\n'
+        + '</configuration>\n';
+}
+
 /** Validate a completed independent transfer using the existing run-bound authority. */
 export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file })
 {
@@ -150,6 +217,16 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
     const input = path.resolve(file);
     const bytes = regular(input);
     const preparation = JSON.parse(bytes);
+    const preparationOwner = path.join(path.resolve(repositoryRoot), '.tmp/behavior-doc-nuget-preparation');
+    const attempt = path.dirname(path.resolve(preparation.root));
+    if (!input.startsWith(preparationOwner + path.sep)
+        || path.dirname(attempt) !== preparationOwner || !path.basename(attempt).startsWith('transfer-')
+        || fs.realpathSync(attempt) !== attempt
+        || preparation.root !== path.join(attempt, 'packages')
+        || preparation.artifactsRoot !== path.join(attempt, 'artifacts')
+        || preparation.feedRoot !== path.join(attempt, 'feed')
+        || preparation.configFile !== path.join(attempt, 'NuGet.Config'))
+    { throw new Error('NuGet preparation paths escape the exact task-owned transfer'); }
     const source = sealSourceIdentity(repositoryRoot);
     const closure = behaviorDocNugetClosure(repositoryRoot);
     if (!equal(preparation.source, source) || !equal(preparation.closure, closure))
@@ -157,7 +234,10 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
         throw new Error('NuGet preparation source or locked graph drifted');
     }
     const transfer = preparation.transfer;
-    if (transfer?.runId !== runId) throw new Error('NuGet transfer is foreign to this scheduler run');
+    if (transfer?.runId !== runId || transfer.consumerId !== 'behavior-doc-nuget-transfer'
+        || !/^behavior-doc-nuget-transfer-[a-f0-9-]{36}$/u.test(transfer.key ?? '')
+        || transfer.root !== path.join(path.resolve(repositoryRoot), '.tmp/physical-executions'))
+    { throw new Error('NuGet transfer is foreign to this scheduler run or original producer'); }
     const verified = await validateRunBoundProjection({ ...transfer, verifyOutputs: true });
     const receipt = verified.receipt;
     let allocationRoot = path.join(repositoryRoot, '.tmp/test-execution-envelope/run-owned');
@@ -171,7 +251,10 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
     const seed = inventoryPreparedNuget(preparation.root, allocationBlockSize);
     const expectedCommand = ['dotnet', 'restore', 'tools/contracts/BehaviorDocRestore.slnx',
         '--locked-mode', '--packages', seed.root, '--artifacts-path', preparation.artifactsRoot,
-        '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel'];
+        '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', preparation.feedRoot,
+        '--configfile', preparation.configFile];
+    const physical = receipt.physicalExecution;
+    const feed = inventoryNugetOfflineFeed(preparation.feedRoot, closure);
     const toolchain = receipt.physicalExecution?.toolchain;
     const executable = resolveExecutablePath('dotnet', { pathValue: process.env.PATH });
     if (receipt.receiptDigest !== transfer.receiptDigest || receipt.commit !== source.sourceCommit
@@ -182,7 +265,26 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
         || !equal(receipt.outputContract, [...receipt.requiredOutputs].sort())
         || receipt.physicalExecution?.phase !== 'independent-dependency-transfer'
         || receipt.physicalExecution?.qualificationEligible !== false
-        || receipt.physicalExecution?.exitCode !== 0 || receipt.physicalExecution?.signal
+        || physical?.schema !== 'fsusblog.physical-execution-process-tree.v1' || physical?.platform !== 'linux'
+        || physical?.authority?.kind !== 'linux-cgroup-process-group' || physical.authority.established !== true
+        || physical.postObservation !== 'zero-members' || physical.logComplete !== true
+        || physical.logTruncationReason !== null || physical.forcedPipeClose !== false
+        || !physical.lifecycle?.includes('bounded-pipe-close')
+        || !physical.lifecycle?.includes('post-observe-zero-members')
+        || physical.cleanup?.status !== 'verified' || !Array.isArray(physical.processInventory)
+        || physical.executionAdmission?.phase !== 'pre-exec'
+        || !equal(physical.executionEnvelopeFragments?.environment?.actualExecutable, toolchain)
+        || physical.processInventory.filter((entry) => entry.role === 'direct-child').length !== 1
+        || physical.processInventory.some((entry) => entry.role === 'direct-child' && (entry.exitCode !== 0 || entry.signal))
+        || physical.executionEnvelopeFragments?.network?.admission !== 'planned-actual-exact'
+        || physical.executionEnvelopeFragments?.network?.planned?.endpoints?.length !== 0
+        || physical.executionEnvelopeFragments?.environment?.admission !== 'planned-actual-exact'
+        || physical.executionEnvelopeFragments?.directories?.cleanup?.removedOwnedRoot !== true
+        || physical.offlineFeed?.root !== preparation.feedRoot || physical.offlineFeed?.treeDigest !== feed.treeDigest
+        || !receipt.requiredOutputs.includes(preparation.feedRoot)
+        || !receipt.requiredOutputs.includes(preparation.configFile)
+        || regular(preparation.configFile).toString('utf8') !== behaviorDocNugetFeedConfiguration({
+            feedRoot: preparation.feedRoot, packagesRoot: seed.root })
         || !equal(receipt.physicalExecution?.command, expectedCommand)
         || toolchain?.absolutePath !== executable || toolchain?.realPath !== fs.realpathSync(executable)
         || toolchain?.sha256 !== 'sha256:' + digest(fs.readFileSync(toolchain.realPath))

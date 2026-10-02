@@ -207,6 +207,39 @@ export function readProductionDiskDemandCatalog(root, {
     return validateCatalog(JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
+/** The independent preparation reserves both archive staging and the actual locked ZIP size bound. */
+export function bindBehaviorDocNugetPreparationDiskDemand(catalog, feed)
+{
+    validateCatalog(catalog);
+    if (![feed?.allocatedBytes, feed?.expandedAllocatedBytes].every((value) => Number.isSafeInteger(value) && value > 0)
+        || !/^[a-f0-9]{64}$/u.test(feed?.treeDigest ?? ''))
+    { throw new Error('NuGet preparation requires exact bounded feed resource inventory'); }
+    const result = JSON.parse(JSON.stringify(catalog));
+    result.rootBindings['behavior-doc-nuget-preparation'] = 'behaviorDocNugetPreparationRoot';
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const original = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    if (!original) throw new Error('Original BehaviorDoc capacity demands are missing');
+    const retained = feed.allocatedBytes + feed.expandedAllocatedBytes;
+    if (!Number.isSafeInteger(retained)) throw new Error('NuGet preparation capacity bound overflow');
+    const scratch = original.demands.find((demand) => demand.rootId === 'os-temp');
+    if (!scratch) throw new Error('Original BehaviorDoc scratch demand is missing');
+    const artifact = { rootId: 'behavior-doc-nuget-preparation',
+        concurrencyClass: 'behavior-doc-nuget-preparation',
+        sourceOfEstimate: 'exact locked archive staging plus central-directory expanded allocation bound; tree='
+            + feed.treeDigest + '; original SDK artifact/uncertainty/recovery allowance retained' };
+    for (const field of byteFields)
+    {
+        artifact[field] = original.demands.filter((demand) => demand.rootId !== 'os-temp')
+            .reduce((sum, demand) => sum + demand[field], field === 'uncertaintyBytes' ? 0 : retained);
+        if (!Number.isSafeInteger(artifact[field])) throw new Error('NuGet preparation capacity declaration overflow');
+    }
+    result.producers.push({ producerId: 'behavior-doc-nuget-preparation', demands: [artifact,
+        { ...scratch, rootId: 'behavior-doc-run-owned',
+            sourceOfEstimate: scratch.sourceOfEstimate + '; original independent restore temporary allowance retained' }
+    ] });
+    return validateCatalog(result);
+}
+
 /** Bind the actual finite offline copy to the original Fresh disk demand, without reducing safety. */
 export function bindBehaviorDocNugetDiskDemand(catalog, preparation)
 {

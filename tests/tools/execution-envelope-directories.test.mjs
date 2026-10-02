@@ -6,8 +6,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
-const {inventoryPreparedNuget, seedPreparedNuget, validatePreparedNugetPackages} = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
-const {bindBehaviorDocNugetDiskDemand, defaultProductionDiskRoots, readProductionDiskDemandCatalog} = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
+const {inventoryNugetOfflineFeed, inventoryPreparedNuget, seedPreparedNuget, validatePreparedNugetPackages} = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const {bindBehaviorDocNugetPreparationDiskDemand, bindBehaviorDocNugetDiskDemand, defaultProductionDiskRoots, readProductionDiskDemandCatalog} = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
 const {runProtectedBehaviorDocAdmission} = await import(new URL('../../tools/test-matrix/protected-behavior-doc-admission.mjs', import.meta.url));
 test('HOME, TMP, npm, NuGet, and tool caches are unique run-attempt owned roots', (context) =>
 {
@@ -279,4 +279,91 @@ test('missing offline preparation refuses admission before launch or reading old
     }), /explicit offline/u);
     assert.equal(launches, 0);
     assert.equal(fs.readFileSync(receipt, 'utf8'), 'old invalid receipt must not be parsed');
+});
++
+function offlineFeedFixture(context)
+{
+    const { root } = fixture(context);
+    const feed = path.join(root, 'flat-feed');
+    fs.mkdirSync(feed);
+    // Minimal ZIP resource fixture, not an SDK/NuGet extraction receipt.
+    const name = Buffer.from('lib.dll');
+    const payload = Buffer.from('locked source bytes');
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(payload.length, 18);
+    local.writeUInt32LE(payload.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(payload.length, 20);
+    central.writeUInt32LE(payload.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    const footer = Buffer.alloc(22);
+    footer.writeUInt32LE(0x06054b50);
+    footer.writeUInt16LE(1, 8);
+    footer.writeUInt16LE(1, 10);
+    footer.writeUInt32LE(central.length + name.length, 12);
+    footer.writeUInt32LE(local.length + name.length + payload.length, 16);
+    const archive = Buffer.concat([local, name, payload, central, name, footer]);
+    const file = path.join(feed, 'example.1.0.0.nupkg');
+    fs.writeFileSync(file, archive, { mode: 0o444 });
+    fs.chmodSync(feed, 0o555);
+    return { root, feed, archive, file,
+        closure: { packages: [{ path: 'example/1.0.0', contentHash: createHash('sha512').update(archive).digest('base64') }] } };
+}
+
+test('offline feed inventories only exact locked archives and bounded expanded allocation', (context) =>
+{
+    const { feed, closure } = offlineFeedFixture(context);
+    const bound = inventoryNugetOfflineFeed(feed, closure);
+    assert.equal(bound.entries.length, 1);
+    assert.ok(Number.isSafeInteger(bound.expandedAllocatedBytes));
+    assert.ok(bound.expandedAllocatedBytes > bound.allocatedBytes);
+    assert.throws(() => inventoryNugetOfflineFeed(feed, { packages: [] }), /roster/u);
+    assert.throws(() => inventoryNugetOfflineFeed(feed, { packages: [{ ...closure.packages[0], contentHash: 'foreign' }] }), /lock/u);
+});
+
+test('offline feed refuses expanded cache payload, extras and altered or unsupported archives', (context) =>
+{
+    const { feed, closure, archive, file } = offlineFeedFixture(context);
+    fs.chmodSync(feed, 0o755);
+    fs.writeFileSync(path.join(feed, 'lib.dll'), 'malicious cached assembly', { mode: 0o444 });
+    fs.chmodSync(feed, 0o555);
+    assert.throws(() => inventoryNugetOfflineFeed(feed, closure), /roster/u);
+    fs.chmodSync(feed, 0o755);
+    fs.unlinkSync(path.join(feed, 'lib.dll'));
+    fs.chmodSync(feed, 0o555);
+    fs.chmodSync(file, 0o644);
+    fs.writeFileSync(file, Buffer.from('corrupt'));
+    fs.chmodSync(file, 0o444);
+    assert.throws(() => inventoryNugetOfflineFeed(feed, closure), /lock/u);
+    const unsupported = Buffer.from(archive);
+    unsupported.writeUInt16LE(0xffff, unsupported.length - 12);
+    fs.chmodSync(file, 0o644);
+    fs.writeFileSync(file, unsupported);
+    fs.chmodSync(file, 0o444);
+    const matchingHash = { packages: [{ ...closure.packages[0], contentHash: createHash('sha512').update(unsupported).digest('base64') }] };
+    assert.throws(() => inventoryNugetOfflineFeed(feed, matchingHash), /single-volume|ZIP64/u);
+});
+
+test('offline preparation capacity retains original uncertainty and reserves archive plus expanded staging', (context) =>
+{
+    const { feed, closure } = offlineFeedFixture(context);
+    const bound = inventoryNugetOfflineFeed(feed, closure);
+    const original = readProductionDiskDemandCatalog(path.resolve('tools/../..'));
+    const next = bindBehaviorDocNugetPreparationDiskDemand(original, bound);
+    assert.equal(next.safetyBytes, original.safetyBytes);
+    assert.deepEqual(next.producers.slice(0, original.producers.length), original.producers);
+    const added = next.producers.at(-1);
+    assert.equal(added.producerId, 'behavior-doc-nuget-preparation');
+    assert.equal(new Set(added.demands.map((demand) => demand.rootId)).size, added.demands.length);
+    const artifact = added.demands.find((demand) => demand.rootId === 'behavior-doc-nuget-preparation');
+    const originalArtifacts = original.producers.find((value) => value.producerId === 'behavior-doc-static-admission')
+        .demands.filter((demand) => demand.rootId !== 'os-temp');
+    assert.equal(artifact.peakAdditionalBytes, bound.allocatedBytes + bound.expandedAllocatedBytes
+        + originalArtifacts.reduce((sum, demand) => sum + demand.peakAdditionalBytes, 0));
+    assert.equal(artifact.uncertaintyBytes, originalArtifacts.reduce((sum, demand) => sum + demand.uncertaintyBytes, 0));
 });
