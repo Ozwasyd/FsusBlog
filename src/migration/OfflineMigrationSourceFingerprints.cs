@@ -72,6 +72,11 @@ internal static class OfflineMigrationSourceFingerprints
                     facts.Add(ColumnFact(table.Name, column.Name, index + 1, PhysicalType(provider, column.Type),
                         column.Nullable, PhysicalDefault(provider, column.Default),
                         column.Identity ? Identity(provider) : "none", keyPosition));
+                    if (provider == CurrentSchemaProviderKind.MySql
+                        && (column.Type == "text" || column.Type.StartsWith("varchar", StringComparison.Ordinal)))
+                    {
+                        facts.Add(MySqlTextFact(table.Name, column.Name, "utf8mb4", "utf8mb4_bin"));
+                    }
                     if (provider == CurrentSchemaProviderKind.PostgreSql && column.Identity)
                     {
                         facts.Add(SequenceFact(table.Name, column.Name, $"{table.Name}_{column.Name}_seq",
@@ -93,6 +98,34 @@ internal static class OfflineMigrationSourceFingerprints
         {
             ordinal, type, nullable, defaultValue, identity, primaryKeyPosition
         }));
+
+    internal static OfflineMigrationFact MySqlTextFact(string table, string column, string charset, string collation)
+        => new($"text-encoding/{table}/{column}", JsonSerializer.Serialize(new[] { charset, collation }));
+
+    // A dialect realization of the checked-in representative input, not a production dump.
+    // The closed binary UTF-8 collation is explicit source shape, not a server-default guess.
+    internal static string MySqlTableSql(LegacyTable table)
+    {
+        string[] columns = table.Columns.Select(column =>
+        {
+            string declaration = $"`{column.Name}` {PhysicalType(CurrentSchemaProviderKind.MySql, column.Type)}";
+            if (column.Type == "text" || column.Type.StartsWith("varchar", StringComparison.Ordinal))
+            {
+                declaration += " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
+            }
+            declaration += column.Nullable ? " NULL" : " NOT NULL";
+            if (column.Identity)
+            {
+                declaration += " AUTO_INCREMENT";
+            }
+            if (column.Default != "none")
+            {
+                declaration += $" DEFAULT {PhysicalDefault(CurrentSchemaProviderKind.MySql, column.Default)}";
+            }
+            return declaration;
+        }).ToArray();
+        return $"CREATE TABLE `{table.Name}` ({string.Join(", ", columns)}, PRIMARY KEY ({string.Join(", ", table.PrimaryKey.Select(key => "`" + key + "`"))})) ENGINE=InnoDB";
+    }
 
     internal static ImmutableArray<OfflineMigrationFact> Business(bool legacy,
         long categoryOverflow, long tagOverflow, long configKeyOverflow, long configValueOverflow)

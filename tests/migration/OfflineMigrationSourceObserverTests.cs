@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
+using Microsoft.Data.Sqlite;
+using Npgsql;
 using Xunit;
 
 using FsusBlog.Contracts.Migration;
@@ -126,9 +128,231 @@ public sealed class OfflineMigrationSourceObserverTests
     public async Task MissingNativeFullContentCapabilityFailsBeforeConnection(CurrentSchemaProviderKind provider)
     {
         using var cancellation = new CancellationTokenSource();
+        if (provider == CurrentSchemaProviderKind.MySql)
+        {
+            // Real provider capability is no longer missing. An unrelated native driver
+            // must still fail before any catalog/content command or database connection.
+            await using var unrelated = new NpgsqlConnection();
+            InvalidOperationException wrongDriver = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                new OfflineMigrationSourceObserver().ObserveAsync(provider, unrelated, null!, cancellation.Token));
+            Assert.Equal("offline_source_native_streaming_driver_required", wrongDriver.Message);
+            return;
+        }
         InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             new OfflineMigrationSourceObserver().ObserveAsync(provider, "not-a-database-connection", cancellation.Token));
         Assert.Equal(Enum.IsDefined(provider) ? "offline_source_provider_full_content_capability_unavailable" : "offline_source_provider_unknown", refusal.Message);
+    }
+
+    [Fact]
+    public void MySqlRepresentativeDialectKeepsHistoricalFieldsAndExplicitTextEncoding()
+    {
+        foreach (OfflineMigrationSourceFingerprints.LegacyTable table in OfflineMigrationSourceFingerprints.LegacyTables)
+        {
+            string sql = OfflineMigrationSourceFingerprints.MySqlTableSql(table);
+            Assert.StartsWith($"CREATE TABLE `{table.Name}` (", sql, StringComparison.Ordinal);
+            Assert.EndsWith(" ENGINE=InnoDB", sql, StringComparison.Ordinal);
+            Assert.Equal(table.Columns.Count(column => column.Identity), Regex.Matches(sql, " AUTO_INCREMENT").Count);
+            foreach (OfflineMigrationSourceFingerprints.LegacyColumn column in table.Columns)
+            {
+                Assert.Contains($"`{column.Name}` {OfflineMigrationSourceFingerprints.PhysicalType(CurrentSchemaProviderKind.MySql, column.Type)}", sql, StringComparison.Ordinal);
+                if (column.Type == "text" || column.Type.StartsWith("varchar", StringComparison.Ordinal))
+                {
+                    Assert.Contains($"text-encoding/{table.Name}/{column.Name}",
+                        OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.MySql, true).Select(fact => fact.Name));
+                }
+            }
+        }
+        OfflineMigrationSourceObservation expected = Observation(CurrentSchemaProviderKind.MySql, true);
+        int textFact = Array.FindIndex(expected.Schema.ToArray(), fact => fact.Name == "text-encoding/article/title");
+        Assert.True(textFact >= 0);
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceFingerprints.CreateRegistry().Match(expected with
+        {
+            Schema = expected.Schema.SetItem(textFact, OfflineMigrationSourceFingerprints.MySqlTextFact("article", "title", "latin1", "latin1_swedish_ci"))
+        }));
+    }
+
+    [Theory]
+    [InlineData("text", true, "", "none")]
+    [InlineData("int", false, "0", "0")]
+    [InlineData("tinyint(1)", false, "0", "0")]
+    [InlineData("text", false, "", "unsupported:")]
+    [InlineData("text", false, "NULL", "unsupported:NULL")]
+    [InlineData("varchar(50)", false, "0", "unsupported:0")]
+    public void MySqlActualDefaultDoesNotCollapseLiteralDefaultsIntoAbsence(string type, bool isNull, string value, string expected)
+        => Assert.Equal(expected, OfflineMigrationSourceObserver.MySqlDefault(type, isNull, value));
+
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(1L)]
+    public void NativeBooleanIntegerPreservesBothLegalValues(long value)
+        => Assert.Equal(value, OfflineMigrationSourceObserver.RequireBooleanInteger(value));
+
+    [Theory]
+    [InlineData(-1L)]
+    [InlineData(2L)]
+    [InlineData(long.MaxValue)]
+    public void NativeBooleanIntegerDoesNotNormalizeInvalidValues(long value)
+        => Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireBooleanInteger(value));
+
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(1L)]
+    [InlineData(-1L)]
+    public void NativeCalendarTimestampPreservesMicrosecondsWithoutTimeZoneConversion(long delta)
+        => Assert.Equal(delta, OfflineMigrationSourceObserver.TimestampMicroseconds(new DateTime(2000, 1, 1).AddTicks(delta * 10)));
+
+    [Fact]
+    public void NativeCalendarTimestampRejectsZoneAndSubMicrosecondRepresentations()
+    {
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.TimestampMicroseconds(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.TimestampMicroseconds(new DateTime(2000, 1, 1).AddTicks(1)));
+    }
+
+    [Theory]
+    [InlineData("Page", false)]
+    [InlineData("PageX", true)]
+    [InlineData("Page_", true)]
+    [InlineData("page_", false)]
+    [InlineData("sys:page:home", true)]
+    public void LegacyPageClassificationPreservesOriginalSqlWildcard(string key, bool expected)
+        => Assert.Equal(expected, OfflineMigrationSourceObserver.IsLegacyPageKeyPrefix(key));
+
+    [Theory]
+    [InlineData("2026-05-17 10:00:00")]
+    [InlineData("2026-05-17T10:00:00.000001")]
+    public void SqliteTimestampKeepsValidLiteralWithoutLosingItsRawRepresentation(string value)
+        => OfflineMigrationSourceObserver.RequireSqliteTimestampRepresentation(value, value.Length);
+
+    [Theory]
+    [InlineData("not-a-date")]
+    [InlineData("2026-02-30 10:00:00")]
+    [InlineData("2026-05-17T10:00:00Z")]
+    [InlineData("2026-05-17 10:00:00.0000001")]
+    public void SqliteTimestampRefusesInvalidOrLossyRepresentations(string value)
+        => Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteTimestampRepresentation(value, value.Length));
+
+    [Fact]
+    public async Task SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission()
+    {
+        await WithSqliteFixtureAsync(async (path, cancellation) =>
+        {
+            await WriteSqliteAsync(path, "INSERT INTO article(id,title,content,summary,categoryid,views,createtime,isdeleted) VALUES(1,'title',@body,NULL,0,0,'2026-05-17 10:00:00.000001',0)",
+                "body-A\0" + new string('x', 4095) + "\U0001F30D", cancellation);
+            OfflineMigrationSourceObserver.SqliteSourceRead before = await ReadSqliteAsync(path, cancellation);
+            Assert.Equal(Path.GetFullPath(path), before.NativeVfsName);
+            Assert.Equal(OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, true), before.Schema);
+            Assert.Equal(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.Business);
+            Assert.Equal(before.ContentDigest, (await ReadSqliteAsync(path, cancellation)).ContentDigest);
+            await WriteSqliteAsync(path, "UPDATE article SET content=@body WHERE id=1",
+                "body-B\0" + new string('x', 4095) + "\U0001F30D", cancellation);
+            string changedBody = (await ReadSqliteAsync(path, cancellation)).ContentDigest;
+            Assert.NotEqual(before.ContentDigest, changedBody);
+            await WriteSqliteAsync(path, "UPDATE sqlite_sequence SET seq=20 WHERE name='article'", null, cancellation);
+            Assert.NotEqual(changedBody, (await ReadSqliteAsync(path, cancellation)).ContentDigest);
+            InvalidOperationException unavailable = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                new OfflineMigrationSourceObserver().ObserveAsync(CurrentSchemaProviderKind.Sqlite, path, cancellation));
+            Assert.Equal("offline_source_provider_full_content_capability_unavailable", unavailable.Message);
+        });
+    }
+
+    [Theory]
+    [InlineData("CREATE TABLE unknown_source(id INTEGER)", "source_fingerprint_unknown:")]
+    [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'2026-05-17 10:00:00',2)", "offline_source_boolean_value_invalid")]
+    [InlineData("INSERT INTO article(id,title,categoryid,views,createtime,isdeleted) VALUES(1,'title',0,0,'not-a-date',0)", "offline_source_sqlite_timestamp_value_invalid")]
+    [InlineData("INSERT INTO category(id,name) VALUES(1,zeroblob(1))", "offline_source_sqlite_storage_class_invalid")]
+    public async Task SqliteNativeReadRejectsActualUnknownShapeOrInvalidValues(string sql, string refusal)
+    {
+        await WithSqliteFixtureAsync(async (path, cancellation) =>
+        {
+            await WriteSqliteAsync(path, sql, null, cancellation);
+            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
+            Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix()
+    {
+        await WithSqliteFixtureAsync(async (path, cancellation) =>
+        {
+            await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)", "a\0" + new string('x', 511), cancellation);
+            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
+            Assert.Equal("source_fingerprint_unknown:business_shape", error.Message);
+        });
+    }
+
+    [Fact]
+    public async Task SqliteEmptyNativeReadObservesActualAbsenceInsteadOfCallerLabels()
+    {
+        await WithSqliteFixtureAsync(async (path, cancellation) =>
+        {
+            OfflineMigrationSourceObserver.SqliteSourceRead empty = await ReadSqliteAsync(path, cancellation);
+            Assert.Equal(OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, false), empty.Schema);
+            Assert.Equal(OfflineMigrationSourceFingerprints.Business(false, 0, 0, 0, 0), empty.Business);
+            Assert.Equal(empty.ContentDigest, (await ReadSqliteAsync(path, cancellation)).ContentDigest);
+        }, legacy: false);
+    }
+
+    private static async Task WithSqliteFixtureAsync(Func<string, CancellationToken, Task> run, bool legacy = true)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsusblog-source-observer-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string path = Path.Combine(root, "representative.db");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
+        {
+            // A real test-owned dialect realization, not a claimed historical production dump.
+            await using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false
+            }.ToString()))
+            {
+                await connection.OpenAsync(cancellation.Token);
+                foreach (OfflineMigrationSourceFingerprints.LegacyTable table in legacy ? OfflineMigrationSourceFingerprints.LegacyTables : [])
+                {
+                    await using SqliteCommand command = connection.CreateCommand();
+                    command.CommandText = OfflineMigrationSourceFingerprints.SqliteTableSql(table);
+                    await command.ExecuteNonQueryAsync(cancellation.Token);
+                }
+            }
+            await run(path, cancellation.Token);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static async Task WriteSqliteAsync(string path, string sql, string? body, CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = SqliteOpenMode.ReadWrite, Pooling = false
+        }.ToString());
+        await connection.OpenAsync(cancellationToken);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = sql;
+        if (body is not null)
+        {
+            command.Parameters.AddWithValue("@body", body);
+        }
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<OfflineMigrationSourceObserver.SqliteSourceRead> ReadSqliteAsync(string path, CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Cache = SqliteCacheMode.Private, Pooling = false
+        }.ToString());
+        await connection.OpenAsync(cancellationToken);
+        await using (SqliteCommand readOnly = connection.CreateCommand())
+        {
+            readOnly.CommandText = "PRAGMA query_only=1";
+            await readOnly.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await using SqliteTransaction transaction = connection.BeginTransaction(deferred: true);
+        return await OfflineMigrationSourceObserver.ReadSqliteSourceAsync(connection, transaction, cancellationToken);
     }
 
     [Theory]

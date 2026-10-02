@@ -15,7 +15,7 @@ namespace FsusBlog.Migration;
 /// Observes native catalogs and legacy business preconditions without changing database data.
 /// It never builds old inputs from current entities, a JSON receipt, or a caller's assertions.
 /// </summary>
-public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSourceObserver
+public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSourceObserver
 {
     internal const int MaximumMetadataRows = 4096;
     internal const int MaximumMetadataCharacters = 4 * 1024 * 1024;
@@ -26,9 +26,14 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
         CurrentSchemaProviderKind provider, string connectionString, CancellationToken cancellationToken)
     {
         RequireContentCapability(provider);
-        return await OfflineMigrationPostgreSqlNativeSession.ObserveAsync(connectionString,
-            (connection, transaction, token) => ObserveAsync(provider, connection, transaction, token),
-            cancellationToken).ConfigureAwait(false);
+        return provider switch
+        {
+            CurrentSchemaProviderKind.PostgreSql => await OfflineMigrationPostgreSqlNativeSession.ObserveAsync(connectionString,
+                (connection, transaction, token) => ObserveAsync(provider, connection, transaction, token), cancellationToken).ConfigureAwait(false),
+            CurrentSchemaProviderKind.MySql => await OfflineMigrationMySqlNativeSession.ObserveAsync(connectionString,
+                (connection, transaction, token) => ObserveAsync(provider, connection, transaction, token), cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException("offline_source_provider_full_content_capability_unavailable")
+        };
     }
 
     /// <summary>
@@ -41,6 +46,10 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
         CancellationToken cancellationToken)
     {
         RequireContentCapability(provider);
+        if (provider == CurrentSchemaProviderKind.MySql)
+        {
+            return await ReadMySqlObservationAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        }
         if (connection is not NpgsqlConnection || transaction is not NpgsqlTransaction)
         {
             throw new InvalidOperationException("offline_source_native_streaming_driver_required");
@@ -93,7 +102,7 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
         {
             throw new InvalidOperationException("offline_source_provider_unknown");
         }
-        if (provider != CurrentSchemaProviderKind.PostgreSql)
+        if (provider == CurrentSchemaProviderKind.Sqlite)
         {
             throw new InvalidOperationException("offline_source_provider_full_content_capability_unavailable");
         }
