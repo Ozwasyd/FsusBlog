@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -113,6 +113,74 @@ test('literal linked source outside the project directory is scanned and bound',
     assert.ok(report.failures.some(value => value.includes('Server imports Migration: linked/Hidden.cs')));
     assert.ok(report.graph.inputs.some(value => value.path === 'linked/Hidden.cs'));
 });
+
+for (const include of ['../../linked/**/*.cs', '$(UnobservedSources)'])
+{
+    test(`unresolved Compile ${include} alone is refused without an illegal project edge`, t =>
+    {
+        const root = fixture(t);
+        append(root, 'src/backend/FsusBlog.Server.csproj', `<Compile Include="${include}" />`);
+        add(root, 'linked/Hidden.cs', 'using FsusBlog.Migration;');
+        const report = inspectMigrationTerminalGovernance(root);
+        assert.ok(report.failures.some(value => value.includes('unresolved Compile input')));
+        assert.equal(report.graph.directions.serverToMigration, false);
+    });
+}
+
+test('an exact benign in-project Compile file remains accepted and content-bound', t =>
+{
+    const root = fixture(t);
+    add(root, 'src/backend/Local.cs', 'public class Local {}');
+    append(root, 'src/backend/FsusBlog.Server.csproj', '<Compile Include="Local.cs" />');
+    const report = inspectMigrationTerminalGovernance(root);
+    assert.deepEqual(report.failures, []);
+    assert.ok(report.graph.inputs.some(value => value.path === 'src/backend/Local.cs'));
+});
+
+test('an imported assembly identity cannot hide duplicate Migration registration', t =>
+{
+    const root = fixture(t);
+    add(root, 'src/duplicate/Duplicate.csproj', '<Project><Import Project="Identity.props" /></Project>');
+    add(root, 'src/duplicate/Identity.props', '<Project><AssemblyName Condition="false">FsusBlog.Migration</AssemblyName></Project>');
+    const report = inspectMigrationTerminalGovernance(root);
+    assert.ok(report.failures.some(value => value.includes('not registered exactly once')));
+    assert.ok(report.graph.projects.find(project => project.path === 'src/duplicate/Duplicate.csproj').assemblyNames.includes('FsusBlog.Migration'));
+});
+
+test('an unresolved imported AssemblyName cannot claim exact-one identity', t =>
+{
+    const root = fixture(t);
+    add(root, 'src/duplicate/Duplicate.csproj', '<Project><Import Project="Identity.props" /></Project>');
+    add(root, 'src/duplicate/Identity.props', '<Project><AssemblyName>$(HiddenIdentity)</AssemblyName></Project>');
+    const report = inspectMigrationTerminalGovernance(root);
+    assert.ok(report.failures.some(value => value.includes('unresolved AssemblyName input')));
+});
+
+for (const [name, item, target, text] of [
+    ['import', '<Import Project="../../input-alias/Input.props" />', 'Input.props', '<Project><ProjectReference Include="../migration/FsusBlog.Migration.csproj" /></Project>'],
+    ['linked source', '<Compile Include="../../input-alias/Hidden.cs" />', 'Hidden.cs', 'using FsusBlog.Migration;'],
+    ['publish', null, 'FsusBlog.Server', 'FsusBlog.Migration']
+])
+{
+    test(`an external symlink parent for ${name} is refused before reading its payload`, t =>
+    {
+        const root = fixture(t);
+        const outside = mkdtempSync(join(tmpdir(), 'fsusblog-terminal-outside-'));
+        t.after(() => rmSync(outside, { recursive: true, force: true }));
+        writeFileSync(join(outside, target), text);
+        const alias = item ? join(root, 'input-alias') : join(root, '.tmp/publish');
+        mkdirSync(dirname(alias), { recursive: true });
+        symlinkSync(outside, alias, 'dir');
+        if (item)
+        {
+            append(root, 'src/backend/FsusBlog.Server.csproj', item);
+        }
+        const report = inspectMigrationTerminalGovernance(root);
+        assert.ok(report.failures.some(value => value.includes('symbolic input path component')));
+        assert.ok(report.graph.inputs.every(value => !value.path.includes('input-alias')));
+        assert.equal(report.publish.files.length, 0);
+    });
+}
 
 for (const [name, text] of [
     ['string reflection', 'var type = Type.GetType("FsusBlog." + "Migration.SchemaMigrationRegistry, FsusBlog.Migration");'],

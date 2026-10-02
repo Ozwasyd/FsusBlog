@@ -56,6 +56,10 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     function read(path)
     {
         const absolute = join(root, path);
+        if (!confinedPath(path))
+        {
+            return '';
+        }
         if (!existsSync(absolute))
         {
             failures.push(`missing required path: ${path}`);
@@ -71,9 +75,47 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
         return bytes.toString('utf8');
     }
 
+    function confinedPath(path)
+    {
+        const normalized = localPath(resolve(root, path));
+        if (normalized === '..' || normalized.startsWith('../'))
+        {
+            return false;
+        }
+        let current = root;
+        for (const part of ['', ...normalized.split('/')])
+        {
+            current = join(current, part);
+            let entry;
+            try
+            {
+                entry = lstatSync(current);
+            }
+            catch (error)
+            {
+                if (error.code === 'ENOENT')
+                {
+                    return true;
+                }
+                failures.push(`unreadable input boundary: ${path}`);
+                return false;
+            }
+            if (entry.isSymbolicLink())
+            {
+                failures.push(`symbolic input path component: ${path}`);
+                return false;
+            }
+        }
+        return true;
+    }
+
     function files(directory, includeBuild = false)
     {
         const absolute = join(root, directory);
+        if (!confinedPath(directory))
+        {
+            return [];
+        }
         if (!existsSync(absolute))
         {
             return [];
@@ -82,6 +124,10 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
             .flatMap(entry =>
             {
                 const path = `${directory}/${entry.name}`;
+                if (!includeBuild && ['bin', 'obj', 'node_modules', '.git'].includes(entry.name))
+                {
+                    return [];
+                }
                 if (entry.isSymbolicLink())
                 {
                     failures.push(`unresolved symbolic input: ${path}`);
@@ -89,7 +135,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
                 }
                 if (entry.isDirectory())
                 {
-                    return !includeBuild && ['bin', 'obj', 'node_modules', '.git'].includes(entry.name) ? [] : files(path, includeBuild);
+                    return files(path, includeBuild);
                 }
                 return entry.isFile() ? [path] : [];
             });
@@ -112,7 +158,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
         {
             return;
         }
-        const project = { path, references: [], packages: [], imports: [], items: [], linkedSources: [] };
+        const project = { path, references: [], packages: [], imports: [], items: [], linkedSources: [], assemblyNames: [] };
         projects.set(path, project);
         const fragments = [];
         const imported = new Set();
@@ -163,6 +209,10 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
         }
         for (const fragment of fragments)
         {
+            const xml = fragment.text.replace(/<!--[\s\S]*?-->/gu, '');
+            const assemblyNames = [...xml.matchAll(/<AssemblyName\b[^>]*>\s*([^<]+?)\s*<\/AssemblyName>/gu)].map(match => match[1]);
+            reject(assemblyNames.some(name => /[$@%()]|&(?:\w+|#\d+);/u.test(name)), `graph: unresolved AssemblyName input in ${fragment.path}`);
+            project.assemblyNames.push(...assemblyNames);
             // MSBuild items are relative to the main project, unlike Import paths.
             project.references.push(...xmlItems(fragment.text, 'ProjectReference').map(item => resolveItem(path, item.Include)).filter(Boolean));
             project.packages.push(...xmlItems(fragment.text, 'PackageReference').map(item => item.Include ?? item.Update).filter(Boolean));
@@ -184,13 +234,14 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
                     }
                     else if (kind === 'Compile' && item.Include)
                     {
-                        missingObservations.add(`${path}: evaluated Compile item ${item.Include}`);
+                        failures.push(`source: unresolved Compile input in ${path}: ${item.Include}`);
                     }
                 }
             }
         }
         project.references = [...new Set(project.references)].sort();
         project.packages = [...new Set(project.packages)].sort();
+        project.assemblyNames = [...new Set(project.assemblyNames)].sort();
         for (const reference of project.references)
         {
             loadProject(reference);
@@ -225,7 +276,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     const serverGraph = closure(serverPath);
     const migrationGraph = closure(migrationPath);
     const sharedGraph = closure(sharedPath);
-    const migrationIdentities = [...projects.keys()].filter(path => /<AssemblyName>\s*FsusBlog\.Migration\s*<\/AssemblyName>/u.test(read(path)));
+    const migrationIdentities = [...projects.values()].filter(project => project.assemblyNames.includes('FsusBlog.Migration'));
     reject(migrationIdentities.length !== 1, 'graph: Migration assembly identity is not registered exactly once');
     reject(serverGraph.has(migrationPath), 'graph: Server → Migration (explicit or transitive)');
     reject(migrationGraph.has(serverPath), 'graph: Migration → Server (explicit or transitive)');
@@ -328,7 +379,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     const migrationOnlyPackages = [...new Set((serverAssetsComplete ? migrationAssets?.libraries ?? [] : [])
         .filter(item => item.type === 'package' && !observedServerPackages.has(item.name.split('/')[0]))
         .map(item => item.name.split('/')[0]))].sort();
-    const publishRoots = ['src/backend/bin/Release/net10.0/publish', '.tmp/publish'].filter(path => existsSync(join(root, path)));
+    const publishRoots = ['src/backend/bin/Release/net10.0/publish', '.tmp/publish'].filter(path => confinedPath(path) && existsSync(join(root, path)));
     const published = [];
     const residue = [];
     const buffer = Buffer.alloc(64 * 1024);
