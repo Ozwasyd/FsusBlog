@@ -230,10 +230,11 @@ is not a name-based exemption. Server observes
 schema facts only; journal JSON, history, sequence/parent seals, media states and
 resume remain the original Migration owners' responsibility.
 
-This closure changes the current model to `fsusblog.current-schema.v3` and the
-projection generator to `fsusblog.current-schema-projection.v3`; the reflection
-extractor version remains v2. Both composite source/content identities include
-the explicit control version and complete sole shape. Previously sealed v2 owned
+The durable-control closure introduced model/projection v3. The current typed
+physical representation uses `fsusblog.current-schema.v4` and
+`fsusblog.current-schema-projection.v4`; the reflection extractor remains v2.
+Both composite source/content identities include
+the explicit control version and complete sole shape. Previously sealed v2/v3 owned
 targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
 through a second version path. A new candidate must invoke the original owned
 projection producer and obtain fresh exact authorized source/backup/DAG/target
@@ -395,6 +396,24 @@ NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions
 PostgreSQL's explicit `timestamp(6)` is normalized only to its equivalent
 unspecified default precision; `timestamp(0)` and every other explicit precision
 remain distinct and fail exact comparison.
+The same original model now retains explicit MySQL table type/engine/row format,
+default collation, CREATE_OPTIONS, comments and the ordered complete partition
+vector; column charset/collation, raw EXTRA (including ON UPDATE, invisible and
+generated/default-generated state), generation expression/comment/SRS; and index
+visibility/comments plus each key's prefix length and functional expression.
+Required JSON members distinguish an explicit native NULL from a field that was
+never observed. Current content/observation digests and model copies retain these
+facts. Physical MySQL comparison refuses missing table/column/index/key facts,
+incomplete index definitions, provider mismatch and any changed typed value.
+Metadata unit comparison fixtures are not a production expected profile or native
+admission. The existing semantic-to-dialect type-spelling projection remains a
+partial representation: its MySQL `n/a` collation does not qualify full physical
+comparison. No MySQL complete owned-target or bootstrap success path is enabled.
+Production expected engine/charset/collation/row-format/effects must come from
+the original current mapping and an explicitly implemented owned compiler, never
+from an observed database, historical fingerprint defaults or a sidecar.
+Those current MySQL profile/compiler/effect owners remain unavailable; independent
+allocator and immutable-guard semantics are not selected by this model change.
 Compiled CLR/ORM `Conversion` remains in the complete logical input and its
 source/content identities; it is not inferred from a native database catalog.
 The single provider/storage projection admits only the current known converter

@@ -6,9 +6,9 @@ namespace FsusBlog.Contracts.Schema;
 
 public static class CurrentSchemaCanonicalAuthority
 {
-    public const string ModelVersion = "fsusblog.current-schema.v3";
+    public const string ModelVersion = "fsusblog.current-schema.v4";
     public const string ExtractorVersion = "fsusblog.current-schema-reflection.v2";
-    public const string GeneratorVersion = "fsusblog.current-schema-projection.v3";
+    public const string GeneratorVersion = "fsusblog.current-schema-projection.v4";
 
     /// <summary>Seals facts supplied by the single current extractor, not by migration descriptors.</summary>
     /// <param name="tables">The current extractor's complete entity descriptions.</param>
@@ -66,7 +66,10 @@ public static class CurrentSchemaCanonicalAuthority
                 table.Value.Indexes,
                 table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
-                table.Value.Owner),
+                table.Value.Owner)
+            {
+                MySqlPhysical = CopyMySqlTableFacts(table.Value.MySqlPhysical)
+            },
             StringComparer.Ordinal);
         return new SchemaModelSnapshot(tables, canonical.Identity, provider);
     }
@@ -295,6 +298,7 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 name = table.Key,
                 owner = table.Value.Owner,
+                table.Value.MySqlPhysical,
                 columns = table.Value.Columns
                     .OrderBy(static column => column.Key, StringComparer.Ordinal)
                     .Select(static column => new
@@ -308,6 +312,7 @@ public static class CurrentSchemaCanonicalAuthority
                         column.Value.DefaultValue,
                         column.Value.Conversion,
                         column.Value.ComputedExpression,
+                        column.Value.MySqlPhysical,
                         column.Value.Owner
                     }),
                 indexes = table.Value.IndexDefinitions.OrderBy(static index => index.Key, StringComparer.Ordinal),
@@ -323,6 +328,7 @@ public static class CurrentSchemaCanonicalAuthority
             .Select(table => new
             {
                 name = table.Key,
+                table.Value.MySqlPhysical,
                 columns = table.Value.Columns
                     .OrderBy(static column => column.Key, StringComparer.Ordinal)
                     .Select(static column => new
@@ -339,7 +345,8 @@ public static class CurrentSchemaCanonicalAuthority
                         column.Value.IsIdentity,
                         column.Value.MaxLength,
                         column.Value.Conversion,
-                        column.Value.ComputedExpression
+                        column.Value.ComputedExpression,
+                        column.Value.MySqlPhysical
                     }),
                 indexes = table.Value.IndexDefinitions.OrderBy(static index => index.Key, StringComparer.Ordinal),
                 constraints = table.Value.Constraints.OrderBy(static constraint => constraint.Key, StringComparer.Ordinal)
@@ -360,7 +367,10 @@ public static class CurrentSchemaCanonicalAuthority
                 table.Value.Indexes,
                 table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
-                table.Value.Owner),
+                table.Value.Owner)
+            {
+                MySqlPhysical = CopyMySqlTableFacts(table.Value.MySqlPhysical)
+            },
             StringComparer.Ordinal);
         return new SchemaModelSnapshot(tables, identity, provider);
     }
@@ -369,6 +379,13 @@ public static class CurrentSchemaCanonicalAuthority
         => provider == SchemaProviderKind.PostgreSql && column.IsIdentity
             ? "owned-sequence-default"
             : "none";
+
+    private static SchemaMySqlTablePhysicalFacts? CopyMySqlTableFacts(SchemaMySqlTablePhysicalFacts? facts)
+        => facts is null ? null : facts with
+        {
+            Partitions = facts.Partitions?.ToArray()
+                ?? throw new InvalidOperationException("current_schema_mysql_partition_facts_unavailable")
+        };
 
     private static SchemaOwnedSequenceModel? ProjectOwnedSequence(
         SchemaProviderKind provider,
