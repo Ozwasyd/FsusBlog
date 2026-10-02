@@ -117,7 +117,7 @@ function fixture(context)
     for (const [name, bytes] of Object.entries({
         'example.1.0.0.nupkg': archive,
         'example.1.0.0.nupkg.sha512': contentHash,
-        '.nupkg.metadata': '{}',
+        '.nupkg.metadata': JSON.stringify({ version: 2, contentHash }),
         'lib.dll': 'source-bound fixture'
     }))
     {
@@ -159,6 +159,25 @@ test('missing and empty dependency payloads fail closed', (context) =>
     assert.throws(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed),
         { packages: [...closure.packages, { path: 'missing/1.0.0', contentHash: closure.packages[0].contentHash }] }),
     /roster/u);
+});
+
+test('signed package content hash and raw archive hash remain distinct completed-restore bindings', (context) =>
+{
+    const { seed, closure } = fixture(context);
+    const archive = path.join(seed, 'example/1.0.0/example.1.0.0.nupkg');
+    const metadata = path.join(seed, 'example/1.0.0/.nupkg.metadata');
+    // Shape-only fixture: no signature validation or NuGet restore qualification is claimed.
+    const signedContentHash = createHash('sha512').update('unsigned package content').digest('base64');
+    const locked = { packages: [{ ...closure.packages[0], contentHash: signedContentHash }] };
+    fs.chmodSync(metadata, 0o644);
+    fs.writeFileSync(metadata, JSON.stringify({ version: 2, contentHash: signedContentHash }));
+    fs.chmodSync(metadata, 0o444);
+    const feed = { entries: [{ path: 'example.1.0.0.nupkg',
+        sha256: createHash('sha256').update(fs.readFileSync(archive)).digest('hex') }] };
+    assert.doesNotThrow(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed), locked, feed));
+    assert.throws(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed), closure, feed), /package content/u);
+    assert.throws(() => validatePreparedNugetPackages(inventoryPreparedNuget(seed), locked,
+        { entries: [{ ...feed.entries[0], sha256: '0'.repeat(64) }] }), /raw archive/u);
 });
 
 test('wrong package bytes and extra top-level payload are refused', (context) =>
@@ -324,6 +343,12 @@ test('offline feed inventories only exact locked archives and bounded expanded a
     assert.ok(bound.expandedAllocatedBytes > bound.allocatedBytes);
     assert.throws(() => inventoryNugetOfflineFeed(feed, { packages: [] }), /roster/u);
     assert.throws(() => inventoryNugetOfflineFeed(feed, { packages: [{ ...closure.packages[0], contentHash: 'foreign' }] }), /lock/u);
+    const signedContentHash = createHash('sha512').update('unsigned package content').digest('base64');
+    const signedInput = inventoryNugetOfflineFeed(feed,
+        { packages: [{ ...closure.packages[0], contentHash: signedContentHash }] });
+    assert.notEqual(signedInput.archives[0].archiveSha512, signedInput.archives[0].contentHash);
+    assert.equal(signedInput.archives[0].archiveSha512,
+        createHash('sha512').update(fs.readFileSync(path.join(feed, 'example.1.0.0.nupkg'))).digest('base64'));
 });
 
 test('offline feed refuses expanded cache payload, extras and altered or unsupported archives', (context) =>
@@ -339,7 +364,7 @@ test('offline feed refuses expanded cache payload, extras and altered or unsuppo
     fs.chmodSync(file, 0o644);
     fs.writeFileSync(file, Buffer.from('corrupt'));
     fs.chmodSync(file, 0o444);
-    assert.throws(() => inventoryNugetOfflineFeed(feed, closure), /lock/u);
+    assert.throws(() => inventoryNugetOfflineFeed(feed, closure), /ZIP/u);
     const unsupported = Buffer.from(archive);
     unsupported.writeUInt16LE(0xffff, unsupported.length - 12);
     fs.chmodSync(file, 0o644);

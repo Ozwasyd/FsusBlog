@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/fact-extractors/test-matrix/extract.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/production-disk-demand.mjs",
+        "tools/test-matrix/protected-behavior-doc-admission.mjs",
+        "tools/test/behavior-doc-nuget-preparation.mjs",
+        "tools/test/execution-envelope-directories.mjs",
+        "tools/test/run-deterministic-command.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "0bcd72c7bc24a3883a87ceee237212507644691a127fc7ef38d689959b478f66"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "a8efea8fed803cdd6f3eef5d9de5060a034ad2d51010473c4c2999b2fddccaf3"
+        }
+    ]
+}
