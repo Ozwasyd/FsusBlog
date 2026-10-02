@@ -191,6 +191,48 @@ public sealed class OfflineMigrationPostgreSqlNativeSessionTests
         OfflineMigrationPostgreSqlNativeSession.RequireSnapshotId("00000003-0000001B-1");
     }
 
+    [Fact]
+    public void CancellationAndSecondaryCleanupFailureKeepBothFixedFacts()
+    {
+        string code = OfflineMigrationPostgreSqlNativeSession.CleanupFailureCode(
+            new OperationCanceledException("private driver text must not escape"),
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned);
+        Assert.Equal("offline_source_native_cleanup_unverified_primary_cancelled_transaction_unverified_connection_returned_adapter_returned", code);
+    }
+
+    [Fact]
+    public void PrimaryOperationAndMultipleCleanupFailuresCannotLeakExceptionText()
+    {
+        string code = OfflineMigrationPostgreSqlNativeSession.CleanupFailureCode(
+            new InvalidOperationException("Password=private-fixture; SELECT private rows"),
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned);
+        Assert.Equal("offline_source_native_cleanup_unverified_primary_operation_failed_transaction_unverified_connection_unverified_adapter_not_owned", code);
+    }
+
+    [Fact]
+    public void CleanupOnlyFailureIsNotProjectedAsSuccessfulOperationOrCancellation()
+    {
+        string code = OfflineMigrationPostgreSqlNativeSession.CleanupFailureCode(
+            null,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified);
+        Assert.Equal("offline_source_native_cleanup_unverified_primary_none_transaction_returned_connection_returned_adapter_unverified", code);
+    }
+
+    [Fact]
+    public void UnknownCleanupStateCannotClaimACompletedRelease()
+    {
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationPostgreSqlNativeSession.CleanupFailureCode(
+            null, (OfflineMigrationPostgreSqlNativeSession.CleanupState)999,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+            OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned));
+    }
+
     private static Task<OfflineMigrationSourceObservation> NeverObserve(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
         => throw new InvalidOperationException("observer must not run before argument refusal");

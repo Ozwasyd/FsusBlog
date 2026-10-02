@@ -80,6 +80,9 @@ internal static class OfflineMigrationPostgreSqlNativeSession
         NpgsqlConnection? connection = null;
         NpgsqlTransaction? transaction = null;
         Exception? failure = null;
+        CleanupState transactionCleanup = CleanupState.NotOwned;
+        CleanupState connectionCleanup = CleanupState.NotOwned;
+        CleanupState adapterCleanup = CleanupState.NotOwned;
         TResult result = default!;
         try
         {
@@ -131,38 +134,61 @@ internal static class OfflineMigrationPostgreSqlNativeSession
             // the original Host/process owner, not this port, owns physical child escalation.
             if (transaction is not null)
             {
+                transactionCleanup = CleanupState.Unverified;
                 try
                 {
                     await transaction.DisposeAsync().ConfigureAwait(false);
+                    transactionCleanup = CleanupState.Returned;
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
-                    failure ??= exception;
+                    // Preserve a secondary cleanup failure independently of the first cause.
                 }
             }
             if (connection is not null)
             {
+                connectionCleanup = CleanupState.Unverified;
                 try
                 {
                     await connection.DisposeAsync().ConfigureAwait(false);
+                    connectionCleanup = CleanupState.Returned;
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
-                    failure ??= exception;
+                    // Continue the other owned cleanup, but never project this as cancellation.
                 }
             }
             if (database is not null)
             {
+                bool clearFailed = false;
+                adapterCleanup = CleanupState.Unverified;
                 try
                 {
                     database.Ado.Transaction = null;
-                    database.Dispose();
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
-                    failure ??= exception;
+                    clearFailed = true;
+                }
+                try
+                {
+                    database.Dispose();
+                    if (!clearFailed)
+                    {
+                        adapterCleanup = CleanupState.Returned;
+                    }
+                }
+                catch (Exception)
+                {
+                    // A failed transaction detachment also keeps adapter cleanup unverified.
                 }
             }
+        }
+        if (transactionCleanup == CleanupState.Unverified || connectionCleanup == CleanupState.Unverified
+            || adapterCleanup == CleanupState.Unverified)
+        {
+            throw new InvalidOperationException(CleanupFailureCode(
+                failure, transactionCleanup, connectionCleanup, adapterCleanup));
         }
         if (failure is OperationCanceledException || (failure is null && cancellationToken.IsCancellationRequested))
         {
@@ -178,6 +204,37 @@ internal static class OfflineMigrationPostgreSqlNativeSession
         }
         return result;
     }
+
+    internal enum CleanupState
+    {
+        NotOwned,
+        Returned,
+        Unverified
+    }
+
+    internal static string CleanupFailureCode(Exception? primary,
+        CleanupState transaction, CleanupState connection, CleanupState adapter)
+    {
+        string primaryCode = primary switch
+        {
+            null => "none",
+            OperationCanceledException => "cancelled",
+            NativeSessionFailure owned => owned.Message,
+            _ => "operation_failed"
+        };
+        // Fixed categories only: no primary/secondary driver text, SQL, rows or credentials.
+        // Returned means the disposal call returned, not independently observed server release.
+        return $"offline_source_native_cleanup_unverified_primary_{primaryCode}"
+            + $"_transaction_{CleanupStateCode(transaction)}_connection_{CleanupStateCode(connection)}_adapter_{CleanupStateCode(adapter)}";
+    }
+
+    private static string CleanupStateCode(CleanupState state) => state switch
+    {
+        CleanupState.NotOwned => "not_owned",
+        CleanupState.Returned => "returned",
+        CleanupState.Unverified => "unverified",
+        _ => throw new InvalidOperationException("offline_source_native_cleanup_state_invalid")
+    };
 
     private static void RequireAdapter(SqlSugarClient database, NpgsqlConnection connection, NpgsqlTransaction transaction)
     {
