@@ -1257,6 +1257,8 @@ RunPreMigrationRestore() {
 }
 
 RunEvidenceWorker() {
+    trap 'AddBlocker "owned-drill-cancelled"; exit 143' TERM HUP
+    trap 'AddBlocker "owned-drill-cancelled"; exit 130' INT
     RunPreMigrationRestore
     if [[ "$sourceBinding" == "null" || "$restoredSource" == "null" ]]; then
         AddBlocker "owned-drill-native-source-proof-unavailable"
@@ -1272,6 +1274,8 @@ RunMigrationEvidence() {
         printf '%s\n' '{"status":"blocked","blocker":"owned-drill-timeout-invalid-or-missing"}' >&2
         return 1
     fi
+    trap 'AddBlocker "owned-drill-cancelled"; exit 143' TERM HUP
+    trap 'AddBlocker "owned-drill-cancelled"; exit 130' INT
     for command in bash jq node timeout ps sleep stat realpath sha256sum; do
         RequireCommand "$command"
     done
