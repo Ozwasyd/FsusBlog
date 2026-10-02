@@ -52,8 +52,8 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
             throw new InvalidOperationException("offline_source_consistent_native_session_required");
         }
         var budget = new ObservationBudget();
-        CurrentSchemaDatabaseIdentity database = await ReadIdentityAsync(
-            provider, connection, transaction, budget, cancellationToken).ConfigureAwait(false);
+        CurrentSchemaDatabaseIdentity database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
         ImmutableArray<OfflineMigrationFact> schema = await ReadSchemaAsync(
             provider, connection, transaction, budget, cancellationToken).ConfigureAwait(false);
         bool legacy = OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, schema);
@@ -246,20 +246,6 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
             throw new InvalidOperationException("offline_source_timestamp_representation_invalid");
         }
         return System.Buffers.Binary.BinaryPrimitives.ReadInt64BigEndian(value);
-    }
-
-    private static async Task<CurrentSchemaDatabaseIdentity> ReadIdentityAsync(
-        CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
-        ObservationBudget budget, CancellationToken cancellationToken)
-    {
-        ImmutableArray<ImmutableArray<string>> rows = await ReadRowsAsync(connection, transaction,
-            "SELECT c.system_identifier::text, pg_catalog.current_database(), d.oid::text FROM pg_catalog.pg_control_system() c JOIN pg_catalog.pg_database d ON d.datname = pg_catalog.current_database()",
-            budget, cancellationToken).ConfigureAwait(false);
-        if (rows.Length != 1 || rows[0].Length != 3 || rows[0].Any(string.IsNullOrWhiteSpace))
-        {
-            throw new InvalidOperationException("offline_source_database_identity_unavailable");
-        }
-        return new(provider, $"postgresql:{rows[0][0]}", $"{rows[0][1]}:{rows[0][2]}");
     }
 
     private static async Task<ImmutableArray<OfflineMigrationFact>> ReadSchemaAsync(

@@ -159,7 +159,12 @@ Backup admission distinguishes the original database at capture from the isolate
 restore database. The original authenticated backup owner must bind package,
 manifest and drill bytes to the captured source and independently observed restore;
 their complete shapes must match the fresh source. All six original site-package
-artifact digests remain required. Shape alone cannot prove current data: the native
+artifact digests remain required. PostgreSQL source capture and apply/verify use
+the same native identity reader on their actual connection and transaction:
+`InstanceId` is `system_identifier`, and `DatabaseId` is `<database oid>/<database name>`.
+Neither a plan nor a caller-provided identity supplies these values; comparisons
+remain exact, and an isolated restore must have a different database identity.
+Shape alone cannot prove current data: the native
 source observer must also hash every registered source row and column under the
 capture snapshot and independently at fresh plan/restore observation. Equal-length
 content changes must invalidate the backup even when schema, counts and business
