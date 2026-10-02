@@ -3,19 +3,24 @@ using System.Reflection;
 using System.Text.Json;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 internal static partial class XunitAdapterProgram
 {
     private sealed record ResolvedReferenceContext(
         List<MetadataReference> References,
         string TargetFramework,
-        string NetCoreReferencePack);
+        string NetCoreReferencePack,
+        string IntermediateOutputPath,
+        CSharpParseOptions ParseOptions,
+        bool AllowUnsafeBlocks);
 
     private static ResolvedReferenceContext BuildReferences(
         string projectDir,
-        string projectPath)
+        string projectPath,
+        string configuration)
     {
-        using JsonDocument evaluation = EvaluateCompileReferences(projectDir, projectPath);
+        using JsonDocument evaluation = EvaluateCompileReferences(projectDir, projectPath, configuration);
         JsonElement root = evaluation.RootElement;
         JsonElement properties = root.GetProperty("Properties");
         string targetFramework = properties.GetProperty("TargetFramework").GetString()?.Trim() ?? "";
@@ -24,6 +29,35 @@ internal static partial class XunitAdapterProgram
         {
             throw new InvalidOperationException(
                 "MSBuild ResolveReferences did not return TargetFramework and NetCoreTargetingPackRoot");
+        }
+        if (properties.GetProperty("Configuration").GetString() != configuration)
+        {
+            throw new InvalidOperationException("MSBuild compile configuration differs from the requested configuration");
+        }
+        string targetPath = ResolveEvaluatedPath(properties, "TargetPath", projectDir);
+        string intermediateOutputPath = ResolveEvaluatedPath(properties, "IntermediateOutputPath", projectDir);
+        // ResolveReferences can recreate caches/global usings without compiling.
+        // A recreated directory is not proof of a built configuration.
+        string intermediateAssemblyPath = Path.Combine(intermediateOutputPath, Path.GetFileName(targetPath));
+        if (!File.Exists(targetPath) || !File.Exists(intermediateAssemblyPath))
+        {
+            throw new InvalidOperationException(
+                $"test project {configuration} build output or intermediate context is missing at {targetPath} / {intermediateOutputPath}; run dotnet build with the requested configuration first");
+        }
+        string languageVersion = properties.GetProperty("LangVersion").GetString() ?? "";
+        if (languageVersion.Length == 0 || !LanguageVersionFacts.TryParse(languageVersion, out LanguageVersion parsedLanguageVersion))
+        {
+            throw new InvalidOperationException($"MSBuild returned an unsupported LangVersion: {languageVersion}");
+        }
+        string[] symbols = (properties.GetProperty("DefineConstants").GetString() ?? "")
+            .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(symbol => symbol, StringComparer.Ordinal)
+            .ToArray();
+        var parseOptions = new CSharpParseOptions(parsedLanguageVersion, preprocessorSymbols: symbols);
+        if (!bool.TryParse(properties.GetProperty("AllowUnsafeBlocks").GetString(), out bool allowUnsafeBlocks))
+        {
+            throw new InvalidOperationException("MSBuild did not return a valid AllowUnsafeBlocks value");
         }
 
         JsonElement referenceItems = root.GetProperty("Items").GetProperty("ReferencePath");
@@ -83,11 +117,22 @@ internal static partial class XunitAdapterProgram
                 $"MSBuild System.Text.RegularExpressions reference is outside its exact targeting pack: {regularExpressionsPath}");
         }
 
-        RejectOutputFrameworkShadows(projectDir, projectPath, frameworkNames);
-        return new ResolvedReferenceContext(references, targetFramework, exactReferencePack);
+        RejectOutputFrameworkShadows(Path.GetDirectoryName(targetPath)!, frameworkNames);
+        return new ResolvedReferenceContext(
+            references, targetFramework, exactReferencePack, intermediateOutputPath, parseOptions, allowUnsafeBlocks);
     }
 
-    private static JsonDocument EvaluateCompileReferences(string projectDir, string projectPath)
+    private static string ResolveEvaluatedPath(JsonElement properties, string name, string projectDir)
+    {
+        string value = properties.GetProperty(name).GetString()?.Trim() ?? "";
+        if (value.Length == 0)
+        {
+            throw new InvalidOperationException($"MSBuild did not return {name}");
+        }
+        return Path.GetFullPath(value, projectDir);
+    }
+
+    private static JsonDocument EvaluateCompileReferences(string projectDir, string projectPath, string configuration)
     {
         var startInfo = new ProcessStartInfo("dotnet")
         {
@@ -103,8 +148,10 @@ internal static partial class XunitAdapterProgram
             "-target:ResolveReferences",
             "-getProperty:TargetFramework",
             "-getProperty:NetCoreTargetingPackRoot",
+            "-getProperty:Configuration,TargetPath,IntermediateOutputPath,DefineConstants,LangVersion,AllowUnsafeBlocks",
             "-getItem:ReferencePath",
             "-verbosity:quiet",
+            $"/p:Configuration={configuration}",
             "/p:BuildProjectReferences=false"
         })
         {
@@ -134,16 +181,9 @@ internal static partial class XunitAdapterProgram
     }
 
     private static void RejectOutputFrameworkShadows(
-        string projectDir,
-        string projectPath,
+        string output,
         HashSet<string> frameworkNames)
     {
-        string? output = FindOutputDirectory(projectDir, projectPath);
-        if (output is null)
-        {
-            throw new InvalidOperationException(
-                $"test project build output is missing under {ResolveProjectBuildDirectory(projectDir, projectPath, "bin")}; run dotnet build first");
-        }
         foreach (string dll in Directory.EnumerateFiles(output, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
             string simpleName = ReadAssemblySimpleName(dll);

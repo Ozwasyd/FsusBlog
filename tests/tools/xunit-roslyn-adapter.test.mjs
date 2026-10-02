@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { exerciseXunitConfigurationFixture } from './support/xunit-configuration-fixture.mjs';
 import { exerciseXunitProjectGraphFixture } from './support/xunit-project-graph-fixture.mjs';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -88,6 +89,46 @@ function getProjectGraphEvidence()
     });
 }
 test.after(() => rmSync(productionBuildRoot, { recursive: true, force: true }));
+
+test('xunit configuration binds references, constants, generated sources and exact build outputs', () =>
+{
+    const evidence = exerciseXunitConfigurationFixture({
+        repositoryRoot,
+        adapterAssembly: relocatedAdapterAssembly
+    });
+    for (const [name, expectedMethods] of [
+        ['debug', ['DebugCase', 'SharedCase']],
+        ['release', ['ReleaseCase', 'SharedCase']],
+        ['releaseIgnoresDebugGenerated', ['ReleaseCase', 'SharedCase']],
+        ['restoredRelease', ['ReleaseCase', 'SharedCase']]
+    ])
+    {
+        assert.equal(evidence[name].status, 0, JSON.stringify(evidence[name]));
+        assert.deepEqual(evidence[name].report.diagnostics, []);
+        assert.deepEqual(evidence[name].report.testCases.map((entry) => entry.methodName).sort(), expectedMethods);
+    }
+    assert.deepEqual(evidence.defaultConfiguration.report, evidence.debug.report);
+    assert.equal(
+        casesForMethod(evidence.debug.report, 'SharedCase')[0].id,
+        casesForMethod(evidence.release.report, 'SharedCase')[0].id
+    );
+    for (const result of evidence.invalidArguments)
+    {
+        assert.equal(result.status, 2, JSON.stringify(result));
+        assert.equal(result.report, null);
+        assert.match(result.stderr, /usage:/u);
+    }
+    assert.equal(evidence.debugRejectsInvalidGenerated.status, 1);
+    assert.deepEqual(evidence.debugRejectsInvalidGenerated.report.testCases, []);
+    assert.match(evidence.debugRejectsInvalidGenerated.report.diagnostics[0].message, /wrong configuration source/u);
+    for (const name of ['missingReleaseAssembly', 'missingReleaseIntermediate'])
+    {
+        assert.equal(evidence[name].status, 1, JSON.stringify(evidence[name]));
+        assert.deepEqual(evidence[name].report.testCases, []);
+        assert.equal(evidence[name].report.diagnostics[0].code, 'xunit-compile-context-unavailable');
+        assert.match(evidence[name].report.diagnostics[0].message, /Release build output or intermediate context is missing/u);
+    }
+});
 
 test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassData and nested/partial/generic owners', () =>
 {
