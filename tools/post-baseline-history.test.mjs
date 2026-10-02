@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { devNull, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -256,3 +256,106 @@ test('post-baseline history rejects non-regular historical xUnit paths', () =>
         }
     }
 });
+
+function createGraftHistoryFixture()
+{
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-postbaseline-graft-'));
+    const rawEnvironment = { ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: devNull };
+    const runGit = (args, environment = rawEnvironment) => execFileSync('git', ['-C', repository, ...args], {
+        encoding: 'utf8',
+        env: environment,
+        stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+    try
+    {
+        runGit(['init', '--quiet']);
+        runGit(['config', 'user.name', 'History Test']);
+        runGit(['config', 'user.email', 'history-test@example.invalid']);
+        const oldPath = 'tests/backend/Unit/OldTests.cs';
+        const oldId = `xunit:${oldPath}#OldTests.Removed`;
+        mkdirSync(resolve(repository, 'tests/backend/Unit'), { recursive: true });
+        writeFileSync(resolve(repository, 'tests/matrix.yml'), 'governance:\n  retention:\n    postBaselines: []\n');
+        runGit(['add', '.']);
+        runGit(['commit', '--quiet', '-m', 'immutable before snapshot']);
+        const beforeCommit = runGit(['rev-parse', 'HEAD']);
+        writeFileSync(resolve(repository, oldPath), 'public class OldTests\n{\n  [Fact]\n  public void Removed() {}\n}\n');
+        runGit(['add', '.']);
+        runGit(['commit', '--quiet', '-m', 'attributed historical source']);
+        const sourceCommit = runGit(['rev-parse', 'HEAD']);
+        const sourceTree = runGit(['rev-parse', 'HEAD^{tree}']);
+        const sourceBlobOid = runGit(['rev-parse', `${sourceCommit}:${oldPath}`]);
+        rmSync(resolve(repository, oldPath));
+        runGit(['add', '-u']);
+        runGit(['commit', '--quiet', '-m', 'exact historical deletion']);
+        const deletionCommit = runGit(['rev-parse', 'HEAD']);
+        const deletionTree = runGit(['rev-parse', 'HEAD^{tree}']);
+        const anchorCommit = runGit(['commit-tree', deletionTree, '-p', deletionCommit, '-m', 'trusted anchor']);
+        const foreignDeletion = runGit(['commit-tree', deletionTree, '-p', sourceCommit, '-m', 'unrelated deletion']);
+        const foreignSource = runGit(['commit-tree', sourceTree, '-p', beforeCommit, '-m', 'different source object']);
+        const baseline = {
+            schema: 'fsusblog.issue-acceptance-baseline.v2',
+            sourceCommit,
+            deletionCommit,
+            expectedRecords: 1,
+            expectedMigrated: 1,
+            records: [{ id: oldId, path: oldPath, disposition: 'migrated', sourceBlobOid, resultBlobOid: null }]
+        };
+        const validate = (snapshot) => validateHistory({
+            root: repository,
+            paths: ['tests/grafted-baseline.json'],
+            replacements: [{ id: oldId, path: oldPath }],
+            anchorCommit,
+            beforeCommit,
+            readCurrent: () => JSON.stringify(snapshot)
+        });
+        return { repository, runGit, baseline, validate, anchorCommit, foreignDeletion, foreignSource };
+    }
+    catch (error)
+    {
+        rmSync(repository, { recursive: true, force: true });
+        throw error;
+    }
+}
+
+for (const graftInput of ['repository-local', 'ambient'])
+{
+    test(`post-baseline history refuses ${graftInput} grafts that forge immutable ancestry`, () =>
+    {
+        const fixture = createGraftHistoryFixture();
+        const { repository, runGit, baseline, validate, anchorCommit, foreignDeletion, foreignSource } = fixture;
+        const previousGraftFile = process.env.GIT_GRAFT_FILE;
+        try
+        {
+            delete process.env.GIT_GRAFT_FILE;
+            assert.deepEqual(validate(baseline).errors, [], 'real immutable history remains accepted');
+            const graftFile = graftInput === 'repository-local'
+                ? resolve(repository, '.git/info/grafts')
+                : resolve(repository, 'ambient-grafts');
+            if (graftInput === 'ambient') process.env.GIT_GRAFT_FILE = graftFile;
+            const graftEnvironment = { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' };
+            const unrelated = { ...baseline, deletionCommit: foreignDeletion };
+            assert.ok(validate(unrelated).errors.some((error) => /not in trusted master history/u.test(error)));
+            writeFileSync(graftFile, `${anchorCommit} ${foreignDeletion}\n`);
+            assert.equal(runGit(['merge-base', '--is-ancestor', foreignDeletion, anchorCommit], graftEnvironment), '',
+                'native Git actually sees the forged ancestor with replacement objects disabled');
+            assert.ok(validate(unrelated).errors.some((error) => /not in trusted master history/u.test(error)),
+                'history owner must ignore the graft rather than accept an unrelated deletion');
+
+            const wrongParent = { ...baseline, sourceCommit: foreignSource };
+            writeFileSync(graftFile, `${baseline.deletionCommit} ${foreignSource}\n`);
+            assert.equal(runGit(['rev-list', '--parents', '-n', '1', baseline.deletionCommit], graftEnvironment),
+                `${baseline.deletionCommit} ${foreignSource}`, 'native Git actually sees the grafted sole parent');
+            const rawCommit = runGit(['cat-file', '-p', baseline.deletionCommit]);
+            assert.ok(rawCommit.includes(`\nparent ${baseline.sourceCommit}\n`), 'stored commit parent is unchanged');
+            assert.ok(validate(wrongParent).errors.some((error) => /sole immediate parent/u.test(error)),
+                'history owner must bind the stored parent, not the grafted parent');
+            assert.deepEqual(validate(baseline).errors, [], 'valid history stays accepted with hostile graft input');
+        }
+        finally
+        {
+            if (previousGraftFile === undefined) delete process.env.GIT_GRAFT_FILE;
+            else process.env.GIT_GRAFT_FILE = previousGraftFile;
+            rmSync(repository, { recursive: true, force: true });
+        }
+    });
+}

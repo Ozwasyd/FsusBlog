@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
+import { devNull } from 'node:os';
 import { basename, resolve } from 'node:path';
 
 // This is the last trusted master before retrospective post-baseline admission.
@@ -18,7 +19,8 @@ function git(root, args)
         cwd: root,
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
-        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        // Unsetting the override would reactivate repository-local info/grafts.
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: devNull }
     });
 }
 
