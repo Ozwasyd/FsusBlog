@@ -421,7 +421,9 @@ public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSo
             (SELECT COUNT(*) FROM pg_catalog.pg_ts_dict o JOIN pg_catalog.pg_namespace n ON n.oid=o.dictnamespace WHERE n.nspname='public') +
             (SELECT COUNT(*) FROM pg_catalog.pg_ts_parser o JOIN pg_catalog.pg_namespace n ON n.oid=o.prsnamespace WHERE n.nspname='public') +
             (SELECT COUNT(*) FROM pg_catalog.pg_ts_template o JOIN pg_catalog.pg_namespace n ON n.oid=o.tmplnamespace WHERE n.nspname='public') +
-            (SELECT COUNT(*) FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typrelid=0 AND t.typtype IN ('d','e','r','m')) +
+            (SELECT COUNT(*) FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+                WHERE n.nspname='public' AND t.typrelid=0 AND (t.typtype IN ('d','e','r','m')
+                    OR NOT t.typisdefined OR (t.typtype='b' AND t.typelem=0))) +
             (SELECT COUNT(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='c') +
             (SELECT COUNT(*) FROM pg_catalog.pg_largeobject_metadata) +
             (SELECT COUNT(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='S'
