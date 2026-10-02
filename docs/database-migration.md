@@ -304,6 +304,12 @@ regular-file/device/inode validation. FIFO, device, directory or link paths cann
 reach the ordinary synchronous stream open. An unowned native file platform
 refuses instead of falling back to generic open. This does not establish an
 outer physical deadline for stalled filesystems or replace native terminal proof.
+Before returning original bytes, the reader compares the actual FD's complete
+device/inode, mode, link count, ownership, size and modification/change timestamps
+against its pre-read opaque native observation. It reopens the original path through
+the same anchored non-following walk and compares both the leaf and ancestor
+identities; equal byte hashes cannot conceal a replaced file or directory chain.
+Other original-file consumers reuse this guard with their own existing byte limits.
 Relative paths, `latest` discovery, empty or oversized files, cancellation and
 changed bytes cannot substitute reconstructed records for original artifacts.
 
