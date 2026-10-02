@@ -187,7 +187,18 @@ internal static class OfflineMigrationSqliteNativeSession
                 }
             }
         }
-        if (registrationUnverified || interrupt?.Failed == true
+        ThrowAfterCleanup(primary, transactionCleanup, connectionCleanup, adapterCleanup, cancellationToken,
+            registrationUnverified, interrupt?.Failed == true);
+        return result;
+    }
+
+    internal static void ThrowAfterCleanup(Exception? primary,
+        OfflineMigrationPostgreSqlNativeSession.CleanupState transactionCleanup,
+        OfflineMigrationPostgreSqlNativeSession.CleanupState connectionCleanup,
+        OfflineMigrationPostgreSqlNativeSession.CleanupState adapterCleanup, CancellationToken cancellationToken,
+        bool registrationUnverified = false, bool nativeInterruptUnverified = false)
+    {
+        if (registrationUnverified || nativeInterruptUnverified
             || transactionCleanup == OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified
             || connectionCleanup == OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified
             || adapterCleanup == OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified)
@@ -195,7 +206,7 @@ internal static class OfflineMigrationSqliteNativeSession
             string code = OfflineMigrationPostgreSqlNativeSession.CleanupFailureCode(
                 primary, transactionCleanup, connectionCleanup, adapterCleanup);
             throw new InvalidOperationException(code + (registrationUnverified
-                ? "_cancellation_registration_unverified" : interrupt?.Failed == true ? "_native_interrupt_unverified" : ""));
+                ? "_cancellation_registration_unverified" : nativeInterruptUnverified ? "_native_interrupt_unverified" : ""));
         }
         if (primary is OperationCanceledException || (primary is null && cancellationToken.IsCancellationRequested))
         {
@@ -203,10 +214,16 @@ internal static class OfflineMigrationSqliteNativeSession
         }
         if (primary is not null)
         {
+            if (primary is OfflineMigrationSourceFingerprintException)
+            {
+                // Only the original redacted typed transport may cross this boundary;
+                // reuse the PG owner's exact rethrow after all actual cleanup returns.
+                OfflineMigrationPostgreSqlNativeSession.ThrowAfterCleanup(primary,
+                    transactionCleanup, connectionCleanup, adapterCleanup, cancellationToken);
+            }
             throw new InvalidOperationException(primary is NativeFailure owned
                 ? owned.Message : "offline_source_sqlite_native_operation_failed");
         }
-        return result;
     }
 
     private static async Task RequireBoundaryAsync(SqlSugarClient database, SqliteConnection connection,

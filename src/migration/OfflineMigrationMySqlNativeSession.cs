@@ -137,6 +137,15 @@ internal static class OfflineMigrationMySqlNativeSession
                 }
             }
         }
+        ThrowAfterCleanup(primary, transactionCleanup, connectionCleanup, adapterCleanup, cancellationToken);
+        return result;
+    }
+
+    internal static void ThrowAfterCleanup(Exception? primary,
+        OfflineMigrationPostgreSqlNativeSession.CleanupState transactionCleanup,
+        OfflineMigrationPostgreSqlNativeSession.CleanupState connectionCleanup,
+        OfflineMigrationPostgreSqlNativeSession.CleanupState adapterCleanup, CancellationToken cancellationToken)
+    {
         if (transactionCleanup == OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified
             || connectionCleanup == OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified
             || adapterCleanup == OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified)
@@ -150,10 +159,16 @@ internal static class OfflineMigrationMySqlNativeSession
         }
         if (primary is not null)
         {
+            if (primary is OfflineMigrationSourceFingerprintException)
+            {
+                // No generic-message parsing or driver exception transport: preserve
+                // only the original redacted type after awaited cleanup has returned.
+                OfflineMigrationPostgreSqlNativeSession.ThrowAfterCleanup(primary,
+                    transactionCleanup, connectionCleanup, adapterCleanup, cancellationToken);
+            }
             throw new InvalidOperationException(primary is NativeFailure owned
                 ? owned.Message : "offline_source_mysql_native_operation_failed");
         }
-        return result;
     }
 
     private static async Task RequireBoundaryAsync(SqlSugarClient database, MySqlConnection connection,

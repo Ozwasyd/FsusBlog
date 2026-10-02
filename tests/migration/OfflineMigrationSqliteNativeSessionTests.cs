@@ -122,6 +122,115 @@ public sealed class OfflineMigrationSqliteNativeSessionTests
         Assert.Null(error.InnerException);
     }
 
+
+    [Fact]
+    public void OriginalFingerprintTransportSurvivesReturnedCleanupWithoutParsingItsMessage()
+    {
+        OfflineMigrationSourceFingerprintException primary = UnknownFingerprint();
+        OfflineMigrationSourceFingerprintException refusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(primary, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+                OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, CancellationToken.None));
+        Assert.Same(primary, refusal);
+        Assert.Equal("source_fingerprint_unknown", refusal.Code);
+        Assert.NotEmpty(refusal.Differences);
+        Assert.Null(refusal.InnerException);
+    }
+
+    [Theory]
+    [InlineData(OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned)]
+    [InlineData(OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned)]
+    [InlineData(OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Unverified)]
+    public void AnyUnverifiedCleanupRefusesBeforeTypedFingerprintTransport(
+        OfflineMigrationPostgreSqlNativeSession.CleanupState transaction, OfflineMigrationPostgreSqlNativeSession.CleanupState connection, OfflineMigrationPostgreSqlNativeSession.CleanupState adapter)
+    {
+        OfflineMigrationSourceFingerprintException primary = UnknownFingerprint();
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(primary, transaction, connection, adapter, CancellationToken.None));
+        Assert.IsNotType<OfflineMigrationSourceFingerprintException>(refusal);
+        Assert.Equal(OfflineMigrationPostgreSqlNativeSession.CleanupFailureCode(primary, transaction, connection, adapter), refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
+    [Fact]
+    public void MessageLookalikeDoesNotBecomeTypedFailureOrLeakDriverText()
+    {
+        var primary = new InvalidOperationException("source_fingerprint_unknown: Password=private-fixture; SELECT private rows");
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(primary, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+                OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, CancellationToken.None));
+        Assert.Equal("offline_source_sqlite_native_operation_failed", refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
+    [Fact]
+    public void ReturnedCleanupPreservesCancellationBeforeGenericOperationProjection()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        OperationCanceledException refusal = Assert.Throws<OperationCanceledException>(() =>
+            OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(new OperationCanceledException("private native data"),
+                OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+                OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, cancellation.Token));
+        Assert.Equal("offline_source_native_operation_cancelled", refusal.Message);
+        Assert.Equal(cancellation.Token, refusal.CancellationToken);
+        Assert.Null(refusal.InnerException);
+    }
+
+    private static OfflineMigrationSourceFingerprintException UnknownFingerprint()
+        => Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSourceFingerprints.RequireKnownSchema(CurrentSchemaProviderKind.Sqlite,
+                OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, false)
+                    .Add(new("table/private-fixture-name-not-for-errors", "base"))));
+
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void UnverifiedInterruptOrRegistrationStillRefusesBeforeTypedPrimary(bool registration, bool interrupt)
+    {
+        OfflineMigrationSourceFingerprintException primary = UnknownFingerprint();
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ThrowAfterCleanup(primary, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned,
+                OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, OfflineMigrationPostgreSqlNativeSession.CleanupState.Returned, CancellationToken.None, registration, interrupt));
+        Assert.IsNotType<OfflineMigrationSourceFingerprintException>(refusal);
+        Assert.EndsWith(registration ? "_cancellation_registration_unverified" : "_native_interrupt_unverified", refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
+    [Fact]
+    public async Task ActualSourceCallbackKeepsTheSameTypedFingerprintAfterNativeCleanup()
+    {
+        using var fixture = new SourceFixture();
+        using var cancellation = new CancellationTokenSource();
+        SqliteConnection? actualConnection = null;
+        OfflineMigrationSourceFingerprintException? original = null;
+        OfflineMigrationSourceFingerprintException refusal = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveAsync(fixture.ConnectionString, async (connection, transaction, token) =>
+            {
+                actualConnection = Assert.IsType<SqliteConnection>(connection);
+                try
+                {
+                    // This fixture's genuine probe table is not a registered legacy or
+                    // empty source. The original native reader measures and refuses it.
+                    _ = await OfflineMigrationSourceObserver.ReadSqliteSourceAsync(connection, transaction, token);
+                }
+                catch (OfflineMigrationSourceFingerprintException failure)
+                {
+                    original = failure;
+                    throw;
+                }
+                throw new InvalidOperationException("unknown fixture schema must not be admitted");
+            }, cancellation.Token));
+        Assert.NotNull(original); // Missing FILESTAT cannot satisfy this actual callback control.
+        Assert.Same(original, refusal);
+        Assert.Equal("source_fingerprint_unknown", refusal.Code);
+        Assert.Contains(refusal.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Schema);
+        Assert.NotNull(actualConnection);
+        Assert.Equal(ConnectionState.Closed, actualConnection.State);
+        Assert.Null(actualConnection.Handle);
+        Assert.Equal(1, fixture.CountRows());
+    }
+
     private static Task<OfflineMigrationSourceObservation> NeverObserve(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
         => throw new InvalidOperationException("observer must not run before argument refusal");
