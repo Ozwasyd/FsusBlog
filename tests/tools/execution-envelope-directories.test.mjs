@@ -353,7 +353,7 @@ test('offline preparation capacity retains original uncertainty and reserves arc
 {
     const { feed, closure } = offlineFeedFixture(context);
     const bound = inventoryNugetOfflineFeed(feed, closure);
-    const original = readProductionDiskDemandCatalog(path.resolve('tools/../..'));
+    const original = readProductionDiskDemandCatalog(path.resolve(import.meta.dirname, '../..'));
     const next = bindBehaviorDocNugetPreparationDiskDemand(original, bound);
     assert.equal(next.safetyBytes, original.safetyBytes);
     assert.deepEqual(next.producers.slice(0, original.producers.length), original.producers);
