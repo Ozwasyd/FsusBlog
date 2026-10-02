@@ -6,6 +6,320 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { isValidReleaseId } from '../release/release-id.mjs';
+import { spawn } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
+
+export const CURRENT_REHEARSAL_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-plan.v2';
+const CURRENT_INPUT_FLAGS = Object.freeze({
+  backupRestore: '--backup-restore-evidence', productionBuildReceipt: '--production-build-receipt',
+  trafficScenario: '--traffic-scenario', trafficBindingKey: '--traffic-binding-key-file',
+  notificationAuthStorageState: '--notification-auth-storage-state',
+  assetScenario: '--asset-compatibility-scenario', assetBrowserBindingKey: '--asset-browser-binding-key-file',
+  workerLedger: '--worker-ledger', faultInjection: '--fault-injection-evidence',
+  challengeKindTargetMap: '--challenge-kind-target-map',
+  perceptionReleaseTarget: '--perception-v3-release-target', perceptionPoolManifest: '--perception-v3-pool-manifest'
+});
+
+function exactCurrentFields(value, fields, label) {
+  object(value, label);
+  const actual = Object.keys(value).sort();
+  if (!isDeepStrictEqual(actual, [...fields].sort())) fail(`${label} fields are not the exact current contract`);
+}
+
+function currentFileBytes(file, maximum = Number.MAX_SAFE_INTEGER) {
+  if (!path.isAbsolute(file) || fs.realpathSync(file) !== file) fail('current input must be an absolute canonical file');
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  try {
+    const before = fs.fstatSync(fd, { bigint: true });
+    if (!before.isFile() || before.size < 1n || before.size > BigInt(maximum)) fail('current input must be a bounded regular file');
+    const bytes = Buffer.alloc(Number(before.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const read = fs.readSync(fd, bytes, offset, bytes.length - offset, offset);
+      if (read === 0) fail('current input ended early');
+      offset += read;
+    }
+    const after = fs.fstatSync(fd, { bigint: true });
+    if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size
+      || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs) fail('current input changed while reading');
+    return bytes;
+  } finally { fs.closeSync(fd); }
+}
+
+function currentWholeSha(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+
+/** Operational inputs only: never load a sealed migration plan, journal, or historical DTO. */
+export async function resolveCurrentRehearsalPlan(raw, context) {
+  exactCurrentFields(raw, ['schema', 'environment', 'nonProductionOnly', 'acknowledgement', 'rehearsalId',
+    'workRoot', 'publicUrl', 'controlOrigin', 'envFile', 'adminHeaderFile', 'source', 'target',
+    'runtime', 'rollout', 'evidenceInputs', 'notificationResyncScenario', 'perceptionPolicyVersion', 'timeoutSeconds'], 'current plan');
+  if (raw.schema !== CURRENT_REHEARSAL_PLAN_SCHEMA) fail(`current plan schema must be ${CURRENT_REHEARSAL_PLAN_SCHEMA}`);
+  if (raw.environment !== 'Test' || raw.nonProductionOnly !== true
+    || raw.acknowledgement !== 'DESTROY_ISOLATED_LOCAL_REHEARSAL_ONLY') fail('current rehearsal must be explicitly non-production Test');
+  const repoRoot = canonicalDirectory(context.repoRoot, 'repository root');
+  const planFile = canonicalFile(context.planFile, 'plan file');
+  const planBytes = currentFileBytes(planFile);
+  if (!isDeepStrictEqual(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(planBytes)), raw)) fail('current plan bytes differ from the parsed input');
+  const rehearsalId = safeId(raw.rehearsalId, 'rehearsalId');
+  const publicUrl = localUrl(raw.publicUrl, '/health/ready', 'publicUrl');
+  const controlOrigin = localUrl(raw.controlOrigin, null, 'controlOrigin');
+  if (new URL(publicUrl).origin !== new URL(controlOrigin).origin) fail('current control/public origins differ');
+  const workRoot = resolveFrom(planFile, raw.workRoot);
+  ensureWithin(workRoot, path.join(repoRoot, '.tmp'), 'current workRoot');
+  if (workRoot === path.join(repoRoot, '.tmp')) fail('current workRoot must be a dedicated child');
+  assertNoSymlinkTraversal(workRoot, repoRoot, 'current workRoot');
+  const envFile = privateMaterialFile(planFile, raw.envFile, 'envFile');
+  assertTestEnvironment(envFile, publicUrl);
+  const adminHeaderFile = privateMaterialFile(planFile, raw.adminHeaderFile, 'adminHeaderFile');
+  assertPrivateAdminHeader(adminHeaderFile);
+  const { validateReleaseManifest, readCurrentSchemaReleaseBinding } = await import('../release/release-manifest.mjs');
+  const manifests = {};
+  for (const role of ['source', 'target']) {
+    exactCurrentFields(raw[role], ['manifest', 'sha256'], `current ${role}`);
+    if (typeof raw[role].sha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(raw[role].sha256)) fail(`${role} whole manifest SHA is invalid`);
+    const file = materialFile(planFile, raw[role].manifest, `${role}.manifest`);
+    const bytes = currentFileBytes(file);
+    if (currentWholeSha(bytes) !== raw[role].sha256) fail(`${role} whole manifest SHA mismatch`);
+    const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+    const errors = validateReleaseManifest(value, { requireRegistryDigest: true, requireConcreteRuntimeProfile: true });
+    if (errors.length) fail(errors.join('\n'));
+    const binding = readCurrentSchemaReleaseBinding(value.currentSchema.receipt.reference, value.currentSchema.receipt.sha256);
+    if (!isDeepStrictEqual(binding, value.currentSchema)) fail(`${role} manifest/current receipt binding mismatch`);
+    if (envFile.includes(',') || value.currentSchema.receipt.reference.includes(',')) fail('current Docker mount source cannot contain commas');
+    manifests[role] = { file, sha256: raw[role].sha256, value };
+  }
+  if (manifests.source.value.releaseId === manifests.target.value.releaseId
+    || manifests.source.value.imageDigest === manifests.target.value.imageDigest) fail('current source/target releases must differ');
+  for (const field of ['target', 'database', 'actualSchemaDigest']) {
+    if (!isDeepStrictEqual(manifests.source.value.currentSchema[field], manifests.target.value.currentSchema[field])) {
+      fail(`current source/target ${field} differ; an old image cannot share the current database`);
+    }
+  }
+  exactCurrentFields(raw.runtime, ['directory', 'slotState'], 'current runtime');
+  const runtime = canonicalDirectory(resolveFrom(planFile, raw.runtime.directory), 'current runtime directory');
+  ensureWithin(runtime, workRoot, 'current runtime');
+  const slotState = materialFile(planFile, raw.runtime.slotState, 'current slot state');
+  ensureWithin(slotState, runtime, 'current slot state');
+  assertNoSymlinkTraversal(runtime, repoRoot, 'current runtime');
+  exactCurrentFields(raw.rollout, ['id', 'stateFile', 'evidenceRoot', 'assetStore', 'retentionState'], 'current rollout');
+  if (typeof raw.rollout.id !== 'string' || !/^[0-9A-Za-z][0-9A-Za-z._-]{7,127}$/u.test(raw.rollout.id)) fail('current rollout id is invalid');
+  const outputs = {};
+  for (const key of ['stateFile', 'evidenceRoot', 'assetStore', 'retentionState']) {
+    outputs[key] = resolveFrom(planFile, raw.rollout[key]);
+    ensureWithin(outputs[key], workRoot, `current ${key}`);
+    if (outputs[key] === workRoot) fail(`current ${key} must be a dedicated child`);
+    assertNoSymlinkTraversal(outputs[key], repoRoot, `current ${key}`);
+  }
+  exactCurrentFields(raw.evidenceInputs, Object.keys(CURRENT_INPUT_FLAGS), 'current evidence inputs');
+  const inputs = {};
+  for (const key of Object.keys(CURRENT_INPUT_FLAGS)) {
+    inputs[key] = key.endsWith('Key') || key === 'notificationAuthStorageState'
+      ? privateMaterialFile(planFile, raw.evidenceInputs[key], `evidenceInputs.${key}`)
+      : materialFile(planFile, raw.evidenceInputs[key], `evidenceInputs.${key}`);
+  }
+  for (const key of ['trafficBindingKey', 'assetBrowserBindingKey']) {
+    const bytes = fs.statSync(inputs[key]).size;
+    if (bytes < 32 || bytes > 4096) fail(`${key} must contain 32..4096 bytes`);
+  }
+  const notificationResyncScenario = materialFile(planFile, raw.notificationResyncScenario, 'notification resync scenario');
+  if (readJson(notificationResyncScenario, 'notification resync scenario').schema !== 'fsusblog.release-notification-resync-scenario.v1') fail('notification resync scenario schema is invalid');
+  if (typeof raw.perceptionPolicyVersion !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(raw.perceptionPolicyVersion)) fail('perception policy version is invalid');
+  const timeoutSeconds = boundedInteger(raw.timeoutSeconds, 10, 1800, 'current timeoutSeconds');
+  const { readSlotState } = await import('./slot-lib.mjs');
+  const slot = readSlotState(slotState, { allowMissing: false });
+  if (!['source', 'target'].some(role => slot.activeReleaseId === manifests[role].value.releaseId
+    && slot.activeImageDigest === manifests[role].value.imageDigest)) fail('current active slot is not bound to either explicit current manifest');
+  return { schema: 'fsusblog.zero-downtime-rehearsal-resolved-plan.v2', rehearsalId, repoRoot, planFile,
+    planSha256: currentWholeSha(planBytes), workRoot, publicUrl, controlOrigin,
+    envFile, adminHeaderFile, manifests, runtime, slotState, rolloutId: raw.rollout.id, outputs,
+    privateInputs: [envFile, adminHeaderFile].map(file => ({ file, sha256: currentWholeSha(currentFileBytes(file)), mode: fs.statSync(file).mode & 0o777 })),
+    inputs, notificationResyncScenario, perceptionPolicyVersion: raw.perceptionPolicyVersion, timeoutSeconds };
+}
+
+async function currentCommand(command, args, options) {
+  return new Promise(resolve => {
+    const stdoutFd = fs.openSync(options.stdoutPath, 'wx', 0o600);
+    const stderrFd = fs.openSync(options.stderrPath, 'wx', 0o600);
+    const stdoutHash = crypto.createHash('sha256'), stderrHash = crypto.createHash('sha256');
+    const child = spawn(command, args, { cwd: options.cwd, env: options.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const stdoutChunks = [], stderrChunks = [];
+    let failure = null, closed = false;
+    let hardTimer;
+    const terminate = () => {
+      if (!closed && child.pid) {
+        try { process.kill(-child.pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
+        hardTimer ??= setTimeout(() => {
+          if (!closed) {
+            try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
+          }
+        }, 30_000);
+      }
+    };
+    const onSignal = () => { failure ??= new Error('current rehearsal interrupted'); terminate(); };
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, onSignal);
+    const timer = setTimeout(() => { failure ??= new Error('current rehearsal command timed out'); terminate(); }, options.timeoutSeconds * 1000);
+    for (const [stream, key] of [[child.stdout, 'stdout'], [child.stderr, 'stderr']]) stream.on('data', chunk => {
+      try {
+        fs.writeFileSync(key === 'stdout' ? stdoutFd : stderrFd, chunk);
+        (key === 'stdout' ? stdoutHash : stderrHash).update(chunk);
+        if (options.capture !== false) {
+          (key === 'stdout' ? stdoutChunks : stderrChunks).push(chunk);
+        }
+      } catch (error) {
+        failure ??= error; terminate();
+      }
+    });
+    const cleanup = () => {
+      clearTimeout(timer); clearTimeout(hardTimer);
+      for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.off(signal, onSignal);
+      fs.closeSync(stdoutFd); fs.closeSync(stderrFd);
+    };
+    child.once('error', error => { failure ??= error; });
+    child.once('close', (exitCode, signal) => { closed = true; cleanup(); resolve({ command, args, pid: child.pid,
+      exitCode, signal, stdout: Buffer.concat(stdoutChunks).toString('utf8'), stderr: Buffer.concat(stderrChunks).toString('utf8'),
+      stdoutSha256: stdoutHash.digest('hex'), stderrSha256: stderrHash.digest('hex'), failure: failure?.message ?? null }); });
+  });
+}
+
+/** Fresh pinned Server read-only observations; no offline migration command is ever executed. */
+export async function runCurrentRehearsal(resolved, { mode, runId }) {
+  if (!['normal', 'resume'].includes(mode)) fail('current rehearsal mode must be normal or resume; image rollback is retired');
+  if (resolved.schema !== 'fsusblog.zero-downtime-rehearsal-resolved-plan.v2') fail('resolved current rehearsal schema is invalid');
+  if (typeof runId !== 'string' || !/^[0-9A-Za-z][0-9A-Za-z._-]{2,47}$/u.test(runId) || runId.includes('..')) fail('current run id is invalid');
+  const { readRolloutState } = await import('./release-rollout-lib.mjs');
+  const { readSlotState } = await import('./slot-lib.mjs');
+  const active = readSlotState(resolved.slotState, { allowMissing: false });
+  if (mode === 'normal' && (active.activeReleaseId !== resolved.manifests.source.value.releaseId
+    || active.activeImageDigest !== resolved.manifests.source.value.imageDigest)) fail('normal current slot must match the explicit source manifest');
+  if (mode === 'normal' && fs.existsSync(resolved.outputs.stateFile)) fail('normal current state already exists; use explicit resume');
+  if (mode === 'resume') {
+    const state = readRolloutState(resolved.outputs.stateFile);
+    const target = resolved.manifests.target;
+    if (state.rolloutId !== resolved.rolloutId || state.manifestSha256 !== target.sha256
+      || state.candidateSourceRevision !== target.value.commitSha
+      || !isDeepStrictEqual(state.currentSchema, target.value.currentSchema)
+      || state.target.releaseId !== target.value.releaseId || state.target.imageDigest !== target.value.imageDigest
+      || state.source.releaseId !== resolved.manifests.source.value.releaseId
+      || state.source.imageDigest !== resolved.manifests.source.value.imageDigest) fail('resume current bindings differ');
+  }
+  const runRoot = path.join(resolved.workRoot, resolved.rehearsalId, runId);
+  assertNoSymlinkTraversal(runRoot, resolved.repoRoot, 'current run root');
+  fs.mkdirSync(path.dirname(runRoot), { recursive: true, mode: 0o700 });
+  fs.mkdirSync(runRoot, { mode: 0o700 });
+  const commands = [], errors = [];
+  const command = async (name, binary, args, env = process.env, { allowFailure = false, capture = true, timeoutSeconds = resolved.timeoutSeconds } = {}) => {
+    const stdout = path.join(runRoot, `${commands.length}-${name}.stdout`);
+    const stderr = path.join(runRoot, `${commands.length}-${name}.stderr`);
+    const result = await currentCommand(binary, args, { cwd: resolved.repoRoot, env, timeoutSeconds, capture, stdoutPath: stdout, stderrPath: stderr });
+    commands.push({ name, command: binary, args, pid: result.pid, exitCode: result.exitCode, signal: result.signal,
+      failure: result.failure, stdout: { path: stdout, sha256: result.stdoutSha256 },
+      stderr: { path: stderr, sha256: result.stderrSha256 } });
+    if (!allowFailure && (result.failure || result.exitCode !== 0)) fail(`${name} failed: ${result.failure ?? result.exitCode ?? result.signal}`);
+    return result;
+  };
+  const verifyInputsUnchanged = () => {
+    if (currentWholeSha(currentFileBytes(resolved.planFile)) !== resolved.planSha256) fail('current operational plan changed');
+    for (const input of resolved.privateInputs) {
+      if (currentWholeSha(currentFileBytes(input.file)) !== input.sha256
+        || (fs.statSync(input.file).mode & 0o777) !== input.mode) fail('current private input changed');
+    }
+  };
+  let releaseEvidence = null;
+  try {
+    verifyInputsUnchanged();
+    const { validateCurrentSchemaAdmissionOutput } = await import('../release/release-manifest-value-contract.mjs');
+    const { readCurrentSchemaReleaseBinding } = await import('../release/release-manifest.mjs');
+    for (const role of ['source', 'target']) {
+      const manifest = resolved.manifests[role];
+      const receipt = manifest.value.currentSchema.receipt;
+      if (currentWholeSha(currentFileBytes(manifest.file)) !== manifest.sha256) fail(`${role} manifest changed before admission`);
+      if (!isDeepStrictEqual(readCurrentSchemaReleaseBinding(receipt.reference, receipt.sha256), manifest.value.currentSchema)) fail(`${role} receipt changed before admission`);
+      const name = `fsusblog-zdt-current-${crypto.randomUUID()}`;
+      let container = null;
+      try {
+        const created = (await command(`${role}-create`, 'docker', ['create', '--name', name,
+          '--label', `io.fsusblog.rehearsal.owner=${name}`, '--network', 'fsus-infra-network',
+          '--mount', `type=bind,source=${resolved.envFile},target=/run/current/production.env,readonly`,
+          '--mount', `type=bind,source=${receipt.reference},target=/run/current/receipt.json,readonly`,
+          '--entrypoint', '/app/FsusBlog.Server', manifest.value.imageRef,
+          'current-schema-check', '--env-file', '/run/current/production.env', '--receipt', '/run/current/receipt.json',
+          '--receipt-sha256', receipt.sha256, '--candidate-source-revision', manifest.value.commitSha])).stdout.trim();
+        if (!/^[0-9a-f]{64}$/u.test(created)) fail('admission container ID is invalid');
+        container = created;
+        const output = JSON.parse((await command(`${role}-admission`, 'docker', ['start', '--attach', container])).stdout);
+        const bindingErrors = validateCurrentSchemaAdmissionOutput(output, manifest.value.currentSchema, manifest.value.commitSha);
+        if (bindingErrors.length) fail(bindingErrors.join('\n'));
+        if (currentWholeSha(currentFileBytes(manifest.file)) !== manifest.sha256
+          || !isDeepStrictEqual(readCurrentSchemaReleaseBinding(receipt.reference, receipt.sha256), manifest.value.currentSchema)) fail(`${role} references changed during admission`);
+      } catch (error) {
+        errors.push(message(error));
+        throw error;
+      } finally {
+        // A lost create response is not success. Inspect the uniquely labelled task container before cleanup.
+        const inspect = await command(`${role}-inspect`, 'docker', ['inspect', name], process.env, { allowFailure: true, timeoutSeconds: 30 });
+        if (inspect.exitCode === 0 && !inspect.failure) {
+          const value = JSON.parse(inspect.stdout);
+          const owned = value.length === 1 && value[0].Name === `/${name}`
+            && value[0].Config?.Labels?.['io.fsusblog.rehearsal.owner'] === name
+            && /^[0-9a-f]{64}$/u.test(value[0].Id)
+            && (container === null || container === value[0].Id);
+          if (!owned) fail('admission cleanup ownership is not confirmed');
+          await command(`${role}-remove`, 'docker', ['rm', '--force', value[0].Id]);
+        } else fail('admission container absence or cleanup could not be confirmed; inspect failure retained');
+      }
+    }
+    verifyInputsUnchanged();
+    const args = ['--release-manifest', resolved.manifests.target.file, '--env-file', resolved.envFile,
+      '--slot-state-file', resolved.slotState, '--rollout-state-file', resolved.outputs.stateFile,
+      '--rollout-id', resolved.rolloutId, '--evidence-root', resolved.outputs.evidenceRoot,
+      '--asset-store', resolved.outputs.assetStore, '--retention-state', resolved.outputs.retentionState,
+      '--public-url', resolved.publicUrl, '--control-origin', resolved.controlOrigin,
+      '--admin-header-file', resolved.adminHeaderFile, '--perception-v3-policy-version', resolved.perceptionPolicyVersion];
+    for (const [key, flag] of Object.entries(CURRENT_INPUT_FLAGS)) args.push(flag, resolved.inputs[key]);
+    if (mode === 'resume') args.push('--resume');
+    const runtime = resolved.runtime;
+    const env = { ...process.env, ASPNETCORE_ENVIRONMENT: 'Test', FSUSBLOG_ROLLOUT_REHEARSAL: '1',
+      FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE: '1', FSUSBLOG_REHEARSAL_WORK_DIR: runtime,
+      FSUSBLOG_REHEARSAL_SLOT_STATE_FILE: resolved.slotState, FSUSBLOG_SLOT_STATE_FILE: resolved.slotState,
+      FSUSBLOG_REHEARSAL_GATEWAY_DIR: path.join(runtime, 'gateway'),
+      FSUSBLOG_REHEARSAL_GATEWAY_CONFIG: path.join(runtime, 'gateway', 'openresty.conf'),
+      FSUSBLOG_GATEWAY_ACTIVE_UPSTREAM: path.join(runtime, 'gateway', 'active-upstream.conf'),
+      FSUSBLOG_GATEWAY_CONFIG_FILE: path.join(runtime, 'gateway', 'openresty.conf'),
+      FSUSBLOG_OPENRESTY_BIN: path.join(resolved.repoRoot, 'tools/deployment/rehearsal-openresty.sh'),
+      FSUSBLOG_DEPLOYMENT_LOCK_FILE: path.join(runtime, 'deployment.lock'),
+      FSUSBLOG_GATEWAY_EVIDENCE_DIR: path.join(runtime, 'gateway-evidence'),
+      FSUSBLOG_ROLLOUT_DISK_PATH: runtime, FSUSBLOG_ROLLOUT_SOURCE_MANIFEST: resolved.manifests.source.file,
+      FSUSBLOG_ROLLOUT_NOTIFICATION_RESYNC_SCENARIO: resolved.notificationResyncScenario };
+    await command('current-release', 'bash', [path.join(resolved.repoRoot, 'tools/deployment/release-rollout.sh'), ...args], env, { capture: false });
+    verifyInputsUnchanged();
+    for (const manifest of Object.values(resolved.manifests)) {
+      if (currentWholeSha(currentFileBytes(manifest.file)) !== manifest.sha256
+        || !isDeepStrictEqual(readCurrentSchemaReleaseBinding(manifest.value.currentSchema.receipt.reference,
+          manifest.value.currentSchema.receipt.sha256), manifest.value.currentSchema)) fail('current manifest or receipt changed during release');
+    }
+    const state = readRolloutState(resolved.outputs.stateFile);
+    if (state.status !== 'completed' || state.outcome !== 'succeeded' || state.rolloutId !== resolved.rolloutId) fail('current release did not durably complete');
+    const file = path.join(resolved.outputs.evidenceRoot, resolved.rolloutId, 'evidence', 'release-rollout.json');
+    const bytes = currentFileBytes(file);
+    const value = JSON.parse(bytes.toString('utf8'));
+    const { verifyReleaseRolloutEvidence } = await import('./release-rollout-evidence-verifier.mjs');
+    const replay = verifyReleaseRolloutEvidence(value, { evidencePath: file, readBytes: currentFileBytes, now: Date.now() });
+    if (replay.status !== 'pass') fail(replay.errors.join('\n'));
+    const target = resolved.manifests.target;
+    if (value.manifestSha256 !== target.sha256 || value.candidateSourceRevision !== target.value.commitSha
+      || !isDeepStrictEqual(value.currentSchema, target.value.currentSchema)
+      || state.manifestSha256 !== target.sha256 || state.candidateSourceRevision !== target.value.commitSha
+      || !isDeepStrictEqual(state.currentSchema, target.value.currentSchema)) fail('completed current evidence bindings differ');
+    releaseEvidence = { path: file, sha256: currentWholeSha(bytes), verification: replay };
+  } catch (error) { errors.push(message(error)); }
+  const report = { schema: 'fsusblog.zero-downtime-rehearsal-summary.v2', scope: 'current-release-consumption',
+    status: errors.length ? 'fail' : 'pass', mode, runId, rehearsalId: resolved.rehearsalId,
+    plan: { reference: resolved.planFile, sha256: resolved.planSha256 },
+    source: resolved.manifests.source, target: resolved.manifests.target, commands, releaseEvidence, errors,
+    completedAtUtc: new Date().toISOString() };
+  fs.writeFileSync(path.join(runRoot, 'rehearsal-summary.json'), JSON.stringify(report, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+  return report;
+}
 
 export const REHEARSAL_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-plan.v1';
 export const RESOLVED_PLAN_SCHEMA = 'fsusblog.zero-downtime-rehearsal-resolved-plan.v1';
@@ -1338,6 +1652,7 @@ function parseCli(argv) {
     const name = argv.shift()
     const value = argv.shift()
     if (!name?.startsWith('--') || value === undefined || value.startsWith('--')) fail(`invalid argument near ${name ?? '<end>'}`)
+    if (Object.hasOwn(options, name.slice(2))) fail(`duplicate argument: ${name}`)
     options[name.slice(2)] = value
   }
   return { command, options }
@@ -1345,138 +1660,17 @@ function parseCli(argv) {
 
 async function main(argv) {
   const { command, options } = parseCli([...argv])
-  if (command === 'resolve') {
-    if (!options.plan || !options['repo-root'] || !options.out) fail('resolve requires --plan, --repo-root and --out')
-    const planFile = path.resolve(options.plan)
-    const resolved = resolveRehearsalPlan(readJson(planFile, 'rehearsal plan'), { planFile, repoRoot: options['repo-root'] })
-    writeJsonAtomic(options.out, resolved)
-    process.stdout.write(`${JSON.stringify({ schema: resolved.schema, rehearsalId: resolved.rehearsalId, out: path.resolve(options.out) })}\n`)
-    return
+  if (command === 'run-current') {
+    exactCurrentFields(options, ['plan', 'repo-root', 'mode', 'run-id'], 'current command options');
+    const planFile = path.resolve(options.plan);
+    const raw = JSON.parse(currentFileBytes(planFile).toString('utf8'));
+    const resolved = await resolveCurrentRehearsalPlan(raw, { planFile, repoRoot: options['repo-root'] });
+    const report = await runCurrentRehearsal(resolved, { mode: options.mode, runId: options['run-id'] });
+    process.stdout.write(`${JSON.stringify({ schema: report.schema, scope: report.scope, status: report.status })}\n`);
+    if (report.status !== 'pass') process.exitCode = 1;
+    return;
   }
-  if (command === 'materialize-fault') {
-    if (!options.plan || !options['run-root'] || !options.out) fail('materialize-fault requires --plan, --run-root and --out')
-    const resolved = readJson(path.resolve(options.plan), 'resolved rehearsal plan')
-    const faultPlan = materializeFaultPlan(
-      resolved,
-      options['run-root'],
-      options.kind ?? 'deploy',
-      options['rollout-id'] ?? null,
-      path.resolve(options.plan))
-    writeJsonAtomic(options.out, faultPlan)
-    process.stdout.write(`${JSON.stringify({ schema: faultPlan.schema, caseCount: faultPlan.cases.length, out: path.resolve(options.out) })}\n`)
-    return
-  }
-  if (command === 'materialize-migration-qualification') {
-    for (const name of [
-      'plan', 'run-root', 'runtime', 'database-isolation-id', 'source-origin', 'target-origin',
-      'env-file', 'admin-header-file', 'source-write-body', 'target-write-body',
-      'contract-window-evidence', 'contract-qualified-evidence', 'out'
-    ]) if (!options[name]) fail(`materialize-migration-qualification requires --${name}`)
-    const resolved = readJson(path.resolve(options.plan), 'resolved rehearsal plan')
-    const scenario = materializeMigrationQualificationScenario(resolved, {
-      runRoot: options['run-root'],
-      runtime: options.runtime,
-      databaseIsolationId: options['database-isolation-id'],
-      sourceOrigin: options['source-origin'],
-      targetOrigin: options['target-origin'],
-      envFile: options['env-file'],
-      adminHeaderFile: options['admin-header-file'],
-      sourceWriteBody: options['source-write-body'],
-      targetWriteBody: options['target-write-body'],
-      contractWindowEvidence: options['contract-window-evidence'],
-      contractQualifiedEvidence: options['contract-qualified-evidence']
-    })
-    writeJsonAtomic(options.out, scenario)
-    process.stdout.write(`${JSON.stringify({ schema: scenario.schema, caseCount: scenario.cases.length, out: path.resolve(options.out) })}\n`)
-    return
-  }
-  if (command === 'derive-rollout-id') {
-    for (const name of ['role', 'phase', 'release', 'run-id']) if (!options[name]) fail(`derive-rollout-id requires --${name}`)
-    process.stdout.write(`${deriveRehearsalRolloutId(options.role, options.phase, options.release, options['run-id'])}\n`)
-    return
-  }
-  if (command === 'wait-stage') {
-    if (!options.state || !options.stage) fail('wait-stage requires --state and --stage')
-    const state = await waitForRolloutStage(
-      options.state,
-      options.stage,
-      Number(options['timeout-ms'] ?? 180_000),
-      Number(options['poll-ms'] ?? 50))
-    process.stdout.write(`${JSON.stringify({ rolloutId: state.rolloutId, stage: state.currentStage, status: state.status })}\n`)
-    return
-  }
-  if (command === 'inspect-orphan') {
-    if (!options.state || !options.stage) fail('inspect-orphan requires --state and --stage')
-    process.stdout.write(`${JSON.stringify(inspectOrphanedRollout(options.state, options.stage))}\n`)
-    return
-  }
-  if (command === 'worker-health') {
-    if (!options.state || !options.ledger || !options.out) fail('worker-health requires --state, --ledger and --out')
-    const report = buildWorkerTargetHealth(options.state, options.ledger)
-    writeJsonAtomic(options.out, report)
-    process.stdout.write(`${JSON.stringify(report)}\n`)
-    return
-  }
-  if (command === 'worker-qualification') {
-    if (!options.state || !options.ledger || !options.scenario || !options.out) {
-      fail('worker-qualification requires --state, --ledger, --scenario and --out')
-    }
-    const report = buildWorkerQualification(options.state, options.ledger, options.scenario)
-    writeJsonAtomic(options.out, report)
-    process.stdout.write(`${JSON.stringify(report)}\n`)
-    return
-  }
-  if (command === 'authorize-worker') {
-    if (!options.state || !options.armed || !options.out || !options['run-id']) {
-      fail('authorize-worker requires --state, --armed, --out and --run-id')
-    }
-    const signal = authorizeWorkerQualification(options.state, options.armed, options.out, options['run-id'])
-    process.stdout.write(`${JSON.stringify(signal)}\n`)
-    return
-  }
-  if (command === 'finalize-worker-qualification') {
-    if (!options.control || !options.reconciliation || !options.out) {
-      fail('finalize-worker-qualification requires --control, --reconciliation and --out')
-    }
-    const report = finalizeWorkerQualification(options.control, options.reconciliation)
-    writeJsonAtomic(options.out, report)
-    process.stdout.write(`${JSON.stringify(report)}\n`)
-    return
-  }
-  if (command === 'sigkill-evidence') {
-    if (!options.state || !options.stage || !options['initial-exit'] || !options['orphan-action'] || !options['resume-exit'] || !options['hold-ready'] || !options.out) {
-      fail('sigkill-evidence requires --state, --stage, --initial-exit, --orphan-action, --resume-exit, --hold-ready and --out')
-    }
-    const report = buildSigkillResumeEvidence(
-      options.state,
-      options.stage,
-      Number(options['initial-exit']),
-      options['orphan-action'],
-      Number(options['resume-exit']),
-      options['hold-ready'])
-    writeJsonAtomic(options.out, report)
-    process.stdout.write(`${JSON.stringify(report)}\n`)
-    return
-  }
-  if (command === 'sigkill-matrix') {
-    if (!options['mode-root'] || !options.out) fail('sigkill-matrix requires --mode-root and --out')
-    const report = buildSigkillMatrixEvidence(options['mode-root'])
-    writeJsonAtomic(options.out, report)
-    process.stdout.write(`${JSON.stringify(report)}\n`)
-    return
-  }
-  if (command === 'verify-mode') {
-    if (!options.plan || !options.mode || !options['mode-root'] || !options.out) {
-      fail('verify-mode requires --plan, --mode, --mode-root and --out')
-    }
-    const resolved = readJson(path.resolve(options.plan), 'resolved rehearsal plan')
-    const report = verifyMode(resolved, options.mode, options['mode-root'])
-    writeJsonAtomic(options.out, report)
-    process.stdout.write(`${JSON.stringify(report)}\n`)
-    if (report.status !== 'pass') process.exitCode = 1
-    return
-  }
-  fail('usage: zero-downtime-rehearsal-plan.mjs <resolve|derive-rollout-id|materialize-fault|materialize-migration-qualification|wait-stage|inspect-orphan|worker-health|worker-qualification|authorize-worker|finalize-worker-qualification|sigkill-evidence|sigkill-matrix|verify-mode> [options]')
+  fail('legacy rehearsal CLI is retired; use run-current with an explicit v2 operational plan');
 }
 
 const invoked = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href

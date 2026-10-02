@@ -156,12 +156,27 @@ also verifies the actual copied manifest bytes and all existing safety, security
 traffic, resource and target-fence conditions. This is source integration, not
 evidence that those commands or production gates have executed successfully.
 
-The old v1 zero-downtime rehearsal harness still contains online migration and
-old-image rollback qualification inputs. It cannot qualify this v2 protocol or
-stand in for the original offline plan/apply/verify, real-provider crash/recovery,
-restored-backup and performance acceptance. Its replacement must consume the
-original #2215–#2217 actual capabilities; absent issuer/native prerequisites remain
-fail-closed, not synthetic successful qualifications.
+`zero-downtime-rehearsal.sh` consumes an explicit
+`fsusblog.zero-downtime-rehearsal-plan.v2` in an already isolated Test topology.
+Only an explicit `normal` or `resume` invocation is operational. The plan binds
+whole manifest bytes for both current source and target, their current receipts,
+the same target/database/physical schema, private environment and authentication
+files, durable slot/rollout paths and all original release evidence inputs. It
+does not execute offline plan/apply/verify or create a replacement migration
+authority. Before release work and on resume, both digest-pinned Server images
+perform fresh read-only admission; only uniquely labelled admission containers
+created by this invocation are removed. Command bytes and failed terminal reports
+are retained. Success additionally requires durable current rollout completion
+and replay of all 15 stages, six artifacts and 24 auxiliary references.
+
+The summary's `current-release-consumption` scope is not offline migration,
+real-provider crash/recovery, restored-backup, performance or complete issue
+qualification. Those domains require their original actual evidence. Historical
+v1 library fixtures remain recording evidence only; v1 operational plans and
+image-rollback/all/SIGKILL qualification modes are rejected, not auto-upgraded.
+Absent original #2215–#2217 issuer/native prerequisites remain fail-closed, not
+synthetic successful qualifications. Component recording actors exercise the
+consumer protocol but cannot issue receipts or establish native qualification.
 
 ## Current-schema health consumer
 
