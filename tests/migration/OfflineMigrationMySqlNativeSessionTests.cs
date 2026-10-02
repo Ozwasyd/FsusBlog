@@ -111,6 +111,24 @@ public sealed class OfflineMigrationMySqlNativeSessionTests
                 OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.MySql, false)
                     .Add(new("table/private-fixture-name-not-for-errors", "base"))));
 
+    [Fact]
+    public async Task CurrentCatalogEntryHonorsCancellationBeforeCreatingItsOriginalNativeConnection()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            OfflineMigrationMySqlNativeSession.ObserveCurrentCatalogAsync("not parsed after cancellation", cancellation.Token));
+    }
+
+    [Fact]
+    public async Task CurrentCatalogEntryCannotBorrowAnUnownedOperationContext()
+    {
+        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationMySqlNativeSession.ObserveCurrentCatalogAsync("not parsed without context", CancellationToken.None));
+        Assert.Equal("offline_source_native_operation_context_required", refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
     private static Task<OfflineMigrationSourceObservation> NeverObserve(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
         => throw new InvalidOperationException("observer must not run before argument refusal");

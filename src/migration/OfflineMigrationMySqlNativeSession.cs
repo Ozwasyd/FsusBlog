@@ -22,9 +22,15 @@ internal static class OfflineMigrationMySqlNativeSession
         return ReadAsync(connectionString, observe, cancellationToken);
     }
 
-    private static async Task<OfflineMigrationSourceObservation> ReadAsync(
+    // The current catalog is measured through this same original connection/
+    // transaction/cleanup owner, not a second connection or a source DTO marker.
+    internal static Task<MySqlCurrentSchemaCatalog> ObserveCurrentCatalogAsync(
+        string connectionString, CancellationToken cancellationToken)
+        => ReadAsync(connectionString, MySqlCurrentSchemaCatalogObserver.ReadAsync, cancellationToken);
+
+    private static async Task<TResult> ReadAsync<TResult>(
         string connectionString,
-        Func<DbConnection, DbTransaction, CancellationToken, Task<OfflineMigrationSourceObservation>> observe,
+        Func<DbConnection, DbTransaction, CancellationToken, Task<TResult>> observe,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -36,7 +42,7 @@ internal static class OfflineMigrationMySqlNativeSession
         MySqlConnection? connection = null;
         MySqlTransaction? transaction = null;
         Exception? primary = null;
-        OfflineMigrationSourceObservation result = default!;
+        TResult result = default!;
         var transactionCleanup = OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned;
         var connectionCleanup = OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned;
         var adapterCleanup = OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned;
