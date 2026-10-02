@@ -1077,8 +1077,15 @@ EnsureBackgroundProbesAlive() {
 }
 
 CleanupBackgroundProbes() {
-    # An admission refusal must not mutate or retire an adopted live observer.
-    [[ "$CURRENT_ADMISSION_PASSED" == "1" ]] || return 0
+    if [[ "$CURRENT_ADMISSION_PASSED" != "1" ]]; then
+        # Refusal withdraws mutation authority, not responsibility for our own children.
+        # Adopted observers and their PID/stop files belong to the prior invocation.
+        [[ "$TRAFFIC_ADOPTED" != "0" ]] || StopPublicTraffic >/dev/null 2>&1 || true
+        [[ "$RESOURCE_ADOPTED" != "0" ]] || StopResourceProbe >/dev/null 2>&1 || true
+        [[ "$NOTIFICATION_ADOPTED" != "0" ]] || StopNotificationProbe >/dev/null 2>&1 || true
+        [[ "$ASSET_COMPATIBILITY_ADOPTED" != "0" ]] || CancelAssetCompatibilityProbe >/dev/null 2>&1 || true
+        return 0
+    fi
     [[ "$PRESERVE_BACKGROUND_PROBES_ON_EXIT" == "0" ]] || return 0
     StopPublicTraffic >/dev/null 2>&1 || true
     StopResourceProbe >/dev/null 2>&1 || true
@@ -1130,7 +1137,10 @@ WaitForWorkerLedger() {
 
 InterruptRollout() {
     local signal="$1" stage state attempt stdoutFile stderrFile evidenceFile startedAt completedAt
-    [[ "$CURRENT_ADMISSION_PASSED" == "1" ]] || exit 130
+    if [[ "$CURRENT_ADMISSION_PASSED" != "1" ]]; then
+        CleanupBackgroundProbes
+        exit 130
+    fi
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE" 2>/dev/null || true)"
     stage="$(jq -r '.currentStage // ""' <<<"$state" 2>/dev/null || true)"
     if [[ -n "$stage" ]]; then
