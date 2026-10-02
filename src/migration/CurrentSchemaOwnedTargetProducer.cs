@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.Schema;
 
 namespace FsusBlog.Migration;
@@ -191,6 +192,96 @@ internal sealed class OwnedCurrentSchemaTarget
         return artifact;
     }
 
+    internal static async Task<RetainedMigrationToolObservation> ReadRetainedMigrationToolAsync(
+        RetainedMigrationToolReadConfiguration configuration, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new InvalidOperationException("migration_retained_original_node_platform_unsupported");
+        }
+        // This is the system Node used by the original production entry, never a
+        // CLI-selected executable, argument list, checker or caller JSON callback.
+        const string node = "/usr/bin/node";
+        string script = Path.Combine(configuration.SourceRoot, "tools/ci/migration-retained-inputs.mjs");
+        string[] inputs =
+        [
+            node, script,
+            Path.Combine(configuration.SourceRoot, "tools/ci/production-build-artifacts.mjs"),
+            Path.Combine(configuration.SourceRoot, "tools/fact-extractors/identity.mjs"),
+            Path.Combine(configuration.SourceRoot, "tools/fact-extractors/lib/canonicalize.mjs")
+        ];
+        foreach (string input in inputs)
+        {
+            RequireRegularPath(input);
+        }
+        IReadOnlyList<CurrentSchemaProducerFile> before = await SnapshotRetainedReaderInputsAsync(inputs,
+            cancellationToken).ConfigureAwait(false);
+        string evidence = Path.Combine(configuration.EvidenceRoot, "migration-retained-read-" + Guid.NewGuid().ToString("N"));
+        RequireRegularPath(configuration.EvidenceRoot);
+        Directory.CreateDirectory(evidence);
+        await WriteNewJsonAsync(Path.Combine(evidence, "producer-before.json"), before, cancellationToken).ConfigureAwait(false);
+        int exit = await InvokeArgumentsAsync(node, configuration.SourceRoot,
+            [script, "read", configuration.SourceRoot, configuration.ArtifactRoot, configuration.SdkRoot],
+            evidence, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<CurrentSchemaProducerFile> after = await SnapshotRetainedReaderInputsAsync(inputs,
+            cancellationToken).ConfigureAwait(false);
+        await WriteNewJsonAsync(Path.Combine(evidence, "producer-after.json"), after, cancellationToken).ConfigureAwait(false);
+        if (exit != 0 || !before.SequenceEqual(after))
+        {
+            throw new InvalidOperationException("migration_retained_original_reader_failed_or_changed");
+        }
+        var stdoutRead = await ReadOriginalBytesAsync(Path.Combine(evidence, "stdout.log"), cancellationToken).ConfigureAwait(false);
+        byte[] stdout = stdoutRead.Bytes;
+        using JsonDocument document = JsonDocument.Parse(stdout);
+        RejectDuplicateProperties(document.RootElement);
+        RetainedMigrationToolObservation observation = JsonSerializer.Deserialize<RetainedMigrationToolObservation>(stdout, s_json)
+            ?? throw new InvalidOperationException("migration_retained_original_reader_empty");
+        ValidateRetainedMigrationObservation(observation, configuration);
+        // The actual assembly executing this code is the retained Migration tool,
+        // not another DLL selected by a report. Both PE provenance and whole bytes
+        // must agree with the original production owner and its sealed domain.
+        string executing = typeof(OwnedCurrentSchemaTarget).Assembly.Location;
+        string revision = ReadOriginalOwnerSourceRevision(executing, cancellationToken, "FsusBlog.Migration");
+        if (revision != observation.Identity.SourceRevision
+            || await HashFileAsync(executing, cancellationToken).ConfigureAwait(false) != observation.AssemblySha256
+            || await HashFileAsync(observation.AssemblyPath, cancellationToken).ConfigureAwait(false) != observation.AssemblySha256
+            || await HashFileAsync(observation.ReceiptPath, cancellationToken).ConfigureAwait(false) != observation.ReceiptSha256)
+        {
+            throw new InvalidOperationException("migration_retained_executing_tool_or_receipt_changed");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return observation;
+    }
+
+    private static async Task<IReadOnlyList<CurrentSchemaProducerFile>> SnapshotRetainedReaderInputsAsync(
+        IEnumerable<string> inputs, CancellationToken cancellationToken)
+    {
+        var records = new List<CurrentSchemaProducerFile>();
+        foreach (string input in inputs)
+        {
+            records.Add(new(input, new FileInfo(input).Length,
+                await HashFileAsync(input, cancellationToken).ConfigureAwait(false)));
+        }
+        return records;
+    }
+
+    private static void ValidateRetainedMigrationObservation(RetainedMigrationToolObservation observation,
+        RetainedMigrationToolReadConfiguration configuration)
+    {
+        if (observation.Identity is null || observation.Identity.SourceRevision is not string revision || !IsSourceRevision(revision)
+            || observation.AssemblyPath != Path.Combine(configuration.ArtifactRoot, "payload/migration-runtime/FsusBlog.Migration.dll")
+            || observation.ReceiptPath != Path.Combine(configuration.ArtifactRoot, "receipt.json"))
+        {
+            throw new InvalidOperationException("migration_retained_original_reader_binding_invalid");
+        }
+        foreach (string digest in new[] { observation.Identity.WorktreeDigest, observation.Identity.ToolchainDigest,
+            observation.Identity.ConfigurationDigest, observation.AssemblySha256, observation.ReceiptSha256 })
+        {
+            OfflineMigrationPlanValidation.RequireDigest(digest, "migration_retained_original_reader_digest_invalid");
+        }
+    }
+
     private static void ValidateArtifact(CurrentSchemaOwnedTargetArtifact artifact, CurrentSchemaProducerIdentity expectedProducer)
     {
         if (artifact.SchemaVersion != CurrentSchemaOwnedTargetProjection.ArtifactSchemaVersion
@@ -230,7 +321,12 @@ internal sealed class OwnedCurrentSchemaTarget
         }
     }
 
-    private static async Task<int> InvokeAsync(string host, string assembly, string output, string evidence, CancellationToken cancellationToken)
+    private static Task<int> InvokeAsync(string host, string assembly, string output, string evidence, CancellationToken cancellationToken)
+        => InvokeArgumentsAsync(host, Path.GetDirectoryName(assembly)!,
+            [assembly, "export-current-schema-owned-target", "--output", output], evidence, cancellationToken);
+
+    private static async Task<int> InvokeArgumentsAsync(string host, string workingDirectory,
+        IReadOnlyList<string> arguments, string evidence, CancellationToken cancellationToken)
     {
         using var process = new Process
         {
@@ -239,13 +335,13 @@ internal sealed class OwnedCurrentSchemaTarget
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                WorkingDirectory = Path.GetDirectoryName(assembly)!
+                WorkingDirectory = workingDirectory
             }
         };
-        process.StartInfo.ArgumentList.Add(assembly);
-        process.StartInfo.ArgumentList.Add("export-current-schema-owned-target");
-        process.StartInfo.ArgumentList.Add("--output");
-        process.StartInfo.ArgumentList.Add(output);
+        foreach (string argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
         await using var stdout = new FileStream(Path.Combine(evidence, "stdout.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
         await using var stderr = new FileStream(Path.Combine(evidence, "stderr.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
         cancellationToken.ThrowIfCancellationRequested();
@@ -333,7 +429,8 @@ internal sealed class OwnedCurrentSchemaTarget
         return result;
     }
 
-    private static string ReadOriginalOwnerSourceRevision(string assemblyPath, CancellationToken cancellationToken)
+    private static string ReadOriginalOwnerSourceRevision(string assemblyPath, CancellationToken cancellationToken,
+        string expectedAssemblyName = "FsusBlog.Server")
     {
         using var originalHandle = OfflineMigrationCurrentSchemaArtifactReader.OpenOriginalRegularFile(assemblyPath, cancellationToken);
         var initial = OfflineMigrationCurrentSchemaArtifactReader.CaptureOriginalRegularFileIdentity(assemblyPath, originalHandle, cancellationToken);
@@ -341,7 +438,7 @@ internal sealed class OwnedCurrentSchemaTarget
         using var pe = new PEReader(stream);
         MetadataReader reader = pe.GetMetadataReader();
         AssemblyDefinition assembly = reader.GetAssemblyDefinition();
-        if (reader.GetString(assembly.Name) != "FsusBlog.Server")
+        if (reader.GetString(assembly.Name) != expectedAssemblyName)
         {
             throw new InvalidOperationException("current_schema_owned_producer_assembly_invalid");
         }
