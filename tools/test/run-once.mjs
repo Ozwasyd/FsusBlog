@@ -19,6 +19,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { currentProcessIdentity, processIdentityStatus } from './process-identity.mjs';
+import { executionFailureDiagnostic, formatExecutionFailure, restoreExecutionFailureDiagnostic } from './execution-failure-diagnostic.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const defaultStateRoot = path.join(repoRoot, '.tmp', 'run-once');
@@ -1196,6 +1197,7 @@ function receiptFailure(receipt)
     error.exitCode = receipt.failure?.exitCode ?? null;
     error.signal = receipt.failure?.signal ?? null;
     error.receiptStatus = receipt.status;
+    restoreExecutionFailureDiagnostic(error, receipt.failure?.diagnostic);
     return error;
 }
 
@@ -1473,6 +1475,12 @@ export async function runBoundExecution({
                 exitCode: error?.exitCode ?? null,
                 signal: error?.signal ?? null
             };
+            const diagnostic = executionFailureDiagnostic(error);
+            if (diagnostic)
+            {
+                failure.message = diagnostic.primary.message;
+                failure.diagnostic = diagnostic;
+            }
         }
         const requiredOutputStates = await captureOutputStates(normalizedOutputs);
         if (status === 'success' && requiredOutputStates == null)
@@ -1696,7 +1704,7 @@ if (isMain)
 {
     main(process.argv.slice(2)).catch((error) =>
     {
-        console.error(`[run-once] ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[run-once] ${formatExecutionFailure(error)}`);
         process.exit(1);
     });
 }

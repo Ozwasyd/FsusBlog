@@ -308,6 +308,8 @@ The old `ux-viewport-canary-parity` tier relied on incomplete historical failure
 
 ---
 
+When correctness execution and envelope postflight both fail, the original runner keeps the earlier physical-execution error primary and retains the secondary refusal in a bounded diagnostic carried through the sealed run-once failure receipt and CLI. Diagnostic messages are limited to 1024 UTF-8 bytes and four nested causes; sensitive values use a digest instead of plaintext, command argv, stacks, environment objects and arbitrary properties are not copied. The digest describes only the bounded message prefix. Missing network observation and incomplete containment still reject qualification; successful supervisor cleanup is not a successful direct-child result. This diagnostic does not replace the original rejection receipt or alter identity, network, cleanup or resource admission.
+
 ## Hierarchy overview
 
 ## Load / soak HTTP route oracle
