@@ -212,6 +212,53 @@ test('Landlock grants only the exact null device while retaining default-deny wr
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 
+test('original Landlock helper supports missing and present ABI 5 UAPI declarations without changing write denial', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-header-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = path.resolve(import.meta.dirname, '../../tools/test/native/execution-envelope-landlock.c');
+    const allowed = path.join(directory, 'allowed');
+    const denied = path.join(directory, 'denied.txt');
+    fs.mkdirSync(allowed, { mode: 0o700 });
+    fs.writeFileSync(denied, 'unchanged');
+    const executables = [];
+    for (const declaration of ['missing', 'present'])
+    {
+        const include = path.join(directory, declaration);
+        fs.mkdirSync(path.join(include, 'linux'), { recursive: true });
+        fs.writeFileSync(path.join(include, 'linux/landlock.h'), [
+            '#include_next <linux/landlock.h>',
+            ...(declaration === 'missing' ? ['#undef LANDLOCK_ACCESS_FS_IOCTL_DEV'] : [
+                '#ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV',
+                '#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)',
+                '#endif',
+                '_Static_assert(LANDLOCK_ACCESS_FS_IOCTL_DEV == (1ULL << 15), "Linux v6.10 UAPI value");'
+            ]),
+            ''
+        ].join('\n'));
+        const executable = path.join(directory, declaration + '-landlock');
+        const compiled = spawnSync('cc', ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+            '-I', include, '-o', executable, source], { encoding: 'utf8' });
+        assert.equal(compiled.status, 0, compiled.stderr);
+        const result = spawnSync(executable, ['--writable', allowed, '--writable-file', '/dev/null',
+            '--', process.execPath, '-e', [
+                "const fs = require('node:fs')",
+                `fs.writeFileSync(${JSON.stringify(path.join(allowed, declaration + '.txt'))}, 'allowed')`,
+                "fs.writeFileSync('/dev/null', 'allowed')",
+                `try { fs.writeFileSync(${JSON.stringify(denied)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`,
+                "console.log('original-landlock-write-denial-confirmed')"
+            ].join(';')], { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout.trim(), 'original-landlock-write-denial-confirmed');
+        assert.equal(fs.readFileSync(path.join(allowed, declaration + '.txt'), 'utf8'), 'allowed');
+        assert.equal(fs.readFileSync(denied, 'utf8'), 'unchanged');
+        executables.push(executable);
+    }
+    assert.deepEqual(fs.readFileSync(executables[0]), fs.readFileSync(executables[1]));
+});
+
 test('systemd address policy permits an exact current-run loopback service and denies other addresses', {
     skip: process.platform !== 'linux'
 }, async (context) =>

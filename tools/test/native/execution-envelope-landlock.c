@@ -12,6 +12,11 @@
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 
+/* Linux v6.10 UAPI; runtime use remains conditional on Landlock ABI 5. */
+#ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV
+#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)
+#endif
+
 typedef struct landlock_path_beneath_attr LandlockPathBeneathAttr;
 typedef struct landlock_ruleset_attr LandlockRulesetAttr;
 
