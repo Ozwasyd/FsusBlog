@@ -92,6 +92,13 @@ public static class LocalPublicContentFixtureEndpoints
                     }
                     temporal.RequireExactRequest(requestTemporalContext);
                 }
+                PublicContentVerificationIdentity identity = body.VerificationIdentity
+                    ?? throw new InvalidOperationException("public fixture verification identity is required");
+                if (identity.Namespace != body.Namespace || identity.RunId != body.RunId)
+                {
+                    throw new InvalidOperationException("public fixture prepare identity mismatch");
+                }
+                seeder.ValidateVerificationIdentity(identity);
                 PublicContentFixtureResult result = await seeder.PrepareAsync(
                     body with
                     {
@@ -99,6 +106,8 @@ public static class LocalPublicContentFixtureEndpoints
                         RunId = body.RunId ?? context.Request.Headers[TestRunIdHeaderName].ToString()
                     },
                     cancellationToken).ConfigureAwait(false);
+                result.VerificationProof = seeder.IssueVerificationProof(
+                    identity, result);
                 if (temporal is not null)
                 {
                     System.Data.DataTable observation = await db.Ado.GetDataTableAsync(
@@ -151,6 +160,35 @@ public static class LocalPublicContentFixtureEndpoints
                 LocalPublicContentFixtureSecretHeaderName,
                 TestNamespaceHeaderName,
                 TestRunIdHeaderName))
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
+
+        app.MapPost("/api/local/public-content-fixture/verify", async Task<IResult> (
+                HttpContext context,
+                [FromBody] PublicContentVerificationRequest request,
+                [FromServices] IPublicContentFixtureSeeder seeder,
+                CancellationToken cancellationToken) =>
+            {
+                if (request.Identity.RunId != context.Request.Headers[TestRunIdHeaderName].ToString()
+                    || request.Identity.Namespace != context.Request.Headers[TestNamespaceHeaderName].ToString())
+                {
+                    return Results.BadRequest("public fixture verification header identity mismatch");
+                }
+                try
+                {
+                    return Results.Json(await seeder.VerifyAsync(request, cancellationToken).ConfigureAwait(false));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new
+                    {
+                        message = ex.Message
+                    });
+                }
+            })
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(
+                LocalPublicContentFixtureSecretHeaderName, TestNamespaceHeaderName, TestRunIdHeaderName))
             .AddEndpointFilter(RequireLocalFixtureSecret)
             .AddEndpointFilter(RequireLoopbackCaller);
 

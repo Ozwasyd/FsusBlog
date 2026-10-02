@@ -10,13 +10,13 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     resolveSourceCommit,
     resolveWorktreeFingerprint
-} from '../fact-extractors/identity.mjs';
-import {
+} = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
+const {
     writeFixtureProfileReceipt
-} from '../testing/fixture-catalog.mjs';
+} = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 
 import {
     cleanup,
@@ -30,6 +30,7 @@ import {
     FIXTURE_PREPARE_STATE_SCHEMA,
     FIXTURE_RECEIPT_SCHEMA,
     readFixtureReceipt,
+    writeFixtureIdProjection,
     writePreparedPublicIdProjection,
     writeFixtureReceipt,
     writePrivateJson
@@ -331,6 +332,7 @@ async function main(argv = process.argv.slice(2))
   node tools/test-fixtures/cli.mjs plan --profile <id> --source dev-cli|matrix [--variant-ids <ids>] [sealed opts] [--out plan.json]
   node tools/test-fixtures/cli.mjs prepare --plan plan.json [--out prepare-state.json] [--previous-fixture-receipt path]
   node tools/test-fixtures/cli.mjs verify --receipt prepare-state.json [--out fixture-receipt.json]
+  node tools/test-fixtures/cli.mjs project-verified --receipt fixture-receipt.json --out projection.json
   node tools/test-fixtures/cli.mjs cleanup --receipt prepare-state|fixture-receipt.json [--out out.json]
   node tools/test-fixtures/cli.mjs run --profile <id> --source ... [--out fixture-receipt.json] [--previous-fixture-receipt path]
   node tools/test-fixtures/cli.mjs dev-transition --receipt fixture-receipt.json --profile <id> [execution identity opts]
@@ -474,6 +476,17 @@ async function main(argv = process.argv.slice(2))
             writeAuthoritativeOut(out, next);
         }
         process.stdout.write(`${JSON.stringify(next)}\n`);
+        return;
+    }
+
+    if (command === 'project-verified')
+    {
+        if (!options.receipt || !options.out)
+        {
+            throw new Error('project-verified requires --receipt and --out');
+        }
+        const projection = writeFixtureIdProjection(options.out, readFixtureReceipt(options.receipt));
+        process.stdout.write(`${JSON.stringify(projection)}\n`);
         return;
     }
 

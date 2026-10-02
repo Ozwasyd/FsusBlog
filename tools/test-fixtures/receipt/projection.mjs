@@ -6,13 +6,14 @@
 
 import { digestCanonical, freezeDeep } from './canonical.mjs';
 import { validateFixtureReceipt } from './fixture-receipt.mjs';
+import { runPostcondition } from './postconditions.mjs';
+import { projectPreparedPublicIds } from './prepared-public-projection-contract.mjs';
 import { writePrivateJson } from './private-io.mjs';
 import {
     FIXTURE_ID_PROJECTION_SCHEMA,
     PREPARED_PUBLIC_ID_PROJECTION_SCHEMA
 } from './schemas.mjs';
 import { assertNoSecrets } from './secrets.mjs';
-import { projectPreparedPublicIds } from './prepared-public-projection-contract.mjs';
 
 export { projectPreparedPublicIds } from './prepared-public-projection-contract.mjs';
 
@@ -57,6 +58,32 @@ export function projectFixtureIds(receipt, {
         byKind[entity.kind].push(entity.id);
     }
 
+    const publicReceipt = validated.producerReceipts.find((item) => item.producerId === 'public-content');
+    const requiresPagination = publicReceipt?.providedCapabilities.includes('public.article.pagination-deep');
+    let pagination = null;
+    if (requiresPagination)
+    {
+        const database = publicReceipt.databaseObservation ?? publicReceipt.observations?.database;
+        const checked = runPostcondition('article-pagination-deep', { observations: { database } });
+        if (!checked.ok)
+        {
+            throw new Error(`verified pagination projection rejected: ${checked.reason}`);
+        }
+        const keyset = database.entities.find((item) => item.kind === 'pagination-keyset'
+            && item.owned !== false
+            && (item.capabilityHint === 'article-pagination-deep' || item.postconditionId === 'article-pagination-deep'));
+        const fields = keyset.fields;
+        pagination = {
+            route: fields.route,
+            sort: fields.sort,
+            pageSize: fields.pageSize,
+            generation: fields.generation,
+            articleCount: fields.articleCount,
+            ownedArticleCount: fields.ownedArticleCount,
+            cursors: fields.cursors
+        };
+    }
+
     const projection = freezeDeep({
         schema: FIXTURE_ID_PROJECTION_SCHEMA,
         authority: 'derived-from-verified-fixture-receipt',
@@ -66,6 +93,7 @@ export function projectFixtureIds(receipt, {
         runId: validated.executionIdentity.runId,
         namespace: validated.executionIdentity.namespace,
         catalogDigest: validated.catalogDigest,
+        ...(pagination ? { pagination } : {}),
         entities: Object.freeze(entities.map((item) => freezeDeep(item))),
         idsByKind: freezeDeep(byKind),
         // Convenience single-ID fields when exactly one article/category/tag exists.

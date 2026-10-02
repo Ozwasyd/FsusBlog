@@ -35,6 +35,16 @@ public interface IPublicContentFixtureSeeder
     Task<PublicContentFixtureResult> PrepareAsync(
         PublicContentFixtureRequest request,
         CancellationToken cancellationToken = default);
+
+    PublicContentVerificationProof IssueVerificationProof(
+        PublicContentVerificationIdentity identity,
+        PublicContentFixtureResult result);
+
+    void ValidateVerificationIdentity(PublicContentVerificationIdentity identity);
+
+    Task<PublicContentVerificationResult> VerifyAsync(
+        PublicContentVerificationRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record PublicContentFixtureRequest(
@@ -42,7 +52,8 @@ public sealed record PublicContentFixtureRequest(
     string? Namespace,
     string? RunId,
     JsonElement? TemporalContext = null,
-    PublicContentSecurityMatrixRequest? SecurityMatrix = null);
+    PublicContentSecurityMatrixRequest? SecurityMatrix = null,
+    PublicContentVerificationIdentity? VerificationIdentity = null);
 
 public sealed record PublicContentSecurityMatrixRequest(
     IReadOnlyList<PublicContentSecurityCase> Cases,
@@ -57,6 +68,10 @@ public sealed record PublicContentSecurityCase(
 
 public sealed class PublicContentFixtureResult
 {
+    public PublicContentVerificationProof? VerificationProof
+    {
+        get; set;
+    }
     public required string Strategy
     {
         get; init;
@@ -286,7 +301,7 @@ internal sealed record PublicContentPaginationBoundaryRow(
     long SortValue,
     int PrecedingItemCount);
 
-public sealed class PublicContentFixtureSeeder(
+public sealed partial class PublicContentFixtureSeeder(
     IArticleCoreGateway articles,
     ISqlSugarClient db,
     ICacheStringReader cacheReader,
@@ -327,6 +342,8 @@ public sealed class PublicContentFixtureSeeder(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        _verificationPublicationReceipts.Clear();
+        _verificationLifecycleReceipts.Clear();
         IReadOnlyList<string> capabilities = (request.Capabilities ?? [])
             .Select(static item => item.Trim())
             .Where(static item => item.Length > 0)
@@ -362,7 +379,8 @@ public sealed class PublicContentFixtureSeeder(
             }
 
             await EnsureEmptyOwnedNamespaceAsync(ownerPrefix, cancellationToken).ConfigureAwait(false);
-            return BuildEmptyResult(ns, capabilities);
+            return BuildEmptyResult(ns, capabilities,
+                await ReadVerificationGenerationAsync(cancellationToken, allowAbsent: true).ConfigureAwait(false));
         }
 
         if (!capabilities.Contains("public.article.published", StringComparer.Ordinal)
@@ -487,6 +505,7 @@ public sealed class PublicContentFixtureSeeder(
             (await CanonicalArticlePublicationVerifier.VerifyAsync(
                 db, publication.Receipt, cancellationToken).ConfigureAwait(false)).ThrowIfInvalid();
             int articleId = publication.Receipt.ArticleId;
+            _verificationPublicationReceipts.Add(publication.Receipt);
             await SetViewsAsync(articleId, plan.Views, cancellationToken).ConfigureAwait(false);
             publishedIds.Add(articleId);
             entityIdentities.Add(new("article", articleId.ToString(System.Globalization.CultureInfo.InvariantCulture), plan.Title, "article-published"));
@@ -812,7 +831,7 @@ public sealed class PublicContentFixtureSeeder(
         }
 
         CorePageResult<ArticleListCoreModel> list = await articles.GetPageListAsync(
-            new ArticlePageQuery(1, 10, category.Id, tag.Id, IsDeleted: false, Status: (int)ArticleStatus.Published),
+            new ArticlePageQuery(1, 10, category.Id, tag.Id, IsDeleted: false),
             cancellationToken).ConfigureAwait(false);
         var listIds = list.Items.Select(static item => item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
         if (!requiresDeepPagination)
@@ -876,10 +895,11 @@ public sealed class PublicContentFixtureSeeder(
             });
         }
 
+        StackExchange.Redis.RedisValue[] rankSeed = await ReadVerificationHotSeedAsync(cancellationToken).ConfigureAwait(false);
         var redisKeys = new List<PublicContentRedisKey>
         {
-            new("redis.cache.public", "blog:top_articles", Present: hot.Count > 0, MemberIds: hotOrder),
-            new("redis.cache.public", "featured-hot", Present: featured.Count > 0 || hot.Count > 0, MemberIds: featuredIds)
+            new("redis.cache.public", "blog:top_articles", Present: rankSeed.Length > 0,
+                MemberIds: rankSeed.Select(static item => item.ToString()).ToArray())
         };
 
         var cacheEntries = new List<PublicContentCacheEntry>
@@ -890,7 +910,7 @@ public sealed class PublicContentFixtureSeeder(
                 Endpoint = "article/hot",
                 MatchesDb = true,
                 RequireOwnedVisible = true,
-                VisibleEntityIds = publishedIds.Select(static id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray()
+                VisibleEntityIds = hotOrder
             },
             new()
             {
@@ -918,6 +938,11 @@ public sealed class PublicContentFixtureSeeder(
                 VisibleEntityIds = listIds
             }
         };
+
+        if (requiresDeepPagination && !requiresSearch)
+        {
+            cacheEntries.RemoveAll(static entry => entry.Endpoint == "search");
+        }
 
         return new PublicContentFixtureResult
         {
@@ -954,14 +979,14 @@ public sealed class PublicContentFixtureSeeder(
                 Cache = new PublicContentCacheObservation
                 {
                     Namespace = ns,
-                    Generation = paginationProjection?.Generation ?? timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
+                    Generation = await ReadVerificationGenerationAsync(cancellationToken).ConfigureAwait(false),
                     Entries = cacheEntries
                 }
             }
         };
     }
 
-    private static PublicContentFixtureResult BuildEmptyResult(string ns, IReadOnlyList<string> capabilities)
+    private static PublicContentFixtureResult BuildEmptyResult(string ns, IReadOnlyList<string> capabilities, long generation)
         => new()
         {
             Strategy = Strategy,
@@ -982,14 +1007,13 @@ public sealed class PublicContentFixtureSeeder(
                     Namespace = ns,
                     Keys =
                     [
-                        new("redis.cache.public", "blog:top_articles", Present: false),
-                        new("redis.cache.public", "featured-hot", Present: false)
+                        new("redis.cache.public", "blog:top_articles", Present: false)
                     ]
                 },
                 Cache = new PublicContentCacheObservation
                 {
                     Namespace = ns,
-                    Generation = 0,
+                    Generation = generation,
                     Entries =
                     [
                         new()
@@ -1492,6 +1516,7 @@ public sealed class PublicContentFixtureSeeder(
         entity.Fields["rightsResponsibilityBound"] = result.Receipt.Operations
             .All(static operation => operation.RightsSnapshotId is > 0 && operation.ResponsibilitySnapshotId is > 0);
         entity.Fields["immutableHistoryVerified"] = result.Verification.IsValid;
+        _verificationLifecycleReceipts.Add(result.Receipt);
         if (variant == CanonicalArticleLifecycleVariants.MultipleRevisions)
         {
             entity.Fields["revisionCount"] = result.Receipt.RevisionIds.Count;
