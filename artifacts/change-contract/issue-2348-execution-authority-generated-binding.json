@@ -1,12 +1,13 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "src/backend/Infrastructure/Helpers/JwtHelper.cs"
+        "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+        "tools/docs/behavior-document-consistency-final.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "765b1fb899e07380b847748880b11c00d1749dbd8a181a5e13c11e8ca8e2cd55"
+            "sha256": "11353de437fdea9ae7b45a6ac50e418641528b4d03b966befb8f863d76f1e79d"
         }
     ]
 }
