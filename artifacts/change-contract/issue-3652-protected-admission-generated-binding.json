@@ -15,6 +15,10 @@
     ],
     "outputs": [
         {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "ca0b841d26ab30e765fc5696a88deb11adc6fa3ee69931461c5e161b59d3959e"
+        },
+        {
             "path": "config/testing/correctness-attempt-producers.json",
             "sha256": "0bcd72c7bc24a3883a87ceee237212507644691a127fc7ef38d689959b478f66"
         },
