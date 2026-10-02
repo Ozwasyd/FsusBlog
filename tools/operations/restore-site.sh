@@ -30,6 +30,7 @@ sourceTimeoutSeconds="${FSUSBLOG_BACKUP_CAPTURE_TIMEOUT_SECONDS:-}"
 sourceDeadline=0
 sourceChildPid=""
 sourceCleanupVerified=1
+declare -A sourceChildIdentities=()
 sourceFailureLog="$REPORT_PATH.source-stderr.log"
 restoredSource="null"
 observedDatabase="null"
@@ -121,17 +122,51 @@ ChildGroupEmpty() {
     ! awk -v group="$pid" '$1 == group { found = 1 } END { exit(found ? 0 : 1) }' <<<"$groups"
 }
 
+ReadChildIdentity() {
+    local pid="$1" statLine fields
+    local -a statFields
+    [[ -r "/proc/$pid/stat" ]] || return 1
+    IFS= read -r statLine <"/proc/$pid/stat" || return 1
+    fields="${statLine##*) }"
+    read -r -a statFields <<<"$fields"
+    [[ "${statFields[2]:-}" == "$pid" && "${statFields[19]:-}" =~ ^[0-9]+$ ]] || return 1
+    printf '%s:%s\n' "$pid" "${statFields[19]}"
+}
+
+RegisterChildIdentity() {
+    local pid="$1" identity
+    while ChildRunning "$pid"; do
+        if identity="$(ReadChildIdentity "$pid")"; then
+            sourceChildIdentities["$pid"]="$identity"
+            return 0
+        fi
+        SourceRemaining >/dev/null || return 1
+        sleep 0.01
+    done
+    ChildGroupEmpty "$pid"
+}
+
+SignalOwnedChildGroup() {
+    local signal="$1" pid="$2" actual
+    if [[ -z "${sourceChildIdentities[$pid]:-}" ]] || ! actual="$(ReadChildIdentity "$pid")" \
+        || [[ "$actual" != "${sourceChildIdentities[$pid]}" ]]; then
+        AddBlocker "database-snapshot-child-ownership-unverified"
+        return 1
+    fi
+    kill "-$signal" -- "-$pid" >/dev/null 2>&1 || true
+}
+
 StopSourceChild() {
     local pid="$1" deadline
     [[ -n "$pid" ]] || return 0
     if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
-        kill -TERM -- "-$pid" >/dev/null 2>&1 || true
+        SignalOwnedChildGroup TERM "$pid" || return 1
         deadline=$(( $(SourceNow) + 1 ))
         while ChildRunning "$pid" && (( $(SourceNow) < deadline )); do
             sleep 0.05
         done
         if ChildRunning "$pid" || ! ChildGroupEmpty "$pid"; then
-            kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+            SignalOwnedChildGroup KILL "$pid" || return 1
         fi
         deadline=$(( $(SourceNow) + 1 ))
         while ChildRunning "$pid" && (( $(SourceNow) < deadline )); do
@@ -143,6 +178,7 @@ StopSourceChild() {
         return 1
     fi
     wait "$pid" >/dev/null 2>&1 || true
+    unset 'sourceChildIdentities[$pid]'
 }
 
 WaitSourceChild() {
@@ -161,6 +197,10 @@ RunSourceCommand() {
     remaining="$(SourceRemaining)" || return 1
     timeout --signal=TERM --kill-after=1s "${remaining}s" "$@" <&0 >"$outputPath" 2>>"$sourceFailureLog" &
     sourceChildPid="$!"
+    if ! RegisterChildIdentity "$sourceChildPid"; then
+        StopSourceChild "$sourceChildPid" || sourceCleanupVerified=0
+        return 1
+    fi
     if ! WaitSourceChild "$sourceChildPid"; then
         if StopSourceChild "$sourceChildPid"; then
             sourceChildPid=""
