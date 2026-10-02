@@ -399,6 +399,16 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             throw new InvalidOperationException("article_preservation_operation_step_binding_changed");
     }
 
+    // The recovery owner calls this only on the descriptor resolved from the same
+    // actual closed registry. Matching immutable inputs is not native admission.
+    internal void RequireRecoveryInputBinding(CurrentSchemaArtifactReference sourceArtifact,
+        CurrentSchemaArtifactReference currentArtifact, Guid mediaRunId, CurrentSchemaVerifierIdentity actualTool)
+    {
+        if (sourceArtifact != _sourceReference || currentArtifact != _currentReference
+            || mediaRunId != _configuration.MediaRunId || actualTool != RetainedTool)
+            throw new InvalidOperationException("article_preservation_operation_recovery_inputs_changed");
+    }
+
     internal static void RequireInvocation(string invocation)
     {
         if (string.IsNullOrWhiteSpace(invocation) || invocation.Length > 160 || invocation.Any(char.IsControl)
@@ -527,6 +537,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         }
         internal PgLegacyCurrentSchemaPreparation OriginalStage { get; }
         internal CurrentSchemaDatabaseIdentity Database => _operation._observation.Database;
+        internal CurrentSchemaArtifactReference SourceArtifact => _operation._source.Artifact;
+        internal CurrentSchemaArtifactReference CurrentArtifact => _operation._current.Artifact;
         internal static async Task<PgArticlePreservationStage> CreateAsync(PgArticlePreservationOperation operation,
             PgLegacyCurrentSchemaPreparation originalStage, DbConnection connection, DbTransaction transaction,
             ArticleMediaPublication publication, CancellationToken token)
