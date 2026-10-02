@@ -1683,7 +1683,7 @@
                 },
                 {
                     "path": "tools/style/check-native-tooling-style.mjs",
-                    "sha256": "ca7ddc235953a1cc1dc6fe48b929db1d175861feb71b2913c6786dd7542f8b1e"
+                    "sha256": "952f2fca9f49de53e1dac13645f4b046e08faa9dc1a57ed3719e221d3d87d6f0"
                 }
             ],
             "compileDatabaseCandidates": [

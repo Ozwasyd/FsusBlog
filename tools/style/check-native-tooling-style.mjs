@@ -235,7 +235,7 @@ function SelectFiles(argumentsValue, exclusions)
             .sort();
     }
 
-    let candidates = [];
+    let candidates;
     if (argumentsValue.mode === 'full')
     {
         candidates = GitLines(['ls-files', '--cached', '--others', '--exclude-standard']);
