@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 using Xunit;
 
 using FsusBlog.Migration;
@@ -77,6 +79,76 @@ public sealed class ArticleMediaPreservationTests
         Assert.Null(ArticleMediaPreservation.ResolveLocal("https://external.example/a.png", s_origin, s_origin, "/uploads/", ArticleMediaReferenceKind.Image));
         Assert.Null(ArticleMediaPreservation.ResolveLocal("/article/42", s_origin, s_origin, "/uploads/", ArticleMediaReferenceKind.Attachment));
         Assert.Throws<ArticleMediaException>(() => ArticleMediaPreservation.ResolveLocal("/other/a.png", s_origin, s_origin, "/uploads/", ArticleMediaReferenceKind.Image));
+    }
+
+    [Theory]
+    [InlineData("https://u:p@blog.example/uploads/a.png")]
+    [InlineData("https://user@blog.example/uploads/a.png")]
+    [InlineData("https://u%3Ap@blog.example/uploads/a.png")]
+    public void Locator_UserinfoIsRefusedRatherThanSilentlyDiscardingLocalMedia(string url)
+    {
+        ArticleMediaException error = Assert.Throws<ArticleMediaException>(() => ArticleMediaPreservation.ResolveLocal(
+            url, s_origin, s_origin, "/uploads/", ArticleMediaReferenceKind.Image));
+        Assert.Equal("unsafe_media_url_userinfo", error.Message);
+    }
+
+    [Theory]
+    [InlineData("cover")]
+    [InlineData("image")]
+    [InlineData("attachment")]
+    public async Task Inventory_UserinfoRefusesTheWholeReadsetBeforeTargetWrites(string kind)
+    {
+        using var fixture = new MediaFixture();
+        fixture.WriteSource("a.bin", [1, 2, 3]);
+        const string url = "https://u:p@blog.example/uploads/missing.bin";
+        ArticleMediaSource source = kind switch
+        {
+            "cover" => new(1, url, "[valid](/uploads/a.bin)", s_origin),
+            "image" => new(1, null, "[valid](/uploads/a.bin) ![missing](" + url + ")", s_origin),
+            _ => new(1, null, "[valid](/uploads/a.bin) [missing](" + url + ")", s_origin)
+        };
+        ArticleMediaException error = await Assert.ThrowsAsync<ArticleMediaException>(() => Inventory(fixture, source));
+        Assert.Equal("unsafe_media_url_userinfo", error.Message);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(fixture.Target));
+    }
+
+    [Fact]
+    public async Task SourceDocumentHelperIsTheInventoryDigestAndPreservesEveryRawFieldAndOrder()
+    {
+        using var fixture = new MediaFixture();
+        fixture.WriteSource("a.bin", [1]);
+        var first = new ArticleMediaSource(1, null, "[a](/uploads/a.bin)\r\nraw", s_origin);
+        var second = new ArticleMediaSource(2, "/uploads/a.bin", "unchanged", new Uri(s_origin, "article/2"));
+        ArticleMediaInventory inventory = await ArticleMediaPreservation.InventoryAsync(
+            Documents(), fixture.Source, s_origin, "/uploads/", s_limits, default);
+        Assert.Equal(inventory.SourceDocumentsDigest, Digest(first, second));
+        foreach (ArticleMediaSource changed in new[]
+        {
+            first with { ArticleId = 3 }, first with { Markdown = first.Markdown.Replace("\r\n", "\n", StringComparison.Ordinal) },
+            first with { CoverUrl = "" }, first with { DocumentBase = new Uri(s_origin, "article/1") }
+        })
+        {
+            Assert.NotEqual(inventory.SourceDocumentsDigest, Digest(changed, second));
+        }
+        Assert.NotEqual(inventory.SourceDocumentsDigest, Digest(second, first));
+        ArticleMediaPreservation.ValidateInventory(inventory, s_limits);
+
+        async IAsyncEnumerable<ArticleMediaSource> Documents()
+        {
+            await Task.CompletedTask;
+            yield return first;
+            yield return second;
+        }
+
+        static string Digest(params ArticleMediaSource[] sources)
+        {
+            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            foreach (ArticleMediaSource source in sources)
+            {
+                ArticleMediaPreservation.AppendSourceDocument(hash, source);
+            }
+            return Convert.ToHexStringLower(hash.GetHashAndReset());
+        }
     }
 
     [Fact]

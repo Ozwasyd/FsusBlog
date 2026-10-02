@@ -81,10 +81,7 @@ internal static class ArticleMediaPreservation
             if (!SameOrigin(article.DocumentBase, trustedOrigin)) throw new ArticleMediaException("untrusted_document_base");
             if (s_strictUtf8.GetByteCount(article.Markdown) > limits.MarkdownBytes)
                 throw new ArticleMediaException("markdown_budget");
-            Append(documents, article.ArticleId.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            Append(documents, article.Markdown);
-            Append(documents, article.CoverUrl);
-            Append(documents, article.DocumentBase.AbsoluteUri);
+            AppendSourceDocument(documents, article);
             foreach (var reference in ParseReferences(article))
             {
                 token.ThrowIfCancellationRequested();
@@ -179,6 +176,14 @@ internal static class ArticleMediaPreservation
             foreach (var reference in ParseHtml(source.ArticleId, html.Tag, html.Span.Start)) yield return reference;
     }
 
+    internal static void AppendSourceDocument(IncrementalHash hash, ArticleMediaSource source)
+    {
+        Append(hash, source.ArticleId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(hash, source.Markdown);
+        Append(hash, source.CoverUrl);
+        Append(hash, source.DocumentBase.AbsoluteUri);
+    }
+
     private static IEnumerable<ArticleMediaAlias> ParseHtml(long articleId, string html, int offset)
     {
         // Parse source HTML without scripting, requests or rendering. The public renderer escapes HTML;
@@ -258,6 +263,10 @@ internal static class ArticleMediaPreservation
         {
             if (!Uri.TryCreate(raw, UriKind.Absolute, out absolute)) throw new ArticleMediaException("invalid_media_url");
             if (absolute.Scheme is not ("http" or "https")) return null;
+            if (absolute.UserInfo.Length != 0)
+            {
+                throw new ArticleMediaException("unsafe_media_url_userinfo");
+            }
         }
         var pathText = beforeQuery;
         if (absolute is not null && (absolute.Scheme is "http" or "https"))
@@ -349,7 +358,7 @@ internal static class ArticleMediaPreservation
         }
         return Hex(hash.GetHashAndReset());
     }
-    private static void ValidateInventory(ArticleMediaInventory inventory, ArticleMediaLimits limits)
+    internal static void ValidateInventory(ArticleMediaInventory inventory, ArticleMediaLimits limits)
     {
         if (inventory.Files.IsDefault || inventory.Files.Length > limits.Files || !IsDigest(inventory.SourceDocumentsDigest)
             || inventory.SourceRootIdentity.Length == 0)
