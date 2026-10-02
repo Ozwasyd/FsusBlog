@@ -29,6 +29,11 @@ public static class AuthorArticlePinProjectionVerifier
             reasons.Add("projection_request_invalid");
             return Result(reasons);
         }
+        catch (AuthorArticlePinValidationException)
+        {
+            reasons.Add("projection_request_invalid");
+            return Result(reasons);
+        }
         string articleProjectionDigest = AuthorArticlePinProjectionContract.ComputeArticleProjectionDigest(
             input.ArticleFacts);
         if (input.Collection.Owner != input.Request.Owner
