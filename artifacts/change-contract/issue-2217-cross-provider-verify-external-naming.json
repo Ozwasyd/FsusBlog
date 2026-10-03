@@ -12,6 +12,13 @@
                 "src/migration/OfflineMigrationVerifyEvidence.cs"
             ],
             "reason": "Original migration verification surfaces preserve explicit deployment environment keys, provider selectors and native database identifiers while dispatching through the original owned read contexts; they do not rename those external contracts."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/database-migration.md"
+            ],
+            "reason": "The current migration document preserves external command flags, receipt schema keys and native database identifiers while documenting the original verification boundary; those external contracts are not prose identifiers to rename."
         }
     ]
 }
