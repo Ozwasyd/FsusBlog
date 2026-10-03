@@ -2111,7 +2111,7 @@ export async function runPhysicalExecution({
             const runOwned = (options) => runPhysicalExecution({ ...options, resourceBoundary, resourceContext,
                 processOwner: { ...processOwner, nestedChannel: channel.descriptor }, nestedChannel: channel,
                 controlEnv, policy, residualRoot });
-            channel = await createNestedExecutionChannel({ boundary: resourceBoundary, controlEnv, policy, signal,
+            channel = await createNestedExecutionChannel({ boundary: resourceBoundary, controlEnv, policy, signal, linuxOwnedPrivateTmp,
                 runNested: (options) => runOwned(options) });
             let result;
             let failure = null;
