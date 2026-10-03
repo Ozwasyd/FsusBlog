@@ -23,6 +23,7 @@ import { verifyCanonicalReleaseAuthorityValues }
 import {
   isSameCurrentSchemaTarget,
   isSameCurrentSchemaDatabase,
+  isSameCurrentSchemaBinding,
   validateCurrentSchemaBinding,
   validateCurrentSchemaAdmissionOutput
 } from '../../tools/release/release-manifest-value-contract.mjs'
@@ -99,6 +100,96 @@ test('current schema database equality keeps Object.is numeric identity', () =>
 {
   const value = pureAuthorityFixture().authorities.manifest.value.currentSchema.database
   assert.equal(isSameCurrentSchemaDatabase({ ...value, provider: 0 }, { ...value, provider: -0 }), false)
+})
+
+test('current schema binding equality preserves the exact four-field receipt and native value view', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema
+  assert.equal(isSameCurrentSchemaBinding(value, structuredClone(value)), true)
+  assert.equal(isSameCurrentSchemaBinding(value, Object.fromEntries(Object.entries(value).reverse())), true)
+  const asNullRecords = binding => Object.assign(Object.create(null), binding, {
+    receipt: Object.assign(Object.create(null), binding.receipt),
+    target: Object.assign(Object.create(null), binding.target),
+    database: Object.assign(Object.create(null), binding.database)
+  })
+  assert.equal(isSameCurrentSchemaBinding(asNullRecords(value), asNullRecords(structuredClone(value))), true)
+  for (const field of ['reference', 'sha256'])
+  {
+    const changed = structuredClone(value)
+    changed.receipt[field] = field === 'sha256' ? 'f'.repeat(64) : '.tmp/another-current-receipt.json'
+    assert.equal(isSameCurrentSchemaBinding(value, changed), false, field)
+  }
+  for (const name of ['target', 'database'])
+  {
+    for (const field of Object.keys(value[name]))
+    {
+      const changed = structuredClone(value)
+      changed[name][field] = typeof changed[name][field] === 'number' ? changed[name][field] + 1 : `${changed[name][field]}-changed`
+      assert.equal(isSameCurrentSchemaBinding(value, changed), false, `${name}.${field}`)
+    }
+  }
+  assert.equal(isSameCurrentSchemaBinding(value, { ...value, actualSchemaDigest: 'f'.repeat(64) }), false)
+})
+
+test('current schema binding equality does not treat identically malformed original grammar as valid', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema
+  for (const mutate of [
+    binding => { binding.receipt.reference = '.tmp/latest/current.json' },
+    binding => { binding.receipt.sha256 = `sha256:${binding.receipt.sha256}` },
+    binding => { binding.target.sourceDigest = 'not-a-digest' },
+    binding => { binding.target.modelVersion = '' },
+    binding => { binding.database.provider = 3 },
+    binding => { binding.database.instanceId = ' instance' },
+    binding => { binding.actualSchemaDigest = 'not-a-digest' }
+  ])
+  {
+    const invalid = structuredClone(value)
+    mutate(invalid)
+    const errors = []
+    validateCurrentSchemaBinding(invalid, errors)
+    assert.ok(errors.length > 0)
+    assert.equal(isSameCurrentSchemaBinding(invalid, invalid), false)
+    assert.equal(isSameCurrentSchemaBinding(invalid, structuredClone(invalid)), false)
+  }
+})
+
+test('current schema binding equality refuses incomplete, hidden or caller-extended records without reading getters', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema
+  let getterCalls = 0
+  for (const key of Object.keys(value))
+  {
+    const missing = { ...value }
+    delete missing[key]
+    const accessor = Object.defineProperty({ ...value }, key, { enumerable: true, get() { getterCalls++; return value[key] } })
+    for (const invalid of [missing, accessor, { ...value, [key]: null }, { ...value, [key]: undefined }])
+    {
+      assert.equal(isSameCurrentSchemaBinding(value, invalid), false, key)
+      assert.equal(isSameCurrentSchemaBinding(invalid, invalid), false, key)
+    }
+  }
+  for (const invalid of [null, undefined, [], { ...value, extra: undefined },
+    { ...value, [Symbol('extra')]: undefined }, Object.defineProperty({ ...value }, 'extra', { value: undefined }),
+    Object.assign(Object.create({ inherited: true }), value)])
+  {
+    assert.equal(isSameCurrentSchemaBinding(value, invalid), false)
+  }
+  for (const field of ['reference', 'sha256'])
+  {
+    const missing = { ...value.receipt }
+    delete missing[field]
+    const accessor = Object.defineProperty({ ...value.receipt }, field, { enumerable: true, get() { getterCalls++; return value.receipt[field] } })
+    for (const receipt of [missing, accessor, { ...value.receipt, [field]: 1 },
+      { ...value.receipt, extra: undefined }, { ...value.receipt, [Symbol('extra')]: undefined },
+      Object.defineProperty({ ...value.receipt }, 'extra', { value: undefined }),
+      Object.assign(Object.create(null), value.receipt)])
+    {
+      assert.equal(isSameCurrentSchemaBinding(value, { ...value, receipt }), false)
+    }
+  }
+  assert.equal(isSameCurrentSchemaBinding(value, { ...value, actualSchemaDigest: 1 }), false)
+  assert.equal(getterCalls, 0)
 })
 
 test('Server admission value comparison reuses the sole closed current schema record helpers', () =>
