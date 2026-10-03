@@ -18,6 +18,37 @@ internal interface IOfflineMigrationVerifiedReceiptProducer
 internal sealed class OfflineMigrationOwnedVerifyEvidence(
     OfflineMigrationCurrentSchemaVerificationCapabilities owners) : IOfflineMigrationVerifiedReceiptProducer
 {
+    internal async Task<OfflineMigrationCurrentSchemaIssuedArtifact> VerifyExistingAsync(
+        OfflineMigrationVerifyExistingCommandOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        OfflineMigrationHost.ValidateExistingVerifyOptions(options);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        CurrentSchemaReceiptCodec.RequireDigest(options.Receipt.Sha256);
+        string connectionString = await OfflineMigrationHost.ReadRequiredConnectionStringAsync(
+            options.EnvironmentFilePath, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        OfflineMigrationCurrentSchemaIssuedArtifact verified = options.Request.Database.Provider switch
+        {
+            CurrentSchemaProviderKind.PostgreSql => await WithPostgreSqlConnectionAsync(connectionString,
+                (connection, token) => OfflineMigrationCurrentSchemaIssuer.VerifyExistingArtifactAsync(
+                    options.Receipt, options.Request, connection, owners, token), cancellationToken).ConfigureAwait(false),
+            CurrentSchemaProviderKind.MySql => await OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync(
+                connectionString, (context, token) => OfflineMigrationCurrentSchemaIssuer.VerifyExistingOwnedMySqlAsync(
+                    options.Receipt, options.Request, context, owners, token), cancellationToken).ConfigureAwait(false),
+            CurrentSchemaProviderKind.Sqlite => await OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+                connectionString, (context, token) => OfflineMigrationCurrentSchemaIssuer.VerifyExistingOwnedSqliteAsync(
+                    options.Receipt, options.Request, context, owners, token), cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException("current_verify_native_provider_not_supported")
+        };
+        cancellationToken.ThrowIfCancellationRequested();
+        // Native callbacks have ended and their creator actually awaited cleanup. Re-read
+        // the same explicit artifact with the original owner before returning its bytes.
+        return await OfflineMigrationCurrentSchemaIssuer.RecheckExistingArtifactAsync(options.Receipt,
+            verified.Receipt, verified.Bytes, owners, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<OfflineMigrationCurrentSchemaIssuedArtifact> IssueAsync(
         OfflineMigrationVerifyCommandOptions options, CancellationToken cancellationToken)
     {
@@ -50,12 +81,17 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
     }
 
-    private async Task<CurrentSchemaReceipt> IssuePostgreSqlAsync(
+    private Task<CurrentSchemaReceipt> IssuePostgreSqlAsync(
         OfflineMigrationCurrentSchemaVerifyRequest request, string connectionString,
         CancellationToken cancellationToken)
+        => WithPostgreSqlConnectionAsync(connectionString, (connection, token) =>
+            OfflineMigrationCurrentSchemaIssuer.IssueAsync(request, connection, owners, token), cancellationToken);
+
+    private static async Task<TResult> WithPostgreSqlConnectionAsync<TResult>(string connectionString,
+        Func<NpgsqlConnection, CancellationToken, Task<TResult>> verify, CancellationToken cancellationToken) where TResult : class
     {
         var connection = new NpgsqlConnection(connectionString);
-        CurrentSchemaReceipt? receipt = null;
+        TResult? receipt = null;
         Exception? primary = null;
         try
         {
@@ -63,8 +99,7 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
             // The issuer owns its original same-session read-only transaction, native
             // DB identity, complete journal and operation observers. Nothing is supplied
             // here from a plan's assertions as a substitute for those observations.
-            receipt = await OfflineMigrationCurrentSchemaIssuer.IssueAsync(
-                request, connection, owners, cancellationToken).ConfigureAwait(false);
+            receipt = await verify(connection, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error)
         {
@@ -104,6 +139,16 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
 
 internal static class OfflineMigrationVerifyEvidence
 {
+    internal static OfflineMigrationOwnedVerifyEvidence ComposeOwnedExisting(
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners)
+    {
+        ArgumentNullException.ThrowIfNull(owners);
+        return new(owners);
+    }
+
+    internal static OfflineMigrationOwnedVerifyEvidence CreateOwnedExisting()
+        => ComposeOwnedExisting(OfflineMigrationCurrentSchemaVerificationOwners.CreateOwned());
+
     internal static IOfflineMigrationVerifiedReceiptProducer ComposeOwned(
         OfflineMigrationCurrentSchemaVerificationCapabilities owners)
     {

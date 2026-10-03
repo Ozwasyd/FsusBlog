@@ -65,11 +65,26 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         ValidateRequest(request);
         RequireReference(receiptArtifact);
         OfflineMigrationCurrentSchemaVerificationCapabilities owners = OfflineMigrationCurrentSchemaVerificationOwners.CreateOwned();
+        _ = await VerifyExistingArtifactAsync(receiptArtifact, request, connection, owners, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> VerifyExistingArtifactAsync(
+        CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
+        DbConnection connection, OfflineMigrationCurrentSchemaVerificationCapabilities owners,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateRequest(request);
+        RequireOwners(owners);
+        RequireReference(receiptArtifact);
         ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, cancellationToken)
             .ConfigureAwait(false);
         CurrentSchemaReceipt reported = CurrentSchemaReceiptCodec.Deserialize(bytes);
         CurrentSchemaReceipt observed = await IssueAsync(request, connection, owners, cancellationToken).ConfigureAwait(false);
         ValidateObservedReceipt(reported, observed);
+        return await RecheckExistingArtifactAsync(receiptArtifact, reported, bytes, owners, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     internal static void ValidateObservedReceipt(CurrentSchemaReceipt reported, CurrentSchemaReceipt independentlyObserved)
@@ -84,7 +99,7 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         }
     }
 
-    internal static async Task VerifyExistingOwnedMySqlAsync(
+    internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> VerifyExistingOwnedMySqlAsync(
         CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
         OfflineMigrationMySqlNativeSession.OwnedReadContext context,
         OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
@@ -92,17 +107,26 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         cancellationToken.ThrowIfCancellationRequested();
         ValidateRequest(request);
         RequireOwners(owners);
+        RequireReference(receiptArtifact);
+        if (request.Database.Provider != CurrentSchemaProviderKind.MySql)
+            throw new InvalidOperationException("current_verify_native_provider_not_supported");
         ArgumentNullException.ThrowIfNull(context);
         using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
         await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
-        CurrentSchemaReceipt reported = await ReadReportedReceiptAsync(receiptArtifact, request, owners, scope.Token)
+        ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, scope.Token)
             .ConfigureAwait(false);
+        CurrentSchemaReceipt reported = CurrentSchemaReceiptCodec.Deserialize(bytes);
         CurrentSchemaReceipt observed = await IssueOwnedMySqlAsync(request, context, owners, scope.Token).ConfigureAwait(false);
         ValidateObservedReceipt(reported, observed);
         scope.Token.ThrowIfCancellationRequested();
+        OfflineMigrationCurrentSchemaIssuedArtifact verified = await RecheckExistingArtifactAsync(
+            receiptArtifact, reported, bytes, owners, scope.Token).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        scope.Token.ThrowIfCancellationRequested();
+        return verified;
     }
 
-    internal static async Task VerifyExistingOwnedSqliteAsync(
+    internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> VerifyExistingOwnedSqliteAsync(
         CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
         OfflineMigrationSqliteNativeSession.OwnedReadContext context,
         OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
@@ -110,27 +134,43 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         cancellationToken.ThrowIfCancellationRequested();
         ValidateRequest(request);
         RequireOwners(owners);
+        RequireReference(receiptArtifact);
+        if (request.Database.Provider != CurrentSchemaProviderKind.Sqlite)
+            throw new InvalidOperationException("current_verify_native_provider_not_supported");
         ArgumentNullException.ThrowIfNull(context);
         using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
         await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
-        CurrentSchemaReceipt reported = await ReadReportedReceiptAsync(receiptArtifact, request, owners, scope.Token)
+        ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, scope.Token)
             .ConfigureAwait(false);
+        CurrentSchemaReceipt reported = CurrentSchemaReceiptCodec.Deserialize(bytes);
         CurrentSchemaReceipt observed = await IssueOwnedSqliteAsync(request, context, owners, scope.Token).ConfigureAwait(false);
         ValidateObservedReceipt(reported, observed);
         scope.Token.ThrowIfCancellationRequested();
+        OfflineMigrationCurrentSchemaIssuedArtifact verified = await RecheckExistingArtifactAsync(
+            receiptArtifact, reported, bytes, owners, scope.Token).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        scope.Token.ThrowIfCancellationRequested();
+        return verified;
     }
 
-    private static async Task<CurrentSchemaReceipt> ReadReportedReceiptAsync(
-        CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
+    internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> RecheckExistingArtifactAsync(
+        CurrentSchemaArtifactReference receiptArtifact, CurrentSchemaReceipt reported, ReadOnlyMemory<byte> originalBytes,
         OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateRequest(request);
         RequireOwners(owners);
         RequireReference(receiptArtifact);
         ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, cancellationToken)
             .ConfigureAwait(false);
-        return CurrentSchemaReceiptCodec.Deserialize(bytes);
+        if (!bytes.Span.SequenceEqual(originalBytes.Span))
+        {
+            throw new InvalidOperationException("current_verify_existing_artifact_changed");
+        }
+        ValidateObservedReceipt(reported, CurrentSchemaReceiptCodec.Deserialize(bytes));
+        cancellationToken.ThrowIfCancellationRequested();
+        // Return the original artifact, not the independently recomputed receipt or a
+        // newly issued seal. The producer repeats this check after native cleanup.
+        return new(receiptArtifact, reported, bytes);
     }
 
     internal static async Task<CurrentSchemaReceipt> IssueAsync(

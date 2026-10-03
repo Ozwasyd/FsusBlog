@@ -16,6 +16,152 @@ public sealed class OfflineMigrationVerifyCommandTests
     private const string Digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     [Theory]
+    [InlineData("postgresql", CurrentSchemaProviderKind.PostgreSql)]
+    [InlineData("mysql", CurrentSchemaProviderKind.MySql)]
+    [InlineData("sqlite", CurrentSchemaProviderKind.Sqlite)]
+    public void VerifyExisting_OriginalExplicitInputsHaveNoPublicationDestination(string provider, CurrentSchemaProviderKind expected)
+    {
+        using var directory = new OwnedDirectory();
+        string[] args = ExistingArguments(directory.Path);
+        args[Array.IndexOf(args, "--provider") + 1] = provider;
+        OfflineMigrationVerifyExistingCommandOptions options = OfflineMigrationCommandLine.ParseVerifyExisting(args);
+        Assert.Equal(expected, options.Request.Database.Provider);
+        Assert.Equal(System.IO.Path.Combine(directory.Path, "current-receipt.json"), options.Receipt.Reference);
+        Assert.Equal(Digest, options.Receipt.Sha256);
+        Assert.Equal(2, options.Request.Checkpoints.Length);
+        Assert.Equal("invocation", options.Request.InvocationId);
+        Assert.Equal(30, options.TimeoutSeconds);
+        OfflineMigrationHost.ValidateExistingVerifyOptions(options);
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationCommandLine.ParseVerify(args));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
+
+    [Theory]
+    [InlineData("output")]
+    [InlineData("missing-path")]
+    [InlineData("missing-sha")]
+    [InlineData("duplicate")]
+    [InlineData("relative")]
+    [InlineData("latest")]
+    [InlineData("seal-as-file-sha")]
+    [InlineData("plan-conflict")]
+    [InlineData("env-conflict")]
+    public void VerifyExisting_AmbiguousOrUnboundReceiptArgumentsRefuseBeforeIo(string change)
+    {
+        using var directory = new OwnedDirectory();
+        var args = ExistingArguments(directory.Path).ToList();
+        if (change == "output") args.AddRange(["--output", System.IO.Path.Combine(directory.Path, "new.json")]);
+        else if (change is "missing-path" or "missing-sha")
+            args.RemoveRange(args.IndexOf(change == "missing-path" ? "--receipt" : "--receipt-sha256"), 2);
+        else if (change == "duplicate") args.AddRange(["--receipt", System.IO.Path.Combine(directory.Path, "other.json")]);
+        else if (change == "seal-as-file-sha") args[args.IndexOf("--receipt-sha256") + 1] = "semantic-seal";
+        else args[args.IndexOf("--receipt") + 1] = change switch
+        {
+            "relative" => "current-receipt.json",
+            "latest" => System.IO.Path.Combine(directory.Path, "latest", "current-receipt.json"),
+            "plan-conflict" => args[args.IndexOf("--plan") + 1],
+            "env-conflict" => args[args.IndexOf("--env-file") + 1],
+            _ => throw new InvalidOperationException()
+        };
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationCommandLine.ParseVerifyExisting(args));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
+
+    [Theory]
+    [InlineData("postgresql")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    public async Task VerifyExisting_MissingOwnerRefusesBeforeCredentialsOrNative(string provider)
+    {
+        using var directory = new OwnedDirectory();
+        string[] args = ExistingArguments(directory.Path);
+        args[Array.IndexOf(args, "--provider") + 1] = provider;
+        OfflineMigrationVerifyExistingCommandOptions options = OfflineMigrationCommandLine.ParseVerifyExisting(args);
+        var artifacts = Substitute.For<IOfflineMigrationVerificationArtifactReader>();
+        var authority = Substitute.For<IOfflineMigrationCurrentSchemaVerificationAuthority>();
+        var operations = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
+        OfflineMigrationOwnedVerifyEvidence verifier = OfflineMigrationVerifyEvidence.ComposeOwnedExisting(
+            new(artifacts, null!, authority, operations));
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationHost.VerifyExistingWithinBudgetAsync(options, () => verifier, TextWriter.Null, CancellationToken.None));
+        Assert.Equal("current_verify_native_owners_not_configured", failure.Message);
+        Assert.Empty(artifacts.ReceivedCalls());
+        Assert.Empty(authority.ReceivedCalls());
+        Assert.Empty(operations.ReceivedCalls());
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
+
+    [Theory]
+    [InlineData("cancel")]
+    [InlineData("budget")]
+    public async Task VerifyExisting_OriginalCancellationAndBudgetRefuseBeforeConstruction(string change)
+    {
+        using var directory = new OwnedDirectory();
+        OfflineMigrationVerifyExistingCommandOptions options = OfflineMigrationCommandLine.ParseVerifyExisting(ExistingArguments(directory.Path));
+        using var cancellation = new CancellationTokenSource();
+        if (change == "cancel") cancellation.Cancel();
+        else options = options with { TimeoutSeconds = 0 };
+        bool constructed = false;
+        Task Invoke() => OfflineMigrationHost.VerifyExistingWithinBudgetAsync(options, () =>
+        {
+            constructed = true;
+            throw new InvalidOperationException("fixture must not construct");
+        }, TextWriter.Null, cancellation.Token);
+        if (change == "cancel") await Assert.ThrowsAnyAsync<OperationCanceledException>(Invoke);
+        else await Assert.ThrowsAsync<InvalidOperationException>(Invoke);
+        Assert.False(constructed);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
+
+    [Theory]
+    [InlineData("unchanged")]
+    [InlineData("bytes")]
+    [InlineData("seal")]
+    [InlineData("cancel-after-read")]
+    public async Task VerifyExisting_OriginalArtifactRecheckIsOnlyAByteBoundaryNotNativeAdmission(string change)
+    {
+        using var directory = new OwnedDirectory();
+        OfflineMigrationVerifyCommandOptions original = OfflineMigrationCommandLine.ParseVerify(Arguments(directory.Path));
+        OfflineMigrationCurrentSchemaIssuedArtifact artifact = CodecFixture(original);
+        CurrentSchemaArtifactReference reference = new(original.OutputPath, artifact.Reference.Sha256);
+        var reader = Substitute.For<IOfflineMigrationVerificationArtifactReader>();
+        using var cancellation = new CancellationTokenSource();
+        byte[] returned = artifact.Bytes.ToArray();
+        if (change == "bytes") returned[^1] ^= 1;
+        reader.ReadAsync(reference, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            if (change == "cancel-after-read") cancellation.Cancel();
+            return Task.FromResult<ReadOnlyMemory<byte>>(returned);
+        });
+        CurrentSchemaReceipt reported = artifact.Receipt;
+        if (change == "seal")
+        {
+            reported = reported with { ActualSchemaDigest = new string('b', 64) };
+            reported = reported with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(reported) };
+        }
+        var owners = new OfflineMigrationCurrentSchemaVerificationCapabilities(reader,
+            Substitute.For<IOfflineMigrationCurrentSchemaObserver>(),
+            Substitute.For<IOfflineMigrationCurrentSchemaVerificationAuthority>(),
+            Substitute.For<IOfflineMigrationApplyOperationRegistry>());
+        Task<OfflineMigrationCurrentSchemaIssuedArtifact> Invoke() => OfflineMigrationCurrentSchemaIssuer.RecheckExistingArtifactAsync(
+            reference, reported, artifact.Bytes, owners, cancellation.Token);
+        if (change == "unchanged")
+        {
+            OfflineMigrationCurrentSchemaIssuedArtifact same = await Invoke();
+            Assert.Equal(reference, same.Reference);
+            Assert.Equal(artifact.Bytes.ToArray(), same.Bytes.ToArray());
+            Assert.Equal(artifact.Receipt.ContentDigest, same.Receipt.ContentDigest);
+            Assert.NotEqual(same.Reference.Sha256, same.Receipt.ContentDigest);
+        }
+        else if (change == "cancel-after-read") await Assert.ThrowsAnyAsync<OperationCanceledException>(Invoke);
+        else await Assert.ThrowsAsync<InvalidOperationException>(Invoke);
+        Assert.Empty(owners.CurrentSchema.ReceivedCalls());
+        Assert.Empty(owners.Authority.ReceivedCalls());
+        Assert.Empty(owners.Operations.ReceivedCalls());
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
+
+    [Theory]
     [InlineData("postgresql")]
     [InlineData("mysql")]
     [InlineData("sqlite")]
@@ -292,6 +438,14 @@ public sealed class OfflineMigrationVerifyCommandTests
         var primary = new OperationCanceledException();
         Assert.Same(primary, Assert.Throws<OperationCanceledException>(() => OfflineMigrationOwnedVerifyEvidence.ThrowObservedFailure(primary)));
         OfflineMigrationOwnedVerifyEvidence.ThrowObservedFailure(null);
+    }
+
+    private static string[] ExistingArguments(string root)
+    {
+        var args = Arguments(root).ToList();
+        args[args.IndexOf("--output")] = "--receipt";
+        args.AddRange(["--receipt-sha256", Digest]);
+        return args.ToArray();
     }
 
     private static string[] Arguments(string root) => ["verify", "--provider", "postgresql", "--instance-id", "instance",

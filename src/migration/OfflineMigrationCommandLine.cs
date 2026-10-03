@@ -41,6 +41,12 @@ internal sealed record OfflineMigrationVerifyCommandOptions(
     string OutputPath,
     int TimeoutSeconds);
 
+internal sealed record OfflineMigrationVerifyExistingCommandOptions(
+    OfflineMigrationCurrentSchemaVerifyRequest Request,
+    string EnvironmentFilePath,
+    CurrentSchemaArtifactReference Receipt,
+    int TimeoutSeconds);
+
 internal sealed record OfflineMigrationApplyCommandOptions(
     CurrentSchemaDatabaseIdentity Database,
     string EnvironmentFilePath,
@@ -197,13 +203,24 @@ internal static class OfflineMigrationCommandLine
     }
 
     internal static OfflineMigrationVerifyCommandOptions ParseVerify(IReadOnlyList<string> args)
+        => ParseVerifyArguments(args, consumeExisting: false).Options;
+
+    internal static OfflineMigrationVerifyExistingCommandOptions ParseVerifyExisting(IReadOnlyList<string> args)
+    {
+        var parsed = ParseVerifyArguments(args, consumeExisting: true);
+        return new(parsed.Options.Request, parsed.Options.EnvironmentFilePath, parsed.Receipt!, parsed.Options.TimeoutSeconds);
+    }
+
+    private static (OfflineMigrationVerifyCommandOptions Options, CurrentSchemaArtifactReference? Receipt)
+        ParseVerifyArguments(IReadOnlyList<string> args, bool consumeExisting)
     {
         if (args.Count == 0 || args[0] != "verify")
         {
             throw new InvalidOperationException("schema_verify_command_required");
         }
         string[] required = ["--provider", "--instance-id", "--database-id", "--env-file", "--plan", "--plan-sha256",
-            "--apply", "--apply-sha256", "--invocation-id", "--output", "--timeout-seconds"];
+            "--apply", "--apply-sha256", "--invocation-id", "--timeout-seconds"];
+        required = required.Concat(consumeExisting ? new[] { "--receipt", "--receipt-sha256" } : new[] { "--output" }).ToArray();
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var checkpoints = ImmutableArray.CreateBuilder<CurrentSchemaArtifactReference>();
         for (int index = 1; index < args.Count; index++)
@@ -244,7 +261,7 @@ internal static class OfflineMigrationCommandLine
             throw new InvalidOperationException("schema_verify_timeout_invalid");
         }
         string environment = CanonicalPath(values["--env-file"]);
-        string output = CanonicalPath(values["--output"]);
+        string output = CanonicalPath(values[consumeExisting ? "--receipt" : "--output"]);
         var request = new OfflineMigrationCurrentSchemaVerifyRequest(
             Reference(values["--plan"], values["--plan-sha256"]),
             Reference(values["--apply"], values["--apply-sha256"]), checkpoints.ToImmutable(),
@@ -254,9 +271,11 @@ internal static class OfflineMigrationCommandLine
         if (new[] { request.Plan.Reference, request.Apply.Reference, environment }
             .Concat(request.Checkpoints.Select(value => value.Reference)).Contains(output, StringComparer.Ordinal))
         {
-            throw new InvalidOperationException("schema_verify_output_conflicts_with_input");
+            throw new InvalidOperationException(consumeExisting ? "schema_verify_receipt_conflicts_with_input"
+                : "schema_verify_output_conflicts_with_input");
         }
-        return new(request, environment, output, seconds);
+        return (new(request, environment, output, seconds), consumeExisting
+            ? Reference(output, values["--receipt-sha256"]) : null);
 
         string ReadExact(ref int index)
         {

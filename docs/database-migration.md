@@ -263,6 +263,25 @@ complete current-schema physical/effect observers or registered operation owners
 remain refusals; these infrastructure routes are not proof of three-provider
 verification, compilation, real database execution or startup acceptance.
 
+The same original `verify` stage has an explicit read-only existing-artifact mode:
+`--receipt <original-absolute-path> --receipt-sha256 <whole-file-sha256>` replaces
+`--output`; the two modes cannot be combined. The original provider/database,
+environment, plan/apply, invocation, every ordered checkpoint and finite timeout
+remain mandatory. The receipt cannot alias any of those inputs or `latest`.
+This mode invokes the original independent verifier through the process-owned
+native read context, recomputing the complete schema, journal, every checkpoint,
+semantic postconditions and retained source/backup/tool bindings. It does not
+publish, overwrite or reseal a receipt. After actual creator cleanup it re-reads
+the same original bounded artifact and checks cancellation before responding.
+The response contains the original v1 `receipt` and `receiptRef` with separate
+`path`, whole-byte `fileDigest`, semantic `contentDigest` and original `schema`.
+It is not a second receipt or a signed runtime/run/attempt authority. Only the
+original admitted post-runtime execution and raw collector may bind that actual
+command, candidate, inputs and response to deployment evidence; a supplied JSON
+status, self-seal or arbitrary successful callback cannot do so. No pre-admission
+candidate/DB spawn, missing capability fallback or release-final producer repair
+is introduced by this consumer route.
+
 The current `CreateOwnedReader` fails with
 `schema_offline_plan_evidence_owner_not_configured`: source profiles are registered,
 but the original backup owner's authenticated invocation still needs its concrete
@@ -559,7 +578,7 @@ record. Actual original target/operation factories and retained-backup/tool prov
 must supply those ports; the ordinary default entry remains refused while that
 complete process-owned configuration is absent.
 
-The offline Host's `verify` command requires explicit PostgreSQL instance/database
+The offline Host's `verify` issuance command requires explicit provider/instance/database
 identity, environment file, original plan/apply paths and their whole-byte SHA-256,
 invocation ID, ordered `--checkpoint <absolute-path> <sha256>` pairs, output path and
 `--timeout-seconds`. Paths are canonical, never `latest`, and the output must not

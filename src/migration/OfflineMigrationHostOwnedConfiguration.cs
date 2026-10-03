@@ -152,4 +152,6 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
             _verification.Authority, _verification.Operations), Clock);
     internal IOfflineMigrationVerifiedReceiptProducer CreateVerifyProducer()
         => OfflineMigrationVerifyEvidence.ComposeOwned(_verification);
+    internal OfflineMigrationOwnedVerifyEvidence CreateExistingReceiptVerifier()
+        => OfflineMigrationVerifyEvidence.ComposeOwnedExisting(_verification);
 }
