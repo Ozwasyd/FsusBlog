@@ -13,6 +13,8 @@ internal interface IOfflineMigrationCurrentSchemaObserver
     // read-only snapshot; reject every unknown, missing or extra physical object.
     // observedDatabase comes from the issuer's native identity read on this exact
     // session, not request/plan fields or an observer-owned second capture.
+    // A provider's source fingerprint/catalog-only reader cannot fill this port:
+    // every complete current physical/effect projection must be independently checked.
     Task<CurrentSchemaAdmissionObservation> ObserveAsync(
         DbConnection connection, DbTransaction transaction,
         CurrentSchemaDatabaseIdentity observedDatabase, CancellationToken cancellationToken);

@@ -1,7 +1,12 @@
 using System.Collections.Immutable;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
+using Microsoft.Data.Sqlite;
+using MySqlConnector;
+using NSubstitute;
 
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
@@ -14,6 +19,81 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
 {
     private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
     private static readonly string s_digest = new('a', 64);
+
+    [Theory]
+    [InlineData(CurrentSchemaProviderKind.MySql)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite)]
+    public async Task RawProviderConnection_DoesNotMintOriginalReadContext(CurrentSchemaProviderKind provider)
+    {
+        OfflineMigrationCurrentSchemaVerifyRequest request = CreateFixture().Request;
+        request = request with { Database = request.Database with { Provider = provider } };
+        var artifacts = Substitute.For<IOfflineMigrationVerificationArtifactReader>();
+        var current = Substitute.For<IOfflineMigrationCurrentSchemaObserver>();
+        var authority = Substitute.For<IOfflineMigrationCurrentSchemaVerificationAuthority>();
+        var operations = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
+        var owners = new OfflineMigrationCurrentSchemaVerificationCapabilities(artifacts, current, authority, operations);
+        using DbConnection connection = provider == CurrentSchemaProviderKind.MySql
+            ? new MySqlConnection() : new SqliteConnection();
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationCurrentSchemaIssuer.IssueAsync(request, connection, owners, CancellationToken.None));
+        Assert.Equal("current_verify_original_owned_read_context_required", failure.Message);
+        Assert.Equal(System.Data.ConnectionState.Closed, connection.State);
+        Assert.Empty(artifacts.ReceivedCalls());
+        Assert.Empty(current.ReceivedCalls());
+        Assert.Empty(authority.ReceivedCalls());
+        Assert.Empty(operations.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(CurrentSchemaProviderKind.PostgreSql)]
+    [InlineData(CurrentSchemaProviderKind.MySql)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite)]
+    public async Task RequestProvider_DoesNotSupplyMissingNativeOwners(CurrentSchemaProviderKind provider)
+    {
+        OfflineMigrationCurrentSchemaVerifyRequest request = CreateFixture().Request;
+        request = request with { Database = request.Database with { Provider = provider } };
+        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(request);
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationCurrentSchemaIssuer.IssueArtifactAsync(request, null!, CancellationToken.None));
+        Assert.Equal("current_verify_native_owners_not_configured", failure.Message);
+    }
+
+    [Theory]
+    [InlineData(CurrentSchemaProviderKind.MySql, false)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite, false)]
+    [InlineData(CurrentSchemaProviderKind.MySql, true)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite, true)]
+    public async Task OwnedRead_MissingContextOrCancellationDoesNotReadArtifacts(CurrentSchemaProviderKind provider, bool cancelled)
+    {
+        OfflineMigrationCurrentSchemaVerifyRequest request = CreateFixture().Request;
+        request = request with { Database = request.Database with { Provider = provider } };
+        var artifacts = Substitute.For<IOfflineMigrationVerificationArtifactReader>();
+        var current = Substitute.For<IOfflineMigrationCurrentSchemaObserver>();
+        var authority = Substitute.For<IOfflineMigrationCurrentSchemaVerificationAuthority>();
+        var operations = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
+        var owners = new OfflineMigrationCurrentSchemaVerificationCapabilities(artifacts, current, authority, operations);
+        using var cancellation = new CancellationTokenSource();
+        if (cancelled)
+        {
+            cancellation.Cancel();
+        }
+        Task<CurrentSchemaReceipt> Invoke()
+            => provider == CurrentSchemaProviderKind.MySql
+                ? OfflineMigrationCurrentSchemaIssuer.IssueOwnedMySqlAsync(request, null!, owners, cancellation.Token)
+                : OfflineMigrationCurrentSchemaIssuer.IssueOwnedSqliteAsync(request, null!, owners, cancellation.Token);
+        if (cancelled)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(Invoke);
+        }
+        else
+        {
+            Assert.Equal("context", (await Assert.ThrowsAsync<ArgumentNullException>(Invoke)).ParamName);
+        }
+        Assert.Empty(artifacts.ReceivedCalls());
+        Assert.Empty(current.ReceivedCalls());
+        Assert.Empty(authority.ReceivedCalls());
+        Assert.Empty(operations.ReceivedCalls());
+    }
 
     [Theory]
     [InlineData("original-bytes")]
@@ -197,7 +277,7 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
             },
             "unsupported-provider" => fixture.Request with
             {
-                Database = fixture.Request.Database with { Provider = CurrentSchemaProviderKind.MySql }
+                Database = fixture.Request.Database with { Provider = (CurrentSchemaProviderKind)int.MaxValue }
             },
             "empty-checkpoints" => fixture.Request with { Checkpoints = [] },
             "default-checkpoints" => fixture.Request with { Checkpoints = default },

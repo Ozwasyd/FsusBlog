@@ -3,16 +3,60 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using NSubstitute;
+using Xunit;
+
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
-
-using Xunit;
 
 namespace FsusBlog.Migration.Tests;
 
 public sealed class OfflineMigrationVerifyCommandTests
 {
     private const string Digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    [Theory]
+    [InlineData("postgresql")]
+    [InlineData("mysql")]
+    [InlineData("sqlite")]
+    public async Task Verify_MissingCurrentOwnerRefusesBeforeCredentialsAndNativeSession(string provider)
+    {
+        using var directory = new OwnedDirectory();
+        string[] args = Arguments(directory.Path);
+        args[Array.IndexOf(args, "--provider") + 1] = provider;
+        OfflineMigrationVerifyCommandOptions options = OfflineMigrationCommandLine.ParseVerify(args);
+        var artifacts = Substitute.For<IOfflineMigrationVerificationArtifactReader>();
+        var authority = Substitute.For<IOfflineMigrationCurrentSchemaVerificationAuthority>();
+        var operations = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
+        IOfflineMigrationVerifiedReceiptProducer producer = OfflineMigrationVerifyEvidence.ComposeOwned(
+            new(artifacts, null!, authority, operations));
+        using var cancellation = new CancellationTokenSource();
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            producer.IssueAsync(options, cancellation.Token));
+        Assert.Equal("current_verify_native_owners_not_configured", failure.Message);
+        Assert.Empty(artifacts.ReceivedCalls());
+        Assert.Empty(authority.ReceivedCalls());
+        Assert.Empty(operations.ReceivedCalls());
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
+
+    [Theory]
+    [InlineData("postgresql", CurrentSchemaProviderKind.PostgreSql)]
+    [InlineData("mysql", CurrentSchemaProviderKind.MySql)]
+    [InlineData("sqlite", CurrentSchemaProviderKind.Sqlite)]
+    public void Verify_ExplicitProviderIsPreservedWithoutNativeAdmission(string provider, CurrentSchemaProviderKind expected)
+    {
+        using var directory = new OwnedDirectory();
+        string[] args = Arguments(directory.Path);
+        args[Array.IndexOf(args, "--provider") + 1] = provider;
+        OfflineMigrationVerifyCommandOptions parsed = OfflineMigrationCommandLine.ParseVerify(args);
+        Assert.Equal(expected, parsed.Request.Database.Provider);
+        Assert.Equal("instance", parsed.Request.Database.InstanceId);
+        Assert.Equal("database", parsed.Request.Database.DatabaseId);
+        Assert.Equal(2, parsed.Request.Checkpoints.Length);
+        Assert.Equal(30, parsed.TimeoutSeconds);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(directory.Path));
+    }
 
     [Fact]
     public void Verify_ExplicitOriginalArtifactsKeepOrderedCheckpointsAndDatabase()
@@ -38,7 +82,7 @@ public sealed class OfflineMigrationVerifyCommandTests
     [InlineData("--timeout-seconds", "1e2")]
     [InlineData("--timeout-seconds", "2147484")]
     [InlineData("--timeout-seconds", " 30")]
-    [InlineData("--provider", "mysql")]
+    [InlineData("--provider", "mysql-latest")]
     [InlineData("--plan", "relative.json")]
     [InlineData("--plan-sha256", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
     [InlineData("--invocation-id", "invocation\n")]

@@ -34,7 +34,7 @@ internal static class OfflineMigrationCurrentSchemaIssuer
 
     // The normal host route cannot substitute arbitrary callbacks for missing owners.
     internal static Task<CurrentSchemaReceipt> IssueAsync(
-        OfflineMigrationCurrentSchemaVerifyRequest request, NpgsqlConnection connection,
+        OfflineMigrationCurrentSchemaVerifyRequest request, DbConnection connection,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -44,7 +44,7 @@ internal static class OfflineMigrationCurrentSchemaIssuer
     }
 
     internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> IssueArtifactAsync(
-        OfflineMigrationCurrentSchemaVerifyRequest request, NpgsqlConnection connection,
+        OfflineMigrationCurrentSchemaVerifyRequest request, DbConnection connection,
         CancellationToken cancellationToken)
     {
         CurrentSchemaReceipt receipt = await IssueAsync(request, connection, cancellationToken).ConfigureAwait(false);
@@ -58,7 +58,7 @@ internal static class OfflineMigrationCurrentSchemaIssuer
     // of the recomputed receipt, rather than copied from the supplied JSON.
     internal static async Task VerifyExistingAsync(
         CurrentSchemaArtifactReference receiptArtifact,
-        OfflineMigrationCurrentSchemaVerifyRequest request, NpgsqlConnection connection,
+        OfflineMigrationCurrentSchemaVerifyRequest request, DbConnection connection,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -84,36 +84,71 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         }
     }
 
+    internal static async Task VerifyExistingOwnedMySqlAsync(
+        CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateRequest(request);
+        RequireOwners(owners);
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        CurrentSchemaReceipt reported = await ReadReportedReceiptAsync(receiptArtifact, request, owners, scope.Token)
+            .ConfigureAwait(false);
+        CurrentSchemaReceipt observed = await IssueOwnedMySqlAsync(request, context, owners, scope.Token).ConfigureAwait(false);
+        ValidateObservedReceipt(reported, observed);
+        scope.Token.ThrowIfCancellationRequested();
+    }
+
+    internal static async Task VerifyExistingOwnedSqliteAsync(
+        CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
+        OfflineMigrationSqliteNativeSession.OwnedReadContext context,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateRequest(request);
+        RequireOwners(owners);
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        CurrentSchemaReceipt reported = await ReadReportedReceiptAsync(receiptArtifact, request, owners, scope.Token)
+            .ConfigureAwait(false);
+        CurrentSchemaReceipt observed = await IssueOwnedSqliteAsync(request, context, owners, scope.Token).ConfigureAwait(false);
+        ValidateObservedReceipt(reported, observed);
+        scope.Token.ThrowIfCancellationRequested();
+    }
+
+    private static async Task<CurrentSchemaReceipt> ReadReportedReceiptAsync(
+        CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateRequest(request);
+        RequireOwners(owners);
+        RequireReference(receiptArtifact);
+        ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        return CurrentSchemaReceiptCodec.Deserialize(bytes);
+    }
+
     internal static async Task<CurrentSchemaReceipt> IssueAsync(
-        OfflineMigrationCurrentSchemaVerifyRequest request, NpgsqlConnection connection,
+        OfflineMigrationCurrentSchemaVerifyRequest request, DbConnection connection,
         OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
     {
         ValidateRequest(request);
-        ArgumentNullException.ThrowIfNull(owners);
-        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
-        {
-            throw new InvalidOperationException("current_verify_native_owners_not_configured");
-        }
+        RequireOwners(owners);
         cancellationToken.ThrowIfCancellationRequested();
-        ReadOnlyMemory<byte> planBytes = await ReadArtifactAsync(request.Plan, owners.Artifacts, cancellationToken)
-            .ConfigureAwait(false);
-        OfflineMigrationPlan plan = DecodeArtifact<OfflineMigrationPlan>(planBytes);
-        ReadOnlyMemory<byte> applyBytes = await ReadArtifactAsync(request.Apply, owners.Artifacts, cancellationToken)
-            .ConfigureAwait(false);
-        OfflineMigrationApplyResult apply = DecodeArtifact<OfflineMigrationApplyResult>(applyBytes);
-        var checkpoints = ImmutableArray.CreateBuilder<OfflineMigrationApplyCheckpoint>(request.Checkpoints.Length);
-        foreach (CurrentSchemaArtifactReference reference in request.Checkpoints)
+        if (request.Database.Provider != CurrentSchemaProviderKind.PostgreSql || connection is not NpgsqlConnection)
         {
-            checkpoints.Add(DecodeArtifact<OfflineMigrationApplyCheckpoint>(
-                await ReadArtifactAsync(reference, owners.Artifacts, cancellationToken).ConfigureAwait(false)));
+            throw new InvalidOperationException("current_verify_original_owned_read_context_required");
         }
-        ImmutableArray<OfflineMigrationApplyCheckpoint> exactCheckpoints = checkpoints.MoveToImmutable();
-        ValidateReportedApply(request, plan, apply, exactCheckpoints);
+        VerifyArtifactInputs prepared = await ReadVerifyInputsAsync(request, owners, cancellationToken).ConfigureAwait(false);
         if (connection.State != ConnectionState.Open)
         {
             throw new InvalidOperationException("current_verify_native_connection_not_open");
         }
-
         DbTransaction transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken)
             .ConfigureAwait(false);
         CurrentSchemaReceipt? receipt = null;
@@ -127,83 +162,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
             }
             CurrentSchemaDatabaseIdentity database = await ReadNativeIdentityAsync(connection, transaction, cancellationToken)
                 .ConfigureAwait(false);
-            if (database != request.Database || database != plan.Source.Database)
-            {
-                throw new InvalidOperationException("current_verify_native_database_changed");
-            }
-
-            OfflineMigrationApplyJournalVerifier journal = CreateBoundJournalVerifier(
-                plan, request.Plan, request.InvocationId, owners.Operations);
-            await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
-                database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
+            receipt = await IssueInOwnedReadAsync(request, connection, transaction, database, owners, cancellationToken, prepared)
                 .ConfigureAwait(false);
-            ValidateNativeProofs(plan, apply, journal);
-            foreach (OfflineMigrationApplyCheckpoint checkpoint in exactCheckpoints)
-            {
-                OfflineMigrationApplyJournalEntry anchor = await ReadNativeEntryAsync(
-                    plan, request, checkpoint.Sequence, connection, transaction, cancellationToken).ConfigureAwait(false);
-                if (anchor.InvocationId != checkpoint.InvocationId
-                    || OfflineMigrationApplyJournalVerifier.Reference(anchor) != checkpoint.JournalHead)
-                {
-                    throw new InvalidOperationException("current_verify_checkpoint_native_anchor_changed");
-                }
-            }
-            OfflineMigrationApplyJournalEntry first = await ReadNativeEntryAsync(
-                plan, request, 1, connection, transaction, cancellationToken).ConfigureAwait(false);
-            ValidateFirstAdmission(plan, request, first);
-
-            CurrentSchemaAdmissionObservation current = await owners.CurrentSchema.ObserveAsync(
-                connection, transaction, database, cancellationToken).ConfigureAwait(false);
-            ValidateCurrentObservation(current, database, plan.Target);
-            OfflineMigrationCurrentSchemaAuthoritySnapshot authority = await owners.Authority.ReadAsync(
-                plan, connection, transaction, cancellationToken).ConfigureAwait(false);
-            if (authority.CurrentVerifier.SourceRevision == new string('0', 40))
-            {
-                throw new InvalidOperationException("current_verify_producer_source_unobserved");
-            }
-            _ = OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, planBytes.Span, request.Plan,
-                authority.AuthenticatedBackup, current.Target, authority.RetainedPlanTool, authority.Registry,
-                authority.Dag, first.RecordedAt, authority.MaximumBackupAge);
-
-            ImmutableArray<OfflineMigrationApplyJournalEntry> nativeProofs = journal.StepProofs;
-            var postconditions = ImmutableArray.CreateBuilder<CurrentSchemaStepPostcondition>(plan.OrderedSteps.Length);
-            for (int index = 0; index < plan.OrderedSteps.Length; index++)
-            {
-                OfflineMigrationStep step = plan.OrderedSteps[index];
-                OfflineMigrationProviderOperation identity = step.Operations.Single(value => value.Provider == database.Provider);
-                if (!Enum.IsDefined(identity.Mode))
-                {
-                    throw new InvalidOperationException("current_verify_operation_mode_unknown");
-                }
-                OfflineMigrationApplyOperation operation = owners.Operations.Resolve(step, identity);
-                if (operation.Identity != identity)
-                {
-                    throw new InvalidOperationException("current_verify_operation_owner_changed");
-                }
-                OfflineMigrationPredicateObservation actual = await operation.ObserveAsync(
-                    step.TargetPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
-                ValidatePostcondition(step.TargetPostcondition, identity, actual, nativeProofs[index].After);
-                if (identity.Mode == OfflineMigrationExecutionMode.CheckpointedBatch)
-                {
-                    OfflineMigrationPredicateObservation replay = await operation.ObserveAsync(
-                        step.ResumePolicy.ReplayPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
-                    ValidatePostcondition(step.ResumePolicy.ReplayPostcondition, identity, replay, null);
-                }
-                postconditions.Add(new(step.StepId, step.TargetPostcondition,
-                    OfflineMigrationPlanValidation.Digest(actual.ExpectedFacts),
-                    OfflineMigrationPlanValidation.Digest(actual.ActualFacts), actual.ContentDigest));
-            }
-            receipt = new(CurrentSchemaReceiptCodec.Format, CurrentSchemaReceiptStatus.VerifiedCurrent,
-                current.Target, plan.SourceFingerprintId, plan.SourceFingerprintVersion, plan.SourceRegistryDigest,
-                plan.Source.ContentDigest, request.Plan, request.Apply, request.Checkpoints, database,
-                current.ActualSchemaDigest, postconditions.MoveToImmutable(), authority.AuthenticatedBackup.Package,
-                authority.AuthenticatedBackup.Manifest, authority.AuthenticatedBackup.RestoreDrill,
-                authority.RecoveryReferences, authority.CurrentVerifier, [], string.Empty);
-            receipt = receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
-            _ = CurrentSchemaReceiptCodec.Serialize(receipt);
-            cancellationToken.ThrowIfCancellationRequested();
-            // No commit or migration write: closing this read-only snapshot precedes
-            // returning anything eligible for artifact publication.
         }
         catch (Exception exception)
         {
@@ -232,6 +192,182 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         return receipt ?? throw new InvalidOperationException("current_verify_receipt_not_observed");
     }
 
+    internal static async Task<CurrentSchemaReceipt> IssueOwnedMySqlAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request, OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        ValidateRequest(request);
+        RequireOwners(owners);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(context);
+        if (request.Database.Provider != CurrentSchemaProviderKind.MySql)
+        {
+            throw new InvalidOperationException("current_verify_original_owned_read_context_required");
+        }
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        MySqlCurrentSchemaCatalog observed = await MySqlCurrentSchemaCatalogObserver.ReadAsync(
+            context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        CurrentSchemaReceipt receipt = await IssueInOwnedReadAsync(request, context.OriginalConnection,
+            context.OriginalTransaction, observed.Database, owners, cancellationToken).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return receipt;
+    }
+
+    internal static async Task<CurrentSchemaReceipt> IssueOwnedSqliteAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request, OfflineMigrationSqliteNativeSession.OwnedReadContext context,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        ValidateRequest(request);
+        RequireOwners(owners);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(context);
+        if (request.Database.Provider != CurrentSchemaProviderKind.Sqlite)
+        {
+            throw new InvalidOperationException("current_verify_original_owned_read_context_required");
+        }
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        CurrentSchemaReceipt receipt = await IssueInOwnedReadAsync(request, context.OriginalConnection,
+            context.OriginalTransaction, context.Database, owners, cancellationToken).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return receipt;
+    }
+
+    private static void RequireOwners(OfflineMigrationCurrentSchemaVerificationCapabilities owners)
+    {
+        ArgumentNullException.ThrowIfNull(owners);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+    }
+
+    private sealed record VerifyArtifactInputs(ReadOnlyMemory<byte> PlanBytes, OfflineMigrationPlan Plan,
+        OfflineMigrationApplyResult Apply, ImmutableArray<OfflineMigrationApplyCheckpoint> Checkpoints);
+
+    private static async Task<VerifyArtifactInputs> ReadVerifyInputsAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request, OfflineMigrationCurrentSchemaVerificationCapabilities owners,
+        CancellationToken cancellationToken)
+    {
+        ValidateRequest(request);
+        ArgumentNullException.ThrowIfNull(owners);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        ReadOnlyMemory<byte> planBytes = await ReadArtifactAsync(request.Plan, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        OfflineMigrationPlan plan = DecodeArtifact<OfflineMigrationPlan>(planBytes);
+        ReadOnlyMemory<byte> applyBytes = await ReadArtifactAsync(request.Apply, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        OfflineMigrationApplyResult apply = DecodeArtifact<OfflineMigrationApplyResult>(applyBytes);
+        var checkpoints = ImmutableArray.CreateBuilder<OfflineMigrationApplyCheckpoint>(request.Checkpoints.Length);
+        foreach (CurrentSchemaArtifactReference reference in request.Checkpoints)
+        {
+            checkpoints.Add(DecodeArtifact<OfflineMigrationApplyCheckpoint>(
+                await ReadArtifactAsync(reference, owners.Artifacts, cancellationToken).ConfigureAwait(false)));
+        }
+        ImmutableArray<OfflineMigrationApplyCheckpoint> exactCheckpoints = checkpoints.MoveToImmutable();
+        ValidateReportedApply(request, plan, apply, exactCheckpoints);
+        return new(planBytes, plan, apply, exactCheckpoints);
+    }
+
+    private static async Task<CurrentSchemaReceipt> IssueInOwnedReadAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request, DbConnection connection, DbTransaction transaction,
+        CurrentSchemaDatabaseIdentity database, OfflineMigrationCurrentSchemaVerificationCapabilities owners,
+        CancellationToken cancellationToken, VerifyArtifactInputs? prepared = null)
+    {
+        VerifyArtifactInputs inputs = prepared ?? await ReadVerifyInputsAsync(request, owners, cancellationToken)
+            .ConfigureAwait(false);
+        ReadOnlyMemory<byte> planBytes = inputs.PlanBytes;
+        OfflineMigrationPlan plan = inputs.Plan;
+        OfflineMigrationApplyResult apply = inputs.Apply;
+        ImmutableArray<OfflineMigrationApplyCheckpoint> exactCheckpoints = inputs.Checkpoints;
+        if (database != request.Database || database != plan.Source.Database)
+        {
+            throw new InvalidOperationException("current_verify_native_database_changed");
+        }
+
+        OfflineMigrationApplyJournalVerifier journal = CreateBoundJournalVerifier(
+            plan, request.Plan, request.InvocationId, owners.Operations);
+        await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
+            database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
+            .ConfigureAwait(false);
+        ValidateNativeProofs(plan, apply, journal);
+        foreach (OfflineMigrationApplyCheckpoint checkpoint in exactCheckpoints)
+        {
+            OfflineMigrationApplyJournalEntry anchor = await ReadNativeEntryAsync(
+                plan, request, checkpoint.Sequence, connection, transaction, cancellationToken).ConfigureAwait(false);
+            if (anchor.InvocationId != checkpoint.InvocationId
+                || OfflineMigrationApplyJournalVerifier.Reference(anchor) != checkpoint.JournalHead)
+            {
+                throw new InvalidOperationException("current_verify_checkpoint_native_anchor_changed");
+            }
+        }
+        OfflineMigrationApplyJournalEntry first = await ReadNativeEntryAsync(
+            plan, request, 1, connection, transaction, cancellationToken).ConfigureAwait(false);
+        ValidateFirstAdmission(plan, request, first);
+
+        CurrentSchemaAdmissionObservation current = await owners.CurrentSchema.ObserveAsync(
+            connection, transaction, database, cancellationToken).ConfigureAwait(false);
+        ValidateCurrentObservation(current, database, plan.Target);
+        OfflineMigrationCurrentSchemaAuthoritySnapshot authority = await owners.Authority.ReadAsync(
+            plan, connection, transaction, cancellationToken).ConfigureAwait(false);
+        if (authority.CurrentVerifier.SourceRevision == new string('0', 40))
+        {
+            throw new InvalidOperationException("current_verify_producer_source_unobserved");
+        }
+        _ = OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, planBytes.Span, request.Plan,
+            authority.AuthenticatedBackup, current.Target, authority.RetainedPlanTool, authority.Registry,
+            authority.Dag, first.RecordedAt, authority.MaximumBackupAge);
+
+        ImmutableArray<OfflineMigrationApplyJournalEntry> nativeProofs = journal.StepProofs;
+        var postconditions = ImmutableArray.CreateBuilder<CurrentSchemaStepPostcondition>(plan.OrderedSteps.Length);
+        for (int index = 0; index < plan.OrderedSteps.Length; index++)
+        {
+            OfflineMigrationStep step = plan.OrderedSteps[index];
+            OfflineMigrationProviderOperation identity = step.Operations.Single(value => value.Provider == database.Provider);
+            if (!Enum.IsDefined(identity.Mode))
+            {
+                throw new InvalidOperationException("current_verify_operation_mode_unknown");
+            }
+            OfflineMigrationApplyOperation operation = owners.Operations.Resolve(step, identity);
+            if (operation.Identity != identity)
+            {
+                throw new InvalidOperationException("current_verify_operation_owner_changed");
+            }
+            OfflineMigrationPredicateObservation actual = await operation.ObserveAsync(
+                step.TargetPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
+            ValidatePostcondition(step.TargetPostcondition, identity, actual, nativeProofs[index].After);
+            if (identity.Mode == OfflineMigrationExecutionMode.CheckpointedBatch)
+            {
+                OfflineMigrationPredicateObservation replay = await operation.ObserveAsync(
+                    step.ResumePolicy.ReplayPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
+                ValidatePostcondition(step.ResumePolicy.ReplayPostcondition, identity, replay, null);
+            }
+            postconditions.Add(new(step.StepId, step.TargetPostcondition,
+                OfflineMigrationPlanValidation.Digest(actual.ExpectedFacts),
+                OfflineMigrationPlanValidation.Digest(actual.ActualFacts), actual.ContentDigest));
+        }
+        CurrentSchemaReceipt receipt = new(CurrentSchemaReceiptCodec.Format, CurrentSchemaReceiptStatus.VerifiedCurrent,
+            current.Target, plan.SourceFingerprintId, plan.SourceFingerprintVersion, plan.SourceRegistryDigest,
+            plan.Source.ContentDigest, request.Plan, request.Apply, request.Checkpoints, database,
+            current.ActualSchemaDigest, postconditions.MoveToImmutable(), authority.AuthenticatedBackup.Package,
+            authority.AuthenticatedBackup.Manifest, authority.AuthenticatedBackup.RestoreDrill,
+            authority.RecoveryReferences, authority.CurrentVerifier, [], string.Empty);
+        receipt = receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
+        _ = CurrentSchemaReceiptCodec.Serialize(receipt);
+        cancellationToken.ThrowIfCancellationRequested();
+        return receipt;
+    }
+
     internal static void ValidateCurrentObservation(CurrentSchemaAdmissionObservation current,
         CurrentSchemaDatabaseIdentity nativeDatabase, CurrentSchemaTargetIdentity intendedTarget)
     {
@@ -251,7 +387,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         RequireReference(request.Plan);
         RequireReference(request.Apply);
         CurrentSchemaReceiptCodec.ValidateDatabase(request.Database);
-        if (request.Database.Provider != CurrentSchemaProviderKind.PostgreSql
+        if (request.Database.Provider is not (CurrentSchemaProviderKind.PostgreSql
+                or CurrentSchemaProviderKind.MySql or CurrentSchemaProviderKind.Sqlite)
             || request.Checkpoints.IsDefaultOrEmpty || string.IsNullOrWhiteSpace(request.InvocationId)
             || request.InvocationId.Length > 160 || request.InvocationId != request.InvocationId.Trim()
             || request.InvocationId.Any(char.IsControl))
@@ -442,10 +579,13 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         OfflineMigrationPlan plan, OfflineMigrationCurrentSchemaVerifyRequest request, long sequence,
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        await using DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, transaction, """
+        string payloadByteLength = request.Database.Provider == CurrentSchemaProviderKind.Sqlite
+            ? "length(CAST(entry_payload AS BLOB))" : "octet_length(entry_payload)";
+        string table = OfflineMigrationApplyJournalDialect.Table(request.Database.Provider);
+        await using DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, transaction, $"""
             SELECT entry_digest, parent_digest,
-                CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
-            FROM public.__fsus_schema_offline_apply_journal
+                CASE WHEN {payloadByteLength} <= 1048576 THEN entry_payload ELSE NULL END
+            FROM {table}
             WHERE plan_digest = @plan AND database_digest = @database
                 AND invocation_id = @invocation AND sequence = @sequence
             """);

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "postgres-column-migration",
+            "paths": [
+                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs"
+            ],
+            "reason": "Native current-schema verification preserves the original offline journal column names and PostgreSQL catalog identities; provider table rendering consumes the original journal owner instead of renaming persistence contracts."
+        }
+    ]
+}

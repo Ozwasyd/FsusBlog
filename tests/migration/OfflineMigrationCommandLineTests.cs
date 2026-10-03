@@ -4,6 +4,24 @@ namespace FsusBlog.Migration.Tests;
 
 public sealed class OfflineMigrationCommandLineTests
 {
+    [Theory]
+    [InlineData("PostgreSql")]
+    [InlineData("mysql ")]
+    [InlineData("sqlite-memory")]
+    [InlineData("unknown")]
+    public void ParseVerify_RejectsNoncanonicalProviderBeforeDiscovery(string provider)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"fsusblog-verify-provider-{Guid.NewGuid():N}");
+        string digest = new('a', 64);
+        string[] args = ["verify", "--provider", provider, "--instance-id", "instance", "--database-id", "database",
+            "--env-file", Path.Combine(directory, "environment"), "--plan", Path.Combine(directory, "plan"),
+            "--plan-sha256", digest, "--apply", Path.Combine(directory, "apply"), "--apply-sha256", digest,
+            "--invocation-id", "invocation", "--checkpoint", Path.Combine(directory, "checkpoint"), digest,
+            "--output", Path.Combine(directory, "receipt"), "--timeout-seconds", "30"];
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationCommandLine.ParseVerify(args));
+        Assert.False(Directory.Exists(directory));
+    }
+
     [Fact]
     public void ParsePlan_RequiresExplicitDatabaseProviderAndOriginalBackupReferences()
     {

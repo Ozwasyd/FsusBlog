@@ -29,6 +29,31 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         }
         string connectionString = await OfflineMigrationHost.ReadRequiredConnectionStringAsync(
             options.EnvironmentFilePath, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        CurrentSchemaReceipt receipt = options.Request.Database.Provider switch
+        {
+            CurrentSchemaProviderKind.PostgreSql => await IssuePostgreSqlAsync(
+                options.Request, connectionString, cancellationToken).ConfigureAwait(false),
+            CurrentSchemaProviderKind.MySql => await OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync(
+                connectionString, (context, token) => OfflineMigrationCurrentSchemaIssuer.IssueOwnedMySqlAsync(
+                    options.Request, context, owners, token), cancellationToken).ConfigureAwait(false),
+            CurrentSchemaProviderKind.Sqlite => await OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+                connectionString, (context, token) => OfflineMigrationCurrentSchemaIssuer.IssueOwnedSqliteAsync(
+                    options.Request, context, owners, token), cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException("current_verify_native_provider_not_supported")
+        };
+        cancellationToken.ThrowIfCancellationRequested();
+        // Each original native owner returns only after its real cleanup boundary.
+        // Borrowed issuer callbacks cannot publish while the read session is live.
+        byte[] bytes = CurrentSchemaReceiptCodec.Serialize(receipt);
+        string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
+    }
+
+    private async Task<CurrentSchemaReceipt> IssuePostgreSqlAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request, string connectionString,
+        CancellationToken cancellationToken)
+    {
         var connection = new NpgsqlConnection(connectionString);
         CurrentSchemaReceipt? receipt = null;
         Exception? primary = null;
@@ -39,7 +64,7 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
             // DB identity, complete journal and operation observers. Nothing is supplied
             // here from a plan's assertions as a substitute for those observations.
             receipt = await OfflineMigrationCurrentSchemaIssuer.IssueAsync(
-                options.Request, connection, owners, cancellationToken).ConfigureAwait(false);
+                request, connection, owners, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error)
         {
@@ -60,9 +85,7 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         ThrowObservedFailure(primary);
         cancellationToken.ThrowIfCancellationRequested();
         if (receipt is null) throw new InvalidOperationException("current_verify_native_receipt_missing");
-        byte[] bytes = CurrentSchemaReceiptCodec.Serialize(receipt);
-        string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
-        return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
+        return receipt;
     }
 
     internal static void ThrowObservedFailure(Exception? primary)

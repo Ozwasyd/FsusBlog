@@ -229,10 +229,13 @@ internal static class OfflineMigrationCommandLine
         {
             throw new InvalidOperationException("schema_verify_explicit_arguments_required");
         }
-        if (values["--provider"] != "postgresql")
+        CurrentSchemaProviderKind provider = values["--provider"] switch
         {
-            throw new InvalidOperationException("schema_verify_native_provider_not_supported");
-        }
+            "postgresql" => CurrentSchemaProviderKind.PostgreSql,
+            "mysql" => CurrentSchemaProviderKind.MySql,
+            "sqlite" => CurrentSchemaProviderKind.Sqlite,
+            _ => throw new InvalidOperationException("schema_verify_native_provider_not_supported")
+        };
         string timeout = values["--timeout-seconds"];
         if (timeout.Length is 0 or > 7 || timeout[0] == '0' || timeout.Any(value => value is < '0' or > '9')
             || !int.TryParse(timeout, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds)
@@ -245,7 +248,7 @@ internal static class OfflineMigrationCommandLine
         var request = new OfflineMigrationCurrentSchemaVerifyRequest(
             Reference(values["--plan"], values["--plan-sha256"]),
             Reference(values["--apply"], values["--apply-sha256"]), checkpoints.ToImmutable(),
-            new(CurrentSchemaProviderKind.PostgreSql, values["--instance-id"], values["--database-id"]),
+            new(provider, values["--instance-id"], values["--database-id"]),
             values["--invocation-id"]);
         OfflineMigrationCurrentSchemaIssuer.ValidateRequest(request);
         if (new[] { request.Plan.Reference, request.Apply.Reference, environment }

@@ -248,6 +248,21 @@ shape. Fresh current schema and actual operation postconditions are independentl
 verified by the current-receipt owner; the pure binding helper is not a receipt
 issuer or an execution grant.
 
+The `verify` CLI preserves the explicit `postgresql`, `mysql` or `sqlite` provider
+and database tuple. Provider selection is not a native read capability. PostgreSQL
+keeps its original read-only issuer transaction; MySQL and SQLite verification
+borrow only their original native owner's live read-only callback context, with
+the creator deadline linked into all journal, schema and DAG reads. The issuer
+checks the original whole journal and every explicit checkpoint anchor, authenticates
+the retained source/backup/tool/DAG bindings, and reruns every required actual step
+postcondition before producing the unchanged v1 receipt. The producer publishes
+no eligible bytes until the original native owner has actually returned from cleanup.
+Raw connection/transaction tuples, stored context references, provider labels or
+source/catalog observations alone cannot sign current-schema evidence. Missing
+complete current-schema physical/effect observers or registered operation owners
+remain refusals; these infrastructure routes are not proof of three-provider
+verification, compilation, real database execution or startup acceptance.
+
 The current `CreateOwnedReader` fails with
 `schema_offline_plan_evidence_owner_not_configured`: source profiles are registered,
 but the original backup owner's authenticated invocation still needs its concrete
