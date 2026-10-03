@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-selector-custom-property",
+            "paths": [
+                "docs/database-migration.md"
+            ],
+            "reason": "The current migration document retains registered external CLI and documented contract spellings."
+        }
+    ]
+}

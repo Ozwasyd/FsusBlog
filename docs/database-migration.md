@@ -411,6 +411,29 @@ return canonical current-receipt bytes with their separate whole-file SHA-256.
 that native verification before comparing the complete recomputed receipt seal;
 it does not accept a caller's success status or re-use its claimed verifier identity.
 
+The owned MySQL verification route borrows only
+`OfflineMigrationMySqlNativeSession.OwnedReadContext` from its original creator.
+Its linked cancellation scope covers all awaited artifact, journal, target and
+semantic reads. The original owned journal overload and native database identity
+reader use that same connection and transaction; raw Snapshot pairs are refused.
+After semantic verification, the same full-current observer is called again,
+followed by native identity and epoch checks. The creator invalidates and actually
+awaits cleanup before the producer serializes the sole receipt and its whole-byte
+SHA-256. The owned existing-receipt API independently reruns this same route;
+integration of that additional API into the Host's existing-receipt caller is not
+completed by this source slice.
+
+This is a source implementation, not MySQL qualification. Complete current-target
+and authenticated retained-evidence owners are still required; catalog-only facts,
+caller target DTOs and successful statuses cannot substitute for them. The default
+factory is unchanged and still refuses missing owners. The current source controls
+exercise structural positives, missing capability/context, provider and cancellation
+refusals, and terminal binding drift, not a native happy path. A task-owned admitted
+MySQL fixture with actual transaction instrumentation and Performance Schema read
+access must still prove success, late cancellation, epoch drift, borrower lifetime
+and cleanup failures. No ambient credentials or new fixture permission is granted
+by this route, and SQLite continuous writer-epoch qualification remains separate.
+
 The normal issuer factory remains deliberately unavailable until original native
 current-schema, compiled-operation and authenticated-backup owners are
 configured. Missing owners return `current_verify_native_owners_not_configured`

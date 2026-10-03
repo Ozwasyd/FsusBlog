@@ -22,6 +22,10 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         OfflineMigrationVerifyCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (options.Request?.Database?.Provider == CurrentSchemaProviderKind.MySql)
+        {
+            return await IssueOwnedMySqlArtifactAsync(options, cancellationToken).ConfigureAwait(false);
+        }
         OfflineMigrationCurrentSchemaIssuer.ValidateRequest(options.Request);
         if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
         {
@@ -60,6 +64,28 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         ThrowObservedFailure(primary);
         cancellationToken.ThrowIfCancellationRequested();
         if (receipt is null) throw new InvalidOperationException("current_verify_native_receipt_missing");
+        byte[] bytes = CurrentSchemaReceiptCodec.Serialize(receipt);
+        string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
+    }
+
+    private async Task<OfflineMigrationCurrentSchemaIssuedArtifact> IssueOwnedMySqlArtifactAsync(
+        OfflineMigrationVerifyCommandOptions options, CancellationToken cancellationToken)
+    {
+        OfflineMigrationCurrentSchemaIssuer.ValidateOwnedMySqlRequest(options.Request);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+        string connectionString = await OfflineMigrationHost.ReadRequiredConnectionStringAsync(
+            options.EnvironmentFilePath, cancellationToken).ConfigureAwait(false);
+        // Only the original creator opens, mints, invalidates and cleans up this
+        // opaque consistent snapshot. Its awaited cleanup precedes serialization
+        // or publication eligibility; a raw Snapshot transaction is not accepted.
+        CurrentSchemaReceipt receipt = await OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync(
+            connectionString, (context, token) => OfflineMigrationCurrentSchemaIssuer.IssueOwnedMySqlAsync(
+                options.Request, context, owners, token), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         byte[] bytes = CurrentSchemaReceiptCodec.Serialize(receipt);
         string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
         return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
