@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": ["tools/docs/behavior-document-consistency-final-value-contract.mjs"],
+            "reason": "Move the original final-report schema, sealed discharge keys and scan value contract without changing their registered wire spellings or granting provenance."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": ["docs/development/doc-claim-protocol.md"],
+            "reason": "Preserve original Markdown contract identifiers and anchors while documenting the same final owner's data-only validation boundary."
+        }
+    ]
+}

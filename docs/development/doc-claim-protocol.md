@@ -105,6 +105,8 @@ The current native FactObservation reader bridge is not implemented. Current fin
 
 This stage contract is source preparation, not proof of a native collector or current execution. The versioned native observation collector, post-runtime join and final discharge consumer must be connected and independently verified before this pipeline can qualify release; a compiled-code-model observation or an unbound boolean is not native evidence.
 
+The final owner's `behavior-document-consistency-final-value-contract.mjs` contains only sealed report, claim-stage roster and zero-legacy scan value validation. Its independent worktree, source identity and closed catalog/parse-receipt/ledger inputs are data, not a provenance capability or execution grant. The original `behavior-document-consistency-final.mjs` source-reading facade continues to obtain those materials from the actual expected worktree and reparse its documents before delegation; the original producer retains FactObservation-backed pre-runtime prose comparison, mutation and source-scanning obligations. This extraction does not authorize release-final or post-runtime consumers to substitute caller-supplied values for the still-required source transport and native receipts.
+
 ## Prose claim verification
 
 Explanatory prose that still carries scalar, boolean, failure-policy, relation, implication, or preservation facts is verified by a single `ProseClaimVerifier`. It consumes only DocClaim located claims and sealed `FactObservationReceipt` values (via the public receipt reader). It does not read business source, tests, network, embeddings, LLM judges, human `reviewed` flags, or baseline allowlists.
