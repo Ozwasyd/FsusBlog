@@ -28,6 +28,7 @@ internal sealed record OfflineMigrationCurrentSchemaIssuedArtifact(
 internal static class OfflineMigrationCurrentSchemaIssuer
 {
     internal const string NativeIdentityCleanupFailuresKey = "FsusBlog.Migration.CurrentIdentityCleanupFailures";
+    internal const string NativeAnchorCleanupFailuresKey = "FsusBlog.Migration.CurrentAnchorCleanupFailures";
 
     private static readonly JsonSerializerOptions s_artifactJson = new()
     {
@@ -633,7 +634,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         OfflineMigrationPlan plan, OfflineMigrationCurrentSchemaVerifyRequest request, long sequence,
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        await using DbCommand command = request.Database.Provider == CurrentSchemaProviderKind.MySql
+        var cleanupFailures = ImmutableArray.CreateBuilder<string>(2);
+        DbCommand command = request.Database.Provider == CurrentSchemaProviderKind.MySql
             ? OfflineMigrationStateStore.NativeCommand(connection, transaction, $"""
             SELECT entry_digest, parent_digest,
                 CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
@@ -648,26 +650,68 @@ internal static class OfflineMigrationCurrentSchemaIssuer
             WHERE plan_digest = @plan AND database_digest = @database
                 AND invocation_id = @invocation AND sequence = @sequence
             """);
-        OfflineMigrationStateStore.Parameter(command, "@plan", plan.ContentDigest);
-        OfflineMigrationStateStore.Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(request.Database));
-        OfflineMigrationStateStore.Parameter(command, "@invocation", request.InvocationId);
-        OfflineMigrationStateStore.Parameter(command, "@sequence", sequence);
-        await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false) || reader.IsDBNull(2))
+        DbDataReader? reader = null;
+        OfflineMigrationApplyJournalEntry? result = null;
+        Exception? failure = null;
+        try
         {
-            throw new InvalidOperationException("current_verify_native_anchor_missing_or_oversized");
+            OfflineMigrationStateStore.Parameter(command, "@plan", plan.ContentDigest);
+            OfflineMigrationStateStore.Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(request.Database));
+            OfflineMigrationStateStore.Parameter(command, "@invocation", request.InvocationId);
+            OfflineMigrationStateStore.Parameter(command, "@sequence", sequence);
+            reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false) || reader.IsDBNull(2))
+            {
+                throw new InvalidOperationException("current_verify_native_anchor_missing_or_oversized");
+            }
+            OfflineMigrationApplyJournalEntry entry = JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(
+                reader.GetString(2), s_artifactJson) ?? throw new InvalidOperationException("current_verify_native_anchor_null");
+            if (entry.Plan != request.Plan || entry.PlanContentDigest != plan.ContentDigest || entry.Database != request.Database
+                || entry.InvocationId != request.InvocationId || entry.Sequence != sequence
+                || entry.ContentDigest != reader.GetString(0) || entry.PreviousDigest != reader.GetString(1)
+                || entry.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
+                || await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("current_verify_native_anchor_changed");
+            }
+            result = entry;
         }
-        OfflineMigrationApplyJournalEntry entry = JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(
-            reader.GetString(2), s_artifactJson) ?? throw new InvalidOperationException("current_verify_native_anchor_null");
-        if (entry.Plan != request.Plan || entry.PlanContentDigest != plan.ContentDigest || entry.Database != request.Database
-            || entry.InvocationId != request.InvocationId || entry.Sequence != sequence
-            || entry.ContentDigest != reader.GetString(0) || entry.PreviousDigest != reader.GetString(1)
-            || entry.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
-            || await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        catch (Exception primary)
         {
-            throw new InvalidOperationException("current_verify_native_anchor_changed");
+            failure = primary;
         }
-        return entry;
+        // Finish both owned resources without letting disposal replace the native
+        // anchor refusal or its cancellation token. Never dispose the caller pair.
+        if (reader is not null)
+        {
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                failure ??= new InvalidOperationException("current_verify_native_anchor_cleanup_failed");
+                cleanupFailures.Add("current_verify_native_anchor_reader_cleanup_failed");
+            }
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            failure ??= new InvalidOperationException("current_verify_native_anchor_cleanup_failed");
+            cleanupFailures.Add("current_verify_native_anchor_command_cleanup_failed");
+        }
+        if (failure is not null)
+        {
+            if (cleanupFailures.Count > 0)
+            {
+                failure.Data[NativeAnchorCleanupFailuresKey] = cleanupFailures.ToImmutable();
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+        return result!;
     }
 
     private static void RequireReference(CurrentSchemaArtifactReference reference)
