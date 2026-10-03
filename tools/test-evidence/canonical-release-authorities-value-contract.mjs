@@ -1,10 +1,9 @@
 import path from 'node:path'
-import { isDeepStrictEqual } from 'node:util'
 
 import { validateBehaviorDocStaticAdmissionReceiptV3 } from '../docs/behavior-doc-static-admission-contract.mjs'
 import { verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
-import { createReleaseManifestValueContract, validateCurrentSchemaAdmissionOutput } from '../release/release-manifest-value-contract.mjs'
+import { createReleaseManifestValueContract, isSameCurrentSchemaTarget, isSameCurrentSchemaDatabase, validateCurrentSchemaAdmissionOutput } from '../release/release-manifest-value-contract.mjs'
 import { validateCurrentSchemaCodeContractObservation } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 
 const fail = (message) => { throw new Error(`[canonical-release-authorities] ${message}`) }
@@ -92,8 +91,8 @@ function verifyCurrentSchemaValues(receiptRef, manifest, rollout, plan, reposito
     || receipt.status !== 'verified-current'
     || !/^[a-f0-9]{64}$/u.test(receipt.contentDigest ?? '')
     || receiptRef.contentDigest !== `sha256:${receipt.contentDigest}`
-    || !isDeepStrictEqual(receipt.target, binding.target)
-    || !isDeepStrictEqual(receipt.database, binding.database)
+    || !isSameCurrentSchemaTarget(receipt.target, binding.target)
+    || !isSameCurrentSchemaDatabase(receipt.database, binding.database)
     || receipt.actualSchemaDigest !== binding.actualSchemaDigest)
   {
     fail('current-schema receipt values do not match the immutable manifest/reference bindings')
