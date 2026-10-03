@@ -1,6 +1,5 @@
 import { validatePublicAotWarmEvidence } from '../frontend/public-aot-warm-evidence.mjs'
-import { isDeepStrictEqual } from 'node:util'
-import { validateCurrentSchemaAdmissionOutput, validateCurrentSchemaBinding } from '../release/release-manifest-value-contract.mjs'
+import { isSameCurrentSchemaBinding, validateCurrentSchemaAdmissionOutput, validateCurrentSchemaBinding } from '../release/release-manifest-value-contract.mjs'
 
 export function validateAuxiliaryEvidence(name, value, state, errors, now) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -19,7 +18,7 @@ export function validateAuxiliaryEvidence(name, value, state, errors, now) {
       || value.releaseId !== state.target.releaseId
       || value.imageDigest !== state.target.imageDigest
       || value.commitSha !== state.candidateSourceRevision
-      || !isDeepStrictEqual(value.currentSchema, state.currentSchema))
+      || !isSameCurrentSchemaBinding(value.currentSchema, state.currentSchema))
 {
             errors.push(`${name}: immutable target identity mismatch`);
     }
