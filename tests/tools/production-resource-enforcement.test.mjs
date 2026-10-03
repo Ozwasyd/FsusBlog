@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -68,10 +69,10 @@ test('capability probe distinguishes cgroup v2 delegation from unsupported platf
     fs.rmSync(fixture.root, { recursive: true, force: true });
 });
 
-test('dynamic grants update effective CPU, memory and pids controls without restarting the bundle', () =>
+test('dynamic grants update effective CPU, memory and pids controls without restarting the bundle', async () =>
 {
     const fixture = fakeCgroup();
-    const enforcer = createProductionResourceEnforcer({
+    const enforcer = await createProductionResourceEnforcer({
         runId: 'run-1', bundleIds: ['frontend-tests'], mode: 'strict',
         machine: { cpuUnits: 8, memoryGiB: 16 },
         platform: 'linux', mountRoot: fixture.mountRoot, mountType: 'cgroup2fs', delegateRoot: fixture.delegateRoot,
@@ -80,7 +81,7 @@ test('dynamic grants update effective CPU, memory and pids controls without rest
     });
     assert.equal(enforcer.mode, 'enforced');
     const first = enforcer.update('frontend-tests', { cpuUnits: 2, memoryGiB: 3 });
-    enforcer.attach('frontend-tests', 4242);
+    await enforcer.attach('frontend-tests', 4242);
     assert.equal(fs.readFileSync(path.join(first.cgroupPath, 'cgroup.procs'), 'utf8'), '4242');
     assert.equal(fs.readFileSync(path.join(first.cgroupPath, 'cpu.max'), 'utf8'), first.cpuMax);
     const expanded = enforcer.update('frontend-tests', { cpuUnits: 5, memoryGiB: 7 });
@@ -141,10 +142,10 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
     );
 });
 
-test('active cgroups are retained while cancellation cleanup removes empty owned groups', () =>
+test('active cgroups are retained while cancellation cleanup removes empty owned groups', async () =>
 {
     const fixture = fakeCgroup();
-    const enforcer = createProductionResourceEnforcer({
+    const enforcer = await createProductionResourceEnforcer({
         runId: 'cancel-run', bundleIds: ['runtime-browser'], mode: 'strict',
         machine: { cpuUnits: 4, memoryGiB: 8 },
         platform: 'linux', mountRoot: fixture.mountRoot, mountType: 'cgroup2fs', delegateRoot: fixture.delegateRoot,
@@ -152,7 +153,7 @@ test('active cgroups are retained while cancellation cleanup removes empty owned
         removeDirectory: (directory) => fs.rmSync(directory, { recursive: true })
     });
     const limits = enforcer.update('runtime-browser', { cpuUnits: 2, memoryGiB: 2 });
-    enforcer.attach('runtime-browser', 99);
+    await enforcer.attach('runtime-browser', 99);
     assert.equal(enforcer.cleanup().status, 'retained-active');
     fs.writeFileSync(path.join(limits.cgroupPath, 'cgroup.procs'), '');
     assert.equal(enforcer.cleanup().status, 'removed');
@@ -209,13 +210,13 @@ test('unexpected scheduler failure still removes its empty enforced hierarchy', 
     fs.rmSync(fixture.root, { recursive: true, force: true });
 });
 
-test('strict mode fails closed while auto and advisory modes expose degradation', () =>
+test('strict mode fails closed while auto and advisory modes expose degradation', async () =>
 {
     const options = {
         runId: 'unsupported', bundleIds: ['bundle'], machine: { cpuUnits: 2, memoryGiB: 2 }, platform: 'darwin'
     };
-    assert.throws(() => createProductionResourceEnforcer({ ...options, mode: 'strict' }), /strict cgroup enforcement unavailable/u);
-    const advisory = createProductionResourceEnforcer({ ...options, mode: 'auto' });
+    await assert.rejects(() => createProductionResourceEnforcer({ ...options, mode: 'strict' }), /strict cgroup enforcement unavailable/u);
+    const advisory = await createProductionResourceEnforcer({ ...options, mode: 'auto' });
     assert.equal(advisory.mode, 'advisory');
     assert.equal(advisory.evidence().status, 'unsupported');
     assert.equal(advisory.evidence().reason, 'non-linux');
@@ -780,4 +781,428 @@ test('memory grants project downward to the kernel page size without enlarging t
             cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes
         }), /page size/u);
     }
+});
+
+function fakeSystemdBoundary(t)
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-systemd-resource-owner-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const context = { root, runId: 'run', namespace: 'production', bundleId: 'worker',
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        schedulerOwnerToken: '11111111-1111-4111-8111-111111111111' };
+    const events = [];
+    const runtime = { uid: process.getuid(), memoryPageBytes: 4096, busId: 'c'.repeat(32), busOwner: ':1.2',
+        controlGroup: `/user.slice/user-${process.getuid()}.slice/user@${process.getuid()}.service`, cgroup: { path: root } };
+    let unit = null;
+    let group = null;
+    let launcherUnit = null;
+    let launcherGroup = null;
+    const launcherProcess = { status: 'verified', schema: 'fsusblog.process-identity.v1', pid: 4242,
+        processStartIdentity: 'fake:start:1', executablePath: '/fake/launcher', executableDigest: `sha256:${'1'.repeat(64)}`,
+        commandDigest: `sha256:${'2'.repeat(64)}` };
+    const launcherObservation = { stopped: true, controlGroup: '/original-launcher-group' };
+    let artifactContents = '';
+    let controllerStatus = 'live';
+    let reference;
+    const absent = () => ({ LoadState: 'loaded', ActiveState: 'inactive', SubState: 'dead', ControlGroup: '',
+        Description: 'Implicit slice', Transient: 'no', FragmentPath: '', DropInPaths: '', InvocationID: '' });
+    const transport = {
+        runtimeIdentity: () => structuredClone(runtime),
+        inspect: (name) => structuredClone((name.endsWith('.scope') ? launcherUnit : unit) ?? absent()),
+        cgroup(controlGroup, { readControls = true } = {})
+        {
+            if (controlGroup === launcherUnit?.ControlGroup)
+            {
+                assert.equal(readControls, false, 'a launcher scope inherits parent limits without requiring leaf control files');
+                return structuredClone(launcherGroup);
+            }
+            assert.equal(readControls, true, 'the shared parent still requires every exact control');
+            return structuredClone(group);
+        },
+        artifacts: (observed) => [{ path: observed.FragmentPath,
+            contentDigest: `sha256:${createHash('sha256').update(observed.Description).digest('hex')}` },
+        ...observed.DropInPaths.split(' ').filter(Boolean).map((file) => ({ path: file,
+            contentDigest: `sha256:${createHash('sha256').update(artifactContents).digest('hex')}` }))],
+        start(name, description)
+        {
+            events.push('start');
+            assert.ok(reference, 'independent retention must happen before unit creation');
+            const owner = JSON.parse(fs.readFileSync(reference.ownerFile, 'utf8'));
+            const state = JSON.parse(fs.readFileSync(path.join(path.dirname(reference.ownerFile), 'state.json'), 'utf8'));
+            assert.equal(owner.bindingDigest, reference.bindingDigest);
+            assert.equal(state.phase, 'create-attempted');
+            const directory = path.join(root, name);
+            fs.mkdirSync(directory);
+            const stat = fs.statSync(directory);
+            unit = { ...absent(), ActiveState: 'active', SubState: 'active', Description: description,
+                Transient: 'yes', InvocationID: 'd'.repeat(32), ControlGroup: `${runtime.controlGroup}/${name}`,
+                FragmentPath: `/run/user/${process.getuid()}/systemd/transient/${name}` };
+            group = { path: directory, device: stat.dev, inode: stat.ino, populated: false, children: [], processIds: [],
+                controls: { 'cpu.max': 'max 100000', 'cpu.weight': '100', 'memory.high': 'max', 'memory.max': 'max', 'pids.max': 'max' } };
+        },
+        stoppedProcess(identity)
+        {
+            assert.deepEqual(identity, launcherProcess, 'launcher identity must match');
+            if (!launcherObservation.stopped)
+            {
+                throw new Error('launcher must remain stopped');
+            }
+            return { controlGroup: launcherObservation.controlGroup };
+        },
+        startLauncher(name, description, slice, identity)
+        {
+            events.push('start-launcher');
+            const state = JSON.parse(fs.readFileSync(path.join(path.dirname(reference.ownerFile), 'state.json'), 'utf8'));
+            assert.equal(state.launcher.phase, 'attach-attempted');
+            assert.deepEqual(state.launcher.processIdentity, launcherProcess);
+            assert.equal(unit.ControlGroup, `${runtime.controlGroup}/${slice}`);
+            const directory = path.join(group.path, name);
+            fs.mkdirSync(directory);
+            const stat = fs.statSync(directory);
+            launcherUnit = { ...absent(), ActiveState: 'active', SubState: 'running', Description: description,
+                Transient: 'yes', InvocationID: 'e'.repeat(32), ControlGroup: `${unit.ControlGroup}/${name}`,
+                FragmentPath: `/run/user/${process.getuid()}/systemd/transient/${name}` };
+            launcherGroup = { path: directory, device: stat.dev, inode: stat.ino, populated: true, children: [], processIds: [identity.pid] };
+            launcherObservation.controlGroup = launcherUnit.ControlGroup;
+            group.children.push(name);
+            group.populated = true;
+        },
+        setLimits(_name, limits)
+        {
+            events.push('set');
+            group.controls = { 'cpu.max': limits.cpuMax, 'cpu.weight': String(limits.cpuWeight),
+                'memory.high': String(limits.memoryHighBytes), 'memory.max': String(limits.memoryMaxBytes), 'pids.max': String(limits.pidsMax) };
+            artifactContents = JSON.stringify(group.controls);
+            unit.DropInPaths = ['CPUQuota', 'CPUQuotaPeriodSec', 'CPUWeight', 'MemoryHigh', 'MemoryMax', 'TasksMax']
+                .map((name) => `${unit.FragmentPath}.d/50-${name}.conf`).join(' ');
+        },
+        stop(name)
+        {
+            if (name.endsWith('.scope'))
+            {
+                events.push('stop-launcher');
+                assert.equal(launcherGroup.populated, false);
+                fs.rmdirSync(launcherGroup.path);
+                group.children = group.children.filter((child) => child !== name);
+                launcherUnit = null;
+                launcherGroup = null;
+                return;
+            }
+            events.push('stop');
+            fs.rmdirSync(group.path);
+            unit = null;
+            group = null;
+        }
+    };
+    const options = {
+        transport, startupBudgetMs: 1000,
+        observeController: () => ({ status: controllerStatus }),
+        async retainBinding(value)
+        {
+            reference = value;
+            events.push('retain');
+            assert.equal(fs.statSync(value.ownerFile).mode & 0o777, 0o600);
+            return { bindingDigest: value.bindingDigest };
+        }
+    };
+    return { context, options, transport, events, runtime, launcherProcess, launcherObservation, get reference()
+    {
+        return reference;
+    },
+    get unit()
+    {
+        return unit;
+    }, get group()
+    {
+        return group;
+    }, get launcherUnit()
+    {
+        return launcherUnit;
+    }, get launcherGroup()
+    {
+        return launcherGroup;
+    },
+    setControllerStatus(value)
+    {
+        controllerStatus = value;
+    } };
+}
+
+function systemdEnforcerFixture(t)
+{
+    const fixture = fakeSystemdBoundary(t);
+    const synchronizeControls = () =>
+    {
+        for (const [name, value] of Object.entries(fixture.group.controls))
+        {
+            fs.writeFileSync(path.join(fixture.group.path, name), value);
+        }
+    };
+    const start = fixture.transport.start;
+    fixture.transport.start = (...args) =>
+    {
+        start(...args);
+        synchronizeControls();
+    };
+    const setLimits = fixture.transport.setLimits;
+    fixture.transport.setLimits = (...args) =>
+    {
+        setLimits(...args);
+        synchronizeControls();
+    };
+    const stop = fixture.transport.stop;
+    fixture.transport.stop = (name) =>
+    {
+        if (name.endsWith('.slice'))
+        {
+            for (const control of Object.keys(fixture.group.controls))
+            {
+                fs.unlinkSync(path.join(fixture.group.path, control));
+            }
+        }
+        stop(name);
+    };
+    const context = { ...fixture.context };
+    delete context.bundleId;
+    const options = { runId: context.runId, bundleIds: [fixture.context.bundleId], mode: 'strict',
+        machine: { cpuUnits: 8, memoryGiB: 16 }, systemdTransport: fixture.transport,
+        observeSystemdController: fixture.options.observeController,
+        systemdBoundary: { context, retainBinding: fixture.options.retainBinding, commandBudgetMs: 1000, startupBudgetMs: 1000 } };
+    return { fixture, options };
+}
+
+test('systemd container reservation retains the original grant until exact cleanup', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    options.observeContainerReservationProcess = () => fixture.launcherProcess;
+    options.readContainerReservationProcessCgroup = () => `0::${fixture.launcherUnit.ControlGroup}\n`;
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    const initial = enforcer.update(bundleId, { cpuUnits: 4, memoryGiB: 4 });
+    await enforcer.attach(bundleId, fixture.launcherProcess.pid, fixture.launcherProcess);
+    const identity = { root: fixture.context.root, runId: fixture.context.runId,
+        namespace: fixture.context.namespace, bundleId: `matrix:${bundleId}`, stepId: 'migration-services',
+        sourceState: fixture.context.sourceState };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const request = { id: 'mysql', identity, limits };
+    const context = { ...structuredClone(identity), resourceGrant: { ...limits } };
+    const lease = enforcer.reserveContainerResources(bundleId, request);
+    assert.equal(lease.assertHeld(context).process.cpuUnits, 3);
+    assert.equal(enforcer.evidence().bundles[bundleId].allocation.total.cpuUnits, 4);
+    assert.equal(enforcer.cleanup().status, 'retained-container-reservations');
+    const expanded = enforcer.update(bundleId, { cpuUnits: 6, memoryGiB: 6 });
+    assert.equal(expanded.cpuUnits, 5);
+    assert.equal(lease.assertHeld(context).total.cpuUnits, 6);
+    const prior = fs.readFileSync(path.join(initial.cgroupPath, 'cpu.max'), 'utf8');
+    assert.throws(() => enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 6 }), /process share/u);
+    assert.equal(fs.readFileSync(path.join(initial.cgroupPath, 'cpu.max'), 'utf8'), prior);
+    await assert.rejects(lease.releaseAfterCleanup(async () => ({ containerAbsent: false, credentialsRemoved: true })),
+        /complete lifecycle cleanup/u);
+    assert.equal(lease.snapshot().held, true);
+    await lease.releaseAfterCleanup(async () => ({ containerAbsent: true, credentialsRemoved: true }));
+    assert.equal(enforcer.evidence().bundles[bundleId].allocation.process.cpuUnits, 6);
+    assert.throws(() => lease.assertHeld(context), /absent or crosses/u);
+    assert.throws(() => enforcer.reserveContainerResources(bundleId, request), /cannot be reused/u);
+    fixture.launcherGroup.populated = false;
+    fixture.launcherGroup.processIds = [];
+    fixture.group.populated = false;
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('systemd container reservation rejects crossed source, process and controls', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    let observedIdentity = fixture.launcherProcess;
+    options.observeContainerReservationProcess = () => observedIdentity;
+    options.readContainerReservationProcessCgroup = () => `0::${fixture.launcherUnit.ControlGroup}\n`;
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    enforcer.update(bundleId, { cpuUnits: 4, memoryGiB: 4 });
+    await enforcer.attach(bundleId, fixture.launcherProcess.pid, fixture.launcherProcess);
+    const identity = { root: fixture.context.root, runId: fixture.context.runId,
+        namespace: fixture.context.namespace, bundleId: `matrix:${bundleId}`, stepId: 'migration-services',
+        sourceState: fixture.context.sourceState };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const request = { id: 'mysql', identity, limits };
+    assert.throws(() => enforcer.reserveContainerResources(bundleId, { ...request,
+        identity: { ...identity, sourceState: { ...identity.sourceState, commit: 'f'.repeat(40) } } }), /exact producer\/source/u);
+    const lease = enforcer.reserveContainerResources(bundleId, request);
+    assert.throws(() => lease.assertHeld({ ...identity, resourceGrant: { ...limits, pidsMax: 127 } }), /absent or crosses/u);
+    observedIdentity = { ...fixture.launcherProcess, processStartIdentity: 'reused-pid' };
+    assert.throws(() => lease.assertHeld({ ...identity, resourceGrant: limits }), /live attached/u);
+    observedIdentity = fixture.launcherProcess;
+    fixture.group.controls['cpu.max'] = 'max 100000';
+    assert.throws(() => lease.assertHeld({ ...identity, resourceGrant: limits }), /controls changed|effective process controls/u);
+});
+
+test('systemd container reservation binds the independently retained managed service before admission', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const processIdentity = fixture.launcherProcess;
+    let serviceBinding;
+    options.observeContainerReservationProcess = () => processIdentity;
+    options.readContainerReservationProcessCgroup = () => `0::${serviceBinding.identity.controlGroup}\n`;
+    options.inspectContainerReservationService = (binding) =>
+    {
+        assert.deepEqual(binding, serviceBinding);
+        return { status: 'present', unit: { ActiveState: 'active' },
+            group: { processIds: [processIdentity.pid] }, identity: serviceBinding.identity };
+    };
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    enforcer.update(bundleId, { cpuUnits: 4, memoryGiB: 4 });
+    const identity = { root: fixture.context.root, runId: fixture.context.runId,
+        namespace: fixture.context.namespace, bundleId: `matrix:${bundleId}`, stepId: 'migration-services',
+        sourceState: fixture.context.sourceState };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const lease = enforcer.reserveContainerResources(bundleId, { id: 'mysql', identity, limits });
+    const reference = fixture.reference;
+    const serviceIdentity = { unitName: 'fsusblog-physical-test.service',
+        controlGroup: `${fixture.unit.ControlGroup}/fsusblog-physical-test.service`,
+        path: path.join(fixture.group.path, 'fsusblog-physical-test.service'),
+        device: 1, inode: 2, invocationId: 'c'.repeat(32), artifacts: [] };
+    serviceBinding = { reference, identity: serviceIdentity };
+    const authority = { phase: 'pre-exec', authorityId: randomUUID(), serviceBinding,
+        supervisorProcessIdentity: processIdentity };
+    assert.throws(() => lease.assertHeld({ ...identity, resourceGrant: limits }), /one live attached/u);
+    assert.throws(() => enforcer.bindManagedService(bundleId, processIdentity, { ...authority,
+        serviceBinding: { ...serviceBinding, reference: { ...reference, bindingDigest: `sha256:${'f'.repeat(64)}` } } }),
+    /retained process or resource owner/u);
+    const binding = enforcer.bindManagedService(bundleId, processIdentity, authority);
+    assert.equal(binding.pid, processIdentity.pid);
+    assert.equal(lease.assertHeld({ ...identity, resourceGrant: limits }).process.cpuUnits, 3);
+    assert.throws(() => enforcer.bindManagedService(bundleId, processIdentity, authority), /one live reserved/u);
+    await lease.releaseAfterCleanup(async () => ({ containerAbsent: true, credentialsRemoved: true }));
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('systemd enforcer uses the existing total grant and retains cleanup without reopening admission', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    assert.equal(enforcer.mode, 'enforced');
+    assert.equal(enforcer.capabilities.backend, 'systemd-user-manager');
+    assert.throws(() => enforcer.executionBoundary(bundleId), /verified current resource grant/u);
+    const first = enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(bundleId);
+    assert.deepEqual(boundary.reference, fixture.reference);
+    assert.equal(boundary.admission.path, first.cgroupPath);
+    await assert.rejects(() => enforcer.attach(bundleId, fixture.launcherProcess.pid), /exact registered launcher identity/u);
+    assert.equal(fixture.events.includes('start-launcher'), false);
+    assert.equal(await enforcer.attach(bundleId, fixture.launcherProcess.pid, fixture.launcherProcess), 'attached');
+    assert.equal(enforcer.evidence().bundles[bundleId].launcherAdmission.parent.unitName, boundary.admission.unitName);
+    assert.ok(fixture.launcherUnit.ControlGroup.startsWith(`${fixture.unit.ControlGroup}/`));
+    const second = enforcer.update(bundleId, { cpuUnits: 0.333333, memoryGiB: 0.500001 });
+    assert.equal(second.cpuMax, '163299 489898');
+    assert.equal(fixture.launcherGroup.processIds[0], fixture.launcherProcess.pid);
+    const evidence = enforcer.sample();
+    assert.equal(evidence.bundles[bundleId].grants.length, 2);
+    assert.equal(evidence.bundles[bundleId].consistency.status, 'consistent');
+    assert.equal(evidence.bundles[bundleId].samples.at(-1).memoryCurrent, null, 'missing counters must not become fabricated zeroes');
+    assert.equal(enforcer.cleanup().status, 'retained-resources');
+    assert.throws(() => enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 }), /finalizing retained/u);
+    await assert.rejects(() => enforcer.attach(bundleId, fixture.launcherProcess.pid, fixture.launcherProcess), /finalizing retained/u);
+    fixture.launcherGroup.populated = false;
+    fixture.launcherGroup.processIds = [];
+    fixture.group.populated = false;
+    assert.equal(enforcer.cleanup().status, 'removed');
+    assert.equal(enforcer.cleanup().status, 'removed');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(fixture.reference.ownerFile), 'state.json'))).phase, 'released');
+});
+
+test('systemd enforcer invalidates changed-control admission and rejects context or retention failures', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const bundleId = fixture.context.bundleId;
+    await assert.rejects(() => createProductionResourceEnforcer({ ...options,
+        systemdBoundary: { ...options.systemdBoundary, context: { ...options.systemdBoundary.context, runId: 'wrong-run' } } }), /exact context/u);
+    await assert.rejects(() => createProductionResourceEnforcer({ ...options, delegateRoot: '/sys/fs/cgroup/selected' }), /explicitly selected/u);
+    const enforcer = await createProductionResourceEnforcer(options);
+    enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    fixture.group.controls['pids.max'] = '4096';
+    assert.throws(() => enforcer.executionBoundary(bundleId), /controls changed/u);
+    assert.equal(enforcer.evidence().bundles[bundleId].consistency.status, 'unverified');
+    fixture.group.controls['pids.max'] = '128';
+    await assert.rejects(() => enforcer.attach(bundleId, fixture.launcherProcess.pid, fixture.launcherProcess), /verified current resource grant/u);
+    enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    assert.equal(enforcer.executionBoundary(bundleId).reference.bindingDigest, fixture.reference.bindingDigest);
+    assert.equal(enforcer.cleanup().status, 'removed');
+
+    const denied = systemdEnforcerFixture(t);
+    await assert.rejects(() => createProductionResourceEnforcer({ ...denied.options, mode: 'auto', systemdBoundary: {
+        ...denied.options.systemdBoundary, retainBinding: () => ({ bindingDigest: `sha256:${'0'.repeat(64)}` })
+    } }), /did not acknowledge/u);
+    assert.equal(denied.fixture.events.includes('start'), false);
+});
+
+test('systemd enforcer preserves explicit unsupported modes without converting identity drift into advisory', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    let calls = 0;
+    fixture.transport.runtimeIdentity = () =>
+    {
+        calls += 1;
+        throw Object.assign(new Error('local manager absent'), { code: 'ENOENT' });
+    };
+    for (const mode of ['off', 'advisory'])
+    {
+        const enforcer = await createProductionResourceEnforcer({ ...options, mode });
+        assert.equal(enforcer.mode, 'advisory');
+    }
+    assert.equal(calls, 0);
+    const automatic = await createProductionResourceEnforcer({ ...options, mode: 'auto' });
+    assert.equal(automatic.mode, 'advisory');
+    assert.match(automatic.evidence().reason, /systemd-capability-unavailable:ENOENT/u);
+    await assert.rejects(() => createProductionResourceEnforcer(options), /strict cgroup enforcement unavailable/u);
+    const beforeUnsupported = calls;
+    const unsupported = await createProductionResourceEnforcer({ ...options, mode: 'auto', platform: 'darwin' });
+    assert.equal(unsupported.evidence().reason, 'non-linux');
+    assert.equal(calls, beforeUnsupported);
+    fixture.transport.runtimeIdentity = () =>
+    {
+        throw new Error('manager identity changed');
+    };
+    await assert.rejects(() => createProductionResourceEnforcer({ ...options, mode: 'auto' }), /manager identity changed/u);
+    assert.equal(fixture.events.length, 0);
+});
+
+test('partial systemd enforcer construction reconciles only its independently retained owners', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const retained = [];
+    const retain = options.systemdBoundary.retainBinding;
+    options.systemdBoundary.retainBinding = async (reference) =>
+    {
+        retained.push(reference);
+        return retain(reference);
+    };
+    let firstName = null;
+    const inspect = fixture.transport.inspect;
+    const absent = inspect('unused');
+    fixture.transport.inspect = (name) => name === firstName ? inspect(name) : structuredClone(absent);
+    const start = fixture.transport.start;
+    fixture.transport.start = (...args) =>
+    {
+        if (firstName)
+        {
+            throw new Error('second exact creation denied');
+        }
+        [firstName] = args;
+        start(...args);
+    };
+    await assert.rejects(() => createProductionResourceEnforcer({ ...options, bundleIds: ['first', 'second'], mode: 'auto' }), (error) =>
+        /second exact creation denied/u.test(error.message)
+        && error.enforcerSetupCleanup.boundaries.length === 1
+        && error.enforcerSetupCleanup.boundaries[0].status === 'removed'
+        && error.enforcerSetupCleanup.priorFailure.status === 'removed');
+    assert.equal(retained.length, 2);
+    for (const reference of retained)
+    {
+        assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(reference.ownerFile), 'state.json'))).phase, 'released');
+    }
+    assert.equal(fixture.events.filter((event) => event === 'stop').length, 1);
 });
