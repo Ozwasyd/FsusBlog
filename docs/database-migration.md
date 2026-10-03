@@ -145,6 +145,17 @@ Operation semantic digests identify definitions, not actual row-data verificatio
 The independent plan verifier rebuilds that closure from owner inputs and fresh
 observations; merely resealing a modified payload does not authorize it.
 
+An apply-only controlled-empty re-observation may separate the original apply journal
+from the business domain only inside the executor's original retained writer scope.
+It must first observe the complete native catalog, validate the sole complete control
+shape on that same transaction, and prove the entire journal has zero rows, including
+foreign runs. Ordinary objects, business data, unsupported effects and altered control
+facts remain refusals. The original empty profile and content framing do not change;
+public planning/read-only observation does not acquire this exception. Resume continues
+to verify the exact original run, artifact and journal head rather than classifying any
+nonempty history as absent. Measurement/filter source controls alone do not establish
+the required native scope, provider capability or runtime qualification.
+
 Unknown and ambiguous fingerprints cross the Host boundary through the migration-owned
 closed exception type, not parsed exception text. Structured failures retain exact
 Schema/History/Business/Extractor categories, Missing/Extra/Changed kinds and category

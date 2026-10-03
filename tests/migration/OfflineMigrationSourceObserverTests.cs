@@ -7,12 +7,120 @@ using Npgsql;
 using Xunit;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
 
 namespace FsusBlog.Migration.Tests;
 
 // These are source/profile and streaming-codec controls, not actual database qualification.
 public sealed class OfflineMigrationSourceObserverTests
 {
+    // Candidate filters do not assert whole-journal validity or native writer custody.
+    // Actual measurement must invoke the original validator and held-scope owner first.
+    [Fact]
+    public void ControlledEmptyHistoryRequiresGlobalZeroNotOnlyTheSelectedRun()
+    {
+        OfflineMigrationSourceObserver.RequireEmptyJournalRowCount(0);
+        foreach (long actual in new[] { -1L, 1L, long.MaxValue })
+        {
+            InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+                OfflineMigrationSourceObserver.RequireEmptyJournalRowCount(actual));
+            Assert.Equal("offline_source_controlled_empty_journal_history_present", refusal.Message);
+        }
+    }
+
+    [Fact]
+    public void MySqlControlledEmptyCandidateRetainsTheOriginalRawFieldDescriptors()
+    {
+        MySqlCurrentSchemaCatalog candidate = MySqlDomainCandidate();
+        Assert.Equal(MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(MySqlCatalogPart.Tables),
+            Assert.Single(candidate.Rows).Cells.Select(cell => cell.Name));
+        OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(candidate);
+        MySqlCatalogRow row = Assert.Single(candidate.Rows);
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
+            candidate with { Rows = [row with { Cells = row.Cells.RemoveAt(0) }] }));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
+            candidate with { Rows = [] }));
+    }
+
+    [Theory]
+    [InlineData((int)MySqlCatalogPart.Tables)]
+    [InlineData((int)MySqlCatalogPart.Columns)]
+    [InlineData((int)MySqlCatalogPart.References)]
+    [InlineData((int)MySqlCatalogPart.Triggers)]
+    [InlineData((int)MySqlCatalogPart.Routines)]
+    [InlineData((int)MySqlCatalogPart.RoutineParameters)]
+    [InlineData((int)MySqlCatalogPart.Events)]
+    [InlineData((int)MySqlCatalogPart.Views)]
+    public void MySqlControlledEmptyCandidateCannotHideAnOrdinaryObject(int rawPart)
+    {
+        MySqlCatalogPart part = (MySqlCatalogPart)rawPart;
+        MySqlCurrentSchemaCatalog candidate = MySqlDomainCandidate();
+        OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(candidate);
+        MySqlCatalogRow foreign = MySqlDomainRow(part, "ordinary_object");
+        Assert.Equal(MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(part), foreign.Cells.Select(cell => cell.Name));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
+            candidate with { Rows = candidate.Rows.Add(foreign) }));
+    }
+
+    [Fact]
+    public void MySqlControlledEmptyCandidateDistinguishesTheRawNullPartitionRowFromARealPartition()
+    {
+        MySqlCurrentSchemaCatalog candidate = MySqlDomainCandidate();
+        MySqlCatalogRow rawNull = MySqlDomainRow(MySqlCatalogPart.Partitions, CurrentSchemaControlShape.ApplyJournalTableName);
+        candidate = candidate with { Rows = candidate.Rows.Add(rawNull) };
+        Assert.All(rawNull.Cells.Where(cell => cell.Name != "TABLE_NAME"), cell => Assert.Null(cell.Value));
+        OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(candidate);
+        ImmutableArray<MySqlCatalogCell> changed = rawNull.Cells.Select(cell => cell.Name == "PARTITION_NAME"
+            ? cell with { Value = "p0" } : cell).ToImmutableArray();
+        Assert.Contains(changed, cell => cell.Name == "PARTITION_NAME" && cell.Value == "p0");
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
+            candidate with { Rows = candidate.Rows.SetItem(1, rawNull with { Cells = changed }) }));
+    }
+
+    [Fact]
+    public void SqliteControlledEmptyCandidateRequiresOnlyTheSoleControlTableAndItsDerivedIndexes()
+    {
+        ImmutableArray<ImmutableArray<string>> candidate = SqliteDomainCandidate();
+        OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(candidate);
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(candidate.RemoveAt(1)));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(
+            candidate.SetItem(1, candidate[2])));
+    }
+
+    [Theory]
+    [InlineData("table", "ordinary_object")]
+    [InlineData("table", "sqlite_sequence")]
+    [InlineData("trigger", "ordinary_trigger")]
+    [InlineData("view", "ordinary_view")]
+    [InlineData("index", "ordinary_index")]
+    public void SqliteControlledEmptyCandidateCannotStripBusinessOrUnsupportedObjects(string kind, string name)
+    {
+        ImmutableArray<ImmutableArray<string>> candidate = SqliteDomainCandidate();
+        OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(candidate);
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(
+            candidate.Add([kind, name, name, "CREATE " + kind])));
+    }
+
+    private static MySqlCurrentSchemaCatalog MySqlDomainCandidate()
+        => new(new(CurrentSchemaProviderKind.MySql, "measured-instance", "measured-database"), [],
+            [MySqlDomainRow(MySqlCatalogPart.Tables, CurrentSchemaControlShape.ApplyJournalTableName)]);
+
+    private static MySqlCatalogRow MySqlDomainRow(MySqlCatalogPart part, string table)
+        => new(part, MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(part).Select(name => new MySqlCatalogCell(name, name switch
+        {
+            "TABLE_NAME" => table, "TABLE_TYPE" => "BASE TABLE", "ENGINE" => "InnoDB",
+            "CREATE_OPTIONS" or "TABLE_COMMENT" => "", _ => null
+        })).ToImmutableArray());
+
+    private static ImmutableArray<ImmutableArray<string>> SqliteDomainCandidate()
+    {
+        SchemaTableModel shape = CurrentSchemaControlShape.DescribeApplyJournal();
+        ImmutableArray<ImmutableArray<string>> candidate = [["table", shape.Name, shape.Name, "native definition tested by the sole whole validator"]];
+        return candidate
+            .AddRange(Enumerable.Range(1, shape.Constraints.Values.Count(value => value.Kind != "check"))
+                .Select(index => ImmutableArray.Create("index", $"sqlite_autoindex_{shape.Name}_{index}", shape.Name, "")));
+    }
+
     [Theory]
     [InlineData(CurrentSchemaProviderKind.PostgreSql)]
     [InlineData(CurrentSchemaProviderKind.MySql)]

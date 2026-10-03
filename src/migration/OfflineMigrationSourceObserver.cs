@@ -138,6 +138,59 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
             throw new InvalidOperationException("legacy_target_prepare_original_transaction_required");
     }
 
+    // Measurement preparation only, not a public admission entrypoint. The original
+    // apply owner must first mint and retain its actual writer read scope. No current
+    // public or apply entrypoint calls this method while that capability is absent.
+    private async Task<OfflineMigrationSourceObservation> ReadControlledEmptyCandidateAsync(
+        CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (provider == CurrentSchemaProviderKind.MySql)
+            return await ReadMySqlControlledEmptyCandidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        if (provider == CurrentSchemaProviderKind.Sqlite)
+            return await ReadSqliteControlledEmptyCandidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        if (provider != CurrentSchemaProviderKind.PostgreSql)
+            throw new InvalidOperationException("offline_source_provider_unknown");
+
+        RequirePostgreSqlStageSession(connection, transaction);
+        var budget = new ObservationBudget();
+        CurrentSchemaDatabaseIdentity database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        ImmutableArray<OfflineMigrationFact> complete = await ReadSchemaAsync(
+            provider, connection, transaction, budget, cancellationToken).ConfigureAwait(false);
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        RequireEmptyJournalRowCount(await ScalarAsync(connection, transaction,
+            "SELECT COUNT(*) FROM public.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
+            budget, cancellationToken).ConfigureAwait(false));
+        ImmutableArray<OfflineMigrationFact> domain = await ReadSchemaAsync(
+            provider, connection, transaction, budget, cancellationToken, validatedJournal: true).ConfigureAwait(false);
+        if (OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, domain))
+            throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
+        string content = await ReadContentDigestAsync(connection, transaction, false, cancellationToken).ConfigureAwait(false);
+        if (!OfflineMigrationPlanValidation.Equal(complete, await ReadSchemaAsync(
+            provider, connection, transaction, budget, cancellationToken).ConfigureAwait(false)))
+            throw new InvalidOperationException("offline_source_controlled_empty_catalog_changed");
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        RequireEmptyJournalRowCount(await ScalarAsync(connection, transaction,
+            "SELECT COUNT(*) FROM public.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
+            budget, cancellationToken).ConfigureAwait(false));
+        cancellationToken.ThrowIfCancellationRequested();
+        var observation = new OfflineMigrationSourceObservation(database, OfflineMigrationSourceFingerprints.ExtractorId,
+            OfflineMigrationSourceFingerprints.ExtractorVersion, domain, [new("history.state", "absent")],
+            OfflineMigrationSourceFingerprints.Business(false, 0, 0, 0, 0), content);
+        _ = OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation);
+        return observation;
+    }
+
+    // The global count is measured on the original transaction, never a filtered
+    // plan/run lookup. Pure controls of this predicate are not native admission.
+    internal static void RequireEmptyJournalRowCount(long actualRows)
+    {
+        if (actualRows != 0)
+            throw new InvalidOperationException("offline_source_controlled_empty_journal_history_present");
+    }
+
     // This is a projection of the already measured unsupported-object query,
     // not a second journal schema. Its owner validates the complete journal
     // columns/constraints first. Exclude only those constraint-backed indexes;

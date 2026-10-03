@@ -9,11 +9,145 @@ using Microsoft.Data.Sqlite;
 using MySqlConnector;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
 
 namespace FsusBlog.Migration;
 
 public sealed partial class OfflineMigrationSourceObserver
 {
+    // Private measurement bodies are reserved for the original apply-owned writer
+    // capability. They do not weaken or replace either public read-only observer.
+    private static async Task<OfflineMigrationSourceObservation> ReadMySqlControlledEmptyCandidateAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        MySqlCurrentSchemaCatalog complete = await MySqlCurrentSchemaCatalogObserver.ReadAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        var budget = new ObservationBudget();
+        RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
+            "SELECT COUNT(*) FROM `" + OfflineMigrationStateStore.ApplyJournalTableName + "`",
+            budget, cancellationToken).ConfigureAwait(false));
+        RequireMySqlControlledEmptyDomainCandidate(complete);
+        ImmutableArray<ImmutableArray<string>> allocator = await ReadMySqlAutoIncrementAsync(
+            connection, transaction, budget, cancellationToken).ConfigureAwait(false);
+        if (!allocator.IsEmpty)
+            throw new InvalidOperationException("offline_source_controlled_empty_allocator_present");
+        string content = await ReadMySqlContentAsync((MySqlConnection)connection, (MySqlTransaction)transaction,
+            false, allocator, cancellationToken).ConfigureAwait(false);
+        MySqlCurrentSchemaCatalog terminal = await MySqlCurrentSchemaCatalogObserver.ReadAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        MySqlCurrentSchemaCatalogObserver.RequireUnchanged(complete, terminal);
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
+            "SELECT COUNT(*) FROM `" + OfflineMigrationStateStore.ApplyJournalTableName + "`",
+            budget, cancellationToken).ConfigureAwait(false));
+        cancellationToken.ThrowIfCancellationRequested();
+        var observation = new OfflineMigrationSourceObservation(complete.Database,
+            OfflineMigrationSourceFingerprints.ExtractorId, OfflineMigrationSourceFingerprints.ExtractorVersion,
+            [new("objects.unsupported", "0")], [new("history.state", "absent")],
+            OfflineMigrationSourceFingerprints.Business(false, 0, 0, 0, 0), content);
+        _ = OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation);
+        return observation;
+    }
+
+    private static async Task<OfflineMigrationSourceObservation> ReadSqliteControlledEmptyCandidateAsync(
+        DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        using OfflineMigrationSqliteDatabaseIdentity.Snapshot identity = await OfflineMigrationSqliteDatabaseIdentity.CaptureAsync(
+            connection, transaction, cancellationToken).ConfigureAwait(false);
+        var budget = new ObservationBudget();
+        if (await ProviderScalarAsync(connection, transaction, "PRAGMA application_id", budget, cancellationToken).ConfigureAwait(false) != 0
+            || await ProviderScalarAsync(connection, transaction, "PRAGMA user_version", budget, cancellationToken).ConfigureAwait(false) != 0)
+            throw new InvalidOperationException("offline_source_controlled_empty_sqlite_namespace_required");
+        ImmutableArray<ImmutableArray<string>> encoding = await ReadProviderRowsAsync(connection, transaction,
+            "PRAGMA encoding", budget, cancellationToken).ConfigureAwait(false);
+        if (encoding.Length != 1 || encoding[0].Length != 1 || encoding[0][0] != "UTF-8")
+            throw new InvalidOperationException("offline_source_sqlite_content_encoding_unavailable");
+        ImmutableArray<OfflineMigrationFact> complete = await ReadSqliteSchemaAsync(
+            connection, transaction, budget, cancellationToken).ConfigureAwait(false);
+        ImmutableArray<ImmutableArray<string>> objects = await ReadProviderRowsAsync(connection, transaction,
+            "SELECT type,name,tbl_name,substr(COALESCE(sql,''),1,4097) FROM main.sqlite_schema ORDER BY name COLLATE BINARY",
+            budget, cancellationToken).ConfigureAwait(false);
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
+            "SELECT COUNT(*) FROM main.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
+            budget, cancellationToken).ConfigureAwait(false));
+        RequireSqliteControlledEmptyDomainCandidate(objects);
+        (string content, ImmutableArray<OfflineMigrationFact> business) = await ReadSqliteContentAsync(
+            (SqliteConnection)connection, (SqliteTransaction)transaction, false, budget, cancellationToken).ConfigureAwait(false);
+        if (!OfflineMigrationPlanValidation.Equal(complete, await ReadSqliteSchemaAsync(
+            connection, transaction, budget, cancellationToken).ConfigureAwait(false)))
+            throw new InvalidOperationException("offline_source_controlled_empty_catalog_changed");
+        await identity.ValidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
+            "SELECT COUNT(*) FROM main.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
+            budget, cancellationToken).ConfigureAwait(false));
+        cancellationToken.ThrowIfCancellationRequested();
+        var observation = new OfflineMigrationSourceObservation(identity.Database,
+            OfflineMigrationSourceFingerprints.ExtractorId, OfflineMigrationSourceFingerprints.ExtractorVersion,
+            [new("objects.unsupported", "0")], [new("history.state", "absent")], business, content);
+        _ = OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation);
+        return observation;
+    }
+
+    // This only checks absence of an ordinary domain in complete measured rows.
+    // It cannot establish native custody or replace the sole whole-journal validator.
+    internal static void RequireMySqlControlledEmptyDomainCandidate(MySqlCurrentSchemaCatalog actual)
+    {
+        ArgumentNullException.ThrowIfNull(actual);
+        if (actual.Rows.IsDefault || actual.Rows.Any(row => row is null)
+            || actual.Rows.Count(row => row.Part == MySqlCatalogPart.Tables) != 1)
+            throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
+        SchemaTableModel shape = CurrentSchemaControlShape.DescribeApplyJournal();
+        foreach (MySqlCatalogRow row in actual.Rows)
+        {
+            if (row is null || !Enum.IsDefined(row.Part) || row.Cells.IsDefault
+                || row.Cells.Any(cell => cell is null)
+                || !row.Cells.Select(cell => cell.Name).SequenceEqual(MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(row.Part)))
+                throw new InvalidOperationException("offline_source_controlled_empty_catalog_incomplete");
+            string? Field(string name) => row.Cells.Single(cell => cell.Name == name).Value;
+            bool ownedCandidate = row.Part switch
+            {
+                MySqlCatalogPart.Tables => Field("TABLE_NAME") == shape.Name
+                    && Field("TABLE_TYPE") == "BASE TABLE" && Field("ENGINE") == "InnoDB"
+                    && Field("CREATE_OPTIONS") == "" && Field("TABLE_COMMENT") == "" && Field("AUTO_INCREMENT") is null,
+                MySqlCatalogPart.Columns => Field("TABLE_NAME") == shape.Name && shape.Columns.ContainsKey(Field("COLUMN_NAME") ?? "")
+                    && Field("EXTRA") == "" && Field("GENERATION_EXPRESSION") == "" && Field("COLUMN_COMMENT") == ""
+                    && Field("SRS_ID") is null,
+                MySqlCatalogPart.IndexParts => Field("TABLE_NAME") == shape.Name && Field("COMMENT") == ""
+                    && Field("INDEX_COMMENT") == "",
+                MySqlCatalogPart.Constraints or MySqlCatalogPart.ConstraintColumns => Field("TABLE_NAME") == shape.Name,
+                MySqlCatalogPart.Checks => shape.Constraints.TryGetValue(Field("CONSTRAINT_NAME") ?? "", out SchemaConstraintModel? constraint)
+                    && constraint.Kind == "check",
+                MySqlCatalogPart.Partitions => Field("TABLE_NAME") == shape.Name
+                    && row.Cells.Where(cell => cell.Name != "TABLE_NAME").All(cell => cell.Value is null),
+                _ => false
+            };
+            if (!ownedCandidate)
+                throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
+        }
+    }
+
+    internal static void RequireSqliteControlledEmptyDomainCandidate(ImmutableArray<ImmutableArray<string>> actual)
+    {
+        SchemaTableModel shape = CurrentSchemaControlShape.DescribeApplyJournal();
+        int indexes = shape.Constraints.Values.Count(constraint => constraint.Kind != "check");
+        if (actual.IsDefault || actual.Length != indexes + 1
+            || actual.Any(row => row.IsDefault || row.Length != 4 || row.Any(value => value is null))
+            || actual.Select(row => row[1]).Distinct(StringComparer.Ordinal).Count() != actual.Length
+            || actual.Count(row => row[0] == "table" && row[1] == shape.Name) != 1)
+            throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
+        foreach (ImmutableArray<string> row in actual)
+        {
+            bool ownedIndex = row.Length == 4 && row[0] == "index" && row[2] == shape.Name && row[3] == ""
+                && Enumerable.Range(1, indexes).Any(index => row[1] == $"sqlite_autoindex_{shape.Name}_{index}");
+            bool ownedTable = row.Length == 4 && row[0] == "table" && row[1] == shape.Name && row[2] == shape.Name;
+            if (!ownedTable && !ownedIndex)
+                throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
+        }
+    }
+
     // Complete raw read capability is independent of instance-incarnation admission.
     // The native VFS name below is a namespace fact, not an inode/generation proof.
     // Public observation separately requires the actual held-FD identity port below.
