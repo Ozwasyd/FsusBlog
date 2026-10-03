@@ -340,3 +340,123 @@ test('shared legacy column and type-forwarder are rejected', t =>
     assert.match(result.stderr, /legacy column/);
     assert.match(result.stderr, /type-forwarder or compat namespace/);
 });
+
+const friendAttributeForms = [
+    'InternalsVisibleTo',
+    'InternalsVisibleToAttribute',
+    'System.Runtime.CompilerServices.InternalsVisibleTo',
+    'System.Runtime.CompilerServices.InternalsVisibleToAttribute',
+    'global::System.Runtime.CompilerServices.InternalsVisibleTo',
+    'global::System.Runtime.CompilerServices.InternalsVisibleToAttribute'
+];
+const friendDirections = [
+    ['src/migration/Friend.cs', 'FsusBlog.Server'],
+    ['src/migration/Friend.cs', 'FsusBlog.Shared'],
+    ['src/backend/Friend.cs', 'FsusBlog.Migration'],
+    ['src/shared/Friend.cs', 'FsusBlog.Migration']
+];
+
+for (const attribute of friendAttributeForms)
+{
+    for (const [path, target] of friendDirections)
+    {
+        test(`actual assembly ${attribute} declaration from ${path} to ${target} is refused`, t =>
+        {
+            const root = fixture(t);
+            assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+            add(root, path, `using System.Runtime.CompilerServices;\n[assembly: ${attribute}("${target}")]\n`);
+            const report = inspectMigrationTerminalGovernance(root);
+            assert.ok(report.failures.some(value => value.includes('InternalsVisibleTo') && value.includes(path)),
+                JSON.stringify(report.failures));
+            assert.equal(report.graph.directions.serverToMigration, false);
+            assert.equal(report.graph.directions.migrationToServer, false);
+        });
+    }
+}
+
+test('assembly friend literal expressions and multiple-attribute syntax cannot hide the real identity', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    for (const [index, argument] of [
+        '"FsusBlog." + /* literal seam */ "Migration"',
+        '@"FsusBlog.Migration"',
+        '"FsusBlog.\\u004digration"',
+        'assemblyName: "FsusBlog.Migration, PublicKey=0123456789abcdef"'
+    ].entries())
+    {
+        const path = `src/backend/FriendExpression${index}.cs`;
+        add(root, path, `using System.Runtime.CompilerServices;\n[assembly: global::System.CLSCompliant(false), InternalsVisibleToAttribute(${argument})]\n`);
+        assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo')
+            && value.includes(path)), path);
+    }
+});
+
+test('unresolved assembly friend arguments are reported rather than assumed benign', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/backend/UnknownFriend.cs', 'using System.Runtime.CompilerServices;\n[assembly: InternalsVisibleTo(FriendConstants.Name)]\n');
+    const report = inspectMigrationTerminalGovernance(root);
+    assert.ok(report.failures.some(value => value.includes('unresolved InternalsVisibleTo') && value.includes('UnknownFriend.cs')));
+});
+
+test('friend comments, literal examples, type lookalikes and ordinary test friends remain benign', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/FriendControls.cs', `using System.Runtime.CompilerServices;
+// [assembly: InternalsVisibleTo("FsusBlog.Server")]
+/* [assembly: global::System.Runtime.CompilerServices.InternalsVisibleToAttribute("FsusBlog.Server")] */
+[assembly: InternalsVisibleTo("FsusBlog.Migration.Tests")]
+[assembly: InternalsVisibleToAttribute("FsusBlog.ServerTools")]
+public static class FriendControls
+{
+    public const string Example = "[assembly: InternalsVisibleTo(\\"FsusBlog.Server\\")]";
+    public const string Verbatim = @"[assembly: InternalsVisibleTo(""FsusBlog.Server"")]";
+    public const string Raw = """[assembly: InternalsVisibleTo("FsusBlog.Server")]""";
+}
+`);
+    add(root, 'src/backend/OtherFriend.cs', `[assembly: Other.InternalsVisibleTo("FsusBlog.Migration")]
+namespace Other
+{
+    [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
+    public sealed class InternalsVisibleToAttribute : global::System.Attribute
+    {
+        public InternalsVisibleToAttribute(string value) { }
+    }
+}
+`);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+});
+
+for (const [project, target] of [
+    ['src/backend/FsusBlog.Server.csproj', 'FsusBlog.Migration'],
+    ['src/shared/FsusBlog.Shared.csproj', 'FsusBlog.Migration'],
+    ['src/migration/FsusBlog.Migration.csproj', 'FsusBlog.Server']
+])
+{
+    test(`MSBuild friend item in ${project} cannot hide ${target} in a declared import`, t =>
+    {
+        const root = fixture(t);
+        assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+        const props = `${dirname(project)}/Friend.props`;
+        append(root, project, '<Import Project="Friend.props" />');
+        add(root, props, `<Project><ItemGroup><InternalsVisibleTo Condition="false" Include="${target}" /></ItemGroup></Project>`);
+        const report = inspectMigrationTerminalGovernance(root);
+        assert.ok(report.failures.some(value => value.includes('InternalsVisibleTo') && value.includes(props)));
+        assert.ok(report.graph.projects.find(value => value.path === project).friends.some(value => value.input === props
+            && value.value === target && value.condition === 'false'));
+    });
+}
+
+test('unresolved MSBuild friend update is refused while remove-only items and comments do not grant friendship', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    const project = 'src/backend/FsusBlog.Server.csproj';
+    append(root, project, '<!-- <InternalsVisibleTo Include="FsusBlog.Migration" /> -->\n<InternalsVisibleTo Remove="FsusBlog.Migration" />\n<InternalsVisibleTo Include="FsusBlog.Tests" />');
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    append(root, project, '<InternalsVisibleTo Update="$(HiddenFriendAssembly)" />');
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')));
+});

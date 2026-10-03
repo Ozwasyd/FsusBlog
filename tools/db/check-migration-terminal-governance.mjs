@@ -28,6 +28,122 @@ function xmlItems(text, name)
             .map(attribute => [attribute[1], attribute[3]])));
 }
 
+// Resolve only static literal expressions at an already identified assembly
+// attribute seam. Other expressions remain unresolved, never assumed benign.
+function friendLiteralArgument(source)
+{
+    let remaining = source.trim();
+    remaining = remaining.replace(/^assemblyName\s*:\s*/u, '');
+    let value = '';
+    let needsLiteral = true;
+    while (remaining)
+    {
+        const trivia = remaining.match(/^(?:\s+|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)/u);
+        if (trivia)
+        {
+            remaining = remaining.slice(trivia[0].length);
+            continue;
+        }
+        if (!needsLiteral)
+        {
+            if (!remaining.startsWith('+'))
+            {
+                return null;
+            }
+            remaining = remaining.slice(1);
+            needsLiteral = true;
+            continue;
+        }
+        const verbatim = remaining.match(/^@"(?:""|[^"])*"/u);
+        const quoted = verbatim ? null : remaining.match(/^"(?:[^"\\\r\n]|\\[^\r\n])*"/u);
+        const literal = verbatim ?? quoted;
+        if (!literal)
+        {
+            return null;
+        }
+        try
+        {
+            value += verbatim ? literal[0].slice(2, -1).replaceAll('""', '"') : JSON.parse(literal[0]);
+        }
+        catch
+        {
+            return null;
+        }
+        remaining = remaining.slice(literal[0].length);
+        needsLiteral = false;
+    }
+    return needsLiteral ? null : value;
+}
+
+function assemblyFriendDeclarations(source)
+{
+    const code = maskCSharp(source);
+    const declarations = [];
+    for (const section of code.matchAll(/\[\s*assembly\s*:/gu))
+    {
+        let start = section.index + section[0].length;
+        let parentheses = 0;
+        let brackets = 0;
+        for (let cursor = start; cursor < code.length; cursor += 1)
+        {
+            const character = code[cursor];
+            if ((character === ',' || character === ']') && parentheses === 0 && brackets === 0)
+            {
+                const segment = code.slice(start, cursor);
+                const attribute = segment.match(/^\s*((?:global\s*::\s*)?(?:@?[A-Za-z_]\w*\s*\.\s*)*@?InternalsVisibleTo(?:Attribute)?)\s*\(/u);
+                const type = attribute?.[1].replace(/\s|@/gu, '').replace(/^global::/u, '');
+                if (['InternalsVisibleTo', 'InternalsVisibleToAttribute',
+                    'System.Runtime.CompilerServices.InternalsVisibleTo', 'System.Runtime.CompilerServices.InternalsVisibleToAttribute'].includes(type))
+                {
+                    const argumentStart = start + attribute[0].length;
+                    let argumentEnd = argumentStart;
+                    let argumentDepth = 0;
+                    while (argumentEnd < cursor)
+                    {
+                        const token = code[argumentEnd];
+                        if ((token === ',' || token === ')') && argumentDepth === 0)
+                        {
+                            break;
+                        }
+                        if (token === '(')
+                        {
+                            argumentDepth += 1;
+                        }
+                        if (token === ')')
+                        {
+                            argumentDepth -= 1;
+                        }
+                        argumentEnd += 1;
+                    }
+                    declarations.push(friendLiteralArgument(source.slice(argumentStart, argumentEnd)));
+                }
+                if (character === ']')
+                {
+                    break;
+                }
+                start = cursor + 1;
+            }
+            if (character === '(')
+            {
+                parentheses += 1;
+            }
+            if (character === ')')
+            {
+                parentheses -= 1;
+            }
+            if (character === '[')
+            {
+                brackets += 1;
+            }
+            if (character === ']')
+            {
+                brackets -= 1;
+            }
+        }
+    }
+    return declarations;
+}
+
 // Declared-source graph only: conditions are included, never evaluated as false.
 // Missing evaluated assets and runtime executions cannot qualify as acceptance.
 export function inspectMigrationTerminalGovernance(root = defaultRoot)
@@ -37,6 +153,15 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     const inputByPath = new Map();
     const projects = new Map();
     const missingObservations = new Set();
+
+    function checkFriendDeclaration(value, owner, input)
+    {
+        const identity = typeof value === 'string' ? value.split(',')[0].trim() : null;
+        reject(!identity || /[$@%&\p{Cc}]/u.test(identity), `friend: unresolved InternalsVisibleTo declaration in ${input}`);
+        const forbidden = owner === migrationPath ? ['FsusBlog.Server', 'FsusBlog.Core', 'FsusBlog.Shared'] : ['FsusBlog.Migration'];
+        reject(identity !== null && forbidden.some(name => name.toLowerCase() === identity.toLowerCase()),
+            `source: ${owner === migrationPath ? 'Migration' : 'Server/CurrentContracts'} InternalsVisibleTo ${identity}: ${input}`);
+    }
 
     function reject(condition, message)
     {
@@ -158,7 +283,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
         {
             return;
         }
-        const project = { path, references: [], packages: [], imports: [], items: [], linkedSources: [], assemblyNames: [] };
+        const project = { path, references: [], packages: [], imports: [], items: [], linkedSources: [], assemblyNames: [], friends: [] };
         projects.set(path, project);
         const fragments = [];
         const imported = new Set();
@@ -216,6 +341,15 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
             // MSBuild items are relative to the main project, unlike Import paths.
             project.references.push(...xmlItems(fragment.text, 'ProjectReference').map(item => resolveItem(path, item.Include)).filter(Boolean));
             project.packages.push(...xmlItems(fragment.text, 'PackageReference').map(item => item.Include ?? item.Update).filter(Boolean));
+            for (const item of xmlItems(fragment.text, 'InternalsVisibleTo'))
+            {
+                if (item.Remove && !item.Include && !item.Update)
+                {
+                    continue;
+                }
+                const value = item.Include ?? item.Update ?? null;
+                project.friends.push({ input: fragment.path, value, condition: item.Condition ?? null });
+            }
             for (const kind of ['Compile', 'Content', 'EmbeddedResource', 'None', 'Reference'])
             {
                 for (const item of xmlItems(fragment.text, kind))
@@ -317,6 +451,10 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     for (const source of serverSources)
     {
         const code = maskCSharp(source.text);
+        for (const friend of assemblyFriendDeclarations(source.text))
+        {
+            checkFriendDeclaration(friend, serverPath, source.path);
+        }
         reject(/\bFsusBlog\s*\.\s*Migration\b/u.test(code), `source: Server imports Migration: ${source.path}`);
         reject(/\bTypeForwardedTo\b/u.test(code) && /SchemaMigration|Migration/u.test(code), `source: migration type-forwarder: ${source.path}`);
         reject(migrationHashes.has(sha256(source.text)), `source: duplicate migration source: ${source.path}`);
@@ -332,7 +470,10 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
         const code = maskCSharp(source.text);
         reject(/\bFsusBlog\s*\.\s*(?:Server|Core)\b|Microsoft\s*\.\s*AspNetCore|\b(?:IHostedService|BackgroundService|WebApplication|TestServer)\b/u.test(code), `source: Migration imports Server/runtime: ${source.path}`);
         reject(/\bTypeForwardedTo\b|namespace\s+FsusBlog\s*\.\s*Server\s*\.\s*Infrastructure\s*\.\s*SchemaMigration/u.test(code), `source: type-forwarder or compat namespace: ${source.path}`);
-        reject(/InternalsVisibleTo\s*\(\s*"FsusBlog\.Server"/u.test(source.text), `source: Migration InternalsVisibleTo Server: ${source.path}`);
+        for (const friend of assemblyFriendDeclarations(source.text))
+        {
+            checkFriendDeclaration(friend, migrationPath, source.path);
+        }
         for (const match of code.matchAll(runtimeLoad))
         {
             const normalized = source.text.slice(match.index, match.index + match[0].length).replace(/[\s"'+]/gu, '');
@@ -345,6 +486,19 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     }
     const authorityErrors = validateCurrentSchemaAuthority(root);
     failures.push(...authorityErrors.map(error => `current-schema-authority: ${error}`));
+    for (const project of projects.values())
+    {
+        if (serverGraph.has(project.path) || migrationGraph.has(project.path))
+        {
+            // Shared projects retain the current-contract direction even when
+            // reached by Migration: a friend does not make them its legacy owner.
+            const owner = project.path === migrationPath ? migrationPath : serverPath;
+            for (const friend of project.friends)
+            {
+                checkFriendDeclaration(friend.value, owner, friend.input);
+            }
+        }
+    }
 
     const assets = [];
     for (const path of projects.keys())
