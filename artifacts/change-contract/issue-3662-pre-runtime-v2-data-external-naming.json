@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "pre-runtime-fact-build-identity-authority",
+            "paths": [
+                "config/schemas/behavior-evidence-pre-runtime-receipt.schema.json",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs"
+            ],
+            "reason": "Preserve the original pre-runtime receipt and CLI identifiers while adding strict v2 replay data; internal symbols retain repository naming."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Document the existing receipt identifiers and DATA-only provenance boundary without creating a new source authority."
+        }
+    ]
+}
