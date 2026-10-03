@@ -563,6 +563,8 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         VerifiedAuthoringPackage newPackage,
         AuthoringStateMigrationPlan plan)
     {
+        ValidateOwnedScope(oldPackage, plan.From);
+        ValidateOwnedScope(newPackage, plan.To);
         if (!string.Equals(oldPackage.Contract.Manifest.Id, newPackage.Contract.Manifest.Id, StringComparison.Ordinal) ||
             !string.Equals(plan.From.ExtensionId, oldPackage.Contract.Manifest.Id, StringComparison.Ordinal) ||
             !string.Equals(plan.To.ExtensionId, newPackage.Contract.Manifest.Id, StringComparison.Ordinal) ||

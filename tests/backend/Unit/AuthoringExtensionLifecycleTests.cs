@@ -110,6 +110,59 @@ public sealed class AuthoringExtensionLifecycleTests
         Assert.Equal(1, fixture.Resources.RevocationCount);
     }
 
+    [Theory]
+    [InlineData("site")]
+    [InlineData("user")]
+    [InlineData("document")]
+    public async Task UpdateAsync_SymmetricEmptyScope_FailsBeforeBackup(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        AuthoringStateScope EmptyField(AuthoringStateScope scope) => field switch
+        {
+            "site" => scope with { SiteId = string.Empty },
+            "user" => scope with { UserId = string.Empty },
+            "document" => scope with { DocumentId = string.Empty },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+        AuthoringStateMigrationPlan plan = original with
+        {
+            From = EmptyField(original.From),
+            To = EmptyField(original.To)
+        };
+        Assert.Equal(plan.From.SiteId, plan.To.SiteId);
+        Assert.Equal(plan.From.UserId, plan.To.UserId);
+        Assert.Equal(plan.From.DocumentId, plan.To.DocumentId);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), plan));
+
+        Assert.False(fixture.State.BackupCalled);
+        Assert.Equal(0, fixture.Resources.ActivationCount);
+        Assert.Empty(fixture.Receipts.All);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExactOwnedScopeWithOptionalDocument_UsesTheMigration()
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        AuthoringStateMigrationPlan plan = original with
+        {
+            From = original.From with { DocumentId = null },
+            To = original.To with { DocumentId = null }
+        };
+
+        AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+            fixture.Package, next, CreateTargets(next), plan);
+
+        Assert.True(fixture.State.BackupCalled);
+        Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+        Assert.Equal(next, fixture.Resources.LastActivatedPackage);
+    }
+
     [Fact]
     public async Task DeleteOwnedDataAsync_RequiresSeparateExactApprovalAndMeasuredScope()
     {
