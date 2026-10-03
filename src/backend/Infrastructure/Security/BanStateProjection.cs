@@ -274,8 +274,8 @@ public sealed class BanStateProjection
         => GetAsync(0, accountSubjectHash, cancellationToken);
 
     /// <summary>
-    /// Validates and applies a fact under the local write lock, rejecting older
-    /// generations and duplicates. Same-generation conflicts and invalid payloads
+    /// Validates a fact before the main write lock. Local ordering and application
+    /// use that lock, rejecting older generations and duplicates. Same-generation conflicts and invalid payloads
     /// at the stored generation or newer fail closed to unknown; capacity admission
     /// can evict other subjects.
     /// No authority write or cross-node acknowledgement is performed here.
