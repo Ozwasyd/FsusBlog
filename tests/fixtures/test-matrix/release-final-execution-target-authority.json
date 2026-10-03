@@ -4430,8 +4430,8 @@
         },
         {
             "path": "tools/test/system-memory.mjs",
-            "contentDigest": "sha256:191ef8b339b69b0dbe7b153da4021e0c3a9f9e3d4810921a0257c4af8dbdacec",
-            "indexDigest": "sha256:191ef8b339b69b0dbe7b153da4021e0c3a9f9e3d4810921a0257c4af8dbdacec"
+            "contentDigest": "sha256:e347e43ec94bda1b8b97e6e3b75147845e021d87af03a04bc3e1844d42301f63",
+            "indexDigest": "sha256:e347e43ec94bda1b8b97e6e3b75147845e021d87af03a04bc3e1844d42301f63"
         },
         {
             "path": "tools/test/temporal-context.mjs",

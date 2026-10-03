@@ -43,6 +43,16 @@ values read back from `cpu.max`, `cpu.weight`, `memory.high`, `memory.max`, and 
 Any CPU or memory grant above the admitted machine envelope fails before control files are written, so enforcement
 cannot silently clamp an oversold grant or emit an invalid `memory.high > memory.max` pair.
 
+Linux available-memory sampling maps unified membership through mountinfo and walks every visible cgroup v2
+ancestor. Non-root views require the mapped leaf's actual process membership, not directory existence alone.
+Each finite memory.max contributes its own subtree headroom (max - memory.current, clamped to zero), capped
+by Node free memory. A leaf max needs no numeric usage but never hides finite parents. No v2 view or all-unlimited
+visible limits retain the Node fallback; ambiguous mapping, malformed finite controls, unreadable controls, missing
+finite usage or membership migration fail instead of claiming unrestricted memory. Limit reads around usage retain
+the smaller observed ceiling, not an atomic reservation. Darwin/Windows sampling, advisory mode, CPU/PID formulas
+and enforcement remain unchanged. Zero headroom stays zero here; caller floors and workload fit require separate
+admission verification.
+
 ## Process and container attribution
 
 In enforced mode the bundle entry shell starts stopped, the scheduler moves it into the bundle cgroup, and only then

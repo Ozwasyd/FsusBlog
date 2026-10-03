@@ -6,12 +6,13 @@
         "tests/tools/behavior-doc-static-admission.test.mjs",
         "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
         "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
-        "tools/docs/behavior-doc-minimal-contract-build.mjs"
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/test/system-memory.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "c57bd346ee23717ff2c12d0566f3c584fe29f2954408940ea766bff49cc64a49"
+            "sha256": "0d4af454313528f22448b11d728e606a32aebd06f14fdb8e0d213e09dbd83d7b"
         },
         {
             "path": "docs/architecture/monolithic-distributed-boundary.md",
