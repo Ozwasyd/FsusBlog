@@ -165,7 +165,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 454,
+      "estimatedFacts": 458,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -455,6 +455,10 @@
         {
           "path": "Integration/AuthorArticlePinStoreIntegrationTests.cs",
           "class": "AuthorArticlePinStoreIntegrationTests"
+        },
+        {
+          "path": "Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+          "class": "AuthorRecentArticleHistoryStoreIntegrationTests"
         },
         {
           "path": "Unit/ContentAssetDeleteEndpointTests.cs",

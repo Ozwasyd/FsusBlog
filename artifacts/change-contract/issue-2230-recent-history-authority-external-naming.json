@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the maintained public history contract and canonical test-lifecycle registry schema while documenting fail-closed caller-facing authority facts; each governed path is assigned exactly once."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+                "src/backend/Services/Authoring/AuthorRecentArticleHistoryApplicationFacade.cs",
+                "src/backend/Services/Authoring/AuthorRecentArticleHistoryContracts.cs",
+                "src/backend/Services/Authoring/AuthorRecentArticleHistoryCursorCodec.cs",
+                "src/backend/Services/Authoring/AuthorRecentArticleHistoryProjectionService.cs",
+                "src/backend/Services/Authoring/AuthorRecentArticleHistoryStore.cs",
+                "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs",
+                "src/migration/Catalogs/SchemaMigrationCatalog20260915AuthorRecentHistory.cs",
+                "src/migration/Definitions/AuthorRecentArticleHistoryMigrationDefinitions.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tools/governance/check-author-recent-history-authority.mjs"
+            ],
+            "reason": "Preserve the server authority, typed migration identities, durable SQL names and runtime/tooling configuration spellings while integrating the original recent-history contract; no unrelated registrations or external names are changed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the existing PostgreSQL fixture collection manifest JSON keys and its original physical test owner contract; no alternative fixture authority is introduced."
+        }
+    ]
+}

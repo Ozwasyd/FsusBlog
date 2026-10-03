@@ -325,6 +325,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ThemeActivationRuntimeMigrationDefinitions.MigrationId,
             CustomizationMigrationDefinitions.MigrationId,
             AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
+            AuthoringCanvasOperationJournalMigrationDefinitions.MigrationId,
             TaxonomyDescriptionMigrationDefinitions.MigrationId,
             AuthorArticlePinMigrationDefinitions.MigrationId,
             AuthorSavedViewMigrationDefinitions.MigrationId,
@@ -332,7 +333,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ArticleVaultExecutionMigrationDefinitions.MigrationId,
             ArticleCreateAuthorityMigrationDefinitions.MigrationId,
             ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
-            ContentAssetCutoverMigrationDefinitions.MigrationId
+            ContentAssetCutoverMigrationDefinitions.MigrationId,
+            BanStateProjectionMigrationDefinitions.MigrationId,
+            AdminSessionProjectionMigrationDefinitions.MigrationId,
+            AuthorRecentArticleHistoryMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

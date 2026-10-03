@@ -2292,6 +2292,40 @@ Public and management end article response matrix:
 
 旧公开 query 路径（如 `/api/binary/article?page=1`、`/api/binary/article/hot?size=10`）不再 fallback；fast path 返回 `400 no-store`，并通过 `X-Fsus-Required-Route` 提示新的 segment artifact 路径。
 
+### Author recent article history authority (#2230)
+
+作者最近文章历史的唯一权威是服务端 `AuthorRecentArticleHistoryApplicationFacade` 与 PostgreSQL
+`author_recent_history_*` 表。每个事实按 `(ownerAdminPrincipalId, siteScope, articleId)` 归属，`articleId`
+必须是现存服务端 `Article.Id`，并绑定调用时的 `Article.CurrentRevisionId`；route、slug、title、local tab、
+`Article.UpdatedAt`、浏览器 history 和客户端缓存都不是身份或排序来源。closed schema version 为 `1`，每条 entry
+保存 `lastOpenedAtUtc`、`lastEditedAtUtc`、`lastActivatedAtUtc`、`serverRevision`、`lastCommand`、entry revision
+和内容 digest，投影只按这三个服务端事实时间再以 `articleId` 降序稳定排序。
+
+`Open`、`Edit`、`Activate` 通过同一 application/domain port 写入；请求必须携带正数 server revision、唯一
+UUID request id 和预期 history collection revision；服务端按封闭命令计算 command digest，而非接收客户端摘要。
+事务取得 owner/site advisory lock，先校验权限并检查同一 request 的既有 receipt；新命令再校验
+`Article.CurrentRevisionId` 并执行 collection CAS。同一 request 的相同命令返回原 receipt，payload 不同
+返回 idempotency conflict，过期 CAS 返回 revision conflict。每次提交原子写入 history entry、collection revision、
+receipt、idempotency row、outbox 和 audit row；任一 durable side effect 缺失或 digest 不一致，verifier 只能返回
+`Invalid`，不可生成已验证投影。
+
+读取使用真实服务端 empty projection；没有 entry 时不回退到 `updatedAt`、浏览器 history、route 扫描或本地存储。
+projection provider 在 permission、account/site scope、article deletion 或 archive 状态变化后过滤并失效；被拒绝的
+article 不泄露 title、slug、status、existence 或其它 metadata。cursor 由 ASP.NET Core Data Protection 认证保护，
+并绑定 owner、site、permission/session revision、collection revision 和最新 server fact，执行 bounded keyset
+pagination；offline 本地读取不写 authority，reconnect 只能重放正式 command 并接受服务端 receipt/CAS 结果。receipt
+同时封存 open/edit/activate 三类服务端事实时间，replay 与 independent verifier 都会重读并精确核对 idempotency、
+outbox、audit、permission 和 projection digest；缺失、字段漂移或重封后的 command drift 均 fail closed。此 issue
+只提供服务端 authority、commands、projection、receipt 与 verifier，不提供 client、UI 或 search 行为。返回当前
+projection 前必须通过 direct server read-model cache publication 校验；该边界不保存第二份 history authority，
+publication 拒绝、异常或 digest/page slice 不一致时返回空的 `Unavailable` 投影，不暴露部分缓存结果。
+实际读取与 independent verifier 共用同一快照绑定检查：验证结果必须为有效，且 revision、item count、content digest
+与本次读取快照逐项一致。另一快照的有效结果不能证明本次读取；不匹配时返回空的 `Unavailable`，不发布缓存投影。
+caller-facing verifier 只有在当前权限快照有效且所有 history entry 均可投影时才返回 collection revision、总计数
+与完整 authority digest；任一 entry 被拒绝时返回通用拒绝理由，所有 verifier 事实清空，空集合的有效校验不受影响。
+terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
+但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：

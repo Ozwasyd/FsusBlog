@@ -30,9 +30,20 @@ public sealed class MigrationAssemblyBoundaryTests
     {
         SchemaMigrationManifest manifest = SchemaMigrationManifest.Current;
 
-        Assert.Equal(145, manifest.Descriptors.Count);
+        const string RecentHistoryMigrationId = "20260915-post-author-recent-history";
+        Assert.Single(manifest.Descriptors, static descriptor =>
+            descriptor.MigrationId == RecentHistoryMigrationId);
+        ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
+            .Where(static descriptor => descriptor.MigrationId != RecentHistoryMigrationId)
+            .ToArray();
+        Assert.Equal(145, historicalDescriptors.Length);
         Assert.Equal(
             "D53AB234D57D3C847748434A7A64810A21D8DA44219CFA895360A96B918A4117",
+            ComputePlanFingerprint(historicalDescriptors));
+
+        Assert.Equal(146, manifest.Descriptors.Count);
+        Assert.Equal(
+            "DB1EA11A52744CA7F95082059B4A50C1D44EB2A239034D0D834AA4658E590725",
             ComputePlanFingerprint(manifest.Descriptors));
         Assert.Equal(
             manifest.Descriptors.Count,
