@@ -13,6 +13,7 @@ const {assertSafeProductionBuildRunRoot, bindProductionBuildLayoutSource, collec
 const {createSchedulerRunOwner, schedulerCandidateIdentityDigest} = await import(new URL('../../tools/test-matrix/scheduler-run-owner.mjs', import.meta.url));
 const {snapshotTierOutputs} = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const {resolveFixtureProfile} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {inspectProductionBuildRecoveryBinding, productionBuildCapacityOwnerReferenceIsComplete, recoverProductionBuildResourceTree, retainProductionBuildCapacityOwner} = await import(new URL('../../tools/test-matrix/production-build-layout.mjs', import.meta.url));
 function repositoryFixture(t)
 {
     const root = fs.mkdtempSync(
@@ -59,6 +60,107 @@ const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "../.."
 );
+
+function recoveryOwnerFixture(t, runId)
+{
+    const root = repositoryFixture(t);
+    const layout = prepareProductionBuildLayout({
+        root,
+        runId,
+        namespace: `test:${runId}`,
+        sourceState: { commit: "a".repeat(40), worktreeFingerprint: "b".repeat(64) }
+    });
+    const reference = retainProductionBuildCapacityOwner(layout);
+    const snapshot = () => fs.readdirSync(root, { recursive: true }).sort().map((file) =>
+    {
+        const target = path.join(root, file);
+        const stat = fs.lstatSync(target);
+        return { file, inode: stat.ino, mode: stat.mode,
+            bytes: stat.isFile() ? fs.readFileSync(target).toString("base64") : null };
+    });
+    return { root, layout, reference, snapshot };
+}
+
+test("recovery rejects incomplete authority without creating an owner tree", (t) =>
+{
+    const root = repositoryFixture(t);
+    for (const reference of [null, {}, { repositoryRoot: root, runId: "foreign" }])
+    {
+        assert.equal(productionBuildCapacityOwnerReferenceIsComplete(reference), false);
+        for (const recover of [inspectProductionBuildRecoveryBinding, recoverProductionBuildResourceTree])
+        {
+            assert.throws(() => recover(reference), /complete Linux owner reference/u);
+            assert.deepEqual(fs.readdirSync(root), []);
+        }
+    }
+});
+
+test("recovery refuses the current live controller and leaves every retained byte unchanged", (t) =>
+{
+    const { layout, reference, snapshot } = recoveryOwnerFixture(t, "recovery-live");
+    assert.equal(productionBuildCapacityOwnerReferenceIsComplete(reference), true);
+    const before = snapshot();
+    for (const recover of [inspectProductionBuildRecoveryBinding, recoverProductionBuildResourceTree])
+    {
+        assert.throws(() => recover(reference), /proven dead controller|complete Linux owner reference/u);
+        assert.deepEqual(snapshot(), before);
+        assert.equal(fs.existsSync(path.join(layout.runRoot, ".reclaim.json")), false);
+        assert.equal(fs.existsSync(path.join(layout.runRoot, ".sender-terminal-recovery.json")), false);
+    }
+});
+
+test("recovery refuses changed run source namespace and directory identity without resealing the owner", (t) =>
+{
+    const { reference, snapshot } = recoveryOwnerFixture(t, "recovery-foreign");
+    const before = snapshot();
+    for (const foreign of [
+        { ...reference, runId: "another-run" },
+        { ...reference, namespace: "another-namespace" },
+        { ...reference, sourceCommit: "c".repeat(40) },
+        { ...reference, worktreeFingerprint: "d".repeat(64) },
+        { ...reference, directoryIdentity: { ...reference.directoryIdentity, inode: String(BigInt(reference.directoryIdentity.inode) + 1n) } }
+    ])
+    {
+        assert.equal(productionBuildCapacityOwnerReferenceIsComplete(foreign), true);
+        for (const recover of [inspectProductionBuildRecoveryBinding, recoverProductionBuildResourceTree])
+        {
+            assert.throws(() => recover(foreign), /ENOENT|differs from its retained owner|complete Linux owner reference/u);
+            assert.deepEqual(snapshot(), before);
+        }
+    }
+});
+
+test("recovery reads fail closed for missing corrupt and symlinked private owner records without repair", (t) =>
+{
+    const { root, layout, reference, snapshot } = recoveryOwnerFixture(t, "recovery-record");
+    const bytes = fs.readFileSync(layout.manifestFile);
+    const originalMode = fs.statSync(layout.manifestFile).mode & 0o777;
+    const outside = path.join(root, "outside-owner.json");
+    fs.writeFileSync(outside, bytes, { mode: 0o600 });
+    const checkUnchanged = (pattern) =>
+    {
+        const before = snapshot();
+        for (const recover of [inspectProductionBuildRecoveryBinding, recoverProductionBuildResourceTree])
+        {
+            assert.throws(() => recover(reference), pattern);
+            assert.deepEqual(snapshot(), before);
+            assert.equal(fs.existsSync(path.join(layout.runRoot, ".reclaim.json")), false);
+            assert.equal(fs.readFileSync(outside).equals(bytes), true);
+        }
+    };
+    fs.unlinkSync(layout.manifestFile);
+    checkUnchanged(/ENOENT|complete Linux owner reference/u);
+    fs.writeFileSync(layout.manifestFile, "{corrupt", { mode: originalMode });
+    checkUnchanged(/JSON|complete Linux owner reference/u);
+    fs.writeFileSync(layout.manifestFile, bytes);
+    fs.chmodSync(layout.manifestFile, 0o644);
+    checkUnchanged(/private|complete Linux owner reference/u);
+    fs.unlinkSync(layout.manifestFile);
+    fs.symlinkSync(outside, layout.manifestFile);
+    checkUnchanged(/private|complete Linux owner reference/u);
+    fs.unlinkSync(layout.manifestFile);
+    fs.writeFileSync(layout.manifestFile, bytes, { mode: originalMode });
+});
 
 test("official namespace pre-bootstrap binds scheduler run source build and sealed fixture identity without ambient run id", (t) =>
 {
@@ -285,6 +387,14 @@ test("run-bound layout isolates every MSBuild project and exposes canonical arti
         ),
         dotnetProjectLayout(
             layout,
+            "tests/migration/FsusBlog.Migration.Tests.csproj"
+        ),
+        dotnetProjectLayout(
+            layout,
+            "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj"
+        ),
+        dotnetProjectLayout(
+            layout,
             "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
         )
     ];
@@ -306,6 +416,23 @@ test("run-bound layout isolates every MSBuild project and exposes canonical arti
     );
 
     const artifacts = productionDotnetArtifacts(layout);
+    assert.deepEqual(artifacts.migrationTests, projects[2]);
+    assert.deepEqual(artifacts.xunitAdapter, projects[3]);
+    assert.equal(
+        artifacts.migrationTestDll,
+        path.join(projects[2].outputDirectory, "FsusBlog.Migration.Tests.dll")
+    );
+    assert.equal(
+        artifacts.xunitAdapterDll,
+        path.join(projects[3].outputDirectory, "FsusBlog.XunitRoslynAdapter.dll")
+    );
+    assert.equal(new Set([
+        artifacts.serverDll,
+        artifacts.testDll,
+        artifacts.migrationTestDll,
+        artifacts.xunitAdapterDll,
+        artifacts.benchmarkDll
+    ]).size, projects.length);
     const env = productionBuildEnvironment(layout, { SENTINEL: "kept" });
     assert.equal(env.SENTINEL, "kept");
     assert.equal(env.FSUSBLOG_BACKEND_SERVER_DLL, artifacts.serverDll);
