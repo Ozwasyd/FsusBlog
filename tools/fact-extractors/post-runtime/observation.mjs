@@ -1,5 +1,5 @@
 import { BehaviorId } from '../../contracts/behavior-contract-catalog.mjs'
-import { validateProducerReceiptAgainstRegistry } from '../../test-matrix/post-runtime-producer-registry.mjs'
+import { requiredObservationClasses, validateProducerReceiptAgainstRegistry } from '../../test-matrix/post-runtime-producer-registry.mjs'
 import { isPlainObject, stable } from '../lib/canonicalize.mjs'
 import { validateCandidatePlan } from './candidate.mjs'
 import {
@@ -24,7 +24,7 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
   const planInput = explicitJson(candidatePlan, 'candidate plan', repositoryRoot)
   const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
   const input = explicitJson(result, `${classId} result`, repositoryRoot)
-  const { registry, producer } = authority(repositoryRoot)
+  const { registry, producer } = authority(repositoryRoot, plan.producerId)
   const definition = registry.observationClasses[classId]
   if (!definition) fail(`unknown observation class ${classId}`)
   validateProducerReceiptAgainstRegistry({
@@ -130,12 +130,11 @@ export function produceObservationReceipt({ scope, candidatePlan, acceptedClaims
   const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
   const claimsInput = explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot)
   const claims = validateAcceptedClaims(claimsInput.value, { expectedRunId: plan.candidate.runId, repositoryRoot })
+  const { registry, producer } = authority(repositoryRoot, plan.producerId)
+  if (claims.producerId !== plan.producerId) fail('accepted claims select another observation producer')
   if (claims.contentDigest !== plan.acceptedClaimsReceiptDigest) fail('accepted claims do not match candidate plan')
-  const scopeClasses = scope === 'application'
-    ? ['aot-spa-hydration', 'browser-behavior-contract', 'cache-search-outbox-convergence', 'route-response-error', 'session-cookie-runtime']
-    : scope === 'release-deployment'
-      ? ['blue-green-containment', 'release-identity-readiness']
-      : fail(`unknown observation scope ${scope}`)
+  const scopeClasses = requiredObservationClasses(registry, producer, scope)
+  if (scopeClasses.length === 0) fail(`${scope} owns no classes for the selected producer`)
   const receiptInputs = classReceipts.map((entry, index) => explicitJson(entry, `class receipt ${index}`, repositoryRoot))
   for (const { value: receipt } of receiptInputs)
   {
@@ -149,7 +148,7 @@ export function produceObservationReceipt({ scope, candidatePlan, acceptedClaims
   return seal({
     schema: observationReceiptSchema,
     scope,
-    behaviorId: BehaviorId('browserless-production-correctness'),
+    behaviorId: BehaviorId(producer.behaviorId),
     producerId: plan.producerId,
     sourceState: plan.sourceState,
     candidate: plan.candidate,

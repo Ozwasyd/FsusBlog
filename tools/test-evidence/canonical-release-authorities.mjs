@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { verifyCanonicalReleaseAuthorityValues } from './canonical-release-authorities-value-contract.mjs'
+import { currentSchemaAuthorityReference, requireCurrentSchemaReceiptReference } from './release-authority-bundle-contract.mjs'
 
 const fail = (message) => { throw new Error(`[canonical-release-authorities] ${message}`) }
 const bytesDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
@@ -84,12 +85,25 @@ export function createCanonicalReleaseAuthorityReader(repositoryRoot)
   return { readJson, readBytes }
 }
 
-export function verifyCanonicalReleaseAuthorities({ candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot })
+export function verifyCanonicalReleaseAuthorities({ candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission,
+  currentSchemaReceiptRef, repositoryRoot })
 {
   if (!plan || !repositoryRoot) fail('candidate plan and repository root are required')
-  return verifyCanonicalReleaseAuthorityValues({
-    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot,
+  const reference = requireCurrentSchemaReceiptReference(currentSchemaReceiptRef)
+  const authorities = verifyCanonicalReleaseAuthorityValues({
+    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef: reference, repositoryRoot,
     ...createCanonicalReleaseAuthorityReader(repositoryRoot),
     now: Date.now()
   })
+  const verifiedReference = currentSchemaAuthorityReference(authorities)
+  if (Object.keys(reference).some((field) => verifiedReference[field] !== reference[field]))
+  {
+    fail('current-schema verified reference differs from the explicit input')
+  }
+  // The pure value contract proves immutable bindings only. Neither those
+  // values nor a pre-runtime code-model fixture proves that the owned native
+  // command ran under this candidate's admitted post-runtime execution.
+  // The original collector has no such typed consumer seam yet; until that
+  // original owner is connected, do not emit any qualifying authority bundle.
+  fail('current-schema post-runtime admitted native collector is not connected')
 }
