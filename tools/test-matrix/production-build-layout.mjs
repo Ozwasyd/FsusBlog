@@ -92,13 +92,19 @@ export function productionDotnetArtifacts(layout)
 {
     const server = dotnetProjectLayout(layout, 'src/backend/FsusBlog.Server.csproj');
     const tests = dotnetProjectLayout(layout, 'tests/backend/FsusBlog.Server.Tests.csproj');
+    const migrationTests = dotnetProjectLayout(layout, 'tests/migration/FsusBlog.Migration.Tests.csproj');
+    const xunitAdapter = dotnetProjectLayout(layout, 'tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj');
     const benchmark = dotnetProjectLayout(layout, 'benchmarks/core/FsusBlog.Core.Benchmarks.csproj');
     return {
         server,
         tests,
+        migrationTests,
+        xunitAdapter,
         benchmark,
         serverDll: path.join(server.outputDirectory, 'FsusBlog.Server.dll'),
         testDll: path.join(tests.outputDirectory, 'FsusBlog.Server.Tests.dll'),
+        migrationTestDll: path.join(migrationTests.outputDirectory, 'FsusBlog.Migration.Tests.dll'),
+        xunitAdapterDll: path.join(xunitAdapter.outputDirectory, 'FsusBlog.XunitRoslynAdapter.dll'),
         benchmarkDll: path.join(benchmark.outputDirectory, 'FsusBlog.Core.Benchmarks.dll')
     };
 }
