@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/core/Services/Articles/RevisionSourceDiff.cs",
+                "src/core/Services/Articles/RevisionSourceDiffMemoryBudget.cs",
+                "src/core/Services/Articles/RevisionSourceDiffReceipts.cs",
+                "src/core/Services/Articles/RevisionSourceDiffVerifier.cs",
+                "src/core/Services/Articles/RevisionSourceDiffVerifierMemory.cs",
+                "src/core/Services/Articles/RevisionSourceDiffWordInternals.cs",
+                "src/core/Services/Articles/RevisionSourceDiffWordMatching.cs"
+            ],
+            "reason": "Preserve existing external runtime and framework spelling at the registered core source boundaries; workspace accounting and completion refusal do not introduce or rename external environment contracts or change naming policy."
+        }
+    ]
+}

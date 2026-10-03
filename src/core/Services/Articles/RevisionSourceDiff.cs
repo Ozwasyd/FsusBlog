@@ -117,6 +117,15 @@ public sealed partial class RevisionSourceDiffEngine(
                     stopwatch.ElapsedMilliseconds);
             }
             linked.Token.ThrowIfCancellationRequested();
+            // The exact package rereads may complete after their entry-time
+            // observation expired. Do not publish either a diff or a worker
+            // memory refusal from that now-expired plan.
+            if (DateTimeOffset.UtcNow > bundle.Plan.ExpiresAtUtc)
+            {
+                return WithElapsed(
+                    Failure(bundle, RevisionComparePlanStatus.Stale, "revision_compare_plan_expired"),
+                    stopwatch.ElapsedMilliseconds);
+            }
             return WithElapsed(result, stopwatch.ElapsedMilliseconds);
         }
         catch (OperationCanceledException)

@@ -6,6 +6,99 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed partial class RevisionSourceDiffTests
 {
+    [Theory]
+    [InlineData(20_000, false)]
+    [InlineData(1_048_576, false)]
+    [InlineData(20_000, true)]
+    [InlineData(1_048_576, true)]
+    public async Task ComputeAsync_RevalidatesExpiryAfterTheLastExactPackageReread(
+        int memoryLimit,
+        bool expireDuringReread)
+    {
+        var (engine, plan, reader) = await SetupCompletionBoundaryAsync(memoryLimit);
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(plan, DateTimeOffset.UtcNow);
+        try
+        {
+            await reader.LastRereadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(DateTimeOffset.UtcNow <= plan.Plan.ExpiresAtUtc);
+            Assert.False(pending.IsCompleted);
+            if (expireDuringReread)
+            {
+                // Observe the original wall clock, not a forged timestamp or
+                // replacement clock. Equality remains legal under the contract.
+                while (DateTimeOffset.UtcNow <= plan.Plan.ExpiresAtUtc)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(10));
+                }
+            }
+            reader.Release.TrySetResult();
+            RevisionSourceDiffResult result = await pending;
+
+            Assert.True(reader.LastReadReturned);
+            if (expireDuringReread)
+            {
+                Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
+                Assert.Equal("revision_compare_plan_expired", result.Receipt.ReasonCode);
+                Assert.Equal(0, result.Receipt.EstimatedMemoryBytes);
+                Assert.Empty(result.Chunks);
+                Assert.Empty(result.BaseLines);
+                Assert.Empty(result.CompareLines);
+            }
+            else if (memoryLimit == 20_000)
+            {
+                Assert.Equal(RevisionComparePlanStatus.BudgetExceeded, result.Status);
+                Assert.Equal("revision_diff_memory_budget_exceeded", result.Receipt.ReasonCode);
+                Assert.Equal(56_368, result.Receipt.EstimatedMemoryBytes);
+                Assert.Empty(result.Chunks);
+            }
+            else
+            {
+                Assert.True(result.IsSuccess, result.Receipt.ReasonCode);
+                Assert.True(RevisionSourceDiffVerifier.Verify(plan, result));
+                Assert.Equal(plan.ComparePackage.RawMarkdown.ToArray(), Apply(result,
+                    plan.BasePackage.RawMarkdown.ToArray(), plan.ComparePackage.RawMarkdown.ToArray(), forward: true));
+                Assert.Equal(plan.BasePackage.RawMarkdown.ToArray(), Apply(result,
+                    plan.BasePackage.RawMarkdown.ToArray(), plan.ComparePackage.RawMarkdown.ToArray(), forward: false));
+            }
+        }
+        finally
+        {
+            reader.Release.TrySetResult();
+            await ObserveCompletionBoundaryAsync(pending);
+        }
+    }
+
+    [Theory]
+    [InlineData(20_000)]
+    [InlineData(1_048_576)]
+    public async Task ComputeAsync_PreservesCancellationDuringTheLastExactPackageReread(int memoryLimit)
+    {
+        var (engine, plan, reader) = await SetupCompletionBoundaryAsync(memoryLimit);
+        using var cancellation = new CancellationTokenSource();
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(plan, DateTimeOffset.UtcNow, cancellation.Token);
+        try
+        {
+            await reader.LastRereadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(pending.IsCompleted);
+            cancellation.Cancel();
+            reader.Release.TrySetResult();
+            RevisionSourceDiffResult result = await pending;
+
+            Assert.True(reader.LastReadReturned);
+            Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+            Assert.Equal("revision_compare_cancelled", result.Receipt.ReasonCode);
+            Assert.Equal(0, result.Receipt.EstimatedMemoryBytes);
+            Assert.Empty(result.Chunks);
+            Assert.Empty(result.BaseLines);
+            Assert.Empty(result.CompareLines);
+        }
+        finally
+        {
+            reader.Release.TrySetResult();
+            await ObserveCompletionBoundaryAsync(pending);
+        }
+    }
+
     [Fact]
     public async Task ComputeAsync_MemoryRefusalStillRejectsDraftDriftAtCompletion()
     {
@@ -269,6 +362,77 @@ public sealed partial class RevisionSourceDiffTests
                 AttemptReceipt = RevisionSourceDiffEngine.CreateAttemptReceipt(receipt, 0)
             };
             Assert.False(RevisionSourceDiffVerifier.Verify(plan, tampered));
+        }
+    }
+
+    private static async Task<(RevisionSourceDiffEngine Engine, RevisionComparePlanBundle Plan,
+        LastCompareRereadReader Reader)> SetupCompletionBoundaryAsync(int memoryLimit)
+    {
+        RevisionComparePackage draft = DraftPackage("epoch-a", 4, string.Concat(Enumerable.Repeat("x\n", 100)));
+        RevisionComparePackage historical = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1,
+            Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("y\n", 100))));
+        var request = new RevisionComparePlanRequest(
+            7,
+            new RevisionCompareReadContext(5, "primary", Guid.Parse("f6cc3f8c-b06f-437c-8c0f-91da744ad783")),
+            new RevisionCompareSourceSelector(RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key", ExpectedServerRevision: 4, DocumentEpoch: "epoch-a"),
+            new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 11),
+            new RevisionCompareOptions(RevisionCompareViewMode.Unified,
+                RevisionCompareWordSegmentation.UnicodeTextElementsV1, 3, false, ["title"]),
+            Budgets() with { MaxMemoryBytes = memoryLimit },
+            "diff:7:draft:11",
+            DateTimeOffset.UtcNow.AddSeconds(5));
+        RevisionComparePlanResult planned = await new RevisionComparePlanner(new MutableReader(draft, historical))
+            .CreateAsync(request);
+        Assert.True(planned.IsSuccess, planned.Receipt.ReasonCode);
+        var reader = new LastCompareRereadReader(draft, historical);
+        var engine = new RevisionSourceDiffEngine(new RevisionComparePlanVerifier(reader),
+            new RevisionMarkdownStructureAuthority([]));
+        return (engine, planned.Bundle!, reader);
+    }
+
+    private static async Task ObserveCompletionBoundaryAsync(Task operation)
+    {
+        try
+        {
+            await operation;
+        }
+        catch (Exception) when (operation.IsCompleted)
+        {
+            // Drain the host task without replacing an earlier assertion fault.
+            // This source fixture makes no native process termination claim.
+        }
+    }
+
+    private sealed class LastCompareRereadReader(
+        RevisionComparePackage draft,
+        RevisionComparePackage historical) : IRevisionComparePackageReader
+    {
+        private int _readCount;
+
+        internal TaskCompletionSource LastRereadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal bool LastReadReturned { get; private set; }
+
+        public async Task<RevisionComparePackageReadResult> ReadAuthorizedAsync(
+            RevisionCompareReadContext context,
+            int articleId,
+            RevisionCompareSourceSelector selector,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Interlocked.Increment(ref _readCount) == 4)
+            {
+                LastRereadStarted.TrySetResult();
+                // A non-cooperative late read returns the same sealed package;
+                // the production verifier/engine owns completion refusal.
+                await Release.Task;
+                LastReadReturned = true;
+            }
+            return RevisionComparePackageReadResult.Available(
+                selector.Kind == RevisionCompareSourceKind.CurrentDraft ? draft : historical);
         }
     }
 
