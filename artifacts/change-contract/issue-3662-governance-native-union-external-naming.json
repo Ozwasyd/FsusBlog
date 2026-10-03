@@ -81,6 +81,14 @@
                 "docs/development/doc-claim-protocol.md"
             ],
             "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/database-migration.md",
+                "docs/testing.md"
+            ],
+            "reason": "Cover both changed document paths governed by the original registered docs/**/*.md path pattern, independent of changed text keywords. Preserve existing external spelling without changing the registry, checker or qualification rules."
         }
     ]
 }
