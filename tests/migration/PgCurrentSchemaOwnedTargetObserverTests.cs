@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Shared.Algorithms.Schema;
 
@@ -224,6 +226,200 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
         Assert.DoesNotContain("DEFAULT", sql);
         Assert.DoesNotContain("DROP", sql);
         Assert.DoesNotContain("DELETE", sql);
+    }
+
+    [Fact]
+    public void RecentHistoryExpressionIndex_UsesIndependentRecipeAndOrderedNativeKeys()
+    {
+        Dictionary<string, SchemaColumnModel> columns = RecentHistoryColumns();
+        IReadOnlyList<SchemaIndexKeyModel> observed = ReadRecentHistoryKeys(RecentHistoryNativeKeys(), columns);
+        SchemaIndexKeyModel[] expected = RecentHistoryExpectedKeys(columns);
+        Assert.Equal(4, observed.Count);
+        Assert.Equal(SchemaIndexKeyKind.Expression, observed[2].Kind);
+        Assert.Empty(observed[2].Column);
+        Assert.Equal("desc", observed[2].Direction);
+        Assert.Equal("first", observed[2].NullPlacement);
+        Assert.Equal(expected[2], observed[2]); // Separate parsed AST lists, not reference equality.
+        Assert.Empty(CompareRecentHistory(expected, observed, columns));
+    }
+
+    [Theory]
+    [InlineData("order")]
+    [InlineData("argument-order")]
+    [InlineData("direction")]
+    [InlineData("null-placement")]
+    [InlineData("opclass")]
+    [InlineData("collation")]
+    public void RecentHistoryExpressionIndex_RejectsSameCountNativeKeyDrift(string drift)
+    {
+        Dictionary<string, SchemaColumnModel> columns = RecentHistoryColumns();
+        Dictionary<string, object?>[] native = RecentHistoryNativeKeys();
+        IReadOnlyList<SchemaIndexKeyModel> original = ReadRecentHistoryKeys(native, columns);
+        SchemaIndexKeyModel[] expected = RecentHistoryExpectedKeys(columns);
+        Assert.Empty(CompareRecentHistory(expected, original, columns));
+        switch (drift)
+        {
+            case "order": (native[2], native[3]) = (native[3], native[2]); break;
+            case "argument-order":
+                native[2]["expression"] = "GREATEST(last_edited_at_utc, last_opened_at_utc, last_activated_at_utc)";
+                break;
+            case "direction": native[2]["direction"] = "asc"; break;
+            case "null-placement": native[2]["nullPlacement"] = "last"; break;
+            case "opclass": native[2]["operatorClass"] = "public.changed_timestamp_ops"; break;
+            case "collation": native[2]["collation"] = "pg_catalog.C"; break;
+            default: throw new InvalidOperationException("Unknown native expression-key drift.");
+        }
+        IReadOnlyList<SchemaIndexKeyModel> changed = ReadRecentHistoryKeys(native, columns);
+        Assert.Equal(original.Count, changed.Count);
+        Assert.NotEmpty(CompareRecentHistory(expected, changed, columns));
+    }
+
+    [Theory]
+    [InlineData("missing-expression")]
+    [InlineData("column-and-expression")]
+    [InlineData("column-with-expression")]
+    [InlineData("unknown-kind")]
+    [InlineData("missing-kind")]
+    [InlineData("unknown-call")]
+    [InlineData("foreign-column")]
+    [InlineData("non-timestamp-column")]
+    [InlineData("cast")]
+    [InlineData("nested-call")]
+    [InlineData("literal")]
+    [InlineData("tail")]
+    [InlineData("presence")]
+    public void RecentHistoryExpressionIndex_RejectsUnclosedNativeExpressionUnion(string drift)
+    {
+        Dictionary<string, SchemaColumnModel> columns = RecentHistoryColumns();
+        Dictionary<string, object?>[] native = RecentHistoryNativeKeys();
+        Assert.Empty(CompareRecentHistory(RecentHistoryExpectedKeys(columns), ReadRecentHistoryKeys(native, columns), columns));
+        switch (drift)
+        {
+            case "missing-expression": native[2]["expression"] = null; break;
+            case "column-and-expression": native[2]["column"] = "last_opened_at_utc"; break;
+            case "column-with-expression": native[0]["expression"] = "owner_admin_principal_id"; break;
+            case "unknown-kind": native[2]["kind"] = "unknown"; break;
+            case "missing-kind": native[2].Remove("kind"); break;
+            case "unknown-call": native[2]["expression"] = "LEAST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc)"; break;
+            case "foreign-column": native[2]["expression"] = "GREATEST(foreign_column, last_edited_at_utc, last_activated_at_utc)"; break;
+            case "non-timestamp-column": native[2]["expression"] = "GREATEST(article_id, last_edited_at_utc, last_activated_at_utc)"; break;
+            case "cast": native[2]["expression"] = "GREATEST(last_opened_at_utc::timestamp, last_edited_at_utc, last_activated_at_utc)"; break;
+            case "nested-call": native[2]["expression"] = "GREATEST(GREATEST(last_opened_at_utc, last_edited_at_utc), last_activated_at_utc)"; break;
+            case "literal": native[2]["expression"] = "GREATEST(NULL, last_edited_at_utc, last_activated_at_utc)"; break;
+            case "tail": native[2]["expression"] = "GREATEST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc) DESC"; break;
+            case "presence": break;
+            default: throw new InvalidOperationException("Unknown native expression union drift.");
+        }
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(
+            JsonSerializer.Serialize(native), drift != "presence", columns));
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("extra")]
+    [InlineData("duplicate")]
+    [InlineData("unbound-column")]
+    [InlineData("foreign-owner")]
+    [InlineData("predicate-missing")]
+    public void ExpressionIndexDependencies_BindCompleteNativeIndexReadSet(string drift)
+    {
+        Dictionary<string, SchemaColumnModel> columns = RecentHistoryColumns();
+        IReadOnlyList<SchemaIndexKeyModel> keys = ReadRecentHistoryKeys(RecentHistoryNativeKeys(), columns);
+        string[] complete = RecentHistoryDependencies();
+        PgCurrentSchemaCatalogObserver.ValidatePostgresExpressionIndexDependencies(keys, [], null, columns,
+            JsonSerializer.Serialize(complete), false);
+        PgCurrentSchemaCatalogObserver.ValidatePostgresExpressionIndexDependencies(keys, [], null, columns,
+            JsonSerializer.Serialize(complete.Reverse()), false); // Dependencies are a set, unlike ordered keys.
+        // INCLUDE/predicate columns are part of this whole-index dependency set too.
+        columns["revision"] = new("revision", false, false, false, null, "int64", PhysicalType: "bigint");
+        string[] withRevision = complete.Append("revision").Order(StringComparer.Ordinal).ToArray();
+        PgCurrentSchemaCatalogObserver.ValidatePostgresExpressionIndexDependencies(keys, ["revision"], "revision > 0", columns,
+            JsonSerializer.Serialize(withRevision), false);
+        string[] changed = drift switch
+        {
+            "missing" => complete.Where(static name => name != "last_opened_at_utc").ToArray(),
+            "extra" => withRevision,
+            "duplicate" => [.. complete, complete[^1]],
+            "unbound-column" => [.. complete[..^1], "unbound_column"],
+            _ => complete
+        };
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ValidatePostgresExpressionIndexDependencies(
+            keys, [], drift == "predicate-missing" ? "revision > 0" : null, columns,
+            JsonSerializer.Serialize(changed), drift == "foreign-owner"));
+    }
+
+    private static Dictionary<string, SchemaColumnModel> RecentHistoryColumns()
+        => new(StringComparer.Ordinal)
+        {
+            ["owner_admin_principal_id"] = new("owner_admin_principal_id", false, false, false, null, "int64", PhysicalType: "bigint"),
+            ["site_scope"] = new("site_scope", false, false, false, 128, "string", PhysicalType: "varchar(128)"),
+            ["article_id"] = new("article_id", false, false, false, null, "int32", PhysicalType: "integer"),
+            ["last_opened_at_utc"] = new("last_opened_at_utc", true, false, false, null, "timestamp", PhysicalType: "timestamp without time zone"),
+            ["last_edited_at_utc"] = new("last_edited_at_utc", true, false, false, null, "timestamp", PhysicalType: "timestamp without time zone"),
+            ["last_activated_at_utc"] = new("last_activated_at_utc", true, false, false, null, "timestamp", PhysicalType: "timestamp without time zone")
+        };
+
+    private static Dictionary<string, object?>[] RecentHistoryNativeKeys()
+    {
+        static Dictionary<string, object?> Key(string? column, string? expression, string direction, string nullPlacement)
+            => new(StringComparer.Ordinal)
+            {
+                ["kind"] = expression is null ? "column" : "expression",
+                ["column"] = column,
+                ["expression"] = expression,
+                ["direction"] = direction,
+                ["nullPlacement"] = nullPlacement,
+                ["operatorClass"] = "default",
+                ["collation"] = "default"
+            };
+        return
+        [
+            Key("owner_admin_principal_id", null, "asc", "last"),
+            Key("site_scope", null, "asc", "last"),
+            Key(null, "GREATEST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc)", "desc", "first"),
+            Key("article_id", null, "desc", "first")
+        ];
+    }
+
+    private static SchemaIndexKeyModel[] RecentHistoryExpectedKeys(IReadOnlyDictionary<string, SchemaColumnModel> columns)
+        =>
+        [
+            new("owner_admin_principal_id", "asc", "last", "default", "default"),
+            new("site_scope", "asc", "last", "default", "default"),
+            new(string.Empty, "desc", "first", "default", "default")
+            {
+                Kind = SchemaIndexKeyKind.Expression,
+                Expression = PgCurrentSchemaExpressionParser.Parse(
+                    "GREATEST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc)", columns)
+            },
+            new("article_id", "desc", "first", "default", "default")
+        ];
+
+    private static string[] RecentHistoryDependencies()
+        => ["article_id", "last_activated_at_utc", "last_edited_at_utc", "last_opened_at_utc", "owner_admin_principal_id", "site_scope"];
+
+    private static IReadOnlyList<SchemaIndexKeyModel> ReadRecentHistoryKeys(Dictionary<string, object?>[] native,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns)
+    {
+        IReadOnlyList<SchemaIndexKeyModel> keys = PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(JsonSerializer.Serialize(native), true, columns);
+        PgCurrentSchemaCatalogObserver.ValidatePostgresExpressionIndexDependencies(keys, [], null, columns,
+            JsonSerializer.Serialize(RecentHistoryDependencies()), false);
+        return keys;
+    }
+
+    private static IReadOnlyList<string> CompareRecentHistory(IReadOnlyList<SchemaIndexKeyModel> expectedKeys,
+        IReadOnlyList<SchemaIndexKeyModel> observedKeys, Dictionary<string, SchemaColumnModel> columns)
+    {
+        static SchemaModelSnapshot Snapshot(IReadOnlyList<SchemaIndexKeyModel> keys, Dictionary<string, SchemaColumnModel> columns)
+        {
+            const string tableName = "author_recent_history_entry";
+            const string indexName = "ix_author_recent_history_entry_order";
+            var index = new SchemaIndexModel(indexName, false, keys, [], "btree", null, false);
+            var table = new SchemaTableModel(tableName, columns, [indexName], new Dictionary<string, SchemaIndexModel> { [indexName] = index });
+            return new(new Dictionary<string, SchemaTableModel> { [tableName] = table }, provider: SchemaProviderKind.PostgreSql);
+        }
+        var expected = new CurrentSchemaCompletePhysicalProjection(Snapshot(expectedKeys, columns), [], []);
+        return PgCurrentSchemaOwnedTargetObserver.Compare(expected, Snapshot(observedKeys, columns), new(true, [], [], [], []));
     }
 
     private static PgCurrentSchemaEffectObservation ControlEffects(SchemaTableModel table)
