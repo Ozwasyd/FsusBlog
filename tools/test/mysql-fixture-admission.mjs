@@ -56,6 +56,115 @@ function requirePrivateOwnedFile(file, label, { json = true } = {})
     return json ? readPrivateJson(file, { label }) : readPrivateFile(file, { label });
 }
 
+/**
+ * Pin each real, owned parent before private I/O. The Linux execution owner
+ * already requires procfs; descriptor-relative access prevents a replaced path
+ * from redirecting I/O. Recheck the original names before accepting the result.
+ * This is not an atomic pathname transaction or a same-UID concurrency grant.
+ */
+function withOwnedAdmissionFile(root, file, { create = false } = {}, consume)
+{
+    const relative = path.relative(root, file);
+    if (process.platform !== 'linux' || !fs.constants.O_DIRECTORY || !fs.constants.O_NOFOLLOW
+        || !relative || relative.startsWith('..') || path.isAbsolute(relative)
+        || fs.realpathSync(root) !== root)
+    {
+        throw new Error('MySQL fixture admission requires protected repository-owned directories');
+    }
+    const parts = relative.split(path.sep);
+    const leaf = parts.pop();
+    const parents = [];
+    const flags = fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW;
+    const ownedDirectory = (stat) => stat.isDirectory() && stat.nlink > 0
+        && (typeof process.getuid !== 'function' || stat.uid === process.getuid());
+    const same = (left, right) => left.dev === right.dev && left.ino === right.ino;
+    const retain = (accessPath, originalPath) =>
+    {
+        const entry = fs.lstatSync(accessPath);
+        if (entry.isSymbolicLink() || !ownedDirectory(entry))
+        {
+            throw new Error('MySQL fixture admission parent must be a real owned directory');
+        }
+        const fd = fs.openSync(accessPath, flags);
+        try
+        {
+            const stat = fs.fstatSync(fd);
+            if (!ownedDirectory(stat) || !same(entry, stat))
+            {
+                throw new Error('MySQL fixture admission parent changed while opening');
+            }
+            parents.push({ fd, path: originalPath, stat });
+        }
+        catch (error)
+        {
+            fs.closeSync(fd);
+            throw error;
+        }
+    };
+    const recheck = () =>
+    {
+        for (const parent of parents)
+        {
+            const current = fs.lstatSync(parent.path);
+            if (current.isSymbolicLink() || !ownedDirectory(current)
+                || !same(current, parent.stat) || !same(fs.fstatSync(parent.fd), parent.stat))
+            {
+                throw new Error('MySQL fixture admission parent identity changed');
+            }
+        }
+    };
+    let failure;
+    try
+    {
+        retain(root, root);
+        let original = root;
+        for (const part of parts)
+        {
+            original = path.join(original, part);
+            const access = path.join('/proc/self/fd', String(parents.at(-1).fd), part);
+            if (!fs.lstatSync(access, { throwIfNoEntry: false }))
+            {
+                if (!create)
+                {
+                    throw new Error('MySQL fixture admission parent directory is missing');
+                }
+                // Never use recursive mkdir on an unverified pathname. EEXIST
+                // races are refusals, not an invitation to follow a new entry.
+                fs.mkdirSync(access, { mode: 0o700 });
+            }
+            retain(access, original);
+        }
+        recheck();
+        const result = consume(path.join('/proc/self/fd', String(parents.at(-1).fd), leaf));
+        recheck();
+        return result;
+    }
+    catch (error)
+    {
+        failure = error;
+        throw error;
+    }
+    finally
+    {
+        let closeFailure;
+        for (const parent of parents.reverse())
+        {
+            try
+            {
+                fs.closeSync(parent.fd);
+            }
+            catch (error)
+            {
+                closeFailure ??= error;
+            }
+        }
+        if (!failure && closeFailure)
+        {
+            throw closeFailure;
+        }
+    }
+}
+
 function requireCatalog(catalog)
 {
     const errors = validateExecutionServiceCatalog(catalog, {
@@ -110,7 +219,8 @@ function requireEnvelope(record, catalog)
 export function publishMySqlFixtureAdmission({ context, stateFile, bindingDigest, envelope, reservation })
 {
     const file = mysqlFixtureAdmissionFile(context);
-    if (fs.lstatSync(file, { throwIfNoEntry: false }))
+    if (withOwnedAdmissionFile(context.root, file, { create: true },
+        (ownedFile) => fs.lstatSync(ownedFile, { throwIfNoEntry: false })))
     {
         throw new Error('MySQL fixture admission refuses a stale or repeated publication');
     }
@@ -122,7 +232,14 @@ export function publishMySqlFixtureAdmission({ context, stateFile, bindingDigest
     {
         throw new Error('MySQL fixture admission cannot publish an unprepared lifecycle');
     }
-    writePrivateJson(file, record, { label: 'MySQL fixture admission' });
+    withOwnedAdmissionFile(context.root, file, {}, (ownedFile) =>
+    {
+        if (fs.lstatSync(ownedFile, { throwIfNoEntry: false }))
+        {
+            throw new Error('MySQL fixture admission refuses a stale or repeated publication');
+        }
+        return writePrivateJson(ownedFile, record, { label: 'MySQL fixture admission' });
+    });
     return file;
 }
 
@@ -142,7 +259,8 @@ export function readMySqlFixtureAdmission(context, {
         throw new Error('MySQL fixture admission path or phase differs from its scheduler owner');
     }
     requireCatalog(catalog);
-    const { document: record, contentDigest } = requirePrivateOwnedFile(file, 'MySQL fixture admission');
+    const { document: record, contentDigest } = withOwnedAdmissionFile(context.root, file, {},
+        (ownedFile) => requirePrivateOwnedFile(ownedFile, 'MySQL fixture admission'));
     if (!exact(record, ['schema', 'context', 'stateFile', 'bindingDigest', 'envelope', 'reservation'])
         || record.schema !== mysqlFixtureAdmissionSchema
         || !isDeepStrictEqual(record.context, context)
@@ -207,7 +325,8 @@ export function readMySqlFixtureAdmissionForRun(expected, { file, ...options } =
     {
         throw new Error('MySQL fixture admission requires an exact scheduler run lookup');
     }
-    const first = requirePrivateOwnedFile(file, 'MySQL fixture admission');
+    const first = withOwnedAdmissionFile(expected.root, file, {},
+        (ownedFile) => requirePrivateOwnedFile(ownedFile, 'MySQL fixture admission'));
     const context = first.document?.context;
     if (!context || Object.entries(expected).some(([key, value]) => !isDeepStrictEqual(context[key], value))
         || file !== mysqlFixtureAdmissionFile(context))

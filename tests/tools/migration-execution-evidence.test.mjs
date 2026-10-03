@@ -19,6 +19,8 @@ const { assertProductionFreshBundleProducerWiring, productionFreshProducerInvent
 const { prepareMySqlFixtureService } = await import(new URL('../../tools/test-fixtures/services/mysql.mjs', import.meta.url));
 const { loadExecutionServiceCatalog } = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
 const { publishMySqlFixtureAdmission } = await import(new URL('../../tools/test/mysql-fixture-admission.mjs', import.meta.url));
+const { mysqlFixtureAdmissionFile, readMySqlFixtureAdmissionForRun } =
+    await import(new URL('../../tools/test/mysql-fixture-admission.mjs', import.meta.url));
 
 test('Migration production build has a separate run-owned project layout and assembly', (t) =>
 {
@@ -1093,6 +1095,178 @@ test('Migration evidence rejects missing inputs, wrong assembly and unknown sour
         mutate(input);
         assert.throws(() => reconcileMigrationTestCases(input), /migration execution/u);
     }
+});
+
+async function ownedAdmissionFixture(t, consume)
+{
+    const subject = await unitBuildFixture(t, { mysqlSource: true });
+    const { directory, catalog } = controlledDockerForMigration(subject);
+    const originalPath = process.env.PATH;
+    process.env.PATH = directory + path.delimiter + originalPath;
+    try
+    {
+        const context = { ...subject.options, bundleId: 'matrix:backend-unit', stepId: 'migration-services',
+            resourceGrant: catalog.services.mysql.resourceGrant,
+            startupBudgetMs: catalog.services.mysql.lifecycleBudgets.startupMs,
+            commandBudgetMs: catalog.services.mysql.lifecycleBudgets.commandMs,
+            cleanupBudgetMs: catalog.services.mysql.lifecycleBudgets.cleanupMs };
+        delete context.producer;
+        const service = await prepareMySqlFixtureService(context, {
+            observeSource: async () => subject.options.sourceState,
+            retainRecoveryBinding: async () =>
+            {}, assertResourcesHeld: async () =>
+            {}
+        });
+        const expected = Object.fromEntries(['root', 'runId', 'namespace', 'bundleId', 'stepId', 'sourceState']
+            .map(key => [key, context[key]]));
+        const publication = { context, stateFile: service.stateFile, bindingDigest: service.bindingDigest,
+            envelope: service.envelope, reservation: { runId: context.runId, bundleId: 'backend-unit',
+                id: 'mysql-migration', identity: expected, limits: context.resourceGrant, held: true } };
+        const admission = publishMySqlFixtureAdmission(publication);
+        assert.equal(admission, mysqlFixtureAdmissionFile(context));
+        assert.equal(readMySqlFixtureAdmissionForRun(expected, { file: admission }).record.bindingDigest,
+            service.bindingDigest);
+        const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'migration-admission-outside-'));
+        t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+        return await consume({ admission, context, expected, publication, outside });
+    }
+    finally
+    {
+        process.env.PATH = originalPath;
+    }
+}
+
+test('MySQL admission rejects each existing or dangling linked parent before lookup or publication', async (t) =>
+{
+    for (const relative of ['.tmp', '.tmp/test-runs', '.tmp/test-runs/unit-run',
+        '.tmp/test-runs/unit-run/mysql-admission'])
+    {
+        await ownedAdmissionFixture(t, ({ admission, context, expected, publication, outside }) =>
+        {
+            const actual = relative.replace('unit-run', context.runId);
+            const parent = path.join(context.root, actual);
+            const retained = `${parent}.retained`;
+            fs.renameSync(parent, retained);
+            try
+            {
+                for (const target of [outside, path.join(outside, 'absent')])
+                {
+                    fs.symlinkSync(target, parent, 'dir');
+                    assert.throws(() => readMySqlFixtureAdmissionForRun(expected, { file: admission }),
+                        /real owned directory/u);
+                    assert.throws(() => publishMySqlFixtureAdmission(publication), /real owned directory/u);
+                    assert.deepEqual(fs.readdirSync(outside), []);
+                    fs.unlinkSync(parent);
+                }
+            }
+            finally
+            {
+                fs.rmSync(parent, { force: true });
+                fs.renameSync(retained, parent);
+            }
+            assert.equal(readMySqlFixtureAdmissionForRun(expected, { file: admission }).record.bindingDigest,
+                publication.bindingDigest);
+        });
+    }
+});
+
+test('MySQL admission rejects a non-directory parent with intact private admission control', async (t) =>
+{
+    await ownedAdmissionFixture(t, ({ admission, expected, publication }) =>
+    {
+        const parent = path.dirname(admission);
+        fs.renameSync(parent, `${parent}.retained`);
+        fs.writeFileSync(parent, 'not a directory', { mode: 0o600 });
+        try
+        {
+            assert.throws(() => readMySqlFixtureAdmissionForRun(expected, { file: admission }),
+                /real owned directory/u);
+            assert.throws(() => publishMySqlFixtureAdmission(publication), /real owned directory/u);
+        }
+        finally
+        {
+            fs.unlinkSync(parent);
+            fs.renameSync(`${parent}.retained`, parent);
+        }
+        assert.equal(readMySqlFixtureAdmissionForRun(expected, { file: admission }).record.bindingDigest,
+            publication.bindingDigest);
+    });
+});
+
+test('MySQL admission pins reads and rejects a parent replaced during private leaf open', async (t) =>
+{
+    await ownedAdmissionFixture(t, ({ admission, expected, outside }) =>
+    {
+        const parent = path.dirname(admission);
+        const external = path.join(outside, path.basename(admission));
+        const bytes = fs.readFileSync(admission);
+        fs.writeFileSync(external, bytes, { mode: 0o600 });
+        const open = fs.openSync;
+        let replaced = false;
+        const mock = t.mock.method(fs, 'openSync', (file, ...args) =>
+        {
+            if (!replaced && typeof file === 'string' && path.basename(file) === path.basename(admission))
+            {
+                replaced = true;
+                fs.renameSync(parent, `${parent}.retained`);
+                fs.symlinkSync(outside, parent, 'dir');
+            }
+            return open(file, ...args);
+        });
+        try
+        {
+            assert.throws(() => readMySqlFixtureAdmissionForRun(expected, { file: admission }),
+                /parent identity changed/u);
+            assert.equal(replaced, true);
+            assert.deepEqual(fs.readFileSync(external), bytes);
+        }
+        finally
+        {
+            mock.mock.restore();
+            if (replaced)
+            {
+                fs.unlinkSync(parent);
+                fs.renameSync(`${parent}.retained`, parent);
+            }
+        }
+    });
+});
+
+test('MySQL admission pins publication and never writes to a replacement linked parent', async (t) =>
+{
+    await ownedAdmissionFixture(t, ({ admission, publication, outside }) =>
+    {
+        fs.unlinkSync(admission);
+        const parent = path.dirname(admission);
+        const rename = fs.renameSync;
+        let replaced = false;
+        const mock = t.mock.method(fs, 'renameSync', (from, to) =>
+        {
+            if (!replaced && path.basename(to) === path.basename(admission))
+            {
+                replaced = true;
+                rename(parent, `${parent}.retained`);
+                fs.symlinkSync(outside, parent, 'dir');
+            }
+            return rename(from, to);
+        });
+        try
+        {
+            assert.throws(() => publishMySqlFixtureAdmission(publication), /parent identity changed/u);
+            assert.equal(replaced, true);
+            assert.deepEqual(fs.readdirSync(outside), []);
+            assert.ok(fs.statSync(path.join(`${parent}.retained`, path.basename(admission))).isFile());
+        }
+        finally
+        {
+            mock.mock.restore();
+            if (replaced)
+            {
+                fs.unlinkSync(parent);
+                rename(`${parent}.retained`, parent);
+            }
+        }
+    });
 });
 
 test('Migration evidence rejects discovery omissions, duplicates, foreign methods and source drift', () =>
