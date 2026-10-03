@@ -195,4 +195,232 @@ public sealed class OfflineMigrationSqliteNativeSessionTests
             Directory.Delete(_directory, recursive: true);
         }
     }
+
+    [Fact]
+    public void RawConnectionLabelsCannotConstructAnOwnedContext()
+    {
+        System.Reflection.ConstructorInfo constructor = Assert.Single(
+            typeof(OfflineMigrationSqliteNativeSession.OwnedReadContext).GetConstructors(
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic));
+        Assert.True(constructor.IsPrivate);
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.OwnedReadContext.CreateForOwner(new
+            {
+                OriginalConnection = "caller-label",
+                OriginalTransaction = "caller-label",
+                Database = "caller-identity"
+            }));
+        Assert.Equal("offline_source_sqlite_owned_read_owner_required", error.Message);
+    }
+
+    [Fact]
+    public async Task GenericCallbackBorrowsTheOriginalSessionAndSnapshotWithoutPromotingItsResult()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        object marker = new();
+        bool callbackEntered = false;
+        SqliteConnection? original = null;
+        object result = await OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+            fixture.ConnectionString, async (context, token) =>
+            {
+                callbackEntered = true;
+                original = Assert.IsType<SqliteConnection>(context.OriginalConnection);
+                var transaction = Assert.IsType<SqliteTransaction>(context.OriginalTransaction);
+                Assert.Same(original, transaction.Connection);
+                Assert.Equal(IsolationLevel.Serializable, transaction.IsolationLevel);
+                CurrentSchemaDatabaseIdentity database = context.Database;
+                Assert.Equal(CurrentSchemaProviderKind.Sqlite, database.Provider);
+                Assert.Equal(new SqliteConnectionStringBuilder(fixture.ConnectionString).DataSource, database.DatabaseId);
+                Assert.Same(database, context.Database);
+                using CancellationTokenSource scope = context.CreateCancellationScope(token);
+                Assert.True(scope.Token.CanBeCanceled);
+                await context.RequireBoundaryAsync(scope.Token);
+                using SqliteCommand command = original.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = "SELECT COUNT(*) FROM native_session_test_probe";
+                Assert.Equal(1, Convert.ToInt64(await command.ExecuteScalarAsync(scope.Token), CultureInfo.InvariantCulture));
+                await context.RequireBoundaryAsync(scope.Token);
+                return marker;
+            }, creator.Token);
+        Assert.True(callbackEntered, "Missing FILESTAT is not execution of the generic callback.");
+        Assert.Same(marker, result);
+        Assert.NotNull(original);
+        Assert.Equal(ConnectionState.Closed, original.State);
+        Assert.Null(original.Handle);
+    }
+
+    [Fact]
+    public async Task EscapedContextIsInvalidatedBeforeTheOriginalNativeResourcesClose()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        OfflineMigrationSqliteNativeSession.OwnedReadContext? escaped = null;
+        int result = await OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+            fixture.ConnectionString, async (context, token) =>
+            {
+                await context.RequireBoundaryAsync(token);
+                escaped = context;
+                return 7;
+            }, creator.Token);
+        Assert.Equal(7, result);
+        Assert.NotNull(escaped);
+        Assert.Throws<InvalidOperationException>(() => escaped.OriginalConnection);
+        Assert.Throws<InvalidOperationException>(() => escaped.OriginalTransaction);
+        Assert.Throws<InvalidOperationException>(() => escaped.Database);
+        Assert.Throws<InvalidOperationException>(() => escaped.CreateCancellationScope(CancellationToken.None));
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            escaped.RequireBoundaryAsync(CancellationToken.None));
+        Assert.Equal("offline_source_sqlite_owned_read_context_closed", error.Message);
+    }
+
+    [Fact]
+    public async Task GenericPortRequiresTheOriginalCreatorCancellationContext()
+    {
+        bool entered = false;
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+                "not parsed without creator context", (_, _) =>
+                {
+                    entered = true;
+                    return Task.FromResult(7);
+                }, CancellationToken.None));
+        Assert.Equal("offline_source_native_operation_context_required", error.Message);
+        Assert.False(entered);
+    }
+
+    [Fact]
+    public async Task CreatorCancellationCannotBeReplacedWithANewBorrowerToken()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        bool entered = false;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync<int>(
+                fixture.ConnectionString, async (context, token) =>
+                {
+                    entered = true;
+                    await context.RequireBoundaryAsync(token);
+                    using CancellationTokenSource existing = context.CreateCancellationScope(CancellationToken.None);
+                    creator.Cancel();
+                    Assert.True(existing.IsCancellationRequested);
+                    using var fresh = new CancellationTokenSource();
+                    Assert.ThrowsAny<OperationCanceledException>(() => context.CreateCancellationScope(fresh.Token));
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => context.RequireBoundaryAsync(fresh.Token));
+                    return 7;
+                }, creator.Token));
+        Assert.True(entered, "Missing FILESTAT must not pass a creator-cancellation control.");
+    }
+
+    [Fact]
+    public async Task BorrowerCancellationIsLinkedWithoutCancellingOrReplacingTheCreator()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        int result = await OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+            fixture.ConnectionString, async (context, token) =>
+            {
+                await context.RequireBoundaryAsync(token);
+                using var borrower = new CancellationTokenSource();
+                using CancellationTokenSource linked = context.CreateCancellationScope(borrower.Token);
+                borrower.Cancel();
+                Assert.True(linked.IsCancellationRequested);
+                Assert.False(creator.IsCancellationRequested);
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => context.RequireBoundaryAsync(borrower.Token));
+                await context.RequireBoundaryAsync(CancellationToken.None);
+                return 7;
+            }, creator.Token);
+        Assert.Equal(7, result);
+    }
+
+    [Fact]
+    public async Task GenericBoundaryRejectsChangedQueryOnlyAfterAValidOwnedRead()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        bool entered = false;
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+                fixture.ConnectionString, async (context, token) =>
+                {
+                    entered = true;
+                    await context.RequireBoundaryAsync(token);
+                    using CancellationTokenSource scope = context.CreateCancellationScope(token);
+                    using DbCommand command = context.OriginalConnection.CreateCommand();
+                    command.Transaction = context.OriginalTransaction;
+                    command.CommandText = "PRAGMA query_only = OFF";
+                    await command.ExecuteNonQueryAsync(scope.Token);
+                    await context.RequireBoundaryAsync(scope.Token);
+                    return 7;
+                }, creator.Token));
+        Assert.True(entered, "Missing FILESTAT is not the changed-boundary refusal.");
+        Assert.Equal("offline_source_sqlite_query_only_required", error.Message);
+        Assert.Null(error.InnerException);
+    }
+
+    [Fact]
+    public async Task GenericBoundaryRejectsAReplacedMainLeafEvenWithIdenticalBytes()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        string path = new SqliteConnectionStringBuilder(fixture.ConnectionString).DataSource;
+        byte[] original = File.ReadAllBytes(path);
+        bool entered = false;
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync(
+                fixture.ConnectionString, async (context, token) =>
+                {
+                    entered = true;
+                    await context.RequireBoundaryAsync(token);
+                    File.Move(path, path + ".original");
+                    File.WriteAllBytes(path, original);
+                    Assert.Equal(original, File.ReadAllBytes(path));
+                    await context.RequireBoundaryAsync(token);
+                    return 7;
+                }, creator.Token));
+        Assert.True(entered, "Missing FILESTAT is not execution of the replacement.");
+        Assert.Equal("offline_source_sqlite_native_operation_failed", error.Message);
+        Assert.Null(error.InnerException);
+    }
+
+    [Fact]
+    public async Task GenericClosedFingerprintFailurePreservesItsOriginalIdentityAfterCleanup()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        OfflineMigrationSourceFingerprintException primary =
+            OfflineMigrationSourceFingerprintException.Ambiguous(["fixture-first", "fixture-second"]);
+        SqliteConnection? original = null;
+        OfflineMigrationSourceFingerprintException returned = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync<int>(
+                fixture.ConnectionString, async (context, token) =>
+                {
+                    original = Assert.IsType<SqliteConnection>(context.OriginalConnection);
+                    await context.RequireBoundaryAsync(token);
+                    throw primary;
+                }, creator.Token));
+        Assert.Same(primary, returned);
+        Assert.NotNull(original);
+        Assert.Equal(ConnectionState.Closed, original.State);
+        Assert.Null(original.Handle);
+    }
+
+    [Fact]
+    public async Task GenericUnknownCallbackFailureRemainsRedactedNotSuccessful()
+    {
+        using var fixture = new SourceFixture();
+        using var creator = new CancellationTokenSource();
+        bool entered = false;
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationSqliteNativeSession.ObserveOwnedReadAsync<int>(
+                fixture.ConnectionString, async (context, token) =>
+                {
+                    entered = true;
+                    await context.RequireBoundaryAsync(token);
+                    throw new InvalidOperationException("private-callback-credential-and-row-text");
+                }, creator.Token));
+        Assert.True(entered, "Missing FILESTAT is not the unknown-callback refusal.");
+        Assert.Equal("offline_source_sqlite_native_operation_failed", error.Message);
+        Assert.Null(error.InnerException);
+    }
 }

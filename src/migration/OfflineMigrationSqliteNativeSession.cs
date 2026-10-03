@@ -1,6 +1,8 @@
 using System.Data;
 using System.Data.Common;
 
+using FsusBlog.Contracts.Migration;
+
 using Microsoft.Data.Sqlite;
 using SqlSugar;
 
@@ -19,13 +21,26 @@ internal static class OfflineMigrationSqliteNativeSession
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(observe);
-        return ReadAsync(connectionString, observe, cancellationToken);
+        return ReadAsync(connectionString,
+            (context, token) => observe(context.OriginalConnection, context.OriginalTransaction, token),
+            cancellationToken, preserveClosedCallbackFailure: false);
     }
 
-    private static async Task<OfflineMigrationSourceObservation> ReadAsync(
+    /// <summary>Uses the original single native read owner with a callback-scoped, opaque context.</summary>
+    internal static Task<TResult> ObserveOwnedReadAsync<TResult>(
         string connectionString,
-        Func<DbConnection, DbTransaction, CancellationToken, Task<OfflineMigrationSourceObservation>> observe,
-        CancellationToken cancellationToken)
+        Func<OwnedReadContext, CancellationToken, Task<TResult>> observe,
+        CancellationToken creatorCancellation)
+    {
+        ArgumentNullException.ThrowIfNull(observe);
+        return ReadAsync(connectionString, observe, creatorCancellation, preserveClosedCallbackFailure: true);
+    }
+
+    private static async Task<TResult> ReadAsync<TResult>(
+        string connectionString,
+        Func<OwnedReadContext, CancellationToken, Task<TResult>> observe,
+        CancellationToken cancellationToken,
+        bool preserveClosedCallbackFailure)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!cancellationToken.CanBeCanceled || string.IsNullOrWhiteSpace(connectionString))
@@ -39,7 +54,7 @@ internal static class OfflineMigrationSqliteNativeSession
         NativeInterrupt? interrupt = null;
         bool registrationUnverified = false;
         Exception? primary = null;
-        OfflineMigrationSourceObservation result = default!;
+        TResult result = default!;
         var transactionCleanup = OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned;
         var connectionCleanup = OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned;
         var adapterCleanup = OfflineMigrationPostgreSqlNativeSession.CleanupState.NotOwned;
@@ -97,7 +112,16 @@ internal static class OfflineMigrationSqliteNativeSession
             await RequireBoundaryAsync(database, connection, transaction, handle, nativeFilename, cancellationToken).ConfigureAwait(false);
             using OfflineMigrationSqliteDatabaseIdentity.Snapshot identity = await OfflineMigrationSqliteDatabaseIdentity.CaptureAsync(
                 connection, transaction, cancellationToken).ConfigureAwait(false);
-            result = await observe(connection, transaction, cancellationToken).ConfigureAwait(false);
+            var ownedState = new OwnedReadState(database, connection, transaction, handle, nativeFilename, identity, cancellationToken);
+            OwnedReadContext context = OwnedReadContext.CreateForOwner(ownedState);
+            try
+            {
+                result = await observe(context, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await ownedState.InvalidateAsync().ConfigureAwait(false);
+            }
             await identity.ValidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
             await RequireBoundaryAsync(database, connection, transaction, handle, nativeFilename, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -203,6 +227,13 @@ internal static class OfflineMigrationSqliteNativeSession
         }
         if (primary is not null)
         {
+            if (preserveClosedCallbackFailure && primary is OfflineMigrationSourceFingerprintException fingerprint)
+            {
+                // The same original closed/redacted failure is legitimate only
+                // after all native cleanup returned. Other callback/driver text
+                // remains private, and the legacy ObserveAsync mapping is unchanged.
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(fingerprint).Throw();
+            }
             throw new InvalidOperationException(primary is NativeFailure owned
                 ? owned.Message : "offline_source_sqlite_native_operation_failed");
         }
@@ -256,6 +287,123 @@ internal static class OfflineMigrationSqliteNativeSession
             throw new NativeFailure("offline_source_sqlite_native_filename_required");
         }
         return filename;
+    }
+
+    // This state has no public/internal construction path outside this owner.
+    // Its snapshot is never handed to a borrower for disposal or substitution.
+    private sealed class OwnedReadState(
+        SqlSugarClient database,
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        SQLitePCL.sqlite3 handle,
+        string nativeFilename,
+        OfflineMigrationSqliteDatabaseIdentity.Snapshot snapshot,
+        CancellationToken creatorCancellation)
+    {
+        private readonly SemaphoreSlim _boundaryGate = new(1, 1);
+        private int _active = 1;
+
+        internal DbConnection Connection
+        {
+            get
+            {
+                RequireActive();
+                return connection;
+            }
+        }
+
+        internal DbTransaction Transaction
+        {
+            get
+            {
+                RequireActive();
+                return transaction;
+            }
+        }
+
+        internal CurrentSchemaDatabaseIdentity Database
+        {
+            get
+            {
+                RequireActive();
+                return snapshot.Database;
+            }
+        }
+
+        internal CancellationTokenSource CreateCancellationScope(CancellationToken borrowerCancellation)
+        {
+            RequireActive();
+            return CancellationTokenSource.CreateLinkedTokenSource(creatorCancellation, borrowerCancellation);
+        }
+
+        internal async Task RequireBoundaryAsync(CancellationToken borrowerCancellation)
+        {
+            using CancellationTokenSource scope = CreateCancellationScope(borrowerCancellation);
+            await _boundaryGate.WaitAsync(scope.Token).ConfigureAwait(false);
+            try
+            {
+                RequireActive();
+                await OfflineMigrationSqliteNativeSession.RequireBoundaryAsync(
+                    database, connection, transaction, handle, nativeFilename, scope.Token).ConfigureAwait(false);
+                await snapshot.ValidateAsync(connection, transaction, scope.Token).ConfigureAwait(false);
+                await OfflineMigrationSqliteNativeSession.RequireBoundaryAsync(
+                    database, connection, transaction, handle, nativeFilename, scope.Token).ConfigureAwait(false);
+                RequireActive();
+                scope.Token.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                _boundaryGate.Release();
+            }
+        }
+
+        internal async Task InvalidateAsync()
+        {
+            Interlocked.Exchange(ref _active, 0);
+            // Do not close the original snapshot/native handle under a boundary
+            // operation which already entered. Creator cancellation remains
+            // registered until the original owner has awaited this terminal.
+            await _boundaryGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            _boundaryGate.Release();
+        }
+
+        private void RequireActive()
+        {
+            if (Volatile.Read(ref _active) == 0)
+            {
+                throw new InvalidOperationException("offline_source_sqlite_owned_read_context_closed");
+            }
+            creatorCancellation.ThrowIfCancellationRequested();
+        }
+    }
+
+    /// <summary>Callback-scoped access to this owner's original held native read view.</summary>
+    internal sealed class OwnedReadContext
+    {
+        private readonly OwnedReadState _state;
+
+        private OwnedReadContext(OwnedReadState state) => _state = state;
+
+        // The private state type can only be constructed by the original owner;
+        // raw connection/transaction labels or an arbitrary object cannot mint this context.
+        internal static OwnedReadContext CreateForOwner(object state)
+            => state is OwnedReadState owned
+                ? new OwnedReadContext(owned)
+                : throw new InvalidOperationException("offline_source_sqlite_owned_read_owner_required");
+
+        internal DbConnection OriginalConnection => _state.Connection;
+
+        internal DbTransaction OriginalTransaction => _state.Transaction;
+
+        internal CurrentSchemaDatabaseIdentity Database => _state.Database;
+
+        /// <summary>Links the stored creator deadline with the current borrower cancellation.</summary>
+        internal CancellationTokenSource CreateCancellationScope(CancellationToken borrowerCancellation)
+            => _state.CreateCancellationScope(borrowerCancellation);
+
+        /// <summary>Rechecks actual FILESTAT identity and the original read-only native boundary.</summary>
+        internal Task RequireBoundaryAsync(CancellationToken borrowerCancellation)
+            => _state.RequireBoundaryAsync(borrowerCancellation);
     }
 
     private sealed class NativeInterrupt(SQLitePCL.sqlite3 handle)

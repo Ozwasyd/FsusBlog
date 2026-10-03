@@ -189,7 +189,17 @@ covers environment reading, native observation, dump handshake and output. The
 original backup owner keeps its earlier outer deadline and passes its remaining
 budget at each launch; `TimeoutSeconds` records that launch's actual budget, not a
 renewed outer allowance. Existing v2 disaster-recovery backups do not acquire this
-new capture requirement. Console cancellation, SIGTERM/SIGHUP, EOF, faults and
+new capture requirement. The SQLite current-read component now also exposes the
+original native owner's generic callback port. Its opaque context borrows the same
+connection, serializable read transaction and native FILESTAT-bound database
+identity; it neither opens a second connection nor accepts caller identity labels.
+Borrowers use `CreateCancellationScope` for every I/O so the stored creator deadline
+cannot be replaced by a fresh token. Boundary checks revalidate the original
+read-only session and actual descriptor/path incarnation. Context access is revoked
+on callback exit, and already-entered boundary checks reach terminal before snapshot,
+cancellation-registration and native-handle cleanup. This source interface does not
+supply missing FILESTAT capability or qualify SQLite verification/backup/provider
+execution. Console cancellation, SIGTERM/SIGHUP, EOF, faults and
 deadline expiry cannot emit completed capture evidence. The awaited native owner
 must reach actual transaction/command/connection terminal; a timed wait or a
 disposed token alone is not proof of release. Backup child cleanup remains the
