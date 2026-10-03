@@ -2,11 +2,14 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "postgres-column-migration",
+            "id": "environment-variable",
             "paths": [
-                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs"
+                "src/migration/OfflineMigrationCommandLine.cs",
+                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs",
+                "src/migration/OfflineMigrationCurrentSchemaVerificationPorts.cs",
+                "src/migration/OfflineMigrationVerifyEvidence.cs"
             ],
-            "reason": "Native current-schema verification preserves the original offline journal column names and PostgreSQL catalog identities; provider table rendering consumes the original journal owner instead of renaming persistence contracts."
+            "reason": "Original migration verification surfaces preserve explicit deployment environment keys, provider selectors and native database identifiers while dispatching through the original owned read contexts; they do not rename those external contracts."
         }
     ]
 }
