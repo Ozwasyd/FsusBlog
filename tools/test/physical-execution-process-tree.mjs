@@ -1935,6 +1935,7 @@ export async function runPhysicalExecution({
     residentServiceOutput = false,
     nestedChannel = null,
     privateDotnetScratch = null,
+    nestedEnvelopeReference = null,
     signal,
     platform = process.platform,
     policy = readPolicy(),
@@ -1953,6 +1954,10 @@ export async function runPhysicalExecution({
     if (!Array.isArray(command) || command.length === 0)
     {
         throw new Error('physical execution requires a command');
+    }
+    if (nestedEnvelopeReference !== null && (resourceBoundary !== null || !process.env[nestedExecutionChannelKey]))
+    {
+        throw new Error('a nested execution envelope reference requires its original child channel entry');
     }
     if (nestedChannel !== null && (!nestedExecutionChannelIsOwned(nestedChannel) || !resourceBoundary || !processOwner
         || JSON.stringify(nestedChannel.descriptor.reference) !== JSON.stringify(resourceBoundary.reference)))
@@ -2099,7 +2104,7 @@ export async function runPhysicalExecution({
             {
                 return runNestedPhysicalExecution({ descriptor: JSON.parse(channelValue), command, cwd, env,
                     linuxPrivateNetwork, linuxNetworkPolicy, linuxReadWritePaths, linuxOwnedPrivateTmp,
-                    privateDotnetScratch, signal, policy, stdout, stderr });
+                    privateDotnetScratch, nestedEnvelopeReference, signal, policy, stdout, stderr });
             }
             if (/\/fsusblogresource[a-f0-9]{32}\.slice\//u.test(fs.readFileSync('/proc/self/cgroup', 'utf8')))
             {
