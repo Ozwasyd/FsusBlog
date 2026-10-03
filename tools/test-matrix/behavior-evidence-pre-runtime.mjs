@@ -46,7 +46,7 @@ import { validateJsonSchema } from './schema-validator/validate.mjs';
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export const preRuntimeReceiptSchema = 'fsusblog.behavior-evidence-pre-runtime-receipt.v1';
-export const staticAdmissionReceiptSchema = 'fsusblog.behavior-doc-static-admission-receipt.v1';
+export const staticAdmissionReceiptSchema = 'fsusblog.behavior-doc-static-admission-receipt.v2';
 export const testEvidenceReceiptSchema = 'fsusblog.behavior-test-evidence-receipt.v1';
 export const mutationEvidenceReceiptSchema = 'fsusblog.mutation-evidence-receipt.v1';
 

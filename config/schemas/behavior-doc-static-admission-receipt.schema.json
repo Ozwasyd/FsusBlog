@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.behavior-doc-static-admission-receipt.v1",
+    "$id": "fsusblog.behavior-doc-static-admission-receipt.v2",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -10,6 +10,7 @@
         "worktree",
         "toolchain",
         "authorityDigests",
+        "claimStages",
         "implementationOwner",
         "factObservations",
         "minimalContractBuild",
@@ -24,7 +25,10 @@
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.behavior-doc-static-admission-receipt.v1"
+            "const": "fsusblog.behavior-doc-static-admission-receipt.v2"
+        },
+        "claimStages": {
+            "$ref": "#/$defs/claimStages"
         },
         "run": {
             "type": "object",
@@ -288,6 +292,53 @@
         }
     ],
     "$defs": {
+        "claimIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "claimId", "behaviorId", "claimType", "documentPath",
+                "documentStatus", "factPath", "claimDigest"
+            ],
+            "properties": {
+                "claimId": { "type": "string", "minLength": 1 },
+                "behaviorId": { "type": "string", "minLength": 1 },
+                "claimType": { "type": "string", "minLength": 1 },
+                "documentPath": { "type": "string", "minLength": 1 },
+                "documentStatus": { "enum": ["current", "historical"] },
+                "factPath": {
+                    "oneOf": [
+                        { "type": "string", "minLength": 1 },
+                        { "type": "null" }
+                    ]
+                },
+                "claimDigest": { "$ref": "#/$defs/digest" }
+            }
+        },
+        "claimStages": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema", "catalogDigest", "parseReceiptDigest", "migrationLedgerDigest",
+                "preRuntimeClaims", "deferredPostClaims", "contentDigest"
+            ],
+            "properties": {
+                "schema": { "const": "fsusblog.behavior-doc-claim-stages.v1" },
+                "catalogDigest": { "$ref": "#/$defs/digest" },
+                "parseReceiptDigest": { "$ref": "#/$defs/digest" },
+                "migrationLedgerDigest": { "$ref": "#/$defs/digest" },
+                "preRuntimeClaims": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/claimIdentity" },
+                    "uniqueItems": true
+                },
+                "deferredPostClaims": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/claimIdentity" },
+                    "uniqueItems": true
+                },
+                "contentDigest": { "$ref": "#/$defs/digest" }
+            }
+        },
         "digest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
@@ -588,6 +639,9 @@
             "additionalProperties": false,
             "required": [
                 "schema",
+                "observationSchema",
+                "evidenceStage",
+                "evidenceClass",
                 "artifactId",
                 "artifactPath",
                 "artifactDigest",
@@ -612,7 +666,16 @@
             ],
             "properties": {
                 "schema": {
-                    "const": "fsusblog.runtime-role-observation-build-receipt.v3"
+                    "const": "fsusblog.runtime-role-observation-build-receipt.v4"
+                },
+                "observationSchema": {
+                    "const": "fsusblog.runtime-role-observation.v3"
+                },
+                "evidenceStage": {
+                    "const": "pre-runtime"
+                },
+                "evidenceClass": {
+                    "const": "compiled-production-code-model"
                 },
                 "artifactId": {
                     "const": "runtime-role-observation"

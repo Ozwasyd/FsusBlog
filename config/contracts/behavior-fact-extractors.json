@@ -101,7 +101,8 @@
             "ownedBehaviorIds": [
                 "browserless-production-correctness",
                 "release-final-aggregate-contract",
-                "deployment-blue-green-runtime-role"
+                "deployment-blue-green-runtime-role",
+                "deployment-current-schema-admission"
             ]
         },
         {

@@ -16,6 +16,7 @@ import {
   validatePostRuntimeSchedulerEvidence
 } from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs'
 import { RunEvidenceObjectStore } from '../../tools/test-matrix/content-addressed-evidence-store.mjs'
+import { requiredObservationClasses } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import {
   acquireSchedulerRunLock,
   createSchedulerTierAdmission,
@@ -32,7 +33,6 @@ const catalog = JSON.parse(fs.readFileSync(path.join(root,
 const registry = JSON.parse(fs.readFileSync(path.join(root,
   'config/testing/post-runtime-producer-registry.json'), 'utf8'))
 const producer = registry.producers[0]
-const contract = catalog.contracts.find(({ id }) => id === producer.behaviorId)
 const commit = resolveSourceCommit(root)
 const worktreeFingerprint = resolveWorktreeFingerprint(root)
 const runId = 'issue2209-join-current-0001'
@@ -211,27 +211,24 @@ function claimsFixture(context)
     payloadSchema: terminal.schema,
     terminalStatus: 'success'
   })
-  const claims = buildPostRuntimeAcceptedClaimsReceipt({
+  const claims = registry.producers.map(({ producerId }) => buildPostRuntimeAcceptedClaimsReceipt({
     terminalReceiptPath: outputPath,
     expectedRunId: runId,
+    producerId,
     repositoryRoot: root
-  })
+  }))
   return {
     claims,
-    claimsReference: reference('accepted-claims', claims.contentDigest),
+    claimsReferences: Object.fromEntries(claims.map((receipt) => [receipt.producerId,
+      reference(`accepted-claims-${receipt.producerId}`, receipt.contentDigest)])),
     candidateContext: contextValue
   }
 }
 
 function aggregateObservations(pre)
 {
-  const requiredClasses = [...new Set(Object.values(producer.requiredObservations).flat())].sort()
-  const applicationClasses = requiredClasses.filter((classId) =>
-    !['blue-green-containment', 'release-identity-readiness'].includes(classId))
-  const releaseClasses = requiredClasses.filter((classId) =>
-    !applicationClasses.includes(classId))
-  const make = (scope, classes) => seal({
-    schema: 'fsusblog.post-runtime-observation-receipt.v1',
+  const make = (producer, scope, classes) => seal({
+    schema: 'fsusblog.post-runtime-observation-receipt.v2',
     scope,
     behaviorId: producer.behaviorId,
     producerId: producer.producerId,
@@ -288,10 +285,12 @@ function aggregateObservations(pre)
     status: 'qualified',
     failureReasons: []
   })
-  return [
-    make('application', applicationClasses),
-    make('release-deployment', releaseClasses)
-  ]
+  return registry.producers.flatMap((producer) => ['application', 'release-deployment']
+    .flatMap((scope) =>
+    {
+      const classes = requiredObservationClasses(registry, producer, scope)
+      return classes.length === 0 ? [] : [make(producer, scope, classes)]
+    }))
 }
 
 function schedulerFixture(context, pre)
@@ -380,7 +379,18 @@ function inputs(context)
   const pre = preRuntime()
   const claims = claimsFixture(context)
   const scheduler = schedulerFixture(context, pre)
-  const observations = aggregateObservations(pre)
+  const observations = aggregateObservations(pre).map((observation) =>
+  {
+    const accepted = claims.claims.find(({ producerId }) => producerId === observation.producerId)
+    return seal({
+      ...observation,
+      acceptedClaimsReceiptDigest: accepted.contentDigest,
+      acceptedClaimsReceiptRef: {
+        ...claims.claimsReferences[accepted.producerId],
+        schema: 'fsusblog.post-runtime-accepted-claims.v1'
+      }
+    })
+  })
   return {
     preRuntimeReceipt: pre,
     catalog: structuredClone(catalog),
@@ -388,10 +398,11 @@ function inputs(context)
     observations,
     observationReferences: observations.map((receipt) => ({
       scope: receipt.scope,
-      ...reference(`${receipt.scope}-observation`, receipt.contentDigest)
+      producerId: receipt.producerId,
+      ...reference(`${receipt.producerId}-${receipt.scope}-observation`, receipt.contentDigest)
     })),
     acceptedClaims: claims.claims,
-    acceptedClaimsReference: claims.claimsReference,
+    acceptedClaimsReferences: claims.claimsReferences,
     candidateContext: claims.candidateContext,
     schedulerAdmission: scheduler.admission,
     schedulerReference: scheduler.schedulerReference,
@@ -404,16 +415,16 @@ test('joins current application and release/deployment aggregates into one exact
   const value = inputs(context)
   const receipt = joinVerifiedPostRuntimeObservations(value)
   assert.equal(validatePostRuntimeReceipt(receipt).contentDigest, receipt.contentDigest)
-  assert.deepEqual(receipt.behaviorIds, [producer.behaviorId])
-  assert.deepEqual(receipt.requiredRuntimeProducers, [producer.producerId])
-  assert.equal(receipt.observedBehaviorResults.length, 7)
+  assert.deepEqual(receipt.behaviorIds, registry.producers.map(({ behaviorId }) => behaviorId).sort())
+  assert.deepEqual(receipt.requiredRuntimeProducers, registry.producers.map(({ producerId }) => producerId).sort())
+  assert.equal(receipt.observedBehaviorResults.length, Object.keys(registry.observationClasses).length)
   assert.equal(receipt.releaseFinalSpawnCountBeforeReceipt, 0)
   assert.equal(receipt.candidateIdentity.releaseId, candidate.releaseId)
   assert.equal(Object.keys(receipt.documentClaimDigests).length,
-    producer.acceptedClaimRefs.length)
+    registry.producers.flatMap(({ acceptedClaimRefs }) => acceptedClaimRefs).length)
   assert.equal(receipt.executionIdentity.schedulerRunId, runId)
-  assert.equal(receipt.observedBehaviorResults.every(({ extractorId }) =>
-    extractorId === contract.factExtractorId), true)
+  assert.equal(receipt.observedBehaviorResults.every(({ behaviorId, extractorId }) =>
+    extractorId === catalog.contracts.find(({ id }) => id === behaviorId).factExtractorId), true)
 })
 
 test('missing, duplicate, extra and cross-scope observations fail closed', (context) =>
@@ -445,7 +456,7 @@ test('diagnostic, recovered, stale and claim-downgraded aggregates cannot qualif
     ['stale pre-runtime', (value) => {
       value.observations[0].preRuntimeReceiptDigest = `sha256:${'f'.repeat(64)}`
     }],
-    ['claim downgrade', (value) => { value.acceptedClaims.claims.pop() }],
+    ['claim downgrade', (value) => { value.acceptedClaims[0].claims.pop() }],
     ['catalog drift', (value) => { value.preRuntimeReceipt.catalogDigest = `sha256:${'f'.repeat(64)}` }]
   ]
   for (const [name, mutate] of cases)
@@ -498,12 +509,12 @@ test('closed receipt validation rejects owner, class, count and digest tamper', 
   assert.throws(() => validatePostRuntimeReceipt(digestTamper), /contentDigest mismatch/u)
 })
 
-test('path join requires two persisted aggregates and invokes both independent producer verifiers', () =>
+test('path join requires persisted scoped aggregates and invokes both independent producer verifiers', () =>
 {
   assert.throws(() => joinBehaviorEvidencePostRuntime({
     preRuntimeReceipt: '.tmp/issue2209/pre.json',
     observationReceipts: []
-  }), /exactly two aggregate observation/u)
+  }), /explicit unique aggregate observation/u)
   assert.throws(() => joinBehaviorEvidencePostRuntime({
     preRuntimeReceipt: '.tmp/history/pre.json',
     observationReceipts: ['a.json', 'b.json']
@@ -524,4 +535,110 @@ test('path join requires two persisted aggregates and invokes both independent p
   assert.match(bundle, /--observation "\$APPLICATION"[\s\S]*--observation "\$RELEASE"/u)
   assert.doesNotMatch(bundle,
     /application-runtime\.mjs|release-deployment\.mjs|post-runtime-observation-producers/u)
+})
+
+// These are join/closure controls using the original claims publication fixture.
+// Synthetic class facts here do not replace the path join's independent class
+// replay or the actual current-schema issuer/database observation obligation.
+function resealObservationInputs(value)
+{
+  value.observations = value.observations.map(seal)
+  value.observationReferences = value.observations.map((receipt) => ({
+    producerId: receipt.producerId,
+    scope: receipt.scope,
+    ...reference(`${receipt.producerId}-${receipt.scope}-observation`, receipt.contentDigest)
+  }))
+}
+
+test('v2 joins the registered disjoint producers, claims, and proof scopes without empty owners', (context) =>
+{
+  const value = inputs(context)
+  assert.equal(registry.schema, 'fsusblog.post-runtime-producer-registry.v3')
+  assert.equal(registry.producers.length, 2)
+  const receipt = joinVerifiedPostRuntimeObservations(value)
+  assert.equal(receipt.schema, 'fsusblog.behavior-evidence-post-runtime-receipt.v2')
+  for (const owner of registry.producers)
+  {
+    const expectedClasses = [...new Set(Object.values(owner.requiredObservations).flat())].sort()
+    assert.deepEqual(receipt.requiredProducerClasses[owner.producerId], expectedClasses)
+    assert.deepEqual(receipt.observedProducerClasses[owner.producerId], expectedClasses)
+    assert.deepEqual(receipt.requiredProducerClaims[owner.producerId], [...owner.acceptedClaimRefs].sort())
+    assert.deepEqual(receipt.observedProducerClaims[owner.producerId], [...owner.acceptedClaimRefs].sort())
+    assert.deepEqual(receipt.requiredProducerScopes[owner.producerId],
+      ['application', 'release-deployment'].filter((scope) =>
+        requiredObservationClasses(registry, owner, scope).length > 0).sort())
+    assert.deepEqual(receipt.acceptedClaimsRefs[owner.producerId], value.acceptedClaimsReferences[owner.producerId])
+  }
+  assert.equal(new Set(receipt.observedBehaviorResults.map(({ classId }) => classId)).size,
+    Object.keys(registry.observationClasses).length)
+})
+
+test('resealed scoped receipts cannot move classes, claims, or proof ownership between producers', (context) =>
+{
+  const cases = [
+    ['missing producer', (value) => { value.observations = value.observations.filter((receipt) =>
+      receipt.producerId !== registry.producers[1].producerId) }],
+    ['duplicate producer scope', (value) => { value.observations.push(structuredClone(value.observations[0])) }],
+    ['unregistered producer', (value) => { value.observations[0].producerId = 'unregistered-runtime-producer' }],
+    ['wrong producer class', (value) => {
+      const other = value.observations.find((receipt) => receipt.producerId !== value.observations[0].producerId)
+      const moved = structuredClone(other.observations[0])
+      value.observations[0].observations[0] = moved
+      value.observations[0].requiredClasses[0] = moved.classId
+      value.observations[0].observedClasses[0] = moved.classId
+    }],
+    ['wrong owned scope', (value) => {
+      const native = value.observations.find((receipt) => receipt.producerId === registry.producers[1].producerId)
+      native.scope = native.scope === 'application' ? 'release-deployment' : 'application'
+    }],
+    ['reduced modes', (value) => { value.observations[0].observations[0].modes.pop() }],
+    ['cross producer claims', (value) => {
+      const otherId = registry.producers[1].producerId
+      value.observations[0].acceptedClaimsReceiptRef = {
+        ...value.acceptedClaimsReferences[otherId], schema: 'fsusblog.post-runtime-accepted-claims.v1'
+      }
+      value.observations[0].acceptedClaimsReceiptDigest = value.acceptedClaimsReferences[otherId].contentDigest
+      value.observations[0].acceptedClaimRefs = [...registry.producers[1].acceptedClaimRefs]
+    }],
+    ['missing claims producer', (value) => { value.acceptedClaims.pop() }],
+    ['duplicate claims producer', (value) => { value.acceptedClaims.push(structuredClone(value.acceptedClaims[0])) }],
+    ['orphan claim reference', (value) => { value.acceptedClaimsReferences.orphan = reference('orphan') }]
+  ]
+  for (const [name, mutate] of cases)
+  {
+    const value = inputs(context)
+    assert.doesNotThrow(() => joinVerifiedPostRuntimeObservations(value), `${name} valid precondition`)
+    mutate(value)
+    resealObservationInputs(value)
+    assert.throws(() => joinVerifiedPostRuntimeObservations(value), undefined, name)
+  }
+})
+
+test('strict v2 rejects old aggregate and outer v1 receipts rather than relabelling them', (context) =>
+{
+  const value = inputs(context)
+  const receipt = joinVerifiedPostRuntimeObservations(value)
+  const oldOuter = seal({ ...receipt, schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1' })
+  assert.throws(() => validatePostRuntimeReceipt(oldOuter), /schema validation/u)
+  value.observations[0].schema = 'fsusblog.post-runtime-observation-receipt.v1'
+  resealObservationInputs(value)
+  assert.throws(() => joinVerifiedPostRuntimeObservations(value), /not qualified/u)
+})
+
+test('resealed v2 outer maps reject duplicate class union, extra claims, and scoped reference swaps', (context) =>
+{
+  const receipt = joinVerifiedPostRuntimeObservations(inputs(context))
+  const cases = [
+    (value) => { value.observedBehaviorResults.push(structuredClone(value.observedBehaviorResults[0])) },
+    (value) => { value.documentClaimDigests.orphan = `sha256:${'f'.repeat(64)}` },
+    (value) => { value.observedProducerClaims[producer.producerId].pop() },
+    (value) => { value.observationRefs[0].producerId = registry.producers[1].producerId },
+    (value) => { delete value.acceptedClaimsRefs[registry.producers[1].producerId] }
+  ]
+  for (const mutate of cases)
+  {
+    const changed = structuredClone(receipt)
+    mutate(changed)
+    assert.throws(() => validatePostRuntimeReceipt(seal(changed)))
+  }
 })

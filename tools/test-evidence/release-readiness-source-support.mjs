@@ -7,7 +7,7 @@ import { explicitJson, seal } from '../fact-extractors/post-runtime/adapter.mjs'
 import { validateReleaseManifest } from '../release/release-manifest.mjs'
 
 export const releaseReadinessSourceSchema = 'fsusblog.release-identity-readiness-current-run.v1'
-export const releaseReadinessObservationSchema = 'fsusblog.observation.release-identity-readiness.v1'
+export const releaseReadinessObservationSchema = 'fsusblog.observation.release-identity-readiness.v2'
 
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u

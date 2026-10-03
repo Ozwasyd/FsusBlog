@@ -2,6 +2,31 @@
     "schema": "fsusblog.coverage-registry.v1",
     "entries": [
         {
+            "id": "deployment-current-schema-admission",
+            "description": "Post-runtime release qualification consumes the sole current-schema receipt and the original independently reverified native authority; compiled code-model fixtures are pre-runtime only.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs",
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaReceiptAdmission.cs",
+                "tests/backend/Unit/CurrentSchemaReceiptTests.cs",
+                "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+                "tools/test-evidence/canonical-release-authorities.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tests/tools/canonical-release-authorities.test.mjs",
+                "tests/tools/post-runtime-producer-registry.test.mjs",
+                "tests/tools/release-readiness-raw.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject absent owned native verification, unknown or old receipt formats, artifact/content seal confusion, source/run/attempt drift, stale target/database/provider observations and incomplete plan/apply/checkpoint/semantic/backup/restore/recovery/tool binding. Pre-runtime fixtures and reader-supplied success do not grant native qualification.",
+            "minimumRequirement": "Existing codec/admission and post-runtime consumer sources are registered here, not evidence of execution. Qualification additionally requires the original frozen issuer/Host existing-receipt consume and its actual tests to be integrated into the same candidate, original admitted native execution and independent replay on the actual database, complete positive/refusal coverage and all required stage gates. Those unintegrated native sources and tests remain dependencies; test-only bootstrap receipt lifecycle coverage cannot substitute for them.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance",
+                "production-correctness"
+            ]
+        },
+        {
             "id": "backend-docker-input-closure",
             "description": "Backend Docker restore, compile and publish domains are exactly derived from isolated real MSBuild evaluation and have one canonical lifecycle owner with complete CI trigger and producer-receipt bindings.",
             "owner": "ServerContractAgent",

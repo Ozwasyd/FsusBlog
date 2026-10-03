@@ -96,6 +96,12 @@ export function produceBlueGreenContainmentRaw({
 })
 {
   const context = planContext(candidatePlan, repositoryRoot)
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  if (registry.observationClasses['blue-green-containment'].sourceReceipt.schema
+    === canonicalAuthorityBundleSchema)
+  {
+    fail('legacy blue-green source cannot satisfy the required native authority bundle')
+  }
   const source = loadSourceBundle(sourceReceipt, context, repositoryRoot)
   const deploymentId = source.bundle.deploymentId
   const { expected, byRole } = loadSources(source.sourceReceipts, context, deploymentId, repositoryRoot)
@@ -159,14 +165,22 @@ export function produceBlueGreenAuthorityBundle({
   candidatePlan,
   rolloutEvidence,
   runtimeRoleAdmission,
+  currentSchemaReceiptRef,
+  output,
   repositoryRoot = root
 })
 {
   const context = planContext(candidatePlan, repositoryRoot)
   const authorities = verifyCanonicalReleaseAuthorities({
-    candidatePlan: context.plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot
+    candidatePlan: context.plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef, repositoryRoot
   })
-  return buildBlueGreenAuthorityBundle({ candidatePlan, context, authorities })
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const producer = registry.producers.find(({ producerId }) => producerId === context.plan.producerId)
+  const { rawFacts } = deriveBlueGreenAuthorityFacts({ authorities })
+  const sourceState = observationSourceState({
+    classId, plan: context.plan, artifactDigest: authorities.authorityDigest, repositoryRoot
+  })
+  return buildBlueGreenAuthorityBundle({ candidatePlan, context, authorities, producer, sourceState, rawFacts, output })
 }
 
 function loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
@@ -178,6 +192,7 @@ function loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
     candidatePlan: context.plan,
     rolloutEvidence: source.value.rolloutEvidenceRef?.path,
     runtimeRoleAdmission: source.value.runtimeRoleAdmissionRef?.path,
+    currentSchemaReceiptRef: source.value.currentSchemaReceiptRef,
     repositoryRoot
   })
   for (const [label, expected, actual] of [
@@ -185,7 +200,9 @@ function loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
     ['runtime-role', source.value.runtimeRoleAdmissionRef, authorities.runtimeRole.admission.ref]
   ])
   {
-    if (expected?.fileDigest !== actual.fileDigest || expected?.contentDigest !== actual.contentDigest)
+    const contentDigest = actual.contentDigest?.startsWith('sha256:')
+      ? actual.contentDigest : `sha256:${actual.contentDigest}`
+    if (expected?.fileDigest !== actual.fileDigest || expected?.contentDigest !== contentDigest)
     {
       fail(`${label} authority changed after source bundling`)
     }
@@ -223,8 +240,9 @@ export function produceBlueGreenAuthoritiesRaw({ candidatePlan, sourceReceipt, r
       toolchainIdentity: context.toolchainIdentity
     }
   })
-  const canonicalRerunCommand = `node tools/test-evidence/blue-green-containment-raw.mjs produce-authorities --candidate-plan ${candidatePlan} --source ${source.ref.path} --out ${context.planned.receiptPath}`
-  const independentVerifyCommand = `node tools/test-evidence/blue-green-containment-raw.mjs verify --candidate-plan ${candidatePlan} --receipt ${context.planned.receiptPath}`
+  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`
+  const canonicalRerunCommand = `node tools/test-evidence/blue-green-containment-raw.mjs produce-authorities --candidate-plan ${quote(candidatePlan)} --source ${quote(source.ref.path)} --out ${quote(context.planned.receiptPath)}`
+  const independentVerifyCommand = `node tools/test-evidence/blue-green-containment-raw.mjs verify --candidate-plan ${quote(candidatePlan)} --receipt ${quote(context.planned.receiptPath)}`
   return seal({
     schema: context.definition.schema,
     producerId: context.plan.producerId,
@@ -397,7 +415,15 @@ function main()
     if (!parsed.out) fail('canonical authority bundle requires --out')
     const receipt = produceBlueGreenAuthorityBundle({
       candidatePlan: parsed['candidate-plan'], rolloutEvidence: parsed['rollout-evidence'],
-      runtimeRoleAdmission: parsed['runtime-role-admission'], repositoryRoot: root
+      runtimeRoleAdmission: parsed['runtime-role-admission'],
+      currentSchemaReceiptRef: {
+        path: parsed['current-schema-receipt'],
+        fileDigest: parsed['current-schema-file-digest'],
+        contentDigest: parsed['current-schema-content-digest'],
+        schema: 'fsusblog.current-schema-receipt.v1'
+      },
+      output: parsed.out,
+      repositoryRoot: root
     })
     writeReceipt(parsed.out, receipt, root)
     process.stdout.write(`[blue-green-containment-raw] bundled canonical authorities path=${parsed.out} digest=${receipt.contentDigest}\n`)

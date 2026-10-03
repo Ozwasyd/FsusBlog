@@ -91,6 +91,16 @@ The parser emits declarations and source locations only. Parse receipts use `fsu
 
 Lifecycle metadata cannot create DocClaim pass evidence. Observation comparison and prose verification are separate consumers of this protocol; they are not part of the parse gate. Precise tabular facts use generated sections (below).
 
+## Evidence-stage admission
+
+The outer static-admission contract is `fsusblog.behavior-doc-static-admission-receipt.v2`; older outer versions are rejected, without changing the minimal compiled-contract build receipt. Its closed `claimStages` roster binds the original BehaviorCatalog, DocClaim parse receipt, migration ledger and each complete located claim digest. Only explicit catalog `pre-runtime` and `post-runtime` stages are accepted; missing, extra, duplicate or reclassified claims fail closed.
+
+Receipt consumption requires an independent expected worktree. The original I/O facade reparses its actual document source with the original DocClaim schema and lifecycle registry, then internally supplies the closed `{catalog, claimReceipt, migrationLedger}` materials to the pure value contract; public callers cannot supply or override those materials. The pure contract validates exact stage, source digests and located-claim coverage without reading files or granting execution authority. Matching self-reported parse digests and resealing an altered claim body do not establish source identity.
+
+Static admission retains all required compiled extractors, generated-section checks, mutations and zero-early-spawn ordering. The original `DocClaimVerificationReceipt.v1` contains only pre-runtime prose results. `deferredPostClaims` records identities, not verified results or native qualification. Final consistency must discharge every exact post-runtime claim from actual receipt-backed observations with the same source, run, attempt and candidate; unresolved deferred claims cannot qualify release.
+
+This stage contract is source preparation, not proof of a native collector or current execution. The versioned native observation collector, post-runtime join and final discharge consumer must be connected and independently verified before this pipeline can qualify release; a compiled-code-model observation or an unbound boolean is not native evidence.
+
 ## Prose claim verification
 
 Explanatory prose that still carries scalar, boolean, failure-policy, relation, implication, or preservation facts is verified by a single `ProseClaimVerifier`. It consumes only DocClaim located claims and sealed `FactObservationReceipt` values (via the public receipt reader). It does not read business source, tests, network, embeddings, LLM judges, human `reviewed` flags, or baseline allowlists.

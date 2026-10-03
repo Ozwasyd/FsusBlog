@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { parseRepositoryClaims } from '../docs/doc-claim.mjs'
 import { verifyCanonicalReleaseAuthorityValues } from './canonical-release-authorities-value-contract.mjs'
+import { currentSchemaAuthorityReference, requireCurrentSchemaReceiptReference } from './release-authority-bundle-contract.mjs'
 
 const fail = (message) => { throw new Error(`[canonical-release-authorities] ${message}`) }
 const bytesDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
@@ -84,12 +86,37 @@ export function createCanonicalReleaseAuthorityReader(repositoryRoot)
   return { readJson, readBytes }
 }
 
-export function verifyCanonicalReleaseAuthorities({ candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot })
+export function verifyCanonicalReleaseAuthorities(options)
 {
+  if (Object.hasOwn(options, 'expectedClaimStageAuthority'))
+    fail('caller cannot supply claim-stage source authority')
+  const { candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission,
+    currentSchemaReceiptRef, repositoryRoot } = options
   if (!plan || !repositoryRoot) fail('candidate plan and repository root are required')
-  return verifyCanonicalReleaseAuthorityValues({
-    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot,
-    ...createCanonicalReleaseAuthorityReader(repositoryRoot),
+  const reference = requireCurrentSchemaReceiptReference(currentSchemaReceiptRef)
+  const reader = createCanonicalReleaseAuthorityReader(repositoryRoot)
+  const catalog = reader.readJson('config/contracts/behavior-contracts.json', 'claim-stage catalog').value
+  const expectedClaimStageAuthority = {
+    catalog,
+    claimReceipt: parseRepositoryClaims(repositoryRoot, { catalog }),
+    migrationLedger: reader.readJson('config/contracts/document-claim-migration-ledger.json',
+      'claim-stage migration ledger').value
+  }
+  const authorities = verifyCanonicalReleaseAuthorityValues({
+    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef: reference, repositoryRoot,
+    ...reader,
+    expectedClaimStageAuthority,
     now: Date.now()
   })
+  const verifiedReference = currentSchemaAuthorityReference(authorities)
+  if (Object.keys(reference).some((field) => verifiedReference[field] !== reference[field]))
+  {
+    fail('current-schema verified reference differs from the explicit input')
+  }
+  // The pure value contract proves immutable bindings only. Neither those
+  // values nor a pre-runtime code-model fixture proves that the owned native
+  // command ran under this candidate's admitted post-runtime execution.
+  // The original collector has no such typed consumer seam yet; until that
+  // original owner is connected, do not emit any qualifying authority bundle.
+  fail('current-schema post-runtime admitted native collector is not connected')
 }

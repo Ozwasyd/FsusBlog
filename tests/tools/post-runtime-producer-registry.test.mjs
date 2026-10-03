@@ -5,13 +5,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { requiredObservationClasses, requiredObservationScopes, validatePostRuntimeClassOwnership } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
 const { selectBrowserContractScenarios } = await import(new URL('../browser-contract/contract-core.mjs', import.meta.url));
-const { createRuntimeRoleStaticV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createCurrentSchemaCodeContractFixture, createRuntimeRoleStaticV3Fixture, createRuntimeRoleStaticV4Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 const {
     createCanonicalAotSourceFixture,
     createCanonicalHydrationFixtureObservation,
@@ -22,6 +23,74 @@ const { acceptedClaimsSchema, authorityDigest, canonicalRepositoryFile, identity
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'));
 const migrationLedger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'));
 const registry = loadPostRuntimeProducerRegistry(root);
+
+test('post-runtime registry assigns every class to exactly one producer', () =>
+{
+    const owners = validatePostRuntimeClassOwnership(registry);
+    assert.deepEqual([...owners.keys()].sort(), Object.keys(registry.observationClasses).sort());
+    for (const producer of registry.producers)
+    {
+        for (const classId of new Set(Object.values(producer.requiredObservations).flat()))
+        {
+            assert.equal(owners.get(classId), producer.producerId);
+        }
+    }
+});
+
+test('post-runtime registry refuses shared class ownership even under a different behavior', () =>
+{
+    const conflicting = structuredClone(registry);
+    const classId = Object.keys(conflicting.observationClasses)[0];
+    conflicting.producers.push({
+        producerId: 'conflicting-class-owner',
+        behaviorId: 'different-behavior',
+        requiredObservations: { positive: [classId] }
+    });
+    assert.throws(() => validatePostRuntimeClassOwnership(conflicting), /exact-one producer owner/u);
+});
+
+test('post-runtime registry refuses an unowned class or duplicate producer identity', () =>
+{
+    const missing = structuredClone(registry);
+    const classId = Object.keys(missing.observationClasses)[0];
+    for (const producer of missing.producers)
+    {
+        for (const [mode, classes] of Object.entries(producer.requiredObservations))
+        {
+            producer.requiredObservations[mode] = classes.filter((id) => id !== classId);
+        }
+    }
+    assert.throws(() => validatePostRuntimeClassOwnership(missing), /ownership closure|owns no/u);
+    const duplicated = structuredClone(registry);
+    duplicated.producers.push(structuredClone(duplicated.producers[0]));
+    assert.throws(() => validatePostRuntimeClassOwnership(duplicated), /distinct named producers/u);
+});
+
+test('post-runtime scopes derive only the selected producer registered class roles', () =>
+{
+    const release = registry.producers.find((entry) => entry.producerId === 'production-correctness-scheduler');
+    const native = registry.producers.find((entry) => entry.producerId === 'current-schema-admission-scheduler');
+    assert.deepEqual(requiredObservationScopes(registry, release), ['application', 'release-deployment']);
+    assert.deepEqual(requiredObservationScopes(registry, native), ['release-deployment']);
+    assert.deepEqual(requiredObservationClasses(registry, native, 'application'), []);
+    assert.deepEqual(requiredObservationClasses(registry, native, 'release-deployment'), ['current-schema-admission']);
+    assert.throws(() => requiredObservationClasses(registry, native, 'unknown'), /unknown observation scope/u);
+});
+
+test('post-runtime registry refuses the old single-producer routing version', () =>
+{
+    const old = { ...structuredClone(registry), schema: 'fsusblog.post-runtime-producer-registry.v2' };
+    assert.throws(() => validatePostRuntimeProducerRegistry(old, {
+        matrix: {}, attemptProducers: {}, validateRepositoryAuthority: false
+    }), /unexpected registry schema/u);
+    const fixture = createRuntimeRoleStaticV3Fixture('run-3662', {
+        sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64)
+    }, { repositoryRoot: root });
+    assert.equal(fixture.minimalContractBuild.artifacts['runtime-role-observation'].buildReceipt.schema,
+        'fsusblog.runtime-role-observation-build-receipt.v3');
+    // The old fixture remains an old-code-model input, never native admission.
+    assert.equal(fixture.schema, 'fsusblog.behavior-doc-static-admission-receipt.v1');
+});
 const digest = (character) => `sha256:${character.repeat(64)}`;
 const receiptRepositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-receipt-'));
 process.on('exit', () => fs.rmSync(receiptRepositoryRoot, { recursive: true, force: true }));
@@ -94,7 +163,7 @@ function createRuntimeRoleAdmission(sourceState)
         sourceCommit: sourceState.sourceCommit,
         worktreeFingerprint: sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
     };
-    let admission = createRuntimeRoleStaticV3Fixture(sourceState.runId, source, {
+    let admission = createRuntimeRoleStaticV4Fixture(sourceState.runId, source, {
         repositoryRoot: receiptRepositoryRoot,
         extractorIds: JSON.parse(fs.readFileSync(
             path.join(receiptRepositoryRoot, 'config/contracts/behavior-fact-extractors.json'),
@@ -116,8 +185,9 @@ function createRuntimeRoleAdmission(sourceState)
         }
         const value = artifactId === 'runtime-role-observation'
             ? {
-                schema: 'fsusblog.runtime-role-observation.v2',
+                schema: 'fsusblog.runtime-role-observation.v3',
                 ownership: { claimEligible: true },
+                currentSchemaContract: createCurrentSchemaCodeContractFixture(),
                 deploymentAuthority: {
                     observationDigest: deploymentObservationDigest
                 }
@@ -151,7 +221,9 @@ function createRuntimeRoleAdmission(sourceState)
 
 function producerReceipt(classId = 'route-response-error')
 {
-    const producer = registry.producers[0];
+    const producerId = validatePostRuntimeClassOwnership(registry).get(classId);
+    const producer = registry.producers.find((entry) => entry.producerId === producerId);
+    assert.ok(producer, `the fixture requires the registered owner of ${classId}`);
     const definition = registry.observationClasses[classId];
     const requiredModes = Object.entries(producer.requiredObservations)
         .filter(([, classes]) => classes.includes(classId))
@@ -195,7 +267,7 @@ function producerReceipt(classId = 'route-response-error')
             path: relative,
             fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`,
             contentDigest: document.schema
-                === 'fsusblog.behavior-doc-static-admission-receipt.v1'
+                === 'fsusblog.behavior-doc-static-admission-receipt.v2'
                 ? `sha256:${document.contentDigest}`
                 : document.contentDigest ?? null,
             schema: document.schema
@@ -246,14 +318,14 @@ function producerReceipt(classId = 'route-response-error')
                 rolloutId: sourceState.rolloutId,
                 target: { releaseId: sourceState.releaseId }
             },
-            'fsusblog.behavior-doc-static-admission-receipt.v1':
+            'fsusblog.behavior-doc-static-admission-receipt.v2':
                 createRuntimeRoleAdmission(sourceState),
             'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
         }
         const document = { schema: contract.schema, ...bySchema[contract.schema] }
         return [
             'fsusblog.public-preview-screenshot-verification.v1',
-            'fsusblog.behavior-doc-static-admission-receipt.v1'
+            'fsusblog.behavior-doc-static-admission-receipt.v2'
         ].includes(contract.schema) ? document : seal(document)
     }
     const embeddedReference = (field, contract) =>
@@ -266,7 +338,7 @@ function producerReceipt(classId = 'route-response-error')
             'fsusblog.browser-contract-receipt.v2': '.tmp/browser-contract/receipt.json',
             'fsusblog.public-preview-screenshot-verification.v1': '.tmp/release-evidence/public-preview-screenshots.json',
             'fsusblog.release-rollout-evidence.v1': `.tmp/release-rollout/${classId}.json`,
-            'fsusblog.behavior-doc-static-admission-receipt.v1':
+            'fsusblog.behavior-doc-static-admission-receipt.v2':
                 '.tmp/behavior-doc-static-admission/receipt.json',
             'fsusblog.runtime-role-observation.v1': '.tmp/behavior-doc-static-admission/runtime-role-observation.json'
         };
@@ -833,7 +905,7 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
         }),
         /missing route-response-error identity worktreeFingerprint/u);
 
-    const staleTool = seal({ ...receipt, toolVersion: 'production-correctness-scheduler@2' });
+    const staleTool = seal({ ...receipt, toolVersion: 'production-correctness-scheduler@1' });
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: staleTool }),
         /producer\/tool version mismatch/u);
@@ -856,9 +928,10 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
 
 test('every observation class accepts only its declared source identities', () =>
 {
-    const producerId = registry.producers[0].producerId;
+    const owners = validatePostRuntimeClassOwnership(registry);
     for (const [classId, definition] of Object.entries(registry.observationClasses))
     {
+        const producerId = owners.get(classId);
         const receipt = producerReceipt(classId);
         assert.equal(validateProducerReceiptAgainstRegistry({
             registry, producerId, receipt, classId
@@ -1721,8 +1794,8 @@ test('production validator rejects a second registry and is wired into static go
     const duplicateRoot = createRepository();
     const duplicateRegistry = path.join(duplicateRoot, 'config/testing/post-runtime-producer-registry.json');
     const duplicateBytes = fs.readFileSync(duplicateRegistry, 'utf8').replace(
-        '"schema": "fsusblog.post-runtime-producer-registry.v2",',
-        '"schema": "fsusblog.post-runtime-producer-registry.v2",\n    "schema": "fsusblog.post-runtime-producer-registry.v2",');
+        '"schema": "fsusblog.post-runtime-producer-registry.v3",',
+        '"schema": "fsusblog.post-runtime-producer-registry.v3",\n    "schema": "fsusblog.post-runtime-producer-registry.v3",');
     fs.writeFileSync(duplicateRegistry, duplicateBytes);
     execFileSync('git', ['add', 'config/testing/post-runtime-producer-registry.json'], { cwd: duplicateRoot });
     execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',

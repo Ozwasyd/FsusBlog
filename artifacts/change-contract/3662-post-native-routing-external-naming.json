@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-runtime-observation-result.schema.json",
+                "config/testing/post-runtime-producer-registry.json"
+            ],
+            "reason": "Preserve the registered caller-visible JSON, receipt schema, and process environment spelling while explicitly versioning post-runtime class routing and native-reference requirements for issue 3662."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/fact-extractors/post-runtime/candidate.mjs",
+                "tools/fact-extractors/post-runtime/common.mjs",
+                "tools/fact-extractors/post-runtime/evidence-context.mjs",
+                "tools/fact-extractors/post-runtime/observation.mjs",
+                "tools/test-evidence/blue-green-containment-raw.mjs",
+                "tools/test-evidence/canonical-release-authorities.mjs",
+                "tools/test-evidence/release-authority-bundle-contract.mjs",
+                "tools/test-evidence/release-authority-facts-contract.mjs",
+                "tools/test-evidence/release-readiness-raw.mjs",
+                "tools/test-evidence/release-readiness-source-support.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs"
+            ],
+            "reason": "Preserve the registered caller-visible JSON, receipt schema, and process environment spelling while explicitly versioning post-runtime class routing and native-reference requirements for issue 3662."
+        }
+    ]
+}

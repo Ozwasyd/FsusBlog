@@ -22,6 +22,7 @@ import {
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
 import { deriveReleaseReadinessAuthorityFacts } from './release-authority-facts-contract.mjs'
+import { buildFacts } from './release-readiness-observations.mjs'
 import {
   buildReleaseReadinessAuthorityBundle,
   releaseReadinessAuthorityBundleSchema
@@ -56,6 +57,11 @@ export function projectReleaseReadinessRaw({ candidatePlan, sourceReceipt, repos
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
+  if (registry.observationClasses['release-identity-readiness'].sourceReceipt.schema
+    === releaseReadinessAuthorityBundleSchema)
+  {
+    fail('legacy readiness source cannot satisfy the required native authority bundle')
+  }
   const readiness = source.observations.readiness
   const facts = {
     imageDigest: manifest.manifest.imageDigest,
@@ -106,15 +112,24 @@ export function produceReleaseReadinessAuthorityBundle({
   candidatePlan,
   rolloutEvidence,
   runtimeRoleAdmission,
+  currentSchemaReceiptRef,
+  output,
   repositoryRoot = root
 })
 {
   const planInput = currentJson(candidatePlan, 'candidate plan', repositoryRoot)
   const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
   const authorities = verifyCanonicalReleaseAuthorities({
-    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot
+    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef, repositoryRoot
   })
-  return buildReleaseReadinessAuthorityBundle({ planInput, plan, authorities })
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
+  const build = buildFacts(plan, repositoryRoot)
+  const { rawFacts } = deriveReleaseReadinessAuthorityFacts({ plan, authorities, build })
+  const sourceState = observationSourceState({
+    classId: 'release-identity-readiness', plan, artifactDigest: authorities.authorityDigest, repositoryRoot
+  })
+  return buildReleaseReadinessAuthorityBundle({ planInput, plan, authorities, producer, sourceState, rawFacts, output })
 }
 
 function releaseAuthorityBundle(sourceReceipt, plan, repositoryRoot)
@@ -129,6 +144,7 @@ function releaseAuthorityBundle(sourceReceipt, plan, repositoryRoot)
     candidatePlan: plan,
     rolloutEvidence: source.value.rolloutEvidenceRef?.path,
     runtimeRoleAdmission: source.value.runtimeRoleAdmissionRef?.path,
+    currentSchemaReceiptRef: source.value.currentSchemaReceiptRef,
     repositoryRoot
   })
   for (const [label, expected, actual] of [
@@ -136,7 +152,9 @@ function releaseAuthorityBundle(sourceReceipt, plan, repositoryRoot)
     ['runtime-role', source.value.runtimeRoleAdmissionRef, authorities.runtimeRole.admission.ref]
   ])
   {
-    if (expected?.fileDigest !== actual.fileDigest || expected?.contentDigest !== actual.contentDigest)
+    const contentDigest = actual.contentDigest?.startsWith('sha256:')
+      ? actual.contentDigest : `sha256:${actual.contentDigest}`
+    if (expected?.fileDigest !== actual.fileDigest || expected?.contentDigest !== contentDigest)
     {
       fail(`${label} authority changed after source bundling`)
     }
@@ -172,8 +190,9 @@ export function projectReleaseReadinessAuthoritiesRaw({ candidatePlan, sourceRec
       attemptId: plan.candidate.attemptId, slot: rollout.target.slot
     }
   })
-  const canonicalRerunCommand = `node tools/test-evidence/release-readiness-raw.mjs project-authorities --candidate-plan ${planInput.ref.path} --source ${source.ref.path} --out ${planned.receiptPath}`
-  const independentVerifyCommand = `node tools/test-evidence/release-readiness-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
+  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`
+  const canonicalRerunCommand = `node tools/test-evidence/release-readiness-raw.mjs project-authorities --candidate-plan ${quote(planInput.ref.path)} --source ${quote(source.ref.path)} --out ${quote(planned.receiptPath)}`
+  const independentVerifyCommand = `node tools/test-evidence/release-readiness-raw.mjs verify --candidate-plan ${quote(planInput.ref.path)} --receipt ${quote(planned.receiptPath)}`
   return seal({
     schema: releaseReadinessObservationSchema,
     producerId: plan.producerId,
@@ -254,7 +273,15 @@ function main()
     if (!parsed.out) fail('authority bundle requires --out')
     const receipt = produceReleaseReadinessAuthorityBundle({
       candidatePlan: parsed['candidate-plan'], rolloutEvidence: parsed['rollout-evidence'],
-      runtimeRoleAdmission: parsed['runtime-role-admission'], repositoryRoot: root
+      runtimeRoleAdmission: parsed['runtime-role-admission'],
+      currentSchemaReceiptRef: {
+        path: parsed['current-schema-receipt'],
+        fileDigest: parsed['current-schema-file-digest'],
+        contentDigest: parsed['current-schema-content-digest'],
+        schema: 'fsusblog.current-schema-receipt.v1'
+      },
+      output: parsed.out,
+      repositoryRoot: root
     })
     writeReceipt(parsed.out, receipt, root)
     process.stdout.write(`[release-readiness-raw] bundled authorities path=${parsed.out} digest=${receipt.contentDigest}\n`)

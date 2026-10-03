@@ -133,3 +133,27 @@ test('current minimal build binds v4 model stage while old runtime build version
     assert.ok(validateMinimalContractBuildReceipt(createRuntimeRoleMinimalV4Fixture('contract-control', source)))
     assert.throws(() => validateMinimalContractBuildReceipt(createRuntimeRoleMinimalV3Fixture('contract-control', source)))
 })
+
+test('static admission JSON schema binds the same strict v4 build stage as the value validator', () =>
+{
+    const schema = JSON.parse(fs.readFileSync(path.join(root,
+        'config/schemas/behavior-doc-static-admission-receipt.schema.json'), 'utf8'))
+    const buildSchema = { ...schema.$defs.runtimeRoleMinimalBuildReceipt, $defs: schema.$defs }
+    const source = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
+    const build = createRuntimeRoleMinimalV4Fixture('contract-control', source)
+        .artifacts['runtime-role-observation'].buildReceipt
+    assert.deepEqual(validateJsonSchema(build, buildSchema), [])
+    for (const mutate of [
+        value => { value.schema = 'fsusblog.runtime-role-observation-build-receipt.v3' },
+        value => { value.observationSchema = 'fsusblog.runtime-role-observation.v2' },
+        value => { value.evidenceStage = 'post-runtime' },
+        value => { value.evidenceClass = 'native-database' },
+        value => { delete value.observationSchema },
+        value => { value.unknown = true }
+    ])
+    {
+        const changed = structuredClone(build)
+        mutate(changed)
+        assert.ok(validateJsonSchema(changed, buildSchema).length > 0)
+    }
+})

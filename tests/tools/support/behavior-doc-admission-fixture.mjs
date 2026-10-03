@@ -4,7 +4,7 @@ import path from 'node:path';
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../../tools/fact-extractors/registry.mjs", import.meta.url));
-const { createRuntimeRoleMinimalV4Fixture } = await import(new URL("./runtime-role-minimal-v3-fixture.mjs", import.meta.url));
+const { createRuntimeRoleMinimalV4Fixture, installRuntimeRoleClaimStageAuthorityFixture } = await import(new URL("./runtime-role-minimal-v3-fixture.mjs", import.meta.url));
 
 function seal(value)
 {
@@ -43,6 +43,7 @@ export function createBehaviorDocAdmissionFixture({
         sourceRepositoryRoot,
         repositoryRoot
     });
+    const claimStages = installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot);
     const source = sealSourceIdentity(repositoryRoot);
     const registry = loadRegistry(registryFile);
     const factObservations = Object.fromEntries(registry.extractors.map((extractor) => [
@@ -70,14 +71,15 @@ export function createBehaviorDocAdmissionFixture({
             directoryBuildPropsDigest: '1'.repeat(64)
         },
         authorityDigests: {
-            catalog: '2'.repeat(64),
-            claim: '3'.repeat(64),
+            catalog: claimStages.catalogDigest,
+            claim: claimStages.parseReceiptDigest,
             extractorRegistry: '4'.repeat(64),
             generatedSectionCatalog: '5'.repeat(64),
             generatedRenderer: '6'.repeat(64),
             proseRenderer: '7'.repeat(64),
             mutationCatalog: '8'.repeat(64)
         },
+        claimStages,
         implementationOwner: {
             status: 'ok',
             bindingCount: 1,
@@ -92,7 +94,8 @@ export function createBehaviorDocAdmissionFixture({
         },
         prose: {
             status: 'ok',
-            verifiedClaimCount: 0,
+            verifiedClaimCount: claimStages.preRuntimeClaims
+                .filter((claim) => claim.claimType !== 'generated-section').length,
             contentDigest: 'b'.repeat(64)
         },
         mutationFixtures: {

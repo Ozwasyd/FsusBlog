@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs"
+            ],
+            "reason": "Preserve the original join source owner's external process and CLI spellings; internal variables remain language-mapped."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-evidence-post-runtime-receipt.schema.json"
+            ],
+            "reason": "Explicitly version the closed external receipt JSON contract while preserving the original source, candidate, scheduler and independent replay fields."
+        }
+    ]
+}
