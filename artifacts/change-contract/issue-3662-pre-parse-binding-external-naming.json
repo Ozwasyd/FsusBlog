@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission-contract.mjs"
+            ],
+            "reason": "Preserve the original validator export and receipt field spelling while independently reparsing actual expected-worktree claims; no caller-supplied proof or native qualification is introduced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Retain current document anchors and protocol identifiers while documenting the actual source-parse refusal boundary without changing trust policy."
+        }
+    ]
+}

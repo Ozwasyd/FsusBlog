@@ -95,6 +95,8 @@ Lifecycle metadata cannot create DocClaim pass evidence. Observation comparison 
 
 The outer static-admission contract is `fsusblog.behavior-doc-static-admission-receipt.v2`; older outer versions are rejected, without changing the minimal compiled-contract build receipt. Its closed `claimStages` roster binds the original BehaviorCatalog, DocClaim parse receipt, migration ledger and each complete located claim digest. Only explicit catalog `pre-runtime` and `post-runtime` stages are accepted; missing, extra, duplicate or reclassified claims fail closed.
 
+Receipt consumption requires an independent expected worktree and reparses its actual document source with the original DocClaim schema and lifecycle registry. Matching self-reported parse digests and resealing an altered claim body do not establish source identity; callers cannot substitute a parse object for this source read.
+
 Static admission retains all required compiled extractors, generated-section checks, mutations and zero-early-spawn ordering. The original `DocClaimVerificationReceipt.v1` contains only pre-runtime prose results. `deferredPostClaims` records identities, not verified results or native qualification. Final consistency must discharge every exact post-runtime claim from actual receipt-backed observations with the same source, run, attempt and candidate; unresolved deferred claims cannot qualify release.
 
 This stage contract is source preparation, not proof of a native collector or current execution. The versioned native observation collector, post-runtime join and final discharge consumer must be connected and independently verified before this pipeline can qualify release; a compiled-code-model observation or an unbound boolean is not native evidence.

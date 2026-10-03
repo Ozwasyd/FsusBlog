@@ -6,7 +6,10 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createCurrentSchemaCodeContractFixture } from './support/runtime-role-minimal-v3-fixture.mjs';
+import {
+    createCurrentSchemaCodeContractFixture,
+    createRuntimeRoleStaticV4Fixture
+} from './support/runtime-role-minimal-v3-fixture.mjs';
 import {
     partitionBehaviorDocClaims,
     validateBehaviorDocClaimStages
@@ -37,6 +40,73 @@ function seal(value)
     receipt.contentDigest = digestValue(receipt);
     return receipt;
 }
+
+function currentOuterAdmissionFixture()
+{
+    const source = sealSourceIdentity(root);
+    const extractorIds = loadRegistry(path.join(
+        root, 'config/contracts/behavior-fact-extractors.json'
+    )).extractors.map((extractor) => extractor.id).sort();
+    const receipt = createRuntimeRoleStaticV4Fixture('current-outer-parse-binding', source, {
+        repositoryRoot: root,
+        extractorIds
+    });
+    return {
+        receipt,
+        expected: {
+            expectedRunId: receipt.run.id,
+            expectedSourceIdentity: source,
+            expectedWorktree: root
+        }
+    };
+}
+
+test('real outer admission validates a current parsed-source v2 value fixture', () =>
+{
+    const { receipt, expected } = currentOuterAdmissionFixture();
+    assert.equal(validateBehaviorDocStaticAdmissionReceipt(receipt, expected), receipt);
+});
+
+for (const group of ['preRuntimeClaims', 'deferredPostClaims'])
+{
+    test(`real outer admission rejects a doubly re-sealed ${group} body digest`, () =>
+    {
+        const { receipt, expected } = currentOuterAdmissionFixture();
+        assert.equal(validateBehaviorDocStaticAdmissionReceipt(receipt, expected), receipt);
+        assert.ok(receipt.claimStages[group].length > 0);
+        const changed = structuredClone(receipt);
+        const row = changed.claimStages[group][0];
+        row.claimDigest = row.claimDigest === 'a'.repeat(64) ? 'b'.repeat(64) : 'a'.repeat(64);
+        changed.claimStages = seal(changed.claimStages);
+        const resealed = seal(changed);
+        assert.deepEqual(resealed.authorityDigests, receipt.authorityDigests);
+        assert.deepEqual(resealed.source, receipt.source);
+        assert.deepEqual(resealed.prose, receipt.prose);
+        assert.notEqual(resealed.claimStages.contentDigest, receipt.claimStages.contentDigest);
+        assert.notEqual(resealed.contentDigest, receipt.contentDigest);
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(resealed, expected),
+            /do not exactly cover the parse receipt/u);
+    });
+}
+
+test('real outer admission rejects coordinated self-reported parse digest resealing', () =>
+{
+    const { receipt, expected } = currentOuterAdmissionFixture();
+    assert.equal(validateBehaviorDocStaticAdmissionReceipt(receipt, expected), receipt);
+    const changed = structuredClone(receipt);
+    changed.claimStages.parseReceiptDigest = 'f'.repeat(64);
+    changed.authorityDigests.claim = changed.claimStages.parseReceiptDigest;
+    changed.claimStages = seal(changed.claimStages);
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(seal(changed), expected),
+        /parse receipt mismatch/u);
+});
+
+test('real outer admission refuses a missing independent source worktree', () =>
+{
+    const { receipt } = currentOuterAdmissionFixture();
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(receipt),
+        /independent expected worktree/u);
+});
 
 function claimStageFixture()
 {

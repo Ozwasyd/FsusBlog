@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { digestValue } from '../fact-extractors/lib/canonicalize.mjs';
 import { validateMinimalContractBuildReceipt } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
+import { parseRepositoryClaims } from './doc-claim.mjs';
 
 export const behaviorDocAdmissionReceiptSchema =
     'fsusblog.behavior-doc-static-admission-receipt.v2';
@@ -376,13 +377,20 @@ function validateAdmission(receipt, {
     {
         throw new Error('BehaviorDoc admission authority digest roster is incomplete');
     }
-    const stageAuthority = expectedWorktree === null ? {} : {
+    if (expectedWorktree === null)
+    {
+        throw new Error('BehaviorDoc claim stages require an independent expected worktree');
+    }
+    const stageAuthority = {
         catalog: JSON.parse(fs.readFileSync(path.join(
             expectedWorktree, 'config/contracts/behavior-contracts.json'
         ), 'utf8')),
         migrationLedger: JSON.parse(fs.readFileSync(path.join(
             expectedWorktree, 'config/contracts/document-claim-migration-ledger.json'
-        ), 'utf8'))
+        ), 'utf8')),
+        // Reparse the actual source authority. Neither the envelope's own
+        // parse digest nor a caller-supplied object proves located claim bytes.
+        claimReceipt: parseRepositoryClaims(expectedWorktree)
     };
     validateBehaviorDocClaimStages(receipt.claimStages, stageAuthority);
     if (receipt.claimStages.catalogDigest !== receipt.authorityDigests.catalog

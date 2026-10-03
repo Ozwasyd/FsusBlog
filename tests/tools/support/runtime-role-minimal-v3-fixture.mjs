@@ -20,9 +20,13 @@ function seal(value)
 export function installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
 {
     const sourceRoot = fileURLToPath(new URL('../../../', import.meta.url))
+    const sourceClaims = parseRepositoryClaims(sourceRoot)
     const relatives = [
         'config/contracts/behavior-contracts.json',
-        'config/contracts/document-claim-migration-ledger.json'
+        'config/contracts/document-claim-migration-ledger.json',
+        'config/schemas/doc-claim.schema.json',
+        'config/development/document-lifecycle.json',
+        ...new Set(sourceClaims.claims.map((claim) => claim.location.documentPath))
     ]
     const values = relatives.map((relative) =>
     {
@@ -40,12 +44,17 @@ export function installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
             fs.mkdirSync(path.dirname(target), { recursive: true })
             fs.writeFileSync(target, bytes)
         }
-        return JSON.parse(bytes.toString('utf8'))
+        return relative.endsWith('.json') ? JSON.parse(bytes.toString('utf8')) : null
     })
+    const materializedClaims = parseRepositoryClaims(repositoryRoot)
+    if (materializedClaims.contentDigest !== sourceClaims.contentDigest)
+    {
+        throw new Error('claim-stage fixture parse source closure differs from the canonical source')
+    }
     return partitionBehaviorDocClaims({
         catalog: values[0],
         migrationLedger: values[1],
-        claimReceipt: parseRepositoryClaims(sourceRoot)
+        claimReceipt: materializedClaims
     }).stages
 }
 
