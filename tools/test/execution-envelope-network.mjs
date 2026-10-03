@@ -166,7 +166,9 @@ export function projectPlannedEndpoints({ services, serviceEnvelope, policy })
             dns: declaration.dns,
             certificate: declaration.certificate,
             proxy: declaration.proxy
-    });
+        });
+    }
+    return endpoints;
 }
 
 async function requiredToolAsync(name, options)
@@ -198,8 +200,6 @@ async function buildLandlockHelperAsync({ output, ...options })
         compiler,
         helper: await observeExecutableIdentityAsync(output, options)
     };
-}
-    return endpoints;
 }
 
 export function prepareNetworkSandbox({
