@@ -252,6 +252,19 @@ state by default. Data deletion is a separate exact approval whose measured scop
 must still match; core documents, history, assets, and another extension's state
 are outside that authority.
 
+`AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256` is the sole
+migration-plan digest producer: SHA-256 covers the strict UTF-8 domain tag
+`fsusblog.authoring-state-migration-plan.v1`, plan ID, complete from/to scopes
+(extension ID/version, site, user, nullable document, schema), record/byte ceilings,
+duration ticks, ordered transforms (kind, source, nullable destination, default
+bytes), backup and rollback references, excluding `ContentSha256`. Integers and
+lengths use signed little-endian int32 (schema, kind, counts and byte lengths) or
+int64 (ceilings and ticks); strings and bytes have int32 byte-length prefixes,
+with `-1` distinguishing null/default from empty. The transform count precedes
+the ordered entries. The lowercase hexadecimal digest is checked before receipts
+or state side effects; it identifies the frozen payload and does not authorize it
+or replace owned-scope, package, transform or budget checks.
+
 This commit defines the generic lifecycle/resource interfaces and orchestration;
 it does not register a command contribution or a second editor authority. Durable
 production receipt/state/grant stores and a real host registration owner are still

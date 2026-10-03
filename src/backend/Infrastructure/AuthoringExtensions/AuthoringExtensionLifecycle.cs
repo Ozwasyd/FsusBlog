@@ -1,4 +1,7 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -583,7 +586,8 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
             plan.Transforms.Any(static transform => !Enum.IsDefined(transform.Kind)) ||
             !IsBoundedField(plan.BackupReference, 256) ||
             !IsBoundedField(plan.RollbackReference, 256) ||
-            !IsSha256(plan.ContentSha256))
+            !IsSha256(plan.ContentSha256) ||
+            !string.Equals(plan.ContentSha256, ComputeMigrationPlanSha256(plan), StringComparison.Ordinal))
         {
             throw new AuthoringExtensionContractException("Migration plan is cross-scope, unbounded, executable, or not identity-bound.");
         }
@@ -768,5 +772,89 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
             receipt.PreviousReceiptSha256);
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(material)));
+    }
+
+    /// <summary>Computes the complete frozen migration payload identity, not migration authorization.</summary>
+    /// <param name="plan">The closed migration payload whose digest field is excluded.</param>
+    /// <returns>The lowercase SHA-256 of the versioned, length-prefixed payload.</returns>
+    public static string ComputeMigrationPlanSha256(AuthoringStateMigrationPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(plan.From);
+        ArgumentNullException.ThrowIfNull(plan.To);
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+        WriteString("fsusblog.authoring-state-migration-plan.v1");
+        WriteString(plan.PlanId);
+        WriteScope(plan.From);
+        WriteScope(plan.To);
+        WriteInt64(plan.MaximumRecords);
+        WriteInt64(plan.MaximumBytes);
+        WriteInt64(plan.MaximumDuration.Ticks);
+        WriteInt32(plan.Transforms.IsDefault ? -1 : plan.Transforms.Length);
+        if (!plan.Transforms.IsDefault)
+        {
+            foreach (AuthoringStateTransform transform in plan.Transforms)
+            {
+                ArgumentNullException.ThrowIfNull(transform);
+                WriteInt32((int)transform.Kind);
+                WriteString(transform.SourceKey);
+                WriteString(transform.DestinationKey);
+                WriteInt32(transform.DefaultValue.IsDefault ? -1 : transform.DefaultValue.Length);
+                if (!transform.DefaultValue.IsDefault)
+                {
+                    hash.AppendData(transform.DefaultValue.AsSpan());
+                }
+            }
+        }
+        WriteString(plan.BackupReference);
+        WriteString(plan.RollbackReference);
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+
+        void WriteScope(AuthoringStateScope scope)
+        {
+            WriteString(scope.ExtensionId);
+            WriteString(scope.ExtensionVersion);
+            WriteString(scope.SiteId);
+            WriteString(scope.UserId);
+            WriteString(scope.DocumentId);
+            WriteInt32(scope.SchemaVersion);
+        }
+
+        void WriteString(string? value)
+        {
+            if (value is null)
+            {
+                WriteInt32(-1);
+                return;
+            }
+            WriteInt32(encoding.GetByteCount(value));
+            Encoder encoder = encoding.GetEncoder();
+            ReadOnlySpan<char> remaining = value.AsSpan();
+            Span<byte> bytes = stackalloc byte[1024];
+            bool completed;
+            do
+            {
+                encoder.Convert(remaining, bytes, flush: true,
+                    out int charactersUsed, out int bytesUsed, out completed);
+                hash.AppendData(bytes[..bytesUsed]);
+                remaining = remaining[charactersUsed..];
+            }
+            while (!completed);
+        }
+
+        void WriteInt32(int value)
+        {
+            Span<byte> bytes = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(bytes, value);
+            hash.AppendData(bytes);
+        }
+
+        void WriteInt64(long value)
+        {
+            Span<byte> bytes = stackalloc byte[sizeof(long)];
+            BinaryPrimitives.WriteInt64LittleEndian(bytes, value);
+            hash.AppendData(bytes);
+        }
     }
 }

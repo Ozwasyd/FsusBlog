@@ -131,6 +131,7 @@ public sealed class AuthoringExtensionLifecycleTests
             From = EmptyField(original.From),
             To = EmptyField(original.To)
         };
+        plan = SealPlan(plan);
         Assert.Equal(plan.From.SiteId, plan.To.SiteId);
         Assert.Equal(plan.From.UserId, plan.To.UserId);
         Assert.Equal(plan.From.DocumentId, plan.To.DocumentId);
@@ -154,6 +155,7 @@ public sealed class AuthoringExtensionLifecycleTests
             From = original.From with { DocumentId = null },
             To = original.To with { DocumentId = null }
         };
+        plan = SealPlan(plan);
 
         AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
             fixture.Package, next, CreateTargets(next), plan);
@@ -188,6 +190,248 @@ public sealed class AuthoringExtensionLifecycleTests
                 {
                     ExpectedRecords = 4
                 }));
+    }
+
+    [Theory]
+    [InlineData("plan-id")]
+    [InlineData("site")]
+    [InlineData("user")]
+    [InlineData("document")]
+    [InlineData("records")]
+    [InlineData("bytes")]
+    [InlineData("duration")]
+    [InlineData("transform-source")]
+    [InlineData("transform-target")]
+    [InlineData("default-bytes")]
+    [InlineData("backup")]
+    [InlineData("rollback")]
+    public async Task UpdateAsync_ChangedPayloadWithOriginalDigest_FailsBeforeAnySideEffect(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        if (field == "default-bytes")
+        {
+            original = SealPlan(original with
+            {
+                Transforms = [new(AuthoringStateTransformKind.SetDefault, "new", null, [])]
+            });
+        }
+        AuthoringStateMigrationPlan changed = ChangeAcceptedPlanField(original, field);
+        Assert.Equal(original.ContentSha256, changed.ContentSha256);
+        Assert.NotEqual(original.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(changed));
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), changed));
+
+        Assert.False(fixture.State.BackupCalled);
+        Assert.False(fixture.State.RollbackCalled);
+        Assert.Equal(0, fixture.Resources.ActivationCount);
+        Assert.Equal(0, fixture.Resources.RevocationCount);
+        Assert.Empty(fixture.Receipts.All);
+    }
+
+    [Theory]
+    [InlineData("plan-id")]
+    [InlineData("site")]
+    [InlineData("user")]
+    [InlineData("document")]
+    [InlineData("records")]
+    [InlineData("bytes")]
+    [InlineData("duration")]
+    [InlineData("transform-source")]
+    [InlineData("transform-target")]
+    [InlineData("default-bytes")]
+    [InlineData("backup")]
+    [InlineData("rollback")]
+    public async Task UpdateAsync_RecomputedLegalPayload_StillUsesTheMigration(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        if (field == "default-bytes")
+        {
+            original = SealPlan(original with
+            {
+                Transforms = [new(AuthoringStateTransformKind.SetDefault, "new", null, [])]
+            });
+        }
+        AuthoringStateMigrationPlan changed = SealPlan(ChangeAcceptedPlanField(original, field));
+        Assert.NotEqual(original.ContentSha256, changed.ContentSha256);
+
+        AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+            fixture.Package, next, CreateTargets(next), changed);
+
+        Assert.True(fixture.State.BackupCalled);
+        Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+        Assert.Equal(next, fixture.Resources.LastActivatedPackage);
+    }
+
+    [Theory]
+    [InlineData("from-extension")]
+    [InlineData("to-extension")]
+    [InlineData("from-version")]
+    [InlineData("to-version")]
+    [InlineData("from-site")]
+    [InlineData("to-site")]
+    [InlineData("from-user")]
+    [InlineData("to-user")]
+    [InlineData("from-document")]
+    [InlineData("to-document")]
+    [InlineData("from-schema")]
+    [InlineData("to-schema")]
+    [InlineData("transform-kind")]
+    [InlineData("null-destination")]
+    [InlineData("default-array")]
+    [InlineData("transform-count")]
+    public void MigrationDigest_CoversEveryRemainingScopeAndTransformField(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        AuthoringStateMigrationPlan plan = CreatePlan(fixture.Package, CreatePackage("2.0.0", 2));
+        AuthoringStateTransform transform = plan.Transforms[0];
+        AuthoringStateMigrationPlan changed = field switch
+        {
+            "from-extension" => plan with { From = plan.From with { ExtensionId = "another.plugin" } },
+            "to-extension" => plan with { To = plan.To with { ExtensionId = "another.plugin" } },
+            "from-version" => plan with { From = plan.From with { ExtensionVersion = "1.0.1" } },
+            "to-version" => plan with { To = plan.To with { ExtensionVersion = "2.0.1" } },
+            "from-site" => plan with { From = plan.From with { SiteId = "other-site" } },
+            "to-site" => plan with { To = plan.To with { SiteId = "other-site" } },
+            "from-user" => plan with { From = plan.From with { UserId = "other-user" } },
+            "to-user" => plan with { To = plan.To with { UserId = "other-user" } },
+            "from-document" => plan with { From = plan.From with { DocumentId = null } },
+            "to-document" => plan with { To = plan.To with { DocumentId = null } },
+            "from-schema" => plan with { From = plan.From with { SchemaVersion = 2 } },
+            "to-schema" => plan with { To = plan.To with { SchemaVersion = 3 } },
+            "transform-kind" => plan with { Transforms = [transform with { Kind = AuthoringStateTransformKind.SetDefault }] },
+            "null-destination" => plan with { Transforms = [transform with { DestinationKey = null }] },
+            "default-array" => plan with { Transforms = [transform with { DefaultValue = default }] },
+            "transform-count" => plan with { Transforms = [transform, transform] },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+
+        Assert.NotEqual(plan.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(changed));
+    }
+
+    [Fact]
+    public async Task MigrationDigest_OrderedTransformsCannotBeReorderedUnderTheOriginalDigest()
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        original = SealPlan(original with
+        {
+            Transforms = [original.Transforms[0], new(AuthoringStateTransformKind.DeleteExtensionKey, "obsolete", null, [])]
+        });
+        AuthoringStateMigrationPlan changed = original with
+        {
+            Transforms = [original.Transforms[1], original.Transforms[0]]
+        };
+        Assert.NotEqual(original.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(changed));
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), changed));
+        Assert.False(fixture.State.BackupCalled);
+        Assert.Empty(fixture.Receipts.All);
+
+        AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+            fixture.Package, next, CreateTargets(next), SealPlan(changed));
+        Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+    }
+
+    private static AuthoringStateMigrationPlan ChangeAcceptedPlanField(AuthoringStateMigrationPlan plan, string field) => field switch
+    {
+        "plan-id" => plan with { PlanId = "migration-2" },
+        "site" => plan with { From = plan.From with { SiteId = "site-2" }, To = plan.To with { SiteId = "site-2" } },
+        "user" => plan with { From = plan.From with { UserId = "user-2" }, To = plan.To with { UserId = "user-2" } },
+        "document" => plan with { From = plan.From with { DocumentId = null }, To = plan.To with { DocumentId = null } },
+        "records" => plan with { MaximumRecords = 101 },
+        "bytes" => plan with { MaximumBytes = 1025 },
+        "duration" => plan with { MaximumDuration = plan.MaximumDuration + TimeSpan.FromTicks(1) },
+        "transform-source" => plan with { Transforms = [plan.Transforms[0] with { SourceKey = "other" }] },
+        "transform-target" => plan with { Transforms = [plan.Transforms[0] with { DestinationKey = "other" }] },
+        "default-bytes" => plan with { Transforms = [plan.Transforms[0] with { DefaultValue = [0, 255] }] },
+        "backup" => plan with { BackupReference = "backup/2" },
+        "rollback" => plan with { RollbackReference = "rollback/2" },
+        _ => throw new ArgumentOutOfRangeException(nameof(field))
+    };
+
+    [Theory]
+    [InlineData("records-negative")]
+    [InlineData("records-over-limit")]
+    [InlineData("bytes-negative")]
+    [InlineData("bytes-over-limit")]
+    [InlineData("duration-zero")]
+    [InlineData("duration-over-limit")]
+    public async Task UpdateAsync_RecomputedDigestDoesNotAuthorizeOutOfBudgetPlans(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        AuthoringStateMigrationPlan changed = field switch
+        {
+            "records-negative" => original with { MaximumRecords = -1 },
+            "records-over-limit" => original with { MaximumRecords = 1_000_001 },
+            "bytes-negative" => original with { MaximumBytes = -1 },
+            "bytes-over-limit" => original with { MaximumBytes = 536_870_913 },
+            "duration-zero" => original with { MaximumDuration = TimeSpan.Zero },
+            "duration-over-limit" => original with { MaximumDuration = TimeSpan.FromMinutes(5) + TimeSpan.FromTicks(1) },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+        changed = SealPlan(changed);
+        Assert.Equal(changed.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(changed));
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), changed));
+        Assert.False(fixture.State.BackupCalled);
+        Assert.Empty(fixture.Receipts.All);
+    }
+
+    [Fact]
+    public void MigrationDigest_UsesTheIndependentVersionedBinaryProtocolVector()
+    {
+        var plan = new AuthoringStateMigrationPlan(
+            "vector-1",
+            new("acme.example", "1.0.0", "site-1", "user-1", null, 1),
+            new("acme.example", "2.0.0", "site-1", "user-1", null, 2),
+            1, 2, TimeSpan.FromTicks(3),
+            [new(AuthoringStateTransformKind.SetDefault, "a", null, [0, 255])],
+            "backup/1", "rollback/1", string.Empty);
+
+        Assert.Equal("0b93ab929e9040b4346f6a88a9e4b1df6983159f8a7267c8b1037618ff9f54bf",
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan));
+        Assert.Equal(AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan),
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan with { ContentSha256 = new string('f', 64) }));
+    }
+
+    [Fact]
+    public void MigrationDigest_PreservesNullEmptyAndFramedStringBoundaries()
+    {
+        LifecycleFixture fixture = CreateFixture();
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, CreatePackage("2.0.0", 2));
+        AuthoringStateMigrationPlan nullDocument = original with { From = original.From with { DocumentId = null } };
+        AuthoringStateMigrationPlan emptyDocument = original with { From = original.From with { DocumentId = string.Empty } };
+        Assert.NotEqual(AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(nullDocument),
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(emptyDocument));
+        AuthoringStateMigrationPlan left = original with { From = original.From with { SiteId = "ab", UserId = "c" } };
+        AuthoringStateMigrationPlan right = original with { From = original.From with { SiteId = "a", UserId = "bc" } };
+        Assert.Equal(left.From.SiteId + left.From.UserId, right.From.SiteId + right.From.UserId);
+        Assert.NotEqual(AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(left),
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(right));
+    }
+
+    [Fact]
+    public void MigrationDigest_DoesNotReplaceInvalidUtf16WithCollidingUtf8Bytes()
+    {
+        LifecycleFixture fixture = CreateFixture();
+        AuthoringStateMigrationPlan plan = CreatePlan(fixture.Package, CreatePackage("2.0.0", 2));
+
+        Assert.Throws<System.Text.EncoderFallbackException>(() =>
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan with { PlanId = "\ud800" }));
     }
 
     [Fact]
@@ -526,7 +770,7 @@ public sealed class AuthoringExtensionLifecycleTests
 
     private static AuthoringStateMigrationPlan CreatePlan(
         VerifiedAuthoringPackage oldPackage,
-        VerifiedAuthoringPackage newPackage) => new(
+        VerifiedAuthoringPackage newPackage) => SealPlan(new(
             "migration-1",
             CreateScope(oldPackage),
             CreateScope(newPackage),
@@ -536,7 +780,12 @@ public sealed class AuthoringExtensionLifecycleTests
             [new AuthoringStateTransform(AuthoringStateTransformKind.RenameKey, "old", "new", [])],
             "backup/1",
             "rollback/1",
-            new string('d', 64));
+            string.Empty));
+
+    private static AuthoringStateMigrationPlan SealPlan(AuthoringStateMigrationPlan plan) => plan with
+    {
+        ContentSha256 = AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan)
+    };
 
     private static AuthoringStateScope CreateScope(VerifiedAuthoringPackage package) => new(
         package.Contract.Manifest.Id,
