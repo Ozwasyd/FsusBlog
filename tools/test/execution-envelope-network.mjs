@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
 import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
+import { admitsPrivateDotnetScratch, privateDotnetScratchPath } from './physical-execution-private-dotnet-scratch.mjs';
 const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const landlockSource = path.join(
@@ -175,6 +176,8 @@ export function prepareNetworkSandbox({
     plannedEndpoints = [],
     environment,
     policy,
+    producerId = null,
+    attemptId = null,
     platform = process.platform,
     pathValue = environment.PATH
 })
@@ -197,6 +200,12 @@ export function prepareNetworkSandbox({
         || ownedPrivateTmp.source !== directories.temp))
     {
         throw new Error('private /tmp alias belongs to a different directory owner');
+    }
+    const privateDotnetScratch = admitsPrivateDotnetScratch({ producerId, attemptId, environment });
+    if (privateDotnetScratch && (!ownedPrivateTmp
+        || ownedPrivateTmp.producerId !== producerId || ownedPrivateTmp.attemptId !== attemptId))
+    {
+        throw new Error('private .NET scratch requires the exact current-attempt owned /tmp alias');
     }
     const landlockExecutable = path.join(
         directories.toolCache,
@@ -243,6 +252,7 @@ export function prepareNetworkSandbox({
         },
         linuxReadWritePaths: readWritePaths,
         linuxOwnedPrivateTmp: privateTmpCapability,
+        privateDotnetScratch,
         networkLog,
         fragment: {
             schema: executionEnvelopeNetworkSchema,
@@ -259,6 +269,7 @@ export function prepareNetworkSandbox({
                     helper: landlock.helper,
                     privateTmp: true,
                     ...(ownedPrivateTmp ? { ownedPrivateTmp } : {}),
+                    privateDotnetScratch: privateDotnetScratch ? privateDotnetScratchPath : null,
                     readWritePaths
                 }
             },

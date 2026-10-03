@@ -445,7 +445,9 @@ async function main(argv)
                     policy: networkPolicy
                 }),
                 environment: correctnessEnvironment.environment,
-                policy: networkPolicy
+                policy: networkPolicy,
+                producerId,
+                attemptId: options.key
             });
         }
         catch (error)
@@ -476,6 +478,7 @@ async function main(argv)
             ...(preparedNuget?.inputPaths ?? []),
             'tools/test/execution-envelope-environment.mjs',
             'tools/test/execution-envelope-network.mjs',
+            'tools/test/physical-execution-private-dotnet-scratch.mjs',
             'tools/test/execution-envelope-receipt.mjs',
             'tools/test/native/execution-envelope-landlock.c',
             'tools/test-matrix/execution-envelope-policy.mjs',
@@ -682,7 +685,13 @@ async function main(argv)
                             linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
                             linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
                             linuxReadWritePaths: networkSandbox.linuxReadWritePaths,
-                            linuxOwnedPrivateTmp: networkSandbox.linuxOwnedPrivateTmp
+                            linuxOwnedPrivateTmp: networkSandbox.linuxOwnedPrivateTmp,
+                            privateDotnetScratch: networkSandbox.privateDotnetScratch
+                                ? {
+                                    schema: 'fsusblog.private-dotnet-scratch.v1',
+                                    path: '/tmp/.dotnet/shm',
+                                    ...envelopeIdentity
+                                } : null
                         }
                     );
                 }
