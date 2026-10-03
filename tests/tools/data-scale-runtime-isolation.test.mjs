@@ -13,8 +13,70 @@ import {
 } from '../../tools/data-scale/runtime-plan.mjs';
 
 import { DataScaleRuntimeProvisioner } from '../../tools/data-scale/runtime-provisioner.mjs';
+import {
+    createDedicatedBackendContainer,
+    runFullLiveProvisionLifecycle
+} from '../../tools/data-scale/runtime-provisioner-live.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+
+test('full dedicated public entry refuses unavailable actual owner before roots or runners', async (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-owner-refusal-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const { provisionLaneRuntime } = await import('../../tools/data-scale/runtime-provisioner.mjs');
+    let runnerCalls = 0;
+    const runner = () =>
+    {
+        runnerCalls += 1;
+        throw new Error('no raw runner may create a dedicated owner');
+    };
+    await assert.rejects(provisionLaneRuntime({
+        repositoryRoot: directory,
+        dataScaleRunId: 'run-owner-refusal',
+        parentSchedulerRunId: 'sched-owner-refusal',
+        tier: 'scale-m',
+        mode: 'full',
+        emitEnvPath: path.join(directory, 'lane.env'),
+        environment: {},
+        dockerRunner: runner,
+        processRunner: runner
+    }), (error) =>
+    {
+        assert.equal(error.code, 'data_scale_dedicated_runtime_owner_unavailable');
+        assert.equal(error.kind, 'precondition-failure');
+        assert.equal(error.producerSpawned, false);
+        assert.equal(error.authoritativeEvidence, null);
+        return true;
+    });
+    assert.equal(runnerCalls, 0);
+    assert.deepEqual(fs.readdirSync(directory), []);
+});
+
+test('direct legacy full and backend entries cannot mint an owner from a sleep container', async () =>
+{
+    let runnerCalls = 0;
+    const provisioner = {
+        state: { seedCompleted: true },
+        dockerRunner: () => { runnerCalls += 1; },
+        processRunner: () => { runnerCalls += 1; }
+    };
+    for (const start of [
+        () => runFullLiveProvisionLifecycle(provisioner, { tier: 'scale-m' }),
+        () => createDedicatedBackendContainer(provisioner)
+    ])
+    {
+        await assert.rejects(start(), (error) =>
+        {
+            assert.equal(error.code, 'data_scale_dedicated_runtime_owner_unavailable');
+            assert.equal(error.producerSpawned, false);
+            assert.equal(error.authoritativeEvidence, null);
+            return true;
+        });
+    }
+    assert.equal(runnerCalls, 0);
+    assert.deepEqual(provisioner.state, { seedCompleted: true });
+});
 
 test('data-scale runtime isolation rejects dedicated roots pointing to shared wwwroot or global cache', () =>
 {

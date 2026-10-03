@@ -6,9 +6,18 @@
             "paths": [
                 "tools/test/release-reliability-lifecycle-actions.mjs",
                 "tools/test/release-reliability-lifecycle.mjs",
-                "tools/test/verify-release-reliability-lifecycle-action.mjs"
+                "tools/test/verify-release-reliability-lifecycle-action.mjs",
+                "tools/data-scale/runtime-provisioner.mjs",
+                "tools/data-scale/runtime-provisioner-live.mjs"
             ],
             "reason": "Preserve the registered release runtime environment interface and pass the original lifecycle plan's expected attempt through its existing admitted action boundary; receipt validation must not infer attempt authority from artifact fields."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing.md"
+            ],
+            "reason": "Preserve documented external data-scale lifecycle identifiers while keeping the missing actual owner boundary explicit; this does not grant execution authority."
         }
     ]
 }

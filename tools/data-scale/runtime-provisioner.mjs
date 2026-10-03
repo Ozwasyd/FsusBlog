@@ -17,6 +17,7 @@ import {
     validateDataScaleRuntimePlan
 } from './runtime-plan.mjs';
 import {
+    assertDedicatedRuntimeOwnerAvailable,
     runFullLiveProvisionLifecycle,
     teardownDedicatedRuntime,
     verifyLiveIdentityReceipt
@@ -466,6 +467,13 @@ export async function provisionLaneRuntime({
     if (!['plan-identity', 'full'].includes(mode))
     {
         throw new Error(`unsupported data-scale provision mode: ${mode}`);
+    }
+
+    if (mode === 'full')
+    {
+        // Refuse before creating roots or reaching any Docker, SQL or seed
+        // operation. Do not accept a caller-supplied factory as owner authority.
+        assertDedicatedRuntimeOwnerAvailable();
     }
 
     const provisioner = new DataScaleRuntimeProvisioner({

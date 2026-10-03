@@ -27,6 +27,22 @@ export function resolvePinnedDataScaleImages(repositoryRoot)
     return { postgres, redis };
 }
 
+// The original service catalog owns backend as a resident process. Neither the
+// finite lifecycle action nor the admission-only runtime's already-cleaned
+// receipt provides a same-attempt owner that survives measurement. Until that
+// original owner is wired, the legacy sleep container cannot stand in for it.
+export function assertDedicatedRuntimeOwnerAvailable()
+{
+    const error = new Error('data_scale_dedicated_runtime_owner_unavailable: '
+        + 'actual admitted backend build/start/reset/readiness, same-attempt resident handoff '
+        + 'and independent terminal absence are not connected');
+    error.code = 'data_scale_dedicated_runtime_owner_unavailable';
+    error.kind = 'precondition-failure';
+    error.producerSpawned = false;
+    error.authoritativeEvidence = null;
+    throw error;
+}
+
 export function normalizeDockerId(value)
 {
     const raw = String(value || '').trim().replace(/^sha256:/u, '');
@@ -464,6 +480,7 @@ export async function executeLiveOfflineSeed(provisioner, { tier })
 
 export async function createDedicatedBackendContainer(provisioner)
 {
+    assertDedicatedRuntimeOwnerAvailable();
     if (!provisioner.state.seedCompleted)
     {
         throw new Error('lifecycle order violation: offline seed must complete before backend startup');
@@ -679,6 +696,7 @@ export function teardownDedicatedRuntime(provisioner)
 
 export async function runFullLiveProvisionLifecycle(provisioner, { tier })
 {
+    assertDedicatedRuntimeOwnerAvailable();
     await createAndStartDedicatedContainers(provisioner);
     await executeLiveOfflineMigration(provisioner);
     await executeLiveOfflineSeed(provisioner, { tier });
