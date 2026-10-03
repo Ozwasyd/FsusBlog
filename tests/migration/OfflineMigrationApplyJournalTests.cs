@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 
+using Microsoft.Data.Sqlite;
+
 using NSubstitute;
 
 using Xunit;
@@ -366,7 +368,7 @@ public sealed class OfflineMigrationApplyJournalTests
             new VerifiedOfflineMigrationPlan(plan), Artifact(plan), new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)),
             connection, admission, registry, CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
-        Assert.Contains("offline_apply_native_provider_not_supported", result.Codes);
+        Assert.Contains("offline_apply_native_connection_mismatch", result.Codes);
         Assert.Null(result.Checkpoint);
         Assert.Empty(result.StepProofs);
         Assert.Empty(connection.ReceivedCalls());
@@ -825,6 +827,351 @@ public sealed class OfflineMigrationApplyJournalTests
             connection, transaction, entry, default));
         Assert.Empty(connection.ReceivedCalls());
         Assert.Empty(transaction.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("success-result", "released")]
+    [InlineData("unknown-result", "released")]
+    [InlineData("cancelled-result", "released")]
+    [InlineData("cancelled-positive", "released")]
+    [InlineData("success-result", "refused")]
+    [InlineData("success-result", "failed")]
+    [InlineData("cancelled-positive", "exhausted")]
+    public async Task PostgreSql_acquisition_failure_retains_effect_custody_until_original_cleanup(string acquisition, string cleanup)
+    {
+        // These command controls enter the real executor's failure boundary; they
+        // are not native PostgreSQL execution or a successful migration proof.
+        OfflineMigrationPlan plan = Plan();
+        var commands = PostgreSqlLockCommands();
+        using var cancellation = new CancellationTokenSource();
+        bool knownAcquired = acquisition is "success-result" or "cancelled-positive";
+        bool mainCancelled = acquisition is "cancelled-result" or "cancelled-positive";
+        Exception first = acquisition == "success-result"
+            ? new InvalidOperationException("fixture_acquisition_disposal_private_detail")
+            : mainCancelled ? new OperationCanceledException(cancellation.Token)
+                : new InvalidOperationException("fixture_acquisition_result_private_detail");
+        commands.Acquire.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            if (mainCancelled) cancellation.Cancel();
+            if (knownAcquired) return Task.FromResult<object?>(true);
+            return Task.FromException<object?>(first);
+        });
+        commands.Acquire.DisposeAsync().Returns(ValueTask.FromException(knownAcquired
+            ? first : new InvalidOperationException("fixture_secondary_disposal_private_detail")));
+        bool cleanupAwaitEnded = false;
+        commands.Unlock.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            CancellationToken cleanupToken = call.Arg<CancellationToken>();
+            Assert.NotEqual(cancellation.Token, cleanupToken);
+            Assert.True(cleanupToken.CanBeCanceled);
+            if (cleanup == "failed") throw new InvalidOperationException("fixture_unlock_private_detail");
+            if (cleanup == "exhausted")
+            {
+                try { await Task.Delay(Timeout.Infinite, cleanupToken); }
+                finally { cleanupAwaitEnded = true; }
+            }
+            return (object?)(cleanup != "refused");
+        });
+        var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
+        var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
+        OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan),
+            new("invocation", 1, true, CleanupBudget: cleanup == "exhausted" ? TimeSpan.FromMilliseconds(20) : TimeSpan.FromSeconds(1)),
+            commands.Connection, admission, registry, cancellation.Token);
+        Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
+        Assert.Equal(mainCancelled ? "offline_apply_cancelled" : "offline_apply_rejected", result.Codes[0]);
+        Assert.Contains("offline_apply_journal_command_disposal_failed", result.Codes);
+        if (cleanup == "refused") Assert.Contains("offline_apply_unlock_not_observed", result.Codes);
+        if (!knownAcquired || cleanup is "failed" or "exhausted") Assert.Contains("offline_apply_session_cleanup_required", result.Codes);
+        if (cleanup == "exhausted")
+        {
+            Assert.True(cleanupAwaitEnded);
+            Assert.Contains("offline_apply_cleanup_budget_exhausted", result.Codes);
+        }
+        Assert.Equal("offline_apply_journal_command_disposal_failed", first.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey]);
+        Assert.DoesNotContain("fixture_", string.Join(';', result.Codes));
+        Assert.Null(result.Checkpoint);
+        Assert.Empty(result.StepProofs);
+        Assert.Equal("SELECT pg_try_advisory_lock(hashtext(@name))", commands.Acquire.CommandText);
+        Assert.Equal(OfflineMigrationHost.StateLockConstant, Assert.Single(commands.Acquire.Parameters.Cast<DbParameter>()).Value);
+        if (knownAcquired)
+        {
+            Assert.Equal("SELECT pg_advisory_unlock(hashtext(@name))", commands.Unlock.CommandText);
+            Assert.Equal(OfflineMigrationHost.StateLockConstant, Assert.Single(commands.Unlock.Parameters.Cast<DbParameter>()).Value);
+        }
+        else
+        {
+            // Uncertain submission does not authorize decrementing a caller's
+            // pre-existing reentrant lock, even on this same retained connection.
+            Assert.Empty(commands.Unlock.Parameters.Cast<DbParameter>());
+        }
+        Assert.Equal(1, commands.Acquire.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteScalarAsync)));
+        Assert.Equal(knownAcquired ? 1 : 0, commands.Unlock.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteScalarAsync)));
+        commands.Connection.DidNotReceive().Close();
+        Assert.Empty(admission.ReceivedCalls());
+        Assert.Empty(registry.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PostgreSql_lock_scalar_custody_precedes_command_disposal(bool observedSuccess)
+    {
+        var commands = PostgreSqlLockCommands();
+        var first = new InvalidOperationException("fixture_first_private_detail");
+        commands.Acquire.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(observedSuccess
+            ? Task.FromResult<object?>(true) : Task.FromException<object?>(first));
+        commands.Acquire.DisposeAsync().Returns(ValueTask.FromException(observedSuccess
+            ? first : new InvalidOperationException("fixture_cleanup_private_detail")));
+        commands.Unlock.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<object?>(true));
+        var native = new OfflineMigrationApplyNativeSession(commands.Connection, CurrentSchemaProviderKind.PostgreSql);
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() => native.AcquireAsync(default));
+        Assert.Same(first, actual);
+        Assert.True(native.CleanupRequired);
+        Assert.Equal("offline_apply_journal_command_disposal_failed", actual.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey]);
+        if (observedSuccess)
+        {
+            Assert.True(await native.ReleaseAsync(default));
+            Assert.False(native.CleanupRequired);
+        }
+        else
+        {
+            InvalidOperationException cleanup = await Assert.ThrowsAsync<InvalidOperationException>(() => native.ReleaseAsync(default));
+            Assert.Equal("offline_apply_postgresql_lock_ownership_unobserved", cleanup.Message);
+            Assert.True(native.CleanupRequired);
+            Assert.DoesNotContain(commands.Unlock.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteScalarAsync));
+        }
+        commands.Connection.DidNotReceive().Close();
+    }
+
+    [Fact]
+    public async Task PostgreSql_observed_busy_result_does_not_release_a_lock_not_acquired_by_this_attempt()
+    {
+        var commands = PostgreSqlLockCommands();
+        commands.Acquire.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<object?>(false));
+        var native = new OfflineMigrationApplyNativeSession(commands.Connection, CurrentSchemaProviderKind.PostgreSql);
+        Assert.False(await native.AcquireAsync(default));
+        Assert.False(native.CleanupRequired);
+        Assert.DoesNotContain(commands.Unlock.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteScalarAsync));
+        commands.Connection.DidNotReceive().Close();
+    }
+
+    private static (DbConnection Connection, DbCommand Acquire, DbCommand Unlock) PostgreSqlLockCommands()
+    {
+        DbConnection connection = Substitute.For<DbConnection>();
+        connection.State.Returns(ConnectionState.Open);
+        DbCommand acquire = Substitute.For<DbCommand>();
+        DbCommand unlock = Substitute.For<DbCommand>();
+        foreach (DbCommand command in new[] { acquire, unlock })
+        {
+            command.Parameters.Returns(new ParameterList());
+            command.CreateParameter().Returns(_ => Substitute.For<DbParameter>());
+        }
+        connection.CreateCommand().Returns(acquire, unlock);
+        return (connection, acquire, unlock);
+    }
+
+    [Theory]
+    [InlineData(CurrentSchemaProviderKind.PostgreSql)]
+    [InlineData(CurrentSchemaProviderKind.MySql)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite)]
+    public void Provider_exact_committed_checkpoint_replay_preserves_identity_and_rejects_cross_provider(CurrentSchemaProviderKind provider)
+    {
+        // This is a pure journal control, not a native provider or migration success claim.
+        OfflineMigrationPlan plan = Plan(provider: provider);
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        Accept(verifier, Unit(plan, verifier, complete: true));
+        Accept(verifier, Proof(verifier));
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted));
+        verifier.Complete(Checkpoint(verifier));
+        Assert.Equal(provider, verifier.Last!.Database.Provider);
+        Assert.True(verifier.Completed);
+        OfflineMigrationApplyJournalVerifier replay = Verifier(plan);
+        OfflineMigrationApplyJournalEntry first = Seal(Control(plan, replay, OfflineMigrationApplyJournalState.AttemptStarted));
+        CurrentSchemaProviderKind other = provider == CurrentSchemaProviderKind.PostgreSql ? CurrentSchemaProviderKind.MySql : CurrentSchemaProviderKind.PostgreSql;
+        Assert.Throws<InvalidOperationException>(() => replay.Accept(Seal(first with { Database = first.Database with { Provider = other } })));
+        Assert.Null(replay.First);
+        Assert.Null(replay.Last);
+        replay.Accept(first);
+        Assert.Equal(provider, replay.First!.Database.Provider);
+    }
+
+    [Theory]
+    [InlineData(OfflineMigrationExecutionMode.Transaction)]
+    [InlineData(OfflineMigrationExecutionMode.CheckpointedBatch)]
+    public void Undeclared_mysql_atomic_operation_cannot_reinterpret_the_sealed_mode(OfflineMigrationExecutionMode mode)
+    {
+        OfflineMigrationPlan plan = Plan(mode, CurrentSchemaProviderKind.MySql);
+        OfflineMigrationProviderOperation identity = plan.OrderedSteps[0].Operations.Single(value => value.Provider == CurrentSchemaProviderKind.MySql);
+        var operation = new ObserveNothingOperation(identity);
+        Assert.Equal(mode, operation.Identity.Mode);
+        InvalidOperationException failure = Assert.Throws<InvalidOperationException>(operation.RequireAtomicNativeExecution);
+        Assert.Equal("offline_apply_mysql_atomic_operation_owner_missing", failure.Message);
+        Assert.Equal(identity, operation.Identity);
+        Assert.Equal(mode, plan.OrderedSteps[0].Operations.Single(value => value.Provider == CurrentSchemaProviderKind.MySql).Mode);
+    }
+
+    [Theory]
+    [InlineData(CurrentSchemaProviderKind.PostgreSql)]
+    [InlineData(CurrentSchemaProviderKind.Sqlite)]
+    public void Transactional_provider_contract_does_not_rewrite_the_operation(CurrentSchemaProviderKind provider)
+    {
+        OfflineMigrationPlan plan = Plan(provider: provider);
+        OfflineMigrationProviderOperation identity = plan.OrderedSteps[0].Operations.Single(value => value.Provider == provider);
+        var operation = new ObserveNothingOperation(identity);
+        operation.RequireAtomicNativeExecution();
+        Assert.Equal(identity, operation.Identity);
+        Assert.Equal(OfflineMigrationExecutionMode.Transaction, operation.Identity.Mode);
+    }
+
+    [Fact]
+    public async Task Sqlite_native_file_lock_is_retained_between_committed_units_and_released_without_closing_caller()
+    {
+        // A real task-owned native SQLite component control, not a complete sealed apply.
+        using var fixture = new NativeSqliteFixture();
+        using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var session = new OfflineMigrationApplyNativeSession(fixture.Connection, CurrentSchemaProviderKind.Sqlite);
+        Assert.True(await session.AcquireAsync(token.Token));
+        try
+        {
+            await using (DbTransaction transaction = await session.BeginAsync(token.Token))
+            {
+                await using DbCommand command = OfflineMigrationStateStore.NativeCommand(fixture.Connection, transaction,
+                    "INSERT INTO business(value) VALUES ('committed')");
+                await command.ExecuteNonQueryAsync(token.Token);
+                await transaction.CommitAsync(token.Token);
+            }
+            await using var other = new SqliteConnection(fixture.ConnectionString);
+            await other.OpenAsync(token.Token);
+            await using DbCommand blocked = other.CreateCommand();
+            blocked.CommandText = "SELECT count(*) FROM business";
+            SqliteException failure = await Assert.ThrowsAsync<SqliteException>(() => blocked.ExecuteScalarAsync(token.Token));
+            Assert.Equal(5, failure.SqliteErrorCode);
+            Assert.True(await session.ReleaseAsync(token.Token));
+            Assert.Equal(ConnectionState.Open, fixture.Connection.State);
+            Assert.Equal(1L, await blocked.ExecuteScalarAsync(token.Token));
+        }
+        finally
+        {
+            if (session.CleanupRequired) await session.ReleaseAsync(token.Token);
+        }
+    }
+
+    [Fact]
+    public async Task Sqlite_caller_transaction_is_not_nested_rolled_back_or_disposed_by_apply_lock()
+    {
+        using var fixture = new NativeSqliteFixture();
+        using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using DbTransaction caller = fixture.Connection.BeginTransaction();
+        await using DbCommand write = OfflineMigrationStateStore.NativeCommand(fixture.Connection, caller,
+            "INSERT INTO business(value) VALUES ('caller')");
+        await write.ExecuteNonQueryAsync(token.Token);
+        var session = new OfflineMigrationApplyNativeSession(fixture.Connection, CurrentSchemaProviderKind.Sqlite);
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcquireAsync(token.Token));
+        Assert.Equal("offline_apply_caller_transaction_active", failure.Message);
+        Assert.False(session.CleanupRequired);
+        Assert.Same(fixture.Connection, caller.Connection);
+        await using DbCommand count = OfflineMigrationStateStore.NativeCommand(fixture.Connection, caller, "SELECT count(*) FROM business");
+        Assert.Equal(1L, await count.ExecuteScalarAsync(token.Token));
+        await caller.RollbackAsync(token.Token);
+        Assert.Equal(ConnectionState.Open, fixture.Connection.State);
+    }
+
+    [Fact]
+    public async Task Sqlite_actual_journal_and_business_rollback_together_and_parent_unique_cas_is_native()
+    {
+        using var fixture = new NativeSqliteFixture();
+        using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        OfflineMigrationPlan plan = Plan(provider: CurrentSchemaProviderKind.Sqlite);
+        OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
+        OfflineMigrationApplyJournalEntry first = Seal(Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        var session = new OfflineMigrationApplyNativeSession(fixture.Connection, CurrentSchemaProviderKind.Sqlite);
+        Assert.True(await session.AcquireAsync(token.Token));
+        try
+        {
+            await using (DbTransaction transaction = await session.BeginAsync(token.Token))
+            {
+                await OfflineMigrationStateStore.EnsureApplyJournalAsync(fixture.Connection, transaction, token.Token);
+                await OfflineMigrationStateStore.AppendApplyJournalAsync(fixture.Connection, transaction, first, token.Token);
+                await using DbCommand command = OfflineMigrationStateStore.NativeCommand(fixture.Connection, transaction,
+                    "INSERT INTO business(value) VALUES ('rolled-back')");
+                await command.ExecuteNonQueryAsync(token.Token);
+                await transaction.RollbackAsync(token.Token);
+            }
+            await using (DbTransaction transaction = await session.BeginAsync(token.Token))
+            {
+                Assert.False(await OfflineMigrationApplyJournalDialect.ExistsAsync(CurrentSchemaProviderKind.Sqlite, fixture.Connection, transaction, token.Token));
+                await OfflineMigrationStateStore.EnsureApplyJournalAsync(fixture.Connection, transaction, token.Token);
+                await OfflineMigrationStateStore.AppendApplyJournalAsync(fixture.Connection, transaction, first, token.Token);
+                await transaction.CommitAsync(token.Token);
+            }
+            await using (DbTransaction transaction = await session.BeginAsync(token.Token))
+            {
+                OfflineMigrationApplyJournalEntry sibling = Seal(first with { Sequence = 2, RecordedAt = RecordedAt.AddSeconds(1) });
+                SqliteException failure = await Assert.ThrowsAsync<SqliteException>(() => OfflineMigrationStateStore.AppendApplyJournalAsync(
+                    fixture.Connection, transaction, sibling, token.Token));
+                Assert.Equal(19, failure.SqliteErrorCode);
+                var request = new OfflineMigrationApplyRequest("invocation", 2, true,
+                    new(OfflineMigrationApplyJournalVerifier.Reference(first), "invocation", 1), TimeSpan.FromSeconds(1));
+                OfflineMigrationApplyJournalVerifier read = Verifier(plan);
+                await OfflineMigrationStateStore.ReadApplyJournalAsync(fixture.Connection, transaction,
+                    plan.ContentDigest, plan.Source.Database, request, read, token.Token);
+                Assert.Equal(first.ContentDigest, read.Last!.ContentDigest);
+                Assert.Equal(1, read.Last.Sequence);
+                await using DbCommand count = OfflineMigrationStateStore.NativeCommand(fixture.Connection, transaction, "SELECT count(*) FROM business");
+                Assert.Equal(0L, await count.ExecuteScalarAsync(token.Token));
+                await transaction.RollbackAsync(token.Token);
+            }
+        }
+        finally { await session.ReleaseAsync(token.Token); }
+    }
+
+    [Fact]
+    public async Task Sqlite_actual_trigger_drift_is_rejected_before_journal_read_or_append()
+    {
+        using var fixture = new NativeSqliteFixture();
+        using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var session = new OfflineMigrationApplyNativeSession(fixture.Connection, CurrentSchemaProviderKind.Sqlite);
+        Assert.True(await session.AcquireAsync(token.Token));
+        try
+        {
+            await using DbTransaction transaction = await session.BeginAsync(token.Token);
+            await OfflineMigrationStateStore.EnsureApplyJournalAsync(fixture.Connection, transaction, token.Token);
+            await using DbCommand trigger = OfflineMigrationStateStore.NativeCommand(fixture.Connection, transaction,
+                $"CREATE TRIGGER changed_control AFTER INSERT ON {OfflineMigrationStateStore.ApplyJournalTableName} BEGIN INSERT INTO business(value) VALUES ('hidden'); END");
+            await trigger.ExecuteNonQueryAsync(token.Token);
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                OfflineMigrationStateStore.ValidateApplyJournalAsync(fixture.Connection, transaction, token.Token));
+            Assert.Equal("offline_apply_journal_physical_shape_changed", failure.Message);
+            await transaction.RollbackAsync(token.Token);
+        }
+        finally { await session.ReleaseAsync(token.Token); }
+    }
+
+    private sealed class NativeSqliteFixture : IDisposable
+    {
+        private readonly string _directory = Directory.CreateTempSubdirectory("fsusblog-apply-journal-").FullName;
+        internal string ConnectionString { get; }
+        internal SqliteConnection Connection { get; }
+        internal NativeSqliteFixture()
+        {
+            ConnectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = Path.Combine(_directory, "owned.db"), Pooling = false, DefaultTimeout = 1
+            }.ToString();
+            Connection = new SqliteConnection(ConnectionString);
+            Connection.Open();
+            using SqliteCommand create = Connection.CreateCommand();
+            create.CommandText = "CREATE TABLE business(value TEXT NOT NULL)";
+            create.ExecuteNonQuery();
+        }
+        public void Dispose()
+        {
+            Connection.Dispose();
+            // Only this fixture's newly created, task-owned directory is removed.
+            Directory.Delete(_directory, recursive: true);
+        }
     }
 
     private static OfflineMigrationApplyJournalVerifier MediaVerifier(OfflineMigrationPlan plan)

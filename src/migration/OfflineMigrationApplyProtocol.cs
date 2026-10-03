@@ -14,6 +14,15 @@ internal interface IOfflineMigrationApplyOperationRegistry
 internal abstract class OfflineMigrationApplyOperation
 {
     internal abstract OfflineMigrationProviderOperation Identity { get; }
+    // MySQL DDL implicitly commits. The sealed transactional mode is not
+    // permission to run it. A compiled MySQL data owner must supply only
+    // rollbackable InnoDB effects on the original transaction; no caller flag
+    // or executor replanning can provide this operation-owner contract.
+    internal virtual void RequireAtomicNativeExecution()
+    {
+        if (Identity.Provider == CurrentSchemaProviderKind.MySql)
+            throw new InvalidOperationException("offline_apply_mysql_atomic_operation_owner_missing");
+    }
     internal abstract Task<OfflineMigrationPredicateObservation> ObserveAsync(
         string predicateReference, DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken);
     internal abstract Task<OfflineMigrationApplyUnit> ExecuteAsync(
