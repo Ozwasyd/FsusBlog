@@ -27,7 +27,7 @@ internal static class OfflineMigrationMySqlNativeSession
             var nativeConnection = (MySqlConnection)connection;
             var nativeTransaction = (MySqlTransaction)transaction;
             CurrentTransactionProof initial = await ReadCurrentTransactionAsync(nativeConnection, nativeTransaction, token).ConfigureAwait(false);
-            var context = new OwnedReadContext(s_ownedContextKey, nativeConnection, nativeTransaction, initial);
+            var context = new OwnedReadContext(s_ownedContextKey, nativeConnection, nativeTransaction, initial, token);
             try
             {
                 await context.RequireBoundaryAsync(token).ConfigureAwait(false);
@@ -51,16 +51,18 @@ internal static class OfflineMigrationMySqlNativeSession
         private readonly MySqlConnection _connection;
         private readonly MySqlTransaction _transaction;
         private readonly CurrentTransactionProof _initial;
+        private readonly CancellationToken _creatorCancellationToken;
         private int _active = 1;
 
         internal OwnedReadContext(object ownerKey, MySqlConnection connection,
-            MySqlTransaction transaction, CurrentTransactionProof initial)
+            MySqlTransaction transaction, CurrentTransactionProof initial, CancellationToken creatorCancellationToken)
         {
             if (!ReferenceEquals(ownerKey, s_ownedContextKey))
                 throw new InvalidOperationException("offline_source_mysql_original_owned_context_required");
             _connection = connection;
             _transaction = transaction;
             _initial = initial;
+            _creatorCancellationToken = creatorCancellationToken;
         }
 
         internal DbConnection OriginalConnection => _connection;
@@ -68,21 +70,37 @@ internal static class OfflineMigrationMySqlNativeSession
 
         internal async Task RequireBoundaryAsync(CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!cancellationToken.CanBeCanceled)
-                throw new InvalidOperationException("offline_source_native_operation_context_required");
+            // The creator's deadline remains authoritative even when a borrower
+            // supplies a fresh token. A borrower may only shorten this operation.
+            using CancellationTokenSource scope = CreateBorrowedCancellationScope(_creatorCancellationToken, cancellationToken);
+            CancellationToken effectiveToken = scope.Token;
             if (Volatile.Read(ref _active) != 1 || _connection.State != ConnectionState.Open
                 || !ReferenceEquals(_transaction.Connection, _connection)
                 || _transaction.IsolationLevel != IsolationLevel.Snapshot)
                 throw new NativeFailure("offline_source_mysql_original_owned_context_required");
-            await RequireNativeReadBoundaryAsync(_connection, _transaction, cancellationToken).ConfigureAwait(false);
-            CurrentTransactionProof current = await ReadCurrentTransactionAsync(_connection, _transaction, cancellationToken).ConfigureAwait(false);
+            _creatorCancellationToken.ThrowIfCancellationRequested();
+            await RequireNativeReadBoundaryAsync(_connection, _transaction, effectiveToken).ConfigureAwait(false);
+            _creatorCancellationToken.ThrowIfCancellationRequested();
+            effectiveToken.ThrowIfCancellationRequested();
+            CurrentTransactionProof current = await ReadCurrentTransactionAsync(_connection, _transaction, effectiveToken).ConfigureAwait(false);
+            _creatorCancellationToken.ThrowIfCancellationRequested();
+            effectiveToken.ThrowIfCancellationRequested();
             if (!CurrentTransactionMatches(current, unchecked((uint)_connection.ServerThread), _initial)
                 || Volatile.Read(ref _active) != 1)
                 throw new NativeFailure("offline_source_mysql_owned_transaction_required");
         }
 
         internal void Invalidate() => Interlocked.Exchange(ref _active, 0);
+    }
+
+    internal static CancellationTokenSource CreateBorrowedCancellationScope(
+        CancellationToken creatorCancellationToken, CancellationToken callerCancellationToken)
+    {
+        creatorCancellationToken.ThrowIfCancellationRequested();
+        callerCancellationToken.ThrowIfCancellationRequested();
+        if (!creatorCancellationToken.CanBeCanceled || !callerCancellationToken.CanBeCanceled)
+            throw new InvalidOperationException("offline_source_native_operation_context_required");
+        return CancellationTokenSource.CreateLinkedTokenSource(creatorCancellationToken, callerCancellationToken);
     }
 
     internal static Task<OfflineMigrationSourceObservation> ObserveAsync(

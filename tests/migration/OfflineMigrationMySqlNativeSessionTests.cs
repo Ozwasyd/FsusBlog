@@ -12,6 +12,46 @@ namespace FsusBlog.Migration.Tests;
 public sealed class OfflineMigrationMySqlNativeSessionTests
 {
     [Fact]
+    public void CancelledCreatorWithFreshBorrowerCannotStartBoundaryIo()
+    {
+        using var creator = new CancellationTokenSource();
+        using var borrower = new CancellationTokenSource();
+        creator.Cancel();
+        Assert.False(borrower.IsCancellationRequested);
+        OperationCanceledException refusal = Assert.Throws<OperationCanceledException>(() =>
+            OfflineMigrationMySqlNativeSession.CreateBorrowedCancellationScope(creator.Token, borrower.Token));
+        Assert.Equal(creator.Token, refusal.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ActualBoundaryIoTokenRemainsCancelledByEitherOriginalOwner(bool cancelCreator)
+    {
+        using var creator = new CancellationTokenSource();
+        using var borrower = new CancellationTokenSource();
+        using var actualIo = OfflineMigrationMySqlNativeSession.CreateBorrowedCancellationScope(creator.Token, borrower.Token);
+        Assert.False(actualIo.IsCancellationRequested);
+        if (cancelCreator)
+            creator.Cancel();
+        else
+            borrower.Cancel();
+        Assert.True(actualIo.IsCancellationRequested);
+        Assert.Throws<OperationCanceledException>(() => actualIo.Token.ThrowIfCancellationRequested());
+        Assert.Equal(cancelCreator, creator.IsCancellationRequested);
+        Assert.Equal(!cancelCreator, borrower.IsCancellationRequested);
+    }
+
+    [Fact]
+    public void MissingCreatorScopeCannotBeReplacedByFreshBorrower()
+    {
+        using var borrower = new CancellationTokenSource();
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationMySqlNativeSession.CreateBorrowedCancellationScope(default, borrower.Token));
+        Assert.Equal("offline_source_native_operation_context_required", refusal.Message);
+    }
+
+    [Fact]
     public void CurrentReadOnlyProofUsesActualAccessModeRatherThanSessionDefault()
     {
         var actual = CurrentReadOnlyProof();
@@ -73,7 +113,7 @@ public sealed class OfflineMigrationMySqlNativeSessionTests
         var fields = CurrentReadOnlyProof();
         Assert.True(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(fields, 19));
         InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
-            new OfflineMigrationMySqlNativeSession.OwnedReadContext(new object(), connection, null!, fields));
+            new OfflineMigrationMySqlNativeSession.OwnedReadContext(new object(), connection, null!, fields, default));
         Assert.Equal("offline_source_mysql_original_owned_context_required", refusal.Message);
         Assert.Null(refusal.InnerException);
     }
