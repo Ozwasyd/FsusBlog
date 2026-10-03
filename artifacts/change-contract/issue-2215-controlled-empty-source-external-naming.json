@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationSourceObserver.cs",
+                "src/migration/OfflineMigrationSourceObserver.Providers.cs"
+            ],
+            "reason": "Preserve original native catalog field names, SQL spellings and closed migration failure codes in the source-owned apply measurement; no caller-visible environment configuration is added."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/database-migration.md"
+            ],
+            "reason": "Preserve existing literal migration contract identifiers and command spellings in current Markdown; no UI selector, token or new public mode is introduced."
+        }
+    ]
+}
