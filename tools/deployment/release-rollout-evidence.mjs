@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { validateAuxiliaryEvidence as validateAuxiliaryEvidenceContract, validateCurrentSchemaStageOutput, validateCurrentRolloutEvidenceBindings } from './release-rollout-auxiliary-evidence-contract.mjs'
-import { ROLLOUT_STAGES, readRolloutState } from './release-rollout-lib.mjs'
+import { ROLLOUT_STAGES, readRolloutState, validateRolloutState } from './release-rollout-lib.mjs'
 
 const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v2'
 const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v2'
@@ -80,7 +80,7 @@ try {
 // These records observe the original shell owner, not an admitted native
 // process tree. In particular they cannot authorize or replace native verify.
 function prepareStageExecution(options) {
-  const state = readRolloutState(requiredPath(options, 'state'))
+  const state = readShellCaptureState(requiredPath(options, 'state'))
   const stage = required(options, 'stage')
   if (!ROLLOUT_STAGES.includes(stage) || state.currentStage !== stage) {
     throw new Error('shell preparation requires the original active rollout stage')
@@ -101,8 +101,8 @@ function prepareStageExecution(options) {
     argv: [command],
     owner,
     manifest,
-    source: state.source,
-    target: state.target,
+    source: captureReleaseIdentity(state.source),
+    target: captureReleaseIdentity(state.target),
     monotonicStartedNs: process.hrtime.bigint().toString(),
     startedAtUtc: isoUtc(required(options, 'started-at'), 'started-at')
   }
@@ -115,7 +115,7 @@ function finishStageExecution(options) {
   const preparationPath = requiredPath(options, 'preparation')
   const captured = boundedExecutionFile(preparationPath, 64 * 1024, true)
   const { content, ...preparationRef } = captured
-  const preparation = JSON.parse(content.toString('utf8'))
+  const preparation = parseShellCaptureJson(content, 'preparation')
   const keys = ['schema', 'qualification', 'commandKind', 'rolloutId', 'stage', 'attempt', 'commandId', 'argv', 'owner', 'manifest', 'source', 'target', 'monotonicStartedNs', 'startedAtUtc']
   if (Object.keys(preparation).sort().join('\n') !== keys.sort().join('\n')
     || preparation.schema !== EXECUTION_PREPARATION_SCHEMA
@@ -126,11 +126,11 @@ function finishStageExecution(options) {
     || !/^[0-9]{1,30}$/u.test(preparation.monotonicStartedNs)) {
     throw new Error('unsupported or malformed shell preparation')
   }
-  const state = readRolloutState(requiredPath(options, 'state'))
+  const state = readShellCaptureState(requiredPath(options, 'state'))
   if (state.currentStage !== preparation.stage || state.rolloutId !== preparation.rolloutId
     || state.stages.filter(item => item.stage === preparation.stage).length !== preparation.attempt
-    || canonicalJson(state.source) !== canonicalJson(preparation.source)
-    || canonicalJson(state.target) !== canonicalJson(preparation.target)
+    || canonicalJson(captureReleaseIdentity(state.source)) !== canonicalJson(preparation.source)
+    || canonicalJson(captureReleaseIdentity(state.target)) !== canonicalJson(preparation.target)
     || path.resolve(state.manifestPath) !== preparation.manifest.path
     || `sha256:${state.manifestSha256}` !== preparation.manifest.sha256) {
     throw new Error('shell preparation no longer belongs to the active attempt')
@@ -163,12 +163,55 @@ function finishStageExecution(options) {
   }, false)
 }
 
+function readShellCaptureState(file) {
+  const captured = boundedExecutionFile(file, 1024 * 1024, true)
+  const state = parseShellCaptureJson(captured.content, 'state')
+  // Use the original state grammar, but consume the same already-bounded FD
+  // bytes rather than reopening a potentially replaced FIFO/path.
+  validateRolloutState(state)
+  return state
+}
+
+function parseShellCaptureJson(bytes, label) {
+  try {
+    return JSON.parse(bytes.toString('utf8'))
+  } catch {
+    // JSON parser errors can echo malformed input snippets. Extra state
+    // fields may contain secrets even though they never enter the projection.
+    throw new Error(`shell capture ${label} is not valid JSON`)
+  }
+}
+
+function captureReleaseIdentity(value) {
+  // The original validator checks identity fields but permits extra state
+  // fields. Only its public identity projection may enter this diagnostic.
+  const { slot, releaseId, imageDigest } = value
+  if ([slot, releaseId, imageDigest].some(field => typeof field !== 'string')) {
+    throw new Error('shell capture identity fields must be primitive strings')
+  }
+  return { slot, releaseId, imageDigest, runtimeGeneration: Number(value.runtimeGeneration) }
+}
+
 function boundedExecutionFile(file, maximumBytes, retainBytes = false) {
   const resolved = path.resolve(file)
-  const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+  const observed = fs.lstatSync(resolved)
+  if (!observed.isFile() || observed.isSymbolicLink() || !Number.isSafeInteger(observed.size)
+    || observed.size > maximumBytes) {
+    throw new Error('shell execution input exceeds its regular-file byte bound')
+  }
+  if (typeof fs.constants.O_NONBLOCK !== 'number' || typeof fs.constants.O_NOFOLLOW !== 'number') {
+    throw new Error('shell execution input requires nonblocking no-follow file admission')
+  }
+  // Prechecking alone is insufficient: replacement with a FIFO between
+  // lstat/open must not block before the FD's actual type can be rejected.
+  const descriptor = fs.openSync(resolved,
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK)
   try {
     const before = fs.fstatSync(descriptor)
-    if (!before.isFile() || !Number.isSafeInteger(before.size) || before.size > maximumBytes) {
+    if (!before.isFile() || !Number.isSafeInteger(before.size) || before.size > maximumBytes
+      || before.dev !== observed.dev || before.ino !== observed.ino
+      || before.size !== observed.size || before.mtimeMs !== observed.mtimeMs
+      || before.ctimeMs !== observed.ctimeMs) {
       throw new Error('shell execution input exceeds its regular-file byte bound')
     }
     const buffer = Buffer.alloc(64 * 1024)

@@ -538,19 +538,103 @@ function shellCaptureFixture(t) {
   const stderr = path.join(data.directory, 'stderr')
   fs.writeFileSync(stdout, 'original output\n')
   fs.writeFileSync(stderr, '')
-  const prepare = (command = 'StageManifestValidate') => runEvidence([
+  const prepareArgs = (command = 'StageManifestValidate') => [
     'prepare-stage-execution', '--state', data.stateFile, '--stage', 'manifest-validate',
     '--command-id', 'immutable-manifest', '--shell-function', command,
     '--owner', path.join(root, 'tools/deployment/release-rollout.sh'),
     '--started-at', '2026-07-11T00:00:00.000Z', '--out', preparation
-  ])
-  const finish = (exitCode = '0') => runEvidence([
+  ]
+  const finishArgs = (exitCode = '0') => [
     'finish-stage-execution', '--state', data.stateFile, '--preparation', preparation,
     '--exit-code', exitCode, '--completed-at', '2026-07-11T00:00:01.000Z',
     '--stdout', stdout, '--stderr', stderr, '--out', result
-  ])
-  return { ...data, state, preparation, result, stdout, stderr, prepare, finish }
+  ]
+  const prepare = (command) => runEvidence(prepareArgs(command))
+  const finish = (exitCode) => runEvidence(finishArgs(exitCode))
+  return { ...data, state, preparation, result, stdout, stderr, prepare, finish, prepareArgs, finishArgs }
 }
+
+test('shell capture rejects FIFO inputs before blocking open for owner, state, preparation and output',
+  { skip: process.platform !== 'linux' }, (t) => {
+    for (const role of ['owner', 'state', 'preparation', 'stdout']) {
+      const data = shellCaptureFixture(t)
+      const fifo = path.join(data.directory, `${role}.fifo`)
+      const created = spawnSync('mkfifo', [fifo], { encoding: 'utf8', timeout: 2000 })
+      assert.equal(created.status, 0, created.stderr)
+      let args
+      if (role === 'owner' || role === 'state') {
+        args = data.prepareArgs()
+        args[args.indexOf(role === 'owner' ? '--owner' : '--state') + 1] = fifo
+      } else {
+        assert.equal(data.prepare().status, 0)
+        args = data.finishArgs()
+        args[args.indexOf(role === 'preparation' ? '--preparation' : '--stdout') + 1] = fifo
+      }
+      // This invokes the real collector refusal, not a copied classifier.
+      // The test's outer timeout exposes an open that never reached fstat.
+      const refused = spawnSync(process.execPath, [evidenceCli, ...args], {
+        cwd: root, encoding: 'utf8', timeout: 2000
+      })
+      assert.equal(refused.error, undefined, `${role} must refuse without timing out`)
+      assert.notEqual(refused.status, 0)
+      assert.match(refused.stderr, /regular-file byte bound/u)
+      assert.equal(fs.existsSync(data.result), false)
+    }
+  })
+
+test('shell capture projects only the original four identity fields and never serializes state extras', (t) => {
+  const data = shellCaptureFixture(t)
+  const state = JSON.parse(fs.readFileSync(data.stateFile, 'utf8'))
+  state.source.connectionString = 'PRIVATE-SOURCE-CONNECTION'
+  state.target.password = 'PRIVATE-TARGET-PASSWORD'
+  state.source.unused = 'x'.repeat(128 * 1024)
+  writeJson(data.stateFile, state)
+  assert.equal(data.prepare().status, 0)
+  const bytes = fs.readFileSync(data.preparation)
+  const preparation = JSON.parse(bytes.toString('utf8'))
+  assert.deepEqual(Object.keys(preparation.source), ['slot', 'releaseId', 'imageDigest', 'runtimeGeneration'])
+  assert.deepEqual(Object.keys(preparation.target), ['slot', 'releaseId', 'imageDigest', 'runtimeGeneration'])
+  assert.equal(bytes.includes(Buffer.from('PRIVATE-')), false)
+  assert.ok(bytes.length < 64 * 1024)
+  // Changing unobserved extras is not changing the public identity or a
+  // reason to emit those extras; changing a real identity field is rejected.
+  state.target.password = 'DIFFERENT-PRIVATE-EXTRA'
+  writeJson(data.stateFile, state)
+  assert.equal(data.finish().status, 0)
+  const second = shellCaptureFixture(t)
+  assert.equal(second.prepare().status, 0)
+  second.state.target.runtimeGeneration += 1
+  writeJson(second.stateFile, second.state)
+  assert.notEqual(second.finish().status, 0)
+})
+
+test('shell capture rejects an oversized state before reading it or emitting a preparation', (t) => {
+  const data = shellCaptureFixture(t)
+  const descriptor = fs.openSync(data.stateFile, 'r+')
+  try {
+    fs.ftruncateSync(descriptor, 1024 * 1024 + 1)
+  } finally {
+    fs.closeSync(descriptor)
+  }
+  assert.notEqual(data.prepare().status, 0)
+  assert.equal(fs.existsSync(data.preparation), false)
+})
+
+test('shell capture parse refusals do not echo malformed secret-bearing state or preparation', (t) => {
+  const data = shellCaptureFixture(t)
+  const originalState = fs.readFileSync(data.stateFile)
+  fs.writeFileSync(data.stateFile, '{"password":"PRIVATE-PARSER-SNIPPET",!}')
+  const stateRefused = data.prepare()
+  assert.notEqual(stateRefused.status, 0)
+  assert.equal(stateRefused.stderr.includes('PRIVATE-PARSER-SNIPPET'), false)
+  fs.writeFileSync(data.stateFile, originalState)
+  assert.equal(data.prepare().status, 0)
+  fs.writeFileSync(data.preparation, '{"password":"PRIVATE-PARSER-SNIPPET",!}')
+  const preparationRefused = data.finish()
+  assert.notEqual(preparationRefused.status, 0)
+  assert.equal(preparationRefused.stderr.includes('PRIVATE-PARSER-SNIPPET'), false)
+  assert.equal(fs.existsSync(data.result), false)
+})
 
 test('original shell capture binds real preparation bytes and raw output without granting native authority', (t) => {
   const data = shellCaptureFixture(t)
