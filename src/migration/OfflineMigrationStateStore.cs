@@ -84,7 +84,7 @@ internal static class OfflineMigrationStateStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(context);
-        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
         cancellationToken = scope.Token;
         await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
         if (database.Provider != CurrentSchemaProviderKind.MySql)
@@ -225,7 +225,7 @@ internal static class OfflineMigrationStateStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(context);
-        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
         cancellationToken = scope.Token;
         await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
         await OfflineMigrationApplyJournalDialect.ValidateAsync(CurrentSchemaProviderKind.MySql,

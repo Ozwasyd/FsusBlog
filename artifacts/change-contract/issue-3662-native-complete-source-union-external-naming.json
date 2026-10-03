@@ -1,0 +1,40 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+                "src/migration/OfflineMigrationClassificationFacts.cs",
+                "src/migration/OfflineMigrationStateStore.cs",
+                "tools/ci/production-build-artifacts.mjs",
+                "tools/db/check-offline-migration-catalog-parity.mjs",
+                "tools/db/generate-offline-migration-catalog.mjs",
+                "tools/docker/backend-input-closure.mjs",
+                "tools/docker/backend-input-environment.mjs"
+            ],
+            "reason": "Preserve registered process-environment and existing historical classification interfaces while transferring the original native task packaging and producer sources. The two StateStore calls use the existing owned read-scope API; no environment spelling or authority is changed."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/build-final-image.sh"
+            ],
+            "reason": "The original build owner retains its caller-visible process environment and explicit local-only task target; internal aliases do not replace exported environment keys."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/build/backend-docker-inputs.json"
+            ],
+            "reason": "Preserve the original evaluated build-input inventory schema and external JSON field spellings; the standalone Migration tool profile is consumed by the same original closure producer."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "Preserve current source ownership and runtime observation interfaces verbatim, adding only the original finite native task packaging and embedded-resource ownership explanation."
+        }
+    ]
+}

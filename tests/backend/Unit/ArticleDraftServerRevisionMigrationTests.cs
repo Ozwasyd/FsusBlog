@@ -1,5 +1,6 @@
 using System.Data;
 
+using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -14,14 +15,14 @@ public sealed class ArticleDraftServerRevisionMigrationContractTests
     public void Descriptor_IsAdditiveAndExplicitlyClassified()
     {
         ISchemaMigrationDescriptor descriptor = ArticleDraftServerRevisionMigrationDefinitions.BuildMigration();
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
         Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
         Assert.True(descriptor.Transactional);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.Contains("mixed_release_draft_write_fence", metadata.Validators);
         Assert.DoesNotContain("n_minus_one_read_write", metadata.Validators);
         Assert.Contains("server_revision", Assert.Single(descriptor.Steps).Fingerprint, StringComparison.Ordinal);

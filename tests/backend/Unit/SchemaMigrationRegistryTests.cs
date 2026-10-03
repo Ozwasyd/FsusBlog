@@ -1,3 +1,4 @@
+using FsusBlog.Migration;
 using FsusBlog.Core.Cache;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
@@ -32,7 +33,7 @@ public sealed class SchemaMigrationRegistryTests
             .Select(static descriptor => descriptor.MigrationId)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        string[] metadataIds = new OnlineSchemaMigrationCatalog().GetMetadata().Keys
+        string[] metadataIds = OfflineMigrationClassificationFacts.All.Keys
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -95,15 +96,15 @@ public sealed class SchemaMigrationRegistryTests
             new SchemaMigrationRegistry().GetDescriptors(),
             static item => item.MigrationId == TaxonomyDescriptionMigrationDefinitions.MigrationId);
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        OnlineSchemaMigrationMetadata metadata =
-            new OnlineSchemaMigrationCatalog().GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata =
+            OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.True(descriptor.Transactional);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.Contains("category.description:varchar(500) NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("tag.description:varchar(500) NULL", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("INDEX", fingerprint, StringComparison.OrdinalIgnoreCase);
@@ -191,12 +192,12 @@ public sealed class SchemaMigrationRegistryTests
             static item => item.MigrationId
                 == "20260727-post-distributed-invalidation-delivery-ledger");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        OnlineSchemaMigrationMetadata metadata =
-            new OnlineSchemaMigrationCatalog().GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata =
+            OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.Contains("payload_digest", fingerprint, StringComparison.Ordinal);
         Assert.Contains("distributed_invalidation_inbox", fingerprint, StringComparison.Ordinal);
         Assert.Contains("distributed_invalidation_topology_retirement", fingerprint, StringComparison.Ordinal);
