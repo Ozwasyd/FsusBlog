@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationClassificationFacts.cs"
+            ],
+            "reason": "The existing registry governs this C# source path as an external environment naming surface. This repair preserves all identifiers and environment interfaces and changes only the historical scalar pattern's absolute end boundary."
+        }
+    ]
+}
