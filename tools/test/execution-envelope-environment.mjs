@@ -66,7 +66,7 @@ export function resolveExecutablePath(name, {
     throw new Error(`execution envelope executable is missing or not executable: ${name}`);
 }
 
-function versionArguments(name)
+export function versionArguments(name)
 {
     const base = path.basename(name).toLowerCase().replace(/\.exe$/u, '');
     if (base === 'msbuild')
@@ -93,6 +93,11 @@ export function observeExecutableIdentity(name, {
     const absolutePath = resolve(name, { pathValue, platform });
     const realPath = realpath(absolutePath);
     const versionObservation = observeVersion(realPath);
+    return executableIdentityFromObservation(name, absolutePath, realPath, versionObservation, readFile);
+}
+
+function executableIdentityFromObservation(name, absolutePath, realPath, versionObservation, readFile)
+{
     if (versionObservation?.error || versionObservation?.status !== 0)
     {
         throw new Error(
@@ -113,6 +118,144 @@ export function observeExecutableIdentity(name, {
         version,
         sha256: sha256(readFile(realPath))
     });
+}
+
+// This is a consumer of an original held-managed execution port, not a capability issuer.
+// The owner assertion must consult its private admission/terminal state; wire evidence is not authority.
+export async function executeManagedPreparation(request, {
+    executePreparation,
+    assertPreparationExecution
+})
+{
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('execution preparation requires an actual held-managed execution and owner assertion');
+    }
+    if (!['executable-version', 'landlock-helper-build'].includes(request?.purpose)
+        || !Array.isArray(request.command) || request.command.length === 0
+        || request.command.some((part) => typeof part !== 'string' || part.includes('\0'))
+        || typeof request.cwd !== 'string' || !path.isAbsolute(request.cwd)
+        || !request.environment || typeof request.environment !== 'object' || Array.isArray(request.environment)
+        || Object.values(request.environment).some((value) => typeof value !== 'string'))
+    {
+        throw new Error('execution preparation requires an explicit original derived tool tuple');
+    }
+    const ownedRequest = Object.freeze({
+        purpose: request.purpose, command: Object.freeze([...request.command]), cwd: request.cwd,
+        environment: Object.freeze({ ...request.environment })
+    });
+    await assertPreparationExecution({ request: ownedRequest, phase: 'before', physicalExecution: null });
+    let physicalExecution = null;
+    let firstFailure = null;
+    try
+    {
+        physicalExecution = await executePreparation(ownedRequest);
+    }
+    catch (error)
+    {
+        firstFailure = error;
+        physicalExecution = error?.physicalExecution ?? null;
+    }
+    try
+    {
+        await assertPreparationExecution({ request: ownedRequest, phase: 'after', physicalExecution });
+    }
+    catch (error)
+    {
+        if (firstFailure)
+        {
+            firstFailure.preparationOwnerAssertionError = error;
+        }
+        else
+        {
+            firstFailure = error;
+        }
+    }
+    if (firstFailure)
+    {
+        firstFailure.physicalExecution ??= physicalExecution;
+        throw firstFailure;
+    }
+    try
+    {
+        validatePreparationOutput(physicalExecution);
+    }
+    catch (error)
+    {
+        error.physicalExecution = physicalExecution;
+        throw error;
+    }
+    return physicalExecution;
+}
+
+function validatePreparationOutput(physicalExecution)
+{
+    const child = physicalExecution?.processInventory?.filter((entry) => entry.role === 'direct-child');
+    const capture = physicalExecution?.outputCapture;
+    if (physicalExecution?.schema !== 'fsusblog.physical-execution-process-tree.v1'
+        || physicalExecution.platform !== 'linux'
+        || physicalExecution.authority?.kind !== 'linux-cgroup-process-group'
+        || physicalExecution.authority.established !== true
+        || physicalExecution.postObservation !== 'zero-members'
+        || physicalExecution.logComplete !== true
+        || physicalExecution.logTruncationReason !== null
+        || physicalExecution.forcedPipeClose !== false
+        || !physicalExecution.lifecycle?.includes('post-observe-zero-members')
+        || !physicalExecution.lifecycle?.includes('bounded-pipe-close')
+        || !physicalExecution.lifecycle?.includes('seal-completed-receipt')
+        || !Array.isArray(physicalExecution.termination) || physicalExecution.termination.length !== 0
+        || child?.length !== 1 || !Number.isSafeInteger(child[0].pid) || child[0].pid <= 0
+        || !child[0].startIdentity || child[0].exitCode !== 0 || child[0].signal !== null
+        || typeof physicalExecution.stdout !== 'string' || typeof physicalExecution.stderr !== 'string'
+        || capture?.maximumBytesPerStream !== physicalExecution.policy?.maximumCapturedOutputBytesPerStream
+        || !Number.isSafeInteger(capture?.maximumBytesPerStream) || capture.maximumBytesPerStream <= 0)
+    {
+        throw new Error('execution preparation returned incomplete or failed physical execution evidence');
+    }
+    for (const stream of ['stdout', 'stderr'])
+    {
+        if (capture[`${stream}Truncated`] !== false
+            || !Number.isSafeInteger(capture[`${stream}Bytes`]) || capture[`${stream}Bytes`] < 0
+            || capture[`${stream}Bytes`] !== capture[`${stream}CapturedBytes`]
+            || capture[`${stream}Bytes`] > capture.maximumBytesPerStream
+            || Buffer.byteLength(physicalExecution[stream], 'utf8') > capture.maximumBytesPerStream)
+        {
+            throw new Error(`execution preparation ${stream} capture is incomplete or unbounded`);
+        }
+    }
+}
+
+export async function observeExecutableIdentityAsync(name, {
+    pathValue,
+    environment,
+    cwd,
+    executePreparation,
+    assertPreparationExecution,
+    versionArgs = null,
+    platform = process.platform,
+    resolve = resolveExecutablePath,
+    readFile = fs.readFileSync,
+    realpath = fs.realpathSync
+})
+{
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('asynchronous executable observation requires the original held-managed owner port');
+    }
+    const absolutePath = resolve(name, { pathValue, platform });
+    const realPath = realpath(absolutePath);
+    if (versionArgs !== null && (path.basename(realPath) !== 'ip'
+        || !Array.isArray(versionArgs) || versionArgs.length !== 1 || versionArgs[0] !== '-Version'))
+    {
+        throw new Error('executable version arguments must use the original tool observation rule');
+    }
+    const observation = await executeManagedPreparation({
+        purpose: 'executable-version', command: [realPath, ...(versionArgs ?? versionArguments(realPath))],
+        cwd, environment
+    }, { executePreparation, assertPreparationExecution });
+    return executableIdentityFromObservation(name, absolutePath, realPath, {
+        status: 0, stdout: observation.stdout, stderr: observation.stderr
+    }, readFile);
 }
 
 export function observePathEntries(pathValue, {
@@ -267,6 +410,11 @@ export function prepareCorrectnessEnvironment({
     const observedActualExecutable = observeExecutable(plannedExecutable.absolutePath, {
         pathValue: minimal.childEnvironment.PATH
     });
+    return preparedEnvironmentFromObservations({ command, minimal, plannedExecutable, observedActualExecutable, policy, catalog });
+}
+
+function preparedEnvironmentFromObservations({ command, minimal, plannedExecutable, observedActualExecutable, policy, catalog })
+{
     verifyExecutableIdentity(plannedExecutable, observedActualExecutable);
     const actualExecutable = Object.freeze({
         ...observedActualExecutable,
@@ -288,4 +436,27 @@ export function prepareCorrectnessEnvironment({
         fragment,
         fragmentDigest: executionEnvelopeDigest(fragment)
     });
+}
+
+export async function prepareCorrectnessEnvironmentAsync({
+    command, cwd, parentEnvironment, producerAllowlist, injectedEnvironment, policy, catalog,
+    executePreparation, assertPreparationExecution
+})
+{
+    if (!Array.isArray(command) || command.length === 0)
+    {
+        throw new Error('execution envelope command is missing');
+    }
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('asynchronous correctness preparation requires the original held-managed owner port');
+    }
+    const minimal = createMinimalCorrectnessEnvironment({ parentEnvironment, producerAllowlist, injectedEnvironment, policy });
+    const observationOptions = {
+        pathValue: minimal.childEnvironment.PATH, environment: minimal.childEnvironment, cwd,
+        executePreparation, assertPreparationExecution
+    };
+    const plannedExecutable = await observeExecutableIdentityAsync(command[0], observationOptions);
+    const observedActualExecutable = await observeExecutableIdentityAsync(plannedExecutable.absolutePath, observationOptions);
+    return preparedEnvironmentFromObservations({ command, minimal, plannedExecutable, observedActualExecutable, policy, catalog });
 }
