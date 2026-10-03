@@ -20,6 +20,7 @@ import {
 } from '../../tools/test-evidence/canonical-release-authorities.mjs'
 import { verifyCanonicalReleaseAuthorityValues }
   from '../../tools/test-evidence/canonical-release-authorities-value-contract.mjs'
+import { validateCurrentSchemaBinding } from '../../tools/release/release-manifest-value-contract.mjs'
 import {
   createPureReleaseAuthorityFixture,
   createReadinessManifest,
@@ -35,6 +36,32 @@ import {
 
 const pureAuthorityFixture = () => createPureReleaseAuthorityFixture(semanticDigest)
 
+test('pure release fixture carries current-only references without issuing native evidence', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value
+  assert.equal(value.schema, 'fsusblog.release-manifest.v3')
+  assert.equal(Object.hasOwn(value, 'schemaCompatibility'), false)
+  const errors = []
+  validateCurrentSchemaBinding(value.currentSchema, errors)
+  assert.deepEqual(errors, [])
+  const legacyErrors = []
+  validateCurrentSchemaBinding({ minimum: 1, maximum: 2 }, legacyErrors)
+  assert.ok(legacyErrors.length > 0)
+  for (const mutate of [
+    binding => { delete binding.receipt },
+    binding => { binding.receipt.reference = 'receipts/latest/current.json' },
+    binding => { binding.receipt.sha256 = `sha256:${binding.receipt.sha256}` },
+    binding => { binding.receipt.contentDigest = '5'.repeat(64) }
+  ])
+  {
+    const changed = structuredClone(value.currentSchema)
+    mutate(changed)
+    const refused = []
+    validateCurrentSchemaBinding(changed, refused)
+    assert.ok(refused.length > 0)
+  }
+})
+
 // Synthetic source values exercise binding logic only, never runtime qualification.
 function canonicalAuthorityFixture(context)
 {
@@ -45,14 +72,25 @@ function canonicalAuthorityFixture(context)
   const rolloutId = 'rollout-canonical-value-fixture'
   for (const file of [
     'config/contracts/behavior-fact-extractors.json',
-    'src/shared/Contracts/Validation/release-id-contract.json',
-    'src/shared/Contracts/Validation/schema-compatibility-coordinate.json'
+    'src/shared/Contracts/Validation/release-id-contract.json'
   ])
   {
     fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true })
     fs.copyFileSync(path.join(root, file), path.join(directory, file))
   }
   const manifest = createReadinessManifest(releaseId, source.sourceCommit)
+  // Metadata-only values: the placeholder content seal is not a codec-issued
+  // receipt and cannot enter the missing admitted native collector.
+  const currentReceipt = { format: 'fsusblog.current-schema-receipt.v1', status: 'verified-current',
+    target: structuredClone(manifest.currentSchema.target), database: structuredClone(manifest.currentSchema.database),
+    actualSchemaDigest: manifest.currentSchema.actualSchemaDigest, contentDigest: '5'.repeat(64) }
+  const currentReceiptFile = path.join(directory, '.tmp', 'current-schema-contract-values.json')
+  write(currentReceiptFile, currentReceipt)
+  const currentSchemaReceiptRef = { path: path.relative(directory, currentReceiptFile),
+    fileDigest: fileDigest(currentReceiptFile), contentDigest: `sha256:${currentReceipt.contentDigest}`,
+    schema: 'fsusblog.current-schema-receipt.v1' }
+  manifest.currentSchema.receipt = { reference: currentSchemaReceiptRef.path,
+    sha256: currentSchemaReceiptRef.fileDigest.slice('sha256:'.length) }
   const rolloutFixture = createReleaseRolloutEvidenceFixture({
     rolloutId, manifest, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
   })
@@ -93,7 +131,8 @@ function canonicalAuthorityFixture(context)
   const plan = { sourceState: { commit: source.sourceCommit, worktreeFingerprint: `sha256:${source.worktreeFingerprint}` },
     candidate: { releaseId, rolloutId } }
   const options = { candidatePlan: plan, rolloutEvidence: path.relative(directory, rolloutFile),
-    runtimeRoleAdmission: path.relative(directory, admissionFile), repositoryRoot: directory, now: Date.now() }
+    runtimeRoleAdmission: path.relative(directory, admissionFile), currentSchemaReceiptRef,
+    repositoryRoot: directory, now: Date.now() }
   const snapshots = new Map()
   const capture = dir => {
     for (const item of fs.readdirSync(dir, { withFileTypes: true }))
@@ -118,20 +157,69 @@ function canonicalAuthorityFixture(context)
     }
     return { readJson, readBytes }
   }
-  return { directory, options, snapshots, readers, rolloutFile, rollout, admissionFile, admission, artifact }
+  return { directory, options, snapshots, readers, rolloutFile, rollout, admissionFile, admission, artifact,
+    currentReceiptFile, currentReceipt }
 }
 
-test('canonical authority synthetic value replay and contained wrapper agree without qualifying a runtime', context =>
+test('canonical authority synthetic values bind references without qualifying a native runtime', context =>
 {
   const fixture = canonicalAuthorityFixture(context)
   const actual = verifyCanonicalReleaseAuthorityValues({ ...fixture.options, ...fixture.readers(fixture.snapshots) })
-  const wrapped = verifyCanonicalReleaseAuthorities(fixture.options)
-  assert.deepEqual(actual, wrapped)
   assert.equal(actual.authorityDigest, semanticDigest({
     rollout: actual.rollout.ref.fileDigest, runtimeRole: actual.runtimeRole.observation.ref.fileDigest,
-    deployment: actual.runtimeRole.deployment.ref.fileDigest, manifest: actual.manifest.ref.fileDigest
+    deployment: actual.runtimeRole.deployment.ref.fileDigest, manifest: actual.manifest.ref.fileDigest,
+    currentSchemaReceipt: actual.currentSchema.receiptRef.fileDigest,
+    currentSchemaReceiptContent: actual.currentSchema.receiptRef.contentDigest,
+    currentSchemaAdmission: actual.currentSchema.admission.ref.fileDigest
   }))
+  assert.deepEqual(actual.currentSchema.receiptRef, fixture.options.currentSchemaReceiptRef)
+  assert.deepEqual(actual.currentSchema.receipt, fixture.currentReceipt)
+  assert.equal(actual.currentSchema.admission.ref.contentDigest, null)
   assert.equal(actual.runtimeRole.buildReceipt.schema, 'fsusblog.runtime-role-observation-build-receipt.v4')
+})
+
+// Requires the separately frozen original post-v2 I/O wrapper; no synthetic
+// metadata authority can substitute for its still-unconnected native collector.
+test('canonical authority I/O refuses metadata when the admitted native collector is missing', context =>
+{
+  const fixture = canonicalAuthorityFixture(context)
+  assert.throws(() => verifyCanonicalReleaseAuthorities(fixture.options), {
+    message: '[canonical-release-authorities] current-schema post-runtime admitted native collector is not connected'
+  })
+})
+
+test('current-schema value bindings reject old formats, digest aliases and admission drift', context =>
+{
+  const fixture = canonicalAuthorityFixture(context)
+  for (const mutate of [
+    value => { delete value.ref.schema },
+    value => { value.ref.schema = 'fsusblog.current-schema-receipt.v2' },
+    value => { value.ref.fileDigest = value.ref.fileDigest.slice('sha256:'.length) },
+    value => { value.ref.contentDigest = value.ref.contentDigest.slice('sha256:'.length) },
+    value => { value.ref.fileDigest = value.ref.contentDigest },
+    value => { value.ref.contentDigest = value.ref.fileDigest },
+    value => { value.receipt.format = 'fsusblog.current-schema-receipt.v2' },
+    value => { value.receipt.target.contentDigest = '9'.repeat(64) },
+    value => { value.receipt.database.databaseId = 'other-database' },
+    value => { value.admission.candidateSourceRevision = 'f'.repeat(40) },
+    value => { value.admission.artifactSha256 = value.receipt.contentDigest },
+    value => { value.admission.contentDigest = '7'.repeat(64) }
+  ])
+  {
+    const bytes = new Map(fixture.snapshots)
+    const readers = fixture.readers(bytes)
+    const admissionFile = fixture.rollout.auxiliary.currentSchemaAdmission.path
+    const values = { ref: structuredClone(fixture.options.currentSchemaReceiptRef),
+      receipt: structuredClone(fixture.currentReceipt), admission: readers.readJson(admissionFile).value }
+    mutate(values)
+    const put = (file, value) => bytes.set(path.resolve(fixture.directory, file),
+      Buffer.from(`${JSON.stringify(value, null, 2)}\n`))
+    put(fixture.currentReceiptFile, values.receipt)
+    put(admissionFile, values.admission)
+    assert.throws(() => verifyCanonicalReleaseAuthorityValues({
+      ...fixture.options, currentSchemaReceiptRef: values.ref, ...readers
+    }), /canonical-release-authorities/u)
+  }
 })
 
 test('canonical authority values reject coordinated source mutations and the current legacy producer', context =>
@@ -216,7 +304,7 @@ test('canonical authority values reject coordinated source mutations and the cur
       ...fixture.options, candidatePlan: values.plan, ...readers
     }), /canonical-release-authorities|BehaviorDoc admission|minimal contract build/u, name)
   }
-  assert.equal(cases.length, 22)
+  assert.equal(cases.length, 26)
 })
 
 function authorityReaderFixture(context)
