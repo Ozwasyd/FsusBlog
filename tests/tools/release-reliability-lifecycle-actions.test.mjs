@@ -15,6 +15,7 @@ import {
     executeRegisteredLifecycleAction
 } from '../../tools/test/release-reliability-lifecycle-actions.mjs';
 import {
+    digestValue,
     sealDocument
 } from '../../tools/test/release-reliability-receipt.mjs';
 import {
@@ -528,13 +529,29 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
     const ownerPath = `.tmp/${dataScaleRunId}/runtime.json`;
     const dataScaleIdentity = {
         ...fixture.identity,
+        fixture: { status: 'complete', topology: { content: { dedicated: true } } },
         build: {
             ...fixture.identity.build,
             imageDigest: `sha256:${'2'.repeat(64)}`
         }
     };
     const owner = sealDocument({
-        schema: 'fsusblog.data-scale-runtime.v1',
+        schema: 'fsusblog.data-scale-runtime.v2',
+        invocationId,
+        attemptId: 'pending-original-plan-attempt',
+        fixtureIdentityDigest: digestValue(dataScaleIdentity.fixture),
+        network: { id: '8'.repeat(64), name: 'dedicated-network' },
+        permissionHelper: { name: 'dedicated-permissions', postExists: false },
+        connections: {
+            postgres: { applicationName: `FsusBlogDataScale-${dataScaleRunId}`, backendAddress: '172.24.0.4',
+                database: 'fsusblog', matchingClientCount: 1, foreignClientCount: 0 },
+            redis: { clientName: `FsusBlogDataScale-${dataScaleRunId}`, backendAddress: '172.24.0.4',
+                matchingClientCount: 1, foreignClientCount: 0 }
+        },
+        lifecycle: { start: 'complete', reset: 'complete', readiness: 'complete', postcondition: 'pending' },
+        seedSummary: { status: 'ok', tier: 'scale-m', namespace: 'dedicated-namespace',
+            declared: { articles: 10000, comments: 100000 }, expected: { articles: 10000, comments: 100000 },
+            observed: { articles: 10000, comments: 100000 } },
         dataScaleRunId,
         parentSchedulerRunId: runId,
         sourceCommit,
@@ -605,15 +622,23 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         ]))
     };
     let measurementSpawnCount = 0;
-    const executeAction = async ({ action }) =>
+    const observedAttempts = new Set();
+    const executeAction = async ({ action, attemptId }) =>
     {
+        observedAttempts.add(attemptId);
         const timestamp = new Date().toISOString();
         let receipt = null;
         if (action.phase === 'precondition')
         {
+            assert.match(attemptId, /^[a-f0-9-]{36}$/u);
+            fs.writeFileSync(path.join(fixture.root, ownerPath), JSON.stringify(sealDocument({
+                ...owner, contentDigest: undefined, attemptId,
+                fixtureIdentityDigest: digestValue(dataScaleIdentity.fixture)
+            })));
             const adapterRelative =
                 `.tmp/release-reliability/${invocationId}/lifecycle/${scenario.id}/${action.actionId}.json`;
             const adapter = {
+                actionId: action.actionId, scenarioId: scenario.id, invocationId, runId, attemptId,
                 ownerReceipt: {
                     path: ownerPath,
                     bytesDigest: bytesDigest(
@@ -675,6 +700,8 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
     assert.equal(result.firstFailure.phase, 'measurement');
     assert.match(result.firstFailure.message, /not bound to the verified runtime owner/u);
     assert.equal(measurementSpawnCount, 0);
+    assert.equal(observedAttempts.size, 1);
+    assert.equal(result.attemptId, [...observedAttempts][0]);
 });
 
 test('old runtime URL or ambient service identity blocks measurement spawn', async (context) =>

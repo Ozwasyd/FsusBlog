@@ -30,6 +30,7 @@ const repositoryRoot = path.resolve(
     '../..'
 );
 const invocationId = 'fixture-invocation';
+const attemptId = 'fixture-attempt';
 const runId = 'fixture-run';
 const scenarioId = 'release-mutation-critical-slice';
 const sourceCommit = 'a'.repeat(40);
@@ -97,6 +98,7 @@ function createFixture(context)
             contentDigest: `sha256:${'c'.repeat(64)}`,
             imageDigest: `sha256:${'2'.repeat(64)}`
         },
+        fixture: { status: 'complete', topology: { content: { dedicated: true } } },
         policy: {
             physicalExecution: {
                 status: 'complete',
@@ -627,12 +629,15 @@ test('owner verifier accepts #1620 array-shaped teardown and rejects obsolete ti
 {
     const fixture = createFixture(context);
     const receipt = sealDocument({
-        schema: 'fsusblog.data-scale-teardown.v1',
+        schema: 'fsusblog.data-scale-teardown.v2',
         status: 'complete',
         dataScaleRunId: 'data-scale-run',
         parentSchedulerRunId: runId,
+        invocationId,
+        attemptId,
         sourceCommit,
         runtimePlanDigest: `sha256:${'f'.repeat(64)}`,
+        runtimeReceiptDigest: `sha256:${'e'.repeat(64)}`,
         startedAt: '2026-07-30T00:00:00.000Z',
         finishedAt: '2026-07-30T00:00:01.000Z',
         resources: [{
@@ -661,9 +666,11 @@ test('owner verifier accepts #1620 array-shaped teardown and rejects obsolete ti
         ownerReceipt: 'data-scale-teardown',
         receiptPath: relative,
         identity: fixture.identity,
-        runId
+        runId,
+        invocationId,
+        attemptId
     });
-    assert.equal(verified.schema, 'fsusblog.data-scale-teardown.v1');
+    assert.equal(verified.schema, 'fsusblog.data-scale-teardown.v2');
     const obsolete = sealDocument({
         ...receipt,
         contentDigest: undefined,
@@ -681,7 +688,9 @@ test('owner verifier accepts #1620 array-shaped teardown and rejects obsolete ti
             ownerReceipt: 'data-scale-teardown',
             receiptPath: relative,
             identity: fixture.identity,
-            runId
+            runId,
+            invocationId,
+            attemptId
         }),
         /top-level fields mismatch/u
     );
@@ -703,6 +712,106 @@ test('#1620 teardown cannot substitute another data-scale runtime in the same sc
     );
 });
 
+function dedicatedRuntimeFacts(identity, dataScaleRunId, namespace)
+{
+    const clientName = `FsusBlogDataScale-${dataScaleRunId}`;
+    return {
+        invocationId,
+        attemptId,
+        fixtureIdentityDigest: digestValue(identity.fixture),
+        network: { id: '8'.repeat(64), name: 'dedicated-network' },
+        permissionHelper: { name: 'dedicated-permissions', postExists: false },
+        connections: {
+            postgres: { applicationName: clientName, backendAddress: '172.24.0.4', database: 'fsusblog_data_scale',
+                matchingClientCount: 1, foreignClientCount: 0 },
+            redis: { clientName, backendAddress: '172.24.0.4', matchingClientCount: 1, foreignClientCount: 0 }
+        },
+        lifecycle: { start: 'complete', reset: 'complete', readiness: 'complete', postcondition: 'pending' },
+        seedSummary: { status: 'ok', tier: 'scale-m', namespace,
+            declared: { articles: 10000, comments: 100000 }, expected: { articles: 10000, comments: 100000 },
+            observed: { articles: 10000, comments: 100000 } }
+    };
+}
+
+function currentOwnerFixture(context)
+{
+    const fixture = createFixture(context);
+    const dataScaleRunId = 'data-scale-current';
+    const seedReceiptPath = `.tmp/${dataScaleRunId}/seed.json`;
+    const seed = Buffer.from('{"seed":"current"}\n');
+    for (const name of ['aot', 'search', 'hot-read', 'data'])
+    {
+        fs.mkdirSync(path.join(fixture.root, `.tmp/${dataScaleRunId}/${name}`), { recursive: true });
+    }
+    fs.writeFileSync(path.join(fixture.root, seedReceiptPath), seed);
+    const receipt = {
+        schema: 'fsusblog.data-scale-runtime.v2',
+        ...dedicatedRuntimeFacts(fixture.identity, dataScaleRunId, 'scale-current'),
+        dataScaleRunId, parentSchedulerRunId: runId, sourceCommit,
+        worktreeFingerprint: fixture.identity.sourceState.worktreeFingerprint,
+        buildReceiptDigest: fixture.identity.build.contentDigest, imageDigest: fixture.identity.build.imageDigest,
+        namespace: 'scale-current',
+        postgres: { containerId: '3'.repeat(64), imageDigest: `sha256:${'4'.repeat(64)}`,
+            volumeId: 'postgres-volume', database: 'fsusblog_data_scale' },
+        redis: { containerId: '5'.repeat(64), imageDigest: `sha256:${'6'.repeat(64)}`, volumeId: 'redis-volume' },
+        backend: { pidOrContainerId: '7'.repeat(64), startTicks: '12345', baseUrl: 'http://127.0.0.1:24501',
+            executableOrImageDigest: fixture.identity.build.imageDigest },
+        aotRoot: `.tmp/${dataScaleRunId}/aot`, searchRoot: `.tmp/${dataScaleRunId}/search`,
+        hotReadRoot: `.tmp/${dataScaleRunId}/hot-read`, dataRoot: `.tmp/${dataScaleRunId}/data`,
+        envManifestDigest: `sha256:${'9'.repeat(64)}`, seedReceiptPath,
+        seedReceiptDigest: rawDigest(seed), createdAt: '2026-07-30T00:00:00.000Z'
+    };
+    const receiptPath = `.tmp/${dataScaleRunId}/runtime.json`;
+    const write = (value) => fs.writeFileSync(path.join(fixture.root, receiptPath), JSON.stringify(sealDocument(value)));
+    const verify = (overrides = {}) => verifyDataScaleOwnerReceipt({
+        repositoryRoot: fixture.root, ownerReceipt: 'data-scale-runtime', receiptPath,
+        identity: fixture.identity, runId, invocationId, attemptId, ...overrides
+    });
+    write(receipt);
+    return { ...fixture, receipt, write, verify };
+}
+
+test('#1950 current invocation and attempt pass the original independent raw receipt reader', (context) =>
+{
+    const fixture = currentOwnerFixture(context);
+    const verified = fixture.verify();
+    assert.equal(verified.document.invocationId, invocationId);
+    assert.equal(verified.document.attemptId, attemptId);
+    assert.equal(verified.document.fixtureIdentityDigest, digestValue(fixture.identity.fixture));
+});
+
+for (const [name, change] of [
+    ['obsolete-v1', (receipt) => { receipt.schema = 'fsusblog.data-scale-runtime.v1'; }],
+    ['missing-invocation', (receipt) => { delete receipt.invocationId; }],
+    ['missing-attempt', (receipt) => { delete receipt.attemptId; }],
+    ['old-invocation', (receipt) => { receipt.invocationId = 'old-invocation'; }],
+    ['old-attempt', (receipt) => { receipt.attemptId = 'old-attempt'; }],
+    ['old-source', (receipt) => { receipt.sourceCommit = 'b'.repeat(40); }],
+    ['old-build', (receipt) => { receipt.buildReceiptDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['old-fixture', (receipt) => { receipt.fixtureIdentityDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['missing-readiness', (receipt) => { receipt.lifecycle.readiness = 'pending'; }],
+    ['invalid-topology', (receipt) => { receipt.network.id = 'invalid'; }]
+])
+{
+    test(`#1950 independently sealed ${name} owner is refused`, (context) =>
+    {
+        const fixture = currentOwnerFixture(context);
+        assert.equal(fixture.verify().document.attemptId, attemptId);
+        const changed = structuredClone(fixture.receipt);
+        change(changed);
+        fixture.write(changed);
+        assert.throws(() => fixture.verify(), /identity mismatch|top-level fields mismatch|resource identity|lifecycle state/u);
+    });
+}
+
+test('#1950 missing expected attempt cannot authorize a receipt with the same missing coordinate', (context) =>
+{
+    const fixture = currentOwnerFixture(context);
+    assert.throws(() => fixture.verify({ attemptId: undefined }), /requires the current run, invocation, and attempt/u);
+    fs.rmSync(path.join(fixture.root, `.tmp/${fixture.receipt.dataScaleRunId}/runtime.json`));
+    assert.throws(() => fixture.verify(), /owner receipt is missing/u);
+});
+
 test('#1617 runtime owner binds exact nested identities, dedicated roots, and seed bytes', (context) =>
 {
     const fixture = createFixture(context);
@@ -719,7 +828,8 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         );
     }
     const receipt = sealDocument({
-        schema: 'fsusblog.data-scale-runtime.v1',
+        schema: 'fsusblog.data-scale-runtime.v2',
+        ...dedicatedRuntimeFacts(fixture.identity, dataScaleRunId, 'data-scale-namespace'),
         dataScaleRunId,
         parentSchedulerRunId: runId,
         sourceCommit,
@@ -760,7 +870,9 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         ownerReceipt: 'data-scale-runtime',
         receiptPath: relative,
         identity: fixture.identity,
-        runId
+        runId,
+        invocationId,
+        attemptId
     });
     assert.equal(verified.dataScaleRunId, dataScaleRunId);
     const wrongBuild = sealDocument({
@@ -778,7 +890,9 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
             ownerReceipt: 'data-scale-runtime',
             receiptPath: relative,
             identity: fixture.identity,
-            runId
+            runId,
+            invocationId,
+            attemptId
         }),
         /identity mismatch/u
     );
@@ -793,7 +907,9 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
             ownerReceipt: 'data-scale-runtime',
             receiptPath: relative,
             identity: fixture.identity,
-            runId
+            runId,
+            invocationId,
+            attemptId
         }),
         /seed receipt path\/digest binding mismatch/u
     );

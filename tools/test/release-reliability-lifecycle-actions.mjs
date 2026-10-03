@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -750,6 +750,7 @@ export async function executeRegisteredLifecycleAction({
     scenario,
     repositoryRoot = root,
     invocationId,
+    attemptId,
     runId,
     identity,
     identityReference,
@@ -807,6 +808,9 @@ export async function executeRegisteredLifecycleAction({
             env: {
                 ...environment,
                 ...action.env,
+                ...(action.ownerReceipt ? {
+                    FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: attemptId
+                } : {}),
                 FSUSBLOG_RELEASE_RELIABILITY_ACTION_ID: action.actionId
             },
             stdoutLog,
@@ -902,6 +906,7 @@ export async function executeRegisteredLifecycleAction({
                 action,
                 scenario,
                 invocationId,
+                attemptId,
                 runId,
                 identity,
                 identityReference,
@@ -969,6 +974,8 @@ async function bindDataScaleMeasurementEnvironment({
     records,
     repositoryRoot,
     runId,
+    invocationId,
+    attemptId,
     identity,
     measurementEnvironment
 })
@@ -999,6 +1006,11 @@ async function bindDataScaleMeasurementEnvironment({
         throw new Error('data-scale runtime adapter bytes changed before measurement');
     }
     const adapter = JSON.parse(adapterBytes.toString('utf8'));
+    if (adapter.actionId !== preconditionActionId || adapter.scenarioId !== scenario.id
+        || adapter.invocationId !== invocationId || adapter.runId !== runId || adapter.attemptId !== attemptId)
+    {
+        throw new Error('data-scale runtime adapter does not bind the exact current action and attempt');
+    }
     const { verifyDataScaleOwnerReceipt } = await import(
         './verify-release-reliability-lifecycle-action.mjs'
     );
@@ -1008,6 +1020,8 @@ async function bindDataScaleMeasurementEnvironment({
         receiptPath: adapter.ownerReceipt?.path,
         identity,
         runId,
+        invocationId,
+        attemptId,
         expectedBytesDigest: adapter.ownerReceipt?.bytesDigest
     }).document;
     const expectedTargets = {
@@ -1120,6 +1134,8 @@ export async function executeLifecycleActionPlan({
     executeAction = executeRegisteredLifecycleAction
 })
 {
+    // One original lifecycle plan owns one fresh attempt; no retry-derived suffix or ambient receipt selects it.
+    const attemptId = scenario.id === 'release-data-scale-m' ? randomUUID() : null;
     const records = [];
     const cleanupFailures = [];
     let firstFailure = null;
@@ -1197,6 +1213,8 @@ export async function executeLifecycleActionPlan({
                         records,
                         repositoryRoot,
                         runId,
+                        invocationId,
+                        attemptId,
                         identity,
                         measurementEnvironment:
                             effectiveMeasurementEnvironment
@@ -1224,6 +1242,7 @@ export async function executeLifecycleActionPlan({
                 scenario,
                 repositoryRoot,
                 invocationId,
+                attemptId,
                 runId,
                 identity,
                 identityReference,
@@ -1293,6 +1312,7 @@ export async function executeLifecycleActionPlan({
                 : firstFailure?.kind === 'cancelled'
                     ? 'cancelled'
                     : 'failed',
+        ...(attemptId === null ? {} : { attemptId }),
         actions: records,
         verifiedActionReceipts: records
             .filter((record) => record.receipt !== null)

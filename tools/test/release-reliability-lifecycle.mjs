@@ -653,7 +653,9 @@ async function inspectDataScaleOwner(context, dependencies)
         ownerReceipt: context.action.ownerReceipt,
         receiptPath: configuredPath,
         identity: context.identity,
-        runId: context.runId
+        runId: context.runId,
+        invocationId: context.invocationId,
+        attemptId: context.attemptId
     });
     if (context.action.ownerReceipt === 'data-scale-teardown')
     {
@@ -915,6 +917,9 @@ function lifecycleContext({
     }
     const invocationId = safeIdentifier(binding.invocationId, 'invocationId');
     const runId = safeIdentifier(binding.runId, 'runId');
+    const attemptId = action.ownerReceipt
+        ? safeIdentifier(environment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID, 'attemptId')
+        : null;
     const identityPath = repositoryPath(
         resolvedRoot,
         environment.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH,
@@ -947,6 +952,7 @@ function lifecycleContext({
             contentDigest: identity.contentDigest
         },
         invocationId,
+        attemptId,
         receiptPath,
         repositoryRoot: resolvedRoot,
         runId,
@@ -1090,6 +1096,7 @@ export async function runLifecycleAction({
         phase: context.action.phase,
         scenarioId: context.scenarioId,
         invocationId: context.invocationId,
+        ...(context.action.ownerReceipt ? { attemptId: context.attemptId } : {}),
         runId: context.runId,
         identity: context.identityReference,
         stateDomains: context.action.stateDomains,

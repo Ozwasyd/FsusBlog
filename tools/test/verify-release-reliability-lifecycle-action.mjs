@@ -118,9 +118,16 @@ export function verifyDataScaleOwnerReceipt({
     receiptPath,
     identity,
     runId,
+    invocationId,
+    attemptId,
     expectedBytesDigest = null
 })
 {
+    if (![runId, invocationId, attemptId].every((value) =>
+        typeof value === 'string' && safeIdentifierPattern.test(value)))
+    {
+        throw new Error('data-scale owner receipt requires the current run, invocation, and attempt');
+    }
     const resolved = safeRelativePath(
         path.resolve(repositoryRoot),
         receiptPath,
@@ -153,31 +160,42 @@ export function verifyDataScaleOwnerReceipt({
             'backend',
             'buildReceiptDigest',
             'contentDigest',
+            'connections',
             'createdAt',
             'dataRoot',
             'dataScaleRunId',
             'envManifestDigest',
+            'fixtureIdentityDigest',
             'hotReadRoot',
             'imageDigest',
+            'invocationId',
+            'lifecycle',
             'namespace',
+            'network',
             'parentSchedulerRunId',
+            'permissionHelper',
             'postgres',
             'redis',
             'schema',
             'searchRoot',
             'seedReceiptDigest',
             'seedReceiptPath',
+            'seedSummary',
             'sourceCommit',
+            'attemptId',
             'worktreeFingerprint'
         ], 'data-scale runtime receipt');
-        if (document.schema !== 'fsusblog.data-scale-runtime.v1'
+        if (document.schema !== 'fsusblog.data-scale-runtime.v2'
             || Object.hasOwn(document, 'status')
             || document.parentSchedulerRunId !== runId
+            || document.invocationId !== invocationId
+            || document.attemptId !== attemptId
             || document.sourceCommit !== identity.sourceState.commit
             || document.worktreeFingerprint
                 !== identity.sourceState.worktreeFingerprint
             || document.buildReceiptDigest !== identity.build?.contentDigest
-            || document.imageDigest !== identity.build?.imageDigest)
+            || document.imageDigest !== identity.build?.imageDigest
+            || document.fixtureIdentityDigest !== digestValue(identity.fixture))
         {
             throw new Error('data-scale runtime receipt identity mismatch');
         }
@@ -185,6 +203,7 @@ export function verifyDataScaleOwnerReceipt({
             [document.buildReceiptDigest, 'build receipt'],
             [document.imageDigest, 'image'],
             [document.envManifestDigest, 'environment manifest'],
+            [document.fixtureIdentityDigest, 'fixture identity'],
             [document.seedReceiptDigest, 'seed receipt'],
             [document.worktreeFingerprint, 'worktree']
         ])
@@ -199,6 +218,10 @@ export function verifyDataScaleOwnerReceipt({
         {
             requireNonEmptyObject(value, label);
         }
+        requireNonEmptyObject(
+            document.connections,
+            'data-scale backend connection identity'
+        );
         requireExactItemKeys(document.postgres, [
             'containerId',
             'database',
@@ -216,14 +239,77 @@ export function verifyDataScaleOwnerReceipt({
             'pidOrContainerId',
             'startTicks'
         ], 'data-scale backend identity');
+        requireExactItemKeys(document.connections, [
+            'postgres',
+            'redis'
+        ], 'data-scale backend connection identity');
+        requireExactItemKeys(document.connections.postgres, [
+            'applicationName',
+            'backendAddress',
+            'database',
+            'foreignClientCount',
+            'matchingClientCount'
+        ], 'data-scale PostgreSQL connection identity');
+        requireExactItemKeys(document.connections.redis, [
+            'backendAddress',
+            'clientName',
+            'foreignClientCount',
+            'matchingClientCount'
+        ], 'data-scale Redis connection identity');
+        requireExactItemKeys(document.network, ['id', 'name'],
+            'data-scale network identity');
+        requireExactItemKeys(document.permissionHelper, ['name', 'postExists'],
+            'data-scale permission helper identity');
+        requireExactItemKeys(document.lifecycle, [
+            'postcondition',
+            'readiness',
+            'reset',
+            'start'
+        ], 'data-scale lifecycle state');
+        requireExactItemKeys(document.seedSummary, [
+            'declared',
+            'expected',
+            'namespace',
+            'observed',
+            'status',
+            'tier'
+        ], 'data-scale seed summary');
+        const expectedClientName =
+            `FsusBlogDataScale-${document.dataScaleRunId}`;
         if (!safeIdentifierPattern.test(String(document.dataScaleRunId ?? ''))
             || !safeIdentifierPattern.test(String(document.namespace ?? ''))
             || !/^[0-9a-f]{64}$/u.test(document.postgres.containerId)
             || !/^[0-9a-f]{64}$/u.test(document.redis.containerId)
             || !safeIdentifierPattern.test(String(document.postgres.volumeId ?? ''))
             || !safeIdentifierPattern.test(String(document.redis.volumeId ?? ''))
+            || !/^[0-9a-f]{64}$/u.test(String(document.network.id ?? ''))
+            || !safeIdentifierPattern.test(String(document.network.name ?? ''))
+            || !safeIdentifierPattern.test(
+                String(document.permissionHelper.name ?? '')
+            )
+            || document.permissionHelper.postExists !== false
             || typeof document.postgres.database !== 'string'
             || !document.postgres.database.trim()
+            || document.connections.postgres.applicationName
+                !== expectedClientName
+            || document.connections.redis.clientName !== expectedClientName
+            || document.connections.postgres.database
+                !== document.postgres.database
+            || document.connections.postgres.backendAddress
+                !== document.connections.redis.backendAddress
+            || !/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(
+                String(document.connections.postgres.backendAddress ?? '')
+            )
+            || !Number.isSafeInteger(
+                document.connections.postgres.matchingClientCount
+            )
+            || document.connections.postgres.matchingClientCount < 1
+            || document.connections.postgres.foreignClientCount !== 0
+            || !Number.isSafeInteger(
+                document.connections.redis.matchingClientCount
+            )
+            || document.connections.redis.matchingClientCount < 1
+            || document.connections.redis.foreignClientCount !== 0
             || !(/^[0-9a-f]{64}$/u.test(String(document.backend.pidOrContainerId))
                 || Number.isInteger(document.backend.pidOrContainerId)
                     && document.backend.pidOrContainerId > 1)
@@ -237,6 +323,23 @@ export function verifyDataScaleOwnerReceipt({
             ) && document.backend.executableOrImageDigest !== document.imageDigest))
         {
             throw new Error('data-scale runtime resource identity is incomplete');
+        }
+        if (document.lifecycle.start !== 'complete'
+            || document.lifecycle.reset !== 'complete'
+            || document.lifecycle.readiness !== 'complete'
+            || !['pending', 'complete'].includes(document.lifecycle.postcondition))
+        {
+            throw new Error('data-scale runtime lifecycle state is incomplete');
+        }
+        if (document.seedSummary.status !== 'ok'
+            || document.seedSummary.tier !== 'scale-m'
+            || document.seedSummary.namespace !== document.namespace
+            || document.seedSummary.declared?.articles !== 10000
+            || document.seedSummary.declared?.comments !== 100000
+            || document.seedSummary.observed?.articles !== 10000
+            || document.seedSummary.observed?.comments !== 100000)
+        {
+            throw new Error('data-scale seed summary does not bind scale-m');
         }
         for (const [value, label] of [
             [document.postgres.imageDigest, 'data-scale PostgreSQL image'],
@@ -290,21 +393,26 @@ export function verifyDataScaleOwnerReceipt({
             'contentDigest',
             'dataScaleRunId',
             'failures',
+            'invocationId',
             'leases',
             'parentSchedulerRunId',
             'ports',
             'resources',
             'roots',
             'runtimePlanDigest',
+            'runtimeReceiptDigest',
             'schema',
             'sourceCommit',
+            'attemptId',
             'startedAt',
             'status',
             'finishedAt'
         ], 'data-scale teardown receipt');
-        if (document.schema !== 'fsusblog.data-scale-teardown.v1'
+        if (document.schema !== 'fsusblog.data-scale-teardown.v2'
             || document.status !== 'complete'
             || document.parentSchedulerRunId !== runId
+            || document.invocationId !== invocationId
+            || document.attemptId !== attemptId
             || document.sourceCommit !== identity.sourceState.commit
             || !Array.isArray(document.failures)
             || document.failures.length !== 0)
@@ -312,6 +420,7 @@ export function verifyDataScaleOwnerReceipt({
             throw new Error('data-scale teardown receipt identity/status mismatch');
         }
         requireDigest(document.runtimePlanDigest, 'data-scale runtime plan');
+        requireDigest(document.runtimeReceiptDigest, 'data-scale runtime receipt');
         requireIsoTime(document.startedAt, 'data-scale teardown startedAt');
         requireIsoTime(document.finishedAt, 'data-scale teardown finishedAt');
         if (Date.parse(document.finishedAt) < Date.parse(document.startedAt))
@@ -535,7 +644,9 @@ export function verifyDataScaleTeardownRuntimeBinding({
         || runtimeReceipt.ownerReceipt?.dataScaleRunId
             !== teardownReceipt?.dataScaleRunId
         || operationBinding?.dataScaleRunId
-            !== teardownReceipt?.dataScaleRunId)
+            !== teardownReceipt?.dataScaleRunId
+        || runtimeReceipt?.ownerReceipt?.contentDigest
+            !== teardownReceipt?.runtimeReceiptDigest)
     {
         throw new Error('data-scale teardown targets another runtime owner');
     }
@@ -850,6 +961,7 @@ function verifyLifecycleOrOwner({
     action,
     scenario,
     invocationId,
+    attemptId,
     runId,
     scenarioId,
     identity,
@@ -887,6 +999,10 @@ function verifyLifecycleOrOwner({
     let ownerDocument = null;
     if (action.ownerReceipt)
     {
+        if (document.attemptId !== attemptId)
+        {
+            throw new Error('lifecycle adapter attempt differs from its original plan');
+        }
         if (!document.ownerReceipt
             || document.ownerReceipt.schema === action.expectedReceiptSchema)
         {
@@ -898,6 +1014,8 @@ function verifyLifecycleOrOwner({
             receiptPath: document.ownerReceipt.path,
             identity,
             runId,
+            invocationId,
+            attemptId,
             expectedBytesDigest: document.ownerReceipt.bytesDigest
         });
         if (owner.contentDigest !== document.ownerReceipt.contentDigest
@@ -926,6 +1044,7 @@ export function verifyLifecycleActionReceipt({
     action,
     scenario,
     invocationId,
+    attemptId,
     runId,
     identity,
     identityReference,
@@ -995,6 +1114,7 @@ export function verifyLifecycleActionReceipt({
             action,
             scenario,
             invocationId,
+            attemptId,
             runId,
             scenarioId: scenario.id,
             identity,
@@ -1009,6 +1129,7 @@ export function verifyLifecycleActionReceipt({
         stateDomains: action.stateDomains,
         bytesDigest,
         contentDigest: document.contentDigest ?? null,
+        ...(action.ownerReceipt ? { attemptId } : {}),
         finalObservation
     };
 }
@@ -1048,6 +1169,7 @@ function main()
         action,
         scenario,
         invocationId: options['invocation-id'],
+        attemptId: options['attempt-id'],
         runId: options['run-id'],
         identity,
         identityReference: {
