@@ -126,11 +126,15 @@ public static class CurrentSchemaControlShape
             StringComparer.Ordinal), owner: new SchemaOwnerModel("current-control", Version));
     }
 
-    /// <summary>Projects the same facts, including unique backing indexes, without admitting another provider.</summary>
+    /// <summary>Projects the same facts, including native constraint backing indexes, without granting execution.</summary>
     /// <param name="provider">The explicitly supported native provider.</param>
     /// <returns>The complete native column, constraint and backing-index descriptions.</returns>
     public static SchemaTableModel ProjectApplyJournal(SchemaProviderKind provider)
     {
+        if (provider is SchemaProviderKind.MySql or SchemaProviderKind.Sqlite)
+        {
+            return ProjectPortableApplyJournal(provider);
+        }
         if (provider != SchemaProviderKind.PostgreSql)
             throw new InvalidOperationException("current_schema_control_provider_unavailable");
         SchemaTableModel semantic = DescribeApplyJournal();
@@ -152,5 +156,38 @@ public static class CurrentSchemaControlShape
             [], "btree", null, false));
         return new(semantic.Name, columns, indexes.Keys, indexes, constraints,
             new SchemaOwnerModel("postgresql", "public." + semantic.Name));
+    }
+
+    private static SchemaTableModel ProjectPortableApplyJournal(SchemaProviderKind provider)
+    {
+        SchemaTableModel semantic = DescribeApplyJournal();
+        bool sqlite = provider == SchemaProviderKind.Sqlite;
+        string owner = sqlite ? "sqlite" : "mysql";
+        string location = sqlite ? "main." + semantic.Name : semantic.Name;
+        var columns = semantic.Columns.ToDictionary(static entry => entry.Key, entry => entry.Value with
+        {
+            PhysicalType = SchemaPhysicalTypeProjection.ToPhysical(provider, entry.Value.DataType, entry.Value.MaxLength),
+            // SQLite TEXT affinity does not impose the logical varchar length.
+            // DescribeApplyJournal retains all original logical bounds and identity.
+            MaxLength = sqlite ? null : entry.Value.MaxLength,
+            Collation = entry.Value.DataType == "string" ? sqlite ? "BINARY" : "utf8mb4_0900_bin" : "n/a",
+            Owner = new SchemaOwnerModel(owner, location + "." + entry.Key)
+        }, StringComparer.Ordinal);
+        var constraints = semantic.Constraints.Values.Select(value => !sqlite && value.Kind == "primary-key"
+            ? value with { Name = "PRIMARY" } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+        var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
+        int ordinal = 0;
+        // The sole declared primary key has four columns, so it is not SQLite's
+        // single INTEGER PRIMARY KEY rowid alias. In the original declaration order
+        // its primary key and two unique constraints each own an internal index.
+        foreach (SchemaConstraintModel constraint in constraints.Values.Where(static value => value.Kind is "primary-key" or "unique"))
+        {
+            ordinal++;
+            string name = sqlite ? $"sqlite_autoindex_{semantic.Name}_{ordinal}" : constraint.Name;
+            indexes.Add(name, new(name, true, constraint.Columns.Select(column => new SchemaIndexKeyModel(
+                column, "asc", "first", "default", sqlite ? "BINARY" : columns[column].DataType == "string" ? columns[column].Collation : "default")).ToArray(),
+                [], "btree", null, false));
+        }
+        return new(semantic.Name, columns, indexes.Keys, indexes, constraints, new SchemaOwnerModel(owner, location));
     }
 }

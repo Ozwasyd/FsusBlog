@@ -73,7 +73,7 @@ public static class CurrentSchemaCanonicalAuthority
 
     /// <summary>Projects the original complete owned facts without maintaining another field mapping.</summary>
     /// <param name="input">The complete original entity and recipe input, whose producer ownership is independently verified by the consumer.</param>
-    /// <param name="provider">The native provider; a recipe for another provider is not substituted.</param>
+    /// <param name="provider">The native provider; only explicitly projected neutral facts may cross the original recipe's provider boundary.</param>
     /// <returns>The relational target and the separate effects which native observers/apply postconditions must still verify.</returns>
     public static CurrentSchemaCompletePhysicalProjection ProjectOwnedTarget(CurrentSchemaBootstrapInput input, SchemaProviderKind provider)
     {
@@ -86,6 +86,10 @@ public static class CurrentSchemaCanonicalAuthority
         IReadOnlyList<CurrentSchemaRequiredRecipeReference> requiredRecipes, SchemaProviderKind provider)
     {
         CurrentSchemaIdentity target = CurrentSchemaOwnedTargetProjection.Observe(entityProjection, requiredRecipes);
+        if (provider is SchemaProviderKind.MySql or SchemaProviderKind.Sqlite)
+        {
+            return ProjectPortableOwnedTarget(entityProjection, requiredRecipes, target, provider);
+        }
         if (provider != SchemaProviderKind.PostgreSql || requiredRecipes.Any(reference => reference.Provider != provider))
         {
             throw new InvalidOperationException("current_schema_complete_target_provider_unavailable");
@@ -249,6 +253,196 @@ public static class CurrentSchemaCanonicalAuthority
     private static SchemaIndexModel ConstraintIndex(string name, IReadOnlyList<string> columns)
         => new(name, true, columns.Select(static column => new SchemaIndexKeyModel(column, "asc", "last", "default", "default")).ToArray(),
             [], "btree", null, false);
+
+    private static CurrentSchemaCompletePhysicalProjection ProjectPortableOwnedTarget(
+        CurrentSchemaProjection entityProjection, IReadOnlyList<CurrentSchemaRequiredRecipeReference> recipes,
+        CurrentSchemaIdentity target, SchemaProviderKind provider)
+    {
+        // Provider identifies the original recipe source, not permission to reuse
+        // that source's SQL on another engine. Only closed structural facts below
+        // have a portable projection; raw expressions and allocator/guard policies
+        // still require their original semantic owner, never a guessed replacement.
+        if (recipes.Any(static reference => reference.Provider != SchemaProviderKind.PostgreSql))
+        {
+            throw new InvalidOperationException("current_schema_complete_target_recipe_provider_unavailable");
+        }
+        var semantic = new Dictionary<string, SchemaTableModel>(entityProjection.Schema.Tables, StringComparer.Ordinal);
+        foreach (CurrentSchemaRequiredRecipeReference reference in recipes)
+        {
+            if (!semantic.TryAdd(reference.TableName, reference.SemanticDescription!.Table))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_table_overlap");
+            }
+        }
+        if (semantic.Any(static entry => entry.Key != entry.Value.Name))
+        {
+            throw new InvalidOperationException("current_schema_complete_target_relational_facts_invalid");
+        }
+        foreach (CurrentSchemaRecipeOperation effect in recipes.SelectMany(static reference => reference.SemanticDescription!.AdditionalOperations))
+        {
+            if (effect.Kind == CurrentSchemaRecipeOperationKind.CreateSequence)
+            {
+                _ = ProjectIndependentSequence(effect, provider);
+            }
+            if (effect.Sequence is not null)
+            {
+                throw new InvalidOperationException("current_schema_independent_sequence_unused_fact");
+            }
+            if (effect.Kind is CurrentSchemaRecipeOperationKind.DefineImmutableGuard
+                or CurrentSchemaRecipeOperationKind.RemoveTrigger or CurrentSchemaRecipeOperationKind.CreateImmutableTrigger)
+            {
+                throw new InvalidOperationException("current_schema_immutable_guard_provider_unavailable");
+            }
+            if (effect.Kind == CurrentSchemaRecipeOperationKind.InsertIfAbsent)
+            {
+                throw new InvalidOperationException("current_schema_complete_target_expression_provider_unavailable");
+            }
+            if (effect.Table is null || !semantic.TryGetValue(effect.Table, out SchemaTableModel? table))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_effect_table_missing");
+            }
+            var columns = new Dictionary<string, SchemaColumnModel>(table.Columns, StringComparer.Ordinal);
+            var indexes = new Dictionary<string, SchemaIndexModel>(table.IndexDefinitions, StringComparer.Ordinal);
+            var constraints = new Dictionary<string, SchemaConstraintModel>(table.Constraints, StringComparer.Ordinal);
+            switch (effect.Kind)
+            {
+                case CurrentSchemaRecipeOperationKind.CreateIndex:
+                    if (effect.Index is not { } index || index.Name != effect.Name || !indexes.TryAdd(index.Name, index)
+                        || effect != new CurrentSchemaRecipeOperation(effect.Kind, effect.Name, effect.Table, Index: index))
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
+                    }
+                    break;
+                case CurrentSchemaRecipeOperationKind.AddColumnIfAbsent:
+                    if (effect.Column is not { } column || column.Name != effect.Name
+                        || effect != new CurrentSchemaRecipeOperation(effect.Kind, effect.Name, effect.Table, Column: column))
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_column_invalid");
+                    }
+                    if (columns.TryGetValue(column.Name, out SchemaColumnModel? existing) && existing != column)
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_column_conflict");
+                    }
+                    columns[column.Name] = column;
+                    break;
+                case CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent:
+                    if (effect.Constraint is not { } constraint || constraint.Name != effect.Name
+                        || !constraints.TryAdd(constraint.Name, constraint)
+                        || effect != new CurrentSchemaRecipeOperation(effect.Kind, effect.Name, effect.Table, Constraint: constraint))
+                    {
+                        throw new InvalidOperationException("current_schema_complete_target_effect_constraint_conflict");
+                    }
+                    break;
+                default:
+                    throw new InvalidOperationException("current_schema_complete_target_effect_unknown");
+            }
+            semantic[table.Name] = new(table.Name, columns, indexes.Keys, indexes, constraints, table.Owner);
+        }
+        SchemaModelSnapshot physical = ProjectProvider(Create(semantic, target.SourceDigest), provider);
+        var tables = physical.Tables.ToDictionary(static entry => entry.Key,
+            entry => ProjectPortableRelationalFacts(semantic[entry.Key], entry.Value, provider), StringComparer.Ordinal);
+        SchemaTableModel control = CurrentSchemaControlShape.ProjectApplyJournal(provider);
+        if (!tables.TryAdd(control.Name, control))
+        {
+            throw new InvalidOperationException("current_schema_control_table_overlap");
+        }
+        return new(new SchemaModelSnapshot(tables, target, provider), [], []);
+    }
+
+    private static SchemaTableModel ProjectPortableRelationalFacts(
+        SchemaTableModel semantic, SchemaTableModel physical, SchemaProviderKind provider)
+    {
+        if (semantic.Name != physical.Name || !semantic.Indexes.SetEquals(semantic.IndexDefinitions.Keys)
+            || semantic.Constraints.Any(static entry => entry.Key != entry.Value.Name))
+        {
+            throw new InvalidOperationException("current_schema_complete_target_relational_facts_invalid");
+        }
+        var columns = new Dictionary<string, SchemaColumnModel>(physical.Columns, StringComparer.Ordinal);
+        foreach ((string name, SchemaColumnModel original) in semantic.Columns)
+        {
+            if (name != original.Name || original.IsIdentity || original.OwnedSequence is not null || original.GenerationKind != "none")
+            {
+                throw new InvalidOperationException("current_schema_complete_target_allocator_provider_unavailable");
+            }
+            if (original.DefaultValue is not null || original.ComputedExpression is not null)
+            {
+                throw new InvalidOperationException("current_schema_complete_target_expression_provider_unavailable");
+            }
+            if (provider == SchemaProviderKind.MySql && original.DataType == "string")
+            {
+                // Business text collation has no complete portable owner fact yet.
+                // The separately owned exact journal keys have their own projection.
+                throw new InvalidOperationException("current_schema_complete_target_text_collation_unavailable");
+            }
+            columns[name] = columns[name] with
+            {
+                MaxLength = provider == SchemaProviderKind.Sqlite ? null : original.MaxLength,
+                Collation = provider == SchemaProviderKind.Sqlite && original.DataType == "string" ? "BINARY" : columns[name].Collation
+            };
+        }
+        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
+        var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
+        int ordinal = 0;
+        foreach (SchemaConstraintModel constraint in semantic.Constraints.Values.OrderBy(static value => value.Name, StringComparer.Ordinal))
+        {
+            if (constraint.Kind is not ("primary-key" or "unique") || constraint.Expression is not null
+                || constraint.IsDeferrable || constraint.IsInitiallyDeferred || !constraint.IsValidated
+                || constraint.ReferencedTable is not null || constraint.ReferencedColumns is not null
+                || constraint.ReferencedSchema is not null || constraint.ForeignKeyUpdateAction is not null
+                || constraint.ForeignKeyDeleteAction is not null || constraint.ForeignKeyMatchType is not null
+                || constraint.Columns.Count == 0 || constraint.Columns.Distinct(StringComparer.Ordinal).Count() != constraint.Columns.Count
+                || constraint.Columns.Any(name => !columns.ContainsKey(name))
+                || constraints.Values.Any(value => value.Columns.SequenceEqual(constraint.Columns)))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
+            }
+            if (provider == SchemaProviderKind.Sqlite && constraint.Kind == "primary-key" && constraint.Columns.Count == 1
+                && columns[constraint.Columns[0]].PhysicalType == "INTEGER")
+            {
+                throw new InvalidOperationException("current_schema_complete_target_allocator_provider_unavailable");
+            }
+            string constraintName = provider == SchemaProviderKind.MySql && constraint.Kind == "primary-key" ? "PRIMARY" : constraint.Name;
+            constraints.Add(constraintName, constraint with { Name = constraintName });
+            ordinal++;
+            string indexName = provider == SchemaProviderKind.Sqlite ? $"sqlite_autoindex_{physical.Name}_{ordinal}" : constraintName;
+            indexes.Add(indexName, PortableIndex(new(indexName, true,
+                constraint.Columns.Select(static name => new SchemaIndexKeyModel(name, "asc", "first", "default", "default")).ToArray(),
+                [], "btree", null, false), columns, provider));
+        }
+        foreach ((string name, SchemaIndexModel index) in semantic.IndexDefinitions)
+        {
+            if (name != index.Name || !indexes.TryAdd(index.Name, PortableIndex(index, columns, provider)))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
+            }
+        }
+        return new(physical.Name, columns, indexes.Keys, indexes, constraints, physical.Owner);
+    }
+
+    private static SchemaIndexModel PortableIndex(SchemaIndexModel index, IReadOnlyDictionary<string, SchemaColumnModel> columns,
+        SchemaProviderKind provider)
+    {
+        if (index.Keys.Count == 0 || index.IncludedColumns.Count != 0 || index.AccessMethod != "btree"
+            || index.Predicate is not null || index.NullsNotDistinct)
+        {
+            throw new InvalidOperationException("current_schema_complete_target_index_provider_unavailable");
+        }
+        SchemaIndexKeyModel[] keys = index.Keys.Select(key =>
+        {
+            if (!columns.TryGetValue(key.Column, out SchemaColumnModel? column) || key.Direction is not ("asc" or "desc")
+                || key.NullPlacement is not ("first" or "last") || key.OperatorClass != "default" || key.Collation != "default")
+            {
+                throw new InvalidOperationException("current_schema_complete_target_index_provider_unavailable");
+            }
+            string nulls = key.Direction == "asc" ? "first" : "last";
+            if (column.IsNullable && key.NullPlacement != nulls)
+            {
+                throw new InvalidOperationException("current_schema_complete_target_index_null_placement_unavailable");
+            }
+            return key with { NullPlacement = nulls, Collation = provider == SchemaProviderKind.Sqlite ? "BINARY" : "default" };
+        }).ToArray();
+        return index with { Keys = keys };
+    }
 
     private static string ProjectStorageConversion(SchemaColumnModel column)
     {

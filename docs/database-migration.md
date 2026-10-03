@@ -230,6 +230,27 @@ is not a name-based exemption. Server observes
 schema facts only; journal JSON, history, sequence/parent seals, media states and
 resume remain the original Migration owners' responsibility.
 
+The same sole control facts now also have formal MySQL and SQLite projections:
+seven columns, four constraints and three constraint backing indexes. MySQL uses
+the native `PRIMARY` name and the exact `utf8mb4_0900_bin` collation already required
+by the original journal dialect's create/observe owner; this does not declare a
+new server-version baseline or admit an engine lacking that capability. SQLite's
+original four-column primary key is not an `INTEGER PRIMARY KEY` rowid alias:
+its three `sqlite_autoindex` names follow the sole constraint declaration order,
+with `BINARY` keys. SQLite physical `TEXT` has no length modifier, while the original
+semantic 64/160-character bounds and source/content identities remain intact.
+These descriptions grant neither control-table creation nor a business transaction.
+
+`ProjectOwnedTarget` can project closed neutral relational facts and typed added
+columns, constraints and indexes to MySQL/SQLite without copying entity mappings.
+Unsupported defaults/computed or check expressions, business text collation,
+allocators, independent sequence semantics, immutable-guard failure scope and
+dynamic seed expressions refuse instead of returning a partial current target.
+In particular the actual current recipes still require missing non-PG semantics;
+the structural projection does not make either complete current bootstrap runnable.
+Native DDL/observation, original producer execution, compiled operation registration
+and all three-provider acceptance remain pending. No producer output is hand-edited.
+
 This closure changes the current model to `fsusblog.current-schema.v3` and the
 projection generator to `fsusblog.current-schema-projection.v3`; the reflection
 extractor version remains v2. Both composite source/content identities include
