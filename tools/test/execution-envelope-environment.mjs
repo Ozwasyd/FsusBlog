@@ -7,6 +7,7 @@ import process from 'node:process';
 const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 export const executionEnvelopeEnvironmentSchema =
     'fsusblog.test-execution-envelope-environment.v1';
+export const managedPreparationPurposes = Object.freeze(['executable-version', 'landlock-helper-build']);
 const environmentNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const sensitiveNamePattern = /(?:AUTH|COOKIE|CREDENTIAL|KEY|PASSWORD|SECRET|TOKEN)/iu;
 const fixedEnvironment = Object.freeze({
@@ -131,7 +132,7 @@ export async function executeManagedPreparation(request, {
     {
         throw new Error('execution preparation requires an actual held-managed execution and owner assertion');
     }
-    if (!['executable-version', 'landlock-helper-build'].includes(request?.purpose)
+    if (!managedPreparationPurposes.includes(request?.purpose)
         || !Array.isArray(request.command) || request.command.length === 0
         || request.command.some((part) => typeof part !== 'string' || part.includes('\0'))
         || typeof request.cwd !== 'string' || !path.isAbsolute(request.cwd)
