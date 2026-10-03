@@ -103,13 +103,19 @@ function validateDigest(value, field)
     return normalized;
 }
 
-function validateEpoch(value)
+/** Validate the existing RFC3339 UTC ingress without rounding millisecond precision. */
+export function validateBusinessEpochUtc(value)
 {
     const epoch = requiredText(value, 'businessEpochUtc');
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/u.test(epoch)
       || !Number.isFinite(Date.parse(epoch)))
     {
         fail('temporal.context-invalid', 'businessEpochUtc must be an RFC3339 UTC instant');
+    }
+    const fraction = epoch.match(/\.(\d+)Z$/u)?.[1] ?? '';
+    if (fraction.length > 3 && /[1-9]/u.test(fraction.slice(3)))
+    {
+        fail('temporal.precision-loss', 'business epoch exceeds exact millisecond precision');
     }
     return epoch;
 }
@@ -244,7 +250,7 @@ export function createTemporalContract(authority = {})
             fail('temporal.context-invalid', 'producerId is invalid');
         }
         normalized.schedulerRunId = requiredText(normalized.schedulerRunId, 'schedulerRunId');
-        normalized.businessEpochUtc = validateEpoch(normalized.businessEpochUtc);
+        normalized.businessEpochUtc = validateBusinessEpochUtc(normalized.businessEpochUtc);
         exactEnum(normalized.businessClockMode, ['fixed', 'manually-advanced'], 'businessClockMode');
         exactEnum(normalized.businessClockStepPolicy, ['none', 'explicit-only'], 'businessClockStepPolicy');
         exactEnum(normalized.monotonicClockSource, policy.qualificationDefaults.monotonicClockSource === 'performance-now'

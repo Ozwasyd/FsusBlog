@@ -361,6 +361,88 @@ test('business wall clock advances explicitly without freezing monotonic measure
     );
 });
 
+test('business epoch ingress rejects nonzero submillisecond digits before clock construction', () =>
+{
+    for (const businessEpochUtc of [
+        '2024-02-29T23:59:59.0001Z',
+        '2024-02-29T23:59:59.1234567Z',
+        '2024-02-29T23:59:59.0000001Z'
+    ])
+    {
+        assert.match(businessEpochUtc, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,7}Z$/u);
+        assert.ok(Number.isFinite(Date.parse(businessEpochUtc)));
+        assert.throws(
+            () => qualificationTemporalContext({ ...identity, businessEpochUtc }),
+            (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.precision-loss'
+        );
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            assert.throws(() => project({ businessEpochUtc, articleCount: 1, commentCount: 1 }),
+                (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.precision-loss');
+        }
+    }
+});
+
+test('business clock formats its actual instant with every original lossless RFC3339 shape', () =>
+{
+    for (const [businessEpochUtc, advancedEpochUtc] of [
+        ['2024-02-29T23:59:59Z', '2024-02-29T23:59:59.001Z'],
+        ['2024-02-29T23:59:59.1Z', '2024-02-29T23:59:59.101Z'],
+        ['2024-02-29T23:59:59.12Z', '2024-02-29T23:59:59.121Z'],
+        ['2024-02-29T23:59:59.123Z', '2024-02-29T23:59:59.124Z'],
+        ['2024-02-29T23:59:59.1230Z', '2024-02-29T23:59:59.1240Z'],
+        ['2024-02-29T23:59:59.12300Z', '2024-02-29T23:59:59.12400Z'],
+        ['2024-02-29T23:59:59.123000Z', '2024-02-29T23:59:59.124000Z'],
+        ['2024-02-29T23:59:59.1230000Z', '2024-02-29T23:59:59.1240000Z']
+    ])
+    {
+        const context = qualificationTemporalContext({ ...identity, businessEpochUtc });
+        const wall = createBusinessWallClock(context);
+        assert.equal(wall.nowMs(), Date.parse(businessEpochUtc));
+        assert.equal(wall.nowIso(), businessEpochUtc);
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            const projected = project({ businessEpochUtc: wall.nowIso(), articleCount: 1, commentCount: 1 });
+            assert.equal(projected.businessEpochUtc, businessEpochUtc);
+            assert.equal(Date.parse(projected.businessEpochUtc), wall.nowMs());
+        }
+        const plan = createTemporalPlan(context);
+        const actual = createTemporalActual(context, { businessEpochUtc: wall.nowIso(), nodeTimezone: 'UTC' });
+        const receipt = createTemporalReceipt({ plan, actual, outcome: { actualEpoch: wall.nowIso() },
+            generatedAt: '2026-10-03T00:00:00.000Z' });
+        assert.equal(verifyTemporalReplay({ plan, actual, receipt }).reasonCode, 'temporal.ok');
+
+        assert.equal(wall.advanceMs(1), advancedEpochUtc);
+        assert.equal(wall.nowMs(), Date.parse(businessEpochUtc) + 1);
+        assert.equal(wall.nowIso(), advancedEpochUtc);
+        assert.notEqual(wall.nowIso(), businessEpochUtc);
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            const projected = project({ businessEpochUtc: wall.nowIso(), articleCount: 1, commentCount: 1 });
+            assert.equal(projected.businessEpochUtc, advancedEpochUtc);
+            assert.equal(Date.parse(projected.businessEpochUtc), wall.nowMs());
+        }
+        assert.throws(
+            () => createTemporalActual(context, { businessEpochUtc: wall.nowIso() }),
+            (error) => error.reasonCode === 'temporal.actual-context-mismatch'
+        );
+    }
+});
+
+test('fractional and overflowing business clock advances cannot alter the admitted instant', () =>
+{
+    const context = qualificationTemporalContext(identity);
+    const wall = createBusinessWallClock(context);
+    const originalInstant = wall.nowMs();
+    for (const deltaMs of [0.1, Number.MAX_SAFE_INTEGER])
+    {
+        assert.throws(() => wall.advanceMs(deltaMs),
+            (error) => error.reasonCode === 'temporal.context-invalid');
+        assert.equal(wall.nowMs(), originalInstant);
+        assert.equal(wall.nowIso(), identity.businessEpochUtc);
+    }
+});
+
 test('data-scale projection is stable under fixed business epoch and changes when epoch changes', () =>
 {
     const first = projectDataScaleBusinessOutcome({

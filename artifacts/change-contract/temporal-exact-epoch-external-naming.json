@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Testing/TestTemporalRuntimeContext.cs",
+                "tools/test/temporal-context-contract.mjs",
+                "tools/test/temporal-context.mjs"
+            ],
+            "reason": "Preserve the original temporal process environment, RFC3339 context and receipt field names while rejecting millisecond precision loss and reporting the actual injected clock instant."
+        }
+    ]
+}
