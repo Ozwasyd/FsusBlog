@@ -310,7 +310,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
             cancellationToken);
         AuthoringLifecycleReceipt cursor = updating;
         cancellationToken.ThrowIfCancellationRequested();
-        await stateStore.BackupAsync(plan, cancellationToken);
+        await InvokeFrozenStateOperationAsync(plan, stateStore.BackupAsync, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         bool oldResourcesRevoked = false;
         bool newResourcesActivated = false;
@@ -336,7 +336,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 null,
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            await stateStore.ApplyAsync(plan, cancellationToken);
+            await InvokeFrozenStateOperationAsync(plan, stateStore.ApplyAsync, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (!await preflight.VerifyAsync(newPackage, newTargets, cancellationToken))
             {
@@ -390,7 +390,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 newResourcesSettled = newRemaining.IsEmpty;
             }
 
-            await stateStore.RollbackAsync(plan, CancellationToken.None);
+            await InvokeFrozenStateOperationAsync(plan, stateStore.RollbackAsync, CancellationToken.None);
             AuthoringLifecycleReceipt rollback = await RecordAsync(
                 oldPackage,
                 cursor,
@@ -654,6 +654,27 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         }
         cancellationToken.ThrowIfCancellationRequested();
         return plan with { Transforms = transforms.MoveToImmutable() };
+    }
+
+    private static async ValueTask InvokeFrozenStateOperationAsync(
+        AuthoringStateMigrationPlan snapshot,
+        Func<AuthoringStateMigrationPlan, CancellationToken, ValueTask> operation,
+        CancellationToken cancellationToken)
+    {
+        AuthoringStateMigrationPlan carrier = FreezeMigrationPlan(snapshot, cancellationToken);
+        RequireFrozenIdentity();
+        await operation(carrier, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        RequireFrozenIdentity();
+
+        void RequireFrozenIdentity()
+        {
+            if (!string.Equals(snapshot.ContentSha256,
+                    ComputeMigrationPlanSha256(carrier, cancellationToken), StringComparison.Ordinal))
+            {
+                throw new AuthoringExtensionContractException("State operation changed the frozen migration payload.");
+            }
+        }
     }
 
     private static void ValidateMigrationPayloadWork(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)

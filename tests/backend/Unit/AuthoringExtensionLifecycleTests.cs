@@ -485,16 +485,20 @@ public sealed class AuthoringExtensionLifecycleTests
         Assert.Equal("changed-after-admission", callerTransforms[0].SourceKey);
         AuthoringStateMigrationPlan snapshot = Assert.IsType<AuthoringStateMigrationPlan>(state.BackupPlan);
         Assert.NotSame(callerPlan, snapshot);
-        Assert.Same(snapshot, state.AppliedPlan);
+        AuthoringStateMigrationPlan applied = Assert.IsType<AuthoringStateMigrationPlan>(state.AppliedPlan);
+        Assert.NotSame(snapshot, applied);
         Assert.Equal("new", snapshot.Transforms[0].SourceKey);
         Assert.Equal(new byte[] { 1, 2 }, snapshot.Transforms[0].DefaultValue.ToArray());
         Assert.NotSame(callerBytes,
             System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsArray(snapshot.Transforms[0].DefaultValue));
         Assert.Equal(callerPlan.ContentSha256,
             AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(snapshot));
+        Assert.Equal(callerPlan.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(applied));
         if (failApply)
         {
-            Assert.Same(snapshot, state.RolledBackPlan);
+            Assert.Equal(callerPlan.ContentSha256,
+                AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(state.RolledBackPlan!));
             Assert.False(state.RollbackToken.CanBeCanceled);
         }
         else
@@ -682,6 +686,82 @@ public sealed class AuthoringExtensionLifecycleTests
                 return ValueTask.CompletedTask;
             }
         }
+    }
+
+    [Theory]
+    [InlineData("backup")]
+    [InlineData("apply")]
+    public async Task UpdateAsync_StateCallbackCannotChangeTheRetainedRecoveryPayload(string stage)
+    {
+        void ChangeCarrier(AuthoringStateMigrationPlan carrier)
+        {
+            byte[] bytes = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsArray(carrier.Transforms[0].DefaultValue)!;
+            bytes[0] = 9;
+        }
+        var state = new StateStore
+        {
+            BeforeBackup = stage == "backup" ? ChangeCarrier : null,
+            BeforeApply = stage == "apply" ? ChangeCarrier : null
+        };
+        LifecycleFixture fixture = CreateFixture(stateStore: state);
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan plan = SealPlan(CreatePlan(fixture.Package, next) with
+        {
+            Transforms = [new(AuthoringStateTransformKind.SetDefault, "new", null, [1, 2])]
+        });
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), plan));
+        Assert.Equal(0, fixture.Resources.ActivationCount);
+        Assert.Equal(new byte[] { 1, 2 }, plan.Transforms[0].DefaultValue.ToArray());
+        if (stage == "backup")
+        {
+            Assert.Null(state.AppliedPlan);
+        }
+        else
+        {
+            Assert.Equal(new byte[] { 1, 2 }, state.RolledBackPlan!.Transforms[0].DefaultValue.ToArray());
+            Assert.Equal(plan.ContentSha256,
+                AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(state.RolledBackPlan));
+            Assert.False(state.RollbackToken.CanBeCanceled);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UpdateAsync_RetainedPriorCarrierCannotChangeApplyOrRollback(bool failApply)
+    {
+        StateStore? state = null;
+        state = new StateStore
+        {
+            FailMigration = failApply,
+            BeforeApply = _ =>
+                System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsArray(state!.BackupPlan!.Transforms[0].DefaultValue)![0] = 9
+        };
+        LifecycleFixture fixture = CreateFixture(stateStore: state);
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan plan = SealPlan(CreatePlan(fixture.Package, next) with
+        {
+            Transforms = [new(AuthoringStateTransformKind.SetDefault, "new", null, [1, 2])]
+        });
+
+        if (failApply)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), plan));
+            Assert.Equal(new byte[] { 1, 2 }, state.RolledBackPlan!.Transforms[0].DefaultValue.ToArray());
+        }
+        else
+        {
+            AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+                fixture.Package, next, CreateTargets(next), plan);
+            Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+        }
+        Assert.Equal(9, state.BackupPlan!.Transforms[0].DefaultValue[0]);
+        Assert.Equal(new byte[] { 1, 2 }, state.AppliedPlan!.Transforms[0].DefaultValue.ToArray());
+        Assert.Equal(plan.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(state.AppliedPlan));
     }
 
     [Fact]
@@ -1339,6 +1419,8 @@ public sealed class AuthoringExtensionLifecycleTests
     {
         public Action<AuthoringStateMigrationPlan>? BeforeBackup { get; init; }
 
+        public Action<AuthoringStateMigrationPlan>? BeforeApply { get; init; }
+
         public AuthoringStateMigrationPlan? BackupPlan { get; private set; }
 
         public AuthoringStateMigrationPlan? AppliedPlan { get; private set; }
@@ -1394,6 +1476,7 @@ public sealed class AuthoringExtensionLifecycleTests
         public ValueTask ApplyAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
             AppliedPlan = plan;
+            BeforeApply?.Invoke(plan);
             Trace?.Add("apply");
             if (FailMigration)
             {

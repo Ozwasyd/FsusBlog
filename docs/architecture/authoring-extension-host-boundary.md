@@ -274,8 +274,11 @@ work; framing metadata is not state/default data charged to `MaximumBytes`. The
 identity producer may encode bounded but unauthorized values; only the coordinator
 applies the independent scope and numeric admission checks. Before its first
 asynchronous operation, the coordinator privately copies the transform array and
-all default bytes, validates that actual snapshot and passes only that same plan
-to backup, apply and rollback. One linked caller/`MaximumDuration` deadline covers
+all default bytes and validates that actual snapshot. That retained snapshot never
+escapes to the state-store callbacks: backup, apply and rollback each receive a
+fresh deep-copy carrier of the same frozen payload, checked against the retained
+digest before and after the actual call. A carrier cannot mutate a later operation
+or the recovery payload through `ImmutableArray` backing-array access. One linked caller/`MaximumDuration` deadline covers
 copy, digest work and forward migration calls; rollback/resource cleanup retains
 its existing uncancelled recovery contract. Failure does not enable the new version.
 
