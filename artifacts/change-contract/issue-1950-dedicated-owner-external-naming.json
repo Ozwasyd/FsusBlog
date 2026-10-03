@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs"
+            ],
+            "reason": "Preserve the registered release runtime environment interface and pass the original lifecycle plan's expected attempt through its existing admitted action boundary; receipt validation must not infer attempt authority from artifact fields."
+        }
+    ]
+}
