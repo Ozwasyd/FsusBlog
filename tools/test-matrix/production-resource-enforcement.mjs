@@ -1,11 +1,48 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { isDeepStrictEqual } from 'node:util';
 
 export const resourceEnforcementSchema = 'fsusblog.production.resource-enforcement.v1';
 const controllers = ['cpu', 'memory', 'pids'];
 const bytesPerGiB = 1024 ** 3;
+let observedMemoryPageBytes;
+
+function memoryPageBytes(machine)
+{
+    let value = machine.memoryPageBytes;
+    if (value === undefined)
+    {
+        if (observedMemoryPageBytes === undefined)
+        {
+            if (process.platform === 'linux')
+            {
+                const result = spawnSync('getconf', ['PAGESIZE'], {
+                    encoding: 'utf8', shell: false, timeout: 5000, maxBuffer: 1024
+                });
+                if (result.error || result.status !== 0 || !/^\d+\s*$/u.test(result.stdout ?? ''))
+                {
+                    throw new Error('Linux memory page size is unavailable for exact cgroup limits');
+                }
+                observedMemoryPageBytes = Number(result.stdout.trim());
+            }
+            else
+            {
+                // A non-Linux projection is advisory; it does not attest kernel enforcement.
+                observedMemoryPageBytes = 1;
+            }
+        }
+        value = observedMemoryPageBytes;
+    }
+    if (!Number.isSafeInteger(value) || value <= 0 || value > 16 * 1024 ** 2 || (value & (value - 1)) !== 0)
+    {
+        throw new Error('memory page size must be an exact supported power of two');
+    }
+    return value;
+}
+
 
 function exceedsFloatingPointEnvelope(value, envelope)
 {
@@ -121,6 +158,7 @@ function enableControllers(directory)
 
 export function resolveCgroupLimits(grant, machine)
 {
+    const pageBytes = memoryPageBytes(machine);
     const cpuUnits = Number(grant.cpuUnits);
     const memoryGiB = Number(grant.memoryGiB);
     const machineCpu = Math.max(1, Number(machine.cpuUnits ?? machine.cpuCount) || os.availableParallelism?.() || 1);
@@ -140,16 +178,17 @@ export function resolveCgroupLimits(grant, machine)
         throw new Error(`cgroup memory grant ${memoryGiB} GiB exceeds machine envelope ${machineMemoryGiB} GiB`);
     }
     const periodUs = Math.max(10_000, Math.min(1_000_000, Math.round(100_000 * Math.sqrt(machineCpu) / Math.sqrt(cpuUnits))));
-    const quotaUs = Math.max(1_000, Math.round(periodUs * cpuUnits));
-    const memoryHighBytes = Math.max(16 * 1024 ** 2, requestedMemoryBytes);
+    const quotaUs = Math.max(1_000, Math.floor(periodUs * cpuUnits));
+    const memoryHighBytes = Math.max(16 * 1024 ** 2, Math.floor(requestedMemoryBytes / pageBytes) * pageBytes);
     const headroomBytes = Math.max(64 * 1024 ** 2, Math.round(memoryHighBytes / Math.sqrt(machineCpu * 16)));
-    const memoryMaxBytes = Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes);
+    const memoryMaxBytes = Math.floor(Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes) / pageBytes) * pageBytes;
     const cpuWeight = Math.max(1, Math.min(10_000, Math.round(10_000 * cpuUnits / machineCpu)));
     const pidsMax = Math.max(64, Math.min(8192,
         Math.ceil(Math.max(cpuUnits * 128, memoryGiB * 64))));
     return {
         cpuUnits,
         memoryGiB,
+        memoryPageBytes: pageBytes,
         cpuWeight,
         cpuMax: `${quotaUs} ${periodUs}`,
         cpuMaxPolicy: 'hard-grant-ceiling',
@@ -160,6 +199,76 @@ export function resolveCgroupLimits(grant, machine)
         cpuset: null,
         cpusetStatus: 'disabled-topology-and-numa-not-proven'
     };
+}
+
+function containerReservationLimits(value)
+{
+    const keys = ['cpuUnits', 'memoryHighBytes', 'memoryMaxBytes', 'pidsMax'];
+    if (!value || !isDeepStrictEqual(Object.keys(value).sort(), keys.sort())
+        || typeof value.cpuUnits !== 'number' || value.cpuUnits <= 0 || !Number.isSafeInteger(value.cpuUnits * 1e9)
+        || keys.slice(1).some((key) => !Number.isSafeInteger(value[key]) || value[key] <= 0)
+        || value.memoryHighBytes > value.memoryMaxBytes)
+    {
+        throw new Error('container reservation requires exact positive CPU/memory/pids limits');
+    }
+    return { ...value };
+}
+
+/** Partition one scheduler grant between the process slice and external containers. */
+export function partitionContainerResourceGrant(grant, reservations, machine)
+{
+    if (!Array.isArray(reservations))
+    {
+        throw new Error('container reservations must be an explicit list');
+    }
+    const total = resolveCgroupLimits(grant, machine);
+    const reserved = { cpuUnits: 0, memoryHighBytes: 0, memoryMaxBytes: 0, pidsMax: 0 };
+    let nanoCpus = 0;
+    for (const reservation of reservations)
+    {
+        const limits = containerReservationLimits(reservation);
+        if (limits.memoryHighBytes % total.memoryPageBytes !== 0 || limits.memoryMaxBytes % total.memoryPageBytes !== 0)
+        {
+            throw new Error('container memory reservations must match the cgroup page granularity');
+        }
+        nanoCpus += limits.cpuUnits * 1e9;
+        for (const key of ['memoryHighBytes', 'memoryMaxBytes', 'pidsMax'])
+        {
+            reserved[key] += limits[key];
+            if (!Number.isSafeInteger(reserved[key]))
+            {
+                throw new Error('container reservation sum is not exactly representable');
+            }
+        }
+    }
+    if (!Number.isSafeInteger(nanoCpus))
+    {
+        throw new Error('container CPU reservation sum is not exactly representable');
+    }
+    reserved.cpuUnits = nanoCpus / 1e9;
+    if (reservations.length === 0)
+    {
+        return { total, process: { ...total }, reserved };
+    }
+    const cpuUnits = total.cpuUnits - reserved.cpuUnits;
+    const memoryMaxBytes = total.memoryMaxBytes - reserved.memoryMaxBytes;
+    // A container may reserve more hard-limit headroom than soft-limit memory.
+    // Constrain the process high watermark to its remaining hard ceiling; never
+    // synthesize extra memory merely to preserve exact soft-limit subtraction.
+    const memoryHighBytes = Math.min(total.memoryHighBytes - reserved.memoryHighBytes, memoryMaxBytes);
+    const pidsMax = total.pidsMax - reserved.pidsMax;
+    const period = Number(total.cpuMax.split(' ')[1]);
+    const quota = Math.floor(cpuUnits * period);
+    if (cpuUnits <= 0 || quota < 1000 || memoryHighBytes < 16 * 1024 ** 2
+        || memoryMaxBytes < memoryHighBytes || pidsMax < 1)
+    {
+        throw new Error('container reservations leave no valid process share inside the bundle grant');
+    }
+    const processLimits = resolveCgroupLimits({ cpuUnits: quota / period, memoryGiB: memoryHighBytes / bytesPerGiB }, machine);
+    return { total, reserved, process: {
+        ...processLimits, cpuMax: `${quota} ${period}`, memoryHighBytes, memoryMaxBytes,
+        memoryHeadroomBytes: memoryMaxBytes - memoryHighBytes, pidsMax
+    } };
 }
 
 function sampleCgroup(directory)

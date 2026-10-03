@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
     createProductionResourceEnforcer,
     dockerResourceArguments,
+    partitionContainerResourceGrant,
     resolveCgroupLimits,
     resolveProductionCgroupCapabilities
 } from '../../tools/test-matrix/production-resource-enforcement.mjs';
@@ -108,6 +109,11 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
     };
     assert.equal(ratio(one), 1);
     assert.equal(ratio(four), 4);
+    for (const cpuUnits of [0.123456, 0.333333, 0.666667, 1.23456789, 2.7182818])
+    {
+        const fractional = resolveCgroupLimits({ cpuUnits, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 });
+        assert.ok(ratio(fractional) <= cpuUnits, 'quota quantization must not enlarge the CPU grant');
+    }
     assert.ok(one.cpuWeight < four.cpuWeight);
     assert.ok(one.memoryMaxBytes > one.memoryHighBytes);
     assert.equal(one.cpuset, null);
@@ -116,7 +122,7 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
             { cpuUnits: 8 + Number.EPSILON * 8, memoryGiB: roundedSameMemoryGrantGiB },
             { cpuUnits: 8, memoryGiB: machineMemoryGiB }
         ).memoryHighBytes,
-        Math.round(machineMemoryGiB * 1024 ** 3)
+        Math.floor(Math.round(machineMemoryGiB * 1024 ** 3) / one.memoryPageBytes) * one.memoryPageBytes
     );
     assert.throws(
         () => resolveCgroupLimits({ cpuUnits: 9, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 }),
@@ -712,4 +718,66 @@ test('scheduler MySQL recovery completion rejects incomplete durable cleanup and
     duplicate.push(structuredClone(duplicate[0]));
     assert.throws(() => assertRetainedMySqlFixtureRecoveryComplete({ allocations: { ...fixture.allocations, second: fixture.record }, records: duplicate }), /invalid cleanup proof/u);
     assertRetainedMySqlFixtureRecoveryComplete({ allocations: undefined, records: [] });
+});
+
+test('container partition conserves one CPU, memory and PID envelope and rejects oversold shares', () =>
+{
+    const machine = { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: 4096 };
+    const grant = { cpuUnits: 4, memoryGiB: 4 };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const allocation = partitionContainerResourceGrant(grant, [limits, limits], machine);
+    assert.equal(allocation.process.cpuUnits, 2);
+    for (const key of ['memoryMaxBytes', 'pidsMax'])
+    {
+        assert.equal(allocation.process[key] + allocation.reserved[key], allocation.total[key], key);
+    }
+    assert.ok(allocation.process.memoryHighBytes + allocation.reserved.memoryHighBytes
+        <= allocation.total.memoryHighBytes);
+    assert.ok(allocation.process.memoryHighBytes <= allocation.process.memoryMaxBytes);
+    const asymmetric = partitionContainerResourceGrant({ cpuUnits: 2, memoryGiB: 2.43 }, [{
+        cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 1024 * 1024 ** 2, pidsMax: 128
+    }], machine);
+    assert.equal(asymmetric.process.memoryHighBytes, asymmetric.process.memoryMaxBytes);
+    assert.ok(asymmetric.process.memoryHighBytes + asymmetric.reserved.memoryHighBytes
+        < asymmetric.total.memoryHighBytes);
+    assert.equal(asymmetric.process.memoryMaxBytes + asymmetric.reserved.memoryMaxBytes,
+        asymmetric.total.memoryMaxBytes);
+    assert.deepEqual(partitionContainerResourceGrant(grant, [], machine).process, resolveCgroupLimits(grant, machine));
+    for (const invalid of [{ ...limits, cpuUnits: 4 }, { ...limits, memoryMaxBytes: 5 * 1024 ** 3 },
+        { ...limits, memoryHighBytes: limits.memoryHighBytes - 1 }, { ...limits, pidsMax: 8192 },
+        { ...limits, extra: true }])
+    {
+        assert.throws(() => partitionContainerResourceGrant(grant, [invalid], machine));
+    }
+});
+
+test('memory grants project downward to the kernel page size without enlarging the admitted envelope', () =>
+{
+    for (const pageBytes of [4096, 16384, 65536])
+    {
+        const machine = { cpuUnits: 8, memoryGiB: 16.000001, memoryPageBytes: pageBytes };
+        for (const memoryGiB of [2.000001, machine.memoryGiB])
+        {
+            const limits = resolveCgroupLimits({ cpuUnits: 2, memoryGiB }, machine);
+            assert.equal(limits.memoryPageBytes, pageBytes);
+            assert.equal(limits.memoryHighBytes % pageBytes, 0);
+            assert.equal(limits.memoryMaxBytes % pageBytes, 0);
+            assert.ok(limits.memoryHighBytes <= memoryGiB * 1024 ** 3);
+            assert.ok(limits.memoryMaxBytes <= machine.memoryGiB * 1024 ** 3);
+            assert.ok(limits.memoryHighBytes <= limits.memoryMaxBytes);
+        }
+    }
+    const exact = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2 }, {
+        cpuUnits: 8, memoryGiB: 16, memoryPageBytes: 4096
+    });
+    assert.equal(exact.memoryHighBytes, 2147483648);
+    assert.equal(exact.memoryMaxBytes, 2337292288);
+    for (const pageBytes of [0, -1, 1000, NaN, '4096', 2 ** 25])
+    {
+        assert.throws(() => resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2 }, {
+            cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes
+        }), /page size/u);
+    }
 });
