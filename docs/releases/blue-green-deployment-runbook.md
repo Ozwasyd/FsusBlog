@@ -73,6 +73,14 @@ owned native execution cannot substitute for this verification. Missing evidence
 is not ready and must block release qualification. Source registration and these
 operations requirements do not assert that the native producer has run.
 
+The v2 release authority bundle and fact projection retain a closed pure helper
+boundary: `node:crypto` and `node:path` are the only permitted builtins. The
+bundle uses only `path.posix.normalize` on explicit receipt/output strings; it
+does not resolve paths against an ambient working directory or platform, inspect
+files, start processes, dynamically load modules or depend on external packages.
+The original I/O owner must bind the actual bytes and native execution separately.
+This lexical reference check is not filesystem identity or native qualification.
+
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.blue-green-contract
 behaviorId: deployment-blue-green-runtime-role

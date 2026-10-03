@@ -404,19 +404,41 @@ test('canonical authority value verifier imports only pure fixed validators and 
   assert.throws(() => verifyCanonicalReleaseAuthorityValues({ candidatePlan: {}, repositoryRoot: root }), /explicit JSON\/byte readers/u)
 })
 
-test('pure release authority helpers have a crypto-only transitive import closure', async () =>
+function pureReleaseAuthorityDependencies(source)
+{
+  assert.doesNotMatch(source, /\b(?:process|require)\s*(?:\.|\()/u)
+  assert.doesNotMatch(source, /\bimport\s*\(/u)
+  const dependencies = [...source.matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/gu)].map(match => match[1])
+  for (const dependency of dependencies)
+    assert.ok(['node:crypto', 'node:path'].includes(dependency) || dependency.startsWith('.'), `non-pure import: ${dependency}`)
+  if (dependencies.includes('node:path'))
+  {
+    // The v2 bundle uses only explicit-string POSIX normalization. No cwd,
+    // platform selection, filesystem access or path-library reimplementation.
+    assert.match(source, /\bimport\s+path\s+from\s*['"]node:path['"]/u)
+    const withoutLexicalCalls = source.replaceAll(/(?<![\w$.])path\s*\.\s*posix\s*\.\s*normalize\s*\(/gu, '(')
+    assert.doesNotMatch(withoutLexicalCalls, /(?<![\w$.])path\s*(?:\.|\[|\?\.)/u)
+    assert.doesNotMatch(source, /=\s*path\b(?!\s*\.\s*posix\s*\.\s*normalize\s*\()/u)
+  }
+  return dependencies
+}
+
+test('pure release authority helpers have an explicit crypto and lexical-path transitive import closure', async () =>
 {
   const seen = new Set()
+  const builtins = new Set()
   const visit = async (file) => {
     if (seen.has(file)) return
     seen.add(file)
     const source = fs.readFileSync(file, 'utf8')
-    assert.doesNotMatch(source, /\b(?:process|require)\s*(?:\.|\()/u)
-    assert.doesNotMatch(source, /\bimport\s*\(/u)
-    const dependencies = [...source.matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/gu)].map(match => match[1])
+    const dependencies = pureReleaseAuthorityDependencies(source)
     for (const dependency of dependencies)
     {
-      if (dependency === 'node:crypto') continue
+      if (['node:crypto', 'node:path'].includes(dependency))
+      {
+        builtins.add(dependency)
+        continue
+      }
       assert.ok(dependency.startsWith('.'), `non-pure import: ${dependency}`)
       await visit(path.resolve(path.dirname(file), dependency))
     }
@@ -425,6 +447,24 @@ test('pure release authority helpers have a crypto-only transitive import closur
   await visit(path.join(root, 'tools/test-evidence/release-authority-bundle-contract.mjs'))
   await visit(path.join(root, 'tools/test-evidence/release-authority-facts-contract.mjs'))
   assert.equal(seen.size, 4)
+  assert.deepEqual([...builtins].sort(), ['node:crypto', 'node:path'])
+})
+
+test('pure release authority source boundary refuses I/O, packages, dynamic loaders and ambient path operations', () =>
+{
+  const lexical = "import path from 'node:path'\nexport const canonical = value => path.posix.normalize(value)"
+  assert.deepEqual(pureReleaseAuthorityDependencies(lexical), ['node:path'])
+  for (const dependency of ['node:fs', 'node:fs/promises', 'node:child_process', 'node:process', 'node:util', 'external-package'])
+    assert.throws(() => pureReleaseAuthorityDependencies(`import value from '${dependency}'`), {
+      code: 'ERR_ASSERTION', message: `non-pure import: ${dependency}`
+    })
+  for (const statement of [
+    'process.cwd()', "require('./module.mjs')", "import('./module.mjs')",
+    "path.resolve('.')", "path.relative('a', 'b')", "path.win32.normalize('a')",
+    "path.posix.resolve('a')", "path['posix'].normalize('a')", 'const alias = path'
+  ])
+    assert.throws(() => pureReleaseAuthorityDependencies(`${lexical}\n${statement}`), { code: 'ERR_ASSERTION' })
+  assert.throws(() => pureReleaseAuthorityDependencies("import other from 'node:path'\nother.resolve('.')"), { code: 'ERR_ASSERTION' })
 })
 
 test('pure release authority seal preserves the original digest convention', () =>
