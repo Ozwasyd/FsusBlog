@@ -479,6 +479,34 @@ async function prepareCorrectnessPlan({ options, command, cwd, producerId, runId
         executionEnvelopePlanFile, executionEnvelopeReceiptFile, envelopeIdentity, plan };
 }
 
+export function combinePreparationAndBusinessTerminal(preparation, business, { ownedRoot })
+{
+    if (preparation === null)
+    {
+        return business;
+    }
+    for (const [phase, state] of [['preparation', preparation], ['business', business]])
+    {
+        if (typeof state?.physicalStarted !== 'boolean'
+            || (state.physicalStarted && state.physicalExecution?.postObservation !== 'zero-members')
+            || (!state.physicalStarted && state.physicalExecution !== null))
+        {
+            throw Object.assign(new Error(`Run-owned directories retained for unverifiable ${phase} terminal`), {
+                physicalExecution: state?.physicalExecution ?? null,
+                recoveryObligation: { ownedRoot,
+                    reason: `${phase} owner has not provided its actual started state and zero-member terminal` }
+            });
+        }
+    }
+    // The preparation owner already checks every started tool individually. This
+    // selects an existing raw proof for the directory guard; it creates no
+    // aggregate proof and does not change the business receipt's terminal.
+    return {
+        physicalStarted: business.physicalStarted || preparation.physicalStarted,
+        physicalExecution: business.physicalStarted ? business.physicalExecution : preparation.physicalExecution
+    };
+}
+
 function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment, networkSandbox,
     executionEnvelopeReceiptFile, producerId, runId, options, plan, envelopeIdentity, producerEnvelope,
     policy, catalog, browserEnvelope, serviceEnvelope, assertPreparationFinalizable = null })
@@ -489,9 +517,21 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
     let directoryFragment = directoryEnvelope.fragment;
     const finalizeEnvelope = async ({ physicalStarted, physicalExecution }) =>
     {
+        let preparationTerminal = null;
         if (assertPreparationFinalizable)
         {
-            await assertPreparationFinalizable();
+            preparationTerminal = await assertPreparationFinalizable();
+        }
+        let directoryTerminal;
+        try
+        {
+            directoryTerminal = combinePreparationAndBusinessTerminal(preparationTerminal,
+                { physicalStarted, physicalExecution }, { ownedRoot: directoryEnvelope.fragment.ownedRoot });
+        }
+        catch (error)
+        {
+            directoryEnvelope.fragment.cleanup = { status: 'retained-for-physical-recovery', removedOwnedRoot: false };
+            throw error;
         }
         const terminalEvidence = physicalExecution;
         if (postflightAttempted)
@@ -507,9 +547,7 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
         {
             try
             {
-                finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
-                    physicalStarted, physicalExecution: terminalEvidence
-                });
+                finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, directoryTerminal);
             }
             catch (error)
             {
@@ -539,9 +577,7 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
         }
         try
         {
-            directoryFragment = finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
-                physicalStarted, physicalExecution: terminalEvidence
-            });
+            directoryFragment = finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, directoryTerminal);
         }
         catch (error)
         {
