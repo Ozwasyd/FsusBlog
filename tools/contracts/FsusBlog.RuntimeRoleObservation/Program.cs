@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -5,11 +6,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
+using Microsoft.Extensions.Configuration;
+
+using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.SchemaMigration;
 using FsusBlog.RuntimeRoleObservation;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.RuntimeModes;
-
-using Microsoft.Extensions.Configuration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 return RuntimeRoleObservationHost.Run(args);
 
@@ -65,8 +69,8 @@ internal static class RuntimeRoleObservationHost
             deploymentObservation,
             "deployment-observation",
             allowAbsolute: true);
-        SchemaOverlapObservation schemaOverlap = ObserveSchemaOverlap();
-        RuntimeRoleObservation observation = Observe(ReadDeploymentProbe(deploymentObservationPath), schemaOverlap);
+        CurrentSchemaContractObservation currentSchemaContract = ObserveCurrentSchemaContract();
+        RuntimeRoleObservation observation = Observe(ReadDeploymentProbe(deploymentObservationPath), currentSchemaContract);
         string directory = Path.GetDirectoryName(outputPath)
             ?? throw new InvalidOperationException("output directory is invalid");
         Directory.CreateDirectory(directory);
@@ -77,7 +81,7 @@ internal static class RuntimeRoleObservationHost
 
     private static RuntimeRoleObservation Observe(
         RuntimeRoleDeploymentProbe deploymentProbe,
-        SchemaOverlapObservation schemaOverlap)
+        CurrentSchemaContractObservation currentSchemaContract)
     {
         string[] roles = FsusRuntimeRoles.All.Order(StringComparer.Ordinal).ToArray();
         RuntimeModeObservation[] modes =
@@ -117,13 +121,13 @@ internal static class RuntimeRoleObservationHost
             deploymentProbe.ObservationDigest);
         var unsigned = new
         {
-            Schema = "fsusblog.runtime-role-observation.v2",
+            Schema = "fsusblog.runtime-role-observation.v3",
             Modes = modes,
             StaticRoleCapabilities = capabilities,
             UnsupportedCombinations = unsupported,
             Ownership = ownership,
             DeploymentAuthority = deploymentAuthority,
-            SchemaOverlap = schemaOverlap
+            CurrentSchemaContract = currentSchemaContract
         };
         string canonical = JsonSerializer.Serialize(unsigned, new JsonSerializerOptions
         {
@@ -137,7 +141,7 @@ internal static class RuntimeRoleObservationHost
             unsupported,
             ownership,
             deploymentAuthority,
-            schemaOverlap,
+            currentSchemaContract,
             digest);
     }
 
@@ -789,11 +793,125 @@ internal static class RuntimeRoleObservationHost
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
     }
 
-    private static SchemaOverlapObservation ObserveSchemaOverlap()
+    private static CurrentSchemaContractObservation ObserveCurrentSchemaContract()
     {
-        // This CLI has no explicit current receipt or fresh database observation input.
-        // Required evidence cannot be reconstructed from retired release compatibility.
-        throw new InvalidOperationException("runtime_role_current_schema_observation_unavailable");
+        var probe = ProbeCurrentSchemaProductionContract();
+        var observation = new CurrentSchemaContractObservation(
+            "fsusblog.current-schema-code-contract-observation.v1",
+            "pre-runtime", "compiled-production-code-model", CurrentSchemaReceiptCodec.Format,
+            CurrentSchemaReceiptCodec.MaximumEncodedBytes, true, false,
+            typeof(CurrentSchemaReceiptCodec).FullName!, typeof(CurrentSchemaReceiptAdmission).FullName!,
+            true, probe.ArtifactSha256, probe.ContentDigest,
+            ["canonical-codec-roundtrip", "whole-artifact-admission-contract", "artifact-sha-distinct-from-content-seal"],
+            probe.Refusals, string.Empty);
+        string canonical = JsonSerializer.Serialize(observation, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+        return observation with
+        {
+            ObservationDigest = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+        };
+    }
+
+    // These deterministic fixture values exercise the real production codec and
+    // admission value validator. No fixture is issued, published, or read as a
+    // native receipt, and no database/issuer is invoked before static admission.
+    private static (string ArtifactSha256, string ContentDigest,
+        IReadOnlyDictionary<string, string> Refusals) ProbeCurrentSchemaProductionContract()
+    {
+        string digest = new('a', 64);
+        var target = new CurrentSchemaTargetIdentity(
+            "contract-fixture-model", "contract-fixture-extractor", "contract-fixture-generator", digest, digest);
+        var database = new CurrentSchemaDatabaseIdentity(
+            CurrentSchemaProviderKind.PostgreSql, "contract-fixture-instance", "contract-fixture-database");
+        var fixture = new CurrentSchemaReceipt(
+            CurrentSchemaReceiptCodec.Format, CurrentSchemaReceiptStatus.VerifiedCurrent,
+            target, "contract-fixture-source", "contract-fixture-version", digest, digest,
+            Reference("plan"), Reference("apply"), [Reference("checkpoint")], database, digest,
+            [new CurrentSchemaStepPostcondition("contract-fixture-step", "contract-fixture-predicate", digest, digest, digest)],
+            Reference("backup-package"), Reference("backup-manifest"), Reference("restore-drill"),
+            ImmutableArray<CurrentSchemaArtifactReference>.Empty,
+            new CurrentSchemaVerifierIdentity(new string('b', 40), digest, digest, digest),
+            ImmutableArray<string>.Empty, string.Empty);
+        fixture = Reseal(fixture);
+        byte[] bytes = CurrentSchemaReceiptCodec.Serialize(fixture);
+        string artifactSha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var actual = new CurrentSchemaAdmissionObservation(target, database, digest);
+        if (!CurrentSchemaReceiptCodec.Serialize(CurrentSchemaReceiptCodec.Deserialize(bytes))
+                .AsSpan().SequenceEqual(bytes))
+        {
+            throw new InvalidOperationException("runtime_role_current_contract_roundtrip_failed");
+        }
+        if (CurrentSchemaReceiptAdmission.Validate(bytes, artifactSha256, actual).ContentDigest != fixture.ContentDigest
+            || artifactSha256 == fixture.ContentDigest)
+        {
+            throw new InvalidOperationException("runtime_role_current_contract_positive_failed");
+        }
+        var refusals = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        Refuse("old-format", "current_receipt_shape_invalid", () =>
+            CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with { Format = "fsusblog.current-schema-receipt.v2" })));
+        Refuse("empty-bytes", "current_receipt_size_invalid", () => CurrentSchemaReceiptCodec.Deserialize(ReadOnlyMemory<byte>.Empty));
+        Refuse("oversized-bytes", "current_receipt_size_invalid", () =>
+            CurrentSchemaReceiptCodec.Deserialize(new byte[CurrentSchemaReceiptCodec.MaximumEncodedBytes + 1]));
+        string json = Encoding.UTF8.GetString(bytes);
+        Refuse("missing-status", "current_receipt_json_invalid", () =>
+            CurrentSchemaReceiptCodec.Deserialize(Encoding.UTF8.GetBytes(json.Replace("\"status\":\"verified-current\",", string.Empty, StringComparison.Ordinal))));
+        Refuse("unknown-member", "current_receipt_json_invalid", () =>
+            CurrentSchemaReceiptCodec.Deserialize(Encoding.UTF8.GetBytes("{\"unexpected\":true," + json[1..])));
+        Refuse("duplicate-member", "current_receipt_json_invalid", () =>
+            CurrentSchemaReceiptCodec.Deserialize(Encoding.UTF8.GetBytes("{\"format\":\"duplicate\"," + json[1..])));
+        Refuse("unknown-status", "current_receipt_json_invalid", () =>
+            CurrentSchemaReceiptCodec.Deserialize(Encoding.UTF8.GetBytes(json.Replace("verified-current", "ready", StringComparison.Ordinal))));
+        Refuse("unknown-provider", "current_receipt_provider_unknown", () =>
+            CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with { Database = database with { Provider = (CurrentSchemaProviderKind)int.MaxValue } })));
+        Refuse("missing-plan", "current_receipt_reference_missing", () =>
+            CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with { Plan = null! })));
+        Refuse("latest-reference", "current_receipt_latest_reference_forbidden", () =>
+            CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with { Plan = new CurrentSchemaArtifactReference("contract-fixture/latest/plan", digest) })));
+        Refuse("duplicate-checkpoint", "current_receipt_reference_duplicate", () =>
+            CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with { Checkpoints = [Reference("checkpoint"), Reference("checkpoint")] })));
+        Refuse("semantic-mismatch", "current_receipt_postcondition_failed", () =>
+            CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with { SemanticPostconditions = [fixture.SemanticPostconditions[0] with { ActualDigest = new string('c', 64) }] })));
+        Refuse("content-seal-drift", "current_receipt_digest_mismatch", () =>
+            CurrentSchemaReceiptCodec.Serialize(fixture with { ContentDigest = new string('d', 64) }));
+        Refuse("whole-file-drift", "current_receipt_artifact_digest_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(bytes, new string('d', 64), actual));
+        Refuse("content-seal-as-file-sha", "current_receipt_artifact_digest_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(bytes, fixture.ContentDigest, actual));
+        Refuse("target-swap", "current_receipt_live_admission_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(bytes, artifactSha256, actual with { Target = target with { SourceDigest = new string('c', 64) } }));
+        Refuse("database-swap", "current_receipt_live_admission_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(bytes, artifactSha256, actual with { Database = database with { DatabaseId = "other-contract-fixture" } }));
+        Refuse("provider-swap", "current_receipt_live_admission_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(bytes, artifactSha256, actual with { Database = database with { Provider = CurrentSchemaProviderKind.MySql } }));
+        Refuse("physical-schema-swap", "current_receipt_live_admission_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(bytes, artifactSha256, actual with { ActualSchemaDigest = new string('c', 64) }));
+        byte[] rejected = CurrentSchemaReceiptCodec.Serialize(Reseal(fixture with
+        {
+            Status = CurrentSchemaReceiptStatus.Rejected,
+            Reasons = ["contract_fixture_rejected"]
+        }));
+        Refuse("rejected-status", "current_receipt_live_admission_mismatch", () =>
+            CurrentSchemaReceiptAdmission.Validate(rejected, Convert.ToHexStringLower(SHA256.HashData(rejected)), actual));
+        return (artifactSha256, fixture.ContentDigest, refusals);
+
+        CurrentSchemaArtifactReference Reference(string name) => new("contract-fixture/" + name, digest);
+        static CurrentSchemaReceipt Reseal(CurrentSchemaReceipt value)
+            => value with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(value) };
+        void Refuse(string id, string expectedCode, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (InvalidOperationException error) when (error.Message == expectedCode)
+            {
+                refusals.Add(id, error.Message);
+                return;
+            }
+            throw new InvalidOperationException("runtime_role_current_contract_refusal_failed:" + id);
+        }
     }
 
     private static string DigestFile(string path)

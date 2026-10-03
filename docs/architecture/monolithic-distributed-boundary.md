@@ -12,14 +12,20 @@ render: rationale-prose
 
 ## Invariants
 
-The required compiled runtime-role observer refuses with
-`runtime_role_current_schema_observation_unavailable` before deployment-oracle
-execution or observation publication. Its CLI has no explicit current-schema
-receipt and fresh database admission inputs; retired compatibility catalogs,
-release windows and synthesized successful history cannot supply that evidence.
-The existing receipt schema is not replaced with an empty or self-reported
-success. The generated runtime-role section below remains unchanged pending its
-original producer and is not current evidence that this required observer passed.
+The required compiled runtime-role observation v3 binds the production current-schema
+codec and admission value contract, with explicitly fixture-only deterministic
+positive and refusal probes. Its closed `currentSchemaContract` is pre-runtime
+`compiled-production-code-model` evidence, never native database qualification.
+The original bounded minimal build publishes runtime build receipt v4 and retains
+the exact source, assembly bytes, deployment/Compose identity and raw-byte replay.
+No native issuer or database service is required or started before static admission.
+
+Actual current-schema qualification belongs to the post-runtime
+`deployment-current-schema-admission` behavior and requires the sole v1 receipt
+and original independent database verification. A compiled fixture, self-seal,
+old overlap/window/Ready material, or missing owner cannot satisfy it. The generated
+section below remains unchanged until its original producer is replayed; its old
+v2 values are not current v3 evidence or proof that these probes have executed.
 
 ## Runtime modes
 
