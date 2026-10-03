@@ -696,6 +696,60 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         Assert.Equal(1, fixture.ExecutionAuthority.GroupOutcomeValidationCalls);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task ResealedAtomicAggregateMustMatchBothJournalTerminalAnchors(
+        bool commitSucceeds,
+        bool replaceExecutionTerminal)
+    {
+        var fixture = await RuntimeFixture.CreateAsync(operationId: "lifecycle.archive", itemCount: 2);
+        ArticleBulkJournalHead head = await fixture.RecordAtomicTerminalAsync(commitSucceeds);
+        await fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, head);
+
+        ArticleBulkExecutionRequest originalRequest = fixture.Journal.Request!;
+        ArticleBulkJournalEvent[] originalEvents = [.. fixture.Journal.Events];
+        ArticleBulkItemReceipt[] originalItems = [.. fixture.Journal.ItemReceipts.Values];
+        ArticleBulkAggregateReceipt originalAggregate = fixture.Journal.TerminalReceipt!;
+        ArticleBulkAggregateReceipt unsignedReplacement = originalAggregate with
+        {
+            GroupReceiptDigest = commitSucceeds ? Digest("different-group-commit") : null,
+            ZeroWriteProofDigest = commitSucceeds ? null : Digest("different-zero-write"),
+            ContentDigest = string.Empty
+        };
+        ArticleBulkAggregateReceipt replacement = ArticleBulkExecutionFramework.SealAggregateReceipt(
+            unsignedReplacement);
+        Assert.NotEqual(originalAggregate.ContentDigest, replacement.ContentDigest);
+        fixture.Journal.TerminalReceipt = replacement;
+
+        if (replaceExecutionTerminal)
+        {
+            // Keep the independent GroupCommitTerminal unchanged while resealing
+            // ExecutionTerminal/head to agree with the substituted aggregate.
+            head = fixture.Journal.ReplaceExecutionTerminalReceipt(replacement);
+            await fixture.Framework.VerifyJournalAsync(head);
+            Assert.Equal(originalEvents[..^1], fixture.Journal.Events.Take(originalEvents.Length - 1));
+        }
+        else
+        {
+            Assert.Equal(originalEvents, fixture.Journal.Events);
+            Assert.Equal(head, fixture.Journal.Head);
+        }
+        Assert.Same(originalRequest, fixture.Journal.Request);
+        Assert.Equal(originalItems, fixture.Journal.ItemReceipts.Values);
+        ArticleBulkContractException error = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
+            fixture.Framework.VerifyExecutionAsync(originalRequest, fixture.Plan, head));
+        Assert.Equal("article-bulk.terminal-receipt-unbound", error.Code);
+
+        if (!replaceExecutionTerminal)
+        {
+            fixture.Journal.TerminalReceipt = originalAggregate;
+            await fixture.Framework.VerifyExecutionAsync(originalRequest, fixture.Plan, head);
+        }
+    }
+
     [Fact]
     public async Task RetryConsumesSealedJournalAndIncludesFailedItemsOnly()
     {
@@ -732,6 +786,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
                 "attempt-retry",
                 new Dictionary<string, string> { ["article-00001"] = "revision-new" }));
         Assert.Equal("article-bulk.retry-already-requested", duplicate.Code);
+        await fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, retry.Head);
         await Assert.ThrowsAsync<ArticleBulkContractException>(() => fixture.Framework.CreateRetryAsync(
             fixture.Journal.Request!,
             fixture.Plan,
@@ -1172,6 +1227,59 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             return head;
         }
 
+        internal async Task<ArticleBulkJournalHead> RecordAtomicTerminalAsync(bool commitSucceeds)
+        {
+            ArticleBulkJournalHead head = await StartExecutingAsync();
+            string owner = ArticleBulkOperationRegistry.Get(Plan.OperationId).CommandOwner;
+            (head, _) = await Framework.AppendAsync(
+                head,
+                Plan,
+                ArticleBulkJournalEventKind.GroupCommitStarted,
+                ArticleBulkExecutionState.Executing,
+                commandOwner: owner);
+            ArticleBulkGroupCommitOutcome outcome = commitSucceeds
+                ? ArticleBulkGroupCommitOutcome.Committed
+                : ArticleBulkGroupCommitOutcome.FailedZeroWrite;
+            (head, _) = await Framework.AppendAsync(
+                head,
+                Plan,
+                ArticleBulkJournalEventKind.GroupCommitTerminal,
+                ArticleBulkExecutionState.Executing,
+                commandOwner: owner,
+                commandReceiptDigest: commitSucceeds ? Digest("group-commit") : null,
+                groupOutcome: outcome,
+                groupReceiptDigest: commitSucceeds ? Digest("group-commit") : null,
+                zeroWriteProofDigest: commitSucceeds ? null : Digest("zero-write"));
+            (head, _) = await Framework.AppendAsync(
+                head,
+                Plan,
+                ArticleBulkJournalEventKind.ReceiptChunkRecorded,
+                ArticleBulkExecutionState.Executing,
+                receiptChunk: [Receipt("article-00000", commitSucceeds), Receipt("article-00001", commitSucceeds)],
+                reasonCode: "group-item-receipts");
+            ArticleBulkExecutionState terminalState = commitSucceeds
+                ? ArticleBulkExecutionState.Completed
+                : ArticleBulkExecutionState.Failed;
+            ArticleBulkAggregateReceipt aggregate = Aggregate(
+                terminalState,
+                succeeded: commitSucceeds ? 2 : 0,
+                failed: commitSucceeds ? 0 : 2,
+                groupOutcome: outcome,
+                groupReceiptDigest: commitSucceeds ? Digest("group-commit") : null,
+                zeroWriteProofDigest: commitSucceeds ? null : Digest("zero-write"));
+            (head, _) = await Framework.AppendAsync(
+                head,
+                Plan,
+                ArticleBulkJournalEventKind.ExecutionTerminal,
+                terminalState,
+                groupOutcome: outcome,
+                groupReceiptDigest: aggregate.GroupReceiptDigest,
+                zeroWriteProofDigest: aggregate.ZeroWriteProofDigest,
+                aggregateReceipt: aggregate,
+                reasonCode: commitSucceeds ? "completed" : "group-commit-failed");
+            return head;
+        }
+
         internal ArticleBulkAggregateReceipt Aggregate(
             ArticleBulkExecutionState state,
             int succeeded,
@@ -1247,6 +1355,33 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         internal int MaximumObservedReadBatch
         {
             get; private set;
+        }
+
+        internal ArticleBulkJournalHead ReplaceExecutionTerminalReceipt(ArticleBulkAggregateReceipt aggregate)
+        {
+            Assert.Equal(ArticleBulkJournalEventKind.ExecutionTerminal, Events[^1].Kind);
+            ArticleBulkJournalEvent unsignedEvent = Events[^1] with
+            {
+                AggregateReceiptDigest = aggregate.ContentDigest,
+                GroupReceiptDigest = aggregate.GroupReceiptDigest,
+                ZeroWriteProofDigest = aggregate.ZeroWriteProofDigest,
+                ContentDigest = string.Empty
+            };
+            ArticleBulkJournalEvent replacement = unsignedEvent with
+            {
+                ContentDigest = ArticleBulkDigest.Of(unsignedEvent)
+            };
+            Events[^1] = replacement;
+            ArticleBulkJournalHead unsignedHead = Head! with
+            {
+                LastEventDigest = replacement.ContentDigest,
+                ContentDigest = string.Empty
+            };
+            Head = unsignedHead with
+            {
+                ContentDigest = ArticleBulkDigest.Of(unsignedHead)
+            };
+            return Head;
         }
 
         public Task<ArticleBulkIdempotencyResolution> ResolveIdempotencyAsync(

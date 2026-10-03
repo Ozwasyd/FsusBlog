@@ -685,6 +685,18 @@ internal sealed class ArticleBulkExecutionFramework(
         ArticleBulkJournalHead sealedHead,
         CancellationToken cancellationToken = default)
     {
+        var (verifiedHead, _, _) = await VerifyJournalBindingsAsync(
+            sealedHead,
+            cancellationToken).ConfigureAwait(false);
+        return verifiedHead;
+    }
+
+    private async Task<(ArticleBulkJournalHead Head,
+        ArticleBulkJournalEvent? ExecutionTerminal,
+        ArticleBulkJournalEvent? GroupCommitTerminal)> VerifyJournalBindingsAsync(
+        ArticleBulkJournalHead sealedHead,
+        CancellationToken cancellationToken)
+    {
         if (sealedHead.ContentDigest != ArticleBulkDigest.Of(sealedHead with
         {
             ContentDigest = string.Empty
@@ -695,6 +707,8 @@ internal sealed class ArticleBulkExecutionFramework(
         long ordinal = 0;
         string previousDigest = string.Empty;
         ArticleBulkJournalHead? replay = null;
+        ArticleBulkJournalEvent? executionTerminal = null;
+        ArticleBulkJournalEvent? groupCommitTerminal = null;
         await foreach (IReadOnlyList<ArticleBulkJournalEvent> batch in journalAuthority
             .ReadEventBatchesAsync(sealedHead, JournalReadBatchSize, cancellationToken)
             .WithCancellation(cancellationToken).ConfigureAwait(false))
@@ -752,6 +766,14 @@ internal sealed class ArticleBulkExecutionFramework(
                     replay = AdvanceReplay(replay!, journalEvent);
                 }
                 previousDigest = journalEvent.ContentDigest;
+                if (journalEvent.Kind == ArticleBulkJournalEventKind.ExecutionTerminal)
+                {
+                    executionTerminal = journalEvent;
+                }
+                if (journalEvent.Kind == ArticleBulkJournalEventKind.GroupCommitTerminal)
+                {
+                    groupCommitTerminal = journalEvent;
+                }
                 ordinal++;
             }
         }
@@ -771,7 +793,7 @@ internal sealed class ArticleBulkExecutionFramework(
         {
             throw new ArticleBulkContractException("article-bulk.journal-head-mismatch");
         }
-        return sealedHead;
+        return (sealedHead, executionTerminal, groupCommitTerminal);
     }
 
     internal async Task VerifyExecutionAsync(
@@ -797,7 +819,9 @@ internal sealed class ArticleBulkExecutionFramework(
         {
             throw new ArticleBulkContractException("article-bulk.execution-request-tampered");
         }
-        await VerifyJournalAsync(sealedHead, cancellationToken).ConfigureAwait(false);
+        var (_, executionTerminal, groupCommitTerminal) = await VerifyJournalBindingsAsync(
+            sealedHead,
+            cancellationToken).ConfigureAwait(false);
         ImmutableArray<(int Count, string Digest)> receiptBindings = await ReadReceiptBindingsAsync(
             sealedHead,
             cancellationToken).ConfigureAwait(false);
@@ -908,6 +932,23 @@ internal sealed class ArticleBulkExecutionFramework(
             throw new ArticleBulkContractException("article-bulk.aggregate-receipt-inexact");
         }
         ValidateStrategyOutcome(aggregate);
+
+        // A freshly resealed body is not evidence of the recorded outcome. Bind both
+        // terminal anchors; a lawful RetryRequested event may follow ExecutionTerminal.
+        if (executionTerminal is null
+            || aggregate.ContentDigest != executionTerminal.AggregateReceiptDigest
+            || aggregate.TerminalState != executionTerminal.ResultingState
+            || aggregate.GroupCommitOutcome != executionTerminal.GroupCommitOutcome
+            || aggregate.GroupReceiptDigest != executionTerminal.GroupReceiptDigest
+            || aggregate.ZeroWriteProofDigest != executionTerminal.ZeroWriteProofDigest
+            || sealedHead.GroupCommitTerminal != (groupCommitTerminal is not null)
+            || (groupCommitTerminal is not null
+                && (aggregate.GroupCommitOutcome != groupCommitTerminal.GroupCommitOutcome
+                    || aggregate.GroupReceiptDigest != groupCommitTerminal.GroupReceiptDigest
+                    || aggregate.ZeroWriteProofDigest != groupCommitTerminal.ZeroWriteProofDigest)))
+        {
+            throw new ArticleBulkContractException("article-bulk.terminal-receipt-unbound");
+        }
     }
 
     private async Task<ImmutableArray<(int Count, string Digest)>> ReadReceiptBindingsAsync(
