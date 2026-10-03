@@ -12,4 +12,9 @@ namespace FsusBlog.Contracts.Schema;
 public sealed record CurrentSchemaCompletePhysicalProjection(
     SchemaModelSnapshot Tables,
     IReadOnlyList<CurrentSchemaRecipeOperation> SchemaEffects,
-    IReadOnlyList<CurrentSchemaRecipeOperation> BootstrapDataEffects);
+    IReadOnlyList<CurrentSchemaRecipeOperation> BootstrapDataEffects)
+{
+    /// <summary>Complete independent sequence representations derived by the sole provider projector.</summary>
+    /// <remarks>Empty for targets without these effects; unavailable provider mappings refuse instead of synthesizing a backing table.</remarks>
+    public IReadOnlyList<CurrentSchemaIndependentSequencePhysicalProjection> IndependentSequences { get; init; } = [];
+}

@@ -17,7 +17,17 @@
                 "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
                 "src/migration/OfflineMigrationStateStore.cs",
                 "src/migration/OfflineMigrationApplyJournalDialect.cs",
-                "src/migration/OfflineMigrationVerifyEvidence.cs"
+                "src/migration/OfflineMigrationVerifyEvidence.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaCompletePhysicalProjection.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+                "src/shared/Contracts/Schema/SchemaModelComparer.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaControlShape.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs"
             ],
             "reason": "Original migration verification surfaces preserve explicit deployment environment keys, provider selectors and native database identifiers while dispatching through the original owned read contexts; they do not rename those external contracts."
         },
