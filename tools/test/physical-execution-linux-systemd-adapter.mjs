@@ -1678,6 +1678,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     status: 'unverifiable',
                     reason: 'systemd creation failure requires original durable-owner terminal reconciliation',
                     creationAttempt: {
+                        finalization: cleanup,
                         senderPid: gatedSender.pid ?? null,
                         ready: validatedSenderReady,
                         beforeCreationAttempted,
