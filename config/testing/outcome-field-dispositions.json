@@ -85,7 +85,7 @@
         }
     ],
     "canonicalization": {
-        "schema": "fsusblog.outcome-canonicalization-policy.v1",
+        "schema": "fsusblog.outcome-canonicalization-policy.v2",
         "nestedFields": [
             {
                 "schemaPath": "$.identity.buildIdentity",
@@ -707,6 +707,1442 @@
                     {
                         "map": "outputDigests",
                         "ids": "producedOutputIds"
+                    }
+                ]
+            }
+        ],
+        "schemas": [
+            {
+                "schema": "fsusblog.aggregate-run-outcome.v1",
+                "fields": [
+                    {
+                        "schemaPath": "$.aggregateOutcomeFingerprint",
+                        "category": "evidence-location",
+                        "normalizationRule": "derived-digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-semantic-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[].digest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[].owner",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[].semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.blockedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.blockedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.completenessStatus",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.contentDigest",
+                        "category": "evidence-location",
+                        "normalizationRule": "content-seal",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.executedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.executedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTaxonomyDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "canonical-record-set",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].assertionId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].failureClass",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].failureKind",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.assertionId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.attemptNumber",
+                        "category": "execution-identity",
+                        "normalizationRule": "positive-integer",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.evidenceId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.executionEnvelopeDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.identityField",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.producerId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.replayPlanDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.schemaPath",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.semanticPayloadDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.temporalContextDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.testId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].identity.toolchainDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].producerId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTopology[].testId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.fieldDispositionDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.fingerprintAlgorithmVersion",
+                        "category": "execution-identity",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.observedCoverageIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.observedCoverageIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.passedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.passedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.plannedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.plannedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerCatalogDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-producer-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[].contentDigest",
+                        "category": "evidence-location",
+                        "normalizationRule": "content-seal",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[].outcomeFingerprint",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[].producerAuthorityId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[].producerId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[].schema",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerOutcomeRefs[].semanticPayloadDigest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerStatusVector",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-producer-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerStatusVector[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerStatusVector[].producerId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerStatusVector[].status",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.requiredCoverageIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.requiredCoverageIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.requiredProducerIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.requiredProducerIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.runId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.schema",
+                        "category": "execution-identity",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.schemaVersion",
+                        "category": "execution-identity",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.skippedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.skippedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.sourceCommit",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-semantic-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[].digest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[].owner",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[].semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.worktreeFingerprint",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    }
+                ]
+            },
+            {
+                "schema": "fsusblog.producer-semantic-outcome.v1",
+                "fields": [
+                    {
+                        "schemaPath": "$.artifactSemanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-semantic-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[].digest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[].owner",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.artifactSemanticDigests[].semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureClass",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "nullable-schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.assertionId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.attemptNumber",
+                        "category": "execution-identity",
+                        "normalizationRule": "positive-integer",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.evidenceId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.executionEnvelopeDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.identityField",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.producerId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.replayPlanDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.schemaPath",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.semanticPayloadDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.temporalContextDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.testId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureIdentity.toolchainDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].failureKind",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].id",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].status",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.assertions[].testId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.blockedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.blockedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.cleanFirstAttempt",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "boolean",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.contentDigest",
+                        "category": "evidence-location",
+                        "normalizationRule": "content-seal",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.coverageIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.coverageIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.executedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.executedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.executionEnvelopeDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failureTaxonomyDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "canonical-record-set",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].assertionId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].failureClass",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].failureKind",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.assertionId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.attemptNumber",
+                        "category": "execution-identity",
+                        "normalizationRule": "positive-integer",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.evidenceId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.executionEnvelopeDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.identityField",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.producerId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.replayPlanDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.schemaPath",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.semanticPayloadDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.temporalContextDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.testId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].identity.toolchainDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.failures[].producerId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.failures[].testId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.fieldDispositionDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.fingerprintAlgorithmVersion",
+                        "category": "execution-identity",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.outcomeFingerprint",
+                        "category": "evidence-location",
+                        "normalizationRule": "derived-digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.passedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.passedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.plannedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.plannedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.policyDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-policy-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.policyDigests[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.policyDigests[].digest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.policyDigests[].policyId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.producerAuthorityId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.producerCatalogDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.producerId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.producerStatus",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-projection-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts[].contentDigest",
+                        "category": "evidence-location",
+                        "normalizationRule": "content-seal",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts[].producerAuthorityId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts[].projectionId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts[].schema",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.projectionReceipts[].semanticPayloadDigest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.qualificationEligible",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "boolean",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.redactedSecrets",
+                        "category": "secret-redacted",
+                        "normalizationRule": "records-by-semantic-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-context"
+                    },
+                    {
+                        "schemaPath": "$.redactedSecrets[]",
+                        "category": "secret-redacted",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-context"
+                    },
+                    {
+                        "schemaPath": "$.redactedSecrets[].contextDigest",
+                        "category": "secret-redacted",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-context"
+                    },
+                    {
+                        "schemaPath": "$.redactedSecrets[].present",
+                        "category": "secret-redacted",
+                        "normalizationRule": "boolean",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-context"
+                    },
+                    {
+                        "schemaPath": "$.redactedSecrets[].semanticId",
+                        "category": "secret-redacted",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-context"
+                    },
+                    {
+                        "schemaPath": "$.redactedSecrets[].type",
+                        "category": "secret-redacted",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-context"
+                    },
+                    {
+                        "schemaPath": "$.replayPlanDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.scenarioIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.scenarioIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.schedulerRunId",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.schema",
+                        "category": "execution-identity",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.schemaVersion",
+                        "category": "execution-identity",
+                        "normalizationRule": "exact",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.semanticPayloadDigest",
+                        "category": "evidence-location",
+                        "normalizationRule": "derived-digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.receipt-location"
+                    },
+                    {
+                        "schemaPath": "$.skippedTestIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.skippedTestIds[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.sourceCommit",
+                        "category": "execution-identity",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "records-by-semantic-id",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[]",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "schema-object",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[].digest",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[].owner",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.stateSemanticDigests[].semanticId",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "text",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.temporalContextDigest",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
+                    },
+                    {
+                        "schemaPath": "$.worktreeFingerprint",
+                        "category": "execution-identity",
+                        "normalizationRule": "digest",
+                        "owner": "semantic-outcome-governance",
+                        "proofTestId": "outcome:strong-schema-dispositions",
+                        "reasonCode": "contract.identity"
                     }
                 ]
             }

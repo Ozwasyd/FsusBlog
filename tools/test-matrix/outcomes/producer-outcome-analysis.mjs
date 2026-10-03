@@ -169,8 +169,8 @@ function policyRules(registry, producerId, authorityId)
     exact(registry, ['schema', 'schemaVersion', 'fingerprintAlgorithmVersion',
         'entries', 'canonicalization'], 'disposition registry');
     const policy = registry.canonicalization;
-    exact(policy, ['schema', 'nestedFields', 'profiles'], 'canonicalization policy');
-    require(policy.schema === 'fsusblog.outcome-canonicalization-policy.v1'
+    exact(policy, ['schema', 'nestedFields', 'profiles', 'schemas'], 'canonicalization policy');
+    require(policy.schema === 'fsusblog.outcome-canonicalization-policy.v2'
         && Array.isArray(policy.profiles) && Array.isArray(policy.nestedFields),
     'canonicalization policy version or lists are invalid');
     const producerIds = policy.profiles.map((profile) => profile.producerId);
@@ -201,16 +201,20 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
     require(disposition, `unregistered field ${schemaPath}`);
     const rule = disposition.normalizationRule;
     let result;
-    if (rule === 'canonical-object')
+    if (rule === 'canonical-object' || rule === 'schema-object' || rule === 'nullable-schema-object')
     {
+        if (rule === 'nullable-schema-object' && value === null) return null;
         object(value, schemaPath);
         const children = [...map.keys()].filter((key) => key.startsWith(`${schemaPath}.`)
             && !key.slice(schemaPath.length + 1).includes('.')
             && !key.slice(schemaPath.length + 1).includes('[]'));
         const fields = children.map((key) => key.slice(schemaPath.length + 1));
         require(Object.keys(value).every((key) => fields.includes(key)), `unknown field in ${schemaPath}`);
-        require(children.every((key) => map.get(key).required === false
-            || Object.hasOwn(value, key.slice(schemaPath.length + 1))), `missing field in ${schemaPath}`);
+        if (rule === 'canonical-object')
+        {
+            require(children.every((key) => map.get(key).required === false
+                || Object.hasOwn(value, key.slice(schemaPath.length + 1))), `missing field in ${schemaPath}`);
+        }
         result = {};
         for (const key of Object.keys(value).sort())
         {
@@ -238,6 +242,23 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
             }
             return item;
         }).sort((left, right) => compareText(canonicalJson(left), canonicalJson(right)));
+    }
+    else if (rule.startsWith('records-by-') || rule === 'canonical-record-set')
+    {
+        sequence(value, schemaPath);
+        const keyName = { 'records-by-id': 'id', 'records-by-semantic-id': 'semanticId',
+            'records-by-policy-id': 'policyId', 'records-by-projection-id': 'projectionId',
+            'records-by-producer-id': 'producerId' }[rule];
+        const seen = new Set();
+        const records = value.map((record) =>
+        {
+            const normalized = normalize(record, `${schemaPath}[]`, map, taxonomy, producerId, semanticOnly);
+            const key = keyName ? text(normalized[keyName], `${schemaPath} semantic record ID`) : canonicalJson(normalized);
+            require(!seen.has(key), `${schemaPath} has duplicate semantic records`);
+            seen.add(key);
+            return { key, normalized };
+        });
+        result = records.sort((left, right) => compareText(left.key, right.key)).map((item) => item.normalized);
     }
     else if (rule === 'ids') result = ids(value, schemaPath);
     else if (rule === 'text') result = text(value, schemaPath);
@@ -409,7 +430,7 @@ export function analyzeProducerSemanticOutcomeCandidate(candidate, options)
 {
     preflight(candidate, options);
     const { expectedIdentity, expectedProducerId, expectedAuthorityId, metadata = {} } = options;
-    const registry = validateOutcomeFieldDispositions();
+    const registry = validateOutcomeFieldDispositions(undefined, options.hostExpectedLimits);
     const taxonomy = readOutcomeFailureTaxonomy();
     validateProducerSemanticOutcomeCandidate(candidate, { taxonomy,
         expectedProducerId, expectedAuthorityId });

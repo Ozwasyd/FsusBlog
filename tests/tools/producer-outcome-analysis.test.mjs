@@ -431,3 +431,81 @@ test('finalizer missing output keeps its original exact missing-evidence classif
             identity: { producerId, assertionId: 'a' } }] } });
     assert.throws(() => analyzeCandidateWithLimits(unrelated, options), /output failure classification is incomplete/u);
 });
+
+test('contained policy v2 registers both actual strong schemas without replacing candidate v1', () =>
+{
+    const registry = validateOutcomeFieldDispositions(undefined, hostExpectedLimits);
+    assert.equal(registry.schema, 'fsusblog.outcome-field-dispositions.v2');
+    assert.equal(registry.schemaVersion, '2');
+    assert.equal(registry.fingerprintAlgorithmVersion, 'registry-canonical-json-sha256-v2');
+    assert.equal(registry.canonicalization.schema, 'fsusblog.outcome-canonicalization-policy.v2');
+    assert.deepEqual(registry.canonicalization.schemas.map((item) => item.schema), [
+        'fsusblog.aggregate-run-outcome.v1', 'fsusblog.producer-semantic-outcome.v1']);
+    assert.deepEqual(registry.canonicalization.schemas.map((item) => item.fields.length), [73, 105]);
+    const candidate = fixture();
+    assert.equal(candidate.schemaVersion, '1');
+    assert.equal(analyze(candidate).producerVerificationPending, true);
+    const oldPolicy = structuredClone(registry);
+    oldPolicy.canonicalization.schema = 'fsusblog.outcome-canonicalization-policy.v1';
+    assert.throws(() => validateOutcomeFieldDispositions(oldPolicy), /policy is invalid/u);
+});
+
+test('strong disposition declarations have exact identities and six closed owned fields', () =>
+{
+    const original = validateOutcomeFieldDispositions();
+    for (const mutate of [
+        (value) => { value.canonicalization.schemas[0].schema = 'unknown.schema.v1'; },
+        (value) => { value.canonicalization.schemas.push(value.canonicalization.schemas[0]); },
+        (value) => { value.canonicalization.schemas[0].extra = true; },
+        (value) => { value.canonicalization.schemas[0].fields[0].required = true; },
+        (value) => { value.canonicalization.schemas[0].fields[0].owner = ''; },
+        (value) => { value.canonicalization.schemas[0].fields[0].normalizationRule = 'unregistered-rule'; },
+        (value) => { value.canonicalization.schemas[0].fields.push(value.canonicalization.schemas[0].fields[0]); }
+    ])
+    {
+        const value = structuredClone(original);
+        mutate(value);
+        assert.throws(() => validateOutcomeFieldDispositions(value));
+    }
+});
+
+test('full coverage cannot silently downgrade to legacy metadata-only declaration validation', () =>
+{
+    const incomplete = structuredClone(validateOutcomeFieldDispositions());
+    const producer = incomplete.canonicalization.schemas.find((item) => item.schema === 'fsusblog.producer-semantic-outcome.v1');
+    producer.fields = producer.fields.filter((item) => item.schemaPath !== '$.redactedSecrets[].contextDigest');
+    // This legacy entry validates declarations only, not producer/full-schema authority.
+    assert.equal(validateOutcomeFieldDispositions(incomplete), incomplete);
+    assert.throws(() => validateOutcomeFieldDispositions(incomplete, hostExpectedLimits), /coverage/u);
+    const extra = structuredClone(validateOutcomeFieldDispositions());
+    extra.canonicalization.schemas[0].fields.push({
+        ...extra.canonicalization.schemas[0].fields[0], schemaPath: '$.unregisteredNestedField' });
+    assert.throws(() => validateOutcomeFieldDispositions(extra, hostExpectedLimits), /coverage/u);
+});
+
+test('fixed-schema coverage has no caller-supplied budget default or getter bypass', () =>
+{
+    let calls = 0;
+    const limits = { ...hostExpectedLimits };
+    Object.defineProperty(limits, 'maxStringBytes', { enumerable: true, get() { calls++; return 131072; } });
+    assert.throws(() => validateOutcomeFieldDispositions(undefined, limits), /byte budget/u);
+    assert.equal(calls, 0);
+    assert.throws(() => validateOutcomeFieldDispositions(undefined, { ...hostExpectedLimits, maxStringBytes: 1 }), /byte budget/u);
+    assert.throws(() => validateOutcomeFieldDispositions(undefined, { ...hostExpectedLimits, maxNodes: 1 }), /budget/u);
+    assert.equal(validateOutcomeFieldDispositions(undefined, hostExpectedLimits).entries.length, 10);
+});
+
+test('secret context and semantic references remain explicitly registered instead of erased as diagnostics', () =>
+{
+    const registry = validateOutcomeFieldDispositions(undefined, hostExpectedLimits);
+    const producer = registry.canonicalization.schemas.find((item) => item.schema === 'fsusblog.producer-semantic-outcome.v1');
+    const find = (schemaPath) => producer.fields.find((item) => item.schemaPath === schemaPath);
+    for (const name of ['semanticId', 'present', 'type', 'contextDigest'])
+    {
+        assert.equal(find(`$.redactedSecrets[].${name}`).category, 'secret-redacted');
+    }
+    assert.equal(find('$.redactedSecrets[].contextDigest').normalizationRule, 'digest');
+    assert.equal(find('$.projectionReceipts[].semanticPayloadDigest').category, 'semantic-outcome');
+    assert.equal(find('$.projectionReceipts[].contentDigest').category, 'evidence-location');
+    assert.throws(() => sealVerifiedProducerSemanticOutcome(registry), /independent authority bridge/u);
+});
