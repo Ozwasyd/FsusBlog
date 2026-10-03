@@ -20,6 +20,223 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
 {
     private static readonly AuthorRecentArticleHistoryOwner s_owner = new(1, "primary-site");
 
+    [Theory]
+    [InlineData("initial-edit", "receipt_fact_transition_invalid")]
+    [InlineData("initial-activate", "receipt_fact_transition_invalid")]
+    [InlineData("carry-erase", "receipt_fact_transition_invalid")]
+    [InlineData("carry-replace", "receipt_fact_transition_invalid")]
+    [InlineData("activate-erase", "receipt_fact_transition_invalid")]
+    [InlineData("server-descended", "receipt_server_revision_descended")]
+    [InlineData("clock-equal", "receipt_fact_order_invalid")]
+    [InlineData("clock-back", "receipt_fact_order_invalid")]
+    [InlineData("other-clock-equal", "receipt_fact_order_invalid")]
+    public async Task Verifier_RejectsResealedIllegalCommandTransitions(string scenario, string reason)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var store = new AuthorRecentArticleHistoryStore(
+            db,
+            new FixedTimeProvider(new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)),
+            new LocalMutationAuthorizer());
+        long serverRevision = scenario == "server-descended" ? 702 : 701;
+        if (scenario == "server-descended")
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE article SET current_revision_id = 702 WHERE id = 1;");
+        }
+        AuthorRecentArticleHistoryReceipt first = await store.RecordOpenedAsync(
+            s_owner, 1, serverRevision, 0, Guid.CreateVersion7());
+        AuthorRecentArticleHistoryReceipt terminal = first;
+        if (scenario is "carry-erase" or "carry-replace" or "activate-erase")
+        {
+            terminal = await store.RecordEditedAsync(s_owner, 1, serverRevision, 1, Guid.CreateVersion7());
+            if (scenario == "activate-erase")
+            {
+                terminal = await store.RecordActivatedAsync(s_owner, 1, serverRevision, 2, Guid.CreateVersion7());
+            }
+        }
+        else if (scenario is "server-descended" or "clock-equal" or "clock-back" or "other-clock-equal")
+        {
+            bool otherArticle = scenario == "other-clock-equal";
+            terminal = await store.RecordOpenedAsync(
+                s_owner, otherArticle ? 2 : 1, otherArticle ? 702 : serverRevision, 1, Guid.CreateVersion7());
+        }
+        AuthorRecentArticleHistoryCollectionSnapshot original = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        AuthorRecentArticleHistoryReceipt forged = scenario switch
+        {
+            "initial-edit" => terminal with { LastEditedAtUtc = first.AcceptedAtUtc.AddTicks(-10) },
+            "initial-activate" => terminal with { LastActivatedAtUtc = first.AcceptedAtUtc.AddTicks(-10) },
+            "carry-erase" => terminal with { LastOpenedAtUtc = null },
+            "carry-replace" => terminal with { LastOpenedAtUtc = first.AcceptedAtUtc.AddTicks(-10) },
+            "activate-erase" => terminal with { LastEditedAtUtc = null },
+            "server-descended" => terminal with { ServerRevision = 701 },
+            "clock-back" => terminal with
+            {
+                AcceptedAtUtc = first.AcceptedAtUtc.AddTicks(-10),
+                LastOpenedAtUtc = first.AcceptedAtUtc.AddTicks(-10)
+            },
+            _ => terminal with { AcceptedAtUtc = first.AcceptedAtUtc, LastOpenedAtUtc = first.AcceptedAtUtc }
+        };
+        AuthorRecentArticleHistoryEntry originalEntry = original.Entries.Single(
+            entry => entry.ArticleId == terminal.ArticleId);
+        var forgedEntry = originalEntry with
+        {
+            ServerRevision = forged.ServerRevision,
+            LastOpenedAtUtc = forged.LastOpenedAtUtc,
+            LastEditedAtUtc = forged.LastEditedAtUtc,
+            LastActivatedAtUtc = forged.LastActivatedAtUtc
+        };
+        forgedEntry = forgedEntry with
+        {
+            ContentDigest = AuthorRecentArticleHistoryContract.ComputeEntryDigest(s_owner, forgedEntry)
+        };
+        AuthorRecentArticleHistoryEntry[] forgedEntries = original.Entries
+            .Select(entry => entry.ArticleId == forgedEntry.ArticleId ? forgedEntry : entry)
+            .ToArray();
+        forged = forged with
+        {
+            CommandDigest = AuthorRecentArticleHistoryContract.ComputeCommandDigest(new(
+                s_owner,
+                forged.ArticleId,
+                forged.ServerRevision,
+                forged.PreviousRevision,
+                forged.RequestId,
+                scenario is "carry-erase" or "carry-replace"
+                    ? AuthorRecentArticleHistoryCommandKind.Edit
+                    : scenario == "activate-erase"
+                        ? AuthorRecentArticleHistoryCommandKind.Activate
+                        : AuthorRecentArticleHistoryCommandKind.Open)),
+            ContentDigest = AuthorRecentArticleHistoryContract.ComputeCollectionDigest(
+                s_owner, forged.Revision, forgedEntries)
+        };
+        forged = forged with
+        {
+            CacheReference = $"server-read-model:{s_owner.AdminPrincipalId}:{s_owner.SiteScope}:{forged.ContentDigest}"
+        };
+        forged = forged with { ReceiptDigest = AuthorRecentArticleHistoryContract.ComputeReceiptDigest(forged) };
+        await WriteResealedHistoryAsync(db, forged, forgedEntry);
+        AuthorRecentArticleHistoryCollectionSnapshot resealed = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(forged.ContentDigest, resealed.ContentDigest);
+        Assert.Equal(forgedEntry, resealed.Entries.Single(entry => entry.ArticleId == forgedEntry.ArticleId));
+        Assert.True(AuthorRecentArticleHistoryContract.TryValidateSnapshot(resealed, out _));
+
+        AuthorRecentArticleHistoryVerificationResult rejected = await store.VerifyAsync(s_owner);
+        Assert.False(rejected.Valid);
+        Assert.Contains($"{reason}:{terminal.RequestId:D}", rejected.Reasons);
+        Assert.DoesNotContain(rejected.Reasons, value => value.StartsWith("durable_side_effect_missing:", StringComparison.Ordinal));
+        Assert.DoesNotContain(rejected.Reasons, value => value.StartsWith("receipt_digest_mismatch:", StringComparison.Ordinal));
+        Assert.DoesNotContain(rejected.Reasons, value => value.StartsWith("command_digest_mismatch:", StringComparison.Ordinal));
+        Assert.DoesNotContain(rejected.Reasons, value => value.StartsWith("receipt_timestamp_mismatch:", StringComparison.Ordinal));
+        Assert.DoesNotContain(rejected.Reasons, value => value.StartsWith("receipt_reference_mismatch:", StringComparison.Ordinal));
+        await WriteResealedHistoryAsync(db, terminal, originalEntry);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+    }
+
+    [Fact]
+    public async Task Verifier_PreservesLegalFixedClockTransitionsAndIdempotentReplay()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var store = new AuthorRecentArticleHistoryStore(
+            db,
+            new FixedTimeProvider(new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)),
+            new LocalMutationAuthorizer());
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        AuthorRecentArticleHistoryReceipt opened = await store.RecordOpenedAsync(s_owner, 1, 701, 0, Guid.CreateVersion7());
+        await db.Ado.ExecuteCommandAsync("UPDATE article SET current_revision_id = 702 WHERE id = 1;");
+        AuthorRecentArticleHistoryReceipt edited = await store.RecordEditedAsync(s_owner, 1, 702, 1, Guid.CreateVersion7());
+        AuthorRecentArticleHistoryReceipt activated = await store.RecordActivatedAsync(s_owner, 1, 702, 2, Guid.CreateVersion7());
+        Assert.Equal(opened.AcceptedAtUtc.AddTicks(10), edited.AcceptedAtUtc);
+        Assert.Equal(edited.AcceptedAtUtc.AddTicks(10), activated.AcceptedAtUtc);
+        Assert.Equal(opened.LastOpenedAtUtc, activated.LastOpenedAtUtc);
+        Assert.Equal(edited.LastEditedAtUtc, activated.LastEditedAtUtc);
+        Assert.True((await store.RecordEditedAsync(s_owner, 1, 702, 1, edited.RequestId)).IdempotentReplay);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        Assert.Equal(3, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM author_recent_history_receipt;"));
+    }
+
+    [Fact]
+    public async Task Verifier_PreservesEvictedArticleReintroductionWithoutOldFacts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await db.Ado.ExecuteCommandAsync(
+            "INSERT INTO article(id, status, isdeleted, current_revision_id) SELECT id, 0, FALSE, 700 + id FROM generate_series(3, 1001) AS id;");
+        var store = new AuthorRecentArticleHistoryStore(
+            db,
+            new FixedTimeProvider(new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)),
+            new LocalMutationAuthorizer());
+        for (int articleId = 1; articleId <= AuthorRecentArticleHistoryContract.MaxEntriesPerOwner + 1; articleId++)
+        {
+            await store.RecordOpenedAsync(s_owner, articleId, 700 + articleId, articleId - 1, Guid.CreateVersion7());
+        }
+        AuthorRecentArticleHistoryCollectionSnapshot evicted = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(AuthorRecentArticleHistoryContract.MaxEntriesPerOwner, evicted.ItemCount);
+        Assert.DoesNotContain(evicted.Entries, entry => entry.ArticleId == 1);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        await store.RecordEditedAsync(s_owner, 1, 701, evicted.Revision, Guid.CreateVersion7());
+        AuthorRecentArticleHistoryEntry reintroduced = (await store.GetAuthoritySnapshotAsync(s_owner))
+            .Entries.Single(entry => entry.ArticleId == 1);
+        Assert.Null(reintroduced.LastOpenedAtUtc);
+        Assert.NotNull(reintroduced.LastEditedAtUtc);
+        Assert.Null(reintroduced.LastActivatedAtUtc);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+    }
+
+    private static async Task WriteResealedHistoryAsync(
+        ISqlSugarClient db,
+        AuthorRecentArticleHistoryReceipt receipt,
+        AuthorRecentArticleHistoryEntry entry)
+    {
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE author_recent_history_entry
+            SET server_revision = @ServerRevision, last_opened_at_utc = @Opened,
+                last_edited_at_utc = @Edited, last_activated_at_utc = @Activated,
+                content_digest = @EntryDigest
+            WHERE owner_admin_principal_id = @Owner AND site_scope = @Site AND article_id = @Article;
+            UPDATE author_recent_history_collection
+            SET changed_at_utc = @Accepted, content_digest = @ContentDigest
+            WHERE owner_admin_principal_id = @Owner AND site_scope = @Site;
+            UPDATE author_recent_history_receipt
+            SET server_revision = @ServerRevision, accepted_at_utc = @Accepted,
+                last_opened_at_utc = @Opened, last_edited_at_utc = @Edited, last_activated_at_utc = @Activated,
+                command_digest = @CommandDigest, content_digest = @ContentDigest,
+                cache_reference = @CacheReference, receipt_digest = @ReceiptDigest
+            WHERE receipt_id = @ReceiptId;
+            UPDATE author_recent_history_idempotency
+            SET command_digest = @CommandDigest, created_at_utc = @Accepted
+            WHERE receipt_id = @ReceiptId;
+            UPDATE author_recent_history_outbox
+            SET payload_digest = @ContentDigest, created_at_utc = @Accepted
+            WHERE receipt_id = @ReceiptId;
+            UPDATE author_recent_history_audit
+            SET server_revision = @ServerRevision, command_digest = @CommandDigest,
+                content_digest = @ContentDigest, occurred_at_utc = @Accepted
+            WHERE receipt_id = @ReceiptId;
+            """,
+            new SugarParameter("@Owner", receipt.Owner.AdminPrincipalId),
+            new SugarParameter("@Site", receipt.Owner.SiteScope),
+            new SugarParameter("@Article", receipt.ArticleId),
+            new SugarParameter("@ServerRevision", receipt.ServerRevision),
+            new SugarParameter("@Opened", entry.LastOpenedAtUtc.HasValue ? entry.LastOpenedAtUtc.Value : DBNull.Value)
+            {
+                DbType = System.Data.DbType.DateTime
+            },
+            new SugarParameter("@Edited", entry.LastEditedAtUtc.HasValue ? entry.LastEditedAtUtc.Value : DBNull.Value)
+            {
+                DbType = System.Data.DbType.DateTime
+            },
+            new SugarParameter("@Activated", entry.LastActivatedAtUtc.HasValue ? entry.LastActivatedAtUtc.Value : DBNull.Value)
+            {
+                DbType = System.Data.DbType.DateTime
+            },
+            new SugarParameter("@Accepted", receipt.AcceptedAtUtc),
+            new SugarParameter("@EntryDigest", entry.ContentDigest),
+            new SugarParameter("@CommandDigest", receipt.CommandDigest),
+            new SugarParameter("@ContentDigest", receipt.ContentDigest),
+            new SugarParameter("@CacheReference", receipt.CacheReference),
+            new SugarParameter("@ReceiptDigest", receipt.ReceiptDigest),
+            new SugarParameter("@ReceiptId", receipt.ReceiptId));
+    }
+
     [Fact]
     public async Task Store_EnforcesCasIdempotencyProjectionOrderAndDurableSideEffects()
     {

@@ -179,6 +179,7 @@ public sealed class AuthorRecentArticleHistoryStore(
         IReadOnlyList<ReceiptRow> receipts = await ReadReceiptRowsAsync(owner, cancellationToken)
             .ConfigureAwait(false);
         long expectedRevision = 0;
+        DateTime? previousAcceptedAtUtc = null;
         var requestIds = new HashSet<Guid>();
         var reconstructedEntries = new List<AuthorRecentArticleHistoryEntry>();
         ReceiptRow[] orderedReceipts = receipts
@@ -199,6 +200,13 @@ public sealed class AuthorRecentArticleHistoryStore(
                 reasons.Add($"revision_chain_invalid:{receipt.RequestId:D}");
             }
             expectedRevision = Math.Max(expectedRevision, receipt.Revision);
+            if (receipt.AcceptedAtUtc.Ticks % 10 != 0
+                || (previousAcceptedAtUtc.HasValue
+                    && receipt.AcceptedAtUtc <= previousAcceptedAtUtc.Value))
+            {
+                reasons.Add($"receipt_fact_order_invalid:{receipt.RequestId:D}");
+            }
+            previousAcceptedAtUtc = receipt.AcceptedAtUtc;
             ReplayReceipt(receipt, owner, reconstructedEntries, reasons);
         }
 
@@ -240,12 +248,49 @@ public sealed class AuthorRecentArticleHistoryStore(
     {
         try
         {
+            int existingIndex = reconstructedEntries.FindIndex(
+                candidate => candidate.ArticleId == receipt.ArticleId);
+            AuthorRecentArticleHistoryEntry? previous = existingIndex < 0
+                ? null
+                : reconstructedEntries[existingIndex];
+            if (previous is not null && previous.ServerRevision > receipt.ServerRevision)
+            {
+                reasons.Add($"receipt_server_revision_descended:{receipt.RequestId:D}");
+                return;
+            }
+            DateTime? opened = previous?.LastOpenedAtUtc;
+            DateTime? edited = previous?.LastEditedAtUtc;
+            DateTime? activated = previous?.LastActivatedAtUtc;
+            // Replay the actual writer transition, not the receipt's self-declared history.
+            // An evicted article has no retained predecessor, just as in RecordAsync.
+            switch (receipt.CommandKind)
+            {
+                case "open":
+                    opened = MaxTimestamp(opened, receipt.AcceptedAtUtc);
+                    break;
+                case "edit":
+                    edited = MaxTimestamp(edited, receipt.AcceptedAtUtc);
+                    break;
+                case "activate":
+                    activated = MaxTimestamp(activated, receipt.AcceptedAtUtc);
+                    break;
+                default:
+                    reasons.Add($"receipt_command_invalid:{receipt.RequestId:D}");
+                    return;
+            }
+            if (opened != receipt.LastOpenedAtUtc
+                || edited != receipt.LastEditedAtUtc
+                || activated != receipt.LastActivatedAtUtc)
+            {
+                reasons.Add($"receipt_fact_transition_invalid:{receipt.RequestId:D}");
+                return;
+            }
             var entry = new AuthorRecentArticleHistoryEntry(
                 receipt.ArticleId,
                 receipt.ServerRevision,
-                receipt.LastOpenedAtUtc,
-                receipt.LastEditedAtUtc,
-                receipt.LastActivatedAtUtc,
+                opened,
+                edited,
+                activated,
                 receipt.CommandKind,
                 receipt.Revision,
                 AuthorRecentArticleHistoryContract.HashText("pending"));
@@ -253,8 +298,6 @@ public sealed class AuthorRecentArticleHistoryStore(
             {
                 ContentDigest = AuthorRecentArticleHistoryContract.ComputeEntryDigest(owner, entry)
             };
-            int existingIndex = reconstructedEntries.FindIndex(
-                candidate => candidate.ArticleId == entry.ArticleId);
             if (existingIndex < 0)
             {
                 reconstructedEntries.Add(entry);

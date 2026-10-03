@@ -2315,7 +2315,10 @@ article 不泄露 title、slug、status、existence 或其它 metadata。cursor 
 并绑定 owner、site、permission/session revision、collection revision 和最新 server fact，执行 bounded keyset
 pagination；offline 本地读取不写 authority，reconnect 只能重放正式 command 并接受服务端 receipt/CAS 结果。receipt
 同时封存 open/edit/activate 三类服务端事实时间，replay 与 independent verifier 都会重读并精确核对 idempotency、
-outbox、audit、permission 和 projection digest；缺失、字段漂移或重封后的 command drift 均 fail closed。此 issue
+outbox、audit、permission 和 projection digest；缺失、字段漂移或重封后的 command drift 均 fail closed。
+独立重放从已保留的前一 entry 推导三类事实：只有当前命令更新对应时间，其它时间必须原样延续；
+owner/site 的 accepted 时间按服务端微秒精度严格前进，同一已保留 article 的 server revision 不得下降。
+retention 淘汰后重新加入的 article 按无前驱 entry 重建，不继承已淘汰事实；公开 digest 的一致重封不能代替这些命令约束。此 issue
 只提供服务端 authority、commands、projection、receipt 与 verifier，不提供 client、UI 或 search 行为。返回当前
 projection 前必须通过 direct server read-model cache publication 校验；该边界不保存第二份 history authority，
 publication 拒绝、异常或 digest/page slice 不一致时返回空的 `Unavailable` 投影，不暴露部分缓存结果。
