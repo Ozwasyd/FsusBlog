@@ -963,6 +963,8 @@ This set of data only proves that parallel builds are available on the current m
 
 `validate-matrix` is the root job of Quality Gate. The workflow enters the scheduler-owned matrix tier:
 
+Gate integrity resolves executable commands through the original shared YAML parser's actual `jobs` / job / `steps` / `run` structure. Environment, action-input and other scalar text cannot supply an executable owner or alter its unique job binding. Quoted and folded run values retain their parsed meaning; malformed or unsupported YAML fails closed rather than falling back to substring or indentation scans.
+
 ```bash
 ./tools/test.sh ci-tier validate-matrix --no-deps
 ```

@@ -291,6 +291,61 @@ EOF
     ExpectFixtureFailure 'bypasses the canonical matrix governance owner'
     cp "$tempDir/quality-gate.baseline.yml" "$workflow"
 
+    # Mutate only the embedded fixture; the real workflow and parser stay unchanged.
+    WriteWorkflowNodeFixture() {
+        node --input-type=module - "$workflow" "$1" "$tempDir/quality-gate.baseline.yml" <<'FIXTURE_NODE'
+import fs from 'node:fs';
+const [file, mode, baseline] = process.argv.slice(2);
+let text = fs.readFileSync(baseline, 'utf8');
+const command = './tools/test.sh ci-tier validate-matrix --no-deps';
+const owner = '      - run: ' + command;
+const header = '  validate-matrix:\n    steps:\n';
+if (mode.startsWith('literal-')) {
+    const [style, present] = mode.slice('literal-'.length).split(':');
+    if (!['|', '>', '|-', '>+'].includes(style) || !['present', 'absent'].includes(present)) throw new Error('invalid fixture mode');
+    text = text.replace(header, '  validate-matrix:\n    env:\n      OWNER_TEXT: ' + style
+        + '\n        steps:\n          - run: ' + command
+        + '\n          cache-dependency-path: src/non-executed-fixture\n    steps:\n');
+    if (present === 'absent') text = text.replace(owner, '      - run: echo owner-not-executed');
+} else {
+    const runForms = {
+        named: '      - name: Canonical matrix owner\n        run: ' + command,
+        quoted: '      - run: "' + command + '"',
+        literal: '      - run: |-\n          ' + command,
+        folded: '      - run: >-\n          ./tools/test.sh ci-tier\n          validate-matrix --no-deps'
+    };
+    if (Object.hasOwn(runForms, mode)) text = text.replace(owner, runForms[mode]);
+    else if (mode === 'flow') {
+        text = text.replace(header + owner + '\n      - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json',
+            '  validate-matrix:\n    steps: [{run: "./tools/test.sh ci-tier validate-matrix --no-deps"}, {run: "node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json"}]');
+    } else if (mode === 'steps-scalar') {
+        text = text.replace(header, '  validate-matrix:\n    steps: |\n');
+    } else if (mode === 'duplicate-steps') {
+        text = text.replace(header, '  validate-matrix:\n    steps: []\n    steps:\n');
+    } else throw new Error('invalid fixture mode');
+}
+fs.writeFileSync(file, text);
+FIXTURE_NODE
+    }
+
+    local scalarStyle
+    for scalarStyle in '|' '>' '|-' '>+'; do
+        WriteWorkflowNodeFixture "literal-${scalarStyle}:absent"
+        ExpectFixtureFailure 'validate-matrix job must invoke the scheduler-owned canonical tier exactly once'
+        WriteWorkflowNodeFixture "literal-${scalarStyle}:present"
+        FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/dev/null
+    done
+    local runForm
+    for runForm in named quoted literal folded flow; do
+        WriteWorkflowNodeFixture "$runForm"
+        FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/dev/null
+    done
+    WriteWorkflowNodeFixture steps-scalar
+    ExpectFixtureFailure 'steps must be a sequence'
+    WriteWorkflowNodeFixture duplicate-steps
+    ExpectFixtureFailure 'duplicate YAML key steps'
+    cp "$tempDir/quality-gate.baseline.yml" "$workflow"
+
     FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/dev/null
 
     echo "[gate-integrity:self-test] ok"
@@ -302,11 +357,16 @@ if [[ "${1:-}" == "--self-test" ]]; then
 fi
 
 export FSUSBLOG_GATE_INTEGRITY_ROOT="$ROOT_DIR"
-node <<'NODE'
+GATE_INTEGRITY_CALLER_CWD="$PWD"
+(
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+node --input-type=module - "$GATE_INTEGRITY_CALLER_CWD" <<'NODE'
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseYamlDocument } from './tools/yaml/parse-document.mjs';
 
-const root = process.env.FSUSBLOG_GATE_INTEGRITY_ROOT;
+// The implementation owns the parser; fixture ROOT_DIR selects data only.
+const root = path.resolve(process.argv[2], process.env.FSUSBLOG_GATE_INTEGRITY_ROOT);
 const errors = [];
 const references = new Map();
 
@@ -459,123 +519,102 @@ function scanPackageJson() {
   }
 }
 
-function isYamlRunBlock(value) {
-  const marker = value.trim().replace(/\s+#.*$/u, '');
-  return /^[|>](?:[+-][1-9]?|[1-9][+-]?)?$/u.test(marker);
-}
-
 function scanWorkflow(file) {
   const text = readRequired(file);
+  let document;
+  try {
+    document = parseYamlDocument(text, { source: file });
+  } catch (error) {
+    addError(`invalid workflow YAML: ${file}: ${error.message}`);
+    return;
+  }
+  const mapping = value => value !== null && typeof value === 'object'
+    && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+  if (!mapping(document) || !mapping(document.jobs)) {
+    addError(`${file} must declare a jobs mapping`);
+    return;
+  }
+
+  // Only a real jobs -> job -> steps sequence -> step.run is executable.
+  // Environment, output, name, with and other scalar text never owns steps.
+  const commandsByJob = new Map();
+  for (const [jobId, job] of Object.entries(document.jobs)) {
+    const commands = [];
+    commandsByJob.set(jobId, commands);
+    if (!mapping(job)) {
+      addError(`${file} job ${jobId} must be a mapping`);
+      continue;
+    }
+    if (!Object.hasOwn(job, 'steps')) continue;
+    if (!Array.isArray(job.steps)) {
+      addError(`${file} job ${jobId} steps must be a sequence`);
+      continue;
+    }
+    for (const step of job.steps) {
+      if (!mapping(step)) {
+        addError(`${file} job ${jobId} step must be a mapping`);
+        continue;
+      }
+      if (Object.hasOwn(step, 'run')) {
+        if (typeof step.run !== 'string' || Object.hasOwn(step, 'uses')) {
+          addError(`${file} job ${jobId} run must be an executable string step without uses`);
+          continue;
+        }
+        commands.push(step.run.trim());
+        addRefsFromText(step.run, file);
+      }
+      const dependencyPaths = step.with?.['cache-dependency-path'];
+      if (typeof dependencyPaths === 'string') {
+        for (const dependency of dependencyPaths.split(/\r?\n/u).filter(value => value.trim())) {
+          addRef(dependency.trim(), file);
+        }
+      }
+    }
+  }
+  const executableCommands = [...commandsByJob.values()].flat();
   if (file.endsWith('quality-gate.yml')) {
-    const branchBlock = text.match(/push:\s*[\s\S]*?branches:\s*([\s\S]*?)(?:\n\S|\n\s{2}\w|$)/);
-    const branchText = branchBlock?.[1] ?? '';
+    const branches = document.on?.push?.branches;
     for (const branch of ['main', 'master']) {
-      if (!new RegExp(`(^|\\s|- )${branch}(\\s|$)`).test(branchText)) {
+      if (!Array.isArray(branches) || !branches.includes(branch)) {
         addError(`${file} push.branches is missing ${branch}`);
       }
     }
 
     for (const required of ['./tools/test.sh ci-job fast-backend --fresh', './tools/test.sh ci-job fast-frontend-unit --fresh', './tools/test.sh coverage-merge', './tools/test.sh coverage-threshold']) {
-      if (!text.includes(required)) {
+      if (!executableCommands.some(command => command.includes(required))) {
         addError(`${file} does not run ${required}`);
       }
     }
-    if (!text.includes('production-summary:')) {
+    if (!Object.hasOwn(document.jobs, 'production-summary')) {
       addError(`${file} is missing production-summary job`);
     }
-    const executableCommands = [];
-    let blockIndent = -1;
-    let blockLines = [];
-    function flushRunBlock() {
-      if (blockLines.length > 0) executableCommands.push(blockLines.join(' ').replace(/\s+/gu, ' ').trim());
-      blockIndent = -1;
-      blockLines = [];
-    }
-    for (const line of text.split(/\r?\n/)) {
-      const run = line.match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
-      if (run) {
-        flushRunBlock();
-        blockIndent = isYamlRunBlock(run[2]) ? run[1].length : -1;
-        if (blockIndent < 0) executableCommands.push(run[2].trim());
-        continue;
-      }
-      if (blockIndent >= 0 && line.trim()) {
-        const indent = line.match(/^\s*/)[0].length;
-        if (indent > blockIndent) blockLines.push(line.trim());
-        else flushRunBlock();
-      }
-    }
-    flushRunBlock();
     const schedulerStep = './tools/test.sh ci-tier validate-matrix --no-deps';
-    const matrixInvocations = executableCommands.filter((command) =>
+    const isMatrixInvocation = command =>
       /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command)
-      && (command.includes('validate-matrix') || command.includes('run-matrix-governance-once.sh')));
+      && (command.includes('validate-matrix') || command.includes('run-matrix-governance-once.sh'));
+    const matrixInvocations = executableCommands.filter(isMatrixInvocation);
     if (matrixInvocations.length !== 1 || matrixInvocations[0] !== schedulerStep) {
       addError(`${file} workflow must invoke the scheduler-owned canonical tier exactly once`);
     }
-    const jobs = text.split(/^jobs:\s*$/m)[1] ?? '';
-    const jobHeaders = [...jobs.matchAll(/^([ ]+)([A-Za-z0-9_-]+):\s*$/gm)];
-    const jobIndent = jobHeaders[0]?.[1].length;
-    const topLevelJobs = jobHeaders.filter((match) => match[1].length === jobIndent);
-    const matrixJobs = topLevelJobs.filter((match) => match[2] === 'validate-matrix');
-    if (matrixJobs.length !== 1) {
+    if (!Object.hasOwn(document.jobs, 'validate-matrix')) {
       addError(`${file} must declare exactly one validate-matrix job`);
     } else {
-      const job = matrixJobs[0];
-      const next = topLevelJobs.find((match) => match.index > job.index);
-      const body = jobs.slice(job.index + job[0].length, next?.index ?? jobs.length);
-      const stepsIndent = body.match(/^([ ]+)steps:\s*$/m)?.[1].length;
-      const listIndent = Math.min(...[...body.matchAll(/^([ ]+)- (?:run|uses|name|id): .+$/gm)]
-        .map((match) => match[1].length)
-        .filter((indent) => indent > stepsIndent));
-      const runSteps = Number.isFinite(listIndent)
-        ? [...body.matchAll(new RegExp(`^ {${listIndent}}- run: (.+)$`, 'gm'))].map((match) => match[1].trim())
-        : [];
-      const matrixOwnerSteps = runSteps.filter((command) =>
-        command.includes('validate-matrix')
-        && /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command));
+      const matrixOwnerSteps = commandsByJob.get('validate-matrix').filter(isMatrixInvocation);
       if (matrixOwnerSteps.length !== 1 || matrixOwnerSteps[0] !== schedulerStep) {
         addError(`${file} validate-matrix job must invoke the scheduler-owned canonical tier exactly once`);
       }
     }
-    if (/node tools\/run-test-matrix\.mjs (?:preflight|validate|evidence-plan)/u.test(text)) {
+    if (executableCommands.some(command => /node tools\/run-test-matrix\.mjs (?:preflight|validate|evidence-plan)/u.test(command))) {
       addError(`${file} bypasses the canonical matrix governance owner`);
     }
-    if (!text.includes('node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json')) {
+    if (!executableCommands.some(command => command.includes('node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json'))) {
       addError(`${file} must write the CI plan with run-test-matrix --out`);
     }
-    if (text.includes('> .tmp/ci-plan.json')) {
+    if (executableCommands.some(command => command.includes('> .tmp/ci-plan.json'))) {
       addError(`${file} must not write .tmp/ci-plan.json with shell redirection`);
     }
-    if (!text.includes('node tools/ci/summarize-quality-gate.mjs')) {
+    if (!executableCommands.some(command => command.includes('node tools/ci/summarize-quality-gate.mjs'))) {
       addError(`${file} does not use the quality gate summary classifier`);
-    }
-  }
-
-  const lines = text.split(/\r?\n/);
-  let inRunBlock = false;
-  let runIndent = 0;
-  for (const line of lines) {
-    const runMatch = line.match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
-    if (runMatch) {
-      inRunBlock = isYamlRunBlock(runMatch[2]);
-      runIndent = runMatch[1].length;
-      addRefsFromText(runMatch[2], file);
-      continue;
-    }
-
-    if (inRunBlock) {
-      const indent = line.match(/^(\s*)/)?.[1].length ?? 0;
-      if (line.trim() === '' || indent > runIndent) {
-        addRefsFromText(line, file);
-      } else {
-        inRunBlock = false;
-      }
-    }
-
-    const cacheMatch = line.match(/cache-dependency-path:\s*(.+)$/);
-    if (cacheMatch) {
-      addRef(cacheMatch[1].trim(), file);
     }
   }
 }
@@ -659,3 +698,4 @@ if (errors.length > 0) {
 
 console.log(`[gate-integrity] ok (${references.size} referenced paths checked)`);
 NODE
+)
