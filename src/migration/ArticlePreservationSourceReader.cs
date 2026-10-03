@@ -32,6 +32,23 @@ internal static class ArticlePreservationSourceReader
             token => observer.ObserveAsync(provider, connection, transaction, token),
             originArtifact, documentBase, limits, readBudget, cancellationToken);
 
+    // Only the original native session can mint this run-owned context. Generic
+    // connection/transaction tuples cannot grant a MySQL source read.
+    internal static async Task<ArticlePreservationSourceReadResult> ReadMySqlOwnedAsync(
+        OfflineMigrationMySqlNativeSession.OwnedReadContext originalRead,
+        OfflineMigrationSourceObserver observer, CurrentSchemaArtifactReference originArtifact,
+        Uri documentBase, ArticlePreservationLimits limits, TimeSpan readBudget,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(originalRead);
+        using CancellationTokenSource ownedReadScope = originalRead.CreateReadScope(cancellationToken);
+        return await ReadCoreAsync(CurrentSchemaProviderKind.MySql,
+            originalRead.OriginalConnection, originalRead.OriginalTransaction, observer,
+            token => observer.ObserveAsync(CurrentSchemaProviderKind.MySql,
+                originalRead.OriginalConnection, originalRead.OriginalTransaction, token),
+            originArtifact, documentBase, limits, readBudget, ownedReadScope.Token, originalRead).ConfigureAwait(false);
+    }
+
     // Apply-phase only: the original observer validates the complete journal DDL
     // before excluding that exact infrastructure object. Planning above still
     // observes all objects and refuses a journal or an unknown/partial schema.
@@ -48,32 +65,35 @@ internal static class ArticlePreservationSourceReader
         OfflineMigrationSourceObserver observer,
         Func<CancellationToken, Task<OfflineMigrationSourceObservation>> observe,
         CurrentSchemaArtifactReference originArtifact, Uri documentBase,
-        ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken)
+        ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext? originalMySqlRead = null)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(observe);
         ArgumentNullException.ThrowIfNull(limits);
-        if (!Enum.IsDefined(provider) || connection.State != ConnectionState.Open
-            || transaction.Connection != connection
-            || transaction.IsolationLevel is not (IsolationLevel.RepeatableRead or IsolationLevel.Serializable))
+        if (originalMySqlRead is null)
+            RequireReadSession(provider, connection, transaction);
+        else if (provider != CurrentSchemaProviderKind.MySql
+            || !ReferenceEquals(connection, originalMySqlRead.OriginalConnection)
+            || !ReferenceEquals(transaction, originalMySqlRead.OriginalTransaction))
             throw new InvalidOperationException("article_preservation_consistent_source_session_required");
-        if (limits.MaximumArticles <= 0 || limits.MaximumTaxonomyRows <= 0 || limits.MaximumMetadataBytes <= 0
-            || readBudget <= TimeSpan.Zero || readBudget.TotalMilliseconds > uint.MaxValue - 1)
-            throw new ArgumentOutOfRangeException(nameof(readBudget), "Finite source limits and read budget are required.");
-        if (originArtifact is null || string.IsNullOrWhiteSpace(originArtifact.Reference)
-            || !ArticlePreservationSemanticReceipt.IsDigest(originArtifact.Sha256)
-            || documentBase is null || !documentBase.IsAbsoluteUri)
-            throw new InvalidOperationException("article_preservation_source_origin_required");
+        RequireReadBudget(limits, readBudget);
+        RequireReadInputs(originArtifact, documentBase);
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(readBudget);
         CancellationToken token = deadline.Token;
         token.ThrowIfCancellationRequested();
+        if (originalMySqlRead is not null)
+            await originalMySqlRead.RequireBoundaryAsync(token).ConfigureAwait(false);
         OfflineMigrationSourceObservation observation = await observe(token).ConfigureAwait(false);
         if (OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation).Id != OfflineMigrationSourceFingerprints.LegacyId)
             throw new InvalidOperationException("article_preservation_source_fingerprint_unsupported");
+        if (provider == CurrentSchemaProviderKind.Sqlite)
+            await SqliteArticlePreservationSourceReader.RequireBoundedTextAsync(
+                connection, transaction, limits, readBudget, token).ConfigureAwait(false);
 
         var budget = new ReadBudget(limits);
         ImmutableArray<LegacyArticlePreservationTaxonomy> categories = await ReadTaxonomyAsync(
@@ -154,10 +174,44 @@ internal static class ArticlePreservationSourceReader
         if (ArticlePreservationSemanticReceipt.Digest("article-source-observation-v1", observation)
             != ArticlePreservationSemanticReceipt.Digest("article-source-observation-v1", rechecked))
             throw new InvalidOperationException("article_preservation_source_changed");
+        if (originalMySqlRead is not null)
+            await originalMySqlRead.RequireBoundaryAsync(token).ConfigureAwait(false);
         var data = new ArticlePreservationSourceData(OfflineMigrationSourceFingerprints.LegacyId,
             observation.ContentDigest, originArtifact, documentBase, articles.Count, categories.Length, tags.Length,
             articles.ToImmutable(), categories, tags, configuredSiteAuthor, discarded.ToImmutable());
         return new(data, observation, discarded.ToImmutable(), configuredSiteAuthor);
+    }
+
+    // MySQL is admitted only through the original run-owned context above, never
+    // a raw driver transaction, isolation enum or session default. The original
+    // PostgreSQL/SQLite shape predicate is unchanged; their native owners still
+    // perform real observation and source admission.
+    internal static void RequireReadSession(CurrentSchemaProviderKind provider,
+        DbConnection connection, DbTransaction transaction)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+        if (!Enum.IsDefined(provider) || connection.State != ConnectionState.Open || transaction.Connection != connection)
+            throw new InvalidOperationException("article_preservation_consistent_source_session_required");
+        if (provider == CurrentSchemaProviderKind.MySql
+            || transaction.IsolationLevel is not (IsolationLevel.RepeatableRead or IsolationLevel.Serializable))
+            throw new InvalidOperationException("article_preservation_consistent_source_session_required");
+    }
+
+    internal static void RequireReadBudget(ArticlePreservationLimits limits, TimeSpan readBudget)
+    {
+        ArgumentNullException.ThrowIfNull(limits);
+        if (limits.MaximumArticles <= 0 || limits.MaximumTaxonomyRows <= 0 || limits.MaximumMetadataBytes <= 0
+            || readBudget <= TimeSpan.Zero || readBudget.TotalMilliseconds > uint.MaxValue - 1)
+            throw new ArgumentOutOfRangeException(nameof(readBudget), "Finite source limits and read budget are required.");
+    }
+
+    internal static void RequireReadInputs(CurrentSchemaArtifactReference originArtifact, Uri documentBase)
+    {
+        if (originArtifact is null || string.IsNullOrWhiteSpace(originArtifact.Reference)
+            || !ArticlePreservationSemanticReceipt.IsDigest(originArtifact.Sha256)
+            || documentBase is null || !documentBase.IsAbsoluteUri)
+            throw new InvalidOperationException("article_preservation_source_origin_required");
     }
 
     private static async Task<ImmutableArray<LegacyArticlePreservationTaxonomy>> ReadTaxonomyAsync(
