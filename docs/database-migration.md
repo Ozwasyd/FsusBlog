@@ -155,6 +155,10 @@ public planning/read-only observation does not acquire this exception. Resume co
 to verify the exact original run, artifact and journal head rather than classifying any
 nonempty history as absent. Measurement/filter source controls alone do not establish
 the required native scope, provider capability or runtime qualification.
+SQLite's same owned writer scope also preserves the original genuinely empty,
+zero-object path without inventing a journal or a journal-validation receipt; it
+retains the original native namespace, encoding and complete-catalog checks. This
+does not grant MySQL's missing-control bootstrap capability or relax public reads.
 
 Unknown and ambiguous fingerprints cross the Host boundary through the migration-owned
 closed exception type, not parsed exception text. Structured failures retain exact

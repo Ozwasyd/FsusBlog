@@ -81,10 +81,19 @@ public sealed class OfflineMigrationSourceObserverTests
     public void SqliteControlledEmptyCandidateRequiresOnlyTheSoleControlTableAndItsDerivedIndexes()
     {
         ImmutableArray<ImmutableArray<string>> candidate = SqliteDomainCandidate();
-        OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(candidate);
+        Assert.True(OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(candidate));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(candidate.RemoveAt(1)));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(
             candidate.SetItem(1, candidate[2])));
+    }
+
+    [Fact]
+    public void SqliteCompleteZeroObjectCandidateDoesNotClaimAValidatedJournal()
+    {
+        Assert.False(OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate([]));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(default));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireSqliteControlledEmptyDomainCandidate(
+            [["table", "ordinary_object", "ordinary_object", "CREATE TABLE ordinary_object(id INTEGER)"]]));
     }
 
     [Theory]

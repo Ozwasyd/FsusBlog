@@ -68,21 +68,36 @@ public sealed partial class OfflineMigrationSourceObserver
         ImmutableArray<ImmutableArray<string>> objects = await ReadProviderRowsAsync(connection, transaction,
             "SELECT type,name,tbl_name,substr(COALESCE(sql,''),1,4097) FROM main.sqlite_schema ORDER BY name COLLATE BINARY",
             budget, cancellationToken).ConfigureAwait(false);
-        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
-            "SELECT COUNT(*) FROM main.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
-            budget, cancellationToken).ConfigureAwait(false));
-        RequireSqliteControlledEmptyDomainCandidate(objects);
+        bool journalPresent = RequireSqliteControlledEmptyDomainCandidate(objects);
+        if (journalPresent)
+        {
+            await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+            RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
+                "SELECT COUNT(*) FROM main.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
+                budget, cancellationToken).ConfigureAwait(false));
+        }
+        else if (OfflineMigrationSourceFingerprints.RequireKnownSchema(CurrentSchemaProviderKind.Sqlite, complete))
+            throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
         (string content, ImmutableArray<OfflineMigrationFact> business) = await ReadSqliteContentAsync(
             (SqliteConnection)connection, (SqliteTransaction)transaction, false, budget, cancellationToken).ConfigureAwait(false);
         if (!OfflineMigrationPlanValidation.Equal(complete, await ReadSqliteSchemaAsync(
             connection, transaction, budget, cancellationToken).ConfigureAwait(false)))
             throw new InvalidOperationException("offline_source_controlled_empty_catalog_changed");
+        ImmutableArray<ImmutableArray<string>> terminalObjects = await ReadProviderRowsAsync(connection, transaction,
+            "SELECT type,name,tbl_name,substr(COALESCE(sql,''),1,4097) FROM main.sqlite_schema ORDER BY name COLLATE BINARY",
+            budget, cancellationToken).ConfigureAwait(false);
+        if (objects.Length != terminalObjects.Length
+            || !objects.Zip(terminalObjects).All(pair => pair.First.SequenceEqual(pair.Second))
+            || journalPresent != RequireSqliteControlledEmptyDomainCandidate(terminalObjects))
+            throw new InvalidOperationException("offline_source_controlled_empty_catalog_changed");
         await identity.ValidateAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
-            "SELECT COUNT(*) FROM main.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
-            budget, cancellationToken).ConfigureAwait(false));
+        if (journalPresent)
+        {
+            await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+            RequireEmptyJournalRowCount(await ProviderScalarAsync(connection, transaction,
+                "SELECT COUNT(*) FROM main.\"" + OfflineMigrationStateStore.ApplyJournalTableName + "\"",
+                budget, cancellationToken).ConfigureAwait(false));
+        }
         cancellationToken.ThrowIfCancellationRequested();
         var observation = new OfflineMigrationSourceObservation(identity.Database,
             OfflineMigrationSourceFingerprints.ExtractorId, OfflineMigrationSourceFingerprints.ExtractorVersion,
@@ -129,8 +144,12 @@ public sealed partial class OfflineMigrationSourceObserver
         }
     }
 
-    internal static void RequireSqliteControlledEmptyDomainCandidate(ImmutableArray<ImmutableArray<string>> actual)
+    internal static bool RequireSqliteControlledEmptyDomainCandidate(ImmutableArray<ImmutableArray<string>> actual)
     {
+        // A complete measured zero-object catalog needs no control exemption.
+        // This predicate still grants neither writer custody nor native admission.
+        if (!actual.IsDefault && actual.IsEmpty)
+            return false;
         SchemaTableModel shape = CurrentSchemaControlShape.DescribeApplyJournal();
         int indexes = shape.Constraints.Values.Count(constraint => constraint.Kind != "check");
         if (actual.IsDefault || actual.Length != indexes + 1
@@ -146,6 +165,7 @@ public sealed partial class OfflineMigrationSourceObserver
             if (!ownedTable && !ownedIndex)
                 throw new InvalidOperationException("offline_source_controlled_empty_business_domain_required");
         }
+        return true;
     }
 
     // Complete raw read capability is independent of instance-incarnation admission.
