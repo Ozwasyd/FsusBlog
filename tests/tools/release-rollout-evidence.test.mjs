@@ -17,6 +17,7 @@ import {
     writeRolloutStateAtomic
 } from '../../tools/deployment/release-rollout-lib.mjs'
 import { createPublicAotWarmEvidence } from '../../tools/frontend/public-aot-warm-evidence.mjs'
+import { validateAuxiliaryEvidence } from '../../tools/deployment/release-rollout-auxiliary-evidence-contract.mjs'
 import { createCurrentRolloutFixtureBinding, createCurrentRolloutAdmissionFixtureOutput } from './support/release-rollout-evidence-fixture.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -745,3 +746,134 @@ test('finalize seals stages, six semantic artifacts and the exact auxiliary evid
   assert.notEqual(auxiliaryDrift.status, 0)
   assert.match(parseStdout(auxiliaryDrift).errors.join('\n'), /auxiliary evidence changed after seal: operatorNote/u)
 })
+// Component SOURCE controls only: these metadata inputs are not issued/native admission.
+test('releaseManifest auxiliary keeps the complete current binding across JSON key order and matching null prototypes', () =>
+{
+    const state = newState('/fixture');
+    const value = manifestPayload();
+    const reordered = structuredClone(value);
+    for (const part of ['receipt', 'target', 'database'])
+    {
+        reordered.currentSchema[part] = Object.fromEntries(Object.entries(reordered.currentSchema[part]).reverse());
+    }
+    reordered.currentSchema = Object.fromEntries(Object.entries(reordered.currentSchema).reverse());
+    for (const manifest of [value, reordered])
+    {
+        const errors = [];
+        validateAuxiliaryEvidence('releaseManifest', manifest, state, errors);
+        assert.deepEqual(errors, []);
+    }
+    const nullPrototype = binding =>
+    {
+        const copy = Object.assign(Object.create(null), binding);
+        for (const part of ['receipt', 'target', 'database'])
+        {
+            copy[part] = Object.assign(Object.create(null), binding[part]);
+        }
+        return copy;
+    };
+    const errors = [];
+    validateAuxiliaryEvidence('releaseManifest', { ...value, currentSchema: nullPrototype(value.currentSchema) },
+        { ...state, currentSchema: nullPrototype(state.currentSchema) }, errors);
+    assert.deepEqual(errors, []);
+});
+
+test('releaseManifest auxiliary refuses each typed binding scalar drift after the valid original whole-binding control', () =>
+{
+    const state = newState('/fixture');
+    const value = manifestPayload();
+    const validErrors = [];
+    validateAuxiliaryEvidence('releaseManifest', value, state, validErrors);
+    assert.deepEqual(validErrors, []);
+    const changes = [
+        ['receipt', 'reference', '/fixture/other-current-schema.json'],
+        ['receipt', 'sha256', 'a'.repeat(64)],
+        ['target', 'modelVersion', 'other-model.v1'],
+        ['target', 'extractorVersion', 'other-extractor.v1'],
+        ['target', 'generatorVersion', 'other-generator.v1'],
+        ['target', 'sourceDigest', 'a'.repeat(64)],
+        ['target', 'contentDigest', 'a'.repeat(64)],
+        ['database', 'provider', 1],
+        ['database', 'instanceId', 'other-instance'],
+        ['database', 'databaseId', 'other-database'],
+        [null, 'actualSchemaDigest', 'a'.repeat(64)]
+    ];
+    for (const [part, field, changed] of changes)
+    {
+        const manifest = structuredClone(value);
+        (part ? manifest.currentSchema[part] : manifest.currentSchema)[field] = changed;
+        const errors = [];
+        validateAuxiliaryEvidence('releaseManifest', manifest, state, errors);
+        assert.deepEqual(errors, ['releaseManifest: immutable target identity mismatch'], `${part ?? 'binding'}.${field}`);
+    }
+});
+
+test('releaseManifest auxiliary refuses incomplete, extra, wrong-type and identically malformed current bindings', () =>
+{
+    const state = newState('/fixture');
+    const value = manifestPayload();
+    const mutations = [
+        binding => { delete binding.receipt; },
+        binding => { delete binding.target.sourceDigest; },
+        binding => { delete binding.database.databaseId; },
+        binding => { delete binding.actualSchemaDigest; },
+        binding => { binding.extra = true; },
+        binding => { binding.receipt.extra = true; },
+        binding => { binding.target.extra = true; },
+        binding => { binding.database.extra = true; },
+        binding => { binding.receipt = []; },
+        binding => { binding.receipt.reference = '/fixture/latest/current-schema.json'; },
+        binding => { binding.receipt.sha256 = `sha256:${binding.receipt.sha256}`; },
+        binding => { binding.target.modelVersion = 1; },
+        binding => { binding.database.provider = '0'; },
+        binding => { binding.database.instanceId = ' fixture-instance'; },
+        binding => { binding.actualSchemaDigest = null; }
+    ];
+    for (const mutate of mutations)
+    {
+        const binding = structuredClone(value.currentSchema);
+        mutate(binding);
+        for (const expected of [state.currentSchema, binding])
+        {
+            const errors = [];
+            validateAuxiliaryEvidence('releaseManifest', { ...value, currentSchema: binding },
+                { ...state, currentSchema: expected }, errors);
+            assert.deepEqual(errors, ['releaseManifest: immutable target identity mismatch']);
+        }
+    }
+});
+
+test('releaseManifest auxiliary rejects prototype and non-JSON descriptor substitutions without evaluating accessors', () =>
+{
+    const state = newState('/fixture');
+    const value = manifestPayload();
+    let accessorReads = 0;
+    const mutations = [
+        binding => Object.setPrototypeOf(binding, { marker: true }),
+        binding => Object.setPrototypeOf(binding.receipt, { marker: true }),
+        binding => Object.setPrototypeOf(binding.target, { marker: true }),
+        binding => Object.setPrototypeOf(binding.database, { marker: true }),
+        binding => Object.defineProperty(binding, 'hidden', { value: true, enumerable: false }),
+        binding => Object.defineProperty(binding.receipt, Symbol('extra'), { value: true }),
+        binding => Object.defineProperty(binding.target, 'modelVersion', {
+            enumerable: true, get() { accessorReads += 1; return 'fixture-model.v1'; }
+        })
+    ];
+    for (const mutate of mutations)
+    {
+        const binding = structuredClone(value.currentSchema);
+        mutate(binding);
+        for (const expected of [state.currentSchema, binding])
+        {
+            const errors = [];
+            validateAuxiliaryEvidence('releaseManifest', { ...value, currentSchema: binding },
+                { ...state, currentSchema: expected }, errors);
+            assert.deepEqual(errors, ['releaseManifest: immutable target identity mismatch']);
+        }
+    }
+    const nullPrototype = Object.assign(Object.create(null), value.currentSchema);
+    const errors = [];
+    validateAuxiliaryEvidence('releaseManifest', { ...value, currentSchema: nullPrototype }, state, errors);
+    assert.deepEqual(errors, ['releaseManifest: immutable target identity mismatch']);
+    assert.equal(accessorReads, 0);
+});

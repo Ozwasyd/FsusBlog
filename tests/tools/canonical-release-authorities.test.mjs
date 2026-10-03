@@ -20,7 +20,13 @@ import {
 } from '../../tools/test-evidence/canonical-release-authorities.mjs'
 import { verifyCanonicalReleaseAuthorityValues }
   from '../../tools/test-evidence/canonical-release-authorities-value-contract.mjs'
-import { validateCurrentSchemaBinding } from '../../tools/release/release-manifest-value-contract.mjs'
+import {
+  isSameCurrentSchemaTarget,
+  isSameCurrentSchemaDatabase,
+  isSameCurrentSchemaBinding,
+  validateCurrentSchemaBinding,
+  validateCurrentSchemaAdmissionOutput
+} from '../../tools/release/release-manifest-value-contract.mjs'
 import { createHistoricalWindowReleaseAuthorityFixture } from './support/pure-release-authority-fixture.mjs'
 import { readRuntimeRoleClaimStageAuthorityFixture } from './support/runtime-role-minimal-v3-fixture.mjs'
 import {
@@ -37,6 +43,179 @@ import {
 } from './support/release-authority-test-fixtures.mjs'
 
 const pureAuthorityFixture = () => createPureReleaseAuthorityFixture(semanticDigest)
+
+// These are data-comparison controls, not an observed native execution.
+for (const [name, compare] of [
+  ['target', isSameCurrentSchemaTarget],
+  ['database', isSameCurrentSchemaDatabase]
+])
+{
+  test(`current schema ${name} equality preserves complete scalar records`, () =>
+  {
+    const value = pureAuthorityFixture().authorities.manifest.value.currentSchema[name]
+    assert.equal(compare(value, { ...value }), true)
+    assert.equal(compare(value, Object.fromEntries(Object.entries(value).reverse())), true)
+    assert.equal(compare(Object.freeze({ ...value }), { ...value }), true)
+    assert.equal(compare(Object.assign(Object.create(null), value), Object.assign(Object.create(null), value)), true)
+    for (const field of Object.keys(value))
+    {
+      const changed = { ...value, [field]: typeof value[field] === 'number' ? value[field] + 1 : `${value[field]}-changed` }
+      assert.equal(compare(value, changed), false, field)
+      assert.equal(compare(changed, value), false, field)
+    }
+  })
+
+  test(`current schema ${name} equality refuses non-closed or non-data representations`, () =>
+  {
+    const value = pureAuthorityFixture().authorities.manifest.value.currentSchema[name]
+    const field = Object.keys(value)[0]
+    let getterCalls = 0
+    const missing = { ...value }
+    delete missing[field]
+    const symbol = { ...value, [Symbol('extra')]: undefined }
+    const hidden = Object.defineProperty({ ...value }, 'extra', { value: undefined })
+    const hiddenField = Object.defineProperty({ ...value }, field, { enumerable: false })
+    const accessor = Object.defineProperty({ ...value }, field, { enumerable: true, get() { getterCalls++; return value[field] } })
+    for (const invalid of [
+      null, undefined, [], missing, { ...value, extra: undefined }, symbol, hidden, hiddenField, accessor,
+      Object.assign(Object.create(null), value), Object.assign(Object.create({ inherited: true }), value),
+      { ...value, [field]: undefined }, { ...value, [field]: null },
+      { ...value, [field]: typeof value[field] === 'number' ? String(value[field]) : 1 },
+      { ...value, [field]: Object(value[field]) }
+    ])
+    {
+      assert.equal(compare(value, invalid), false)
+      assert.equal(compare(invalid, value), false)
+    }
+    for (const invalid of [missing, symbol, hidden, hiddenField, accessor,
+      Object.assign(Object.create({ inherited: true }), value), { ...value, [field]: null }])
+    {
+      assert.equal(compare(invalid, invalid), false)
+    }
+    assert.equal(getterCalls, 0)
+  })
+}
+
+test('current schema database equality keeps Object.is numeric identity', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema.database
+  assert.equal(isSameCurrentSchemaDatabase({ ...value, provider: 0 }, { ...value, provider: -0 }), false)
+})
+
+test('current schema binding equality preserves the exact four-field receipt and native value view', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema
+  assert.equal(isSameCurrentSchemaBinding(value, structuredClone(value)), true)
+  assert.equal(isSameCurrentSchemaBinding(value, Object.fromEntries(Object.entries(value).reverse())), true)
+  const asNullRecords = binding => Object.assign(Object.create(null), binding, {
+    receipt: Object.assign(Object.create(null), binding.receipt),
+    target: Object.assign(Object.create(null), binding.target),
+    database: Object.assign(Object.create(null), binding.database)
+  })
+  assert.equal(isSameCurrentSchemaBinding(asNullRecords(value), asNullRecords(structuredClone(value))), true)
+  for (const field of ['reference', 'sha256'])
+  {
+    const changed = structuredClone(value)
+    changed.receipt[field] = field === 'sha256' ? 'f'.repeat(64) : '.tmp/another-current-receipt.json'
+    assert.equal(isSameCurrentSchemaBinding(value, changed), false, field)
+  }
+  for (const name of ['target', 'database'])
+  {
+    for (const field of Object.keys(value[name]))
+    {
+      const changed = structuredClone(value)
+      changed[name][field] = typeof changed[name][field] === 'number' ? changed[name][field] + 1 : `${changed[name][field]}-changed`
+      assert.equal(isSameCurrentSchemaBinding(value, changed), false, `${name}.${field}`)
+    }
+  }
+  assert.equal(isSameCurrentSchemaBinding(value, { ...value, actualSchemaDigest: 'f'.repeat(64) }), false)
+})
+
+test('current schema binding equality does not treat identically malformed original grammar as valid', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema
+  for (const mutate of [
+    binding => { binding.receipt.reference = '.tmp/latest/current.json' },
+    binding => { binding.receipt.sha256 = `sha256:${binding.receipt.sha256}` },
+    binding => { binding.target.sourceDigest = 'not-a-digest' },
+    binding => { binding.target.modelVersion = '' },
+    binding => { binding.database.provider = 3 },
+    binding => { binding.database.instanceId = ' instance' },
+    binding => { binding.actualSchemaDigest = 'not-a-digest' }
+  ])
+  {
+    const invalid = structuredClone(value)
+    mutate(invalid)
+    const errors = []
+    validateCurrentSchemaBinding(invalid, errors)
+    assert.ok(errors.length > 0)
+    assert.equal(isSameCurrentSchemaBinding(invalid, invalid), false)
+    assert.equal(isSameCurrentSchemaBinding(invalid, structuredClone(invalid)), false)
+  }
+})
+
+test('current schema binding equality refuses incomplete, hidden or caller-extended records without reading getters', () =>
+{
+  const value = pureAuthorityFixture().authorities.manifest.value.currentSchema
+  let getterCalls = 0
+  for (const key of Object.keys(value))
+  {
+    const missing = { ...value }
+    delete missing[key]
+    const accessor = Object.defineProperty({ ...value }, key, { enumerable: true, get() { getterCalls++; return value[key] } })
+    for (const invalid of [missing, accessor, { ...value, [key]: null }, { ...value, [key]: undefined }])
+    {
+      assert.equal(isSameCurrentSchemaBinding(value, invalid), false, key)
+      assert.equal(isSameCurrentSchemaBinding(invalid, invalid), false, key)
+    }
+  }
+  for (const invalid of [null, undefined, [], { ...value, extra: undefined },
+    { ...value, [Symbol('extra')]: undefined }, Object.defineProperty({ ...value }, 'extra', { value: undefined }),
+    Object.assign(Object.create({ inherited: true }), value)])
+  {
+    assert.equal(isSameCurrentSchemaBinding(value, invalid), false)
+  }
+  for (const field of ['reference', 'sha256'])
+  {
+    const missing = { ...value.receipt }
+    delete missing[field]
+    const accessor = Object.defineProperty({ ...value.receipt }, field, { enumerable: true, get() { getterCalls++; return value.receipt[field] } })
+    for (const receipt of [missing, accessor, { ...value.receipt, [field]: 1 },
+      { ...value.receipt, extra: undefined }, { ...value.receipt, [Symbol('extra')]: undefined },
+      Object.defineProperty({ ...value.receipt }, 'extra', { value: undefined }),
+      Object.assign(Object.create(null), value.receipt)])
+    {
+      assert.equal(isSameCurrentSchemaBinding(value, { ...value, receipt }), false)
+    }
+  }
+  assert.equal(isSameCurrentSchemaBinding(value, { ...value, actualSchemaDigest: 1 }), false)
+  assert.equal(getterCalls, 0)
+})
+
+test('Server admission value comparison reuses the sole closed current schema record helpers', () =>
+{
+  const fixture = pureAuthorityFixture().authorities
+  const binding = fixture.manifest.value.currentSchema
+  const output = fixture.currentSchema.admission.value
+  const revision = fixture.currentSchema.receipt.verifier.sourceRevision
+  assert.deepEqual(validateCurrentSchemaAdmissionOutput(output, binding, revision), [])
+  for (const name of ['target', 'database'])
+  {
+    for (const field of Object.keys(output[name]))
+    {
+      const changed = structuredClone(output)
+      changed[name][field] = typeof changed[name][field] === 'number' ? changed[name][field] + 1 : `${changed[name][field]}-changed`
+      assert.deepEqual(validateCurrentSchemaAdmissionOutput(changed, binding, revision), [
+        'current schema admission output does not match the immutable candidate receipt bindings'
+      ])
+    }
+    const changed = structuredClone(output)
+    changed[name][Symbol('extra')] = undefined
+    assert.deepEqual(validateCurrentSchemaAdmissionOutput(changed, binding, revision), [
+      'current schema admission output does not match the immutable candidate receipt bindings'
+    ])
+  }
+})
 
 test('pure release fixture carries current-only references without issuing native evidence', () =>
 {

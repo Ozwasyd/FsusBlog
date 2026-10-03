@@ -81,6 +81,17 @@ files, start processes, dynamically load modules or depend on external packages.
 The original I/O owner must bind the actual bytes and native execution separately.
 This lexical reference check is not filesystem identity or native qualification.
 
+The current target's five fields and database's three fields use the same closed
+scalar-record comparison in both value consumers. Matching ordinary or null
+prototypes and exact own enumerable data fields are required; missing, extra,
+symbol, hidden, accessor or wrong-type fields do not compare equal. Scalar values
+use `Object.is`, without generic JSON/deep comparison or a `node:util` dependency.
+This comparison binds supplied values only; it does not execute a native verifier.
+The complete binding comparison reuses these helpers for its closed four fields,
+with the exact two-field receipt reference/raw SHA-256 and actual schema digest.
+It does not normalize receipt paths, convert digest prefixes or reinterpret data.
+Equal malformed bindings still fail the original current-binding grammar.
+
 The private release value verifier passes the closed `catalog`, `claimReceipt`
 and `migrationLedger` materials to the original pure stage validator. The original
 I/O owner must construct those materials by reading and parsing its independently

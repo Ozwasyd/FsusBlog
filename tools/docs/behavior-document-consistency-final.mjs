@@ -8,6 +8,14 @@ import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs'
+import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
+import {
+    behaviorDocAdmissionReceiptSchema,
+    partitionBehaviorDocClaims,
+    validateBehaviorDocClaimStages
+} from './behavior-doc-static-admission-contract.mjs'
+import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs'
+import { parseRepositoryClaims } from './doc-claim.mjs'
 import {
     resolveGitRepositoryAuthority,
     runGitRepository,
@@ -18,7 +26,7 @@ import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-
 import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v1'
+export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v2'
 
 export const zeroLegacyScanSchema = 'fsusblog.zero-legacy-governance-scan.v1'
 
@@ -2194,16 +2202,247 @@ function duplicateSummaryAuthorities(tiers)
         .sort((left, right) => left.authority.localeCompare(right.authority));
 }
 
-export function validateFinalReport(report)
+export function validateFinalReport(report, { expectedWorktree = root } = {})
 {
     if (report?.schema !== finalReportSchema) fail('report schema mismatch')
+    validateClaimStageDischarge(report.claimStageDischarge)
+    if (typeof expectedWorktree !== 'string' || !path.isAbsolute(expectedWorktree)
+        || report.worktreeIdentity?.root !== path.resolve(expectedWorktree))
+    {
+        fail('final report requires the independent expected source worktree')
+    }
+    const catalog = loadJson(path.join(expectedWorktree, 'config/contracts/behavior-contracts.json'))
+    const migrationLedger = loadJson(path.join(expectedWorktree,
+        'config/contracts/document-claim-migration-ledger.json'))
+    const claimReceipt = parseRepositoryClaims(expectedWorktree)
+    const { stages } = partitionBehaviorDocClaims({ catalog, claimReceipt, migrationLedger })
+    const discharge = report.claimStageDischarge
+    if (discharge.catalogDigest !== `sha256:${stages.catalogDigest}`
+        || discharge.parseReceiptDigest !== `sha256:${stages.parseReceiptDigest}`
+        || discharge.migrationLedgerDigest !== `sha256:${stages.migrationLedgerDigest}`
+        || discharge.admissionClaimStagesDigest !== `sha256:${stages.contentDigest}`
+        || normalizeDigest(discharge.preVerificationReceiptDigest)
+            !== normalizeDigest(report.receiptDigests?.docClaimVerification))
+    {
+        fail('final report claim-stage source authority binding mismatch')
+    }
+    const expectedPreIds = stages.preRuntimeClaims
+        .filter((claim) => claim.claimType !== 'generated-section').map((claim) => claim.claimId)
+    const expectedPostIds = stages.deferredPostClaims.map((claim) => claim.claimId)
+    if (JSON.stringify(discharge.verifiedPreProseClaimIds) !== JSON.stringify(expectedPreIds)
+        || JSON.stringify(discharge.unclearedPostClaimIds) !== JSON.stringify(expectedPostIds))
+    {
+        fail('final report must retain the exact original source claim roster')
+    }
+    const source = sealSourceIdentity(expectedWorktree)
+    if (report.sourceIdentity?.commit !== source.sourceCommit
+        || normalizeDigest(report.sourceIdentity?.worktreeFingerprint) !== source.worktreeFingerprint)
+    {
+        fail('final report actual source/worktree identity mismatch')
+    }
+    const reportPostClaimIds = (report.behaviorNodes ?? [])
+        .filter((node) => node.evidenceStage === 'post-runtime')
+        .flatMap((node) => node.docClaimIds ?? []).sort((left, right) => left.localeCompare(right))
+    if (JSON.stringify(reportPostClaimIds) !== JSON.stringify(report.claimStageDischarge.unclearedPostClaimIds))
+    {
+        fail('current final refusal must retain every post-runtime claim identity')
+    }
     validateZeroLegacyScan(report.zeroLegacyScan)
     if (report.contentDigest !== digest(withoutDigest(report))) fail('report contentDigest mismatch')
     if (!['ok', 'failed'].includes(report.status)) fail('report status is invalid')
     if (report.status === 'ok' && report.failureReasons.length > 0) fail('ok report has failures')
     if (report.status === 'ok' && report.zeroLegacyScan.findings.length > 0) fail('ok report has zero-legacy findings')
+    if (report.status === 'ok' && report.claimStageDischarge.unclearedPostClaimIds.length > 0)
+    {
+        fail('ok report cannot retain undischargeable post-runtime claims')
+    }
     if (report.status === 'failed' && report.failureReasons.length === 0) fail('failed report lacks failures')
     return report
+}
+
+const claimStageDischargeKeys = Object.freeze([
+    'catalogDigest', 'parseReceiptDigest', 'migrationLedgerDigest',
+    'admissionClaimStagesDigest', 'preVerificationReceiptDigest',
+    'verifiedPreProseClaimIds', 'verifiedPostClaimIds', 'unclearedPostClaimIds',
+    'contentDigest'
+])
+
+function validateClaimStageDischarge(value)
+{
+    if (!value || Object.keys(value).sort().join('\0')
+        !== [...claimStageDischargeKeys].sort().join('\0')
+        || value.contentDigest !== digest(withoutDigest(value)))
+    {
+        fail('claim-stage discharge is not closed and sealed')
+    }
+    for (const key of claimStageDischargeKeys.filter((key) => key.endsWith('Digest')))
+    {
+        if (typeof value[key] !== 'string' || value[key].length !== 71
+            || !/^sha256:[a-f0-9]{64}$/u.test(value[key]))
+        {
+            fail('claim-stage discharge digest is incomplete')
+        }
+    }
+    const ids = new Set()
+    for (const key of ['verifiedPreProseClaimIds', 'verifiedPostClaimIds', 'unclearedPostClaimIds'])
+    {
+        if (!Array.isArray(value[key]))
+        {
+            fail('claim-stage discharge claim roster is missing')
+        }
+        let previous = null
+        for (const id of value[key])
+        {
+            if (typeof id !== 'string' || id.length === 0 || ids.has(id)
+                || (previous !== null && previous.localeCompare(id) >= 0))
+            {
+                fail('claim-stage discharge has duplicate, unordered or invalid claim identities')
+            }
+            ids.add(id)
+            previous = id
+        }
+    }
+    // There is currently no typed native FactObservation reader bridge.
+    // A boolean, class-reference map or caller-supplied verified list cannot
+    // clear this boundary. A real bridge requires a separate source change.
+    if (value.verifiedPostClaimIds.length !== 0)
+    {
+        fail('native post-runtime FactObservation bridge is unavailable')
+    }
+    return value
+}
+
+export function buildClaimStageDischarge({
+    admission, claimReceipt, claimVerification, behaviorCatalog, migrationLedger, facts,
+    expectedWorktree = null
+})
+{
+    if (admission.schema !== behaviorDocAdmissionReceiptSchema)
+    {
+        fail('final consistency requires the explicit v2 static admission envelope')
+    }
+    if (typeof admission.worktree?.root !== 'string' || !path.isAbsolute(admission.worktree.root))
+    {
+        fail('final claim stages require the independent admitted source worktree')
+    }
+    if (typeof expectedWorktree !== 'string' || !path.isAbsolute(expectedWorktree)
+        || admission.worktree.root !== path.resolve(expectedWorktree))
+    {
+        fail('zero-legacy independent expected source root mismatch: repository root must equal the Git top-level')
+    }
+    for (const [relative, value] of [
+        ['config/contracts/behavior-contracts.json', behaviorCatalog],
+        ['config/contracts/document-claim-migration-ledger.json', migrationLedger]
+    ])
+    {
+        if (digest(loadJson(path.join(expectedWorktree, relative))) !== digest(value))
+        {
+            fail('final claim-stage input differs from its admitted source authority')
+        }
+    }
+    const actualClaims = parseRepositoryClaims(expectedWorktree)
+    if (actualClaims.contentDigest !== claimReceipt.contentDigest)
+    {
+        fail('final DocClaim parse receipt differs from actual admitted source')
+    }
+    validateBehaviorDocClaimStages(admission.claimStages, {
+        catalog: behaviorCatalog, claimReceipt: actualClaims, migrationLedger
+    })
+    const { stages, preRuntimeClaims } = partitionBehaviorDocClaims({
+        catalog: behaviorCatalog, claimReceipt: actualClaims, migrationLedger
+    })
+    if (stages.contentDigest !== admission.claimStages.contentDigest
+        || stages.catalogDigest !== admission.authorityDigests?.catalog
+        || stages.parseReceiptDigest !== admission.authorityDigests?.claim)
+    {
+        fail('final claim stages differ from the original admission authority')
+    }
+    validateSealed(claimVerification, 'pre-runtime DocClaim verification')
+    if (claimVerification.schema !== 'fsusblog.doc-claim-verification-receipt.v1'
+        || claimVerification.sourceCommit !== admission.source?.commit
+        || normalizeDigest(claimVerification.worktreeFingerprint)
+            !== normalizeDigest(admission.source?.worktreeFingerprint)
+        || normalizeDigest(claimVerification.catalogDigest) !== stages.catalogDigest
+        || normalizeDigest(claimVerification.parseReceiptDigest) !== stages.parseReceiptDigest
+        || !Array.isArray(claimVerification.results))
+    {
+        fail('pre-runtime DocClaim verification authority mismatch')
+    }
+    const preProseClaims = stages.preRuntimeClaims
+        .filter((claim) => claim.claimType !== 'generated-section')
+    const results = new Map()
+    for (const result of claimVerification.results)
+    {
+        if (!result || Object.keys(result).sort().join('\0') !== [
+            'claimId', 'behaviorId', 'claimType', 'documentPath', 'documentStatus',
+            'factPath', 'status', 'reason'
+        ].sort().join('\0') || results.has(result.claimId) || result.status !== 'verified')
+        {
+            fail('pre-runtime DocClaim results must be unique and all verified')
+        }
+        results.set(result.claimId, result)
+    }
+    if (results.size !== preProseClaims.length)
+    {
+        fail('pre-runtime DocClaim verification has missing or extra claims')
+    }
+    for (const claim of preProseClaims)
+    {
+        const result = results.get(claim.claimId)
+        if (!result || ['claimId', 'behaviorId', 'claimType', 'documentPath', 'documentStatus', 'factPath']
+            .some((key) => result[key] !== claim[key]))
+        {
+            fail('pre-runtime DocClaim verification identity mismatch')
+        }
+    }
+    const preFacts = facts.map((entry) => readFactObservationReceipt(entry, {
+        expectedSourceCommit: admission.source?.commit,
+        expectedWorktreeFingerprint: normalizeDigest(admission.source?.worktreeFingerprint)
+    }))
+    const factDigests = new Map()
+    for (const fact of preFacts)
+    {
+        if (factDigests.has(fact.extractorId)
+            || admission.factObservations?.[fact.extractorId]?.contentDigest !== fact.contentDigest)
+        {
+            fail('pre-runtime fact observation differs from its admission binding')
+        }
+        factDigests.set(fact.extractorId, fact.contentDigest)
+    }
+    if (Object.keys(admission.factObservations ?? {}).length !== factDigests.size
+        || !Array.isArray(claimVerification.factObservationDigests)
+        || claimVerification.factObservationDigests.length !== factDigests.size)
+    {
+        fail('pre-runtime fact observation roster is incomplete')
+    }
+    const verifiedFactIds = new Set()
+    for (const entry of claimVerification.factObservationDigests)
+    {
+        if (!entry || Object.keys(entry).sort().join('\0') !== ['extractorId', 'contentDigest'].sort().join('\0')
+            || verifiedFactIds.has(entry.extractorId)
+            || factDigests.get(entry.extractorId) !== entry.contentDigest)
+        {
+            fail('pre-runtime prose fact observation binding mismatch')
+        }
+        verifiedFactIds.add(entry.extractorId)
+    }
+    const prose = verifyProseClaims({ claims: preRuntimeClaims, receipts: facts })
+    if (!prose.ok)
+    {
+        fail(`pre-runtime prose comparison failed: ${prose.diagnostics[0]?.message}`)
+    }
+    const value = {
+        catalogDigest: `sha256:${stages.catalogDigest}`,
+        parseReceiptDigest: `sha256:${stages.parseReceiptDigest}`,
+        migrationLedgerDigest: `sha256:${stages.migrationLedgerDigest}`,
+        admissionClaimStagesDigest: `sha256:${stages.contentDigest}`,
+        preVerificationReceiptDigest: `sha256:${normalizeDigest(claimVerification.contentDigest)}`,
+        verifiedPreProseClaimIds: preProseClaims.map((claim) => claim.claimId),
+        verifiedPostClaimIds: [],
+        unclearedPostClaimIds: stages.deferredPostClaims.map((claim) => claim.claimId)
+    }
+    value.contentDigest = digest(value)
+    return validateClaimStageDischarge(value)
 }
 
 export function buildFinalConsistencyReport({
@@ -2217,12 +2456,18 @@ export function buildFinalConsistencyReport({
     generatedSectionReceipt,
     catalog,
     migrationLedger,
-    matrix
+    matrix,
+    expectedWorktree = root
 } = {})
 {
     const admission = validateSealed(loadJson(staticAdmissionReceipt), 'static admission');
     const pre = assertPreRuntimeQualified(loadJson(preRuntimeReceipt));
-    const post = validatePostRuntimeReceipt(loadJson(postRuntimeReceipt));
+    const postInput = loadJson(postRuntimeReceipt);
+    if (postInput?.schema !== 'fsusblog.behavior-evidence-post-runtime-receipt.v2')
+    {
+        fail('final consistency requires the explicit v2 post-runtime envelope');
+    }
+    const post = validatePostRuntimeReceipt(postInput);
     if (post.status !== 'ok')
     {
         fail('post-runtime receipt status is not ok');
@@ -2238,6 +2483,14 @@ export function buildFinalConsistencyReport({
         ? parseMatrix(fs.readFileSync(matrix, 'utf8'))
         : loadJson(matrix);
     const failures = [];
+    const claimStageDischarge = buildClaimStageDischarge({
+        admission, claimReceipt: claims, claimVerification,
+        behaviorCatalog, migrationLedger: ledger, facts, expectedWorktree
+    });
+    if (claimStageDischarge.unclearedPostClaimIds.length > 0)
+    {
+        failures.push('native post-runtime FactObservation bridge unavailable; deferred claims remain uncleared');
+    }
     const sourceCommit = admission.source?.commit;
     const sourceFingerprint = normalizeDigest(admission.source?.worktreeFingerprint);
     const identities = [
@@ -2424,6 +2677,7 @@ export function buildFinalConsistencyReport({
             missingBehaviorIds: missingLedgerBehaviorIds,
             orphanBehaviorIds: orphanLedgerBehaviorIds
         },
+        claimStageDischarge,
         singleMutationCoverage: Object.fromEntries(behaviorNodes.map((node) => [node.behaviorId, node.mutationStatus])),
         zeroLegacyScan: legacy,
         dagAudit: {

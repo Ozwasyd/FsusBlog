@@ -1,5 +1,4 @@
 import { createReleaseIdValueContract } from './release-id-value-contract.mjs';
-import { isDeepStrictEqual } from 'node:util';
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
 export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1';
@@ -10,6 +9,10 @@ const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`;
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
 const IMAGE_REPOSITORY = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:[._/-][a-z0-9]+)*)?)?$/u;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
+const currentSchemaTargetFields = Object.freeze(['modelVersion', 'extractorVersion', 'generatorVersion', 'sourceDigest', 'contentDigest']);
+const currentSchemaDatabaseFields = Object.freeze(['provider', 'instanceId', 'databaseId']);
+const currentSchemaBindingFields = Object.freeze(['receipt', 'target', 'database', 'actualSchemaDigest']);
+const currentSchemaReceiptFields = Object.freeze(['reference', 'sha256']);
 const TOP_LEVEL_FIELDS = new Set([
   'schema',
   'releaseId',
@@ -198,6 +201,74 @@ function validateLegacyReleaseManifestV1()
     return { createReleaseManifest, validateReleaseManifest, validateLegacyReleaseManifestV1 };
 }
 
+// Only closed scalar data records participate; this is not a generic deep comparator.
+function currentSchemaRecordPair(left, right, fields)
+{
+    if (!left || !right || typeof left !== 'object' || typeof right !== 'object'
+        || Array.isArray(left) || Array.isArray(right)) return null;
+    const prototype = Object.getPrototypeOf(left);
+    if (prototype !== Object.getPrototypeOf(right)
+        || (prototype !== Object.prototype && prototype !== null)) return null;
+    const closed = value =>
+    {
+        const keys = Reflect.ownKeys(value);
+        return keys.length === fields.length && keys.every(key => typeof key === 'string' && fields.includes(key));
+    };
+    if (!closed(left) || !closed(right)) return null;
+    const values = Object.create(null);
+    for (const field of fields)
+    {
+        const leftProperty = Object.getOwnPropertyDescriptor(left, field);
+        const rightProperty = Object.getOwnPropertyDescriptor(right, field);
+        if (!leftProperty?.enumerable || !rightProperty?.enumerable
+            || !Object.hasOwn(leftProperty, 'value') || !Object.hasOwn(rightProperty, 'value')) return null;
+        values[field] = [leftProperty.value, rightProperty.value];
+    }
+    return values;
+}
+
+function sameCurrentSchemaRecord(left, right, fields, numericField)
+{
+    const values = currentSchemaRecordPair(left, right, fields);
+    if (!values) return false;
+    for (const field of fields)
+    {
+        const [leftValue, rightValue] = values[field];
+        const type = field === numericField ? 'number' : 'string';
+        if (typeof leftValue !== type || typeof rightValue !== type
+            || !Object.is(leftValue, rightValue)) return false;
+    }
+    return true;
+}
+
+export function isSameCurrentSchemaTarget(left, right)
+{
+    return sameCurrentSchemaRecord(left, right, currentSchemaTargetFields);
+}
+
+export function isSameCurrentSchemaDatabase(left, right)
+{
+    return sameCurrentSchemaRecord(left, right, currentSchemaDatabaseFields, 'provider');
+}
+
+export function isSameCurrentSchemaBinding(left, right)
+{
+    const values = currentSchemaRecordPair(left, right, currentSchemaBindingFields);
+    if (!values) return false;
+    if (!(sameCurrentSchemaRecord(...values.receipt, currentSchemaReceiptFields)
+        && isSameCurrentSchemaTarget(...values.target)
+        && isSameCurrentSchemaDatabase(...values.database)
+        && typeof values.actualSchemaDigest[0] === 'string'
+        && typeof values.actualSchemaDigest[1] === 'string'
+        && Object.is(...values.actualSchemaDigest))) return false;
+    // Descriptors above first establish safe data fields. Reuse the original
+    // public grammar so equal malformed values cannot become a valid binding.
+    const errors = [];
+    validateCurrentSchemaBinding(left, errors);
+    validateCurrentSchemaBinding(right, errors);
+    return errors.length === 0;
+}
+
 export function validateCurrentSchemaBinding(value, errors)
 {
     if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -205,7 +276,7 @@ export function validateCurrentSchemaBinding(value, errors)
         errors.push('currentSchema is required');
         return;
     }
-    rejectUnknownFields(value, new Set(['receipt', 'target', 'database', 'actualSchemaDigest']), 'currentSchema', errors);
+    rejectUnknownFields(value, new Set(currentSchemaBindingFields), 'currentSchema', errors);
     const object = (part, fields, label) =>
     {
         if (!part || typeof part !== 'object' || Array.isArray(part))
@@ -232,7 +303,7 @@ export function validateCurrentSchemaBinding(value, errors)
             errors.push(`${label} must be a raw lowercase SHA-256`);
         }
     };
-    if (object(value.receipt, ['reference', 'sha256'], 'currentSchema.receipt'))
+    if (object(value.receipt, currentSchemaReceiptFields, 'currentSchema.receipt'))
     {
         text(value.receipt.reference, 'currentSchema.receipt.reference');
         if (typeof value.receipt.reference === 'string'
@@ -242,7 +313,7 @@ export function validateCurrentSchemaBinding(value, errors)
         }
         digest(value.receipt.sha256, 'currentSchema.receipt.sha256');
     }
-    if (object(value.target, ['modelVersion', 'extractorVersion', 'generatorVersion', 'sourceDigest', 'contentDigest'], 'currentSchema.target'))
+    if (object(value.target, currentSchemaTargetFields, 'currentSchema.target'))
     {
         for (const field of ['modelVersion', 'extractorVersion', 'generatorVersion'])
         {
@@ -253,7 +324,7 @@ export function validateCurrentSchemaBinding(value, errors)
             digest(value.target[field], `currentSchema.target.${field}`);
         }
     }
-    if (object(value.database, ['provider', 'instanceId', 'databaseId'], 'currentSchema.database'))
+    if (object(value.database, currentSchemaDatabaseFields, 'currentSchema.database'))
     {
         if (![0, 1, 2].includes(value.database.provider))
         {
@@ -311,8 +382,8 @@ export function validateCurrentSchemaAdmissionOutput(value, binding, candidateSo
     }
     if (value.status !== 'verified-current' || value.candidateSourceRevision !== candidateSourceRevision
         || value.artifactSha256 !== binding?.receipt?.sha256
-        || !isDeepStrictEqual(value.target, binding?.target)
-        || !isDeepStrictEqual(value.database, binding?.database)
+        || !isSameCurrentSchemaTarget(value.target, binding?.target)
+        || !isSameCurrentSchemaDatabase(value.database, binding?.database)
         || value.actualSchemaDigest !== binding?.actualSchemaDigest)
     {
         errors.push('current schema admission output does not match the immutable candidate receipt bindings');

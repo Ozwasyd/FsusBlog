@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/releases/blue-green-deployment-runbook.md"
+            ],
+            "reason": "Preserve the original registered external receipt, schema, process environment and document source spelling while composing the frozen issue 3662 typed value and strict final-refusal source interfaces without changing native authority."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "reason": "Preserve the original registered external receipt, schema, process environment and document source spelling while composing the frozen issue 3662 typed value and strict final-refusal source interfaces without changing native authority."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Preserve the original registered external receipt, schema, process environment and document source spelling while composing the frozen issue 3662 typed value and strict final-refusal source interfaces without changing native authority."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-document-consistency-final-report.schema.json",
+                "config/testing/required-evidence-authority-ledger.json"
+            ],
+            "reason": "Preserve the original registered external receipt, schema, process environment and document source spelling while composing the frozen issue 3662 typed value and strict final-refusal source interfaces without changing native authority."
+        }
+    ]
+}

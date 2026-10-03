@@ -142,7 +142,7 @@ export function createReleaseFinalDomainEvidence({
     });
     const consistencyFinalFile = directEvidence.behaviorConsistency.file;
     const consistencyFinalReport = directEvidence.behaviorConsistency.receipt;
-    validateFinalReport(consistencyFinalReport);
+    validateFinalReport(consistencyFinalReport, { expectedWorktree: repositoryRoot });
     if (consistencyFinalReport.status !== 'ok'
         || consistencyFinalReport.sourceIdentity?.commit !== manifest.commitSha
         || consistencyFinalReport.receiptDigests?.postRuntime !== postRuntimeReceipt.contentDigest)
