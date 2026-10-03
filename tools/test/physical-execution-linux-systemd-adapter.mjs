@@ -869,6 +869,66 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             ];
             let child;
             let gatedSender = null;
+            let childError = null;
+            let systemdRunSpawnError = null;
+            let childTerminal;
+            let childClosed;
+            let creationFailure = null;
+            let validatedSenderReady = null;
+            let beforeCreationAttempted = false;
+            let releaseDeliveryAttempted = false;
+            const creationCleanupFailures = [];
+            const executionOutput = outputTracker ??
+                createPhysicalExecutionOutputTracker({ policy, stdout, stderr });
+            const senderDiagnostics = { stdout: '', stderr: '', truncated: false };
+            const observeCreationChild = () =>
+            {
+                child.once('error', (error) =>
+                {
+                    systemdRunSpawnError = error;
+                    childError = error;
+                });
+                childTerminal = new Promise((resolve) =>
+                {
+                    if (child.exitCode !== null || child.signalCode !== null)
+                    {
+                        resolve({ exitCode: child.exitCode, signal: child.signalCode });
+                        return;
+                    }
+                    child.once('error', (error) => resolve({ exitCode: null, signal: null, error }));
+                    child.once('exit', (exitCode, childSignal) => resolve({ exitCode, signal: childSignal }));
+                });
+                childClosed = new Promise((resolve) =>
+                {
+                    if (child.exitCode !== null && child.stdout.destroyed && child.stderr.destroyed)
+                    {
+                        resolve(true);
+                    }
+                    else
+                    {
+                        child.once('close', () => resolve(true));
+                    }
+                });
+                if (residentOutput)
+                {
+                    for (const name of ['stdout', 'stderr'])
+                    {
+                        child[name].on('error', () => senderDiagnostics.truncated = true);
+                        child[name].on('data', (chunk) =>
+                        {
+                            const remaining = Math.max(0, 64 * 1024 - Buffer.byteLength(senderDiagnostics[name]));
+                            senderDiagnostics[name] += chunk.subarray(0, remaining).toString('utf8');
+                            senderDiagnostics.truncated ||= chunk.length > remaining;
+                        });
+                        child[name].resume();
+                    }
+                }
+                else
+                {
+                    executionOutput.attach(child.stdout, 'stdout');
+                    executionOutput.attach(child.stderr, 'stderr');
+                }
+            };
             try
             {
                 if (processOwner)
@@ -882,6 +942,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     gatedSender = spawnProcess(process.execPath, [senderBootstrap, controlRoot], {
                         cwd, env: controlEnv, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true
                     });
+                    child = gatedSender;
+                    observeCreationChild();
                     const ready = await new Promise((resolve, reject) =>
                     {
                         const timer = setTimeout(() => finish(reject,
@@ -910,6 +972,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     {
                         throw new Error('systemd creation sender readiness differs from its exact live process and plan');
                     }
+                    validatedSenderReady = ready;
+                    beforeCreationAttempted = true;
                     const acknowledgement = await processOwner.beforeCreation(containmentAuthority, ready);
                     const attempted = { ...containmentAuthority, phase: 'create-attempted', creationSender: ready };
                     if (acknowledgement?.authorityDigest !== digestCanonical(attempted))
@@ -921,7 +985,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     {
                         throw new WaitForFileCancellation('service-creation-attempt', signal.reason);
                     }
-                    child = gatedSender;
+                    releaseDeliveryAttempted = true;
                     await new Promise((resolve, reject) =>
                     {
                         child.send({ type: 'release', authorityId, planDigest: ready.planDigest }, (error) =>
@@ -942,48 +1006,37 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     child = spawnProcess('systemd-run', systemdArgs, {
                         cwd, env: controlEnv, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true
                     });
+                    observeCreationChild();
                 }
             }
             catch (error)
             {
-                if (gatedSender?.connected)
-                {
-                    gatedSender.disconnect();
-                }
-                if (!gatedSender && containmentAuthority?.phase !== 'create-attempted')
+                if (!gatedSender)
                 {
                     removeUnestablishedRoot(error);
+                    throw error;
                 }
-                throw error;
-            }
-            let childError = null;
-            let systemdRunSpawnError = null;
-            child.once('error', (error) =>
-            {
-                systemdRunSpawnError = error;
-                childError = error;
-            });
-            const executionOutput = outputTracker ??
-                createPhysicalExecutionOutputTracker({ policy, stdout, stderr });
-            const senderDiagnostics = { stdout: '', stderr: '', truncated: false };
-            if (residentOutput)
-            {
-                for (const name of ['stdout', 'stderr'])
+
+                // A durable owner acknowledgement or IPC callback may fail after its action.
+                // Keep this first failure and reconcile the actual actor through the normal finalizer.
+                creationFailure = error instanceof Error
+                    ? error
+                    : new Error('systemd service creation failed', { cause: error });
+                if (gatedSender.connected)
                 {
-                    child[name].on('error', () => senderDiagnostics.truncated = true);
-                    child[name].on('data', (chunk) =>
+                    try
                     {
-                        const remaining = Math.max(0, 64 * 1024 - Buffer.byteLength(senderDiagnostics[name]));
-                        senderDiagnostics[name] += chunk.subarray(0, remaining).toString('utf8');
-                        senderDiagnostics.truncated ||= chunk.length > remaining;
-                    });
-                    child[name].resume();
+                        gatedSender.disconnect();
+                    }
+                    catch (disconnectError)
+                    {
+                        creationCleanupFailures.push({
+                            name: disconnectError.name,
+                            code: disconnectError.code ?? null,
+                            message: disconnectError.message
+                        });
+                    }
                 }
-            }
-            else
-            {
-                executionOutput.attach(child.stdout, 'stdout');
-                executionOutput.attach(child.stderr, 'stderr');
             }
             const inventory = new Map();
             const lifecycle = ['created'];
@@ -1000,27 +1053,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             let first;
             let outputEvidence = null;
             let residentTransferred = false;
-            const childTerminal = new Promise((resolve) =>
-            {
-                if (child.exitCode !== null || child.signalCode !== null)
-                {
-                    resolve({ exitCode: child.exitCode, signal: child.signalCode });
-                    return;
-                }
-                child.once('error', (error) => resolve({ exitCode: null, signal: null, error }));
-                child.once('exit', (exitCode, childSignal) => resolve({ exitCode, signal: childSignal }));
-            });
-            const senderClosed = residentOutput ? new Promise((resolve) =>
-            {
-                if (child.exitCode !== null && child.stdout.destroyed && child.stderr.destroyed)
-                {
-                    resolve(true);
-                }
-                else
-                {
-                    child.once('close', () => resolve(true));
-                }
-            }) : null;
+            const senderClosed = residentOutput ? childClosed : null;
             const creationError = () => childError ?? (residentOutput && (child.exitCode !== null && child.exitCode !== 0
                 || child.signalCode !== null)
                 ? new Error(`nonblocking systemd sender failed before service handshake: ${child.exitCode ?? child.signalCode}`)
@@ -1283,6 +1316,10 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             let cleanup;
             try
             {
+                if (creationFailure)
+                {
+                    throw creationFailure;
+                }
                 await waitForFile({
                     file: readyFile,
                     phase: 'ready',
@@ -1630,6 +1667,28 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     }
                 };
             }
+            if (creationFailure)
+            {
+                const closed = await Promise.race([
+                    childClosed,
+                    delay(policy.pipeCloseTimeoutMs).then(() => false)
+                ]);
+                cleanup = {
+                    ...cleanup,
+                    status: 'unverifiable',
+                    reason: 'systemd creation failure requires original durable-owner terminal reconciliation',
+                    creationAttempt: {
+                        senderPid: gatedSender.pid ?? null,
+                        ready: validatedSenderReady,
+                        beforeCreationAttempted,
+                        releaseDeliveryAttempted,
+                        senderClosed: closed,
+                        terminal: cleanup.childTerminal ?? null,
+                        senderDiagnostics,
+                        cleanupFailures: creationCleanupFailures
+                    }
+                };
+            }
             let cleanupVerified = cleanup.status === 'verified';
             let confirmedNotEstablished = false;
             let resourceAbsenceVerified = resourceAdmission === null;
@@ -1742,7 +1801,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     cleanupVerified = false;
                 }
             }
-            else if (systemdRunSpawnError?.code === 'ENOENT' && !supervisorPid && !authorityEstablished && resourceAbsenceVerified)
+            else if (systemdRunSpawnError?.code === 'ENOENT' && !supervisorPid && !authorityEstablished && resourceAbsenceVerified && !creationFailure)
             {
                 confirmedNotEstablished = true;
                 cleanup = {
