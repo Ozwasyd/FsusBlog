@@ -80,14 +80,29 @@ function usingAliases(source, globalOnly = false)
     const aliases = new Map();
     let depth = 0;
     let fileNamespace = false;
+    let conditionalDepth = 0;
+    let scopeUncertain = false;
     // Assembly attributes see compilation-unit aliases, not using directives
     // inside a block or file-scoped namespace. Traverse only the masked lexical
     // seams; this does not evaluate directives or replace compiler binding.
-    for (const declaration of maskCSharp(source).matchAll(/(?<![\w@])namespace\b[^{};]*[;{]|[{}]|\b(?:(global)\s+)?using\s+(@?[A-Za-z_]\w*)\s*=\s*([^;]+);/gu))
+    for (const declaration of maskCSharp(source).matchAll(/^[ \t]*#[^\r\n]*|(?<![\w@])namespace\b[^{};#]*[;{]|(?<![\w@])namespace\b|[{}]|\b(?:(global)\s+)?using\s+(@?[A-Za-z_]\w*)\s*=\s*([^;]+);/gmu))
     {
         const token = declaration[0];
+        if (token.trimStart().startsWith('#'))
+        {
+            if (/^\s*#\s*if\b/u.test(token))
+            {
+                conditionalDepth += 1;
+            }
+            else if (/^\s*#\s*endif\b/u.test(token))
+            {
+                conditionalDepth = Math.max(0, conditionalDepth - 1);
+            }
+            continue;
+        }
         if (token.startsWith('namespace'))
         {
+            scopeUncertain ||= conditionalDepth > 0 || token === 'namespace';
             if (token.endsWith('{'))
             {
                 depth += 1;
@@ -100,10 +115,11 @@ function usingAliases(source, globalOnly = false)
         }
         if (token === '{' || token === '}')
         {
+            scopeUncertain ||= conditionalDepth > 0;
             depth += token === '{' ? 1 : -1;
             continue;
         }
-        if (depth !== 0 || fileNamespace)
+        if (!scopeUncertain && (depth !== 0 || fileNamespace))
         {
             continue;
         }
@@ -113,7 +129,9 @@ function usingAliases(source, globalOnly = false)
         }
         const name = declaration[2].replaceAll('@', '');
         const target = declaration[3].replace(/\s|@/gu, '');
-        const value = /^(?:global::)?[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/u.test(target) ? target : null;
+        // Conditional scope changes cannot make a possibly visible alias
+        // disappear. Preserve it as unresolved rather than evaluate symbols.
+        const value = !scopeUncertain && /^(?:global::)?[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/u.test(target) ? target : null;
         aliases.set(name, aliases.has(name) && aliases.get(name) !== value ? null : value);
     }
     return aliases;

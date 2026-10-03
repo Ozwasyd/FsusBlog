@@ -684,3 +684,75 @@ test('only compilation-unit global aliases enter the owning project alias map', 
     assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo FsusBlog.Server')
         && value.includes('GlobalFriendUse.cs')));
 });
+
+for (const [path, target] of friendDirections)
+{
+    test(`conditional namespace braces cannot silently omit the real friend from ${path} to ${target}`, t =>
+    {
+        const root = fixture(t);
+        assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+        add(root, path, `#if false
+namespace N {
+#endif
+using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("${target}")]
+#if false
+}
+#endif
+`);
+        assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')
+            && value.includes(path)), path);
+    });
+}
+
+test('conditionally uncertain permitted friend scope is explicitly unsupported rather than silently complete', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/ConditionalPermittedFriend.cs', `#if false
+namespace N {
+#endif
+using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("FsusBlog.Migration.Tests")]
+#if false
+}
+#endif
+`);
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')
+        && value.includes('ConditionalPermittedFriend.cs')));
+});
+
+test('unrelated directives and conditional code do not erase unambiguous permitted outer aliases', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/DirectiveControls.cs', `#define UNUSED
+#region Documentary namespace N { }
+#endregion
+using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("FsusBlog.Migration.Tests")]
+#if false
+namespace Unused { public sealed class Example { } }
+#endif
+`);
+    add(root, 'src/migration/ConditionalNoScopeChange.cs', `#if true
+using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+#endif
+[assembly: Friend("FsusBlog.Migration.Tests")]
+`);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+});
+
+test('conditional file-scoped namespaces cannot hide a project-global friend alias in another file', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/ConditionalGlobalAlias.cs', `#if false
+namespace N;
+#endif
+global using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+`);
+    add(root, 'src/migration/ConditionalGlobalUse.cs', '[assembly: Friend("FsusBlog.Server")]\n');
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')
+        && value.includes('ConditionalGlobalUse.cs')));
+});
