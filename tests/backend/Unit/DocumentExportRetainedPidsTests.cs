@@ -413,6 +413,91 @@ public sealed class DocumentExportRetainedPidsTests
             0,
             false));
 
+    [Theory]
+    [InlineData("rw", "rw")]
+    [InlineData("rw,nosuid,nodev,noexec,relatime", "rw,nsdelegate,memory_recursiveprot")]
+    public void RetainedEventsRequireTheActualHierarchicalCgroupMount(string mountOptions, string superOptions)
+    {
+        string mountInfo = $"29 23 0:26 / /sys/fs/cgroup {mountOptions} - cgroup2 cgroup {superOptions}\n";
+
+        DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            mountInfo, "/sys/fs/cgroup" + AccountingGroup);
+    }
+
+    [Fact]
+    public void UnrelatedLocalEventMountAndEscapedNamesDoNotChangeTheOwningProfile()
+    {
+        string mountInfo = "1 1 0:1 / / rw - tmpfs tmpfs rw\n"
+            + "29 1 0:26 / /sys/fs/cgroup rw shared:4 future:5 - cgroup2 cgroup rw\n"
+            + "30 1 0:27 / /other\\040root\\134name rw - cgroup2 cgroup rw,pids_localevents\n"
+            + "31 1 0:28 / /sys/fs/cgroup-other rw - cgroup2 cgroup rw,pids_localevents\n";
+
+        DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            mountInfo, "/sys/fs/cgroup" + AccountingGroup);
+    }
+
+    [Theory]
+    [InlineData("rw,pids_localevents", "rw")]
+    [InlineData("rw", "rw,pids_localevents")]
+    [InlineData("rw", "rw,pids_localevents=0")]
+    [InlineData("ro", "rw")]
+    [InlineData("rw", "ro")]
+    [InlineData("rw,ro", "rw")]
+    [InlineData("rw,,nosuid", "rw")]
+    [InlineData("rw", "rw,rw")]
+    public void RefusesLocalOnlyReadOnlyOrMalformedOwningMountOptions(string mountOptions, string superOptions)
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            $"29 23 0:26 / /sys/fs/cgroup {mountOptions} - cgroup2 cgroup {superOptions}\n",
+            "/sys/fs/cgroup" + AccountingGroup));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    public void RefusesMissingAmbiguousRedirectedOrMalformedMountIdentities(int mutation)
+    {
+        const string valid = "29 23 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n";
+        string mountInfo = mutation switch
+        {
+            0 => string.Empty,
+            1 => valid + valid.Replace("29 23", "30 29", StringComparison.Ordinal),
+            2 => valid + "30 29 0:27 / /sys/fs/cgroup/user.slice rw - tmpfs tmpfs rw\n",
+            3 => valid.Replace(" / /sys", " /subtree /sys", StringComparison.Ordinal),
+            4 => valid.Replace(" - cgroup2 ", " - tmpfs ", StringComparison.Ordinal),
+            5 => valid.Replace("0:26", "bad-device", StringComparison.Ordinal),
+            6 => valid.Replace(" - ", " ", StringComparison.Ordinal),
+            7 => valid.Replace("/sys/fs/cgroup", "/sys/fs/cgroup\\999", StringComparison.Ordinal),
+            8 => valid.Replace("/sys/fs/cgroup", "/sys/fs/../fs/cgroup", StringComparison.Ordinal),
+            9 => valid.Replace(" rw -", " rw  -", StringComparison.Ordinal),
+            10 => valid.Replace("29 23", "0 23", StringComparison.Ordinal),
+            11 => valid.Replace(" rw\n", " rw\r\n", StringComparison.Ordinal),
+            _ => "1 1 0:1 / / rw - tmpfs tmpfs rw\n"
+                + "2 1 0:2 / / rw - tmpfs tmpfs rw\n" + valid
+        };
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            mountInfo, "/sys/fs/cgroup" + AccountingGroup));
+    }
+
+    [Theory]
+    [InlineData("/sys/fs/cgroup-other/run")]
+    [InlineData("/sys/fs/cgroup/../run")]
+    [InlineData("/sys/fs/cgroup//run")]
+    [InlineData("relative/run")]
+    public void MountAdmissionCannotAuthorizeForeignOrNoncanonicalAccountingPaths(string path)
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            "29 23 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n", path));
+
     private static DocumentExportCgroupObservation CreateTerminal()
         => new(42_000, 0, 2_048, 1, 1, 0, 0, 0, false);
 

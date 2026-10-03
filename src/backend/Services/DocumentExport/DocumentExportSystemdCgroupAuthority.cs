@@ -291,6 +291,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
         Task<ControlResult>? dispatch = null;
         try
         {
+            await ValidateRetainedPidsMountAsync(accountingCgroupPath, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             unitMayExist = true;
             dispatch = RunControlAsync(
@@ -619,6 +620,162 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 "Document export terminal service retained an unqualified cgroup path.");
         }
         return controlGroup;
+    }
+
+    private static async Task ValidateRetainedPidsMountAsync(
+        string accountingCgroupPath,
+        CancellationToken cancellationToken)
+    {
+        string mountInfo = await File.ReadAllTextAsync("/proc/self/mountinfo", cancellationToken);
+        ValidateRetainedPidsMount(mountInfo, accountingCgroupPath);
+        string current = "/";
+        foreach (string segment in accountingCgroupPath.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            var directory = new DirectoryInfo(current);
+            if (directory.LinkTarget is not null || File.Exists(current))
+            {
+                throw new InvalidDataException("Document export accounting mount path was redirected.");
+            }
+            if (!directory.Exists)
+            {
+                break;
+            }
+        }
+        if (!Directory.Exists(CgroupRoot)
+            || !Directory.Exists(Path.GetDirectoryName(accountingCgroupPath)))
+        {
+            throw new InvalidDataException("Document export accounting mount root or existing parent is absent.");
+        }
+    }
+
+    // mountinfo is in this process's namespace. Select the deepest covering
+    // mount, including non-cgroup overmounts, rather than grepping all mounts.
+    internal static void ValidateRetainedPidsMount(string mountInfo, string accountingCgroupPath)
+    {
+        ValidateMountPath(accountingCgroupPath);
+        if (!accountingCgroupPath.StartsWith(CgroupRoot + "/", StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("Document export accounting mount path escaped its fixed root.");
+        }
+        string[]? owner = null;
+        int ownerDepth = -1;
+        var mountIds = new HashSet<long>();
+        var coveringMountPoints = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string line in mountInfo.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+            string[] fields = line.Split(' ');
+            int separator = Array.IndexOf(fields, "-");
+            if (line.Any(char.IsControl)
+                || separator < 6 || fields.Length != separator + 4
+                || fields.Any(string.IsNullOrEmpty)
+                || !long.TryParse(fields[0], NumberStyles.None, CultureInfo.InvariantCulture, out long mountId)
+                || mountId <= 0 || !mountIds.Add(mountId)
+                || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out long parentId)
+                || parentId <= 0)
+            {
+                throw new InvalidDataException("Document export mount identity is malformed or duplicated.");
+            }
+            string[] device = fields[2].Split(':');
+            if (device.Length != 2 || device.Any(part => !uint.TryParse(
+                part, NumberStyles.None, CultureInfo.InvariantCulture, out _)))
+            {
+                throw new InvalidDataException("Document export mount device identity is malformed.");
+            }
+            string root = DecodeMountPath(fields[3]);
+            string mountPoint = DecodeMountPath(fields[4]);
+            ValidateMountPath(root);
+            ValidateMountPath(mountPoint);
+            ValidateMountOptions(fields[5]);
+            ValidateMountOptions(fields[separator + 3]);
+            bool covers = mountPoint == "/" || accountingCgroupPath == mountPoint
+                || accountingCgroupPath.StartsWith(mountPoint + "/", StringComparison.Ordinal);
+            if (!covers)
+            {
+                continue;
+            }
+            if (!coveringMountPoints.Add(mountPoint))
+            {
+                throw new InvalidDataException("Document export accounting mount ancestry is ambiguous.");
+            }
+            if (mountPoint.Length < ownerDepth)
+            {
+                continue;
+            }
+            owner = fields;
+            ownerDepth = mountPoint.Length;
+        }
+        if (owner is null)
+        {
+            throw new InvalidDataException("Document export accounting mount identity is absent or ambiguous.");
+        }
+        int ownerSeparator = Array.IndexOf(owner, "-");
+        string[] mountOptions = owner[5].Split(',');
+        string[] superOptions = owner[ownerSeparator + 3].Split(',');
+        if (owner[ownerSeparator + 1] != "cgroup2"
+            || DecodeMountPath(owner[3]) != "/"
+            || DecodeMountPath(owner[4]) != CgroupRoot
+            || !mountOptions.Contains("rw", StringComparer.Ordinal)
+            || !superOptions.Contains("rw", StringComparer.Ordinal)
+            || mountOptions.Concat(superOptions).Any(option => option == "ro"
+                || option == "pids_localevents"
+                || option.StartsWith("pids_localevents=", StringComparison.Ordinal)))
+        {
+            throw new InvalidDataException("Document export requires its exact writable cgroup2 root with hierarchical pids events.");
+        }
+    }
+
+    private static void ValidateMountOptions(string value)
+    {
+        string[] options = value.Split(',');
+        if (options.Any(string.IsNullOrEmpty)
+            || options.Distinct(StringComparer.Ordinal).Count() != options.Length)
+        {
+            throw new InvalidDataException("Document export mount options are malformed.");
+        }
+    }
+
+    private static string DecodeMountPath(string value)
+    {
+        var decoded = new StringBuilder(value.Length);
+        for (int index = 0; index < value.Length; index++)
+        {
+            if (value[index] != '\\')
+            {
+                decoded.Append(value[index]);
+                continue;
+            }
+            if (index + 3 >= value.Length)
+            {
+                throw new InvalidDataException("Document export mount path escape is incomplete.");
+            }
+            decoded.Append(value.Substring(index, 4) switch
+            {
+                "\\040" => ' ',
+                "\\011" => '\t',
+                "\\012" => '\n',
+                "\\134" => '\\',
+                _ => throw new InvalidDataException("Document export mount path escape is unknown.")
+            });
+            index += 3;
+        }
+        return decoded.ToString();
+    }
+
+    private static void ValidateMountPath(string path)
+    {
+        if (!path.StartsWith("/", StringComparison.Ordinal)
+            || path.Contains('\0') || path.Contains('\r') || path.Contains('\n')
+            || path.Contains("//", StringComparison.Ordinal)
+            || (path.Length > 1 && path.EndsWith('/'))
+            || path.Split('/').Any(segment => segment is "." or ".."))
+        {
+            throw new InvalidDataException("Document export mount path is not an exact absolute identity.");
+        }
     }
 
     private async Task<string> PrepareAccountingIdentityAsync(
