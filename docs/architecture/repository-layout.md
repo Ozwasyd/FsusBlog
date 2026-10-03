@@ -92,6 +92,14 @@ context 但没有进入 `/src`。
 这不是生产 release manifest、current receipt 或 native capability。Publish DLL 本身
 不安装 sealed Host 的四个 owned factory，默认 Host 缺能力仍拒绝；实际编译、image
 measurement、配置组合与三 provider qualification 各自仍须原执行验收。
+Migration 根的四个 retained-reader EmbeddedResource 另以 exact path/LogicalName
+登记在该根，不扩展 Server external items 或整个 tools subtree。原 item evaluator
+必须在 Migration 项目两次真实 profile observation 中看到完整、无重复的四个
+EmbeddedResource；名字漂移、不同 item/project owner、额外复制语义、缺文件及
+symlink source 均拒绝。四份源字节进入同一 selected-input 前后观察与 compile
+domain；唯一原 retained-input producer 源按原 owner 移交，未执行或改写其产物。
+这些嵌入资源只提供原读取算法，不替代 current-target producer，也不授予 Host
+的 source、backup、tool、operation capabilities 或配置组合。
 
 闭包测试的唯一 physical owner 是 lifecycle registry 中的
 `backend-docker-input-closure` real-subprocess entry，由 matrix 的 `static-governance`

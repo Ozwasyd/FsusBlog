@@ -260,7 +260,7 @@ export function loadInventory(root)
     for (const tool of inventory.tools)
     {
         if (tool.id !== 'migration' || tool.entryProject !== 'src/migration/FsusBlog.Migration.csproj'
-            || Object.keys(tool).sort().join('\0') !== ['id', 'entryProject', 'projects', 'restoreFiles'].sort().join('\0'))
+            || Object.keys(tool).sort().join('\0') !== ['id', 'entryProject', 'projects', 'restoreFiles', 'embeddedResources'].sort().join('\0'))
         {
             fail('independent tool root is not the original Migration project');
         }
@@ -272,6 +272,17 @@ export function loadInventory(root)
             fail('independent Migration project closure is not exact');
         }
         assertStringArray(tool.restoreFiles, 'independent Migration restoreFiles');
+        if (!Array.isArray(tool.embeddedResources) || tool.embeddedResources.length !== 4
+            || tool.embeddedResources.some(item => !item || typeof item.path !== 'string'
+                || Object.keys(item).sort().join('\0') !== ['logicalName', 'path'].join('\0')
+                || !/^tools\/(?:ci|fact-extractors)(?:\/[A-Za-z0-9_.-]+)+\.mjs$/u.test(item.path)
+                || item.path.split('/').some(part => part === '.' || part === '..')
+                || item.logicalName !== `FsusBlog.Migration.RetainedReader.${item.path.replaceAll('/', '.')}`)
+            || JSON.stringify(tool.embeddedResources.map(item => item.path))
+                !== JSON.stringify(sortedUnique(tool.embeddedResources.map(item => item.path))))
+        {
+            fail('independent Migration embedded resource declarations are not canonical');
+        }
         if (inventory.projects.some(project => project.path === tool.entryProject
             || project.references.includes(tool.entryProject)))
         {
@@ -422,6 +433,27 @@ export function selectEvaluatedInput(root, project, itemType, item)
     return path;
 }
 
+export function validateMigrationEmbeddedResources(root, project, inventory, items)
+{
+    if (!inventory.embeddedResources)
+    {
+        return;
+    }
+    const projectRoots = inventory.projects.map(value => dirname(value.path).split(sep).join('/'));
+    const actual = (items.EmbeddedResource ?? []).map(item => ({ item,
+        path: selectEvaluatedInput(root, project, 'EmbeddedResource', item) }))
+        .filter(value => !projectRoots.some(prefix => isWithin(value.path, prefix)));
+    const expected = project === inventory.entryProject ? inventory.embeddedResources : [];
+    if (actual.length !== expected.length || actual.some(value =>
+        !expected.some(item => item.path === value.path && item.logicalName === value.item.LogicalName)
+        || ['CopyToOutputDirectory', 'CopyToPublishDirectory'].some(key =>
+            ![undefined, '', 'Never'].includes(value.item[key])))
+        || new Set(actual.map(value => value.path)).size !== actual.length)
+    {
+        fail(`independent Migration embedded resource closure mismatch in ${project}`);
+    }
+}
+
 function evaluateProject(root, project, inventory)
 {
     const itemTypes = sortedUnique([...inventory.itemTypes, 'None']);
@@ -441,6 +473,7 @@ function evaluateProject(root, project, inventory)
         ], evaluationProperties));
         const evaluated = JSON.parse(runMsbuild(root, project, inventory, [query, '-getProperty:MSBuildToolsPath'], evaluationProperties));
         const items = evaluated.Items ?? {};
+        validateMigrationEmbeddedResources(root, project, inventory, items);
         const references = (items.ProjectReference ?? [])
             .map(item => repositoryRelativeOrNull(root, item.FullPath ?? item.Identity))
             .map(path => path ?? fail(`ProjectReference escapes the repository in ${project}`));
@@ -459,6 +492,11 @@ function evaluateProject(root, project, inventory)
                 if (path === null)
                 {
                     continue;
+                }
+                if (inventory.embeddedResources?.some(item => item.path === path)
+                    && (project !== inventory.entryProject || itemType !== 'EmbeddedResource'))
+                {
+                    fail(`independent Migration retained input has a different item owner/type: ${path}`);
                 }
                 if (isWithin(path, `${projectRoot}/bin`) || isWithin(path, `${projectRoot}/obj`))
                 {
@@ -756,7 +794,9 @@ export function evaluateClosure(root, inventory)
         const properties = migrationToolProfile(inventory.evaluationProperties);
         const toolInventory = { ...inventory, ...tool, tools: [],
             evaluationProperties: properties, restoreEvaluationProperties: properties,
-            optionalPublishRoots: [], allowedExternalItemRoots: [] };
+            optionalPublishRoots: [], allowedExternalItemRoots: [],
+            allowedExternalItemFiles: sortedUnique([...inventory.allowedExternalItemFiles,
+                ...tool.embeddedResources.map(item => item.path)]) };
         const toolClosure = evaluateProjectClosure(root, toolInventory);
         for (const [domain, paths] of Object.entries(toolClosure))
         {

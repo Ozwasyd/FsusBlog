@@ -72,6 +72,12 @@
         {
             "id": "migration",
             "entryProject": "src/migration/FsusBlog.Migration.csproj",
+            "embeddedResources": [
+                { "path": "tools/ci/migration-retained-inputs.mjs", "logicalName": "FsusBlog.Migration.RetainedReader.tools.ci.migration-retained-inputs.mjs" },
+                { "path": "tools/ci/production-build-artifacts.mjs", "logicalName": "FsusBlog.Migration.RetainedReader.tools.ci.production-build-artifacts.mjs" },
+                { "path": "tools/fact-extractors/identity.mjs", "logicalName": "FsusBlog.Migration.RetainedReader.tools.fact-extractors.identity.mjs" },
+                { "path": "tools/fact-extractors/lib/canonicalize.mjs", "logicalName": "FsusBlog.Migration.RetainedReader.tools.fact-extractors.lib.canonicalize.mjs" }
+            ],
             "projects": [
                 {
                     "path": "src/migration/FsusBlog.Migration.csproj",

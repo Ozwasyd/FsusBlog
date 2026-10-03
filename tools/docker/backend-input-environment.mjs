@@ -105,7 +105,8 @@ function snapshotInputs(root, inventory)
         }
     };
     for (const input of [...new Set(['config/build/backend-docker-inputs.json', ...projectRoots,
-        ...inventory.imports, ...selectedInventories.flatMap(value => value.restoreFiles), ...inventory.allowedExternalItemRoots,
+        ...inventory.imports, ...selectedInventories.flatMap(value => value.restoreFiles),
+        ...selectedInventories.flatMap(value => (value.embeddedResources ?? []).map(item => item.path)), ...inventory.allowedExternalItemRoots,
         ...inventory.allowedExternalItemFiles, ...inventory.optionalPublishRoots])].sort())
     {
         visit(input);

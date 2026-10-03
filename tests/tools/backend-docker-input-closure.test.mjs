@@ -20,6 +20,7 @@ const {
     migrationToolProfile,
     migrationToolProfileMarker,
     loadInventory,
+    validateMigrationEmbeddedResources,
     assertDockerfile,
     assertBuildScript,
     validateEvaluatedRestoreConfiguration,
@@ -1054,6 +1055,15 @@ test('selected Migration uses the original evaluated closure and refuses a real 
     const file = 'config/build/backend-docker-inputs.json';
     const inventory = JSON.parse(fs.readFileSync(path.join(fixture, file), 'utf8'));
     inventory.tools = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')).tools;
+    for (const resource of inventory.tools[0].embeddedResources)
+    {
+        write(fixture, resource.path, fs.readFileSync(path.join(root, resource.path)));
+    }
+    const resources = inventory.tools[0].embeddedResources.map(item =>
+        `<EmbeddedResource Include="../../${item.path}" LogicalName="${item.logicalName}" />`).join('');
+    const projectSource = fs.readFileSync(path.join(fixture, project), 'utf8').replace('</Project>',
+        `<ItemGroup>${resources}</ItemGroup></Project>`);
+    write(fixture, project, projectSource);
     write(fixture, file, JSON.stringify(inventory));
     const args = ['--tool', 'migration', '--commit-sha', 'a'.repeat(40)];
     const valid = run(fixture, 'print', ...args);
@@ -1062,6 +1072,11 @@ test('selected Migration uses the original evaluated closure and refuses a real 
     assert.equal(summary.schema, 'fsusblog.backend-docker-input-closure.v2');
     assert.ok(summary.domains['migration/compile'].paths.includes('src/migration/Tool.cs'));
     assert.ok(summary.domains['migration/compile'].paths.includes('src/shared/Contract.cs'));
+    for (const item of inventory.tools[0].embeddedResources)
+    {
+        assert.ok(summary.domains['migration/compile'].paths.includes(item.path));
+        assert.ok(!summary.domains.compile.paths.includes(item.path));
+    }
     assert.ok(!summary.domains.compile.paths.includes('src/migration/Tool.cs'));
     assert.ok(!Object.hasOwn(readSummary(fixture).domains, 'migration/compile'));
     write(fixture, 'tools/unregistered.data', 'unregistered actual resource');
@@ -1069,7 +1084,77 @@ test('selected Migration uses the original evaluated closure and refuses a real 
         '<ItemGroup><EmbeddedResource Include="../../tools/unregistered.data" /></ItemGroup></Project>'));
     const rejected = run(fixture, 'print', ...args);
     assert.notEqual(rejected.status, 0);
-    assert.match(rejected.stderr, /outside declared source roots/u);
+    assert.match(rejected.stderr, /embedded resource closure mismatch/u);
+    for (const changed of [projectSource.replace(resources, ''),
+        projectSource.replace(inventory.tools[0].embeddedResources[0].logicalName, 'Changed.Resource.Name')])
+    {
+        write(fixture, project, changed);
+        const result = run(fixture, 'print', ...args);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /embedded resource closure mismatch/u);
+    }
+});
+
+test('retained embedded resource metadata requires the exact original project, logical names and one item per input', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const tool = JSON.parse(fs.readFileSync(path.join(root, 'config/build/backend-docker-inputs.json'), 'utf8')).tools[0];
+    for (const resource of tool.embeddedResources)
+    {
+        write(fixture, resource.path, fs.readFileSync(path.join(root, resource.path)));
+    }
+    const items = { EmbeddedResource: tool.embeddedResources.map(item => ({
+        FullPath: path.join(fixture, item.path), LogicalName: item.logicalName })) };
+    assert.doesNotThrow(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items));
+    for (const changed of [items.EmbeddedResource.slice(1), [...items.EmbeddedResource, items.EmbeddedResource[0]],
+        items.EmbeddedResource.map((item, index) => index === 0 ? { ...item, LogicalName: 'wrong' } : item),
+        items.EmbeddedResource.map((item, index) => index === 0 ? { ...item, CopyToPublishDirectory: 'Always' } : item)])
+    {
+        assert.throws(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool,
+            { EmbeddedResource: changed }), /closure mismatch/u);
+    }
+    assert.throws(() => validateMigrationEmbeddedResources(fixture, 'src/shared/FsusBlog.Shared.csproj', tool, items), /closure mismatch/u);
+    assert.doesNotThrow(() => validateMigrationEmbeddedResources(fixture, 'src/shared/FsusBlog.Shared.csproj', tool, {}));
+});
+
+test('retained embedded resource observation refuses missing files and symlinked source substitution', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const tool = JSON.parse(fs.readFileSync(path.join(root, 'config/build/backend-docker-inputs.json'), 'utf8')).tools[0];
+    const items = { EmbeddedResource: tool.embeddedResources.map(item => ({
+        FullPath: path.join(fixture, item.path), LogicalName: item.logicalName })) };
+    for (const resource of tool.embeddedResources)
+    {
+        write(fixture, resource.path, fs.readFileSync(path.join(root, resource.path)));
+    }
+    assert.doesNotThrow(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items));
+    const file = path.join(fixture, tool.embeddedResources[0].path);
+    fs.unlinkSync(file);
+    assert.throws(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items), /missing/u);
+    fs.symlinkSync(path.join(fixture, tool.embeddedResources[1].path), file);
+    assert.throws(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items), /regular non-symlink/u);
+});
+
+test('retained resource declarations reject malformed, extra, duplicate and mismatched resource identities', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const file = 'config/build/backend-docker-inputs.json';
+    const inventory = JSON.parse(fs.readFileSync(path.join(fixture, file), 'utf8'));
+    inventory.tools = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')).tools;
+    const put = value => write(fixture, file, JSON.stringify(value));
+    put(inventory);
+    assert.doesNotThrow(() => loadInventory(fixture));
+    for (const mutate of [value => value.tools[0].embeddedResources.pop(),
+        value => value.tools[0].embeddedResources.push(value.tools[0].embeddedResources[0]),
+        value => value.tools[0].embeddedResources[0].logicalName = 'wrong',
+        value => value.tools[0].embeddedResources[0].path = '../outside.mjs',
+        value => value.tools[0].embeddedResources[0].extra = true])
+    {
+        const changed = structuredClone(inventory);
+        mutate(changed);
+        put(changed);
+        assert.throws(() => loadInventory(fixture), /resource declarations/u);
+    }
 });
 
 test('task tool Docker consumers preserve sealed inputs, separate output and inherited Server entrypoint', async t =>
