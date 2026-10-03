@@ -6,6 +6,8 @@
             "paths": [
                 "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
                 "src/migration/CurrentSchemaBootstrapRecipeCompiler.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
                 "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
                 "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
             ],

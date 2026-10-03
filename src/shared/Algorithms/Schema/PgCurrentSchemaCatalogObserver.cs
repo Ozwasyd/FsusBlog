@@ -234,7 +234,10 @@ public static class PgCurrentSchemaCatalogObserver
                 COALESCE((
                     SELECT json_agg(
                         json_build_object(
+                            'kind', CASE WHEN index_meta.indkey[key_position.position] = 0 THEN 'expression' ELSE 'column' END,
                             'column', key_column.attname,
+                            'expression', CASE WHEN index_meta.indkey[key_position.position] = 0
+                                THEN pg_get_indexdef(index_rel.oid, key_position.position + 1, FALSE) ELSE NULL END,
                             'direction', CASE
                                 WHEN (index_meta.indoption[key_position.position] & 1) = 1 THEN 'desc'
                                 ELSE 'asc'
@@ -244,7 +247,8 @@ public static class PgCurrentSchemaCatalogObserver
                                 ELSE 'last'
                             END,
                             'operatorClass', CASE
-                                WHEN operator_class.opcdefault THEN 'default'
+                                WHEN operator_class.opcdefault
+                                  AND (index_meta.indkey[key_position.position] <> 0 OR operator_namespace.nspname = 'pg_catalog') THEN 'default'
                                 ELSE operator_namespace.nspname || '.' || operator_class.opcname
                             END,
                             'collation', CASE
@@ -273,7 +277,31 @@ public static class PgCurrentSchemaCatalogObserver
                     LEFT JOIN pg_attribute included_column
                       ON included_column.attrelid = table_rel.oid
                      AND included_column.attnum = index_meta.indkey[included_position.position]
-                ), '[]') AS included_columns
+                ), '[]') AS included_columns,
+                COALESCE((
+                    SELECT json_agg(dependency_column.attname ORDER BY dependency_column.attname)::text
+                    FROM (
+                        SELECT DISTINCT dependency.refobjsubid
+                        FROM pg_depend dependency
+                        WHERE dependency.classid = 'pg_class'::regclass
+                          AND dependency.objid = index_rel.oid
+                          AND dependency.refclassid = 'pg_class'::regclass
+                          AND dependency.refobjid = table_rel.oid
+                          AND dependency.refobjsubid > 0
+                    ) bound_dependency
+                    LEFT JOIN pg_attribute dependency_column
+                      ON dependency_column.attrelid = table_rel.oid
+                     AND dependency_column.attnum = bound_dependency.refobjsubid
+                     AND NOT dependency_column.attisdropped
+                ), '[]') AS dependency_columns,
+                EXISTS (
+                    SELECT 1 FROM pg_depend dependency
+                    WHERE dependency.classid = 'pg_class'::regclass
+                      AND dependency.objid = index_rel.oid
+                      AND dependency.refclassid = 'pg_class'::regclass
+                      AND dependency.refobjid <> table_rel.oid
+                      AND dependency.refobjsubid > 0
+                ) AS has_foreign_column_dependencies
             FROM pg_index index_meta
             JOIN pg_class table_rel ON table_rel.oid = index_meta.indrelid
             JOIN pg_namespace table_namespace ON table_namespace.oid = table_rel.relnamespace
@@ -302,8 +330,15 @@ public static class PgCurrentSchemaCatalogObserver
                 bool hasExpressions = Convert.ToBoolean(row["has_expressions"]);
                 IReadOnlyList<SchemaIndexKeyModel> keys = ParsePostgresIndexKeys(
                     Convert.ToString(row["keys"]),
-                    hasExpressions);
+                    hasExpressions,
+                    table.Columns);
                 string[] includedColumns = ParsePostgresIncludedColumns(Convert.ToString(row["included_columns"]));
+                string? predicate = row["predicate"] is DBNull ? null : Convert.ToString(row["predicate"])?.Trim();
+                if (hasExpressions)
+                {
+                    ValidatePostgresExpressionIndexDependencies(keys, includedColumns, predicate, table.Columns,
+                        Convert.ToString(row["dependency_columns"]), Convert.ToBoolean(row["has_foreign_column_dependencies"]));
+                }
                 table.Indexes.Add(indexName);
                 ((Dictionary<string, SchemaIndexModel>)table.IndexDefinitions).Add(
                     indexName,
@@ -313,7 +348,7 @@ public static class PgCurrentSchemaCatalogObserver
                         keys,
                         includedColumns,
                         NormalizeRequiredPostgresIdentifier(Convert.ToString(row["access_method"]), "index access method"),
-                        row["predicate"] is DBNull ? null : Convert.ToString(row["predicate"])?.Trim(),
+                        predicate,
                         Convert.ToBoolean(row["nulls_not_distinct"])));
             }
         }
@@ -449,6 +484,7 @@ public static class PgCurrentSchemaCatalogObserver
             foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
             {
                 if (primaryIndexes.Contains(tableName + "." + index.Name)) continue;
+                if (index.Keys.Any(static key => key.Kind == SchemaIndexKeyKind.Expression)) continue;
                 constraints.TryAdd(index.Name, new SchemaConstraintModel(
                     index.Name,
                     "unique",
@@ -593,6 +629,103 @@ public static class PgCurrentSchemaCatalogObserver
         }
         return keys;
     }
+
+    /// <summary>Decodes ordered native column/expression keys against the independently observed table columns.</summary>
+    public static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(
+        string? json,
+        bool hasExpressions,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns)
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+        using JsonDocument document = JsonDocument.Parse(json ?? "null");
+        if (document.RootElement.ValueKind != JsonValueKind.Array || document.RootElement.GetArrayLength() == 0)
+        {
+            throw new InvalidOperationException("PostgreSQL current schema index has no exact key observations.");
+        }
+
+        var keys = new List<SchemaIndexKeyModel>();
+        foreach (JsonElement element in document.RootElement.EnumerateArray())
+        {
+            if (element.ValueKind != JsonValueKind.Object
+                || !element.EnumerateObject().Select(static property => property.Name).Order(StringComparer.Ordinal)
+                    .SequenceEqual(new[] { "collation", "column", "direction", "expression", "kind", "nullPlacement", "operatorClass" }, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException("PostgreSQL current schema index key observation has an invalid shape.");
+            }
+
+            string kind = RequireExactValue(element.GetProperty("kind").GetString(), "index key kind", "column", "expression");
+            JsonElement column = element.GetProperty("column");
+            JsonElement expression = element.GetProperty("expression");
+            bool isExpression = kind == "expression";
+            if (isExpression ? column.ValueKind != JsonValueKind.Null || expression.ValueKind != JsonValueKind.String
+                : column.ValueKind != JsonValueKind.String || expression.ValueKind != JsonValueKind.Null)
+            {
+                throw new InvalidOperationException("PostgreSQL current schema index key column/expression union is invalid.");
+            }
+
+            var key = new SchemaIndexKeyModel(
+                isExpression ? string.Empty : NormalizeRequiredPostgresIdentifier(column.GetString(), "index key column"),
+                RequireExactValue(element.GetProperty("direction").GetString(), "index key direction", "asc", "desc"),
+                RequireExactValue(element.GetProperty("nullPlacement").GetString(), "index key null placement", "first", "last"),
+                NormalizePostgresIndexIdentity(element.GetProperty("operatorClass").GetString(), "index operator class"),
+                NormalizePostgresIndexIdentity(element.GetProperty("collation").GetString(), "index collation"))
+            {
+                Kind = isExpression ? SchemaIndexKeyKind.Expression : SchemaIndexKeyKind.Column,
+                Expression = isExpression ? PgCurrentSchemaExpressionParser.Parse(expression.GetString()!, columns) : null
+            };
+            SchemaIndexKeyFacts.Validate(key, columns, SchemaProviderKind.PostgreSql);
+            keys.Add(key);
+        }
+        if (hasExpressions != keys.Any(static key => key.Kind == SchemaIndexKeyKind.Expression))
+        {
+            throw new InvalidOperationException("PostgreSQL current schema index expression presence is inconsistent.");
+        }
+        return keys;
+    }
+
+    /// <summary>
+    /// Binds the whole expression index's native pg_depend column set, including ordinary keys,
+    /// INCLUDE and predicate columns. This is an independent index-level observation, not a
+    /// claimed per-expression dependency extracted from the parsed text itself.
+    /// </summary>
+    public static void ValidatePostgresExpressionIndexDependencies(
+        IReadOnlyList<SchemaIndexKeyModel> keys,
+        IReadOnlyList<string> includedColumns,
+        string? predicate,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns,
+        string? dependencyColumnsJson,
+        bool hasForeignColumnDependencies)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        ArgumentNullException.ThrowIfNull(includedColumns);
+        ArgumentNullException.ThrowIfNull(columns);
+        if (hasForeignColumnDependencies || !keys.Any(static key => key.Kind == SchemaIndexKeyKind.Expression))
+        {
+            throw new InvalidOperationException("current_schema_native_index_dependencies_unbound");
+        }
+        foreach (SchemaIndexKeyModel key in keys)
+        {
+            SchemaIndexKeyFacts.Validate(key, columns, SchemaProviderKind.PostgreSql);
+        }
+        string[] observed = ParsePostgresIncludedColumns(dependencyColumnsJson);
+        IEnumerable<string> referenced = keys.SelectMany(static key => key.Kind == SchemaIndexKeyKind.Column
+            ? new[] { key.Column } : BoundIndexColumns(key.Expression!)).Concat(includedColumns);
+        if (predicate is not null)
+        {
+            referenced = referenced.Concat(BoundIndexColumns(PgCurrentSchemaExpressionParser.Parse(predicate, columns)));
+        }
+        string[] wanted = referenced.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (wanted.Any(column => !columns.ContainsKey(column))
+            || observed.Distinct(StringComparer.Ordinal).Count() != observed.Length
+            || !observed.Order(StringComparer.Ordinal).SequenceEqual(wanted, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("current_schema_native_index_dependencies_changed");
+        }
+    }
+
+    private static IEnumerable<string> BoundIndexColumns(SchemaExpressionNode expression)
+        => (expression.Kind == "column" ? new[] { expression.Value } : Array.Empty<string>())
+            .Concat(expression.Arguments.SelectMany(BoundIndexColumns));
 
     /// <summary>Preserves ordered native included-column identities and rejects malformed metadata.</summary>
     public static string[] ParsePostgresIncludedColumns(string? json)
