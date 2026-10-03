@@ -336,7 +336,7 @@ function makeStaticAdmission({
 } = {})
 {
     const receipt = {
-        schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
+        schema: 'fsusblog.behavior-doc-static-admission-receipt.v2',
         run: { id: runId },
         source: {
             commit: sourceCommit,

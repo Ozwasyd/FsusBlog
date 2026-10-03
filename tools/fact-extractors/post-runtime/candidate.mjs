@@ -259,7 +259,7 @@ export function observationEnvelopeAuthorityFields({
     candidate: plan.candidate
   }, repositoryRoot)
   return stable({
-    registryDigest: currentRegistryBinding(repositoryRoot).contentDigest,
+    registryDigest: currentRegistryBinding(repositoryRoot, plan.producerId).contentDigest,
     observationSchemaDigest: `sha256:${digestValue(schema)}`,
     candidatePlanRef: plan.identityAuthorityRefs.plan,
     attemptAuthorityRef: plan.identityAuthorityRefs.attempt,
@@ -298,8 +298,8 @@ export function produceCandidatePlan({
   {
     fail('candidate inputs do not share one source/worktree identity')
   }
-  const { registry, producer } = authority(repositoryRoot)
-  const classes = Object.keys(registry.observationClasses).sort()
+  const { registry, producer } = authority(repositoryRoot, claims.producerId)
+  const classes = [...new Set(Object.values(producer.requiredObservations).flat())].sort()
   if (!isPlainObject(observationPaths) || JSON.stringify(Object.keys(observationPaths).sort()) !== JSON.stringify(classes))
   {
     fail('candidate plan must bind exact-one output path for every canonical observation class')
@@ -321,7 +321,7 @@ export function produceCandidatePlan({
   return seal({
     schema: candidatePlanSchema,
     producerId: producer.producerId,
-    registryBinding: currentRegistryBinding(repositoryRoot),
+    registryBinding: currentRegistryBinding(repositoryRoot, producer.producerId),
     sourceState,
     build,
     candidate: stable(run.candidate),
@@ -341,9 +341,9 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
 {
   if (plan?.schema !== candidatePlanSchema || plan.status !== 'planned') fail('candidate plan schema/status mismatch')
   verifySeal(plan, 'candidate plan')
-  const { registry, producer } = authority(repositoryRoot)
+  const { registry, producer } = authority(repositoryRoot, plan.producerId)
   if (plan.producerId !== producer.producerId) fail('candidate plan producer mismatch')
-  if (JSON.stringify(stable(plan.registryBinding)) !== JSON.stringify(currentRegistryBinding(repositoryRoot)))
+  if (JSON.stringify(stable(plan.registryBinding)) !== JSON.stringify(currentRegistryBinding(repositoryRoot, plan.producerId)))
   {
     fail('candidate plan registry/schema/tool identity binding mismatch')
   }
@@ -354,6 +354,7 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
   const contextInput = verifyReference(plan.candidateContextRef, 'candidate plan context receipt', repositoryRoot)
   const run = validateCandidateContext(contextInput.value, repositoryRoot)
   const claims = validateAcceptedClaims(claimsInput.value, { expectedRunId: run.candidate.runId, repositoryRoot })
+  if (claims.producerId !== plan.producerId) fail('candidate plan accepted claims producer mismatch')
   const sourceState = {
     commit: preInput.value.sourceIdentity.commit,
     worktreeFingerprint: prefixedDigest(preInput.value.sourceIdentity.worktreeFingerprint)
@@ -373,7 +374,7 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
     fail('candidate plan upstream replay identity mismatch')
   }
   verifyIdentityAuthorities(plan.identityAuthorityRefs, run, repositoryRoot)
-  const expected = Object.keys(registry.observationClasses).sort()
+  const expected = [...new Set(Object.values(producer.requiredObservations).flat())].sort()
   const actual = (plan.observations ?? []).map(({ classId }) => classId).sort()
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('candidate plan observation closure mismatch')
   if (new Set((plan.observations ?? []).map(({ receiptPath }) => receiptPath)).size !== expected.length)

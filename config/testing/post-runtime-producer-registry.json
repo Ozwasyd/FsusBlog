@@ -1,9 +1,9 @@
 {
-    "schema": "fsusblog.post-runtime-producer-registry.v2",
+    "schema": "fsusblog.post-runtime-producer-registry.v3",
     "digestAlgorithm": "sha256",
     "canonicalSerialization": "json-utf8-v1",
     "receiptSemantics": {
-        "observationEnvelopeSchema": "fsusblog.post-runtime-observation-result-envelope.v1",
+        "observationEnvelopeSchema": "fsusblog.post-runtime-observation-result-envelope.v2",
         "acceptedClaimsSchema": "fsusblog.post-runtime-accepted-claims.v1",
         "acceptedClaimsToolVersion": "post-runtime-accepted-claims@1",
         "acceptedTerminalSchema": "fsusblog.global-claim-exactness-terminal-receipt.v1",
@@ -541,9 +541,9 @@
             "existenceShortcutForbidden": true
         },
         "release-identity-readiness": {
-            "schema": "fsusblog.observation.release-identity-readiness.v1",
+            "schema": "fsusblog.observation.release-identity-readiness.v2",
             "sourceReceipt": {
-                "schema": "fsusblog.release-identity-readiness-authority-bundle.v1",
+                "schema": "fsusblog.release-identity-readiness-authority-bundle.v2",
                 "role": "release-authority",
                 "discriminator": null,
                 "requiredFields": [
@@ -551,16 +551,21 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
+                    "candidatePlanRef",
+                    "authorityDigest",
+                    "bundleRerunCommand",
                     "rawFacts",
                     "rolloutEvidenceRef",
                     "runtimeRoleAdmissionRef",
+                    "currentSchemaReceiptRef",
                     "canonicalRerunCommand",
                     "independentVerifyCommand",
                     "contentDigest"
                 ],
                 "requiredReferenceFields": [
                     "rolloutEvidenceRef",
-                    "runtimeRoleAdmissionRef"
+                    "runtimeRoleAdmissionRef",
+                    "currentSchemaReceiptRef"
                 ],
                 "referenceContracts": {
                     "rolloutEvidenceRef": {
@@ -571,12 +576,20 @@
                         ]
                     },
                     "runtimeRoleAdmissionRef": {
-                        "schema": "fsusblog.behavior-doc-static-admission-receipt.v1",
+                        "schema": "fsusblog.behavior-doc-static-admission-receipt.v2",
                         "role": "runtime-role-admission",
                         "identityFields": [
                             "sourceCommit",
                             "worktreeFingerprint",
                             "runId"
+                        ]
+                    },
+                    "currentSchemaReceiptRef": {
+                        "schema": "fsusblog.current-schema-receipt.v1",
+                        "role": "current-schema-receipt",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
                         ]
                     }
                 },
@@ -618,9 +631,9 @@
             "existenceShortcutForbidden": true
         },
         "blue-green-containment": {
-            "schema": "fsusblog.observation.blue-green-containment.v1",
+            "schema": "fsusblog.observation.blue-green-containment.v2",
             "sourceReceipt": {
-                "schema": "fsusblog.blue-green-containment-authority-bundle.v1",
+                "schema": "fsusblog.blue-green-containment-authority-bundle.v2",
                 "role": "blue-green-authority",
                 "discriminator": null,
                 "requiredFields": [
@@ -628,16 +641,21 @@
                     "producerId",
                     "toolVersion",
                     "sourceState",
+                    "candidatePlanRef",
+                    "authorityDigest",
+                    "bundleRerunCommand",
                     "rawFacts",
                     "rolloutEvidenceRef",
                     "runtimeRoleAdmissionRef",
+                    "currentSchemaReceiptRef",
                     "canonicalRerunCommand",
                     "independentVerifyCommand",
                     "contentDigest"
                 ],
                 "requiredReferenceFields": [
                     "rolloutEvidenceRef",
-                    "runtimeRoleAdmissionRef"
+                    "runtimeRoleAdmissionRef",
+                    "currentSchemaReceiptRef"
                 ],
                 "referenceContracts": {
                     "rolloutEvidenceRef": {
@@ -649,12 +667,20 @@
                         ]
                     },
                     "runtimeRoleAdmissionRef": {
-                        "schema": "fsusblog.behavior-doc-static-admission-receipt.v1",
+                        "schema": "fsusblog.behavior-doc-static-admission-receipt.v2",
                         "role": "runtime-role-admission",
                         "identityFields": [
                             "sourceCommit",
                             "worktreeFingerprint",
                             "runId"
+                        ]
+                    },
+                    "currentSchemaReceiptRef": {
+                        "schema": "fsusblog.current-schema-receipt.v1",
+                        "role": "current-schema-receipt",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
                         ]
                     }
                 },
@@ -697,12 +723,108 @@
                 "failure"
             ],
             "existenceShortcutForbidden": true
+        },
+        "current-schema-admission": {
+            "schema": "fsusblog.observation.current-schema-admission.v1",
+            "sourceReceipt": {
+                "schema": "fsusblog.current-schema-admission-authority-bundle.v1",
+                "role": "current-schema-authority",
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "candidatePlanRef",
+                    "authorityDigest",
+                    "bundleRerunCommand",
+                    "rawFacts",
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef",
+                    "currentSchemaReceiptRef",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef",
+                    "currentSchemaReceiptRef"
+                ],
+                "referenceContracts": {
+                    "rolloutEvidenceRef": {
+                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "role": "release-rollout",
+                        "identityFields": [
+                            "releaseId"
+                        ]
+                    },
+                    "runtimeRoleAdmissionRef": {
+                        "schema": "fsusblog.behavior-doc-static-admission-receipt.v2",
+                        "role": "runtime-role-admission",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId"
+                        ]
+                    },
+                    "currentSchemaReceiptRef": {
+                        "schema": "fsusblog.current-schema-receipt.v1",
+                        "role": "current-schema-receipt",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "releaseId",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "currentSchemaReceiptReferenceDigest",
+                "admissionOutputDigest",
+                "targetDigest",
+                "databaseDigest",
+                "schemaObservationDigest",
+                "sourceRevision",
+                "verifierDigest",
+                "planDigest",
+                "applyDigest",
+                "checkpointsDigest",
+                "semanticPostconditionsDigest",
+                "backupPackageDigest",
+                "backupManifestDigest",
+                "restoreDrillDigest",
+                "recoveryReferencesDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
+            "existenceShortcutForbidden": true
         }
     },
     "producers": [
         {
             "producerId": "production-correctness-scheduler",
-            "toolVersion": "production-correctness-scheduler@1",
+            "toolVersion": "production-correctness-scheduler@2",
             "owner": "tools/run-test-matrix.mjs",
             "behaviorId": "browserless-production-correctness",
             "behaviorDomain": "testing",
@@ -749,6 +871,45 @@
                 "browserless-production-correctness.execution-classes",
                 "browserless-production-correctness.predecessors",
                 "browserless-production-correctness.dependency-edges"
+            ]
+        },
+        {
+            "producerId": "current-schema-admission-scheduler",
+            "toolVersion": "current-schema-admission-scheduler@1",
+            "owner": "tools/run-test-matrix.mjs",
+            "behaviorId": "deployment-current-schema-admission",
+            "behaviorDomain": "deployment",
+            "producerTierId": "production-correctness",
+            "observationSchema": "fsusblog.observation.current-schema-admission.v1",
+            "executionClass": "correctness",
+            "evidenceClass": "correctness",
+            "requiredIdentities": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "schedulerRunId",
+                "producerId"
+            ],
+            "requiredObservations": {
+                "positive": [
+                    "current-schema-admission"
+                ],
+                "negative": [
+                    "current-schema-admission"
+                ],
+                "boundary": [
+                    "current-schema-admission"
+                ],
+                "failure": [
+                    "current-schema-admission"
+                ]
+            },
+            "diagnosticEligible": false,
+            "timeoutPolicy": "per-producer budget from config/testing/correctness-budget-policy.json with physical process-tree termination",
+            "cancelPolicy": "cancel terminates the whole process tree and leaves no partial receipt",
+            "recoveryPolicy": "resume appends a new attempt only; previous attempts stay sealed read-only",
+            "acceptedClaimRefs": [
+                "deployment-current-schema-admission.native-reverification"
             ]
         }
     ]

@@ -7,7 +7,7 @@ import {
   verifyProductionBuildInput
 } from './candidate.mjs'
 import {
-  authority,
+  registryAuthority,
   defaultRoot,
   explicitJson,
   fail,
@@ -17,7 +17,7 @@ import {
 
 function postRuntimeEvidenceOwnedRoot(repositoryRoot)
 {
-  const { registry } = authority(repositoryRoot)
+  const { registry } = registryAuthority(repositoryRoot)
   const referenceRoot = registry.receiptSemantics?.acceptedTerminalAuthority?.referenceRoot
   if (typeof referenceRoot !== 'string' || !referenceRoot
     || referenceRoot.startsWith('/')

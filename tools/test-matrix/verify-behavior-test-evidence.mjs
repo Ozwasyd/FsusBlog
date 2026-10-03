@@ -85,7 +85,7 @@ function loadStaticAdmissionReceipt(filePath, errors)
         return null;
     }
     const receipt = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (receipt?.schema !== 'fsusblog.behavior-doc-static-admission-receipt.v1')
+    if (receipt?.schema !== 'fsusblog.behavior-doc-static-admission-receipt.v2')
     {
         errors.push('static admission receipt schema mismatch');
         return null;

@@ -32,7 +32,7 @@ export const defaultRoot = repositoryRoot
 export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 export const candidatePlanSchema = 'fsusblog.post-runtime-candidate-plan.v1'
 export const classReceiptSchema = 'fsusblog.post-runtime-class-receipt.v1'
-export const observationReceiptSchema = 'fsusblog.post-runtime-observation-receipt.v1'
+export const observationReceiptSchema = 'fsusblog.post-runtime-observation-receipt.v2'
 export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
 export const sourceReceiptSchema = 'fsusblog.post-runtime-source-receipt.v1'
 
@@ -215,7 +215,7 @@ function currentRepositoryAuthorityKey(repositoryRoot)
   ])}`
 }
 
-export function authority(repositoryRoot = defaultRoot)
+export function registryAuthority(repositoryRoot = defaultRoot)
 {
   const cacheKey = currentRepositoryAuthorityKey(repositoryRoot)
   const cached = authorityCache.get(cacheKey)
@@ -223,16 +223,27 @@ export function authority(repositoryRoot = defaultRoot)
   const catalog = loadCatalog(path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'))
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
   validatePostRuntimeProducerRegistry(registry, { catalog, repositoryRoot })
-  if (registry.producers.length !== 1) fail('post-runtime registry must resolve exact-one producer')
-  const resolved = { registry, producer: registry.producers[0] }
+  const resolved = { registry }
   authorityCache.clear()
   authorityCache.set(cacheKey, resolved)
   return resolved
 }
 
-export function currentRegistryBinding(repositoryRoot = defaultRoot)
+export function authority(repositoryRoot = defaultRoot, producerId)
 {
-  const { registry, producer } = authority(repositoryRoot)
+  const { registry } = registryAuthority(repositoryRoot)
+  if (typeof producerId !== 'string' || producerId.length === 0)
+  {
+    fail('post-runtime authority requires an explicit producer identity')
+  }
+  const producers = registry.producers.filter((producer) => producer.producerId === producerId)
+  if (producers.length !== 1) fail('post-runtime authority must resolve exact-one selected producer')
+  return { registry, producer: producers[0] }
+}
+
+export function currentRegistryBinding(repositoryRoot = defaultRoot, producerId)
+{
+  const { registry, producer } = authority(repositoryRoot, producerId)
   const observationSchema = JSON.parse(readFileSync(
     path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
   const claimsSchema = JSON.parse(readFileSync(
@@ -298,7 +309,7 @@ export function observationSourceReceipt({
   {
     return stable(upstreamRef)
   }
-  const { registry, producer } = authority(repositoryRoot)
+  const { registry, producer } = authority(repositoryRoot, plan.producerId)
   const definition = registry.observationClasses[classId]
   if (!definition?.sourceReceipt || upstreamSchema !== definition.sourceReceipt.schema)
   {
@@ -381,9 +392,9 @@ export function requiredModes(producer, classId)
     .sort()
 }
 
-export function produceAcceptedClaims({ terminalReceipt, expectedRunId, repositoryRoot = defaultRoot })
+export function produceAcceptedClaims({ terminalReceipt, expectedRunId, producerId, repositoryRoot = defaultRoot })
 {
-  const { producer } = authority(repositoryRoot)
+  const { producer } = authority(repositoryRoot, producerId)
   return buildPostRuntimeAcceptedClaimsReceipt({
     terminalReceiptPath: terminalReceipt,
     expectedRunId,
@@ -394,7 +405,7 @@ export function produceAcceptedClaims({ terminalReceipt, expectedRunId, reposito
 
 export function validateAcceptedClaims(receipt, { expectedRunId, repositoryRoot = defaultRoot } = {})
 {
-  const { producer } = authority(repositoryRoot)
+  const { producer } = authority(repositoryRoot, receipt?.producerId)
   return validatePostRuntimeAcceptedClaimsValue({
     expectedRunId,
     producerId: producer.producerId,

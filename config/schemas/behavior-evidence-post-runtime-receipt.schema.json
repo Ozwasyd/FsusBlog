@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.behavior-evidence-post-runtime-receipt.v1",
+    "$id": "fsusblog.behavior-evidence-post-runtime-receipt.v2",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -19,9 +19,12 @@
         "requiredObservationScopes",
         "requiredProducerClasses",
         "observedProducerClasses",
+        "requiredProducerScopes",
+        "requiredProducerClaims",
+        "observedProducerClaims",
         "observedBehaviorResults",
         "observationRefs",
-        "acceptedClaimsRef",
+        "acceptedClaimsRefs",
         "documentClaimDigests",
         "documentClaimTerminalDigest",
         "schedulerEvidence",
@@ -38,7 +41,7 @@
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.behavior-evidence-post-runtime-receipt.v1"
+            "const": "fsusblog.behavior-evidence-post-runtime-receipt.v2"
         },
         "scope": {
             "const": "post-runtime"
@@ -199,6 +202,25 @@
         "observedProducerClasses": {
             "$ref": "#/$defs/stringSetMap"
         },
+        "requiredProducerScopes": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 2,
+                "uniqueItems": true,
+                "items": {
+                    "enum": ["application", "release-deployment"]
+                }
+            }
+        },
+        "requiredProducerClaims": {
+            "$ref": "#/$defs/stringSetMap"
+        },
+        "observedProducerClaims": {
+            "$ref": "#/$defs/stringSetMap"
+        },
         "observedBehaviorResults": {
             "type": "array",
             "minItems": 1,
@@ -261,13 +283,16 @@
         "observationRefs": {
             "type": "array",
             "minItems": 2,
-            "maxItems": 2,
             "items": {
                 "$ref": "#/$defs/scopedReference"
             }
         },
-        "acceptedClaimsRef": {
-            "$ref": "#/$defs/reference"
+        "acceptedClaimsRefs": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/reference"
+            }
         },
         "documentClaimDigests": {
             "type": "object",
@@ -392,12 +417,16 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
+                "producerId",
                 "scope",
                 "path",
                 "fileDigest",
                 "contentDigest"
             ],
             "properties": {
+                "producerId": {
+                    "$ref": "#/$defs/nonEmptyString"
+                },
                 "scope": {
                     "enum": [
                         "application",

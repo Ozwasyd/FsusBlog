@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.post-runtime-observation-result-envelope.v1",
+    "$id": "fsusblog.post-runtime-observation-result-envelope.v2",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -37,8 +37,9 @@
                 "fsusblog.observation.cache-search-outbox.v1",
                 "fsusblog.observation.session-cookie-runtime.v1",
                 "fsusblog.browser-contract-receipt.v2",
-                "fsusblog.observation.release-identity-readiness.v1",
-                "fsusblog.observation.blue-green-containment.v1"
+                "fsusblog.observation.release-identity-readiness.v2",
+                "fsusblog.observation.blue-green-containment.v2",
+                "fsusblog.observation.current-schema-admission.v1"
             ]
         },
         "producerId": {

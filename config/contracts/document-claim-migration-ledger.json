@@ -551,7 +551,8 @@
             "scopeId": "protocol-release-deployment-ownership",
             "behaviorIds": [
                 "release-final-aggregate-contract",
-                "deployment-blue-green-runtime-role"
+                "deployment-blue-green-runtime-role",
+                "deployment-current-schema-admission"
             ],
             "entries": [
                 {
@@ -598,6 +599,14 @@
                     "generatedSectionIds": [
                         "deployment.runtime-roles"
                     ]
+                },
+                {
+                    "behaviorId": "deployment-current-schema-admission",
+                    "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+                    "claimIds": [
+                        "deployment-current-schema-admission.native-reverification"
+                    ],
+                    "generatedSectionIds": []
                 }
             ]
         }

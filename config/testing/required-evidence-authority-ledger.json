@@ -11,7 +11,7 @@
                 "behavior-document-consistency-final"
             ],
             "canonicalOwner": "behavior-document-consistency-final",
-            "receiptSchema": "fsusblog.behavior-document-consistency-final-report.v1",
+            "receiptSchema": "fsusblog.behavior-document-consistency-final-report.v2",
             "locatorBindingKey": "current-run.behavior-document-consistency-final",
             "requiredTestIds": [],
             "requiredCoverageIds": [],
@@ -36,7 +36,7 @@
                 "behavior-evidence-post-runtime"
             ],
             "canonicalOwner": "behavior-evidence-post-runtime",
-            "receiptSchema": "fsusblog.behavior-evidence-post-runtime-receipt.v1",
+            "receiptSchema": "fsusblog.behavior-evidence-post-runtime-receipt.v2",
             "locatorBindingKey": "current-run.behavior-evidence-post-runtime",
             "requiredTestIds": [],
             "requiredCoverageIds": [],

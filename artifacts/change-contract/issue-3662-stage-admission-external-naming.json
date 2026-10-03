@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission-contract.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test-matrix/produce-behavior-test-evidence.mjs",
+                "tools/test-matrix/verify-behavior-test-evidence.mjs"
+            ],
+            "reason": "Preserve original CLI and receipt field spelling while explicitly versioning catalog-driven claim stages; no observation, compiled build or execution authority is widened."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/contracts/document-claim-migration-ledger.json",
+                "config/schemas/behavior-doc-static-admission-receipt.schema.json"
+            ],
+            "reason": "Retain original catalog and ledger identifiers while registering the explicit versioned sealed claim-stage structure through its handwritten schema."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Preserve current document anchors and external protocol identifiers while explaining deferred post-runtime claims without granting runtime qualification."
+        }
+    ]
+}

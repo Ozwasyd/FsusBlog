@@ -82,7 +82,11 @@ export function createPostRuntimeCandidateFixture(context, {
     mutationAggregate: { killed: 1, total: 1 },
     residue: [], proseVerification: {}, status: 'ok', failureReasons: []
   })
-  const authority = loadPostRuntimeProducerRegistry(root).receiptSemantics.acceptedTerminalAuthority
+  const registry = loadPostRuntimeProducerRegistry(root)
+  const producer = registry.producers.find(({ behaviorId }) =>
+    behaviorId === BehaviorId('browserless-production-correctness'))
+  assert.ok(producer, 'the fixture requires its registered production-correctness producer')
+  const authority = registry.receiptSemantics.acceptedTerminalAuthority
   const publicationDirectory = path.join(root, authority.referenceRoot, runId, 'attempt-0001')
   const terminalFile = path.join(publicationDirectory, authority.referenceName)
   const payloadFile = path.join(publicationDirectory, authority.payloadName)
@@ -111,7 +115,8 @@ export function createPostRuntimeCandidateFixture(context, {
     finalizeCurrentRunEvidencePublication({ ...options, sessionId: session.sessionId,
       payloadSchema: terminal.schema, terminalStatus: 'success' })
   }
-  const claims = produceAcceptedClaims({ terminalReceipt: relative(terminalFile), expectedRunId: runId, repositoryRoot: root })
+  const claims = produceAcceptedClaims({ terminalReceipt: relative(terminalFile), expectedRunId: runId,
+    producerId: producer.producerId, repositoryRoot: root })
   const claimsFile = write('accepted-claims.json', claims)
   const fixtureBehaviorId = BehaviorId('deployment-blue-green-runtime-role')
   const pre = seal({
@@ -174,7 +179,6 @@ export function createPostRuntimeCandidateFixture(context, {
     repositoryRoot: root
   })
   const contextFile = write('candidate-context.json', candidateContext)
-  const registry = loadPostRuntimeProducerRegistry(root)
   const observationPaths = Object.fromEntries(Object.keys(registry.observationClasses)
     .map((classId) => [classId, relative(path.join(directory, `${classId}-raw.json`))]))
   const plan = produceCandidatePlan({

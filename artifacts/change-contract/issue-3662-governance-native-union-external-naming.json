@@ -1,0 +1,86 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/contracts/behavior-contracts.json",
+                "config/contracts/behavior-fact-extractors.json",
+                "config/contracts/document-claim-migration-ledger.json",
+                "config/schemas/behavior-doc-static-admission-receipt.schema.json",
+                "config/schemas/behavior-document-consistency-final-report.schema.json",
+                "config/schemas/behavior-evidence-post-runtime-receipt.schema.json",
+                "config/schemas/post-runtime-observation-result.schema.json",
+                "config/schemas/runtime-role-observation.schema.json",
+                "config/testing/post-runtime-producer-registry.json",
+                "config/testing/required-evidence-authority-ledger.json"
+            ],
+            "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/releases/blue-green-deployment-runbook.md"
+            ],
+            "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        },
+        {
+            "id": "runtime-role-observation-authority",
+            "paths": [
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs"
+            ],
+            "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/docs/behavior-doc-static-admission-contract.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/fact-extractors/post-runtime/candidate.mjs",
+                "tools/fact-extractors/post-runtime/common.mjs",
+                "tools/fact-extractors/post-runtime/evidence-context.mjs",
+                "tools/fact-extractors/post-runtime/observation.mjs",
+                "tools/fact-extractors/test-matrix/extract.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test-evidence/blue-green-containment-raw.mjs",
+                "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+                "tools/test-evidence/canonical-release-authorities.mjs",
+                "tools/test-evidence/release-authority-bundle-contract.mjs",
+                "tools/test-evidence/release-authority-facts-contract.mjs",
+                "tools/test-evidence/release-readiness-raw.mjs",
+                "tools/test-evidence/release-readiness-source-support.mjs",
+                "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test-matrix/produce-behavior-test-evidence.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs",
+                "tools/test-matrix/verify-behavior-test-evidence.mjs"
+            ],
+            "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Preserve original registered schema, runtime tool, environment, receipt and document spellings while integrating frozen issue 3662 governance source into the already frozen native migration source. No checker, naming registry or qualification rule changes."
+        }
+    ]
+}

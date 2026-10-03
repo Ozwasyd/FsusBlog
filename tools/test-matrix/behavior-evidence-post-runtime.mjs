@@ -12,7 +12,10 @@ import { validateApplicationRuntimeObservation } from '../fact-extractors/post-r
 import { validateReleaseDeploymentObservation } from '../fact-extractors/post-runtime/release-deployment.mjs'
 import { digestValue, isPlainObject, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import { assertPreRuntimeQualified } from './behavior-evidence-pre-runtime.mjs'
-import { validatePostRuntimeProducerRegistry } from './post-runtime-producer-registry.mjs'
+import {
+  requiredObservationClasses,
+  validatePostRuntimeProducerRegistry
+} from './post-runtime-producer-registry.mjs'
 import {
   schedulerTierAdmissionActivity,
   schedulerTierAdmissionSchema
@@ -20,9 +23,9 @@ import {
 import { validateJsonSchema } from './schema-validator/validate.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-export const postRuntimeReceiptSchema = 'fsusblog.behavior-evidence-post-runtime-receipt.v1'
+export const postRuntimeReceiptSchema = 'fsusblog.behavior-evidence-post-runtime-receipt.v2'
 
-const observationReceiptSchema = 'fsusblog.post-runtime-observation-receipt.v1'
+const observationReceiptSchema = 'fsusblog.post-runtime-observation-receipt.v2'
 const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
@@ -38,6 +41,8 @@ const prefixedDigest = (value) => `sha256:${String(value ?? '').replace(/^sha256
 const sameValue = (left, right) => JSON.stringify(stable(left)) === JSON.stringify(stable(right))
 const sameSet = (left, right) => [...left].sort().join('\0') === [...right].sort().join('\0')
 const sortedUnique = (values) => [...new Set(values)].sort()
+const exactSet = (actual, expected) => Array.isArray(actual)
+  && new Set(actual).size === actual.length && sameSet(actual, expected)
 const sealedDigest = (value) => `sha256:${digestValue(
   Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'contentDigest'))
 )}`
@@ -140,6 +145,8 @@ function requiredGraph(catalog, registry, repositoryRoot)
     fail('catalog and registry post-runtime behavior ownership differs')
   }
   const contractByBehavior = new Map(contracts.map((contract) => [contract.id, contract]))
+  const classOwner = new Map()
+  const claimOwner = new Map()
   for (const producer of producers)
   {
     const contract = contractByBehavior.get(producer.behaviorId)
@@ -149,12 +156,28 @@ function requiredGraph(catalog, registry, repositoryRoot)
     {
       fail(`producer ${producer.producerId} does not exact-match its BehaviorCatalog authority`)
     }
+    for (const classId of sortedUnique(Object.values(producer.requiredObservations).flat()))
+    {
+      if (classOwner.has(classId)) fail(`observation class ${classId} has multiple producers`)
+      classOwner.set(classId, producer.producerId)
+    }
+    for (const claimId of producer.acceptedClaimRefs)
+    {
+      if (claimOwner.has(claimId)) fail(`accepted claim ${claimId} has multiple producers`)
+      claimOwner.set(claimId, producer.producerId)
+    }
+  }
+  if (!sameSet([...classOwner.keys()], Object.keys(registry.observationClasses)))
+  {
+    fail('producer class union does not exact-match all registry observation classes')
   }
   const graph = {
     contracts,
     producers,
     contractByBehavior,
-    producerById: new Map(producers.map((producer) => [producer.producerId, producer]))
+    producerById: new Map(producers.map((producer) => [producer.producerId, producer])),
+    classOwner,
+    claimOwner
   }
   graphCache.set(cacheKey, graph)
   return graph
@@ -164,26 +187,45 @@ function observationReference(input)
 {
   return {
     scope: input.value.scope,
+    producerId: input.value.producerId,
     path: input.path,
     fileDigest: input.fileDigest,
     contentDigest: prefixedDigest(input.value.contentDigest)
   }
 }
 
-function validateAggregateObservations({ observations, graph, preRuntimeReceipt })
+function scopedClassClosure(graph, registry)
 {
-  if (!Array.isArray(observations) || observations.length !== requiredScopes.length
-    || !sameSet(observations.map(({ scope }) => scope), requiredScopes))
+  return graph.producers.flatMap((producer) => requiredScopes.flatMap((scope) =>
   {
-    fail('application and release-deployment observation receipts are both required exactly once')
+    const classes = requiredObservationClasses(registry, producer, scope)
+    return classes.length === 0 ? [] : [{ producer, scope, classes }]
+  }))
+}
+
+function validateAggregateObservations({ observations, graph, registry, preRuntimeReceipt })
+{
+  const closure = scopedClassClosure(graph, registry)
+  const key = ({ producerId, scope }) => `${producerId}\0${scope}`
+  if (!Array.isArray(observations) || observations.length === 0
+    || !exactSet(observations.map(key), closure.map(({ producer, scope }) =>
+      key({ producerId: producer.producerId, scope }))))
+  {
+    fail('aggregate observation producer/scope closure must be exact-one')
+  }
+  if (!sameSet(sortedUnique(closure.map(({ scope }) => scope)), requiredScopes))
+  {
+    fail('application and release-deployment observation receipts are both required')
   }
   const first = observations[0]
   const identityFields = [
-    'behaviorId', 'producerId', 'sourceState', 'candidate', 'build',
-    'buildReceiptDigest', 'candidatePlanDigest', 'candidatePlanRef',
-    'preRuntimeReceiptDigest', 'acceptedClaimsReceiptDigest',
-    'acceptedClaimsReceiptRef', 'acceptedClaimRefs'
+    'sourceState', 'candidate', 'build', 'buildReceiptDigest', 'preRuntimeReceiptDigest'
   ]
+  const producerFields = [
+    'behaviorId', 'producerId', 'candidatePlanDigest', 'candidatePlanRef',
+    'acceptedClaimsReceiptDigest', 'acceptedClaimsReceiptRef', 'acceptedClaimRefs'
+  ]
+  const aggregatesByProducer = new Map()
   for (const receipt of observations)
   {
     if (receipt.schema !== observationReceiptSchema || receipt.status !== 'qualified'
@@ -208,31 +250,61 @@ function validateAggregateObservations({ observations, graph, preRuntimeReceipt 
         fail(`${receipt.scope} observation ${field} differs across current-candidate scopes`)
       }
     }
-    const observedClasses = receipt.observations?.map(({ classId }) => classId) ?? []
-    if (!sameSet(receipt.requiredClasses ?? [], observedClasses)
-      || new Set(observedClasses).size !== observedClasses.length)
+    const producerFirst = aggregatesByProducer.get(producer.producerId)
+    if (producerFirst)
     {
-      fail(`${receipt.scope} observation class closure is not exact-one`)
+      for (const field of producerFields)
+      {
+        if (!sameValue(receipt[field], producerFirst[field]))
+          fail(`${producer.producerId} observation ${field} differs across owned scopes`)
+      }
+    }
+    else aggregatesByProducer.set(producer.producerId, receipt)
+    const expectedClasses = requiredObservationClasses(registry, producer, receipt.scope)
+    const observedClasses = receipt.observations?.map(({ classId }) => classId) ?? []
+    if (!exactSet(receipt.requiredClasses, expectedClasses)
+      || !exactSet(receipt.observedClasses, expectedClasses)
+      || !exactSet(observedClasses, expectedClasses)
+      || !exactSet(receipt.acceptedClaimRefs, producer.acceptedClaimRefs))
+    {
+      fail(`${producer.producerId}/${receipt.scope} observation class/claim closure is not exact-one`)
+    }
+    for (const observation of receipt.observations)
+    {
+      const expectedModes = Object.entries(producer.requiredObservations)
+        .filter(([, classes]) => classes.includes(observation.classId)).map(([mode]) => mode)
+      if (graph.classOwner.get(observation.classId) !== producer.producerId
+        || !exactSet(observation.modes, expectedModes)
+        || prefixedDigest(observation.receiptDigest) !== observation.classReceiptRef?.contentDigest)
+      {
+        fail(`${observation.classId} proof does not belong to its scoped producer`)
+      }
     }
   }
-  const producer = graph.producerById.get(first.producerId)
-  const requiredClasses = sortedUnique(Object.values(producer.requiredObservations).flat())
   const classEntries = observations.flatMap((receipt) =>
-    receipt.observations.map((observation) => ({ ...observation, scope: receipt.scope })))
-  if (!sameSet(classEntries.map(({ classId }) => classId), requiredClasses)
-    || new Set(classEntries.map(({ classId }) => classId)).size !== classEntries.length)
+    receipt.observations.map((observation) => ({
+      ...observation, scope: receipt.scope, producerId: receipt.producerId, behaviorId: receipt.behaviorId
+    })))
+  if (!exactSet(classEntries.map(({ classId }) => classId), [...graph.classOwner.keys()]))
   {
     fail('joined observation classes do not exact-match the current registry')
   }
-  return { producer, requiredClasses, classEntries }
+  return { closure, aggregatesByProducer, classEntries }
 }
 
-function validateClaims({ receipt, producer, aggregate, candidateContext, repositoryRoot })
+function validateClaims({ receipt, reference, producer, aggregate, candidateContext, repositoryRoot })
 {
   if (receipt.schema !== acceptedClaimsSchema || receipt.status !== 'accepted'
     || receipt.producerId !== producer.producerId)
   {
     fail('accepted claims receipt does not belong to the current producer')
+  }
+  if (!sameValue(reference, Object.fromEntries(Object.entries(
+    aggregate.acceptedClaimsReceiptRef ?? {}).filter(([field]) => field !== 'schema')))
+    || prefixedDigest(receipt.contentDigest) !== reference?.contentDigest
+    || prefixedDigest(aggregate.acceptedClaimsReceiptDigest) !== reference.contentDigest)
+  {
+    fail('accepted claims reference does not bind its producer aggregate')
   }
   validatePostRuntimeAcceptedClaimsValue({
     receipt,
@@ -313,6 +385,9 @@ export function validatePostRuntimeSchedulerEvidence({
   return admission
 }
 
+// Join arithmetic over already verified inputs is not native observation
+// authority. Qualification consumers must use the persisted-input replay entry
+// below; it invokes the original scope/class/raw receipt verifiers.
 export function joinVerifiedPostRuntimeObservations({
   preRuntimeReceipt,
   catalog,
@@ -320,7 +395,7 @@ export function joinVerifiedPostRuntimeObservations({
   observations,
   observationReferences,
   acceptedClaims,
-  acceptedClaimsReference,
+  acceptedClaimsReferences,
   candidateContext,
   schedulerAdmission,
   schedulerReference,
@@ -336,22 +411,53 @@ export function joinVerifiedPostRuntimeObservations({
   const aggregate = validateAggregateObservations({
     observations,
     graph,
+    registry,
     preRuntimeReceipt: pre
   })
   const first = observations[0]
+  const observationKey = ({ producerId, scope }) => `${producerId}\0${scope}`
+  if (!Array.isArray(observationReferences)
+    || !exactSet(observationReferences.map(observationKey), observations.map(observationKey)))
+    fail('observation reference producer/scope closure must be exact-one')
+  for (const observation of observations)
+  {
+    const reference = observationReferences.find((entry) =>
+      observationKey(entry) === observationKey(observation))
+    if (reference.contentDigest !== prefixedDigest(observation.contentDigest)
+      || observation.contentDigest !== sealedDigest(observation))
+      fail('observation reference does not bind its exact producer aggregate')
+  }
   if (candidateContext?.schema !== 'fsusblog.post-runtime-candidate-context.v1'
     || !sameValue(candidateContext.sourceState, first.sourceState)
-    || !sameValue(candidateContext.candidate, first.candidate))
+    || !sameValue(candidateContext.candidate, first.candidate)
+    || !sameValue(first.sourceState, pre.sourceIdentity)
+    || first.candidate.runId !== pre.runIdentity
+    || prefixedDigest(candidateContext.preRuntimeReceiptRef?.contentDigest) !== pre.contentDigest)
   {
     fail('candidate context does not exact-match observation candidate identity')
   }
-  const executionIdentity = validateClaims({
-    receipt: acceptedClaims,
-    producer: aggregate.producer,
-    aggregate: first,
+  if (!Array.isArray(acceptedClaims)
+    || !exactSet(acceptedClaims.map(({ producerId }) => producerId), [...graph.producerById.keys()])
+    || !isPlainObject(acceptedClaimsReferences)
+    || !exactSet(Object.keys(acceptedClaimsReferences), [...graph.producerById.keys()]))
+  {
+    fail('accepted claims producer closure must be exact-one')
+  }
+  const executionIdentities = acceptedClaims.map((claims) => validateClaims({
+    receipt: claims,
+    reference: acceptedClaimsReferences[claims.producerId],
+    producer: graph.producerById.get(claims.producerId),
+    aggregate: aggregate.aggregatesByProducer.get(claims.producerId),
     candidateContext,
     repositoryRoot
-  })
+  }))
+  const executionIdentity = executionIdentities[0]
+  if (executionIdentities.some((identity) => !sameValue(identity, executionIdentity)))
+    fail('accepted claims execution identities differ across current producers')
+  const terminalDigests = acceptedClaims.map((claims) =>
+    prefixedDigest(claims.terminalReceiptRef.payloadContentDigest))
+  if (new Set(terminalDigests).size !== 1)
+    fail('accepted claims do not bind one original global document terminal')
   validatePostRuntimeSchedulerEvidence({
     admission: schedulerAdmission,
     reference: schedulerReference,
@@ -359,7 +465,7 @@ export function joinVerifiedPostRuntimeObservations({
     repositoryRoot
   })
   if (schedulerAdmission.runId !== first.candidate.runId
-    || schedulerAdmission.runId !== acceptedClaims.sourceState.schedulerRunId)
+    || acceptedClaims.some((claims) => schedulerAdmission.runId !== claims.sourceState.schedulerRunId))
   {
     fail('scheduler, candidate, and accepted claims run identities differ')
   }
@@ -371,15 +477,15 @@ export function joinVerifiedPostRuntimeObservations({
   const observedProducerClasses = Object.fromEntries(graph.producers.map((producer) => [
     producer.producerId,
     aggregate.classEntries
-      .filter(() => producer.producerId === aggregate.producer.producerId)
+      .filter((observation) => producer.producerId === observation.producerId)
       .map(({ classId }) => classId)
       .sort()
   ]))
   const observedBehaviorResults = aggregate.classEntries
     .map((observation) => ({
-      behaviorId: aggregate.producer.behaviorId,
-      extractorId: graph.contractByBehavior.get(aggregate.producer.behaviorId).factExtractorId,
-      producerId: aggregate.producer.producerId,
+      behaviorId: observation.behaviorId,
+      extractorId: graph.contractByBehavior.get(observation.behaviorId).factExtractorId,
+      producerId: observation.producerId,
       scope: observation.scope,
       classId: observation.classId,
       classReceiptPath: observation.classReceiptRef.path,
@@ -413,14 +519,23 @@ export function joinVerifiedPostRuntimeObservations({
     requiredObservationScopes: [...requiredScopes],
     requiredProducerClasses,
     observedProducerClasses,
+    requiredProducerScopes: Object.fromEntries(graph.producers.map(({ producerId }) => [
+      producerId, aggregate.closure.filter(({ producer }) => producer.producerId === producerId)
+        .map(({ scope }) => scope).sort()
+    ])),
+    requiredProducerClaims: Object.fromEntries(graph.producers.map((producer) => [
+      producer.producerId, [...producer.acceptedClaimRefs].sort()
+    ])),
+    observedProducerClaims: Object.fromEntries(acceptedClaims.map((claims) => [
+      claims.producerId, claims.claims.map(({ claimId }) => claimId).sort()
+    ])),
     observedBehaviorResults,
-    observationRefs: observationReferences.sort((left, right) =>
-      left.scope.localeCompare(right.scope)),
-    acceptedClaimsRef: acceptedClaimsReference,
-    documentClaimDigests: Object.fromEntries(acceptedClaims.claims.map(({ claimId, claimDigest }) =>
-      [claimId, prefixedDigest(claimDigest)])),
-    documentClaimTerminalDigest: prefixedDigest(
-      acceptedClaims.terminalReceiptRef.payloadContentDigest),
+    observationRefs: [...observationReferences].sort((left, right) =>
+      `${left.producerId}:${left.scope}`.localeCompare(`${right.producerId}:${right.scope}`)),
+    acceptedClaimsRefs: acceptedClaimsReferences,
+    documentClaimDigests: Object.fromEntries(acceptedClaims.flatMap((claims) =>
+      claims.claims.map(({ claimId, claimDigest }) => [claimId, prefixedDigest(claimDigest)]))),
+    documentClaimTerminalDigest: terminalDigests[0],
     schedulerEvidence: schedulerReference,
     missing: [],
     orphans: [],
@@ -448,19 +563,26 @@ export function joinBehaviorEvidencePostRuntime({
 } = {})
 {
   if (Object.keys(unsupported).length > 0) fail('legacy or unknown join inputs are forbidden')
-  if (!Array.isArray(observationReceipts) || observationReceipts.length !== 2)
+  if (!Array.isArray(observationReceipts) || observationReceipts.length === 0
+    || new Set(observationReceipts).size !== observationReceipts.length)
   {
-    fail('exactly two aggregate observation receipt paths are required')
+    fail('explicit unique aggregate observation receipt paths are required')
   }
   const preInput = readCurrentJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot)
   const catalogInput = readCurrentJson(catalog, 'BehaviorCatalog', repositoryRoot)
   const registryInput = readCurrentJson(registry, 'post-runtime producer registry', repositoryRoot)
   const observationInputs = observationReceipts.map((input, index) =>
     readCurrentJson(input, `aggregate observation ${index}`, repositoryRoot))
-  const byScope = new Map()
+  const graph = requiredGraph(catalogInput.value, registryInput.value, repositoryRoot)
+  const closure = scopedClassClosure(graph, registryInput.value)
+  const expectedKeys = closure.map(({ producer, scope }) => `${producer.producerId}\0${scope}`)
+  if (!exactSet(observationInputs.map(({ value }) => `${value.producerId}\0${value.scope}`), expectedKeys))
+    fail('aggregate observation producer/scope closure must be exact-one')
+  const byProducerScope = new Map()
   for (const input of observationInputs)
   {
-    if (byScope.has(input.value.scope)) fail(`duplicate ${input.value.scope} aggregate observation`)
+    const key = `${input.value.producerId}\0${input.value.scope}`
+    if (byProducerScope.has(key)) fail(`duplicate ${key} aggregate observation`)
     if (input.value.scope === 'application')
     {
       validateApplicationRuntimeObservation(input.value, { repositoryRoot })
@@ -473,20 +595,28 @@ export function joinBehaviorEvidencePostRuntime({
     {
       fail(`unknown aggregate observation scope ${input.value.scope ?? 'missing'}`)
     }
-    byScope.set(input.value.scope, input)
+    byProducerScope.set(key, input)
   }
-  const first = observationInputs[0].value
-  const claimsInput = readReference(
-    first.acceptedClaimsReceiptRef,
-    'accepted claims receipt',
-    repositoryRoot
-  )
-  const planInput = readReference(first.candidatePlanRef, 'candidate plan', repositoryRoot)
-  const contextInput = readReference(
-    planInput.value.candidateContextRef,
-    'candidate context',
-    repositoryRoot
-  )
+  const claimsInputs = graph.producers.map((producer) =>
+  {
+    const aggregate = observationInputs.find(({ value }) => value.producerId === producer.producerId)
+    return {
+      producerId: producer.producerId,
+      ...readReference(aggregate.value.acceptedClaimsReceiptRef, 'accepted claims receipt', repositoryRoot)
+    }
+  })
+  const contextInputs = observationInputs.map(({ value }) =>
+  {
+    const plan = readReference(value.candidatePlanRef, 'candidate plan', repositoryRoot)
+    return {
+      reference: plan.value.candidateContextRef,
+      ...readReference(plan.value.candidateContextRef, 'candidate context', repositoryRoot)
+    }
+  })
+  const contextInput = contextInputs[0]
+  if (contextInputs.some((input) => !sameValue(input.reference, contextInput.reference)
+    || !sameValue(input.value, contextInput.value)))
+    fail('producer plans do not bind one exact current candidate context')
   const schedulerInput = readCurrentJson(
     schedulerEvidence,
     'scheduler tier admission',
@@ -498,12 +628,12 @@ export function joinBehaviorEvidencePostRuntime({
     registry: registryInput.value,
     observations: observationInputs.map(({ value }) => value),
     observationReferences: observationInputs.map(observationReference),
-    acceptedClaims: claimsInput.value,
-    acceptedClaimsReference: {
-      path: claimsInput.path,
-      fileDigest: claimsInput.fileDigest,
-      contentDigest: prefixedDigest(claimsInput.value.contentDigest)
-    },
+    acceptedClaims: claimsInputs.map(({ value }) => value),
+    acceptedClaimsReferences: Object.fromEntries(claimsInputs.map((input) => [input.producerId, {
+      path: input.path,
+      fileDigest: input.fileDigest,
+      contentDigest: prefixedDigest(input.value.contentDigest)
+    }])),
     candidateContext: contextInput.value,
     schedulerAdmission: schedulerInput.value,
     schedulerReference: {
@@ -546,23 +676,40 @@ export function validatePostRuntimeReceipt(receipt)
     values.push(result.classId)
     resultsByProducer.set(result.producerId, values)
   }
-  if (!sameSet(Object.keys(receipt.requiredProducerClasses), receipt.requiredRuntimeProducers)
-    || !sameSet(Object.keys(receipt.observedProducerClasses), receipt.requiredRuntimeProducers))
+  for (const values of [receipt.requiredProducerClasses, receipt.observedProducerClasses,
+    receipt.requiredProducerScopes, receipt.requiredProducerClaims, receipt.observedProducerClaims,
+    receipt.acceptedClaimsRefs])
   {
-    fail('receipt producer maps do not exact-match required producers')
+    if (!exactSet(Object.keys(values), receipt.requiredRuntimeProducers))
+      fail('receipt producer maps do not exact-match required producers')
   }
+  const globalClasses = Object.values(receipt.requiredProducerClasses).flat()
+  const globalClaims = Object.values(receipt.requiredProducerClaims).flat()
+  if (!exactSet(globalClasses, receipt.observedBehaviorResults.map(({ classId }) => classId))
+    || !exactSet(globalClaims, Object.keys(receipt.documentClaimDigests)))
+    fail('receipt global class/claim union is missing, duplicate, or extra')
   for (const producerId of receipt.requiredRuntimeProducers)
   {
-    if (!sameSet(receipt.requiredProducerClasses[producerId],
+    if (!exactSet(receipt.requiredProducerClasses[producerId],
       receipt.observedProducerClasses[producerId])
-      || !sameSet(receipt.observedProducerClasses[producerId],
+      || !exactSet(receipt.observedProducerClasses[producerId],
         resultsByProducer.get(producerId) ?? []))
     {
       fail(`receipt producer classes do not exact-match ${producerId}`)
     }
+    if (!exactSet(receipt.requiredProducerClaims[producerId], receipt.observedProducerClaims[producerId]))
+      fail(`receipt producer claims do not exact-match ${producerId}`)
+    const resultScopes = sortedUnique(receipt.observedBehaviorResults
+      .filter((result) => result.producerId === producerId).map(({ scope }) => scope))
+    if (!exactSet(receipt.requiredProducerScopes[producerId], resultScopes))
+      fail(`receipt producer scopes do not exact-match ${producerId}`)
   }
-  if (!sameSet(receipt.observationRefs.map(({ scope }) => scope),
-    receipt.requiredObservationScopes))
+  const key = ({ producerId, scope }) => `${producerId}\0${scope}`
+  const requiredReferences = Object.entries(receipt.requiredProducerScopes)
+    .flatMap(([producerId, scopes]) => scopes.map((scope) => key({ producerId, scope })))
+  if (!exactSet(receipt.observationRefs.map(key), requiredReferences)
+    || !exactSet(sortedUnique(receipt.observationRefs.map(({ scope }) => scope)),
+      receipt.requiredObservationScopes))
   {
     fail('receipt observation references do not exact-match required scopes')
   }

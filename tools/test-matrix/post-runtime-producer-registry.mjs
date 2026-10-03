@@ -23,6 +23,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // eslint-disable-next-line import-x/no-relative-parent-imports
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs';
 import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs';
+import { validateCurrentSchemaCodeContractObservation } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
 import {
     validateBrowserContractReceipt,
     validatePublicPreviewEvidenceBinding
@@ -48,8 +49,8 @@ import { parseMatrix } from './parse-matrix.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const registryRelative = 'config/testing/post-runtime-producer-registry.json';
-export const postRuntimeRegistrySchema = 'fsusblog.post-runtime-producer-registry.v2';
-export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-result-envelope.v1';
+export const postRuntimeRegistrySchema = 'fsusblog.post-runtime-producer-registry.v3';
+export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-result-envelope.v2';
 export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1';
 export const globalExactnessSchema = 'fsusblog.global-claim-exactness-terminal-receipt.v1';
 export const currentRunEvidenceReferenceSchema = 'fsusblog.current-run-evidence-reference.v1';
@@ -69,7 +70,7 @@ const unsafeReceiptPath = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/i
 const runtimeProducerDomains = new Set(['testing', 'release', 'deployment']);
 const identityRoles = Object.freeze(['plan', 'attempt', 'fixture', 'profile']);
 const sourceReceiptRoles = Object.freeze([
-    'probe', 'aot', 'browser', 'release-authority', 'blue-green-authority'
+    'probe', 'aot', 'browser', 'release-authority', 'blue-green-authority', 'current-schema-authority'
 ]);
 const rawFactSourceSchemas = Object.freeze({
     'route-response-error': 'fsusblog.runtime-observation-probe.v1',
@@ -77,8 +78,9 @@ const rawFactSourceSchemas = Object.freeze({
     'cache-search-outbox-convergence': 'fsusblog.runtime-observation-probe.v1',
     'session-cookie-runtime': 'fsusblog.runtime-observation-probe.v1',
     'browser-behavior-contract': 'fsusblog.browser-contract-receipt.v2',
-    'release-identity-readiness': 'fsusblog.release-identity-readiness-authority-bundle.v1',
-    'blue-green-containment': 'fsusblog.blue-green-containment-authority-bundle.v1'
+    'release-identity-readiness': 'fsusblog.release-identity-readiness-authority-bundle.v2',
+    'blue-green-containment': 'fsusblog.blue-green-containment-authority-bundle.v2',
+    'current-schema-admission': 'fsusblog.current-schema-admission-authority-bundle.v1'
 });
 const embeddedIdentityCapabilities = Object.freeze({
     'fsusblog.ci-production-build-receipt.v1': ['sourceCommit', 'worktreeFingerprint'],
@@ -96,8 +98,11 @@ const embeddedIdentityCapabilities = Object.freeze({
     ],
     'fsusblog.public-preview-screenshot-verification.v1': ['sourceCommit'],
     'fsusblog.release-rollout-evidence.v1': ['releaseId', 'rolloutId'],
-    'fsusblog.behavior-doc-static-admission-receipt.v1': [
+    'fsusblog.behavior-doc-static-admission-receipt.v2': [
         'sourceCommit', 'worktreeFingerprint', 'runId'
+    ],
+    'fsusblog.current-schema-receipt.v1': [
+        'sourceCommit', 'worktreeFingerprint'
     ]
 });
 const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u;
@@ -1504,8 +1509,10 @@ export function validatePostRuntimeProducerRegistry(registry, {
                 observedClasses.add(classId);
             }
         }
-        assertExactSet([...observedClasses], classIds,
-            `producer ${producer.producerId} observation class closure`);
+        if (observedClasses.size === 0)
+        {
+            fail(`producer ${producer.producerId} observation class closure is empty`);
+        }
         for (const policy of ['timeoutPolicy', 'cancelPolicy', 'recoveryPolicy'])
         {
             if (typeof producer[policy] !== 'string' || producer[policy].length === 0)
@@ -1528,6 +1535,7 @@ export function validatePostRuntimeProducerRegistry(registry, {
         }
     }
 
+    validatePostRuntimeClassOwnership(registry);
     for (const behaviorId of requiredBehaviors)
     {
         if (!byBehavior.has(behaviorId))
@@ -1552,6 +1560,58 @@ export function validatePostRuntimeProducerRegistry(registry, {
         observationClassCount: classIds.length,
         warnings: 0
     };
+}
+
+export function validatePostRuntimeClassOwnership(registry)
+{
+    const owners = new Map();
+    const producerIds = new Set();
+    for (const producer of registry.producers ?? [])
+    {
+        if (typeof producer.producerId !== 'string' || producer.producerId.length === 0
+            || producerIds.has(producer.producerId))
+        {
+            fail('observation class ownership requires distinct named producers');
+        }
+        producerIds.add(producer.producerId);
+        const owned = new Set(Object.values(producer.requiredObservations ?? {}).flat());
+        if (owned.size === 0)
+        {
+            fail(`producer ${producer.producerId} owns no observation classes`);
+        }
+        for (const classId of owned)
+        {
+            if (!Object.hasOwn(registry.observationClasses ?? {}, classId)
+                || owners.has(classId))
+            {
+                fail(`observation class ${classId} must have exact-one producer owner`);
+            }
+            owners.set(classId, producer.producerId);
+        }
+    }
+    assertExactSet([...owners.keys()], Object.keys(registry.observationClasses ?? {}),
+        'global observation class ownership closure');
+    return owners;
+}
+
+// Scopes are projections of the original registered source roles, not a
+// second class roster. A producer must never mint an empty aggregate scope.
+export function requiredObservationClasses(registry, producer, scope)
+{
+    const roles = scope === 'application'
+        ? ['probe', 'aot', 'browser']
+        : scope === 'release-deployment'
+            ? ['release-authority', 'blue-green-authority', 'current-schema-authority']
+            : fail(`unknown observation scope ${scope}`);
+    return [...new Set(Object.values(producer.requiredObservations ?? {}).flat())]
+        .filter((classId) => roles.includes(registry.observationClasses[classId]?.sourceReceipt.role))
+        .sort();
+}
+
+export function requiredObservationScopes(registry, producer)
+{
+    return ['application', 'release-deployment']
+        .filter((scope) => requiredObservationClasses(registry, producer, scope).length !== 0);
 }
 
 function producerFor(registry, producerId)
@@ -1749,11 +1809,19 @@ function readCurrentJsonBytes(repositoryRoot, relative, label)
 
 function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, label)
 {
+    if (contract.schema === 'fsusblog.current-schema-receipt.v1')
+    {
+        // This native artifact uses the original ordered C# codec seal, not
+        // receiptDigest's sorted outer JSON seal. A JSON status/reference is
+        // not evidence that its owned native verifier ran for this attempt.
+        // The original admitted collector consumer remains to be connected.
+        fail(`${label} current-schema post-runtime admitted native collector is not connected`);
+    }
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label);
     const preview = contract.schema === 'fsusblog.public-preview-screenshot-verification.v1';
     const preparedFixture = contract.schema === 'fsusblog.fixture-prepare-state.v1';
     const runtimeRoleAdmission =
-        contract.schema === 'fsusblog.behavior-doc-static-admission-receipt.v1';
+        contract.schema === 'fsusblog.behavior-doc-static-admission-receipt.v2';
     if (ref.schema !== contract.schema || ref.role !== contract.role
         || !digestPattern.test(ref.fileDigest ?? '')
         || (preview || preparedFixture
@@ -1874,9 +1942,12 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             `${label} runtime-role deployment observation`
         );
         const buildReceipt = artifact.buildReceipt;
-        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v3'
             || buildReceipt.schema
-                !== 'fsusblog.runtime-role-observation-build-receipt.v3'
+                !== 'fsusblog.runtime-role-observation-build-receipt.v4'
+            || buildReceipt.observationSchema !== observation.value.schema
+            || buildReceipt.evidenceStage !== 'pre-runtime'
+            || buildReceipt.evidenceClass !== 'compiled-production-code-model'
             || observation.value.ownership?.claimEligible !== true
             || deployment.value.ownership?.claimEligible !== true
             || observation.value.deploymentAuthority?.observationDigest
@@ -1887,8 +1958,9 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             || deployment.fileDigest
                 !== `sha256:${artifact.deploymentArtifactDigest}`)
         {
-            fail(`${label} runtime-role v2 observation authority is stale or incomplete`);
+            fail(`${label} runtime-role v3 observation authority is stale or incomplete`);
         }
+        validateCurrentSchemaCodeContractObservation(observation.value.currentSchemaContract);
     }
     else if (current.value.schema !== contract.schema
         || !digestPattern.test(prefixedDigest(current.value.contentDigest))
@@ -2406,6 +2478,10 @@ export function validateProducerReceiptAgainstRegistry({
 {
     const producer = producerFor(registry, producerId);
     const { classId, definition } = classForReceipt(registry, receipt, requestedClassId);
+    if (requiredModesFor(producer, classId).length === 0)
+    {
+        fail(`producer ${producerId} does not own observation class ${classId}`);
+    }
     const schema = readJson(repositoryRoot, observationEnvelopeSchemaRelative);
     assertExactKeys(receipt, schema.required, `producer ${producerId} receipt`);
     if (receipt.producerId !== producerId || receipt.toolVersion !== producer.toolVersion)
