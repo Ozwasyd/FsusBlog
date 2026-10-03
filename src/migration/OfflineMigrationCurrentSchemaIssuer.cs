@@ -27,6 +27,8 @@ internal sealed record OfflineMigrationCurrentSchemaIssuedArtifact(
 
 internal static class OfflineMigrationCurrentSchemaIssuer
 {
+    internal const string NativeIdentityCleanupFailuresKey = "FsusBlog.Migration.CurrentIdentityCleanupFailures";
+
     private static readonly JsonSerializerOptions s_artifactJson = new()
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
@@ -606,25 +608,68 @@ internal static class OfflineMigrationCurrentSchemaIssuer
     internal static async Task<CurrentSchemaDatabaseIdentity> ReadNativeIdentityAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        await using DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, transaction, """
+        var cleanupFailures = ImmutableArray.CreateBuilder<string>(2);
+        DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, transaction, """
             SELECT control.system_identifier::text, database_identity.oid::text, current_database()::text
             FROM pg_catalog.pg_control_system() AS control
             CROSS JOIN pg_catalog.pg_database AS database_identity
             WHERE database_identity.datname = current_database()
             """);
-        await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        DbDataReader? reader = null;
+        CurrentSchemaDatabaseIdentity? result = null;
+        Exception? failure = null;
+        try
         {
-            throw new InvalidOperationException("current_verify_native_identity_unobserved");
+            reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("current_verify_native_identity_unobserved");
+            }
+            result = new CurrentSchemaDatabaseIdentity(CurrentSchemaProviderKind.PostgreSql,
+                reader.GetString(0), $"{reader.GetString(1)}/{reader.GetString(2)}");
+            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("current_verify_native_identity_ambiguous");
+            }
+            CurrentSchemaReceiptCodec.ValidateDatabase(result);
         }
-        var result = new CurrentSchemaDatabaseIdentity(CurrentSchemaProviderKind.PostgreSql,
-            reader.GetString(0), $"{reader.GetString(1)}/{reader.GetString(2)}");
-        if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        catch (Exception primary)
         {
-            throw new InvalidOperationException("current_verify_native_identity_ambiguous");
+            failure = primary;
         }
-        CurrentSchemaReceiptCodec.ValidateDatabase(result);
-        return result;
+        // ReadyForQuery may still be pending after the final false ReadAsync.
+        // Await both owned disposals without replacing an identity/body refusal.
+        if (reader is not null)
+        {
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanup)
+            {
+                failure ??= cleanup;
+                cleanupFailures.Add("current_verify_native_identity_reader_cleanup_failed");
+            }
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            failure ??= cleanup;
+            cleanupFailures.Add("current_verify_native_identity_command_cleanup_failed");
+        }
+        if (failure is not null)
+        {
+            if (cleanupFailures.Count > 0)
+            {
+                // Fixed codes only: no secondary exception, message, SQL or row data.
+                failure.Data[NativeIdentityCleanupFailuresKey] = cleanupFailures.ToImmutable();
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+        return result!;
     }
 
     private static async Task<OfflineMigrationApplyJournalEntry> ReadNativeEntryAsync(
