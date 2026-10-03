@@ -40,12 +40,16 @@ import {
     joinBehaviorGraph,
     behaviorGraphSchema
 } from '../contracts/behavior-graph-join.mjs';
+import {
+    partitionBehaviorDocClaims,
+    validateBehaviorDocClaimStages
+} from '../docs/behavior-doc-static-admission-contract.mjs';
 
 import { validateJsonSchema } from './schema-validator/validate.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-export const preRuntimeReceiptSchema = 'fsusblog.behavior-evidence-pre-runtime-receipt.v1';
+export const preRuntimeReceiptSchema = 'fsusblog.behavior-evidence-pre-runtime-receipt.v2';
 export const staticAdmissionReceiptSchema = 'fsusblog.behavior-doc-static-admission-receipt.v2';
 export const testEvidenceReceiptSchema = 'fsusblog.behavior-test-evidence-receipt.v1';
 export const mutationEvidenceReceiptSchema = 'fsusblog.mutation-evidence-receipt.v1';
@@ -148,6 +152,90 @@ function requireDigestMatch(receipt, label, convention = 'omitted-field')
 function isPlainObject(value)
 {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// These are original input values, not a source-provenance capability. Only the
+// original source admission parses Markdown; this join transports its outputs.
+function validateClaimStageData(receipt)
+{
+    const materials = receipt.claimStageMaterials;
+    const bindings = receipt.claimStageBindings;
+    requireExactKeys(materials, ['catalog', 'claimReceipt', 'migrationLedger'], 'claimStageMaterials');
+    requireExactKeys(bindings, ['staticAdmissionReceipt', 'docClaimVerificationReceipt',
+        'factObservationReceipts'], 'claimStageBindings');
+    const admission = bindings.staticAdmissionReceipt;
+    const verification = bindings.docClaimVerificationReceipt;
+    if (admission?.schema !== staticAdmissionReceiptSchema || admission.status !== 'ok'
+    || admission.candidateSpawnCountBeforeReceipt !== 0)
+    {
+        fail('claim-stage data requires the original successful zero-spawn admission');
+    }
+    requireDigestMatch(admission, 'claim-stage admission', 'null-field');
+    if (normalizeDigest(admission.contentDigest) !== normalizeDigest(receipt.staticAdmissionDigest)
+    || admission.source?.commit !== receipt.sourceIdentity.commit
+    || normalizeFingerprint(admission.source?.worktreeFingerprint)
+        !== normalizeFingerprint(receipt.sourceIdentity.worktreeFingerprint)
+    || admission.run?.id !== receipt.runIdentity
+    || typeof admission.worktree?.root !== 'string' || !path.isAbsolute(admission.worktree.root))
+    {
+        fail('claim-stage admission source/run/worktree/digest binding mismatch');
+    }
+    const partition = partitionBehaviorDocClaims(materials);
+    validateBehaviorDocClaimStages(admission.claimStages, materials);
+    if (digestValue(partition.stages) !== digestValue(admission.claimStages)
+    || admission.authorityDigests?.catalog !== partition.stages.catalogDigest
+    || admission.authorityDigests?.claim !== partition.stages.parseReceiptDigest
+    || normalizeDigest(receipt.catalogDigest) !== partition.stages.catalogDigest)
+    {
+        fail('claim-stage data differs from the original admission stage authority digests');
+    }
+    requireDigestMatch(verification, 'claim-stage verification');
+    if (verification.schema !== 'fsusblog.doc-claim-verification-receipt.v1'
+    || verification.sourceCommit !== receipt.sourceIdentity.commit
+    || normalizeFingerprint(verification.worktreeFingerprint)
+        !== normalizeFingerprint(receipt.sourceIdentity.worktreeFingerprint)
+    || normalizeDigest(verification.catalogDigest) !== partition.stages.catalogDigest
+    || normalizeDigest(verification.parseReceiptDigest) !== partition.stages.parseReceiptDigest
+    || normalizeDigest(verification.contentDigest)
+        !== normalizeDigest(receipt.staticClaimVerificationDigest))
+    {
+        fail('claim-stage verification source/parse/catalog/digest binding mismatch');
+    }
+    const facts = bindings.factObservationReceipts;
+    if (!Array.isArray(facts) || facts.length === 0
+    || new Set(facts.map((fact) => fact.extractorId)).size !== facts.length)
+    {
+        fail('claim-stage data requires complete unique original fact receipts');
+    }
+    requireExactKeys(admission.factObservations, facts.map((fact) => fact.extractorId),
+        'claim-stage admission facts');
+    const builds = {};
+    for (const fact of facts)
+    {
+        requireDigestMatch(fact, 'claim-stage fact');
+        if (fact.schema !== 'fsusblog.fact-observation-receipt.v1' || fact.status !== 'ok'
+        || fact.sourceCommit !== receipt.sourceIdentity.commit
+        || normalizeFingerprint(fact.worktreeFingerprint)
+            !== normalizeFingerprint(receipt.sourceIdentity.worktreeFingerprint)
+        || normalizeDigest(fact.registryDigest) !== normalizeDigest(receipt.registryDigest)
+        || normalizeDigest(admission.factObservations[fact.extractorId]?.contentDigest)
+            !== normalizeDigest(fact.contentDigest))
+        {
+            fail('claim-stage fact source/build/registry/admission binding mismatch');
+        }
+        if (fact.buildIdentity !== null)
+        {
+            builds[fact.extractorId] = fact.buildIdentity;
+        }
+    }
+    if (digestValue(builds) !== digestValue(receipt.buildIdentities))
+    {
+        fail('claim-stage compiled build identity binding mismatch');
+    }
+    if (receipt.claimStageProvenance !== 'pending-held-completion')
+    {
+        fail('claim-stage DATA transport cannot grant held source provenance');
+    }
 }
 
 function requirePreRuntimeBehaviorIds(catalog)
@@ -419,6 +507,7 @@ function resolveTestEvidenceReceipt(inputs, sourceCommit, worktreeFingerprint)
  * @param {object|string} options.staticAdmissionReceipt
  * @param {Array<object|string>} options.testEvidenceReceipts
  * @param {object|string} options.docClaimParseReceipt
+ * @param {object|string} options.migrationLedger Original existing source ledger
  * @param {object|string} options.docClaimVerificationReceipt
  * @param {object|string} options.generatedSectionCheckReceipt
  * @param {Array<object|string>} options.factObservationReceipts
@@ -429,6 +518,12 @@ function resolveTestEvidenceReceipt(inputs, sourceCommit, worktreeFingerprint)
  */
 export function joinBehaviorEvidencePreRuntime(options = {})
 {
+    if (Object.hasOwn(options, 'claimStageMaterials')
+    || Object.hasOwn(options, 'claimStageBindings')
+    || Object.hasOwn(options, 'heldClaimStageAuthority'))
+    {
+        fail('caller cannot supply claim-stage materials or held authority');
+    }
     const sourceCommit = requireField(options.sourceCommit, 'sourceCommit');
     if (!commitPattern.test(sourceCommit))
     {
@@ -681,6 +776,17 @@ export function joinBehaviorEvidencePreRuntime(options = {})
         observedTestKinds,
         mutationStatus,
         staticClaimVerificationDigest: graph.inputDigests?.docClaimVerificationReceipt ?? null,
+        claimStageMaterials: {
+            catalog: structuredClone(catalog),
+            claimReceipt: loadJson(options.docClaimParseReceipt),
+            migrationLedger: loadJson(requireField(options.migrationLedger, 'migrationLedger'))
+        },
+        claimStageBindings: {
+            staticAdmissionReceipt: structuredClone(admission),
+            docClaimVerificationReceipt: loadJson(options.docClaimVerificationReceipt),
+            factObservationReceipts: (options.factObservationReceipts ?? []).map(loadJson)
+        },
+        claimStageProvenance: 'pending-held-completion',
         missing: [...missing].sort((left, right) =>
             `${left.kind}\0${left.behaviorId ?? ''}\0${left.anchor}`.localeCompare(
                 `${right.kind}\0${right.behaviorId ?? ''}\0${right.anchor}`
@@ -868,11 +974,13 @@ export function validatePreRuntimeReceipt(receipt, options = {})
             }
         }
     }
+    validateClaimStageData(receipt);
     return receipt;
 }
 
 /**
- * Assert the receipt is qualified (status=ok).
+ * Assert the data receipt is complete (status=ok). This does not establish the
+ * pending independently held source-completion provenance or allow a candidate.
  */
 export function assertPreRuntimeQualified(receipt, options = {})
 {
@@ -936,7 +1044,11 @@ export function assertRuntimeCandidateAdmissionAllowed({
     {
         fail('runtime candidate admission refused: receipt worktree fingerprint does not match expected');
     }
-    return loaded;
+    // v2 transports the original complete claim data, not independently held
+    // producer completion. Public checksums cannot grant source authority.
+    // Keep the original successful candidate-admission obligation pending until
+    // its original scheduler owner connects actual held provenance.
+    fail('runtime candidate admission refused: claim-stage held completion provenance is not connected');
 }
 
 // CLI entry point — only runs when invoked directly, not when imported.
@@ -956,6 +1068,7 @@ Required options:
   --static-admission <path>
   --test-evidence <path>      (repeatable for backend + frontend)
   --doc-claim-parse <path>
+  --migration-ledger <path>  (original source owner's existing ledger)
   --doc-claim-verification <path>
   --generated-section-check <path>
   --fact-observation <path>   (repeatable)
@@ -1038,6 +1151,7 @@ Runtime-candidate guard (refuses spawn unless receipt is verified):
             staticAdmissionReceipt: requireField(resolveArg('static-admission'), '--static-admission'),
             testEvidenceReceipts: resolveRepeatable('test-evidence'),
             docClaimParseReceipt: requireField(resolveArg('doc-claim-parse'), '--doc-claim-parse'),
+            migrationLedger: requireField(resolveArg('migration-ledger'), '--migration-ledger'),
             docClaimVerificationReceipt: requireField(
                 resolveArg('doc-claim-verification'),
                 '--doc-claim-verification'

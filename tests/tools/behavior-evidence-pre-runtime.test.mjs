@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { digestValue } from '../../tools/contracts/behavior-graph-join.mjs';
+import { partitionBehaviorDocClaims } from '../../tools/docs/behavior-doc-static-admission-contract.mjs';
 import {
     assertPreRuntimeQualified,
     assertRuntimeCandidateAdmissionAllowed,
@@ -36,7 +37,8 @@ import {
     makeVerificationResult,
     makeMutationEvidence,
     happyBundle,
-    join
+    join,
+    makeMigrationLedger
 } from './support/behavior-evidence-pre-runtime-fixture.mjs';
 
 test('gate module forbids producer/parser imports and fallback patterns', () =>
@@ -295,7 +297,16 @@ test('counterexample 8: catalog behavior added without binding/closure fails gat
     });
     const evidence = defaultEvidence(catalog);
     const testEvidence = makeTestEvidence({ catalog, evidence });
-    const receipt = join({ ...inputs, catalog, testEvidenceReceipt: testEvidence });
+    const parseReceipt = makeParseReceipt({ catalog, claims: [
+        ...inputs.docClaimParseReceipt.claims,
+        makeClaim('gamma-behavior', 'gamma.enabled', 'enabled', 'docs/gamma.md')
+    ] });
+    const verification = makeVerification({ catalog, parseReceipt,
+        results: inputs.docClaimVerificationReceipt.results });
+    const receipt = join({ ...inputs, catalog, testEvidenceReceipt: testEvidence,
+        docClaimParseReceipt: parseReceipt, docClaimVerificationReceipt: verification,
+        staticAdmissionReceipt: makeStaticAdmission({ catalog, parseReceipt,
+            facts: inputs.factObservationReceipts }) });
     assert.equal(receipt.status, 'failed');
     assert.ok(receipt.failureReasons.some((reason) => reason.includes('gamma-behavior')));
 });
@@ -361,6 +372,7 @@ test('counterexample 9: post-runtime behavior is not admitted by the pre-runtime
         docClaimVerificationReceipt: verification,
         generatedSectionCheckReceipt: generated,
         factObservationReceipts: facts,
+        staticAdmissionReceipt: makeStaticAdmission({ catalog: postRuntimeCatalog, parseReceipt, facts }),
         mutationEvidenceReceipt: null
     });
     assert.equal(receipt.status, 'ok');
@@ -583,4 +595,144 @@ test('mutation-required behavior with missing mutation evidence fails per-behavi
     assert.ok(receipt.failureReasons.some((reason) =>
         reason.includes('alpha-behavior') && reason.includes('mutation')));
     assert.equal(receipt.mutationStatus['alpha-behavior'].qualified, false);
+});
+
+test('v2 transports the complete original claim data without granting provenance', () =>
+{
+    const inputs = happyBundle();
+    const receipt = join(inputs);
+    assert.equal(receipt.schema, 'fsusblog.behavior-evidence-pre-runtime-receipt.v2');
+    assert.deepEqual(Object.keys(receipt.claimStageMaterials).sort(),
+        ['catalog', 'claimReceipt', 'migrationLedger']);
+    assert.deepEqual(receipt.claimStageMaterials.catalog, inputs.catalog);
+    assert.deepEqual(receipt.claimStageMaterials.claimReceipt, inputs.docClaimParseReceipt);
+    assert.deepEqual(receipt.claimStageMaterials.migrationLedger,
+        makeMigrationLedger(inputs.catalog, inputs.docClaimParseReceipt));
+    assert.deepEqual(receipt.claimStageBindings.staticAdmissionReceipt, inputs.staticAdmissionReceipt);
+    assert.deepEqual(receipt.claimStageBindings.docClaimVerificationReceipt,
+        inputs.docClaimVerificationReceipt);
+    assert.deepEqual(receipt.claimStageBindings.factObservationReceipts,
+        inputs.factObservationReceipts);
+    assert.equal(receipt.claimStageProvenance, 'pending-held-completion');
+    assert.equal(receipt.runtimeCandidateSpawnCountBeforeReceipt, 0);
+    validatePreRuntimeReceipt(receipt);
+});
+
+test('v2 refuses caller-provided materials and invented held authority', () =>
+{
+    const inputs = happyBundle();
+    for (const field of ['claimStageMaterials', 'claimStageBindings', 'heldClaimStageAuthority'])
+    {
+        assert.throws(() => join(inputs, { [field]: { status: 'verified', contentDigest: '1'.repeat(64) } }),
+            /caller cannot supply/u);
+    }
+});
+
+test('v2 refuses an old v1 envelope rather than relabeling it', () =>
+{
+    const receipt = join(happyBundle());
+    receipt.schema = 'fsusblog.behavior-evidence-pre-runtime-receipt.v1';
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(() => validatePreRuntimeReceipt(receipt), /schema validation failed/u);
+});
+
+test('v2 refuses a resealed altered located claim against the original admission', () =>
+{
+    const receipt = join(happyBundle());
+    receipt.claimStageMaterials.claimReceipt.claims[0].location.bodyText = 'limit is 999';
+    const parse = receipt.claimStageMaterials.claimReceipt;
+    parse.contentDigest = digestValue(Object.fromEntries(Object.entries(parse)
+        .filter(([key]) => key !== 'contentDigest')));
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(() => validatePreRuntimeReceipt(receipt), /parse receipt mismatch|exactly cover/u);
+});
+
+test('v2 refuses a missing original ledger and extra material fields', () =>
+{
+    const inputs = happyBundle();
+    assert.throws(() => join(inputs, { migrationLedger: null }), /migrationLedger is required/u);
+    const receipt = join(inputs);
+    receipt.claimStageMaterials.sourceAuthority = { status: 'verified' };
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(() => validatePreRuntimeReceipt(receipt), /schema validation failed/u);
+});
+
+test('v2 refuses resealed original outer authority and run drift', () =>
+{
+    const inputs = happyBundle();
+    for (const mutate of [
+        (admission) => { admission.authorityDigests.claim = '0'.repeat(64); },
+        (admission) => { admission.run.id = 'other-original-run'; }
+    ])
+    {
+        const receipt = join(inputs);
+        const admission = receipt.claimStageBindings.staticAdmissionReceipt;
+        mutate(admission);
+        admission.contentDigest = digestReceiptWithNullField(admission);
+        receipt.staticAdmissionDigest = `sha256:${admission.contentDigest}`;
+        receipt.contentDigest = digestReceipt(receipt);
+        assert.throws(() => validatePreRuntimeReceipt(receipt),
+            /stage authority digests|source\/run\/worktree\/digest/u);
+    }
+});
+
+test('v2 refuses a resealed verification that changes original source', () =>
+{
+    const receipt = join(happyBundle());
+    const verification = receipt.claimStageBindings.docClaimVerificationReceipt;
+    verification.sourceCommit = 'f'.repeat(40);
+    verification.contentDigest = digestReceipt(verification);
+    receipt.staticClaimVerificationDigest = verification.contentDigest;
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(() => validatePreRuntimeReceipt(receipt), /verification source\/parse\/catalog\/digest/u);
+});
+
+test('v2 refuses resealed compiled fact identity drift in the transported inputs', () =>
+{
+    const receipt = join(happyBundle());
+    const fact = receipt.claimStageBindings.factObservationReceipts[0];
+    fact.buildIdentity = { artifactId: 'forged-build', receiptDigest: '1'.repeat(64),
+        artifactDigest: '2'.repeat(64) };
+    fact.contentDigest = digestValue({ ...fact, contentDigest: undefined });
+    const admission = receipt.claimStageBindings.staticAdmissionReceipt;
+    admission.factObservations[fact.extractorId].contentDigest = fact.contentDigest;
+    admission.contentDigest = digestReceiptWithNullField(admission);
+    receipt.staticAdmissionDigest = `sha256:${admission.contentDigest}`;
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(() => validatePreRuntimeReceipt(receipt), /compiled build identity binding/u);
+});
+
+test('v2 does not let complete public DATA resealing discharge held provenance', () =>
+{
+    const inputs = happyBundle();
+    const receipt = join(inputs);
+    const materials = receipt.claimStageMaterials;
+    materials.claimReceipt.claims[0].location.bodyText = 'limit is 999';
+    materials.claimReceipt.contentDigest = digestValue(Object.fromEntries(
+        Object.entries(materials.claimReceipt).filter(([key]) => key !== 'contentDigest')));
+    const admission = receipt.claimStageBindings.staticAdmissionReceipt;
+    admission.claimStages = partitionBehaviorDocClaims(materials).stages;
+    admission.authorityDigests.claim = materials.claimReceipt.contentDigest;
+    admission.contentDigest = digestReceiptWithNullField(admission);
+    const verification = receipt.claimStageBindings.docClaimVerificationReceipt;
+    verification.parseReceiptDigest = materials.claimReceipt.contentDigest;
+    verification.contentDigest = digestReceipt(verification);
+    receipt.staticAdmissionDigest = `sha256:${admission.contentDigest}`;
+    receipt.staticClaimVerificationDigest = verification.contentDigest;
+    receipt.contentDigest = digestReceipt(receipt);
+    // Equal public data is not proof that the original parser emitted it. The
+    // source/held-completion owner remains absent; no candidate may be admitted.
+    validatePreRuntimeReceipt(receipt);
+    assert.throws(() => assertRuntimeCandidateAdmissionAllowed({ receipt,
+        expectedCommit: SOURCE_COMMIT, expectedWorktreeFingerprint: WORKTREE_FP,
+        behaviorCatalog: inputs.catalog, factExtractorRegistry: inputs.factExtractorRegistry }),
+    /held completion provenance is not connected/u);
+});
+
+test('v2 rejects a self-reported qualified provenance flag', () =>
+{
+    const receipt = join(happyBundle());
+    receipt.claimStageProvenance = 'verified';
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(() => validatePreRuntimeReceipt(receipt), /schema validation failed/u);
 });

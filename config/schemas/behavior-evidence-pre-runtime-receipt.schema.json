@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.behavior-evidence-pre-runtime-receipt.v1",
+    "$id": "fsusblog.behavior-evidence-pre-runtime-receipt.v2",
     "title": "FsusBlog pre-runtime BehaviorGraph evidence receipt",
     "type": "object",
     "additionalProperties": false,
@@ -22,6 +22,9 @@
         "observedTestKinds",
         "mutationStatus",
         "staticClaimVerificationDigest",
+        "claimStageMaterials",
+        "claimStageBindings",
+        "claimStageProvenance",
         "missing",
         "orphans",
         "conflicts",
@@ -32,7 +35,7 @@
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.behavior-evidence-pre-runtime-receipt.v1"
+            "const": "fsusblog.behavior-evidence-pre-runtime-receipt.v2"
         },
         "scope": {
             "const": "pre-runtime"
@@ -171,6 +174,33 @@
             "items": {
                 "$ref": "#/$defs/locator"
             }
+        },
+        "claimStageMaterials": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["catalog", "claimReceipt", "migrationLedger"],
+            "properties": {
+                "catalog": { "type": "object" },
+                "claimReceipt": { "type": "object" },
+                "migrationLedger": { "type": "object" }
+            }
+        },
+        "claimStageBindings": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["staticAdmissionReceipt", "docClaimVerificationReceipt", "factObservationReceipts"],
+            "properties": {
+                "staticAdmissionReceipt": { "type": "object" },
+                "docClaimVerificationReceipt": { "type": "object" },
+                "factObservationReceipts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "type": "object" }
+                }
+            }
+        },
+        "claimStageProvenance": {
+            "const": "pending-held-completion"
         },
         "orphans": {
             "type": "array",

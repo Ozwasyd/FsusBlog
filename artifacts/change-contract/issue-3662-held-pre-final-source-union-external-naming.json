@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final-value-contract.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve existing external contract spellings when transferring the reviewed original held scheduler, pre-runtime v2 DATA and pure final value source owners. No registry, checker, admission or native qualification rule changes."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-evidence-pre-runtime-receipt.schema.json"
+            ],
+            "reason": "Preserve existing external contract spellings when transferring the reviewed original held scheduler, pre-runtime v2 DATA and pure final value source owners. No registry, checker, admission or native qualification rule changes."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Preserve existing external contract spellings when transferring the reviewed original held scheduler, pre-runtime v2 DATA and pure final value source owners. No registry, checker, admission or native qualification rule changes."
+        }
+    ]
+}

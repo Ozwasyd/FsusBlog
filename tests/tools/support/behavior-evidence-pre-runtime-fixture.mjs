@@ -1,5 +1,6 @@
 /* eslint-disable import-x/no-relative-parent-imports -- This synthetic fixture composes canonical repository receipt authorities. */
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 
 import {
     digestValue,
@@ -7,6 +8,7 @@ import {
     sealGeneratedSectionCheckReceipt,
     sealOwnerBindingReceipt
 } from '../../../tools/contracts/behavior-graph-join.mjs';
+import { partitionBehaviorDocClaims } from '../../../tools/docs/behavior-doc-static-admission-contract.mjs';
 import { buildReceipt, sealReceipt } from '../../../tools/fact-extractors/receipt.mjs';
 import { sealMutationEvidenceReceipt } from '../../../tools/test/mutation-evidence-receipt.mjs';
 import { joinBehaviorEvidencePreRuntime } from '../../../tools/test-matrix/behavior-evidence-pre-runtime.mjs';
@@ -328,13 +330,42 @@ function makeGenerated({ catalog, sections = [], status = 'ok', failureReasons =
     });
 }
 
+function makeMigrationLedger(catalog, parseReceipt)
+{
+    return {
+        schema: 'fsusblog.document-claim-migration-ledger.v1',
+        scopes: [{
+            scopeId: 'synthetic-pre-runtime-source',
+            behaviorIds: catalog.contracts.filter((contract) =>
+                contract.status === 'active' && contract.documentationPolicy === 'required')
+                .map((contract) => contract.id).sort(),
+            entries: parseReceipt.claims.map((claim) => ({
+                behaviorId: claim.declaration.behaviorId,
+                documentPath: claim.location.documentPath,
+                claimIds: [claim.declaration.claimId]
+            }))
+        }]
+    };
+}
+
 function makeStaticAdmission({
     status = 'ok',
     candidateSpawnCount = 0,
     sourceCommit = SOURCE_COMMIT,
-    runId = RUN_ID
+    runId = RUN_ID,
+    catalog = makeCatalog(),
+    parseReceipt = makeParseReceipt({ catalog, claims: [
+        makeClaim('alpha-behavior', 'alpha.limit', 'limit', 'docs/alpha.md'),
+        makeClaim('beta-behavior', 'beta.enabled', 'enabled', 'docs/beta.md')
+    ] }),
+    facts = [
+        makeFact(),
+        makeFact({ extractorId: 'beta-fact-extractor', behaviorIds: ['beta-behavior'],
+            observations: { enabled: true } })
+    ]
 } = {})
 {
+    const migrationLedger = makeMigrationLedger(catalog, parseReceipt);
     const receipt = {
         schema: 'fsusblog.behavior-doc-static-admission-receipt.v2',
         run: { id: runId },
@@ -342,6 +373,13 @@ function makeStaticAdmission({
             commit: sourceCommit,
             worktreeFingerprint: `sha256:${WORKTREE_FP}`
         },
+        worktree: { root: path.resolve(import.meta.dirname, '../../..') },
+        claimStages: partitionBehaviorDocClaims({ catalog, claimReceipt: parseReceipt,
+            migrationLedger }).stages,
+        authorityDigests: { catalog: catalogDigest(catalog), claim: parseReceipt.contentDigest },
+        factObservations: Object.fromEntries(facts.map((fact) => [fact.extractorId, {
+            status: fact.status, contentDigest: fact.contentDigest
+        }])),
         status,
         candidateSpawnCountBeforeReceipt: candidateSpawnCount,
         failureReasons: status === 'ok' ? [] : ['admission failure'],
@@ -474,7 +512,7 @@ function happyBundle()
         status: 'ok',
         failureReasons: []
     });
-    const admission = makeStaticAdmission();
+    const admission = makeStaticAdmission({ catalog, parseReceipt, facts });
 
     return {
         catalog,
@@ -498,6 +536,8 @@ function join(inputs, overrides = {})
         ownerReceipt: inputs.ownerReceipt,
         testEvidenceReceipts: [inputs.testEvidenceReceipt],
         docClaimParseReceipt: inputs.docClaimParseReceipt,
+        migrationLedger: inputs.migrationLedger
+            ?? makeMigrationLedger(inputs.catalog, inputs.docClaimParseReceipt),
         docClaimVerificationReceipt: inputs.docClaimVerificationReceipt,
         generatedSectionCheckReceipt: inputs.generatedSectionCheckReceipt,
         factObservationReceipts: inputs.factObservationReceipts,
@@ -510,4 +550,4 @@ function join(inputs, overrides = {})
     });
 }
 
-export { SOURCE_COMMIT, WORKTREE_FP, EXTRACTOR_DIGEST, INPUT_DIGEST, RUN_ID, stable, digestReceipt, digestReceiptWithNullField, makeCatalog, catalogDigest, makeFactExtractorRegistry, REGISTRY_DIGEST, makeFact, makeOwner, makeTestEvidence, defaultEvidence, makeParseReceipt, makeVerification, makeGenerated, makeStaticAdmission, makeClaim, makeVerificationResult, makeMutationEvidence, happyBundle, join };
+export { SOURCE_COMMIT, WORKTREE_FP, EXTRACTOR_DIGEST, INPUT_DIGEST, RUN_ID, stable, digestReceipt, digestReceiptWithNullField, makeCatalog, catalogDigest, makeFactExtractorRegistry, REGISTRY_DIGEST, makeFact, makeOwner, makeTestEvidence, defaultEvidence, makeParseReceipt, makeVerification, makeGenerated, makeStaticAdmission, makeMigrationLedger, makeClaim, makeVerificationResult, makeMutationEvidence, happyBundle, join };

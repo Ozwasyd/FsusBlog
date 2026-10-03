@@ -21,6 +21,7 @@ import {
     zeroLegacyRequiredPathClasses,
     zeroLegacyScanSchema
 } from '../../tools/docs/behavior-document-consistency-final.mjs'
+import { validateFinalReportValue } from '../../tools/docs/behavior-document-consistency-final-value-contract.mjs'
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs'
 import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs'
 
@@ -1923,4 +1924,94 @@ test('zero-legacy scan and final report schema are deterministic and structurall
     const mismatchedRoot = structuredClone(report)
     mismatchedRoot.zeroLegacyScan.scanRoots[0].pathClass = 'production'
     assert.match(validateJsonSchema(mismatchedRoot, schema).join('\n'), /must be equal to constant/u)
+})
+
+function finalValueMaterials(input)
+{
+    // Read the actual source fixture, not digests copied from the report.
+    // These are value-contract inputs only, not a held-provenance capability.
+    return {
+        expectedWorktree: input.expectedWorktree,
+        expectedSourceIdentity: sealSourceIdentity(input.expectedWorktree),
+        expectedClaimStageAuthority: {
+            catalog: JSON.parse(fs.readFileSync(path.join(input.expectedWorktree,
+                'config/contracts/behavior-contracts.json'), 'utf8')),
+            claimReceipt: parseRepositoryClaims(input.expectedWorktree),
+            migrationLedger: JSON.parse(fs.readFileSync(path.join(input.expectedWorktree,
+                'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
+        }
+    }
+}
+
+test('final report value contract accepts the original pre-only fixture without source authority grant', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const report = buildFinalConsistencyReport(input)
+    assert.equal(validateFinalReportValue(report, finalValueMaterials(input)), report)
+    assert.equal(validateFinalReport(report, { expectedWorktree: input.expectedWorktree }), report)
+})
+
+test('final report value contract requires independent material values and source identity', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const report = buildFinalConsistencyReport(input)
+    const expected = finalValueMaterials(input)
+    assert.throws(() => validateFinalReportValue(report), /independent expected source worktree/u)
+    assert.throws(() => validateFinalReportValue(report, {
+        ...expected, expectedClaimStageAuthority: null
+    }), /requires closed claim-stage materials/u)
+    assert.throws(() => validateFinalReportValue(report, {
+        ...expected, expectedClaimStageAuthority: { ...expected.expectedClaimStageAuthority, extra: true }
+    }), /requires closed claim-stage materials/u)
+    assert.throws(() => validateFinalReportValue(report, {
+        ...expected, expectedSourceIdentity: null
+    }), /actual source\/worktree identity mismatch/u)
+    assert.throws(() => validateFinalReportValue(report, {
+        ...expected, expectedSourceIdentity: { ...expected.expectedSourceIdentity, sourceCommit: 'f'.repeat(40) }
+    }), /actual source\/worktree identity mismatch/u)
+})
+
+test('final report value contract retains failed native claims with original material roster', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t, {}, { includePost: true }) })
+    const report = buildFinalConsistencyReport(input)
+    const expected = finalValueMaterials(input)
+    assert.equal(validateFinalReportValue(report, expected), report)
+    assert.equal(report.status, 'failed')
+    assert.deepEqual(report.claimStageDischarge.verifiedPostClaimIds, [])
+    assert.deepEqual(report.claimStageDischarge.unclearedPostClaimIds, ['alpha-post.current'])
+    const forgedOk = seal({ ...report, status: 'ok', failureReasons: [] })
+    assert.throws(() => validateFinalReportValue(forgedOk, expected),
+        /cannot retain undischargeable post-runtime claims/u)
+})
+
+test('final report value contract rejects resealed omitted roster and removed post nodes', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t, {}, { includePost: true }) })
+    const report = buildFinalConsistencyReport(input)
+    const expected = finalValueMaterials(input)
+    const dropped = structuredClone(report)
+    dropped.claimStageDischarge = seal({ ...dropped.claimStageDischarge, unclearedPostClaimIds: [] })
+    assert.throws(() => validateFinalReportValue(seal(dropped), expected), /exact original source claim roster/u)
+    dropped.behaviorNodes = dropped.behaviorNodes.filter((node) => node.evidenceStage !== 'post-runtime')
+    assert.throws(() => validateFinalReportValue(seal(dropped), expected), /exact original source claim roster/u)
+    const fakeVerified = structuredClone(report)
+    fakeVerified.claimStageDischarge = seal({ ...fakeVerified.claimStageDischarge,
+        unclearedPostClaimIds: [], verifiedPostClaimIds: ['alpha-post.current'] })
+    assert.throws(() => validateFinalReportValue(seal(fakeVerified), expected),
+        /native post-runtime FactObservation bridge is unavailable/u)
+})
+
+test('final report source facade cannot be redirected by caller value materials', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const report = buildFinalConsistencyReport(input)
+    const forged = structuredClone(report)
+    forged.claimStageDischarge = seal({ ...forged.claimStageDischarge,
+        parseReceiptDigest: 'sha256:' + 'f'.repeat(64) })
+    const fakeMaterials = finalValueMaterials(input)
+    fakeMaterials.expectedClaimStageAuthority.claimReceipt.contentDigest = 'f'.repeat(64)
+    assert.throws(() => validateFinalReport(seal(forged), {
+        expectedWorktree: input.expectedWorktree, ...fakeMaterials
+    }), /claim-stage source authority binding mismatch/u)
 })
