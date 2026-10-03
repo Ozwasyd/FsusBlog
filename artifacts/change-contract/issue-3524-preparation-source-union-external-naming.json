@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/execution-envelope-environment.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/execution-envelope-network.mjs"
+            ],
+            "reason": "Preserve the original caller-visible environment, process and execution-envelope keys while transferring the existing preparation terminal and first-failure source into this current union. Internal identifiers, physical authority and naming policy are not renamed or relaxed."
+        }
+    ]
+}

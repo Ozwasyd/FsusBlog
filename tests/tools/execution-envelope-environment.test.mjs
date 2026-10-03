@@ -7,6 +7,7 @@ const {loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy} = await 
 const policy = loadExecutionEnvelopePolicy();
 const catalog = loadExecutionEnvelopeApplicability();
 const { executeManagedPreparation, observeExecutableIdentityAsync, prepareCorrectnessEnvironmentAsync } = await import(new URL('../../tools/test/execution-envelope-environment.mjs', import.meta.url));
+const { retainNestedPreparationFailure } = await import(new URL('../../tools/test/physical-execution-nested-channel.mjs', import.meta.url));
 
 test('correctness environment contains only fixed values, PATH, injected identity, and producer allowlist', () =>
 {
@@ -439,4 +440,233 @@ test('component async correctness preparation awaits both original exact executa
     assert.equal(result.fragment.admission, 'planned-actual-exact');
     assert.deepEqual(result.command.slice(1), ['-e', '0']);
     assert.equal(result.environment.FSUSBLOG_TEST_RUN_ID, 'component-async-run');
+});
+
+test('controller factory refuses absent original retention and tool owners before preparation', async () =>
+{
+    const { prepareAuthenticatedNestedEnvelope } = await import('../../tools/test/run-deterministic-command.mjs');
+    await assert.rejects(prepareAuthenticatedNestedEnvelope({}), /original retained directory and complete private tool owner/u);
+});
+
+test('controller factory refuses an incomplete finalization owner before admission or preparation', async () =>
+{
+    const { prepareAuthenticatedNestedEnvelope } = await import('../../tools/test/run-deterministic-command.mjs');
+    let effects = 0;
+    await assert.rejects(prepareAuthenticatedNestedEnvelope({
+        assertAdmission: () => { effects += 1; }, retainAttempt: () => { effects += 1; },
+        preparationOwner: { executePreparation: () => { effects += 1; },
+            assertPreparationExecution: () => { effects += 1; } }
+    }), /complete private tool owner/u);
+    assert.equal(effects, 0);
+});
+
+test('controller factory preserves actual owner admission refusal without directory retention or tools', async () =>
+{
+    const { prepareAuthenticatedNestedEnvelope } = await import('../../tools/test/run-deterministic-command.mjs');
+    const refusal = new Error('component original owner admission refused');
+    let effects = 0;
+    await assert.rejects(prepareAuthenticatedNestedEnvelope({
+        assertAdmission: () => { throw refusal; }, retainAttempt: () => { effects += 1; },
+        preparationOwner: { executePreparation: () => { effects += 1; },
+            assertPreparationExecution: () => { effects += 1; },
+            assertFinalizablePreparation: () => { effects += 1; } }
+    }), (error) => error === refusal);
+    assert.equal(effects, 0);
+});
+
+// COMPONENT_SIMULATION: the actual public consumer and actual after-retention predicate are used.
+// These private callbacks/physical output fixtures do not create managed, kernel or cleanup authority.
+function componentFailureOwner({ execute, afterFails = false, afterReason } = {})
+{
+    const state = { tool: null, physicalExecution: null };
+    return {
+        state,
+        executePreparation: execute ?? (async () => componentPreparationEvidence()),
+        assertPreparationExecution: async ({ request, phase, physicalExecution, preparationFailure }) =>
+        {
+            if (phase === 'before')
+            {
+                state.tool = { request };
+                return;
+            }
+            assert.equal(request, state.tool.request);
+            state.physicalExecution = physicalExecution;
+            retainNestedPreparationFailure(state.tool, preparationFailure);
+            if (afterFails) throw afterReason;
+        }
+    };
+}
+
+async function componentRejection(promise)
+{
+    let failed = false;
+    let reason;
+    try
+    {
+        await promise;
+    }
+    catch (error)
+    {
+        failed = true;
+        reason = error;
+    }
+    assert.equal(failed, true, 'the original public consumer must reject, including when the reason is undefined');
+    return reason;
+}
+
+test('component public preparation keeps frozen first reason across execution await and after-owner failure', async () =>
+{
+    const controller = new AbortController();
+    const primary = Object.freeze(new Error('immutable original awaiting cancellation'));
+    const secondary = Object.assign(new Error('original post-owner unavailable'), {
+        recoveryObligation: { ownedRoot: '/component-fixture/retained', reason: 'unknown physical terminal' }
+    });
+    let release;
+    const admission = new Promise((resolve) => { release = resolve; });
+    let entered;
+    const pending = new Promise((resolve) => { entered = resolve; });
+    const owner = componentFailureOwner({ afterFails: true, afterReason: secondary,
+        execute: async () =>
+        {
+            entered();
+            await admission;
+            controller.signal.throwIfAborted();
+        } });
+    const result = executeManagedPreparation(componentPreparationRequest(), owner);
+    await pending;
+    controller.abort(primary);
+    release();
+    assert.equal(await componentRejection(result), primary);
+    const retained = owner.state.tool.preparationFailure;
+    assert.equal(retained.failed, true);
+    assert.equal(retained.reason, primary);
+    assert.equal(retained.secondaryFailed, true);
+    assert.equal(retained.secondaryReason, secondary);
+    assert.equal(retained.secondaryReason.recoveryObligation, secondary.recoveryObligation);
+    assert.equal(retained.physicalExecution, null);
+    assert.ok(retained.metadataFailures.length > 0);
+    assert.equal(Object.hasOwn(primary, 'preparationOwnerAssertionError'), false);
+});
+
+test('component public preparation preserves every falsy first reason without output validation fallthrough', async () =>
+{
+    for (const primary of [0, -0, false, '', null, undefined, NaN, 0n])
+    {
+        const owner = componentFailureOwner({ execute: async () => { throw primary; } });
+        assert.ok(Object.is(await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner)), primary));
+        const retained = owner.state.tool.preparationFailure;
+        assert.equal(retained.failed, true);
+        assert.ok(Object.is(retained.reason, primary));
+        assert.equal(retained.secondaryFailed, false);
+        assert.equal(retained.physicalExecution, null);
+    }
+});
+
+test('component public preparation retains falsy primary and falsy secondary independently', async () =>
+{
+    for (const [primary, secondary] of [[undefined, null], [null, undefined], [0, false], [false, ''], ['', 0]])
+    {
+        const owner = componentFailureOwner({ execute: async () => { throw primary; },
+            afterFails: true, afterReason: secondary });
+        assert.ok(Object.is(await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner)), primary));
+        const retained = owner.state.tool.preparationFailure;
+        assert.equal(retained.failed, true);
+        assert.ok(Object.is(retained.reason, primary));
+        assert.equal(retained.secondaryFailed, true);
+        assert.ok(Object.is(retained.secondaryReason, secondary));
+    }
+});
+
+test('component public preparation keeps truthy primitive and immutable object first reasons', async () =>
+{
+    for (const primary of ['original primitive', 37, Symbol('original reason'), Object.freeze({ original: true })])
+    {
+        const secondary = new Error('component secondary owner failure');
+        const owner = componentFailureOwner({ execute: async () => { throw primary; },
+            afterFails: true, afterReason: secondary });
+        assert.equal(await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner)), primary);
+        const retained = owner.state.tool.preparationFailure;
+        assert.equal(retained.reason, primary);
+        assert.equal(retained.secondaryReason, secondary);
+    }
+});
+
+test('component public preparation retains successful raw physical output when after alone throws falsy or frozen reason', async () =>
+{
+    for (const primary of [undefined, null, false, 0, '', Object.freeze(new Error('immutable after refusal'))])
+    {
+        const physicalExecution = componentPreparationEvidence();
+        const owner = componentFailureOwner({ execute: async () => physicalExecution,
+            afterFails: true, afterReason: primary });
+        assert.ok(Object.is(await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner)), primary));
+        const retained = owner.state.tool.preparationFailure;
+        assert.equal(retained.failed, true);
+        assert.ok(Object.is(retained.reason, primary));
+        assert.equal(retained.secondaryFailed, false);
+        assert.equal(retained.physicalExecution, physicalExecution);
+        assert.equal(owner.state.physicalExecution, physicalExecution);
+    }
+});
+
+test('component public preparation getter and compatibility setter faults remain diagnostics, not first reason', async () =>
+{
+    const primary = new Error('original reason with hostile metadata');
+    const getterFailure = new Error('physical metadata getter fault');
+    const setterFailure = new Error('secondary compatibility setter fault');
+    Object.defineProperty(primary, 'physicalExecution', { get() { throw getterFailure; } });
+    Object.defineProperty(primary, 'preparationOwnerAssertionError', { set() { throw setterFailure; } });
+    const secondary = new Error('original after-owner failure');
+    const owner = componentFailureOwner({ execute: async () => { throw primary; },
+        afterFails: true, afterReason: secondary });
+    assert.equal(await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner)), primary);
+    const retained = owner.state.tool.preparationFailure;
+    assert.equal(retained.reason, primary);
+    assert.equal(retained.secondaryReason, secondary);
+    assert.equal(retained.physicalExecution, null);
+    assert.ok(retained.metadataFailures.some((entry) => entry.reason === getterFailure));
+    assert.ok(retained.metadataFailures.some((entry) => entry.reason === setterFailure));
+});
+
+test('component public preparation keeps mutable Error compatibility and original physical object', async () =>
+{
+    const physicalExecution = componentPreparationEvidence();
+    const primary = Object.assign(new Error('original mutable deadline'), { physicalExecution, exitCode: 124 });
+    const secondary = new Error('original secondary owner refusal');
+    const owner = componentFailureOwner({ execute: async () => { throw primary; },
+        afterFails: true, afterReason: secondary });
+    assert.equal(await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner)), primary);
+    assert.equal(primary.physicalExecution, physicalExecution);
+    assert.equal(primary.preparationOwnerAssertionError, secondary);
+    assert.equal(primary.exitCode, 124);
+    assert.equal(owner.state.tool.preparationFailure.physicalExecution, physicalExecution);
+    assert.equal(owner.state.tool.preparationFailure.metadataFailures.length, 0);
+});
+
+test('component public preparation benign success retains readonly diagnostics without granting authority', async () =>
+{
+    const physicalExecution = componentPreparationEvidence();
+    const owner = componentFailureOwner({ execute: async () => physicalExecution });
+    assert.equal(await executeManagedPreparation(componentPreparationRequest(), owner), physicalExecution);
+    const retained = owner.state.tool.preparationFailure;
+    assert.ok(Object.isFrozen(retained));
+    assert.equal(retained.failed, false);
+    assert.equal(retained.reason, undefined);
+    assert.equal(retained.secondaryFailed, false);
+    assert.equal(retained.physicalExecution, physicalExecution);
+    assert.equal(Reflect.set(retained, 'failed', true), false);
+    assert.equal(Reflect.set(retained, 'physicalExecution', { postObservation: 'zero-members' }), false);
+    assert.equal(retained.physicalExecution, owner.state.physicalExecution);
+});
+
+test('component public preparation validation failure stays visible in the original retained diagnostic carrier', async () =>
+{
+    const physicalExecution = componentPreparationEvidence();
+    physicalExecution.postObservation = 'unverifiable';
+    const owner = componentFailureOwner({ execute: async () => physicalExecution });
+    const primary = await componentRejection(executeManagedPreparation(componentPreparationRequest(), owner));
+    assert.match(primary.message, /incomplete or failed/u);
+    assert.equal(primary.physicalExecution, physicalExecution);
+    assert.equal(owner.state.tool.preparationFailure.failed, true);
+    assert.equal(owner.state.tool.preparationFailure.reason, primary);
+    assert.equal(owner.state.tool.preparationFailure.physicalExecution, physicalExecution);
 });

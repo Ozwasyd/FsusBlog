@@ -237,7 +237,7 @@ export function prepareNetworkSandbox({
     return projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock, ...bindings });
 }
 
-function prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId })
+export function prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId })
 {
     const networkLog = path.join(directories.toolCache, 'network.strace');
     const bindings = new Set([

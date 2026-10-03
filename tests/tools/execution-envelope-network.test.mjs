@@ -756,3 +756,72 @@ test('original directory producer refuses an asynchronous retention acknowledgem
     assert.deepEqual(retained.fragment.cleanup, { status: 'complete', removedOwnedRoot: true });
     assert.equal(fs.existsSync(retained.fragment.ownedRoot), false);
 });
+
+test('component preparation-only terminal reaches the original directory guard as actually started', async (context) =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import('../../tools/test/run-deterministic-command.mjs');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-preparation-terminal-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'terminal-run', producerId: 'terminal-producer', attemptId: 'terminal-attempt' });
+    // This is a supplied component terminal, not an observed native tool proof.
+    const toolTerminal = { postObservation: 'zero-members', component: 'preparation' };
+    const state = combinePreparationAndBusinessTerminal({ physicalStarted: true, physicalExecution: toolTerminal },
+        { physicalStarted: false, physicalExecution: null }, { ownedRoot: owner.fragment.ownedRoot });
+    assert.equal(state.physicalStarted, true);
+    assert.equal(state.physicalExecution, toolTerminal);
+    assert.equal(finalizeRunOwnedDirectoriesAfterPhysical(owner, state).cleanup.status, 'complete');
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), false);
+});
+
+test('component two-stage zero terminals preserve the business proof without fabricating an aggregate', async () =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import('../../tools/test/run-deterministic-command.mjs');
+    const toolTerminal = { postObservation: 'zero-members', component: 'preparation' };
+    const businessTerminal = { postObservation: 'zero-members', component: 'business' };
+    const state = combinePreparationAndBusinessTerminal({ physicalStarted: true, physicalExecution: toolTerminal },
+        { physicalStarted: true, physicalExecution: businessTerminal }, { ownedRoot: '/component-owned-root' });
+    assert.equal(state.physicalStarted, true);
+    assert.equal(state.physicalExecution, businessTerminal);
+    assert.notEqual(state.physicalExecution, toolTerminal);
+});
+
+test('component unknown terminal in either started phase retains the original directory', async (context) =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import('../../tools/test/run-deterministic-command.mjs');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-preparation-unknown-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'unknown-run', producerId: 'unknown-producer', attemptId: 'unknown-attempt' });
+    const zero = { postObservation: 'zero-members', component: true };
+    for (const phase of ['preparation', 'business'])
+    {
+        for (const terminal of [null, { postObservation: 'unverifiable' }, { postObservation: 'residual-members' }])
+        {
+            const preparation = { physicalStarted: true, physicalExecution: phase === 'preparation' ? terminal : zero };
+            const business = { physicalStarted: true, physicalExecution: phase === 'business' ? terminal : zero };
+            assert.throws(() => finalizeRunOwnedDirectoriesAfterPhysical(owner,
+                combinePreparationAndBusinessTerminal(preparation, business, { ownedRoot: owner.fragment.ownedRoot })),
+            (error) => error.recoveryObligation?.ownedRoot === owner.fragment.ownedRoot
+                && error.recoveryObligation.reason.startsWith(phase));
+            assert.equal(fs.existsSync(owner.fragment.ownedRoot), true);
+        }
+    }
+    assert.throws(() => combinePreparationAndBusinessTerminal({ physicalStarted: false, physicalExecution: zero },
+        { physicalStarted: false, physicalExecution: null }, { ownedRoot: owner.fragment.ownedRoot }), /preparation terminal/u);
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), true);
+});
+
+test('standalone null preparation preserves the original business state and directory refusal', async (context) =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import('../../tools/test/run-deterministic-command.mjs');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-standalone-terminal-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'standalone-run', producerId: 'standalone-producer', attemptId: 'standalone-attempt' });
+    const business = { physicalStarted: true, physicalExecution: null };
+    const state = combinePreparationAndBusinessTerminal(null, business, { ownedRoot: owner.fragment.ownedRoot });
+    assert.equal(state, business);
+    assert.throws(() => finalizeRunOwnedDirectoriesAfterPhysical(owner, state), /unverifiable physical residue/u);
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), true);
+});

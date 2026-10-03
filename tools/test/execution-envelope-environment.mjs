@@ -7,6 +7,7 @@ import process from 'node:process';
 const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 export const executionEnvelopeEnvironmentSchema =
     'fsusblog.test-execution-envelope-environment.v1';
+export const managedPreparationPurposes = Object.freeze(['executable-version', 'landlock-helper-build']);
 const environmentNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const sensitiveNamePattern = /(?:AUTH|COOKIE|CREDENTIAL|KEY|PASSWORD|SECRET|TOKEN)/iu;
 const fixedEnvironment = Object.freeze({
@@ -131,7 +132,7 @@ export async function executeManagedPreparation(request, {
     {
         throw new Error('execution preparation requires an actual held-managed execution and owner assertion');
     }
-    if (!['executable-version', 'landlock-helper-build'].includes(request?.purpose)
+    if (!managedPreparationPurposes.includes(request?.purpose)
         || !Array.isArray(request.command) || request.command.length === 0
         || request.command.some((part) => typeof part !== 'string' || part.includes('\0'))
         || typeof request.cwd !== 'string' || !path.isAbsolute(request.cwd)
@@ -146,34 +147,70 @@ export async function executeManagedPreparation(request, {
     });
     await assertPreparationExecution({ request: ownedRequest, phase: 'before', physicalExecution: null });
     let physicalExecution = null;
-    let firstFailure = null;
+    let failed = false;
+    let firstFailure;
+    let secondaryFailed = false;
+    let secondaryFailure;
+    const metadataFailures = [];
+    // Ordinary non-wire diagnostics retained by the original private tool owner, never physical/admission proof.
+    const preparationFailure = Object.freeze({
+        get failed() { return failed; },
+        get reason() { return firstFailure; },
+        get secondaryFailed() { return secondaryFailed; },
+        get secondaryReason() { return secondaryFailure; },
+        get physicalExecution() { return physicalExecution; },
+        get metadataFailures() { return Object.freeze([...metadataFailures]); }
+    });
+    const retainCompatibleField = (field, value, preserveExisting = false) =>
+    {
+        if (firstFailure === null || !['object', 'function'].includes(typeof firstFailure)) return;
+        try
+        {
+            if (!preserveExisting || firstFailure[field] == null) firstFailure[field] = value;
+        }
+        catch (error)
+        {
+            metadataFailures.push(Object.freeze({ field, reason: error }));
+        }
+    };
     try
     {
         physicalExecution = await executePreparation(ownedRequest);
     }
     catch (error)
     {
+        failed = true;
         firstFailure = error;
-        physicalExecution = error?.physicalExecution ?? null;
+        try
+        {
+            physicalExecution = error?.physicalExecution ?? null;
+        }
+        catch (metadataError)
+        {
+            metadataFailures.push(Object.freeze({ field: 'physicalExecution', reason: metadataError }));
+        }
     }
     try
     {
-        await assertPreparationExecution({ request: ownedRequest, phase: 'after', physicalExecution });
+        await assertPreparationExecution({ request: ownedRequest, phase: 'after', physicalExecution, preparationFailure });
     }
     catch (error)
     {
-        if (firstFailure)
+        if (failed)
         {
-            firstFailure.preparationOwnerAssertionError = error;
+            secondaryFailed = true;
+            secondaryFailure = error;
+            retainCompatibleField('preparationOwnerAssertionError', error);
         }
         else
         {
+            failed = true;
             firstFailure = error;
         }
     }
-    if (firstFailure)
+    if (failed)
     {
-        firstFailure.physicalExecution ??= physicalExecution;
+        retainCompatibleField('physicalExecution', physicalExecution, true);
         throw firstFailure;
     }
     try
@@ -182,8 +219,10 @@ export async function executeManagedPreparation(request, {
     }
     catch (error)
     {
-        error.physicalExecution = physicalExecution;
-        throw error;
+        failed = true;
+        firstFailure = error;
+        retainCompatibleField('physicalExecution', physicalExecution, true);
+        throw firstFailure;
     }
     return physicalExecution;
 }

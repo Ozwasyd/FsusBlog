@@ -9,12 +9,66 @@ import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
+import { managedPreparationPurposes } from './execution-envelope-environment.mjs';
+import { prepareNetworkBindings } from './execution-envelope-network.mjs';
 import { collectProcessIdentity, currentProcessIdentity, processIdentityStatus } from './process-identity.mjs';
+import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
+import { assertProductionSystemdExecutionBoundary, inspectProductionSystemdServiceBinding }
+    from '../test-matrix/production-systemd-resource-boundary.mjs';
 
 export const nestedExecutionChannelKey = 'FSUSBLOG_PHYSICAL_EXECUTION_CHANNEL';
 const schema = 'fsusblog.physical-execution-nested-channel.v1';
+const requestSchema = 'fsusblog.physical-execution-nested-request.v2';
+const attemptSchema = 'fsusblog.nested-execution-envelope-reference.v2';
 const transportFile = fileURLToPath(new URL('./physical-execution-nested-socket.py', import.meta.url));
 const channelCapabilities = new WeakSet();
+
+function nestedDigest(value)
+{
+    return executionEnvelopeDigest(value).slice('sha256:'.length);
+}
+
+function exactKeys(value, keys)
+{
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+        && Object.keys(value).sort().join(',') === [...keys].sort().join(','));
+}
+
+function attemptReferenceIsComplete(reference)
+{
+    return exactKeys(reference, ['schema', 'id', 'channelId', 'bindingDigest', 'executionDigest'])
+        && reference.schema === attemptSchema
+        && /^[a-f0-9-]{36}$/u.test(reference.id)
+        && /^[a-f0-9-]{36}$/u.test(reference.channelId)
+        && /^[a-f0-9]{64}$/u.test(reference.bindingDigest)
+        && /^[a-f0-9]{64}$/u.test(reference.executionDigest);
+}
+
+function publicExecution(execution)
+{
+    return { command: execution.command, cwd: execution.cwd, env: execution.env,
+        linuxPrivateNetwork: execution.linuxPrivateNetwork, linuxNetworkPolicy: execution.linuxNetworkPolicy,
+        linuxReadWritePaths: execution.linuxReadWritePaths, privateDotnetScratch: execution.privateDotnetScratch };
+}
+
+/** Preserve the original admission cancellation reason; retained state is diagnostics, not execution authority. */
+export function assertNestedPreparationCancellation(preparationSignal, upstreamSignal, attempt)
+{
+    if (preparationSignal.aborted || upstreamSignal?.aborted)
+    {
+        const reason = preparationSignal.reason ?? upstreamSignal?.reason ?? new Error('nested execution owner is closed');
+        attempt.preparationCancellationReason = reason;
+        attempt.recoveryObligation ??= { ownedRoot: attempt.retainedDirectories?.fragment?.ownedRoot,
+            reason: 'original preparation owner has not verified all tool terminals' };
+        throw reason;
+    }
+}
+
+/** Only diagnostics: the private tool's physical/admission observations remain independently verified. */
+export function retainNestedPreparationFailure(tool, preparationFailure)
+{
+    if (preparationFailure !== null && preparationFailure !== undefined) tool.preparationFailure = preparationFailure;
+}
 
 export function nestedExecutionChannelIsComplete(channel)
 {
@@ -237,6 +291,9 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
         env: controlEnv, stdio: ['pipe', 'pipe', 'pipe']
     });
     const requests = new Map();
+    // References select only state prepared by the original producer in this controller.
+    const attempts = new Map();
+    const attemptKeys = new Set();
     const records = [];
     let closing = false;
     let descriptor;
@@ -303,6 +360,251 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
     const reply = (id, message) => send(child.stdin, { id, message });
     const abort = () => abortRequests(signal.reason ?? new Error('nested execution owner cancelled'));
     signal?.addEventListener('abort', abort, { once: true });
+    const lookupAttempt = (reference, identity) =>
+    {
+        const attempt = attemptReferenceIsComplete(reference) ? attempts.get(reference.id) : null;
+        if (!attempt || nestedDigest(reference) !== nestedDigest(attempt.reference)
+            || reference.channelId !== descriptor.id || nestedDigest(identity) !== nestedDigest(attempt.identity))
+        {
+            throw new Error('nested execution reference lacks its original current-peer attempt');
+        }
+        return attempt;
+    };
+    const preparationOwner = (attempt, { identity, assertAdmission, signal: preparationSignal }) =>
+    {
+        const toolRequests = new WeakMap();
+        attempt.tools = [];
+        let preparationClosed = false;
+        let pendingAssertions = 0;
+        const recoveryError = (message, physicalExecution = null) => Object.assign(new Error(message), {
+            physicalExecution,
+            recoveryObligation: { ownedRoot: attempt.retainedDirectories?.fragment?.ownedRoot,
+                reason: 'original preparation owner has not verified all tool terminals' }
+        });
+        const assertPreparationOpen = () =>
+        {
+            assertNestedPreparationCancellation(preparationSignal, signal, attempt);
+            if (preparationClosed || attempt.phase !== 'preparing' || closing
+                || processIdentityStatus(attempt.identity).status !== 'live')
+            {
+                throw recoveryError('nested preparation is closed or its original peer is no longer current');
+            }
+            assertProductionSystemdExecutionBoundary(boundary, { expectedContext: descriptor.reference.context });
+        };
+        const deriveExecution = (toolRequest) =>
+        {
+            const prepared = attempt.retainedDirectories;
+            const context = descriptor.reference.context;
+            if (prepared === null || !exactKeys(toolRequest, ['purpose', 'command', 'cwd', 'environment'])
+                || !Object.isFrozen(toolRequest) || !Object.isFrozen(toolRequest.command)
+                || !Object.isFrozen(toolRequest.environment)
+                || !managedPreparationPurposes.includes(toolRequest.purpose)
+                || !Array.isArray(toolRequest.command) || toolRequest.command.length === 0
+                || !toolRequest.command.every((part) => typeof part === 'string' && !part.includes('\0'))
+                || typeof toolRequest.cwd !== 'string' || fs.realpathSync(toolRequest.cwd) !== toolRequest.cwd
+                || (toolRequest.cwd !== context.root && !toolRequest.cwd.startsWith(`${context.root}${path.sep}`))
+                || Object.entries(prepared.environment).some(([key, value]) => toolRequest.environment[key] !== value)
+                || toolRequest.environment.FSUSBLOG_TEST_RUN_ID !== context.runId
+                || toolRequest.environment.FSUSBLOG_TEST_SOURCE_COMMIT !== context.sourceState.commit
+                || String(toolRequest.environment.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').replace(/^sha256:/u, '')
+                    !== context.sourceState.worktreeFingerprint)
+            {
+                throw recoveryError('nested preparation lacks its exact original producer-derived tool tuple');
+            }
+            const bindings = prepareNetworkBindings({ directories: prepared.fragment.directories,
+                ownedDirectoryEnvelope: prepared, writableRoots: prepared.fragment.writableRoots,
+                environment: toolRequest.environment, producerId: prepared.fragment.producerId,
+                attemptId: prepared.fragment.attemptId });
+            return { command: [...toolRequest.command], cwd: toolRequest.cwd, env: { ...toolRequest.environment },
+                // Tool observation/build has no service endpoint contract: use the original fully private network gate.
+                linuxPrivateNetwork: true, linuxNetworkPolicy: null,
+                linuxReadWritePaths: bindings.readWritePaths, linuxOwnedPrivateTmp: prepared.privateTmpCapability,
+                privateDotnetScratch: null };
+        };
+        const assertHeldOwner = async () =>
+        {
+            await assertAdmission();
+            return assertProductionSystemdExecutionBoundary(boundary, { expectedContext: descriptor.reference.context });
+        };
+        const assertFinalizablePreparation = () =>
+        {
+            // Closing is irreversible, including when a pending owner read prevents cleanup.
+            preparationClosed = true;
+            assertProductionSystemdExecutionBoundary(boundary, { expectedContext: descriptor.reference.context });
+            if (pendingAssertions > 0 || attempt.tools.some((tool) => !['terminal', 'verified'].includes(tool.phase)))
+            {
+                throw recoveryError('nested preparation retains an unsettled original tool request');
+            }
+            for (const tool of attempt.tools)
+            {
+                if (tool.started && (tool.phase !== 'verified'
+                    || tool.physicalExecution?.postObservation !== 'zero-members'))
+                {
+                    throw recoveryError('nested preparation retains an unverifiable actual tool terminal', tool.physicalExecution);
+                }
+                if (tool.started && inspectProductionSystemdServiceBinding(
+                    tool.physicalExecution.resourceExecutionAdmission.serviceBinding,
+                    { commandBudgetMs: policy.systemdControlCommandTimeoutMs }).status !== 'absent')
+                {
+                    throw recoveryError('nested preparation managed resources reappeared before directory finalization', tool.physicalExecution);
+                }
+            }
+            const started = attempt.tools.filter((tool) => tool.started);
+            return { physicalStarted: started.length > 0,
+                physicalExecution: started.length ? started.at(-1).physicalExecution : null };
+        };
+        return Object.freeze({
+            assertFinalizablePreparation,
+            async assertPreparationExecution({ request: toolRequest, phase, physicalExecution, preparationFailure = null })
+            {
+                if (phase === 'after')
+                {
+                    const tool = toolRequests.get(toolRequest);
+                    if (tool) retainNestedPreparationFailure(tool, preparationFailure);
+                }
+                if (phase === 'before') assertPreparationOpen();
+                pendingAssertions++;
+                try
+                {
+                    await assertHeldOwner();
+                    if (phase === 'before') assertPreparationOpen();
+                }
+                finally
+                {
+                    pendingAssertions--;
+                }
+                const execution = deriveExecution(toolRequest);
+                if (phase === 'before')
+                {
+                    if (physicalExecution !== null || toolRequests.has(toolRequest))
+                    {
+                        throw recoveryError('nested preparation tool request was already admitted');
+                    }
+                    const tool = { request: toolRequest, execution, phase: 'admitted', started: false,
+                        physicalExecution: null };
+                    toolRequests.set(toolRequest, tool);
+                    attempt.tools.push(tool);
+                    return;
+                }
+                const tool = toolRequests.get(toolRequest);
+                if (phase !== 'after' || !tool || tool.phase !== 'terminal'
+                    || physicalExecution !== tool.physicalExecution
+                    || nestedDigest(publicExecution(execution)) !== nestedDigest(publicExecution(tool.execution)))
+                {
+                    throw recoveryError('nested preparation observation does not belong to its original actual tool request', physicalExecution);
+                }
+                const admission = physicalExecution?.resourceExecutionAdmission;
+                const containment = physicalExecution?.containmentAuthority;
+                if (physicalExecution?.postObservation !== 'zero-members'
+                    || !admission?.reference || !admission.serviceBinding || !containment?.serviceBinding
+                    || !Array.isArray(physicalExecution?.authority?.filesystemIsolation?.readWritePaths)
+                    || nestedDigest(admission?.reference) !== nestedDigest(boundary.reference)
+                    || nestedDigest(admission?.serviceBinding) !== nestedDigest(containment?.serviceBinding)
+                    || !admission.serviceBinding.identity
+                    || physicalExecution?.authority?.networkIsolation !== 'systemd-private-network'
+                    || nestedDigest(physicalExecution?.authority?.filesystemIsolation?.readWritePaths)
+                        !== nestedDigest(tool.execution.linuxReadWritePaths))
+                {
+                    throw recoveryError('nested preparation actual execution differs from its original resource and directory owners', physicalExecution);
+                }
+                const observed = inspectProductionSystemdServiceBinding(admission.serviceBinding, {
+                    commandBudgetMs: policy.systemdControlCommandTimeoutMs
+                });
+                if (observed.status !== 'absent')
+                {
+                    throw recoveryError('nested preparation tool still has actual managed resources', physicalExecution);
+                }
+                tool.phase = 'verified';
+            },
+            async executePreparation(toolRequest)
+            {
+                assertPreparationOpen();
+                const tool = toolRequests.get(toolRequest);
+                if (!tool || tool.phase !== 'admitted')
+                {
+                    throw recoveryError('nested preparation execution requires its original admitted request');
+                }
+                // Consume before an asynchronous admission read so two invocations cannot race.
+                tool.phase = 'admitting-execution';
+                try
+                {
+                    await assertHeldOwner();
+                    const execution = deriveExecution(toolRequest);
+                    if (nestedDigest(publicExecution(execution)) !== nestedDigest(publicExecution(tool.execution)))
+                    {
+                        throw recoveryError('nested preparation derived tuple changed before execution');
+                    }
+                    // Re-read the original peer/grant and closed phase after the admission await, before any effect.
+                    assertPreparationOpen();
+                    tool.phase = 'running';
+                    tool.started = true;
+                    const sink = () => new Writable({ write(_chunk, _encoding, done) { done(); } });
+                    tool.physicalExecution = await runNested({ ...tool.execution,
+                        signal: preparationSignal, stdout: sink(), stderr: sink() });
+                    return tool.physicalExecution;
+                }
+                catch (error)
+                {
+                    tool.failure = error;
+                    try
+                    {
+                        tool.physicalExecution = error?.physicalExecution ?? null;
+                    }
+                    catch (metadataError)
+                    {
+                        tool.physicalExecution = null;
+                        tool.preparationFailureMetadataError = metadataError;
+                    }
+                    throw error;
+                }
+                finally
+                {
+                    tool.phase = 'terminal';
+                    if (tool.started)
+                    {
+                        records.push({ caller: identity, preparationPurpose: toolRequest.purpose,
+                            authority: tool.physicalExecution?.containmentAuthority ?? null,
+                            postObservation: tool.physicalExecution?.postObservation ?? 'unverifiable',
+                            logComplete: tool.physicalExecution?.logComplete === true });
+                    }
+                }
+            }
+        });
+    };
+    const finalizeAttempt = async (attempt) =>
+    {
+        if (!['prepared', 'terminal'].includes(attempt.phase) || !attempt.prepared)
+        {
+            throw new Error('nested execution attempt is not uniquely ready for finalization');
+        }
+        // These facts belong to the controller, never to a child-provided terminal report.
+        attempt.phase = 'finalizing';
+        try
+        {
+            attempt.preparationOwner.assertFinalizablePreparation();
+            if (attempt.physicalStarted && attempt.physicalExecution?.postObservation !== 'zero-members')
+            {
+                throw Object.assign(new Error('nested execution retains directories without the original actual zero-member terminal'), {
+                    physicalExecution: attempt.physicalExecution,
+                    recoveryObligation: { ownedRoot: attempt.retainedDirectories?.fragment?.ownedRoot,
+                        reason: 'original physical owner has not verified a zero-member terminal' }
+                });
+            }
+            inspectOwnedPrivateTmp(attempt.execution.linuxOwnedPrivateTmp, {
+                environment: attempt.execution.env, readWritePaths: attempt.execution.linuxReadWritePaths
+            });
+            attempt.finalized = await attempt.prepared.finalize({ physicalStarted: attempt.physicalStarted,
+                physicalExecution: attempt.physicalExecution });
+            attempt.phase = 'finalized';
+            return attempt.finalized;
+        }
+        catch (error)
+        {
+            attempt.phase = 'finalize-failed';
+            attempt.failure = error;
+            throw error;
+        }
+    };
     const dispatch = async (message) =>
     {
         if (message.kind === 'ready')
@@ -347,31 +649,129 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
                     throw new Error('nested execution owner is closed or peer is foreign');
                 }
                 const identity = collectProcessIdentity(message.peer.pid);
-                await authorize(descriptor, identity);
+                const assertAdmission = async () =>
+                {
+                    if (closing || signal?.aborted || controller.signal.aborted)
+                    {
+                        throw controller.signal.reason ?? signal?.reason ?? new Error('nested execution owner is closed');
+                    }
+                    return authorize(descriptor, identity);
+                };
+                await assertAdmission();
                 const value = message.request;
-                if (Object.keys(value).sort().join(',') !== 'command,cwd,env,kind,linuxNetworkPolicy,linuxOwnedPrivateTmp,linuxPrivateNetwork,linuxReadWritePaths,nonce,privateDotnetScratch'
-                    || value.kind !== 'run' || !/^[a-f0-9-]{36}$/u.test(value.nonce)
-                    || !Array.isArray(value.command) || !value.command.length || !value.command.every((entry) => typeof entry === 'string')
-                    || typeof value.cwd !== 'string' || !value.env || typeof value.env !== 'object' || Array.isArray(value.env)
-                    || !Object.values(value.env).every((entry) => typeof entry === 'string')
-                    || typeof value.linuxPrivateNetwork !== 'boolean' || !Array.isArray(value.linuxReadWritePaths)
-                    || !value.linuxReadWritePaths.every((entry) => typeof entry === 'string')
-                    || typeof value.linuxOwnedPrivateTmp !== 'boolean'
-                    || (value.privateDotnetScratch !== null && (!value.privateDotnetScratch
-                        || typeof value.privateDotnetScratch !== 'object' || Array.isArray(value.privateDotnetScratch))))
+                const fields = { prepare: ['kind', 'schema', 'nonce', 'invocation'],
+                    run: ['kind', 'schema', 'nonce', 'reference', 'executionDigest'],
+                    finalize: ['kind', 'schema', 'nonce', 'reference'] };
+                if (!Object.hasOwn(fields, value?.kind) || !exactKeys(value, fields[value.kind])
+                    || value.schema !== requestSchema || !/^[a-f0-9-]{36}$/u.test(value.nonce))
                 {
-                    throw new Error('nested execution request is incomplete');
-                }
-                if (value.linuxOwnedPrivateTmp)
-                {
-                    // Wire facts cannot mint the directory owner's opaque capability.
-                    inspectOwnedPrivateTmp(linuxOwnedPrivateTmp, {
-                        environment: value.env, readWritePaths: value.linuxReadWritePaths
-                    });
+                    throw new Error('nested execution requires a closed current v2 phase request');
                 }
                 const hello = { schema, nonce: value.nonce, channelId: descriptor.id, peer: identity };
                 await reply(message.id, { kind: 'hello', hello,
                     signature: sign(null, Buffer.from(JSON.stringify(hello)), privateKey).toString('base64') });
+                if (value.kind === 'prepare')
+                {
+                    if (!exactKeys(value.invocation, ['schema', 'options', 'command', 'parentEnvironment'])
+                        || value.invocation.schema !== 'fsusblog.controller-owned-correctness-envelope.v1'
+                        || typeof value.invocation.options?.producerId !== 'string'
+                        || typeof value.invocation.options?.key !== 'string'
+                        || !value.invocation.options.producerId || !value.invocation.options.key)
+                    {
+                        throw new Error('nested execution producer invocation is incomplete');
+                    }
+                    const attemptKey = nestedDigest({ context: descriptor.reference.context, identity,
+                        producerId: value.invocation.options.producerId, attemptId: value.invocation.options.key });
+                    if (attemptKeys.has(attemptKey))
+                    {
+                        throw new Error('nested execution current-peer producer attempt was already prepared');
+                    }
+                    attemptKeys.add(attemptKey);
+                    const attempt = { identity: structuredClone(identity), invocation: structuredClone(value.invocation),
+                        phase: 'preparing', physicalStarted: false, physicalExecution: null,
+                        retainedDirectories: null, prepared: null, reference: null };
+                    const id = randomUUID();
+                    attempts.set(id, attempt);
+                    attempt.preparationOwner = preparationOwner(attempt, { identity, assertAdmission,
+                        signal: controller.signal });
+                    try
+                    {
+                        const { prepareAuthenticatedNestedEnvelope } = await import('./run-deterministic-command.mjs');
+                        attempt.prepared = await prepareAuthenticatedNestedEnvelope({ invocation: value.invocation,
+                            descriptor, identity, controlEnvironment: controlEnv, assertAdmission,
+                            preparationOwner: attempt.preparationOwner,
+                            retainAttempt: (prepared) =>
+                            {
+                                if (attempt.retainedDirectories !== null)
+                                {
+                                    throw new Error('nested execution preparation already retained its original directory owner');
+                                }
+                                attempt.retainedDirectories = prepared;
+                                const owned = inspectOwnedPrivateTmp(prepared.privateTmpCapability);
+                                if (owned.runId !== descriptor.reference.context.runId
+                                    || owned.producerId !== value.invocation.options.producerId
+                                    || owned.attemptId !== value.invocation.options.key)
+                                {
+                                    throw new Error('nested execution preparation directory belongs to a different actual attempt');
+                                }
+                            } });
+                        await assertAdmission();
+                        const execution = attempt.prepared.execution;
+                        if (attempt.retainedDirectories === null
+                            || execution.linuxOwnedPrivateTmp !== attempt.retainedDirectories.privateTmpCapability)
+                        {
+                            throw new Error('nested execution requires the same original retained directory capability');
+                        }
+                        const published = publicExecution(execution);
+                        const executionDigest = nestedDigest(published);
+                        const owned = inspectOwnedPrivateTmp(execution.linuxOwnedPrivateTmp, {
+                            environment: execution.env, readWritePaths: execution.linuxReadWritePaths
+                        });
+                        if (owned.runId !== descriptor.reference.context.runId
+                            || owned.producerId !== value.invocation.options.producerId
+                            || owned.attemptId !== value.invocation.options.key
+                            || execution.env.FSUSBLOG_TEST_SOURCE_COMMIT !== descriptor.reference.context.sourceState.commit
+                            || String(execution.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').replace(/^sha256:/u, '')
+                                !== descriptor.reference.context.sourceState.worktreeFingerprint
+                            || attempt.prepared.publicEnvelope.executionDigest !== executionDigest
+                            || nestedDigest(attempt.prepared.publicEnvelope.publicExecution) !== executionDigest)
+                        {
+                            throw new Error('nested execution producer public tuple differs from its actual prepared execution');
+                        }
+                        attempt.execution = { ...structuredClone(published), linuxOwnedPrivateTmp: execution.linuxOwnedPrivateTmp };
+                        attempt.reference = Object.freeze({ schema: attemptSchema, id, channelId: descriptor.id,
+                            bindingDigest: nestedDigest({ context: descriptor.reference.context, identity,
+                                invocation: value.invocation, owned, executionDigest }), executionDigest });
+                        attempt.phase = 'prepared';
+                        await reply(message.id, { kind: 'result', result: {
+                            ...attempt.prepared.publicEnvelope, reference: attempt.reference } });
+                    }
+                    catch (error)
+                    {
+                        if (attempt.phase === 'preparing') attempt.phase = 'prepare-failed';
+                        attempt.failure = error;
+                        throw error;
+                    }
+                    return;
+                }
+                const attempt = lookupAttempt(value.reference, identity);
+                await assertAdmission();
+                if (value.kind === 'finalize')
+                {
+                    const finalized = await finalizeAttempt(attempt);
+                    await reply(message.id, { kind: 'result', result: finalized });
+                    return;
+                }
+                if (attempt.phase !== 'prepared' || value.executionDigest !== attempt.reference.executionDigest)
+                {
+                    throw new Error('nested execution attempt is already consumed or its derived tuple differs');
+                }
+                inspectOwnedPrivateTmp(attempt.execution.linuxOwnedPrivateTmp, {
+                    environment: attempt.execution.env, readWritePaths: attempt.execution.linuxReadWritePaths
+                });
+                // Consume before the first asynchronous execution effect; duplicate runs cannot race.
+                attempt.phase = 'running';
+                attempt.physicalStarted = true;
                 const stream = (name) => new Writable({ write(chunk, _encoding, done)
                 {
                     request.outputBytes += chunk.length;
@@ -379,10 +779,24 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
                 } });
                 const stdout = stream('stdout');
                 const stderr = stream('stderr');
-                const result = await runNested({ ...value,
-                    linuxOwnedPrivateTmp: value.linuxOwnedPrivateTmp ? linuxOwnedPrivateTmp : null,
-                    env: { ...value.env, [nestedExecutionChannelKey]: JSON.stringify(descriptor) },
-                    signal: controller.signal, stdout, stderr });
+                let result;
+                try
+                {
+                    result = await runNested({ ...attempt.execution,
+                        env: { ...attempt.execution.env, [nestedExecutionChannelKey]: JSON.stringify(descriptor) },
+                        signal: controller.signal, stdout, stderr });
+                    attempt.physicalExecution = result;
+                }
+                catch (error)
+                {
+                    attempt.physicalExecution = error?.physicalExecution ?? null;
+                    attempt.failure = error;
+                    throw error;
+                }
+                finally
+                {
+                    attempt.phase = 'terminal';
+                }
                 records.push({ caller: identity, authority: result.containmentAuthority, postObservation: result.postObservation,
                     logComplete: result.logComplete && (!request.disconnected || request.outputBytes === 0) });
                 await reply(message.id, { kind: 'result', result });
@@ -475,6 +889,35 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
                 await awaitExit();
             }
             await reader;
+            for (const attempt of attempts.values())
+            {
+                try
+                {
+                    if (['prepared', 'terminal'].includes(attempt.phase))
+                    {
+                        await finalizeAttempt(attempt);
+                    }
+                    else if (attempt.phase === 'prepare-failed')
+                    {
+                        attempt.preparationOwner.assertFinalizablePreparation();
+                        const fragment = attempt.retainedDirectories?.fragment;
+                        if (fragment && (fragment.cleanup?.status !== 'complete'
+                            || fragment.cleanup.removedOwnedRoot !== true
+                            || fs.lstatSync(fragment.ownedRoot, { throwIfNoEntry: false })))
+                        {
+                            throw attempt.failure ?? new Error('nested execution preparation retained its original directory obligation');
+                        }
+                    }
+                    else if (attempt.phase !== 'finalized')
+                    {
+                        throw attempt.failure ?? new Error('nested execution directory finalization remains unverifiable');
+                    }
+                }
+                catch (error)
+                {
+                    failure ??= error;
+                }
+            }
             const residual = records.some((record) => record.postObservation !== 'zero-members');
             if (failure || residual)
             {
@@ -489,9 +932,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
     return channel;
 }
 
-export async function runNestedPhysicalExecution({ descriptor, command, cwd, env, linuxPrivateNetwork,
-    linuxNetworkPolicy, linuxReadWritePaths, linuxOwnedPrivateTmp = null, privateDotnetScratch = null,
-    signal, policy, stdout, stderr })
+async function requestNestedExecution({ descriptor, phase, signal, policy, stdout, stderr })
 {
     const identity = currentProcessIdentity();
     await authorize(descriptor, identity);
@@ -517,8 +958,7 @@ export async function runNestedPhysicalExecution({ descriptor, command, cwd, env
             socket.once('error', reject);
         });
         assertSocket(descriptor);
-        await send(socket, { kind: 'run', nonce, command, cwd, env, linuxPrivateNetwork, linuxNetworkPolicy, linuxReadWritePaths,
-            linuxOwnedPrivateTmp: linuxOwnedPrivateTmp !== null, privateDotnetScratch });
+        await send(socket, { ...phase, schema: requestSchema, nonce });
         signal?.addEventListener('abort', cancel, { once: true });
         if (signal?.aborted)
         {
@@ -601,4 +1041,42 @@ export async function runNestedPhysicalExecution({ descriptor, command, cwd, env
         }
         socket.destroy();
     }
+}
+
+/** Prepare only through the authenticated original controller and producer. */
+export async function prepareNestedExecutionEnvelope({ descriptor, invocation, signal, policy })
+{
+    const result = await requestNestedExecution({ descriptor, signal, policy, phase: { kind: 'prepare', invocation } });
+    if (!attemptReferenceIsComplete(result?.reference) || result.reference.channelId !== descriptor.id
+        || result.executionDigest !== result.reference.executionDigest
+        || nestedDigest(result.publicExecution) !== result.reference.executionDigest)
+    {
+        throw new Error('nested execution controller returned an incomplete prepared tuple');
+    }
+    return result;
+}
+
+/** The child supplies a reference, never physical-started/zero-member facts. */
+export async function finalizeNestedExecutionEnvelope({ descriptor, reference, signal, policy })
+{
+    if (!attemptReferenceIsComplete(reference) || reference.channelId !== descriptor.id)
+    {
+        throw new Error('nested execution finalization reference is incomplete');
+    }
+    return requestNestedExecution({ descriptor, signal, policy, phase: { kind: 'finalize', reference } });
+}
+
+export async function runNestedPhysicalExecution({ descriptor, command, cwd, env, linuxPrivateNetwork,
+    linuxNetworkPolicy, linuxReadWritePaths, linuxOwnedPrivateTmp = null, privateDotnetScratch = null,
+    nestedEnvelopeReference = null, signal, policy, stdout, stderr })
+{
+    const executionDigest = nestedDigest(publicExecution({ command, cwd, env, linuxPrivateNetwork,
+        linuxNetworkPolicy, linuxReadWritePaths, privateDotnetScratch }));
+    if (!attemptReferenceIsComplete(nestedEnvelopeReference) || nestedEnvelopeReference.channelId !== descriptor.id
+        || nestedEnvelopeReference.executionDigest !== executionDigest || linuxOwnedPrivateTmp !== null)
+    {
+        throw new Error('nested execution requires its exact v2 controller-prepared tuple; legacy directory requests are refused');
+    }
+    return requestNestedExecution({ descriptor, signal, policy, stdout, stderr,
+        phase: { kind: 'run', reference: nestedEnvelopeReference, executionDigest } });
 }
