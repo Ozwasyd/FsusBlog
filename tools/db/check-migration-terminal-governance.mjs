@@ -75,9 +75,58 @@ function friendLiteralArgument(source)
     return needsLiteral ? null : value;
 }
 
-function assemblyFriendDeclarations(source)
+function usingAliases(source, globalOnly = false)
+{
+    const aliases = new Map();
+    for (const declaration of maskCSharp(source).matchAll(/\b(?:(global)\s+)?using\s+(@?[A-Za-z_]\w*)\s*=\s*([^;]+);/gu))
+    {
+        if (globalOnly && !declaration[1])
+        {
+            continue;
+        }
+        const name = declaration[2].replaceAll('@', '');
+        const target = declaration[3].replace(/\s|@/gu, '');
+        const value = /^(?:global::)?[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/u.test(target) ? target : null;
+        aliases.set(name, aliases.has(name) && aliases.get(name) !== value ? null : value);
+    }
+    return aliases;
+}
+
+function mergeAliases(target, source)
+{
+    for (const [name, value] of source)
+    {
+        target.set(name, target.has(name) && target.get(name) !== value ? null : value);
+    }
+}
+
+function resolveAttributeAlias(type, aliases)
+{
+    const visited = new Set();
+    while (!type.startsWith('global::'))
+    {
+        const parts = type.split('.');
+        const candidates = [parts[0], ...(parts.length === 1 ? [`${parts[0]}Attribute`] : [])]
+            .filter(name => aliases.has(name));
+        if (candidates.length === 0)
+        {
+            return type;
+        }
+        if (candidates.length !== 1 || visited.has(candidates[0]) || aliases.get(candidates[0]) === null)
+        {
+            return null;
+        }
+        visited.add(candidates[0]);
+        type = [aliases.get(candidates[0]), ...parts.slice(1)].join('.');
+    }
+    return type.slice('global::'.length);
+}
+
+function assemblyFriendDeclarations(source, globalAliases)
 {
     const code = maskCSharp(source);
+    const aliases = new Map(globalAliases);
+    mergeAliases(aliases, usingAliases(source));
     const declarations = [];
     for (const section of code.matchAll(/\[\s*assembly\s*:/gu))
     {
@@ -90,8 +139,12 @@ function assemblyFriendDeclarations(source)
             if ((character === ',' || character === ']') && parentheses === 0 && brackets === 0)
             {
                 const segment = code.slice(start, cursor);
-                const attribute = segment.match(/^\s*((?:global\s*::\s*)?(?:@?[A-Za-z_]\w*\s*\.\s*)*@?InternalsVisibleTo(?:Attribute)?)\s*\(/u);
-                const type = attribute?.[1].replace(/\s|@/gu, '').replace(/^global::/u, '');
+                const attribute = segment.match(/^\s*((?:global\s*::\s*)?@?[A-Za-z_]\w*(?:\s*\.\s*@?[A-Za-z_]\w*)*)\s*\(/u);
+                const type = attribute ? resolveAttributeAlias(attribute[1].replace(/\s|@/gu, ''), aliases) : undefined;
+                if (type === null)
+                {
+                    declarations.push(null);
+                }
                 if (['InternalsVisibleTo', 'InternalsVisibleToAttribute',
                     'System.Runtime.CompilerServices.InternalsVisibleTo', 'System.Runtime.CompilerServices.InternalsVisibleToAttribute'].includes(type))
                 {
@@ -435,13 +488,22 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     {
         const sources = files(dirname(path)).filter(source => source.endsWith('.cs'));
         const generated = files(join(dirname(path), 'obj'), true).filter(source => source.endsWith('.cs'));
-        const records = [...new Set([...sources, ...generated, ...projects.get(path).linkedSources])].sort().map(source => ({ path: source, text: read(source) }));
+        const records = [...new Set([...sources, ...generated, ...projects.get(path).linkedSources])].sort().map(source => ({ path: source, text: read(source), project: path }));
         sourceGroups.set(path, records);
         if (generated.length === 0)
         {
             missingObservations.add(`${path}: compiled generated sources`);
         }
     }
+    const globalAliasesByProject = new Map([...sourceGroups].map(([project, sources]) =>
+    {
+        const aliases = new Map();
+        for (const source of sources)
+        {
+            mergeAliases(aliases, usingAliases(source.text, true));
+        }
+        return [project, aliases];
+    }));
     const migrationSources = sourceGroups.get(migrationPath) ?? [];
     const migrationHashes = new Set(migrationSources
         .filter(source => !source.path.includes('/obj/') && /namespace\s+FsusBlog\s*\.\s*Migration\b/u.test(maskCSharp(source.text)))
@@ -451,7 +513,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
     for (const source of serverSources)
     {
         const code = maskCSharp(source.text);
-        for (const friend of assemblyFriendDeclarations(source.text))
+        for (const friend of assemblyFriendDeclarations(source.text, globalAliasesByProject.get(source.project)))
         {
             checkFriendDeclaration(friend, serverPath, source.path);
         }
@@ -470,7 +532,7 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
         const code = maskCSharp(source.text);
         reject(/\bFsusBlog\s*\.\s*(?:Server|Core)\b|Microsoft\s*\.\s*AspNetCore|\b(?:IHostedService|BackgroundService|WebApplication|TestServer)\b/u.test(code), `source: Migration imports Server/runtime: ${source.path}`);
         reject(/\bTypeForwardedTo\b|namespace\s+FsusBlog\s*\.\s*Server\s*\.\s*Infrastructure\s*\.\s*SchemaMigration/u.test(code), `source: type-forwarder or compat namespace: ${source.path}`);
-        for (const friend of assemblyFriendDeclarations(source.text))
+        for (const friend of assemblyFriendDeclarations(source.text, globalAliasesByProject.get(source.project)))
         {
             checkFriendDeclaration(friend, migrationPath, source.path);
         }
@@ -495,7 +557,16 @@ export function inspectMigrationTerminalGovernance(root = defaultRoot)
             const owner = project.path === migrationPath ? migrationPath : serverPath;
             for (const friend of project.friends)
             {
-                checkFriendDeclaration(friend.value, owner, friend.input);
+                const members = typeof friend.value === 'string'
+                    ? friend.value.split(';').map(value => value.trim()).filter(Boolean) : [];
+                if (members.length === 0)
+                {
+                    checkFriendDeclaration(null, owner, friend.input);
+                }
+                for (const member of members)
+                {
+                    checkFriendDeclaration(member, owner, friend.input);
+                }
             }
         }
     }

@@ -460,3 +460,135 @@ test('unresolved MSBuild friend update is refused while remove-only items and co
     append(root, project, '<InternalsVisibleTo Update="$(HiddenFriendAssembly)" />');
     assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')));
 });
+
+const friendAliases = [
+    ['type', 'using Friend = global::System.Runtime.CompilerServices.InternalsVisibleToAttribute;', 'Friend'],
+    ['namespace', 'using CS = System.Runtime.CompilerServices;', 'CS.InternalsVisibleTo']
+];
+
+for (const [kind, declaration, attribute] of friendAliases)
+{
+    for (const [path, target] of friendDirections)
+    {
+        test(`assembly friend ${kind} alias from ${path} to ${target} is refused`, t =>
+        {
+            const root = fixture(t);
+            assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+            add(root, path, `${declaration}\n[assembly: ${attribute}("${target}")]\n`);
+            assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo')
+                && value.includes(path)), path);
+        });
+    }
+
+    test(`global ${kind} alias is observed across files in its owning project`, t =>
+    {
+        const root = fixture(t);
+        assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+        add(root, 'src/migration/GlobalFriend.cs', `global ${declaration}\n`);
+        add(root, 'src/migration/AliasedFriend.cs', `[assembly: ${attribute}("FsusBlog.Server")]\n`);
+        assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo')
+            && value.includes('AliasedFriend.cs')));
+    });
+}
+
+test('attribute suffix aliases and unresolved external alias targets cannot silently hide friendship', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/SuffixFriend.cs', `using FriendAttribute = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("FsusBlog.Server")]
+`);
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo')
+        && value.includes('SuffixFriend.cs')));
+    add(root, 'src/migration/ExternalFriend.cs', `extern alias Hidden;
+using Friend = Hidden::System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("FsusBlog.Server")]
+`);
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')
+        && value.includes('ExternalFriend.cs')));
+});
+
+test('benign friend aliases, custom attribute aliases and masked alias examples remain benign', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/AliasControls.cs', `using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+using CS = global::System.Runtime.CompilerServices;
+[assembly: Friend("FsusBlog.Migration.Tests")]
+[assembly: CS.InternalsVisibleTo("FsusBlog.OtherTests")]
+// using Ordinary = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+/* using Other = System.Runtime.CompilerServices; */
+public static class AliasControls
+{
+    public const string Example = "using Ordinary = System.Runtime.CompilerServices.InternalsVisibleToAttribute;";
+}
+`);
+    add(root, 'src/backend/OrdinaryAlias.cs', `using Ordinary = Other.MarkerAttribute;
+[assembly: Ordinary("FsusBlog.Migration")]
+namespace Other
+{
+    [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
+    public sealed class MarkerAttribute : global::System.Attribute
+    {
+        public MarkerAttribute(string value) { }
+    }
+}
+`);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+});
+
+test('global aliases stay within the owning project rather than granting meaning to referenced-project attributes', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/GlobalFriend.cs', 'global using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;\n');
+    add(root, 'src/backend/LocalFriend.cs', `using Friend = Other.MarkerAttribute;
+[assembly: Friend("FsusBlog.Migration")]
+namespace Other
+{
+    [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
+    public sealed class MarkerAttribute : global::System.Attribute
+    {
+        public MarkerAttribute(string value) { }
+    }
+}
+`);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+});
+
+for (const [project, target] of [
+    ['src/backend/FsusBlog.Server.csproj', 'FsusBlog.Migration'],
+    ['src/shared/FsusBlog.Shared.csproj', 'FsusBlog.Migration'],
+    ['src/migration/FsusBlog.Migration.csproj', 'FsusBlog.Server']
+])
+{
+    test(`MSBuild static friend lists in ${project} refuse forbidden first and later members`, t =>
+    {
+        const root = fixture(t);
+        assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+        append(root, project, '<Import Project="FriendList.props" />');
+        const props = `${dirname(project)}/FriendList.props`;
+        for (const value of [`${target};FsusBlog.Tests`, `FsusBlog.Tests; ${target} ;FsusBlog.OtherTests`])
+        {
+            add(root, props, `<Project><ItemGroup><InternalsVisibleTo Condition="false" Include="${value}" /></ItemGroup></Project>`);
+            const report = inspectMigrationTerminalGovernance(root);
+            assert.ok(report.failures.some(failure => failure.includes('InternalsVisibleTo') && failure.includes(target)
+                && failure.includes(props)), value);
+            assert.ok(report.graph.projects.find(item => item.path === project).friends.some(item => item.input === props
+                && item.value === value && item.condition === 'false'));
+        }
+    });
+}
+
+test('MSBuild friend lists retain benign members, update semantics and unresolved-member refusal', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    const project = 'src/backend/FsusBlog.Server.csproj';
+    append(root, project, '<InternalsVisibleTo Include="FsusBlog.Tests;FsusBlog.OtherTests" />');
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    append(root, project, '<InternalsVisibleTo Update="FsusBlog.Tests;$(HiddenFriendAssembly)" Condition="false" />');
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('unresolved InternalsVisibleTo')));
+    append(root, project, '<InternalsVisibleTo Update="FsusBlog.Tests;FsusBlog.Migration" />');
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo FsusBlog.Migration')));
+});
