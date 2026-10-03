@@ -10,6 +10,88 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DocumentExportContractTests
 {
+    [Theory]
+    [InlineData("self-contained-html")]
+    [InlineData("pdf")]
+    [InlineData("docx")]
+    [InlineData("epub")]
+    public void Task_AcceptsFrozenRendererIdentityFromTheSoleProviderCatalogForEveryFormat(string format)
+    {
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(format);
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(ValidInput() with
+        {
+            RendererId = provider.RendererId,
+            RendererVersion = provider.RendererVersion
+        });
+        DocumentExportTask task = TaskForProvider(input, provider);
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.Equal(provider.RendererId, input.RendererId);
+        Assert.Equal(provider.RendererVersion, input.RendererVersion);
+        DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
+        DocumentExportContractValidator.Validate(input);
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportContractValidator.Validate(receipt, task, input, provider);
+    }
+
+    [Theory]
+    [InlineData("self-contained-html", "renderer-id")]
+    [InlineData("self-contained-html", "renderer-version")]
+    [InlineData("pdf", "renderer-id")]
+    [InlineData("pdf", "renderer-version")]
+    [InlineData("docx", "renderer-id")]
+    [InlineData("docx", "renderer-version")]
+    [InlineData("epub", "renderer-id")]
+    [InlineData("epub", "renderer-version")]
+    public void TaskAndResult_RejectRendererAuthorityDriftEvenWhenInputTaskAndReceiptAreFullyResealed(
+        string format, string field)
+    {
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(format);
+        DocumentExportFrozenInput baseline = DocumentExportContractValidator.Seal(ValidInput() with
+        {
+            RendererId = provider.RendererId,
+            RendererVersion = provider.RendererVersion
+        });
+        DocumentExportTask baselineTask = TaskForProvider(baseline, provider);
+        DocumentExportContractValidator.Validate(baselineTask, baseline);
+        DocumentExportContractValidator.Validate(ValidReceipt(baselineTask, baseline, provider), baselineTask, baseline, provider);
+
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(field switch
+        {
+            "renderer-id" => baseline with { RendererId = provider.RendererId + "-changed" },
+            "renderer-version" => baseline with { RendererVersion = provider.RendererVersion + "-changed" },
+            _ => throw new ArgumentException("Unknown renderer identity mutation.", nameof(field))
+        });
+        DocumentExportTask task = TaskForProvider(input, provider);
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        // Every contract is individually resealed and every reference is updated.
+        // This is an authority refusal, not a stale-digest or format/provider error.
+        DocumentExportContractValidator.Validate(input);
+        Assert.NotEqual(baseline.ContentDigest, input.ContentDigest);
+        Assert.NotEqual(baselineTask.ContentDigest, task.ContentDigest);
+        Assert.Equal(input.ContentDigest, task.InputDigest);
+        Assert.Equal(input.ContentDigest, receipt.InputDigest);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Equal(input.RendererId, receipt.RendererId);
+        Assert.Equal(input.RendererVersion, receipt.RendererVersion);
+        Assert.Equal(provider.FormatId, task.FormatId);
+        Assert.Equal(provider.ProviderId, task.ProviderId);
+        Assert.Equal(provider.ProviderVersion, task.ProviderVersion);
+        Assert.Equal(DocumentExportDigest.Compute(task with { ContentDigest = string.Empty }), task.ContentDigest);
+        Assert.Equal(DocumentExportDigest.Compute(receipt with { ContentDigest = string.Empty }), receipt.ContentDigest);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(task, input));
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(receipt, task, input, provider));
+    }
+
+    private static DocumentExportTask TaskForProvider(DocumentExportFrozenInput input, DocumentExportProviderContract provider)
+        => DocumentExportContractValidator.Seal(ValidTask(input) with
+        {
+            FormatId = provider.FormatId,
+            ProviderId = provider.ProviderId,
+            ProviderVersion = provider.ProviderVersion
+        });
+
     [Fact]
     public void Catalog_DeclaresExactFourFormatsAndOneAvailableImplementation()
     {

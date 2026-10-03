@@ -234,6 +234,8 @@ public static partial class DocumentExportContractValidator
         DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
         if (!string.Equals(task.ProviderId, provider.ProviderId, StringComparison.Ordinal)
             || !string.Equals(task.ProviderVersion, provider.ProviderVersion, StringComparison.Ordinal)
+            || !string.Equals(input.RendererId, provider.RendererId, StringComparison.Ordinal)
+            || !string.Equals(input.RendererVersion, provider.RendererVersion, StringComparison.Ordinal)
             || !string.Equals(task.LayoutProfile, input.LayoutProfile, StringComparison.Ordinal)
             || !string.Equals(task.ThemeProfile, input.ThemeProfile, StringComparison.Ordinal)
             || !string.Equals(task.Locale, input.Locale, StringComparison.Ordinal))
