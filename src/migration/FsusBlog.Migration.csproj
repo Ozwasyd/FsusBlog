@@ -15,4 +15,8 @@
   <ItemGroup>
     <ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="FsusBlog.SourceCommit" Value="$(FsusBlogCommitSha)" />
+  </ItemGroup>
 </Project>

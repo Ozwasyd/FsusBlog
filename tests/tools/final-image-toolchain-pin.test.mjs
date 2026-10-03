@@ -19,6 +19,24 @@ const releaseId = '20260715010101-0123456789ab';
 const releaseCreatedAtUtc = '2026-07-15T01:01:01Z';
 const commitSha = '0123456789abcdef0123456789abcdef01234567';
 
+test('current-native-task is a separate local tool target and never changes production Server publication', () =>
+{
+    const finalStage = dockerfile.split('FROM base AS final\n')[1]?.split('FROM final AS current-native-task\n')[0];
+    assert.ok(finalStage);
+    assert.doesNotMatch(finalStage, /migration/iu);
+    assert.match(finalStage, /ENTRYPOINT \["\.\/FsusBlog\.Server"\]/u);
+    const taskStage = dockerfile.split('FROM final AS current-native-task\n')[1]?.split('FROM base AS debug-final\n')[0];
+    assert.ok(taskStage);
+    assert.match(taskStage, /COPY --from=migration-publish[^\n]+\/app\/tools\/migration/u);
+    assert.doesNotMatch(taskStage, /^(?:ENTRYPOINT|CMD)\s/gmu);
+    const buildSource = fs.readFileSync(path.join(root, 'tools/build-final-image.sh'), 'utf8');
+    assert.match(buildSource, /current-native-task\)[\s\S]*?LOCAL_ONLY" == "1" && "\$PUSH_IMAGE" == "0"/u);
+    assert.match(buildSource, /TASK_TOOL_ARGS=\(--tool migration\)/u);
+    assert.match(buildSource, /createCurrentNativeTaskToolImageBinding/u);
+    assert.match(buildSource, /flag: "wx"/u);
+    assert.match(buildSource, /--network none --read-only --cap-drop ALL/u);
+});
+
 const pins = {
     runtimeVersion: '10.0.10',
     sdkVersion: '10.0.302',

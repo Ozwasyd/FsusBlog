@@ -80,6 +80,19 @@ restore/compile/publish vertex 命中真实 BuildKit cache，backend/MSBuild 输
 实际 SDK image 与 root-context witness 还会双向证明 `.env` 等无关文件存在于 build
 context 但没有进入 `/src`。
 
+`backend-docker-inputs.v2` 在同一 inventory 中另列独立 Migration entry root；仅显式
+`--tool migration` 才求值和物化 `migration/restore`、`migration/compile`、
+`migration/publish`。该根复用同一个真实 MSBuild evaluator、隔离环境与 item/import
+核对，Server 的 project graph、三个输入 domain 和默认 final target 不含 Migration。
+`current-native-task` 是 local-only、禁止 registry push 的 task image target：从 final
+继承原 Server entrypoint，只把独立、非 single-file 的 Migration publish 放到
+`/app/tools/migration`。原 build producer 观察实际 image ID 与该目录全部 regular file
+字节，生成 `fsusblog.current-native-task-tool-image.v1` 绑定 assembly、deps、runtimeconfig
+及其余 publish artifacts；缺文件、symlink、错误 source/profile 或不完整测量均拒绝。
+这不是生产 release manifest、current receipt 或 native capability。Publish DLL 本身
+不安装 sealed Host 的四个 owned factory，默认 Host 缺能力仍拒绝；实际编译、image
+measurement、配置组合与三 provider qualification 各自仍须原执行验收。
+
 闭包测试的唯一 physical owner 是 lifecycle registry 中的
 `backend-docker-input-closure` real-subprocess entry，由 matrix 的 `static-governance`
 执行，并绑定同名 coverage entry；production-image workflow 不再重复 raw 执行测试。

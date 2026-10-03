@@ -49,7 +49,9 @@ function executable(name)
 
 function snapshotInputs(root, inventory)
 {
-    const projectRoots = inventory.projects.map(project => path.dirname(project.path));
+    const selectedInventories = [inventory, ...(inventory.tools ?? [])];
+    const projectRoots = [...new Set(selectedInventories.flatMap(value => value.projects)
+        .map(project => path.dirname(project.path)))];
     const excluded = new Set(projectRoots.flatMap(directory => ['bin', 'obj'].map(name => path.join(directory, name))));
     const values = {};
     const visit = relativePath =>
@@ -103,7 +105,7 @@ function snapshotInputs(root, inventory)
         }
     };
     for (const input of [...new Set(['config/build/backend-docker-inputs.json', ...projectRoots,
-        ...inventory.imports, ...inventory.restoreFiles, ...inventory.allowedExternalItemRoots,
+        ...inventory.imports, ...selectedInventories.flatMap(value => value.restoreFiles), ...inventory.allowedExternalItemRoots,
         ...inventory.allowedExternalItemFiles, ...inventory.optionalPublishRoots])].sort())
     {
         visit(input);

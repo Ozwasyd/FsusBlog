@@ -1,5 +1,5 @@
 {
-    "schema": "fsusblog.backend-docker-inputs.v1",
+    "schema": "fsusblog.backend-docker-inputs.v2",
     "entryProject": "src/backend/FsusBlog.Server.csproj",
     "restoreConfigFile": "config/build/backend-restore.xml",
     "evaluationProperties": {
@@ -67,6 +67,31 @@
     ],
     "optionalPublishRoots": [
         "build/artifacts/native-zk"
+    ],
+    "tools": [
+        {
+            "id": "migration",
+            "entryProject": "src/migration/FsusBlog.Migration.csproj",
+            "projects": [
+                {
+                    "path": "src/migration/FsusBlog.Migration.csproj",
+                    "references": ["src/shared/FsusBlog.Shared.csproj"]
+                },
+                {
+                    "path": "src/shared/FsusBlog.Shared.csproj",
+                    "references": []
+                }
+            ],
+            "restoreFiles": [
+                "config/build/backend-restore.xml",
+                "Directory.Build.props",
+                "Directory.Packages.props",
+                "src/migration/FsusBlog.Migration.csproj",
+                "src/migration/packages.lock.json",
+                "src/shared/FsusBlog.Shared.csproj",
+                "src/shared/packages.lock.json"
+            ]
+        }
     ],
     "forbiddenPrefixes": [
         "build/artifacts/wasm-release",
