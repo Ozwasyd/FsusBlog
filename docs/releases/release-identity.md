@@ -47,6 +47,7 @@ node tools/release/release-id.mjs --check
 ```
 
 These commands validate the contract only. They do not build, push or deploy an image.
+
 ## Current release-final inputs
 
 <!-- fsus-doc-claim
