@@ -1,17 +1,715 @@
 {
-    "schema": "fsusblog.outcome-field-dispositions.v1",
-    "schemaVersion": "1",
-    "fingerprintAlgorithmVersion": "canonical-json-sha256-v1",
+    "schema": "fsusblog.outcome-field-dispositions.v2",
+    "schemaVersion": "2",
+    "fingerprintAlgorithmVersion": "registry-canonical-json-sha256-v2",
     "entries": [
-        { "schemaPath": "$.schema", "category": "execution-identity", "normalizationRule": "exact", "owner": "outcome-contract", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.schema" },
-        { "schemaPath": "$.schemaVersion", "category": "execution-identity", "normalizationRule": "exact", "owner": "outcome-contract", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.schema" },
-        { "schemaPath": "$.producerId", "category": "execution-identity", "normalizationRule": "exact", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
-        { "schemaPath": "$.producerAuthorityId", "category": "execution-identity", "normalizationRule": "exact", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
-        { "schemaPath": "$.identity", "category": "execution-identity", "normalizationRule": "canonical-object", "owner": "test-runtime", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
-        { "schemaPath": "$.inputAuthorityRefs", "category": "execution-identity", "normalizationRule": "sort-by-kind", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.identity" },
-        { "schemaPath": "$.attemptEligibility", "category": "semantic-outcome", "normalizationRule": "canonical-object", "owner": "test-evidence", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.missing-evidence" },
-        { "schemaPath": "$.outcome", "category": "semantic-outcome", "normalizationRule": "canonical-object", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "product.assertion" },
-        { "schemaPath": "$.verificationStatus", "category": "semantic-outcome", "normalizationRule": "exact", "owner": "producer-adapter", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.missing-evidence" },
-        { "schemaPath": "$.contentDigest", "category": "execution-identity", "normalizationRule": "content-seal", "owner": "outcome-contract", "proofTestId": "outcome:field-coverage", "reasonCode": "contract.schema" }
-    ]
+        {
+            "schemaPath": "$.schema",
+            "category": "execution-identity",
+            "normalizationRule": "exact",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.schema"
+        },
+        {
+            "schemaPath": "$.schemaVersion",
+            "category": "execution-identity",
+            "normalizationRule": "exact",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.schema"
+        },
+        {
+            "schemaPath": "$.producerId",
+            "category": "execution-identity",
+            "normalizationRule": "exact",
+            "owner": "producer-adapter",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.identity"
+        },
+        {
+            "schemaPath": "$.producerAuthorityId",
+            "category": "execution-identity",
+            "normalizationRule": "exact",
+            "owner": "producer-adapter",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.identity"
+        },
+        {
+            "schemaPath": "$.identity",
+            "category": "execution-identity",
+            "normalizationRule": "canonical-object",
+            "owner": "test-runtime",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.identity"
+        },
+        {
+            "schemaPath": "$.inputAuthorityRefs",
+            "category": "execution-identity",
+            "normalizationRule": "sort-by-kind",
+            "owner": "producer-adapter",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.identity"
+        },
+        {
+            "schemaPath": "$.attemptEligibility",
+            "category": "semantic-outcome",
+            "normalizationRule": "canonical-object",
+            "owner": "test-evidence",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.missing-evidence"
+        },
+        {
+            "schemaPath": "$.outcome",
+            "category": "semantic-outcome",
+            "normalizationRule": "canonical-object",
+            "owner": "producer-adapter",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "product.assertion"
+        },
+        {
+            "schemaPath": "$.verificationStatus",
+            "category": "semantic-outcome",
+            "normalizationRule": "exact",
+            "owner": "producer-adapter",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.missing-evidence"
+        },
+        {
+            "schemaPath": "$.contentDigest",
+            "category": "execution-identity",
+            "normalizationRule": "content-seal",
+            "owner": "outcome-contract",
+            "proofTestId": "outcome:field-coverage",
+            "reasonCode": "contract.schema"
+        }
+    ],
+    "canonicalization": {
+        "schema": "fsusblog.outcome-canonicalization-policy.v1",
+        "nestedFields": [
+            {
+                "schemaPath": "$.identity.buildIdentity",
+                "category": "execution-identity",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.executionEnvelopeDigest",
+                "category": "execution-identity",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.replayPlanDigest",
+                "category": "execution-identity",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.temporalContextDigest",
+                "category": "execution-identity",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.toolchainDigest",
+                "category": "execution-identity",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.worktreeFingerprint",
+                "category": "execution-identity",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.producerId",
+                "category": "execution-identity",
+                "normalizationRule": "text",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.schedulerRunId",
+                "category": "execution-identity",
+                "normalizationRule": "text",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.identity.sourceCommit",
+                "category": "execution-identity",
+                "normalizationRule": "text",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.attemptEligibility.aggregateDigest",
+                "category": "evidence-location",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.attemptEligibility.attemptDigest",
+                "category": "evidence-location",
+                "normalizationRule": "digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.attemptEligibility.attemptNumber",
+                "category": "semantic-outcome",
+                "normalizationRule": "positive-integer",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.attemptEligibility.cleanFirstAttempt",
+                "category": "semantic-outcome",
+                "normalizationRule": "boolean",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.attemptEligibility.firstFailure",
+                "category": "semantic-outcome",
+                "normalizationRule": "boolean",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.attemptEligibility.qualificationEligible",
+                "category": "semantic-outcome",
+                "normalizationRule": "boolean",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.outcome.status",
+                "category": "semantic-outcome",
+                "normalizationRule": "text",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.outcome.requiredMembershipVerified",
+                "category": "semantic-outcome",
+                "normalizationRule": "boolean",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.outcome.semanticPayloadDigest",
+                "category": "evidence-location",
+                "normalizationRule": "derived-digest",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.outcome.reasons",
+                "category": "semantic-outcome",
+                "normalizationRule": "reasons",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$.outcome.membership",
+                "category": "semantic-outcome",
+                "normalizationRule": "canonical-object",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.semantic-field"
+            },
+            {
+                "schemaPath": "$metadata",
+                "category": "semantic-outcome",
+                "normalizationRule": "canonical-object",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.generatedAt",
+                "category": "diagnostic-metadata",
+                "normalizationRule": "text",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.startedAt",
+                "category": "diagnostic-metadata",
+                "normalizationRule": "text",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.finishedAt",
+                "category": "diagnostic-metadata",
+                "normalizationRule": "text",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.errorText",
+                "category": "diagnostic-metadata",
+                "normalizationRule": "text",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.stack",
+                "category": "diagnostic-metadata",
+                "normalizationRule": "text",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.durationMs",
+                "category": "volatile-metadata",
+                "normalizationRule": "nonnegative-number",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.pid",
+                "category": "volatile-metadata",
+                "normalizationRule": "nonnegative-number",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.pgid",
+                "category": "volatile-metadata",
+                "normalizationRule": "nonnegative-number",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.port",
+                "category": "volatile-metadata",
+                "normalizationRule": "nonnegative-number",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.mtime",
+                "category": "volatile-metadata",
+                "normalizationRule": "nonnegative-number",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.path",
+                "category": "evidence-location",
+                "normalizationRule": "text",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$metadata.secretContext",
+                "category": "secret-redacted",
+                "normalizationRule": "redacted-secret",
+                "required": false,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.inputAuthorityRefs[].kind",
+                "normalizationRule": "text",
+                "category": "execution-identity",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.inputAuthorityRefs[].path",
+                "normalizationRule": "repository-relative-path",
+                "category": "evidence-location",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            },
+            {
+                "schemaPath": "$.inputAuthorityRefs[].digest",
+                "normalizationRule": "digest",
+                "category": "evidence-location",
+                "required": true,
+                "owner": "outcome-contract",
+                "proofTestId": "outcome:recursive-canonicalization",
+                "reasonCode": "contract.identity"
+            }
+        ],
+        "profiles": [
+            {
+                "producerId": "immutable-build-semantic-outcome",
+                "authorityId": "tools/test-matrix/outcomes/immutable-build-adapter.mjs",
+                "fields": [
+                    {
+                        "schemaPath": "$.outcome.membership.actualArtifactIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.plannedArtifactIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.verificationAssertionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.verifiedArtifactIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.artifactSemanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "build-artifact-map",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    }
+                ],
+                "setRelations": [
+                    {
+                        "subset": "actualArtifactIds",
+                        "superset": "plannedArtifactIds"
+                    },
+                    {
+                        "subset": "verifiedArtifactIds",
+                        "superset": "actualArtifactIds"
+                    }
+                ],
+                "successEqualSets": [
+                    [
+                        "plannedArtifactIds",
+                        "actualArtifactIds",
+                        "verifiedArtifactIds"
+                    ]
+                ],
+                "disjointSets": [],
+                "digestBindings": [
+                    {
+                        "map": "artifactSemanticDigests",
+                        "ids": "verifiedArtifactIds"
+                    }
+                ]
+            },
+            {
+                "producerId": "release-projection-semantic-outcome",
+                "authorityId": "tools/test-matrix/outcomes/release-projection-adapter.mjs",
+                "fields": [
+                    {
+                        "schemaPath": "$.outcome.membership.blockedProjectionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.failedProjectionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.producedProjectionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.requiredProjectionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.verifiedProjectionIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.semanticDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest-map",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    }
+                ],
+                "setRelations": [
+                    {
+                        "subset": "producedProjectionIds",
+                        "superset": "requiredProjectionIds"
+                    },
+                    {
+                        "subset": "verifiedProjectionIds",
+                        "superset": "producedProjectionIds"
+                    },
+                    {
+                        "subset": "failedProjectionIds",
+                        "superset": "producedProjectionIds"
+                    },
+                    {
+                        "subset": "blockedProjectionIds",
+                        "superset": "requiredProjectionIds"
+                    }
+                ],
+                "successEqualSets": [
+                    [
+                        "requiredProjectionIds",
+                        "producedProjectionIds",
+                        "verifiedProjectionIds"
+                    ]
+                ],
+                "disjointSets": [
+                    [
+                        "verifiedProjectionIds",
+                        "failedProjectionIds",
+                        "blockedProjectionIds"
+                    ]
+                ],
+                "digestBindings": [
+                    {
+                        "map": "semanticDigests",
+                        "ids": "verifiedProjectionIds"
+                    }
+                ]
+            },
+            {
+                "producerId": "release-finalizer-semantic-outcome",
+                "authorityId": "tools/test-matrix/outcomes/release-finalizer-adapter.mjs",
+                "fields": [
+                    {
+                        "schemaPath": "$.outcome.membership.blockedInputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.consumedInputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.failedInputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.producedOutputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.requiredInputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.requiredOutputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.verifiedInputIds",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "ids",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    },
+                    {
+                        "schemaPath": "$.outcome.membership.outputDigests",
+                        "category": "semantic-outcome",
+                        "normalizationRule": "digest-map",
+                        "required": true,
+                        "owner": "outcome-contract",
+                        "proofTestId": "outcome:recursive-canonicalization",
+                        "reasonCode": "contract.semantic-field"
+                    }
+                ],
+                "setRelations": [
+                    {
+                        "subset": "consumedInputIds",
+                        "superset": "requiredInputIds"
+                    },
+                    {
+                        "subset": "verifiedInputIds",
+                        "superset": "consumedInputIds"
+                    },
+                    {
+                        "subset": "failedInputIds",
+                        "superset": "consumedInputIds"
+                    },
+                    {
+                        "subset": "blockedInputIds",
+                        "superset": "requiredInputIds"
+                    },
+                    {
+                        "subset": "producedOutputIds",
+                        "superset": "requiredOutputIds"
+                    }
+                ],
+                "successEqualSets": [
+                    [
+                        "requiredInputIds",
+                        "consumedInputIds",
+                        "verifiedInputIds"
+                    ],
+                    [
+                        "requiredOutputIds",
+                        "producedOutputIds"
+                    ]
+                ],
+                "disjointSets": [
+                    [
+                        "verifiedInputIds",
+                        "failedInputIds",
+                        "blockedInputIds"
+                    ]
+                ],
+                "digestBindings": [
+                    {
+                        "map": "outputDigests",
+                        "ids": "producedOutputIds"
+                    }
+                ]
+            }
+        ]
+    }
 }
