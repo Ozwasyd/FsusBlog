@@ -15,7 +15,7 @@ namespace FsusBlog.Migration;
 /// Observes native catalogs and legacy business preconditions without changing database data.
 /// It never builds old inputs from current entities, a JSON receipt, or a caller's assertions.
 /// </summary>
-public sealed class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSourceObserver
+public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSnapshotSourceObserver
 {
     internal const int MaximumMetadataRows = 4096;
     internal const int MaximumMetadataCharacters = 4 * 1024 * 1024;
