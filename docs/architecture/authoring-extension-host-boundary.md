@@ -265,6 +265,20 @@ the ordered entries. The lowercase hexadecimal digest is checked before receipts
 or state side effects; it identifies the frozen payload and does not authorize it
 or replace owned-scope, package, transform or budget checks.
 
+Before hashing or copying, the lifecycle owner checks the existing 256-character
+bounded-field ceiling for every payload string, the existing 1000-transform
+ceiling, and checked per-entry/cumulative default-byte lengths against the plan's
+`MaximumBytes` (still capped at 536870912). Fixed-width fields, at most three UTF-8
+bytes per bounded UTF-16 code unit, and bounded transform count also bound framing
+work; framing metadata is not state/default data charged to `MaximumBytes`. The
+identity producer may encode bounded but unauthorized values; only the coordinator
+applies the independent scope and numeric admission checks. Before its first
+asynchronous operation, the coordinator privately copies the transform array and
+all default bytes, validates that actual snapshot and passes only that same plan
+to backup, apply and rollback. One linked caller/`MaximumDuration` deadline covers
+copy, digest work and forward migration calls; rollback/resource cleanup retains
+its existing uncancelled recovery contract. Failure does not enable the new version.
+
 This commit defines the generic lifecycle/resource interfaces and orchestration;
 it does not register a command contribution or a second editor authority. Durable
 production receipt/state/grant stores and a real host registration owner are still

@@ -182,7 +182,8 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
     IAuthoringLifecyclePreflight preflight,
     IAuthoringExtensionStateStore stateStore,
     IAuthoringLifecycleReceiptStore receiptStore,
-    IAuthoringCapabilityGrantCatalog grants)
+    IAuthoringCapabilityGrantCatalog grants,
+    TimeProvider? timeProvider = null)
 {
     public async ValueTask<AuthoringLifecycleReceipt> EnableAsync(
         VerifiedAuthoringPackage package,
@@ -292,9 +293,15 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringStateMigrationPlan plan,
         CancellationToken cancellationToken = default)
     {
-        ValidateMigration(oldPackage, newPackage, plan);
+        ValidateMigration(oldPackage, newPackage, plan, validateDigest: false, cancellationToken);
+        using var durationBudget = new CancellationTokenSource(plan.MaximumDuration, timeProvider ?? TimeProvider.System);
+        using CancellationTokenSource migrationBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, durationBudget.Token);
+        cancellationToken = migrationBudget.Token;
+        plan = FreezeMigrationPlan(plan, cancellationToken);
+        ValidateMigration(oldPackage, newPackage, plan, validateDigest: true, cancellationToken);
         ValidateTargets(newPackage, newTargets);
         AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         AuthoringLifecycleReceipt updating = await RecordAsync(
             oldPackage,
             previous,
@@ -302,7 +309,9 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
             null,
             cancellationToken);
         AuthoringLifecycleReceipt cursor = updating;
+        cancellationToken.ThrowIfCancellationRequested();
         await stateStore.BackupAsync(plan, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         bool oldResourcesRevoked = false;
         bool newResourcesActivated = false;
         long newRunningGeneration = 0;
@@ -326,11 +335,14 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 AuthoringLifecycleState.Migrating,
                 null,
                 cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             await stateStore.ApplyAsync(plan, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!await preflight.VerifyAsync(newPackage, newTargets, cancellationToken))
             {
                 throw new AuthoringExtensionContractException("Updated package failed lifecycle preflight.");
             }
+            cancellationToken.ThrowIfCancellationRequested();
 
             AuthoringLifecycleResourceReport remaining = await resources.RevokeAllAsync(
                 oldPackage.Contract.Manifest.Id,
@@ -341,6 +353,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 throw new AuthoringExtensionContractException("Update could not settle old extension work.");
             }
             oldResourcesRevoked = true;
+            cancellationToken.ThrowIfCancellationRequested();
 
             AuthoringLifecycleReceipt starting = await RecordAsync(
                 newPackage,
@@ -349,6 +362,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 null,
                 cancellationToken);
             cursor = starting;
+            cancellationToken.ThrowIfCancellationRequested();
             newRunningGeneration = starting.Generation + 1;
             await resources.ActivateAtomicallyAsync(
                 newPackage,
@@ -356,6 +370,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 newRunningGeneration,
                 cancellationToken);
             newResourcesActivated = true;
+            cancellationToken.ThrowIfCancellationRequested();
             return await RecordAsync(
                 newPackage,
                 starting,
@@ -564,8 +579,11 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
     private static void ValidateMigration(
         VerifiedAuthoringPackage oldPackage,
         VerifiedAuthoringPackage newPackage,
-        AuthoringStateMigrationPlan plan)
+        AuthoringStateMigrationPlan plan,
+        bool validateDigest,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ValidateOwnedScope(oldPackage, plan.From);
         ValidateOwnedScope(newPackage, plan.To);
         if (!string.Equals(oldPackage.Contract.Manifest.Id, newPackage.Contract.Manifest.Id, StringComparison.Ordinal) ||
@@ -583,13 +601,109 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
             plan.MaximumBytes is < 0 or > 536_870_912 ||
             plan.MaximumDuration <= TimeSpan.Zero || plan.MaximumDuration > TimeSpan.FromMinutes(5) ||
             plan.Transforms.IsDefault || plan.Transforms.Length > 1000 ||
-            plan.Transforms.Any(static transform => !Enum.IsDefined(transform.Kind)) ||
+            plan.Transforms.Any(static transform => transform is null || !Enum.IsDefined(transform.Kind) ||
+                !IsBoundedField(transform.SourceKey, 256) ||
+                (transform.DestinationKey is not null && !IsBoundedField(transform.DestinationKey, 256))) ||
             !IsBoundedField(plan.BackupReference, 256) ||
             !IsBoundedField(plan.RollbackReference, 256) ||
-            !IsSha256(plan.ContentSha256) ||
-            !string.Equals(plan.ContentSha256, ComputeMigrationPlanSha256(plan), StringComparison.Ordinal))
+            !IsSha256(plan.ContentSha256))
         {
             throw new AuthoringExtensionContractException("Migration plan is cross-scope, unbounded, executable, or not identity-bound.");
+        }
+        ValidateMigrationPayloadWork(plan, cancellationToken);
+        if (validateDigest && !string.Equals(plan.ContentSha256,
+                ComputeMigrationPlanSha256(plan, cancellationToken), StringComparison.Ordinal))
+        {
+            throw new AuthoringExtensionContractException("Migration plan content changed after it was frozen.");
+        }
+    }
+
+    private static AuthoringStateMigrationPlan FreezeMigrationPlan(
+        AuthoringStateMigrationPlan plan,
+        CancellationToken cancellationToken)
+    {
+        ValidateMigrationPayloadWork(plan, cancellationToken);
+        var transforms = ImmutableArray.CreateBuilder<AuthoringStateTransform>(plan.Transforms.Length);
+        long copiedBytes = 0;
+        foreach (AuthoringStateTransform transform in plan.Transforms)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(transform);
+            ValidateMigrationFieldLength(transform.SourceKey);
+            ValidateMigrationFieldLength(transform.DestinationKey);
+            ImmutableArray<byte> source = transform.DefaultValue;
+            copiedBytes = checked(copiedBytes + (source.IsDefault ? 0 : source.Length));
+            if (copiedBytes > plan.MaximumBytes)
+            {
+                throw new AuthoringExtensionContractException("Migration default payload exceeds the frozen byte budget.");
+            }
+            ImmutableArray<byte> copy = default;
+            if (!source.IsDefault)
+            {
+                byte[] bytes = new byte[source.Length];
+                for (int offset = 0; offset < bytes.Length;)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    int count = Math.Min(64 * 1024, bytes.Length - offset);
+                    source.AsSpan(offset, count).CopyTo(bytes.AsSpan(offset, count));
+                    offset += count;
+                }
+                copy = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(bytes);
+            }
+            transforms.Add(transform with { DefaultValue = copy });
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return plan with { Transforms = transforms.MoveToImmutable() };
+    }
+
+    private static void ValidateMigrationPayloadWork(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(plan.From);
+        ArgumentNullException.ThrowIfNull(plan.To);
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateMigrationFieldLength(plan.PlanId);
+        ValidateScope(plan.From);
+        ValidateScope(plan.To);
+        ValidateMigrationFieldLength(plan.BackupReference);
+        ValidateMigrationFieldLength(plan.RollbackReference);
+        if (!plan.Transforms.IsDefault && plan.Transforms.Length > 1000)
+        {
+            throw new AuthoringExtensionContractException("Migration transform count exceeds the closed payload bound.");
+        }
+        long payloadBytes = 0;
+        long byteBudget = Math.Clamp(plan.MaximumBytes, 0, 536_870_912);
+        if (!plan.Transforms.IsDefault)
+        {
+            foreach (AuthoringStateTransform transform in plan.Transforms)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ArgumentNullException.ThrowIfNull(transform);
+                ValidateMigrationFieldLength(transform.SourceKey);
+                ValidateMigrationFieldLength(transform.DestinationKey);
+                payloadBytes = checked(payloadBytes + (transform.DefaultValue.IsDefault ? 0 : transform.DefaultValue.Length));
+                if (payloadBytes > byteBudget)
+                {
+                    throw new AuthoringExtensionContractException("Migration default payload exceeds the declared byte budget.");
+                }
+            }
+        }
+
+        static void ValidateScope(AuthoringStateScope scope)
+        {
+            ValidateMigrationFieldLength(scope.ExtensionId);
+            ValidateMigrationFieldLength(scope.ExtensionVersion);
+            ValidateMigrationFieldLength(scope.SiteId);
+            ValidateMigrationFieldLength(scope.UserId);
+            ValidateMigrationFieldLength(scope.DocumentId);
+        }
+    }
+
+    private static void ValidateMigrationFieldLength(string? value)
+    {
+        if (value?.Length > 256)
+        {
+            throw new AuthoringExtensionContractException("Migration field exceeds the existing bounded-field length.");
         }
     }
 
@@ -776,12 +890,14 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
 
     /// <summary>Computes the complete frozen migration payload identity, not migration authorization.</summary>
     /// <param name="plan">The closed migration payload whose digest field is excluded.</param>
+    /// <param name="cancellationToken">Cancellation of the bounded payload scan.</param>
     /// <returns>The lowercase SHA-256 of the versioned, length-prefixed payload.</returns>
-    public static string ComputeMigrationPlanSha256(AuthoringStateMigrationPlan plan)
+    public static string ComputeMigrationPlanSha256(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(plan.From);
         ArgumentNullException.ThrowIfNull(plan.To);
+        ValidateMigrationPayloadWork(plan, cancellationToken);
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
         WriteString("fsusblog.authoring-state-migration-plan.v1");
@@ -792,6 +908,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         WriteInt64(plan.MaximumBytes);
         WriteInt64(plan.MaximumDuration.Ticks);
         WriteInt32(plan.Transforms.IsDefault ? -1 : plan.Transforms.Length);
+        long hashedDefaultBytes = 0;
         if (!plan.Transforms.IsDefault)
         {
             foreach (AuthoringStateTransform transform in plan.Transforms)
@@ -800,15 +917,29 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 WriteInt32((int)transform.Kind);
                 WriteString(transform.SourceKey);
                 WriteString(transform.DestinationKey);
-                WriteInt32(transform.DefaultValue.IsDefault ? -1 : transform.DefaultValue.Length);
-                if (!transform.DefaultValue.IsDefault)
+                ImmutableArray<byte> defaultValue = transform.DefaultValue;
+                hashedDefaultBytes = checked(hashedDefaultBytes + (defaultValue.IsDefault ? 0 : defaultValue.Length));
+                if (hashedDefaultBytes > Math.Clamp(plan.MaximumBytes, 0, 536_870_912))
                 {
-                    hash.AppendData(transform.DefaultValue.AsSpan());
+                    throw new AuthoringExtensionContractException("Migration default payload exceeds the declared byte budget.");
+                }
+                WriteInt32(defaultValue.IsDefault ? -1 : defaultValue.Length);
+                if (!defaultValue.IsDefault)
+                {
+                    ReadOnlySpan<byte> remainingBytes = defaultValue.AsSpan();
+                    while (!remainingBytes.IsEmpty)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        int count = Math.Min(64 * 1024, remainingBytes.Length);
+                        hash.AppendData(remainingBytes[..count]);
+                        remainingBytes = remainingBytes[count..];
+                    }
                 }
             }
         }
         WriteString(plan.BackupReference);
         WriteString(plan.RollbackReference);
+        cancellationToken.ThrowIfCancellationRequested();
         return Convert.ToHexStringLower(hash.GetHashAndReset());
 
         void WriteScope(AuthoringStateScope scope)
@@ -823,6 +954,8 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
 
         void WriteString(string? value)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateMigrationFieldLength(value);
             if (value is null)
             {
                 WriteInt32(-1);
@@ -835,6 +968,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
             bool completed;
             do
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 encoder.Convert(remaining, bytes, flush: true,
                     out int charactersUsed, out int bytesUsed, out completed);
                 hash.AppendData(bytes[..bytesUsed]);

@@ -434,6 +434,256 @@ public sealed class AuthoringExtensionLifecycleTests
             AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan with { PlanId = "\ud800" }));
     }
 
+    [Theory]
+    [InlineData("receipt", false)]
+    [InlineData("backup", false)]
+    [InlineData("receipt", true)]
+    [InlineData("backup", true)]
+    public async Task UpdateAsync_CallerBackingMutationCannotChangeTheAdmittedSnapshot(string stage, bool failApply)
+    {
+        byte[] callerBytes = [1, 2];
+        AuthoringStateTransform[] callerTransforms =
+        [new(AuthoringStateTransformKind.SetDefault, "new", null,
+            System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(callerBytes))];
+        bool mutated = false;
+        void MutateCaller()
+        {
+            callerBytes[0] = 9;
+            callerTransforms[0] = callerTransforms[0] with { SourceKey = "changed-after-admission" };
+            mutated = true;
+        }
+        var state = new StateStore
+        {
+            FailMigration = failApply,
+            BeforeBackup = stage == "backup" ? _ => MutateCaller() : null
+        };
+        var receipts = new ReceiptStore
+        {
+            BeforeAppend = stage == "receipt" ? _ => MutateCaller() : null
+        };
+        LifecycleFixture fixture = CreateFixture(stateStore: state, receiptStore: receipts);
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan callerPlan = SealPlan(CreatePlan(fixture.Package, next) with
+        {
+            Transforms = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(callerTransforms)
+        });
+
+        if (failApply)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), callerPlan));
+        }
+        else
+        {
+            AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+                fixture.Package, next, CreateTargets(next), callerPlan);
+            Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+        }
+
+        Assert.True(mutated);
+        Assert.Equal(9, callerBytes[0]);
+        Assert.Equal("changed-after-admission", callerTransforms[0].SourceKey);
+        AuthoringStateMigrationPlan snapshot = Assert.IsType<AuthoringStateMigrationPlan>(state.BackupPlan);
+        Assert.NotSame(callerPlan, snapshot);
+        Assert.Same(snapshot, state.AppliedPlan);
+        Assert.Equal("new", snapshot.Transforms[0].SourceKey);
+        Assert.Equal(new byte[] { 1, 2 }, snapshot.Transforms[0].DefaultValue.ToArray());
+        Assert.NotSame(callerBytes,
+            System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsArray(snapshot.Transforms[0].DefaultValue));
+        Assert.Equal(callerPlan.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(snapshot));
+        if (failApply)
+        {
+            Assert.Same(snapshot, state.RolledBackPlan);
+            Assert.False(state.RollbackToken.CanBeCanceled);
+        }
+        else
+        {
+            Assert.Null(state.RolledBackPlan);
+        }
+    }
+
+    [Theory]
+    [InlineData("source-key")]
+    [InlineData("destination-key")]
+    [InlineData("default-entry")]
+    [InlineData("default-total")]
+    [InlineData("zero-byte-budget")]
+    [InlineData("transform-count")]
+    public async Task MigrationPayload_PreflightRejectsUnboundedWorkBeforeHashCopyOrState(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        var defaults = new AuthoringStateTransform(AuthoringStateTransformKind.SetDefault, "new", null, [1, 2]);
+        AuthoringStateMigrationPlan oversized = field switch
+        {
+            "source-key" => original with { Transforms = [original.Transforms[0] with { SourceKey = new string('x', 257) }] },
+            "destination-key" => original with { Transforms = [original.Transforms[0] with { DestinationKey = new string('x', 257) }] },
+            "default-entry" => original with { MaximumBytes = 1, Transforms = [defaults] },
+            "default-total" => original with { MaximumBytes = 2, Transforms = [defaults, defaults] },
+            "zero-byte-budget" => original with { MaximumBytes = 0, Transforms = [defaults] },
+            "transform-count" => original with { Transforms = Enumerable.Repeat(original.Transforms[0], 1001).ToImmutableArray() },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(oversized));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), oversized));
+        Assert.False(fixture.State.BackupCalled);
+        Assert.Empty(fixture.Receipts.All);
+        Assert.Equal(0, fixture.Resources.ActivationCount);
+    }
+
+    [Fact]
+    public async Task MigrationPayload_ExactFieldAndDefaultBudgetBoundaryRemainsLegal()
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan plan = SealPlan(CreatePlan(fixture.Package, next) with
+        {
+            MaximumBytes = 2,
+            Transforms = [new(AuthoringStateTransformKind.SetDefault, new string('k', 256), null, [1, 2])]
+        });
+
+        AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+            fixture.Package, next, CreateTargets(next), plan);
+        Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+        Assert.Equal(new byte[] { 1, 2 }, fixture.State.AppliedPlan!.Transforms[0].DefaultValue.ToArray());
+    }
+
+    [Theory]
+    [InlineData("caller")]
+    [InlineData("duration")]
+    public async Task UpdateAsync_OneCallerAndDurationBudgetStopsForwardStateAfterBackup(string cause)
+    {
+        using var caller = new CancellationTokenSource();
+        var clock = new MigrationDeadlineTimeProvider();
+        var state = new StateStore
+        {
+            BeforeBackup = _ =>
+            {
+                if (cause == "caller")
+                {
+                    caller.Cancel();
+                }
+                else
+                {
+                    clock.Expire();
+                }
+            }
+        };
+        LifecycleFixture fixture = CreateFixture(stateStore: state, timeProvider: clock);
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan plan = CreatePlan(fixture.Package, next);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), plan, caller.Token));
+        Assert.Equal(plan.MaximumDuration, clock.Duration);
+        Assert.True(clock.TimerDisposed);
+        Assert.True(state.BackupCalled);
+        Assert.Null(state.AppliedPlan);
+        Assert.Equal(0, fixture.Resources.ActivationCount);
+        Assert.DoesNotContain(fixture.Receipts.All, receipt => receipt.State == AuthoringLifecycleState.Running);
+    }
+
+    [Fact]
+    public void MigrationDigest_CancelledCallerCannotStartThePayloadScan()
+    {
+        LifecycleFixture fixture = CreateFixture();
+        AuthoringStateMigrationPlan plan = CreatePlan(fixture.Package, CreatePackage("2.0.0", 2));
+        using var caller = new CancellationTokenSource();
+        caller.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(plan, caller.Token));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UpdateAsync_FrozenDefaultBytesPreserveDefaultAndEmpty(bool useDefault)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        AuthoringStateMigrationPlan plan = SealPlan(original with
+        {
+            Transforms = [original.Transforms[0] with
+            {
+                DefaultValue = useDefault ? default : ImmutableArray<byte>.Empty
+            }]
+        });
+
+        AuthoringLifecycleReceipt receipt = await fixture.Coordinator.UpdateAsync(
+            fixture.Package, next, CreateTargets(next), plan);
+        Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
+        Assert.Equal(useDefault, fixture.State.AppliedPlan!.Transforms[0].DefaultValue.IsDefault);
+        Assert.Equal(plan.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(fixture.State.AppliedPlan));
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("destination")]
+    public async Task UpdateAsync_DigestDoesNotAuthorizeEmptyTransformKeys(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan original = CreatePlan(fixture.Package, next);
+        AuthoringStateTransform transform = field == "source"
+            ? original.Transforms[0] with { SourceKey = string.Empty }
+            : original.Transforms[0] with { DestinationKey = string.Empty };
+        AuthoringStateMigrationPlan plan = SealPlan(original with { Transforms = [transform] });
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), plan));
+        Assert.False(fixture.State.BackupCalled);
+        Assert.Empty(fixture.Receipts.All);
+    }
+
+    private sealed class MigrationDeadlineTimeProvider : TimeProvider
+    {
+        private OwnedTimer? _timer;
+
+        public TimeSpan Duration { get; private set; }
+
+        public bool TimerDisposed => _timer?.Disposed == true;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            Duration = dueTime;
+            _timer = new OwnedTimer(callback, state);
+            return _timer;
+        }
+
+        public void Expire() => _timer!.Fire();
+
+        private sealed class OwnedTimer(TimerCallback callback, object? state) : ITimer
+        {
+            public bool Disposed { get; private set; }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period) => !Disposed;
+
+            public void Fire()
+            {
+                if (!Disposed)
+                {
+                    callback(state);
+                }
+            }
+
+            public void Dispose() => Disposed = true;
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
+    }
+
     [Fact]
     public async Task DeleteOwnedDataAsync_CannotDeleteCoreOrOtherPluginScope()
     {
@@ -705,7 +955,8 @@ public sealed class AuthoringExtensionLifecycleTests
     private static LifecycleFixture CreateFixture(
         ResourceAuthority? resources = null,
         StateStore? stateStore = null,
-        ReceiptStore? receiptStore = null)
+        ReceiptStore? receiptStore = null,
+        TimeProvider? timeProvider = null)
     {
         VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
         resources ??= new ResourceAuthority();
@@ -716,7 +967,8 @@ public sealed class AuthoringExtensionLifecycleTests
             new Preflight(true),
             stateStore,
             receipts,
-            new AuthoringCapabilityGrantCatalogStub());
+            new AuthoringCapabilityGrantCatalogStub(),
+            timeProvider);
         return new LifecycleFixture(
             package,
             CreateTargets(package),
@@ -1085,6 +1337,16 @@ public sealed class AuthoringExtensionLifecycleTests
 
     private sealed class StateStore : IAuthoringExtensionStateStore
     {
+        public Action<AuthoringStateMigrationPlan>? BeforeBackup { get; init; }
+
+        public AuthoringStateMigrationPlan? BackupPlan { get; private set; }
+
+        public AuthoringStateMigrationPlan? AppliedPlan { get; private set; }
+
+        public AuthoringStateMigrationPlan? RolledBackPlan { get; private set; }
+
+        public CancellationToken RollbackToken { get; private set; }
+
         public bool FailMigration
         {
             get; init;
@@ -1123,12 +1385,15 @@ public sealed class AuthoringExtensionLifecycleTests
         public ValueTask BackupAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
             BackupCalled = true;
+            BackupPlan = plan;
+            BeforeBackup?.Invoke(plan);
             Trace?.Add("backup");
             return ValueTask.CompletedTask;
         }
 
         public ValueTask ApplyAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
+            AppliedPlan = plan;
             Trace?.Add("apply");
             if (FailMigration)
             {
@@ -1141,6 +1406,8 @@ public sealed class AuthoringExtensionLifecycleTests
         public ValueTask RollbackAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
             RollbackCalled = true;
+            RolledBackPlan = plan;
+            RollbackToken = cancellationToken;
             Trace?.Add("rollback");
             return ValueTask.CompletedTask;
         }
@@ -1158,6 +1425,8 @@ public sealed class AuthoringExtensionLifecycleTests
 
     private sealed class ReceiptStore : IAuthoringLifecycleReceiptStore
     {
+        public Action<AuthoringLifecycleReceipt>? BeforeAppend { get; init; }
+
         public List<AuthoringLifecycleReceipt> All { get; } = [];
 
         public AuthoringLifecycleReceipt? Latest
@@ -1176,6 +1445,7 @@ public sealed class AuthoringExtensionLifecycleTests
 
         public ValueTask AppendAsync(AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken)
         {
+            BeforeAppend?.Invoke(receipt);
             if (FailAppend?.Invoke(receipt) == true)
             {
                 throw new IOException("receipt persistence failed");
