@@ -402,7 +402,24 @@ public static class CurrentSchemaCanonicalAuthority
                 throw new InvalidOperationException("current_schema_complete_target_allocator_provider_unavailable");
             }
             string constraintName = provider == SchemaProviderKind.MySql && constraint.Kind == "primary-key" ? "PRIMARY" : constraint.Name;
-            constraints.Add(constraintName, constraint with { Name = constraintName });
+            if (provider == SchemaProviderKind.MySql && constraintName == "PRIMARY" && constraint.Kind != "primary-key")
+            {
+                throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
+            }
+            if (!constraints.TryAdd(constraintName, constraint with { Name = constraintName }))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
+            }
+            if (provider == SchemaProviderKind.MySql && constraint.Kind == "primary-key")
+            {
+                // Native MySQL primary keys implicitly make every key column NOT
+                // NULL. Derive only physical facts; the original input and its
+                // semantic/source/content identity retain the declared nullability.
+                foreach (string name in constraint.Columns)
+                {
+                    columns[name] = columns[name] with { IsNullable = false, IsPrimaryKey = true };
+                }
+            }
             ordinal++;
             string indexName = provider == SchemaProviderKind.Sqlite ? $"sqlite_autoindex_{physical.Name}_{ordinal}" : constraintName;
             indexes.Add(indexName, PortableIndex(new(indexName, true,
@@ -411,9 +428,18 @@ public static class CurrentSchemaCanonicalAuthority
         }
         foreach ((string name, SchemaIndexModel index) in semantic.IndexDefinitions)
         {
-            if (name != index.Name || !indexes.TryAdd(index.Name, PortableIndex(index, columns, provider)))
+            if (name != index.Name || provider == SchemaProviderKind.MySql && index.Name == "PRIMARY"
+                || !indexes.TryAdd(index.Name, PortableIndex(index, columns, provider)))
             {
                 throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
+            }
+            // MySQL exposes each explicit UNIQUE index as a TABLE_CONSTRAINTS
+            // member too. This is the same owned key, not another semantic index
+            // or a second constraint backing index to synthesize.
+            if (provider == SchemaProviderKind.MySql && index.IsUnique
+                && !constraints.TryAdd(index.Name, new(index.Name, "unique", index.Keys.Select(static key => key.Column).ToArray())))
+            {
+                throw new InvalidOperationException("current_schema_complete_target_effect_constraint_conflict");
             }
         }
         return new(physical.Name, columns, indexes.Keys, indexes, constraints, physical.Owner);

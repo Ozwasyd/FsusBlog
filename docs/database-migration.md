@@ -241,6 +241,13 @@ with `BINARY` keys. SQLite physical `TEXT` has no length modifier, while the ori
 semantic 64/160-character bounds and source/content identities remain intact.
 These descriptions grant neither control-table creation nor a business transaction.
 
+MySQL's physical projection also includes the native unique constraint of each
+explicit unique index, without inventing another backing index. Primary-key columns
+are physically non-null and marked as key members, as required by native MySQL;
+the original logical nullability, owned input bytes and target identity are not
+rewritten. Conflicting native key names, multiple primary keys or unknown key
+columns refuse rather than silently choosing one input fact.
+
 `ProjectOwnedTarget` can project closed neutral relational facts and typed added
 columns, constraints and indexes to MySQL/SQLite without copying entity mappings.
 Unsupported defaults/computed or check expressions, business text collation,

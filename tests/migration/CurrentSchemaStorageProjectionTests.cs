@@ -126,6 +126,18 @@ public sealed class CurrentSchemaStorageProjectionTests
         Assert.Equal(3, result.Tables.Tables.Count);
         Assert.Equal(provider == SchemaProviderKind.MySql ? "bigint" : "INTEGER", result.Tables.Tables[recipe.Name].Columns["added"].PhysicalType);
         Assert.Equal("first", result.Tables.Tables[recipe.Name].IndexDefinitions[index.Name].Keys[0].NullPlacement);
+        if (provider == SchemaProviderKind.MySql)
+        {
+            SchemaConstraintModel nativeUnique = Assert.Single(result.Tables.Tables[recipe.Name].Constraints.Values);
+            Assert.Equal("idx_added", nativeUnique.Name);
+            Assert.Equal("unique", nativeUnique.Kind);
+            Assert.Equal(new[] { "added" }, nativeUnique.Columns);
+            Assert.Single(result.Tables.Tables[recipe.Name].IndexDefinitions);
+        }
+        else
+        {
+            Assert.Empty(result.Tables.Tables[recipe.Name].Constraints);
+        }
         Assert.Empty(result.SchemaEffects);
         Assert.Empty(result.BootstrapDataEffects);
         Assert.Empty(result.IndependentSequences);
@@ -178,6 +190,114 @@ public sealed class CurrentSchemaStorageProjectionTests
             check is null ? null : new Dictionary<string, SchemaConstraintModel> { [check.Name] = check });
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
             PortableEntity(), [Reference(recipe)], provider));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void MySqlOwnedExplicitIndex_ProjectsUniqueConstraintOnlyForUniqueKey(bool unique)
+    {
+        var column = new SchemaColumnModel("counter", true, false, false, null, "int64");
+        var index = new SchemaIndexModel("idx_counter", unique, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
+        SchemaTableModel recipe = new("recipe", new(StringComparer.Ordinal) { [column.Name] = column }, [index.Name],
+            new Dictionary<string, SchemaIndexModel> { [index.Name] = index });
+        CurrentSchemaRequiredRecipeReference[] references = [Reference(recipe)];
+        CurrentSchemaIdentity original = CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references);
+        CurrentSchemaCompletePhysicalProjection result = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            PortableEntity(), references, SchemaProviderKind.MySql);
+        SchemaTableModel physical = result.Tables.Tables[recipe.Name];
+        Assert.Single(physical.IndexDefinitions);
+        Assert.Equal(unique, physical.IndexDefinitions["idx_counter"].IsUnique);
+        Assert.True(physical.Columns["counter"].IsNullable);
+        if (unique)
+        {
+            SchemaConstraintModel constraint = Assert.Single(physical.Constraints.Values);
+            Assert.Equal("idx_counter", constraint.Name);
+            Assert.Equal("unique", constraint.Kind);
+            Assert.Equal(new[] { "counter" }, constraint.Columns);
+        }
+        else
+        {
+            Assert.Empty(physical.Constraints);
+        }
+        Assert.Empty(recipe.Constraints);
+        Assert.Equal(original, result.Tables.Identity);
+        Assert.Equal(original, CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references));
+    }
+
+    [Fact]
+    public void MySqlOwnedPrimaryKey_ProjectsImplicitNotNullWithoutChangingOriginalLogicalFacts()
+    {
+        var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
+        {
+            ["counter"] = new("counter", true, false, false, null, "int64"),
+            ["other"] = new("other", true, false, false, null, "int64"),
+            ["unused"] = new("unused", true, false, false, null, "int64")
+        };
+        var primary = new SchemaConstraintModel("original_primary", "primary-key", ["other", "counter"]);
+        SchemaTableModel recipe = new("recipe", columns, [], constraints: new Dictionary<string, SchemaConstraintModel> { [primary.Name] = primary });
+        CurrentSchemaRequiredRecipeReference[] references = [Reference(recipe)];
+        CurrentSchemaIdentity original = CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references);
+        CurrentSchemaCompletePhysicalProjection result = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            PortableEntity(), references, SchemaProviderKind.MySql);
+        SchemaTableModel physical = result.Tables.Tables[recipe.Name];
+        SchemaConstraintModel nativePrimary = Assert.Single(physical.Constraints.Values);
+        Assert.Equal("PRIMARY", nativePrimary.Name);
+        Assert.Equal("primary-key", nativePrimary.Kind);
+        Assert.Equal(new[] { "other", "counter" }, nativePrimary.Columns);
+        Assert.Equal(new[] { "other", "counter" }, Assert.Single(physical.IndexDefinitions.Values).Keys.Select(key => key.Column));
+        Assert.All(nativePrimary.Columns, name =>
+        {
+            Assert.False(physical.Columns[name].IsNullable);
+            Assert.True(physical.Columns[name].IsPrimaryKey);
+        });
+        Assert.True(physical.Columns["unused"].IsNullable);
+        Assert.False(physical.Columns["unused"].IsPrimaryKey);
+        Assert.All(recipe.Columns.Values, column =>
+        {
+            Assert.True(column.IsNullable);
+            Assert.False(column.IsPrimaryKey);
+        });
+        Assert.Equal("original_primary", Assert.Single(recipe.Constraints.Values).Name);
+        Assert.Equal(original, result.Tables.Identity);
+        Assert.Equal(original, CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references));
+    }
+
+    [Theory]
+    [InlineData("duplicate-primary")]
+    [InlineData("unique-key-collision")]
+    [InlineData("missing-primary-column")]
+    [InlineData("reserved-primary-index")]
+    public void MySqlOwnedNativeKeys_RefuseCorruptOrConflictingWholeInput(string corruption)
+    {
+        var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
+        {
+            ["counter"] = new("counter", false, false, false, null, "int64"),
+            ["other"] = new("other", false, false, false, null, "int64")
+        };
+        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
+        var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
+        if (corruption == "duplicate-primary")
+        {
+            constraints.Add("first", new("first", "primary-key", ["counter"]));
+            constraints.Add("second", new("second", "primary-key", ["other"]));
+        }
+        else if (corruption == "missing-primary-column")
+        {
+            constraints.Add("first", new("first", "primary-key", ["missing"]));
+        }
+        else
+        {
+            string name = corruption == "reserved-primary-index" ? "PRIMARY" : "same_name";
+            indexes.Add(name, new(name, true, [new("other", "asc", "first", "default", "default")], [], "btree", null, false));
+            if (corruption == "unique-key-collision")
+            {
+                constraints.Add(name, new(name, "unique", ["counter"]));
+            }
+        }
+        SchemaTableModel recipe = new("recipe", columns, indexes.Keys, indexes, constraints);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            PortableEntity(), [Reference(recipe)], SchemaProviderKind.MySql));
     }
 
     private static CurrentSchemaProjection PortableEntity()
