@@ -934,6 +934,21 @@ export function inspectProductionSystemdServiceBinding(serviceBinding, {
     return freezeDeep(observed ? { status: 'present', ...observed } : { status: 'absent', identity: null });
 }
 
+/** Revalidate the original in-process grant without creating a service admission or adopting a reference. */
+export function assertProductionSystemdExecutionBoundary(boundary, { expectedContext })
+{
+    const binding = executionBoundaries.get(boundary);
+    if (!binding)
+    {
+        throw new Error('systemd execution boundary requires its original live resource-owner capability');
+    }
+    if (canonicalJson(requireContext(expectedContext)) !== canonicalJson(boundary.reference.context))
+    {
+        throw new Error('systemd resource service execution context differs from its live resource owner');
+    }
+    return binding.verify();
+}
+
 /** Bind an existing process owner's planned service to a live, in-process resource admission. */
 export function prepareProductionSystemdServiceAdmission(boundary, { unitName, authorityId, expectedContext })
 {

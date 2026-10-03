@@ -13,6 +13,10 @@ import {
     resolveProductionCgroupCapabilities
 } from '../../tools/test-matrix/production-resource-enforcement.mjs';
 import { runDag } from '../../tools/test-matrix/scheduler.mjs';
+import {
+    assertProductionSystemdExecutionBoundary,
+    prepareProductionSystemdResourceBoundary
+} from '../../tools/test-matrix/production-systemd-resource-boundary.mjs';
 
 function fakeCgroup()
 {
@@ -1675,4 +1679,225 @@ test('held launcher report restoration cannot hide a changed original process in
     value.observedPids.length = 0;
     assert.equal(value.lease.assertHeld(value.context).process.cpuUnits, 3);
     assert.deepEqual(value.observedPids, [value.original.pid, value.original.pid]);
+});
+
+// COMPONENT_SIMULATION: original manager APIs use the existing controlled transport, not OS admission.
+test('component live systemd assertion revalidates the same opaque grant without service admission', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(bundleId);
+    const expectedContext = boundary.reference.context;
+    const events = [...fixture.events];
+    const first = assertProductionSystemdExecutionBoundary(boundary, { expectedContext });
+    assert.deepEqual(first, boundary.admission);
+    assert.equal(first.unitName, fixture.unit.ControlGroup.split('/').at(-1));
+    assert.deepEqual(fixture.events, events);
+    assert.equal(fixture.launcherUnit, null);
+    assert.equal(fixture.launcherGroup, null);
+
+    const changedGrant = enforcer.update(bundleId, { cpuUnits: 0.5, memoryGiB: 0.5 });
+    const changedEvents = [...fixture.events];
+    const current = assertProductionSystemdExecutionBoundary(boundary, {
+        expectedContext: structuredClone(expectedContext)
+    });
+    assert.equal(current.unitName, first.unitName);
+    assert.equal(current.inode, first.inode);
+    assert.equal(current.controls['cpu.max'], changedGrant.cpuMax);
+    assert.equal(current.controls['memory.max'], String(changedGrant.memoryMaxBytes));
+    assert.notDeepEqual(current.controls, boundary.admission.controls);
+    assert.deepEqual(fixture.events, changedEvents);
+    assert.equal(enforcer.cleanup().status, 'removed');
+    assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), /owner is closed/u);
+});
+
+test('component live systemd assertion refuses cloned and caller verified boundaries without minting', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    enforcer.update(fixture.context.bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(fixture.context.bundleId);
+    const expectedContext = boundary.reference.context;
+    let fakeCalls = 0;
+    const fake = {
+        ...boundary,
+        verify: () =>
+        {
+            fakeCalls += 1;
+            return boundary.admission;
+        }
+    };
+    const events = [...fixture.events];
+    for (const candidate of [structuredClone(boundary), JSON.parse(JSON.stringify(boundary)), fake])
+    {
+        assert.throws(() => assertProductionSystemdExecutionBoundary(candidate, { expectedContext }),
+            /original live resource-owner capability/u);
+    }
+    assert.equal(fakeCalls, 0);
+    assert.deepEqual(fixture.events, events);
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('component live systemd assertion refuses absent and unregistered private bindings before effects', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    enforcer.update(fixture.context.bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(fixture.context.bundleId);
+    const expectedContext = boundary.reference.context;
+    const events = [...fixture.events];
+    for (const candidate of [undefined, null, {}, { reference: boundary.reference, admission: boundary.admission }])
+    {
+        assert.throws(() => assertProductionSystemdExecutionBoundary(candidate, { expectedContext }),
+            /original live resource-owner capability/u);
+    }
+    assert.deepEqual(fixture.events, events);
+    assert.equal(fixture.launcherUnit, null);
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('component live systemd assertion rejects every changed original context before live verification', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    enforcer.update(fixture.context.bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(fixture.context.bundleId);
+    const expectedContext = boundary.reference.context;
+    const otherRoot = path.join(fixture.context.root, 'different-context-root');
+    fs.mkdirSync(otherRoot);
+    const originalCgroup = fixture.transport.cgroup;
+    let cgroupReads = 0;
+    fixture.transport.cgroup = (...args) =>
+    {
+        cgroupReads += 1;
+        return originalCgroup(...args);
+    };
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    const positiveReads = cgroupReads;
+    assert.ok(positiveReads > 0);
+    const events = [...fixture.events];
+    for (const change of [
+        (context) => { context.root = otherRoot; },
+        (context) => { context.runId = 'other-run'; },
+        (context) => { context.namespace = 'other-namespace'; },
+        (context) => { context.bundleId = 'other-bundle'; },
+        (context) => { context.sourceState.commit = 'c'.repeat(40); },
+        (context) => { context.sourceState.worktreeFingerprint = 'd'.repeat(64); },
+        (context) => { context.schedulerOwnerToken = '22222222-2222-4222-8222-222222222222'; }
+    ])
+    {
+        const changed = structuredClone(expectedContext);
+        change(changed);
+        assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext: changed }),
+            /context differs from its live resource owner/u);
+        assert.equal(cgroupReads, positiveReads);
+        assert.deepEqual(fixture.events, events);
+    }
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('component live systemd assertion preserves malformed context refusal without a default', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    enforcer.update(fixture.context.bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(fixture.context.bundleId);
+    const expectedContext = boundary.reference.context;
+    const originalCgroup = fixture.transport.cgroup;
+    let cgroupReads = 0;
+    fixture.transport.cgroup = (...args) =>
+    {
+        cgroupReads += 1;
+        return originalCgroup(...args);
+    };
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    const positiveReads = cgroupReads;
+    const withoutNamespace = structuredClone(expectedContext);
+    delete withoutNamespace.namespace;
+    const events = [...fixture.events];
+    for (const malformed of [undefined, null, {}, withoutNamespace,
+        { ...expectedContext, extra: true },
+        { ...expectedContext, schedulerOwnerToken: 'not-a-token' },
+        { ...expectedContext, sourceState: { ...expectedContext.sourceState, commit: 'bad' } }])
+    {
+        assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext: malformed }),
+            /requires an exact repository\/run\/source\/namespace\/bundle\/scheduler-owner context/u);
+        assert.equal(cgroupReads, positiveReads);
+        assert.deepEqual(fixture.events, events);
+    }
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('component live systemd assertion refuses drifted controls and expired controller instead of cached admission', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    const boundary = enforcer.executionBoundary(bundleId);
+    const expectedContext = boundary.reference.context;
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    const events = [...fixture.events];
+    fixture.group.controls['pids.max'] = '4096';
+    assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), /controls changed/u);
+    assert.deepEqual(fixture.events, events);
+    fixture.group.controls['pids.max'] = '128';
+    assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext }),
+        /lost its verified current resource grant/u);
+    enforcer.update(bundleId, { cpuUnits: 1, memoryGiB: 1 });
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    fixture.setControllerStatus('expired');
+    assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), /live original controller/u);
+    fixture.setControllerStatus('live');
+    assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext }),
+        /lost its verified current resource grant/u);
+    assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+test('component live systemd assertion propagates the exact captured admission first cause without a new intent', async (t) =>
+{
+    const { fixture } = systemdEnforcerFixture(t);
+    const session = await prepareProductionSystemdResourceBoundary(fixture.context, {
+        ...fixture.options,
+        commandBudgetMs: 1000
+    });
+    session.update(resolveCgroupLimits({ cpuUnits: 1, memoryGiB: 1 }, {
+        cpuUnits: 8,
+        memoryGiB: 16,
+        memoryPageBytes: fixture.runtime.memoryPageBytes
+    }));
+    const primary = new Error('component original admission refused');
+    let refuse = false;
+    let validations = 0;
+    const boundary = session.executionBoundary(() =>
+    {
+        validations += 1;
+        if (refuse)
+        {
+            throw primary;
+        }
+    });
+    assert.equal(validations, 1);
+    const expectedContext = boundary.reference.context;
+    assert.deepEqual(assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), boundary.admission);
+    assert.equal(validations, 2);
+    const originalCgroup = fixture.transport.cgroup;
+    let cgroupReads = 0;
+    fixture.transport.cgroup = (...args) =>
+    {
+        cgroupReads += 1;
+        return originalCgroup(...args);
+    };
+    const events = [...fixture.events];
+    refuse = true;
+    assert.throws(() => assertProductionSystemdExecutionBoundary(boundary, { expectedContext }), (error) => error === primary);
+    assert.equal(validations, 3);
+    assert.equal(cgroupReads, 0);
+    assert.deepEqual(fixture.events, events);
+    assert.equal(fixture.launcherUnit, null);
+    assert.equal(session.cleanup().status, 'removed');
 });
