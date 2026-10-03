@@ -148,6 +148,172 @@ test('parent held refusal preserves original active sibling termination and full
     assert.equal(result.checkpoint.tiers['held-sibling'].exitCode, 0);
 });
 
+test('settled hook cannot launder a real failed SOURCE operation into parent-held success', async (t) =>
+{
+    const { options } = heldCompletionFixture(t);
+    const originalExecute = options.executeTier;
+    const actualError = new Error('original child failure', { cause: new Error('original child cause') });
+    options.executeTier = async () =>
+    {
+        await originalExecute(); // fresh, complete required outputs do exist
+        return { code: 7, signal: 'SIGTERM', error: actualError };
+    };
+    options.afterTierSettled = (_tier, settled) =>
+    {
+        assert.notEqual(settled.executionResult.error, actualError);
+        settled.executionResult.code = 0;
+        settled.executionResult.signal = null;
+        settled.executionResult.error = null;
+    };
+    const result = await runDag(options);
+    const failed = result.checkpoint.tiers['held-producer'];
+    assert.equal(result.status, 'failure');
+    assert.equal(failed.status, 'failure');
+    assert.equal(failed.exitCode, 7);
+    assert.equal(failed.signal, 'SIGTERM');
+    assert.equal(failed.reason, 'original child failure');
+    assert.match(failed.parentCompletionFailure, /settled terminal or log observations changed/u);
+    assert.equal(actualError.message, 'original child failure');
+    assert.deepEqual(result.checkpoint.completedTiers, []);
+});
+
+for (const [name, mutate] of [
+    ['exit code', (settled) => { settled.executionResult.code = 9; }],
+    ['signal', (settled) => { settled.executionResult.signal = 'SIGKILL'; }],
+    ['timeout phase', (settled) => { settled.executionResult.timeoutPhase = 'termination'; }],
+    ['injected physical terminal', (settled) => { settled.executionResult.physicalExecutionTermination = { marker: { original: false } }; }],
+    ['log completion', (settled) => { settled.executionResult.logComplete = false; }],
+    ['log truncation', (settled) => { settled.executionResult.logTruncationReason = 'replacement'; }],
+    ['stdout byte evidence', (settled) => { settled.logEvidence.streams.stdoutBytes += 1; }],
+    ['log raw path', (settled) => { settled.logFile = 'replacement.log'; }]
+])
+{
+    test(`settled hook cannot replace original SOURCE ${name}`, async (t) =>
+    {
+        const { options } = heldCompletionFixture(t);
+        const originalExecute = options.executeTier;
+        options.executeTier = async () =>
+        {
+            await originalExecute();
+            // The existing injected executor normalizer supplies code/signal/error
+            // only. Optional native terminal fields must not be invented by hooks.
+            return { code: 0, signal: null };
+        };
+        options.afterTierSettled = (_tier, settled) => mutate(settled);
+        const result = await runDag(options);
+        const failed = result.checkpoint.tiers['held-producer'];
+        assert.equal(result.status, 'failure');
+        assert.equal(failed.exitCode, 0);
+        assert.equal(failed.signal, null);
+        assert.equal(failed.timeoutPhase, null);
+        assert.equal(failed.physicalExecutionTermination, null);
+        assert.match(failed.parentCompletionFailure, /settled terminal or log observations changed/u);
+        assert.deepEqual(result.checkpoint.completedTiers, []);
+    });
+}
+
+test('settled hook Error message and cause are compared as actual fields, not Error empty JSON', async (t) =>
+{
+    const { options } = heldCompletionFixture(t);
+    const originalExecute = options.executeTier;
+    const error = new Error('original error', { cause: new Error('original cause') });
+    error.code = 'original-code';
+    options.executeTier = async () =>
+    {
+        await originalExecute();
+        return { code: 3, signal: null, error };
+    };
+    options.afterTierSettled = (_tier, settled) =>
+    {
+        assert.equal(settled.executionResult.error.code, 'original-code');
+        settled.executionResult.error.message = 'replacement error';
+    };
+    const result = await runDag(options);
+    assert.equal(result.status, 'failure');
+    assert.equal(result.failure.exitCode, 3);
+    assert.equal(result.failure.reason, 'original error');
+    assert.equal(error.message, 'original error');
+    assert.equal(error.cause.message, 'original cause');
+    assert.match(result.checkpoint.tiers['held-producer'].parentCompletionFailure,
+        /settled terminal or log observations changed/u);
+});
+
+test('settled hook changing only non-enumerable Error cause cannot replace original first cause', async (t) =>
+{
+    const { options } = heldCompletionFixture(t);
+    const originalExecute = options.executeTier;
+    const error = new Error('original error', { cause: new Error('original cause') });
+    options.executeTier = async () =>
+    {
+        await originalExecute();
+        return { code: 3, signal: null, error };
+    };
+    options.afterTierSettled = (_tier, settled) =>
+    {
+        settled.executionResult.error.cause.message = 'replacement cause';
+    };
+    const result = await runDag(options);
+    assert.equal(result.status, 'failure');
+    assert.equal(result.failure.reason, 'original error');
+    assert.equal(error.cause.message, 'original cause');
+    assert.match(result.checkpoint.tiers['held-producer'].parentCompletionFailure,
+        /settled terminal or log observations changed/u);
+});
+
+test('settled fork failure follows original settle without exposing clone diagnostic source', async (t) =>
+{
+    const { options } = heldCompletionFixture(t);
+    const originalExecute = options.executeTier;
+    const error = new Error('original failure');
+    error.diagnostic = () => 'do not publish callback source';
+    options.executeTier = async () =>
+    {
+        await originalExecute();
+        return { code: 5, signal: null, error };
+    };
+    const result = await runDag(options);
+    assert.equal(result.status, 'failure');
+    assert.equal(result.failure.exitCode, 5);
+    assert.equal(result.failure.reason, 'original failure');
+    assert.equal(result.checkpoint.tiers['held-producer'].parentCompletionFailure,
+        'scheduler original settled observation cannot be independently retained');
+});
+
+test('settled hook may add non-authority diagnostics without mutating original observations', async (t) =>
+{
+    const { options } = heldCompletionFixture(t);
+    options.afterTierSettled = (_tier, settled) =>
+    {
+        settled.diagnosticNote = 'SOURCE-only note';
+        settled.executionResult.diagnosticNote = 'not an execution grant';
+    };
+    const result = await runDag(options);
+    assert.equal(result.status, 'success');
+    assert.equal(result.checkpoint.tiers['held-producer'].exitCode, 0);
+    assert.equal(Object.hasOwn(result.checkpoint.tiers['held-producer'], 'parentCompletionFailure'), false);
+});
+
+test('settled hook actual file changes are rejected against pre-hook parent output bytes', async (t) =>
+{
+    const { root, output, options } = heldCompletionFixture(t);
+    options.afterTierSettled = () => fs.writeFileSync(path.join(root, output), '{"replaced":true}\n');
+    const result = await runDag(options);
+    assert.equal(result.status, 'failure');
+    assert.match(result.failure.reason, /output bytes changed after parent observation/u);
+    assert.equal(result.checkpoint.tiers['held-producer'].exitCode, 0);
+});
+
+test('settled hook throw is a parent failure without forging the successful child exit', async (t) =>
+{
+    const { options } = heldCompletionFixture(t);
+    options.afterTierSettled = () => { throw new Error('parent hook failure'); };
+    const result = await runDag(options);
+    assert.equal(result.status, 'failure');
+    assert.equal(result.failure.reason, 'parent hook failure');
+    assert.equal(result.failure.exitCode, 0);
+    assert.equal(result.checkpoint.tiers['held-producer'].parentCompletionFailure, 'parent hook failure');
+});
+
 test('scheduler recordSettled consumes the producer terminal handoff into its current-attempt checkpoint', async (t) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-evidence-scheduler-'));

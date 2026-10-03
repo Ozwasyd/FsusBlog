@@ -2637,6 +2637,54 @@ function schedulerProducerDeclaration(tier)
     };
 }
 
+function schedulerSettlementAuthority(settled)
+{
+    const execution = settled.executionResult;
+    const errorObservation = (error) => error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: errorObservation(error.cause),
+        details: Object.fromEntries(Object.entries(error).filter(([key]) => key !== 'cause'))
+    } : error;
+    return {
+        executionResult: {
+            code: execution.code, signal: execution.signal,
+            error: errorObservation(execution.error),
+            timeoutPhase: execution.timeoutPhase,
+            physicalExecutionTermination: execution.physicalExecutionTermination,
+            logComplete: execution.logComplete,
+            logTruncationReason: execution.logTruncationReason
+        },
+        resourceUtilization: settled.resourceUtilization,
+        changedPaths: settled.changedPaths,
+        durationMs: settled.durationMs,
+        inputFingerprint: settled.inputFingerprint,
+        dependencyFingerprint: settled.dependencyFingerprint,
+        ownedOutputs: settled.ownedOutputs,
+        tierEnvironment: settled.tierEnvironment,
+        beforeOutputProvenance: settled.beforeOutputProvenance,
+        logFile: settled.logFile,
+        logIndexFile: settled.logIndexFile,
+        logEvidenceFile: settled.logEvidenceFile,
+        logEvidence: settled.logEvidence
+    };
+}
+
+function forkSchedulerSettlement(settled)
+{
+    const fork = structuredClone(settled);
+    // structuredClone preserves standard Error fields, but not enumerable custom
+    // diagnostics. Keep those readable on the independent callback branch too.
+    if (settled.executionResult.error instanceof Error)
+    {
+        fork.executionResult.error.name = settled.executionResult.error.name;
+        Object.assign(fork.executionResult.error, structuredClone(
+            Object.fromEntries(Object.entries(settled.executionResult.error))));
+    }
+    return fork;
+}
+
 function requireHeldSchedulerCompletion(checkpointFile, checkpoint, ownerController, tier, tierId, root, env)
 {
     const held = checkpointPersistence.get(path.resolve(checkpointFile))?.heldRun;
@@ -5739,7 +5787,7 @@ async function runDagUnlocked(options, ownerController)
         return true;
     };
 
-    const recordSettled = (entry, settled) =>
+    const recordSettled = (entry, settled, parentObservation) =>
     {
         const { tier } = entry;
         const {
@@ -5770,15 +5818,16 @@ async function runDagUnlocked(options, ownerController)
         const commandFailed = executionResult.code !== 0 || executionResult.signal || executionResult.error;
         const polluted = changedPaths.length > 0;
         const cancelled = entry.cancelRequested && firstFailure !== null;
-        const outputs = snapshotTierOutputs(root, tier, tierEnvironment);
+        const outputs = parentObservation.outputs;
         const outputInvalid = !commandFailed && outputs.reusable !== true;
-        const afterOutputProvenance = outputProvenance(root, ownedOutputs, tierEnvironment);
+        const afterOutputProvenance = parentObservation.outputProvenance;
         const staleOutputs = !commandFailed
       && !outputInvalid
       && entry.currentRunPreexecuted !== true
       && ownedOutputs.length > 0
       && beforeOutputProvenance.fingerprint === afterOutputProvenance.fingerprint;
-        let success = !cancelled && !commandFailed && !polluted && !outputInvalid && !staleOutputs;
+        let success = !cancelled && !commandFailed && !polluted && !outputInvalid && !staleOutputs
+            && !parentObservation.failure;
         const resultFingerprint = fingerprint({
             inputFingerprint,
             dependencyFingerprint: dependencyFingerprintValue,
@@ -5813,6 +5862,7 @@ async function runDagUnlocked(options, ownerController)
         {
             reason = `fresh tier did not produce or update its owned generated evidence: ${ownedOutputs.join(', ')}`;
         }
+        reason ??= parentObservation.failure?.message ?? null;
 
         if (success && currentRunEvidenceContext)
         {
@@ -5906,12 +5956,16 @@ async function runDagUnlocked(options, ownerController)
             },
             reused: false
         };
+        if (parentObservation.failure)
+        {
+            checkpoint.tiers[tier.id].parentCompletionFailure = parentObservation.failure.message;
+        }
         // Capture the parent's own settled observation before exposing the mutable
         // result to callbacks. Injected/preexecuted observations remain explicitly
         // distinct from an original subprocess; this is not an execution grant.
         const originalResult = immutableSchedulerObservation(checkpoint.tiers[tier.id]);
         const completedTierId = tier.id;
-        let parentCompletionFailure = null;
+        let parentCompletionFailure = parentObservation.failure;
         if (success)
         {
             heldRun.completions.set(tier.id, immutableSchedulerObservation({
@@ -5927,6 +5981,10 @@ async function runDagUnlocked(options, ownerController)
         options.onTierComplete?.(tier, checkpoint.tiers[completedTierId]);
         try
         {
+            if (fingerprint(checkpoint.tiers[completedTierId]) !== fingerprint(originalResult))
+            {
+                throw new Error('scheduler completion differs from original parent-held outputs');
+            }
             if (success)
             {
                 requireHeldSchedulerCompletion(checkpointFile, checkpoint, ownerController,
@@ -5938,11 +5996,12 @@ async function runDagUnlocked(options, ownerController)
             // Reuse the original failure/active-sibling termination loop rather
             // than throwing past outstanding execution and terminal obligations.
             success = false;
-            reason = error.message;
-            parentCompletionFailure = error;
+            reason ??= error.message;
+            parentCompletionFailure ??= error;
             heldRun.completions.delete(completedTierId);
             checkpoint.tiers[completedTierId] = { ...structuredClone(originalResult),
-                status: 'failure', reason, parentCompletionFailure: reason };
+                status: cancelled ? 'cancelled' : 'failure', reason,
+                parentCompletionFailure: parentCompletionFailure.message };
         }
         if (success)
         {
@@ -5956,7 +6015,7 @@ async function runDagUnlocked(options, ownerController)
         });
         return { success, cancelled, reason, changedPaths,
             executionResult: parentCompletionFailure
-                ? { ...executionResult, error: parentCompletionFailure } : executionResult };
+                ? { ...executionResult, error: executionResult.error ?? parentCompletionFailure } : executionResult };
     };
 
     while (pending.length > 0 || active.size > 0)
@@ -6188,25 +6247,41 @@ async function runDagUnlocked(options, ownerController)
             continue;
         }
         const { tierId } = outcome;
-        let { settled } = outcome;
+        const { settled } = outcome;
         const entry = active.get(tierId);
         active.delete(tierId);
+        // The raw original terminal/log observation stays in the parent closure.
+        // Hooks receive a deep fork, never references into that original record.
+        const parentObservation = {
+            outputs: immutableSchedulerObservation(snapshotTierOutputs(root, entry.tier, settled.tierEnvironment)),
+            outputProvenance: immutableSchedulerObservation(outputProvenance(root, settled.ownedOutputs,
+                settled.tierEnvironment)),
+            failure: null
+        };
         try
         {
-            await options.afterTierSettled?.(entry.tier, settled);
+            let callbackSettled;
+            let callbackAuthority;
+            try
+            {
+                callbackSettled = forkSchedulerSettlement(settled);
+                callbackAuthority = immutableSchedulerObservation(schedulerSettlementAuthority(callbackSettled));
+            }
+            catch (error)
+            {
+                throw new Error('scheduler original settled observation cannot be independently retained', { cause: error });
+            }
+            await options.afterTierSettled?.(entry.tier, callbackSettled);
+            if (fingerprint(schedulerSettlementAuthority(callbackSettled)) !== fingerprint(callbackAuthority))
+            {
+                throw new Error('scheduler completion differs from original parent-held outputs: settled terminal or log observations changed');
+            }
         }
         catch (error)
         {
-            settled = {
-                ...settled,
-                executionResult: {
-                    ...settled.executionResult,
-                    code: 1,
-                    error
-                }
-            };
+            parentObservation.failure = error;
         }
-        const recorded = recordSettled(entry, settled);
+        const recorded = recordSettled(entry, settled, parentObservation);
         // A producer may have converted part of its released grant into resident
         // leases. Contract active elastic grants immediately, before another
         // admission/resource sample can observe an overcommitted envelope.
