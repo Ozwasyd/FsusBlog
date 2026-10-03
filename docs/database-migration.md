@@ -578,6 +578,13 @@ oracle therefore selects native OCTET_LENGTH scalars before value fields and use
 a CASE projection bounded by the strictly encoded expected text bytes; measured
 oversize refuses before a full oversized text result can be returned. This is a
 result-value bound, not a driver/network total-heap or physical deadline claim.
+The original MySQL catalog query now independently awaits its reader and command
+disposals, preserving the first query/shape/budget/cancellation failure via the
+original exception while recording only fixed immutable cleanup codes. Cleanup
+failure after an otherwise successful read still refuses; cancellation is checked
+after the complete awaited cleanup. Its SQL descriptors, metadata limits, original
+30-second command policy and native session/driver guard are unchanged. Direct
+private-query lifecycle SOURCE controls do not qualify native cleanup or a database.
 
 This writer does not establish a fresh MySQL legacy source capability, complete
 current target/guard semantics or native allocator recovery. Explicit IDs can

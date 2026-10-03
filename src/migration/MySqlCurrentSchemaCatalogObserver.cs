@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 
 using MySqlConnector;
 
@@ -32,6 +33,8 @@ internal sealed record MySqlCurrentSchemaCatalog(
 /// </summary>
 internal static class MySqlCurrentSchemaCatalogObserver
 {
+    internal const string CleanupFailuresKey = "FsusBlog.Migration.MySqlCatalogCleanupFailures";
+
     internal static async Task<MySqlCurrentSchemaCatalog> ReadAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
@@ -148,23 +151,58 @@ internal static class MySqlCurrentSchemaCatalogObserver
         DbConnection connection, DbTransaction transaction, string sql, string[] names,
         MetadataBudget budget, CancellationToken cancellationToken)
     {
-        await using DbCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = sql;
-        command.CommandTimeout = 30; // Original source metadata command policy, not a new total deadline.
-        await using DbDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
-        if (reader.FieldCount != names.Length)
-            throw Failure("native_metadata_shape_invalid");
-        var rows = ImmutableArray.CreateBuilder<ImmutableArray<MySqlCatalogCell>>();
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        DbCommand command = connection.CreateCommand();
+        DbDataReader? reader = null;
+        Exception? failure = null;
+        var cleanupFailures = ImmutableArray.CreateBuilder<string>();
+        ImmutableArray<ImmutableArray<MySqlCatalogCell>> result = default;
+        try
         {
-            budget.AddRow();
-            var cells = ImmutableArray.CreateBuilder<MySqlCatalogCell>(names.Length);
-            for (int index = 0; index < names.Length; index++)
-                cells.Add(new(names[index], budget.ReadCell(reader.IsDBNull(index) ? null : reader.GetString(index))));
-            rows.Add(cells.ToImmutable());
+            cancellationToken.ThrowIfCancellationRequested();
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.CommandTimeout = 30; // Original source metadata command policy, not a new total deadline.
+            reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
+            if (reader.FieldCount != names.Length)
+                throw Failure("native_metadata_shape_invalid");
+            var rows = ImmutableArray.CreateBuilder<ImmutableArray<MySqlCatalogCell>>();
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                budget.AddRow();
+                var cells = ImmutableArray.CreateBuilder<MySqlCatalogCell>(names.Length);
+                for (int index = 0; index < names.Length; index++)
+                    cells.Add(new(names[index], budget.ReadCell(reader.IsDBNull(index) ? null : reader.GetString(index))));
+                rows.Add(cells.ToImmutable());
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            result = rows.ToImmutable();
         }
-        return rows.ToImmutable();
+        catch (Exception primary) { failure = primary; }
+        // Same original material-reader custody: join both actual disposals,
+        // retain the first failure and expose only this owner's fixed codes.
+        // A token or a successful metadata body cannot qualify failed cleanup.
+        if (reader is not null)
+        {
+            try { await reader.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception cleanup)
+            {
+                failure ??= cleanup;
+                cleanupFailures.Add("mysql_current_catalog_reader_cleanup_failed");
+            }
+        }
+        try { await command.DisposeAsync().ConfigureAwait(false); }
+        catch (Exception cleanup)
+        {
+            failure ??= cleanup;
+            cleanupFailures.Add("mysql_current_catalog_command_cleanup_failed");
+        }
+        if (failure is not null)
+        {
+            if (cleanupFailures.Count > 0) failure.Data[CleanupFailuresKey] = cleanupFailures.ToImmutable();
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     internal sealed class MetadataBudget

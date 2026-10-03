@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "third-party-sdk-callback",
+            "paths": [
+                "src/migration/MySqlCurrentSchemaCatalogObserver.cs",
+                "tests/migration/MySqlCurrentSchemaCatalogCleanupTests.cs"
+            ],
+            "reason": "Preserve the original DbCommand/DbDataReader and MySqlConnector lifecycle contracts while awaiting both disposals and retaining the first body failure. The SOURCE controls invoke only the actual original private query through test reflection, without exposing a production query API or weakening native driver/session guards."
+        }
+    ]
+}
