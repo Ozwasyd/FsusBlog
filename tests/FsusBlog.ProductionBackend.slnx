@@ -6,6 +6,11 @@
   </Folder>
   <Folder Name="/Quality/">
     <Project Path="backend/FsusBlog.Server.Tests.csproj" />
+    <Project Path="migration/FsusBlog.Migration.Tests.csproj" />
+    <Project Path="../tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj" />
     <Project Path="../benchmarks/core/FsusBlog.Core.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/Migration/">
+    <Project Path="../src/migration/FsusBlog.Migration.csproj" />
   </Folder>
 </Solution>

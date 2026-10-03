@@ -9,7 +9,6 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
-MIGRATION_TEST_PROJ="$ROOT_DIR/tests/migration/FsusBlog.Migration.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
@@ -1043,10 +1042,10 @@ RunBackendUnitLane() {
             return "$status"
         fi
     fi
-    Run "$BUILD_ENV_RUNNER" dotnet test "$MIGRATION_TEST_PROJ" \
-        -c "$(BackendTestConfiguration)" \
-        --nologo \
-        "${DOTNET_BUILD_SHARED_ARGS[@]}"
+    Run "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/build-migration-tests.mjs"
+    ConfigureDotnetTestProcessors
+    Run "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" --backend-unit
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
         --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
@@ -1309,16 +1308,42 @@ WriteBackendSplitSummary() {
     local selection="$2"
     local outFile="$ROOT_DIR/.tmp/$lane/summary.json"
     mkdir -p "$(dirname "$outFile")"
-    node - "$outFile" "$lane" "$selection" <<'NODE'
-const fs = require('node:fs')
+    node --input-type=module - "$outFile" "$lane" "$selection" "$ROOT_DIR" <<'NODE'
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 const outFile = process.argv[2]
 const lane = process.argv[3]
 const selection = process.argv[4]
+const root = process.argv[5]
+let migrationExecution = null
+if (['backend-unit', 'backend-fast'].includes(lane)) {
+  const { readMigrationExecution, readMigrationExecutionDependency } = await import(pathToFileURL(path.join(root, 'tools/test/run-migration-tests.mjs')))
+  const read = lane === 'backend-fast' ? readMigrationExecutionDependency : readMigrationExecution
+  const result = await read({
+    root,
+    producer: 'backend-unit',
+    runId: process.env.FSUSBLOG_TEST_RUN_ID,
+    namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+    sourceState: {
+      commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+      worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+    }
+  })
+  migrationExecution = {
+    receiptFile: path.relative(root, result.receiptFile).replaceAll(path.sep, '/'),
+    receiptDigest: result.receipt.digest,
+    project: result.summary.project,
+    sourceCaseIds: result.summary.sourceCaseIds,
+    executedCaseIds: result.summary.executedCaseIds
+  }
+}
 fs.writeFileSync(outFile, `${JSON.stringify({
   schema: 'fsusblog.backend.split-lane.v1',
   lane,
   selection,
   status: 'success',
+  ...(migrationExecution ? { migrationExecution } : {}),
   generatedAt: new Date().toISOString()
 }, null, 2)}\n`)
 NODE

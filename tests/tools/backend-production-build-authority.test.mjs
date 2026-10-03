@@ -25,7 +25,7 @@ test('Production fresh has one canonical Release backend build set and no govern
     assert.deepEqual(validateBackendProductionBuildAuthority(inputs()), {
         schema: 'fsusblog.backend-production-build-authority.v1',
         status: 'success',
-        buildRequestCount: 3,
+        buildRequestCount: 5,
         debugBuildRequestCount: 0,
         postludeTesthostCount: 0,
         consumers: inputs().inventory.consumers
@@ -43,6 +43,68 @@ test('validator rejects a Debug compatibility build in the Production backend bu
         () => validateBackendProductionBuildAuthority(fixture),
         /Debug or filtered backend compatibility build/u
     );
+});
+
+test('validator rejects missing duplicate unknown and non-Release Migration build requests', () =>
+{
+    const target = 'dotnet build tests/migration/FsusBlog.Migration.Tests.csproj';
+    const mutations = [
+        (source) => source.replace(target, 'missing-migration-build'),
+        (source) => source.replace(target, 'dotnet build tests/unknown/Unregistered.Tests.csproj'),
+        (source) => source.replace(`${target} -c Release`, `${target} -c Debug`),
+        (source) => source.replace('async function runBackendTests()\n{',
+            `async function runBackendTests()\n{\n'${target} -c Release'`)
+    ];
+    for (const mutate of mutations)
+    {
+        const input = inputs();
+        input.bundleSource = mutate(input.bundleSource);
+        assert.throws(() => validateBackendProductionBuildAuthority(input), /inventoried Release build requests/u);
+    }
+    const input = inputs();
+    input.inventory.producer.requests = input.inventory.producer.requests.filter((entry) => entry.id !== 'migration-tests-build');
+    assert.throws(() => validateBackendProductionBuildAuthority(input), /backend build requests/u);
+});
+
+test('validator rejects a Migration build that borrows the Server artifact or never executes', () =>
+{
+    for (const [before, after] of [
+        ['artifacts: [migrationTestDll]', 'artifacts: [backendTestDll]'],
+        ['const migrationTestDll = dotnetArtifacts.migrationTestDll;', 'const migrationTestDll = dotnetArtifacts.testDll;'],
+        ['await executeStep(migrationTestsBuildStep);', '']
+    ])
+    {
+        const input = inputs();
+        input.bundleSource = input.bundleSource.replace(before, after);
+        assert.throws(() => validateBackendProductionBuildAuthority(input), /independent assembly artifact/u);
+    }
+});
+
+test('validator rejects an unbound, omitted or substituted inventory tool build', () =>
+{
+    for (const [before, after] of [
+        ['const xunitAdapterDll = dotnetArtifacts.xunitAdapterDll;', 'const xunitAdapterDll = dotnetArtifacts.testDll;'],
+        ["artifacts: [xunitAdapterDll, runMarkerFile('migration-tests-ready')]", 'artifacts: [backendTestDll]'],
+        ['await executeStep(xunitAdapterBuildStep);', ''],
+        ['afterSuccess: () => publishMigrationBuildReady({', 'afterSuccess: () => ignoredBuildHook({']
+    ])
+    {
+        const input = inputs();
+        input.bundleSource = input.bundleSource.replace(before, after);
+        assert.throws(() => validateBackendProductionBuildAuthority(input), /inventory tool/u);
+    }
+    for (const target of [
+        'missing-tool',
+        'dotnet build tools/foreign/Foreign.csproj -c Release',
+        'dotnet build tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj -c Debug'
+    ])
+    {
+        const input = inputs();
+        input.bundleSource = input.bundleSource.replace(
+            'dotnet build tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj -c Release', target
+        );
+        assert.throws(() => validateBackendProductionBuildAuthority(input), /inventoried Release build requests/u);
+    }
 });
 
 test('validator rejects a single-test governance postlude regression', () =>

@@ -285,6 +285,14 @@ test("run-bound layout isolates every MSBuild project and exposes canonical arti
         ),
         dotnetProjectLayout(
             layout,
+            "tests/migration/FsusBlog.Migration.Tests.csproj"
+        ),
+        dotnetProjectLayout(
+            layout,
+            "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj"
+        ),
+        dotnetProjectLayout(
+            layout,
             "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
         )
     ];
@@ -306,6 +314,23 @@ test("run-bound layout isolates every MSBuild project and exposes canonical arti
     );
 
     const artifacts = productionDotnetArtifacts(layout);
+    assert.deepEqual(artifacts.migrationTests, projects[2]);
+    assert.deepEqual(artifacts.xunitAdapter, projects[3]);
+    assert.equal(
+        artifacts.migrationTestDll,
+        path.join(projects[2].outputDirectory, "FsusBlog.Migration.Tests.dll")
+    );
+    assert.equal(
+        artifacts.xunitAdapterDll,
+        path.join(projects[3].outputDirectory, "FsusBlog.XunitRoslynAdapter.dll")
+    );
+    assert.equal(new Set([
+        artifacts.serverDll,
+        artifacts.testDll,
+        artifacts.migrationTestDll,
+        artifacts.xunitAdapterDll,
+        artifacts.benchmarkDll
+    ]).size, projects.length);
     const env = productionBuildEnvironment(layout, { SENTINEL: "kept" });
     assert.equal(env.SENTINEL, "kept");
     assert.equal(env.FSUSBLOG_BACKEND_SERVER_DLL, artifacts.serverDll);

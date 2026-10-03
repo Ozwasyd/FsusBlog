@@ -17,6 +17,16 @@
                 "role": "canonical-test-assembly"
             },
             {
+                "id": "migration-tests-build",
+                "target": "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "role": "independent-migration-test-assembly"
+            },
+            {
+                "id": "xunit-inventory-adapter-build",
+                "target": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+                "role": "canonical-xunit-inventory-tool"
+            },
+            {
                 "id": "backend-benchmark-build",
                 "target": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
                 "role": "separate-benchmark-input"
