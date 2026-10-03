@@ -12,6 +12,180 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class SchemaModelInspectorTests
 {
+    [Theory]
+    [InlineData("missing-table-facts")]
+    [InlineData("missing-column-facts")]
+    [InlineData("missing-index-facts")]
+    [InlineData("missing-key-facts")]
+    [InlineData("engine")]
+    [InlineData("row-format")]
+    [InlineData("table-collation")]
+    [InlineData("create-options")]
+    [InlineData("partition")]
+    [InlineData("missing-partition-rows")]
+    [InlineData("charset")]
+    [InlineData("column-collation")]
+    [InlineData("on-update")]
+    [InlineData("invisible-column")]
+    [InlineData("generated-expression")]
+    [InlineData("spatial-reference")]
+    [InlineData("invisible-index")]
+    [InlineData("index-comment")]
+    [InlineData("prefix")]
+    [InlineData("functional-key")]
+    [InlineData("physical-type")]
+    [InlineData("provider")]
+    public void MySqlPhysicalComparer_RejectsExactMetadataDriftWithoutDefiningProductionExpectedProfile(string drift)
+    {
+        SchemaTableModel original = MySqlPhysicalComparisonFixture();
+        var wanted = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [original.Name] = original },
+            provider: SchemaProviderKind.MySql);
+        Assert.Empty(SchemaModelComparer.Compare(wanted, wanted));
+        var columns = new Dictionary<string, SchemaColumnModel>(original.Columns);
+        var indexes = new Dictionary<string, SchemaIndexModel>(original.IndexDefinitions);
+        SchemaMySqlTablePhysicalFacts? facts = original.MySqlPhysical;
+        SchemaColumnModel column = columns["value"];
+        SchemaIndexModel index = indexes["ix_value"];
+        SchemaProviderKind provider = SchemaProviderKind.MySql;
+        switch (drift)
+        {
+            case "missing-table-facts": facts = null; break;
+            case "missing-column-facts": columns[column.Name] = column with { MySqlPhysical = null }; break;
+            case "missing-index-facts": indexes[index.Name] = index with { MySqlPhysical = null }; break;
+            case "missing-key-facts": indexes[index.Name] = index with { Keys = [index.Keys[0] with { MySqlPhysical = null }] }; break;
+            case "engine": facts = facts! with { Engine = "other-engine" }; break;
+            case "row-format": facts = facts! with { RowFormat = "other-format" }; break;
+            case "table-collation": facts = facts! with { Collation = "other-collation" }; break;
+            case "create-options": facts = facts! with { CreateOptions = "other-options" }; break;
+            case "partition": facts = facts! with { Partitions = [facts!.Partitions[0] with { Name = "p0", Method = "RANGE" }] }; break;
+            case "missing-partition-rows": facts = facts! with { Partitions = [] }; break;
+            case "charset": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { CharacterSet = "other-charset" } }; break;
+            case "column-collation": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { Collation = "other-collation" } }; break;
+            case "on-update": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { Extra = "on update CURRENT_TIMESTAMP" } }; break;
+            case "invisible-column": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { Extra = "INVISIBLE" } }; break;
+            case "generated-expression": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { GenerationExpression = "1 + 1" } }; break;
+            case "spatial-reference": columns[column.Name] = column with { MySqlPhysical = column.MySqlPhysical! with { SpatialReferenceSystemId = 4326 } }; break;
+            case "invisible-index": indexes[index.Name] = index with { MySqlPhysical = index.MySqlPhysical! with { IsVisible = false } }; break;
+            case "index-comment": indexes[index.Name] = index with { MySqlPhysical = index.MySqlPhysical! with { IndexComment = "changed" } }; break;
+            case "prefix": indexes[index.Name] = index with { Keys = [index.Keys[0] with { MySqlPhysical = index.Keys[0].MySqlPhysical! with { PrefixLength = 4 } }] }; break;
+            case "functional-key": indexes[index.Name] = index with { Keys = [index.Keys[0] with { Column = "", MySqlPhysical = index.Keys[0].MySqlPhysical! with { Expression = "lower(value)" } }] }; break;
+            case "physical-type": columns[column.Name] = column with { PhysicalType = "varchar(63)" }; break;
+            case "provider": provider = SchemaProviderKind.PostgreSql; break;
+            default: throw new InvalidOperationException("Unknown physical metadata fixture mutation.");
+        }
+        var changed = new SchemaTableModel(original.Name, columns, indexes.Keys, indexes, original.Constraints, original.Owner)
+        {
+            MySqlPhysical = facts
+        };
+        Assert.NotEmpty(SchemaModelComparer.Compare(wanted,
+            new(new Dictionary<string, SchemaTableModel> { [changed.Name] = changed }, provider: provider)));
+        if (drift != "provider")
+        {
+            var changedTables = new Dictionary<string, SchemaTableModel> { [changed.Name] = changed };
+            if (drift != "physical-type")
+                Assert.NotEqual(CurrentSchemaCanonicalAuthority.ComputeContentDigest(wanted.Tables),
+                    CurrentSchemaCanonicalAuthority.ComputeContentDigest(changedTables));
+            Assert.NotEqual(CurrentSchemaCanonicalAuthority.ComputeObservationDigest(wanted.Tables),
+                CurrentSchemaCanonicalAuthority.ComputeObservationDigest(changedTables));
+        }
+    }
+
+    [Fact]
+    public void MySqlPhysicalComparer_AbsenceOnBothSidesNeverMeansCompleteObservation()
+    {
+        SchemaTableModel original = MySqlPhysicalComparisonFixture();
+        var absent = new SchemaTableModel(original.Name,
+            original.Columns.ToDictionary(static entry => entry.Key, static entry => entry.Value with { MySqlPhysical = null }),
+            original.Indexes);
+        var snapshot = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [absent.Name] = absent },
+            provider: SchemaProviderKind.MySql);
+        Assert.Contains(SchemaModelComparer.Compare(snapshot, snapshot), static error => error.StartsWith("mysql-physical unobserved table", StringComparison.Ordinal));
+        Assert.Contains(SchemaModelComparer.Compare(snapshot, snapshot), static error => error.StartsWith("mysql-physical unobserved column", StringComparison.Ordinal));
+        var incompleteBase = new SchemaTableModel(original.Name, original.Columns, original.Indexes,
+            original.IndexDefinitions, original.Constraints, original.Owner)
+        {
+            MySqlPhysical = original.MySqlPhysical! with { Engine = null }
+        };
+        var incomplete = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [original.Name] = incompleteBase },
+            provider: SchemaProviderKind.MySql);
+        Assert.NotEmpty(SchemaModelComparer.Compare(incomplete, incomplete));
+        var emptyPartitionRows = new SchemaTableModel(original.Name, original.Columns, original.Indexes,
+            original.IndexDefinitions, original.Constraints, original.Owner)
+        {
+            MySqlPhysical = original.MySqlPhysical! with { Partitions = [] }
+        };
+        var unobservedPartitions = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [original.Name] = emptyPartitionRows },
+            provider: SchemaProviderKind.MySql);
+        Assert.Contains(SchemaModelComparer.Compare(unobservedPartitions, unobservedPartitions),
+            static error => error.StartsWith("mysql-physical unobserved table", StringComparison.Ordinal));
+        var noIndexDefinitions = new SchemaTableModel(original.Name, original.Columns, original.Indexes)
+        {
+            MySqlPhysical = original.MySqlPhysical
+        };
+        var missingIndex = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [original.Name] = noIndexDefinitions },
+            provider: SchemaProviderKind.MySql);
+        Assert.Contains(SchemaModelComparer.Compare(missingIndex, missingIndex),
+            static error => error.StartsWith("mysql-physical unobserved index definitions", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MySqlPhysicalFacts_HashCloneAndRequiredJsonRetainTheWholeRepresentation()
+    {
+        SchemaTableModel table = MySqlPhysicalComparisonFixture();
+        var input = new Dictionary<string, SchemaTableModel> { [table.Name] = table };
+        string content = CurrentSchemaCanonicalAuthority.ComputeContentDigest(input);
+        string observation = CurrentSchemaCanonicalAuthority.ComputeObservationDigest(input);
+        CurrentSchemaCanonicalModel model = CurrentSchemaCanonicalAuthority.Create(input, new string('a', 64));
+        CurrentSchemaProjection clone = CurrentSchemaCanonicalAuthority.Generate(model);
+        SchemaTableModel copied = clone.Schema.Tables[table.Name];
+        Assert.Equal(table.MySqlPhysical, copied.MySqlPhysical! with { Partitions = table.MySqlPhysical!.Partitions });
+        Assert.NotSame(table.MySqlPhysical!.Partitions, copied.MySqlPhysical!.Partitions);
+        Assert.Equal(table.Columns["value"].MySqlPhysical, copied.Columns["value"].MySqlPhysical);
+        Assert.Equal(table.IndexDefinitions["ix_value"], copied.IndexDefinitions["ix_value"]);
+        var changed = new SchemaTableModel(table.Name, table.Columns, table.Indexes, table.IndexDefinitions, table.Constraints)
+        {
+            MySqlPhysical = table.MySqlPhysical! with { CreateOptions = "changed" }
+        };
+        var altered = new Dictionary<string, SchemaTableModel> { [changed.Name] = changed };
+        Assert.NotEqual(content, CurrentSchemaCanonicalAuthority.ComputeContentDigest(altered));
+        Assert.NotEqual(observation, CurrentSchemaCanonicalAuthority.ComputeObservationDigest(altered));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SchemaMySqlIndexPhysicalFacts>("{\"Comment\":\"\",\"IndexComment\":\"\"}"));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SchemaMySqlIndexKeyPhysicalFacts>("{\"PrefixLength\":null}"));
+        Assert.Equal(new SchemaMySqlIndexKeyPhysicalFacts(null, null),
+            JsonSerializer.Deserialize<SchemaMySqlIndexKeyPhysicalFacts>("{\"PrefixLength\":null,\"Expression\":null}"));
+        CurrentSchemaCanonicalModel previous = model with
+        {
+            Identity = model.Identity with { ModelVersion = "fsusblog.current-schema.v3", GeneratorVersion = "fsusblog.current-schema-projection.v3" }
+        };
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.Generate(previous));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            clone, CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes(), SchemaProviderKind.MySql));
+    }
+
+    private static SchemaTableModel MySqlPhysicalComparisonFixture()
+    {
+        // Unit metadata only. These literals do not define the production MySQL profile or prove native admission.
+        var column = new SchemaColumnModel("value", true, false, false, 64, "string", PhysicalType: "varchar(64)",
+            Collation: "utf8mb4_bin")
+        {
+            MySqlPhysical = new("utf8mb4", "utf8mb4_bin", "", "", "", null)
+        };
+        var key = new SchemaIndexKeyModel(column.Name, "asc", "first", "n/a", "n/a")
+        {
+            MySqlPhysical = new(null, null)
+        };
+        var index = new SchemaIndexModel("ix_value", false, [key], [], "BTREE", null, false)
+        {
+            MySqlPhysical = new(true, "", "")
+        };
+        return new("mysql_metadata_fixture", new Dictionary<string, SchemaColumnModel> { [column.Name] = column },
+            [index.Name], new Dictionary<string, SchemaIndexModel> { [index.Name] = index })
+        {
+            MySqlPhysical = new("BASE TABLE", "InnoDB", "Dynamic", "utf8mb4_bin", "", "",
+                [new(null, null, null, null, null, null, null, null, null, null)])
+        };
+    }
+
     [Fact]
     public void TestMaterializerCommand_RoutesOnlyExactFirstArgument()
     {

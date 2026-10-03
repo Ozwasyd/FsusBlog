@@ -7,6 +7,8 @@ using System.Text.Json;
 using SqlSugar;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Migration;
 
@@ -20,32 +22,15 @@ internal static class OfflineMigrationStateStore
     internal const string HistoryTableName = "__fsus_schema_migration_history";
     internal const string StateTableName = "__fsus_schema_online_state";
     internal const string BackfillTableName = "__fsus_schema_backfill_progress";
-    internal const string ApplyJournalTableName = "__fsus_schema_offline_apply_journal";
+    internal const string ApplyJournalTableName = CurrentSchemaControlShape.ApplyJournalTableName;
     internal const string JournalCleanupFailuresKey = "FsusBlog.Migration.JournalCleanupFailures";
 
     // The sealed route currently admits only PostgreSQL's transactional native session.
     // Provider-specific journal/lock/DDL guarantees must be implemented before another
     // provider is admitted; the legacy three-dialect DDL emitter is not that guarantee.
-    internal static async Task EnsureApplyJournalAsync(
+    internal static Task EnsureApplyJournalAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
-    {
-        await using DbCommand command = NativeCommand(connection, transaction, $"""
-            CREATE TABLE IF NOT EXISTS public.{ApplyJournalTableName} (
-                plan_digest varchar(64) NOT NULL,
-                database_digest varchar(64) NOT NULL,
-                invocation_id varchar(160) NOT NULL,
-                sequence bigint NOT NULL CHECK (sequence > 0),
-                entry_digest varchar(64) NOT NULL,
-                parent_digest varchar(64) NOT NULL,
-                entry_payload text NOT NULL,
-                PRIMARY KEY (plan_digest, database_digest, invocation_id, sequence),
-                UNIQUE (plan_digest, database_digest, invocation_id, parent_digest),
-                UNIQUE (entry_digest)
-            )
-            """);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        await ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-    }
+        => PgCurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, cancellationToken);
 
     internal static async Task ReadApplyJournalAsync(
         DbConnection connection, DbTransaction transaction,
@@ -157,44 +142,9 @@ internal static class OfflineMigrationStateStore
         return command;
     }
 
-    internal static async Task ValidateApplyJournalAsync(
+    internal static Task ValidateApplyJournalAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
-    {
-        // IF NOT EXISTS is not evidence that an existing control table has the required
-        // append-only keys. Validate the physical owner shape before reading or appending.
-        await using DbCommand command = NativeCommand(connection, transaction, """
-            WITH actual_columns AS (
-                SELECT attname::text AS name, format_type(atttypid, atttypmod) AS type, attnotnull AS required
-                FROM pg_attribute
-                WHERE attrelid = to_regclass('public.__fsus_schema_offline_apply_journal')
-                    AND attnum > 0 AND NOT attisdropped
-            ), expected_columns(name, type, required) AS (
-                VALUES ('plan_digest', 'character varying(64)', true),
-                    ('database_digest', 'character varying(64)', true),
-                    ('invocation_id', 'character varying(160)', true),
-                    ('sequence', 'bigint', true), ('entry_digest', 'character varying(64)', true),
-                    ('parent_digest', 'character varying(64)', true), ('entry_payload', 'text', true)
-            ), actual_constraints AS (
-                SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
-                WHERE conrelid = to_regclass('public.__fsus_schema_offline_apply_journal')
-            ), expected_constraints(definition) AS (
-                VALUES ('PRIMARY KEY (plan_digest, database_digest, invocation_id, sequence)'),
-                    ('UNIQUE (plan_digest, database_digest, invocation_id, parent_digest)'),
-                    ('UNIQUE (entry_digest)'), ('CHECK ((sequence > 0))')
-            )
-            SELECT NOT EXISTS (
-                (SELECT * FROM actual_columns EXCEPT SELECT * FROM expected_columns)
-                UNION ALL (SELECT * FROM expected_columns EXCEPT SELECT * FROM actual_columns)
-            ) AND NOT EXISTS (
-                (SELECT * FROM actual_constraints EXCEPT SELECT * FROM expected_constraints)
-                UNION ALL (SELECT * FROM expected_constraints EXCEPT SELECT * FROM actual_constraints)
-            )
-            """);
-        if (!Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
-        {
-            throw new InvalidOperationException("offline_apply_journal_physical_shape_changed");
-        }
-    }
+        => PgCurrentSchemaControlShape.ValidateApplyJournalAsync(connection, transaction, cancellationToken);
 
     internal static void Parameter(DbCommand command, string name, object value)
     {

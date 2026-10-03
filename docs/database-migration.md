@@ -240,6 +240,37 @@ Current native Apply is PostgreSQL-only; missing compiled bootstrap/legacy
 operations, production admission or non-PG
 capabilities refuse before the first write. Legacy Contract guards are unchanged.
 
+The durable native apply journal remains present after completion: no delete or
+external-chain handoff is inferred from bounded step proofs or a receipt. Its
+single current control definition is `CurrentSchemaControlShape` (seven columns,
+four constraints); original Core creation/validation and the full current runtime
+projection derive from those facts. PostgreSQL explicit names retain the original
+63-byte implicit names without collision fallback. The native primary backing
+index and both unique indexes, raw check/default/predicate expressions,
+nullability/types/lengths, collation, generation/owned sequences and attached
+triggers are measured and compared. A same-name malformed table, additional historical
+table, undeclared raw default (including DEFAULT NULL), inheritance, RLS or rule
+effects, unavailable backing index or changed control constraint
+is not a name-based exemption. Server observes
+schema facts only; journal JSON, history, sequence/parent seals, media states and
+resume remain the original Migration owners' responsibility.
+
+The durable-control closure introduced model/projection v3. The current typed
+physical representation uses `fsusblog.current-schema.v4` and
+`fsusblog.current-schema-projection.v4`; the reflection extractor remains v2.
+Both composite source/content identities include
+the explicit control version and complete sole shape. Previously sealed v2/v3 owned
+targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
+through a second version path. A new candidate must invoke the original owned
+projection producer and obtain fresh exact authorized source/backup/DAG/target
+bindings, apply artifacts and independent current verification. An interrupted
+old run retains its original immutable tool/plan/artifacts and whole native chain
+for original-version recovery; changing the version is not permission to guess a
+checkpoint or re-plan partial effects. Rollback requires those original bindings
+and the authenticated backup/recovery procedure, not journal deletion. This
+source repair and unexecuted source cases do not establish native crash/resume,
+backup, three-provider or deployment qualification.
+
 Completed-Apply plan-binding verification independently hashes the original raw
 artifact bytes and rechecks closure against authenticated capture/restore evidence
 at the original journal's first admission time. It must not backfill those inputs
@@ -532,15 +563,17 @@ domain and evidence root; it accepts no CLI assembly, expected hash or export pa
 `CreateOriginalPostgreSqlAsync` supplies the original same-session current-target
 observer rather than a caller observation. That observer uses the sole Shared
 PostgreSQL catalog/expression/effect algorithms, validates the original journal's
-physical shape before excluding it from the business comparison domain, and retains
-the complete physical observation digest. Independent issuance binds that same
+physical shape before separating it only for the empty-source business-domain
+predicate, and retains the complete physical observation digest. Final target and
+independent issuance comparisons include the journal and its native expressions;
+they do not compare the reduced business domain. Independent issuance binds that same
 compiled registry before reading any journal entry, including media v2 entries.
 The retained-tool reader executes the actual Migration assembly's four embedded
 reader sources through its closed module loader, not reopened mutable disk scripts;
 this source integration does not establish actual SDK, database or process-tree
-qualification. Missing complete provider/entry owners and the formal current
-control-shape binding remain failures, not aliases, empty operations or table-name
-exceptions.
+qualification. The formal current control shape is now part of the versioned
+target input; missing complete provider/entry owners remain failures, not aliases,
+empty operations or table-name exceptions.
 
 The original source observer now dispatches MySQL and SQLite reads through their
 actual native session owners. MySQL holds its private read-only consistent snapshot;
@@ -551,7 +584,10 @@ VFS name. Missing native capability remains a refusal; the file owner never open
 or closes another SQLite database leaf to manufacture an identity. The added MySQL
 current-catalog entry returns raw measured definitions through that same native
 session; it is not a complete canonical target comparison or independent allocator
-proof. PostgreSQL continues to use the sole issuer identity and unchanged content
+proof. Its physical observation retains those raw definitions together with measured
+table, column, index-key and partition attributes through the same original session;
+it supplies neither an expected logical MySQL profile nor a bootstrap permission.
+PostgreSQL continues to use the sole issuer identity and unchanged content
 framing. These source/session capabilities do not supply non-PostgreSQL dump capture,
 restore qualification, provider operation descriptors or a current receipt. Actual
 driver restoration, SQLite native FILESTAT availability and database execution are
@@ -653,6 +689,24 @@ NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions
 PostgreSQL's explicit `timestamp(6)` is normalized only to its equivalent
 unspecified default precision; `timestamp(0)` and every other explicit precision
 remain distinct and fail exact comparison.
+The same original model now retains explicit MySQL table type/engine/row format,
+default collation, CREATE_OPTIONS, comments and the ordered complete partition
+vector; column charset/collation, raw EXTRA (including ON UPDATE, invisible and
+generated/default-generated state), generation expression/comment/SRS; and index
+visibility/comments plus each key's prefix length and functional expression.
+Required JSON members distinguish an explicit native NULL from a field that was
+never observed. Current content/observation digests and model copies retain these
+facts. Physical MySQL comparison refuses missing table/column/index/key facts,
+incomplete index definitions, provider mismatch and any changed typed value.
+Metadata unit comparison fixtures are not a production expected profile or native
+admission. The existing semantic-to-dialect type-spelling projection remains a
+partial representation: its MySQL `n/a` collation does not qualify full physical
+comparison. No MySQL complete owned-target or bootstrap success path is enabled.
+Production expected engine/charset/collation/row-format/effects must come from
+the original current mapping and an explicitly implemented owned compiler, never
+from an observed database, historical fingerprint defaults or a sidecar.
+Those current MySQL profile/compiler/effect owners remain unavailable; independent
+allocator and immutable-guard semantics are not selected by this model change.
 The independent verifier and cold-readiness comparison reject stale identities,
 content tampering and exact table, column, physical type, nullability, default,
 constraint or index drift.
@@ -663,6 +717,17 @@ descriptor from becoming current authority. This boundary does not move migratio
 descriptor SQL or make provider DDL a second current-schema mapping. The migration
 assembly extraction above changes compile ownership only; descriptor IDs,
 fingerprints, checksums, SQL and execution order remain stable.
+
+Current-owned recipe effects also retain the original independent PostgreSQL
+`CREATE SEQUENCE ... AS bigint` configuration as typed facts: start/increment/minimum
+1, maximum `Int64.MaxValue`, cache 1, non-cyclic, and not a business-column identity.
+The complete recipe/content identity and provider target include these facts;
+missing, altered, duplicate or unused sequence arguments refuse. This preserves
+the original `nextval` behavior, including permitted gaps, without promising
+gapless numbering, commit ordering or stronger crash persistence. MySQL and
+SQLite independent-sequence projections remain explicitly unavailable until the
+same authority owns their physical allocation protocol and actual verification;
+an observed AUTO_INCREMENT column or trigger action does not define that target.
 
 Acceptance runtime bootstrap uses the explicit Server command
 `materialize-current-schema-test` only after its isolated PostgreSQL service is

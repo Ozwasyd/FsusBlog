@@ -6,9 +6,9 @@ namespace FsusBlog.Contracts.Schema;
 
 public static class CurrentSchemaCanonicalAuthority
 {
-    public const string ModelVersion = "fsusblog.current-schema.v2";
+    public const string ModelVersion = "fsusblog.current-schema.v4";
     public const string ExtractorVersion = "fsusblog.current-schema-reflection.v2";
-    public const string GeneratorVersion = "fsusblog.current-schema-projection.v2";
+    public const string GeneratorVersion = "fsusblog.current-schema-projection.v4";
 
     /// <summary>Seals facts supplied by the single current extractor, not by migration descriptors.</summary>
     /// <param name="tables">The current extractor's complete entity descriptions.</param>
@@ -66,7 +66,10 @@ public static class CurrentSchemaCanonicalAuthority
                 table.Value.Indexes,
                 table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
-                table.Value.Owner),
+                table.Value.Owner)
+            {
+                MySqlPhysical = CopyMySqlTableFacts(table.Value.MySqlPhysical)
+            },
             StringComparer.Ordinal);
         return new SchemaModelSnapshot(tables, canonical.Identity, provider);
     }
@@ -125,8 +128,22 @@ public static class CurrentSchemaCanonicalAuthority
         }
         var schemaEffects = new List<CurrentSchemaRecipeOperation>();
         var dataEffects = new List<CurrentSchemaRecipeOperation>();
+        var independentSequences = new List<CurrentSchemaIndependentSequencePhysicalProjection>();
         foreach (CurrentSchemaRecipeOperation operation in requiredRecipes.SelectMany(static reference => reference.SemanticDescription!.AdditionalOperations))
         {
+            if (operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence)
+            {
+                CurrentSchemaIndependentSequencePhysicalProjection sequence = ProjectIndependentSequence(operation, provider);
+                if (independentSequences.Any(value => value.Name == sequence.Name))
+                {
+                    throw new InvalidOperationException("current_schema_independent_sequence_duplicate");
+                }
+                independentSequences.Add(sequence);
+            }
+            else if (operation.Sequence is not null)
+            {
+                throw new InvalidOperationException("current_schema_independent_sequence_unused_fact");
+            }
             if (operation.Kind is CurrentSchemaRecipeOperationKind.CreateSequence
                 or CurrentSchemaRecipeOperationKind.DefineImmutableGuard
                 or CurrentSchemaRecipeOperationKind.RemoveTrigger
@@ -196,8 +213,40 @@ public static class CurrentSchemaCanonicalAuthority
             }
             tables[table.Name] = new SchemaTableModel(table.Name, columns, indexes.Keys, indexes, constraints, table.Owner);
         }
+        SchemaTableModel control = CurrentSchemaControlShape.ProjectApplyJournal(provider);
+        if (!tables.TryAdd(control.Name, control))
+            throw new InvalidOperationException("current_schema_control_table_overlap");
         return new CurrentSchemaCompletePhysicalProjection(new SchemaModelSnapshot(tables, target, provider),
-            schemaEffects.ToArray(), dataEffects.ToArray());
+            schemaEffects.ToArray(), dataEffects.ToArray())
+        {
+            IndependentSequences = independentSequences.ToArray()
+        };
+    }
+
+    /// <summary>Projects the original independent sequence facts without choosing an unimplemented provider allocation policy.</summary>
+    /// <param name="operation">The exact current-owned sequence effect, including its typed configuration.</param>
+    /// <param name="provider">The actual physical provider.</param>
+    /// <returns>The existing native PostgreSQL sequence representation; other provider mappings remain unavailable.</returns>
+    public static CurrentSchemaIndependentSequencePhysicalProjection ProjectIndependentSequence(
+        CurrentSchemaRecipeOperation operation, SchemaProviderKind provider)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        CurrentSchemaIndependentSequenceFacts facts = operation.Sequence
+            ?? throw new InvalidOperationException("current_schema_independent_sequence_facts_missing");
+        if (facts != CurrentSchemaIndependentSequenceFacts.PostgreSqlBigIntDefaults
+            || operation != new CurrentSchemaRecipeOperation(CurrentSchemaRecipeOperationKind.CreateSequence,
+                operation.Name, Sequence: facts)
+            || string.IsNullOrEmpty(operation.Name) || operation.Name.Length > 63
+            || operation.Name[0] is not (>= 'a' and <= 'z' or '_')
+            || operation.Name.Any(static value => value is not (>= 'a' and <= 'z' or >= '0' and <= '9' or '_')))
+        {
+            throw new InvalidOperationException("current_schema_independent_sequence_facts_invalid");
+        }
+        if (provider != SchemaProviderKind.PostgreSql)
+        {
+            throw new InvalidOperationException("current_schema_independent_sequence_provider_unavailable");
+        }
+        return new(operation.Name, provider, CurrentSchemaSequencePhysicalKind.NativeIndependentSequence, facts);
     }
 
     private static SchemaIndexModel ConstraintIndex(string name, IReadOnlyList<string> columns)
@@ -249,6 +298,7 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 name = table.Key,
                 owner = table.Value.Owner,
+                table.Value.MySqlPhysical,
                 columns = table.Value.Columns
                     .OrderBy(static column => column.Key, StringComparer.Ordinal)
                     .Select(static column => new
@@ -262,6 +312,7 @@ public static class CurrentSchemaCanonicalAuthority
                         column.Value.DefaultValue,
                         column.Value.Conversion,
                         column.Value.ComputedExpression,
+                        column.Value.MySqlPhysical,
                         column.Value.Owner
                     }),
                 indexes = table.Value.IndexDefinitions.OrderBy(static index => index.Key, StringComparer.Ordinal),
@@ -277,6 +328,7 @@ public static class CurrentSchemaCanonicalAuthority
             .Select(table => new
             {
                 name = table.Key,
+                table.Value.MySqlPhysical,
                 columns = table.Value.Columns
                     .OrderBy(static column => column.Key, StringComparer.Ordinal)
                     .Select(static column => new
@@ -293,7 +345,8 @@ public static class CurrentSchemaCanonicalAuthority
                         column.Value.IsIdentity,
                         column.Value.MaxLength,
                         column.Value.Conversion,
-                        column.Value.ComputedExpression
+                        column.Value.ComputedExpression,
+                        column.Value.MySqlPhysical
                     }),
                 indexes = table.Value.IndexDefinitions.OrderBy(static index => index.Key, StringComparer.Ordinal),
                 constraints = table.Value.Constraints.OrderBy(static constraint => constraint.Key, StringComparer.Ordinal)
@@ -314,7 +367,10 @@ public static class CurrentSchemaCanonicalAuthority
                 table.Value.Indexes,
                 table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
-                table.Value.Owner),
+                table.Value.Owner)
+            {
+                MySqlPhysical = CopyMySqlTableFacts(table.Value.MySqlPhysical)
+            },
             StringComparer.Ordinal);
         return new SchemaModelSnapshot(tables, identity, provider);
     }
@@ -323,6 +379,13 @@ public static class CurrentSchemaCanonicalAuthority
         => provider == SchemaProviderKind.PostgreSql && column.IsIdentity
             ? "owned-sequence-default"
             : "none";
+
+    private static SchemaMySqlTablePhysicalFacts? CopyMySqlTableFacts(SchemaMySqlTablePhysicalFacts? facts)
+        => facts is null ? null : facts with
+        {
+            Partitions = facts.Partitions?.ToArray()
+                ?? throw new InvalidOperationException("current_schema_mysql_partition_facts_unavailable")
+        };
 
     private static SchemaOwnedSequenceModel? ProjectOwnedSequence(
         SchemaProviderKind provider,

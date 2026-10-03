@@ -28,6 +28,10 @@ internal static class OfflineMigrationMySqlNativeSession
         string connectionString, CancellationToken cancellationToken)
         => ReadAsync(connectionString, MySqlCurrentSchemaCatalogObserver.ReadAsync, cancellationToken);
 
+    internal static Task<MySqlCurrentSchemaPhysicalObservation> ObserveCurrentPhysicalAsync(
+        string connectionString, CancellationToken cancellationToken)
+        => ReadAsync(connectionString, MySqlCurrentSchemaPhysicalObserver.ReadAsync, cancellationToken);
+
     private static async Task<TResult> ReadAsync<TResult>(
         string connectionString,
         Func<DbConnection, DbTransaction, CancellationToken, Task<TResult>> observe,

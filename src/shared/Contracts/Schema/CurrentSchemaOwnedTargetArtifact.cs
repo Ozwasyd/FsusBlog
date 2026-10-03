@@ -45,12 +45,14 @@ public static class CurrentSchemaOwnedTargetProjection
         string source = Hash(JsonSerializer.Serialize(new
         {
             Entity = entityProjection.Identity.SourceDigest,
-            Recipes = requiredRecipes.Select(static reference => new { reference.TableName, reference.RecipeDigest }).ToArray()
+            Recipes = requiredRecipes.Select(static reference => new { reference.TableName, reference.RecipeDigest }).ToArray(),
+            Control = CurrentSchemaControlShape.DescribeApplyJournalFacts()
         }));
         string content = Hash(JsonSerializer.Serialize(new
         {
             Entity = entityProjection.Identity.ContentDigest,
-            Recipes = requiredRecipes.Select(static reference => reference.SemanticDescription).ToArray()
+            Recipes = requiredRecipes.Select(static reference => reference.SemanticDescription).ToArray(),
+            Control = CurrentSchemaControlShape.DescribeApplyJournalFacts()
         }));
         return entityProjection.Identity with { SourceDigest = source, ContentDigest = content };
     }

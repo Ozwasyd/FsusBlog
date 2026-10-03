@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
 
 using Xunit;
 
@@ -394,6 +395,33 @@ public sealed class OfflineMigrationPlanTests
         string actualArtifactSha256 = Convert.ToHexStringLower(SHA256.HashData(OfflineMigrationPlanCodec.Serialize(plan)));
         Assert.NotEqual(plan.ContentDigest, actualArtifactSha256);
         Assert.Equal(plan.ContentDigest, OfflineMigrationPlanCodec.ComputeContentDigest(plan));
+    }
+
+    [Fact]
+    public void Verify_CurrentControlTargetVersionChangeRejectsOriginalValidPlanWithoutResealing()
+    {
+        Fixture previous = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
+        previous = previous with { Target = previous.Target with
+        {
+            ModelVersion = "fsusblog.current-schema.v2",
+            ExtractorVersion = "fsusblog.current-schema-reflection.v2",
+            GeneratorVersion = "fsusblog.current-schema-projection.v2"
+        } };
+        OfflineMigrationPlan old = previous.Build();
+        Assert.Equal(old, previous.Verify(old).Plan);
+        byte[] original = OfflineMigrationPlanCodec.Serialize(old);
+        Fixture current = previous with { Target = previous.Target with
+        {
+            ModelVersion = CurrentSchemaCanonicalAuthority.ModelVersion,
+            GeneratorVersion = CurrentSchemaCanonicalAuthority.GeneratorVersion,
+            SourceDigest = DigestB,
+            ContentDigest = CurrentSchemaCanonicalAuthority.ComputeContentDigest(new Dictionary<string, SchemaTableModel>
+            {
+                [CurrentSchemaControlShape.ApplyJournalTableName] = CurrentSchemaControlShape.DescribeApplyJournal()
+            })
+        } };
+        Assert.Equal("offline_plan_target_or_tool_changed", Assert.Throws<InvalidOperationException>(() => current.Verify(old)).Message);
+        Assert.Equal(original, OfflineMigrationPlanCodec.Serialize(old));
     }
 
     private static OfflineMigrationPlan Reseal(OfflineMigrationPlan plan)

@@ -7,6 +7,37 @@ namespace FsusBlog.Migration.Tests;
 public sealed class CurrentSchemaBootstrapCompilerTests
 {
     [Fact]
+    public void Bootstrap_IndependentSequenceTypedFactsPreserveOriginalSqlAndBindCompleteTarget()
+    {
+        CurrentSchemaProducerIdentity owner = Owner();
+        var table = new SchemaTableModel("recipe_probe", new Dictionary<string, SchemaColumnModel>
+        {
+            ["id"] = new("id", false, false, false, null, "int32", PhysicalType: "integer")
+        }, []);
+        var sequence = new CurrentSchemaRecipeOperation(CurrentSchemaRecipeOperationKind.CreateSequence, "sequence_probe",
+            Sequence: CurrentSchemaIndependentSequenceFacts.PostgreSqlBigIntDefaults);
+        var input = new CurrentSchemaBootstrapInput(Projection(), owner,
+            [new("recipe_probe", SchemaProviderKind.PostgreSql, new string('d', 64), new(table, [sequence]))]);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        Assert.Equal("CREATE SEQUENCE \"sequence_probe\" AS bigint;", compiled.Commands[^1].Sql);
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), compiled.Target);
+        var altered = input with
+        {
+            RequiredRecipes = [input.RequiredRecipes[0] with
+            {
+                SemanticDescription = new(table, [sequence with
+                {
+                    Sequence = sequence.Sequence! with { CacheSize = 2 }
+                }])
+            }]
+        };
+        Assert.NotEqual(compiled.Target.ContentDigest, CurrentSchemaOwnedTargetProjection.Observe(altered).ContentDigest);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.Compile(altered, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(altered)));
+    }
+
+    [Fact]
     public void EntitySubset_PostgresCommandsAreDeterministicAndBindCanonicalIdentity()
     {
         CurrentSchemaProjection projection = Projection();

@@ -23,7 +23,7 @@ internal sealed class PgCurrentSchemaOwnedTargetObserver(OwnedCurrentSchemaTarge
         await OwnedTarget.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
         PgCurrentOwnedSnapshot snapshot = await ReadOwnedDomainAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         CurrentSchemaCompletePhysicalProjection expected = OwnedTarget.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql);
-        IReadOnlyList<string> errors = Compare(expected, snapshot.Domain, snapshot.Effects);
+        IReadOnlyList<string> errors = Compare(expected, snapshot.Complete, snapshot.Effects);
         if (errors.Count != 0)
             throw new InvalidOperationException("current_schema_owned_native_mismatch:" + string.Join(',', errors));
         CurrentSchemaIdentity identity = OwnedTarget.Target;
@@ -44,10 +44,9 @@ internal sealed class PgCurrentSchemaOwnedTargetObserver(OwnedCurrentSchemaTarge
         await OfflineMigrationStateStore.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         var tables = complete.Tables.Where(static table => table.Key != OfflineMigrationStateStore.ApplyJournalTableName)
             .ToDictionary(static table => table.Key, static table => table.Value, StringComparer.Ordinal);
-        return new(complete, new SchemaModelSnapshot(tables, complete.Identity, complete.Provider), effects with
-        {
-            Expressions = effects.Expressions.Where(static expression => expression.Table != OfflineMigrationStateStore.ApplyJournalTableName).ToArray()
-        });
+        // Domain is solely the empty-source predicate's business-table view.
+        // Final target comparison uses Complete and every raw expression.
+        return new(complete, new SchemaModelSnapshot(tables, complete.Identity, complete.Provider), effects);
     }
 
     internal static IReadOnlyList<string> Compare(CurrentSchemaCompletePhysicalProjection expected, SchemaModelSnapshot actual,
