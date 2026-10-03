@@ -15,11 +15,11 @@
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "52418dc5991b3e035375a18e71641894f6f4006055fbbab01762e7453f974117"
+            "sha256": "52bd4f65b4261c521e9999e918f0ac28dc5d6e2571c6f6f55c7d78a3895d481f"
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "8bfe5803b5f60372052365df74ef1a45eccee176c9777008cc65d45306f0a549"
+            "sha256": "0be950cac214e0ebfaff0bf9991c0c55aa466f12b8533b667a24543dc9c85f9f"
         }
     ]
 }
