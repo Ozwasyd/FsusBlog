@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { parseRepositoryClaims } from '../docs/doc-claim.mjs'
 import { verifyCanonicalReleaseAuthorityValues } from './canonical-release-authorities-value-contract.mjs'
 import { currentSchemaAuthorityReference, requireCurrentSchemaReceiptReference } from './release-authority-bundle-contract.mjs'
 
@@ -85,14 +86,26 @@ export function createCanonicalReleaseAuthorityReader(repositoryRoot)
   return { readJson, readBytes }
 }
 
-export function verifyCanonicalReleaseAuthorities({ candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission,
-  currentSchemaReceiptRef, repositoryRoot })
+export function verifyCanonicalReleaseAuthorities(options)
 {
+  if (Object.hasOwn(options, 'expectedClaimStageAuthority'))
+    fail('caller cannot supply claim-stage source authority')
+  const { candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission,
+    currentSchemaReceiptRef, repositoryRoot } = options
   if (!plan || !repositoryRoot) fail('candidate plan and repository root are required')
   const reference = requireCurrentSchemaReceiptReference(currentSchemaReceiptRef)
+  const reader = createCanonicalReleaseAuthorityReader(repositoryRoot)
+  const catalog = reader.readJson('config/contracts/behavior-contracts.json', 'claim-stage catalog').value
+  const expectedClaimStageAuthority = {
+    catalog,
+    claimReceipt: parseRepositoryClaims(repositoryRoot, { catalog }),
+    migrationLedger: reader.readJson('config/contracts/document-claim-migration-ledger.json',
+      'claim-stage migration ledger').value
+  }
   const authorities = verifyCanonicalReleaseAuthorityValues({
     candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef: reference, repositoryRoot,
-    ...createCanonicalReleaseAuthorityReader(repositoryRoot),
+    ...reader,
+    expectedClaimStageAuthority,
     now: Date.now()
   })
   const verifiedReference = currentSchemaAuthorityReference(authorities)
