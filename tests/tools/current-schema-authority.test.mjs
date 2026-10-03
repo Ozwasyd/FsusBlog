@@ -92,7 +92,7 @@ test('test current schema materializer remains explicit, canonical and pre-runti
     assert.match(inspector, /owning_constraint\.conindid = index_meta\.indexrelid[\s\S]*owning_constraint\.contype = 'p'/u);
 
     const commandRoute = program.indexOf('CurrentSchemaTestMaterializationCommandLine.IsRequested(args)');
-    const serveParser = program.indexOf('OnlineSchemaMigrationCommandLine.Parse(args)');
+    const serveParser = program.indexOf('ServerCommandLine.Parse(args)');
     assert.ok(commandRoute >= 0 && commandRoute < serveParser);
     assert.match(program, /exceptionCode\.StartsWith\("current_schema_"/u);
 

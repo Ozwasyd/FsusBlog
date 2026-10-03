@@ -397,53 +397,64 @@ public sealed class OnlineSchemaMigrationPolicyTests
     [Fact]
     public void CommandLine_ParsesStableRolloutInterface()
     {
-        OnlineSchemaMigrationCommand expand = OnlineSchemaMigrationCommandLine.Parse(
+        string[][] retiredInvocations =
         [
-            "migrate",
-            "--phase", "expand",
-            "--release-manifest", "/run/release.json",
-            "--env-file", "/run/server.env",
-            "--dry-run"
-        ]);
-        OnlineSchemaMigrationCommand backfill = OnlineSchemaMigrationCommandLine.Parse(
-        [
-            "migrate",
-            "--phase", "backfill-resume",
-            "--id", "20260712-post-example-backfill",
-            "--release-manifest", "/run/release.json",
-            "--env-file", "/run/server.env"
-        ]);
-        OnlineSchemaMigrationCommand contractDryRun = OnlineSchemaMigrationCommandLine.Parse(
-        [
-            "migrate",
-            "--phase", "contract",
-            "--release-manifest", "/run/release.json",
-            "--env-file", "/run/server.env",
-            "--evidence", "/run/contract-evidence.json",
-            "--dry-run"
-        ]);
+            [
+                "migrate",
+                "--phase", "expand",
+                "--release-manifest", "/run/release.json",
+                "--env-file", "/run/server.env",
+                "--dry-run"
+            ],
+            [
+                "migrate",
+                "--phase", "backfill-resume",
+                "--id", "20260712-post-example-backfill",
+                "--release-manifest", "/run/release.json",
+                "--env-file", "/run/server.env"
+            ],
+            [
+                "migrate",
+                "--phase", "contract",
+                "--release-manifest", "/run/release.json",
+                "--env-file", "/run/server.env",
+                "--evidence", "/run/contract-evidence.json",
+                "--dry-run"
+            ]
+        ];
 
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, expand.Phase);
-        Assert.True(expand.DryRun);
-        Assert.Equal("/run/release.json", expand.ReleaseManifestPath);
-        Assert.Equal(OnlineSchemaMigrationPhase.Backfill, backfill.Phase);
-        Assert.Equal("20260712-post-example-backfill", backfill.MigrationId);
-        Assert.Equal(OnlineSchemaMigrationPhase.Contract, contractDryRun.Phase);
-        Assert.False(contractDryRun.ConfirmDestructive);
+        // Keep the historical test identity and exact old intents as refusal
+        // controls; only the current Server parser is callable after retirement.
+        foreach (string[] invocation in retiredInvocations)
+        {
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                ServerCommandLine.Parse(invocation));
+            Assert.Equal("server_command_unknown", error.Message);
+        }
+        ServerCommand serve = ServerCommandLine.Parse(["serve", "--urls", "http://127.0.0.1:5000"]);
+        Assert.Equal(ServerCommandKind.Serve, serve.Kind);
+        Assert.Equal(new[] { "--urls", "http://127.0.0.1:5000" }, serve.HostArguments);
     }
 
     [Fact]
     public void CommandLine_RequiresExplicitConfirmationForMutatingContract()
     {
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
-            OnlineSchemaMigrationCommandLine.Parse(
+            ServerCommandLine.Parse(
             [
                 "migrate",
                 "--phase", "contract",
                 "--evidence", "/run/contract-evidence.json"
             ]));
 
-        Assert.Equal("schema_contract_evidence_and_confirmation_required", exception.Message);
+        Assert.Equal("server_command_unknown", exception.Message);
+        InvalidOperationException confirmed = Assert.Throws<InvalidOperationException>(() =>
+            ServerCommandLine.Parse(
+            [
+                "migrate", "--phase", "contract", "--evidence", "/run/contract-evidence.json",
+                "--confirm-destructive"
+            ]));
+        Assert.Equal("server_command_unknown", confirmed.Message);
     }
 
     [Fact]
@@ -497,16 +508,16 @@ public sealed class OnlineSchemaMigrationPolicyTests
             File.WriteAllText(
                 path,
                 "export ConnectionStrings__DefaultConnection='Host=db;Password=$(not-executed)'\n"
-                + "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=20260719000000-bbbbbbbbbbbb\n");
+                + "SchemaMigration__CurrentReceipt__Path='/run/current-receipt.json'\n");
 
-            IReadOnlyDictionary<string, string?> values = OnlineSchemaMigrationEnvironmentFile.Read(path);
+            IReadOnlyDictionary<string, string?> values = ServerCommandEnvironmentFile.Read(path);
 
             Assert.Equal(
                 "Host=db;Password=$(not-executed)",
                 values["ConnectionStrings:DefaultConnection"]);
             Assert.Equal(
-                "20260719000000-bbbbbbbbbbbb",
-                values["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"]);
+                "/run/current-receipt.json",
+                values["SchemaMigration:CurrentReceipt:Path"]);
         }
         finally
         {

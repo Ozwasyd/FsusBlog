@@ -279,8 +279,12 @@ public sealed class ProductionHealthTests
     [InlineData(true)]
     public async Task CurrentSchemaReadiness_RejectsMissingStartupAdmissionEvenWhenLegacyReportIsReady(bool registerEmptyCurrentState)
     {
-        var legacy = new OnlineSchemaCompatibilityRuntimeState();
-        legacy.Publish(new OnlineSchemaCompatibilityReport("ready", null, "legacy-release", "legacy-coordinate", []));
+        // Untrusted status metadata cannot substitute for the current startup
+        // admission. No retired production compatibility publisher is retained.
+        var legacy = new
+        {
+            Status = "ready", ReleaseId = "legacy-release", SchemaCoordinate = "legacy-coordinate"
+        };
         var registrations = new ServiceCollection().AddSingleton(legacy);
         if (registerEmptyCurrentState)
         {
