@@ -5575,6 +5575,42 @@
             ]
         },
         {
+            "file": "tests/tools/migration-execution-evidence.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-execution-evidence",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-fast-lane.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-fast-lane",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/migration-terminal-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
