@@ -448,6 +448,7 @@ public sealed class AuthorArticlePinProjectionService(
         }
         catch
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return AuthorArticlePinProjectionPage.Empty(
                 AuthorArticlePinProjectionStatus.Unavailable,
                 "article_pin_collection_unavailable");

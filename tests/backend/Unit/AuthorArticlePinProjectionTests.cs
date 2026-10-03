@@ -833,6 +833,38 @@ public sealed class AuthorArticlePinProjectionTests
         Assert.Equal(store.Snapshot.Revision, page.Receipt.CollectionRevision);
     }
 
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Projection_CallerCancellationPrecedesNonCancellationFailureDuringNewAuthorityRecheck(int cancelRead)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1]));
+        store.OnRead = read =>
+        {
+            if (read == cancelRead)
+            {
+                cancellation.Cancel();
+                throw new IOException("authority read failed after canceling its caller");
+            }
+        };
+        var articles = new RecordingArticleSource(id => Fact(id, "alive", ArticleStatus.Published, 11, 1));
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), articles, cache, new RecordingReconciliationSink(), TimeProvider.System);
+
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.ReadAsync(new(s_owner, Guid.CreateVersion7()), cancellation.Token));
+
+        Assert.Equal(cancellation.Token, error.CancellationToken);
+        Assert.Equal(cancelRead, store.Reads);
+        Assert.Single(articles.Requests);
+        Assert.Equal(cancelRead == 2 ? 0 : 1, cache.Reads);
+        Assert.Equal(cancelRead == 2 ? 0 : 1, cache.Writes);
+        // The public reader throws caller cancellation; no retry or Current/Unavailable result is accepted.
+        // SOURCE component control only, not a native PostgreSQL cancellation qualification.
+    }
+
     private static AuthorArticlePinProjectionService Service(
         AuthorArticlePinCollectionSnapshot collection,
         IAuthorArticlePinPermissionProjectionProvider permissionProvider,
