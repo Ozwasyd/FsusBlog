@@ -177,6 +177,16 @@ plan/backup authorities, durable native journal and independent compiled-operati
 postcondition observations. Missing providers or operation owners must refuse
 issuance; the current-only codec and startup consumer cannot supply those facts.
 
+Governance pre-admission observes only the compiled production-code-model contract:
+the original codec and admission value validator are exercised on explicitly
+fixture-only bytes, without a native issuer or database. Its runtime-role
+observation v3/build receipt v4 cannot authenticate the fixture's plan, apply,
+checkpoint, backup, restore or recovery provenance. Those obligations remain with
+the original post-runtime independent native verification of the sole v1 receipt.
+The receipt artifact's full-byte SHA and its codec content seal are separate
+identities; neither a JSON success field nor either digest alone establishes
+current database qualification or startup readiness.
+
 `CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
 extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
 public properties, nullability metadata, defaults, conversions and explicit

@@ -598,6 +598,14 @@
                     "generatedSectionIds": [
                         "deployment.runtime-roles"
                     ]
+                },
+                {
+                    "behaviorId": "deployment-current-schema-admission",
+                    "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+                    "claimIds": [
+                        "deployment-current-schema-admission.native-reverification"
+                    ],
+                    "generatedSectionIds": []
                 }
             ]
         }

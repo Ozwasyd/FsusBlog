@@ -588,6 +588,9 @@
             "additionalProperties": false,
             "required": [
                 "schema",
+                "observationSchema",
+                "evidenceStage",
+                "evidenceClass",
                 "artifactId",
                 "artifactPath",
                 "artifactDigest",
@@ -612,7 +615,16 @@
             ],
             "properties": {
                 "schema": {
-                    "const": "fsusblog.runtime-role-observation-build-receipt.v3"
+                    "const": "fsusblog.runtime-role-observation-build-receipt.v4"
+                },
+                "observationSchema": {
+                    "const": "fsusblog.runtime-role-observation.v3"
+                },
+                "evidenceStage": {
+                    "const": "pre-runtime"
+                },
+                "evidenceClass": {
+                    "const": "compiled-production-code-model"
                 },
                 "artifactId": {
                     "const": "runtime-role-observation"

@@ -37,7 +37,41 @@ factPath: deploymentBlueGreen.claimEligible
 render: boolean-negated
 -->
 
-`claimEligible` is `false` because the active-resource checks below are synthetic library proofs, not production-current observations. Schema overlap, exact volume topology and runtime ownership remain source-bound, while production volume/schema cleanup and any unknown active identity stay explicitly unsupported and fail closed.
+`claimEligible` is `false` because the active-resource checks below are synthetic library proofs, not production-current observations. The current-schema code-model contract, exact volume topology and runtime ownership remain source-bound, while production volume/schema cleanup and any unknown active identity stay explicitly unsupported and fail closed. Historical overlap/window/Ready values in unreplayed generated material cannot grant native current-schema admission.
+
+## Native current-schema admission
+
+<!-- fsus-doc-claim
+claimId: deployment-current-schema-admission.native-reverification
+behaviorId: deployment-current-schema-admission
+claimType: boolean
+factPath: currentSchemaAdmission.nativeReverified
+render: boolean-affirmed
+anchor: native-current-schema-admission
+-->
+
+Native current-schema evidence is independently verified before release
+qualification. This affirmed claim is bound only to the original post-runtime
+projection of a completed owned existing-receipt verification and its admitted
+collector/replay/runtime/run/attempt, never to a receipt's self-reported status or
+the pre-runtime fixture observation.
+
+The pre-runtime `deployment-blue-green-runtime-role` observation proves topology
+and the original codec/admission value contract on explicit fixtures, not a live
+database. The post-runtime `deployment-current-schema-admission` behavior consumes
+the explicitly bound `fsusblog.current-schema-receipt.v1` through the original
+independent native verifier, together with the actual current-schema admission
+output retained by the rollout. The receipt locator, complete artifact-byte SHA
+and canonical content digest must remain distinct and match that retained output,
+the current manifest and the admitted execution's source/run/attempt identities.
+
+Qualification requires the original verifier's complete target, database,
+provider, plan/apply/checkpoint chain, semantic postconditions, backup,
+restore/recovery and retained-tool bindings. Compiled fixtures, self-sealed JSON,
+historical compatibility readiness, a reader-supplied success flag, or a missing
+owned native execution cannot substitute for this verification. Missing evidence
+is not ready and must block release qualification. Source registration and these
+operations requirements do not assert that the native producer has run.
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.blue-green-contract

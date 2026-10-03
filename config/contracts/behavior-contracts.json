@@ -333,7 +333,7 @@
             "factExtractorId": "test-matrix-fact-extractor",
             "requiredTestKinds": ["positive", "negative", "concurrency"],
             "documentationPolicy": "required",
-            "documentationRationale": "Current deployment documentation states blue-green active-release protection and runtime-role composition.",
+            "documentationRationale": "Pre-runtime deployment documentation states topology, runtime-role composition and the compiled production current-schema code-model contract; fixture-only observations do not grant native database readiness or release qualification.",
             "allowedClaimTypes": ["operational", "safety"],
             "releaseQualification": true,
             "evidenceStage": "pre-runtime",
@@ -355,6 +355,37 @@
                     "claimIds": ["deployment-blue-green-runtime-role.runtime-role"],
                     "sectionIds": ["deployment.runtime-role-contract"],
                     "proofIds": ["deployment-runtime-lifecycle"]
+                }
+            ]
+        },
+        {
+            "id": "deployment-current-schema-admission",
+            "domain": "deployment",
+            "risk": "critical",
+            "status": "active",
+            "implementationOwnerCardinality": "one",
+            "allowedImplementationOwnerRoles": [],
+            "factExtractorId": "test-matrix-fact-extractor",
+            "requiredTestKinds": ["positive", "negative", "boundary"],
+            "documentationPolicy": "required",
+            "documentationRationale": "Post-runtime current-schema admission requires the sole v1 receipt, actual admitted native execution and original independent verification; pre-runtime compiled fixtures, historical overlap/window/Ready claims and JSON success cannot satisfy it.",
+            "allowedClaimTypes": ["operational", "safety"],
+            "releaseQualification": true,
+            "evidenceStage": "post-runtime",
+            "runtimeEvidence": {
+                "producerTierId": "production-correctness",
+                "observationSchema": "fsusblog.observation.current-schema-admission.v1"
+            },
+            "coverageIds": ["deployment-current-schema-admission"],
+            "documents": ["docs/releases/blue-green-deployment-runbook.md"],
+            "documentAuthorities": [
+                {
+                    "path": "docs/releases/blue-green-deployment-runbook.md",
+                    "owner": "release",
+                    "anchor": "native-current-schema-admission",
+                    "claimIds": ["deployment-current-schema-admission.native-reverification"],
+                    "sectionIds": [],
+                    "proofIds": ["deployment-current-schema-admission"]
                 }
             ]
         },
