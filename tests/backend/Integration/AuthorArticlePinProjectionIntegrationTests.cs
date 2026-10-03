@@ -131,9 +131,56 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         {
             RequestId = Guid.CreateVersion7()
         });
-        Assert.Equal(AuthorArticlePinProjectionStatus.Current, reconciled.Status);
-        Assert.Equal(new[] { 1, 2 }, (await pins.GetAuthoritySnapshotAsync(s_owner))
-            .Pins.Select(static pin => pin.ArticleId));
+        Assert.Equal(AuthorArticlePinProjectionStatus.Stale, reconciled.Status);
+        Assert.Contains("collection_revision_stale", reconciled.StaleReasons);
+        Assert.Empty(reconciled.Items);
+        Assert.Empty(reconciled.CacheReference);
+        Assert.Null(reconciled.NextCursor);
+        Assert.Null(reconciled.Receipt);
+        AuthorArticlePinCollectionSnapshot afterReconciliation = await pins.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(revision + 2, afterReconciliation.Revision);
+        Assert.Equal(new[] { 1, 2 }, afterReconciliation.Pins.Select(static pin => pin.ArticleId));
+
+        // A separate explicit read resolves permission/article facts for the new collection, not
+        // an automatic retry or reuse of the pre-removal fact batches.
+        AuthorArticlePinProjectionRequest afterRemovalRequest = request with
+        {
+            RequestId = Guid.CreateVersion7(),
+            Limit = 1
+        };
+        AuthorArticlePinProjectionPage afterRemoval = await reconcilingService.ReadAsync(afterRemovalRequest);
+        Assert.Equal(AuthorArticlePinProjectionStatus.Current, afterRemoval.Status);
+        Assert.Equal(afterReconciliation.Revision, afterRemoval.CollectionRevision);
+        Assert.Equal(afterReconciliation.ContentDigest, afterRemoval.CollectionDigest);
+        Assert.Equal(1, Assert.Single(afterRemoval.Items).ArticleId);
+        Assert.True(afterRemoval.HasMore);
+        AuthorArticlePinProjectionCursor? removalCursor;
+        Assert.True(AuthorArticlePinProjectionCursorCodec.TryDecode(afterRemoval.NextCursor!, out removalCursor));
+        Assert.NotNull(removalCursor);
+        Assert.Equal(afterReconciliation.Revision, removalCursor.CollectionRevision);
+        Assert.Equal(afterReconciliation.ContentDigest, removalCursor.CollectionDigest);
+        Assert.NotNull(afterRemoval.Receipt);
+        Assert.Equal(afterReconciliation.Revision, afterRemoval.Receipt.CollectionRevision);
+        Assert.Equal(afterReconciliation.ContentDigest, afterRemoval.Receipt.CollectionDigest);
+        AuthorArticlePinProjectionVerificationResult afterRemovalVerified = AuthorArticlePinProjectionVerifier.Verify(
+            new AuthorArticlePinProjectionVerificationInput(
+                afterReconciliation,
+                await permissions.ResolveAsync(new AuthorArticlePinPermissionBatchRequest(
+                    s_owner, afterRemovalRequest.RequestId, [1, 2])),
+                await new SqlAuthorArticlePinArticleProjectionSource(db).ReadCurrentBatchAsync([1, 2]),
+                afterRemovalRequest,
+                afterRemoval));
+        Assert.True(afterRemovalVerified.Valid, string.Join(',', afterRemovalVerified.Reasons));
+        AuthorArticlePinProjectionPage remaining = await reconcilingService.ReadAsync(request with
+        {
+            RequestId = Guid.CreateVersion7(),
+            Cursor = afterRemoval.NextCursor,
+            Limit = 1
+        });
+        Assert.Equal(AuthorArticlePinProjectionStatus.Current, remaining.Status);
+        Assert.Equal(ArticleStatus.Archived, Assert.Single(remaining.Items).Status);
+        Assert.Equal(2, remaining.Items[0].ArticleId);
+        Assert.Equal(afterReconciliation.Revision, remaining.CollectionRevision);
 
         int articleReadsBeforeRevocation = articleFacts.Requests.Count;
         await db.Ado.ExecuteCommandAsync(

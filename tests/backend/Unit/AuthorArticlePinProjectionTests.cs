@@ -557,6 +557,282 @@ public sealed class AuthorArticlePinProjectionTests
         Assert.True(AuthorArticlePinProjectionVerifier.Verify(evidence).Valid);
     }
 
+    // SOURCE component controls use the real reader and reconciliation sink with a bounded in-memory
+    // authority double. They do not claim PostgreSQL, transaction, permission or compiled qualification.
+    [Fact]
+    public async Task Projection_RealSinkRevisionAdvanceIsStaleUntilNewExplicitRequest()
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1, 2, 3]));
+        var articles = new RecordingArticleSource(articleId => articleId == 2
+            ? MissingFact(articleId)
+            : Fact(articleId, $"title-{articleId}", ArticleStatus.Archived, 100 + articleId, 1));
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), articles, cache, new AuthorArticlePinReconciliationSink(store), TimeProvider.System);
+
+        AuthorArticlePinProjectionPage changed = await service.ReadAsync(new(s_owner, Guid.CreateVersion7(), Limit: 1));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Stale, changed.Status);
+        Assert.Contains("collection_revision_stale", changed.StaleReasons);
+        Assert.Empty(changed.Items);
+        Assert.Empty(changed.CacheReference);
+        Assert.Null(changed.NextCursor);
+        Assert.Null(changed.Receipt);
+        Assert.Equal(1, store.RemoveCalls);
+        Assert.Equal(2, store.Snapshot.Revision);
+        Assert.Equal(0, cache.Reads);
+        Assert.Equal(0, cache.Writes);
+        Assert.Equal(new[] { 1, 2, 3 }, Assert.Single(articles.Requests));
+
+        AuthorArticlePinProjectionPage fresh = await service.ReadAsync(new(s_owner, Guid.CreateVersion7(), Limit: 1));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Current, fresh.Status);
+        Assert.Equal(store.Snapshot.Revision, fresh.CollectionRevision);
+        Assert.Equal(store.Snapshot.ContentDigest, fresh.CollectionDigest);
+        Assert.Equal(new[] { 1, 3 }, articles.Requests[1]);
+        Assert.Equal(ArticleStatus.Archived, Assert.Single(fresh.Items).Status);
+        Assert.NotNull(fresh.Receipt);
+        Assert.Equal(store.Snapshot.Revision, fresh.Receipt.CollectionRevision);
+        Assert.Equal(store.Snapshot.ContentDigest, fresh.Receipt.CollectionDigest);
+        Assert.True(AuthorArticlePinProjectionCursorCodec.TryDecode(fresh.NextCursor!, out AuthorArticlePinProjectionCursor? cursor));
+        Assert.NotNull(cursor);
+        Assert.Equal(store.Snapshot.Revision, cursor.CollectionRevision);
+        Assert.Equal(store.Snapshot.ContentDigest, cursor.CollectionDigest);
+        AuthorArticlePinOpenValidationResult opened = await service.RevalidateOpenAsync(OpenRequest(fresh.Items[0], fresh));
+        Assert.Equal(AuthorArticlePinOpenValidationStatus.Current, opened.Status);
+    }
+
+    [Fact]
+    public async Task Projection_AlreadyAbsentSuccessfulSinkCannotValidateOriginalCollection()
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1, 2]));
+        store.OnRead = read =>
+        {
+            if (read == 2)
+            {
+                store.RemoveForFixture(2);
+            }
+        };
+        var articles = new RecordingArticleSource(articleId => articleId == 2
+            ? MissingFact(articleId)
+            : Fact(articleId, "alive", ArticleStatus.Published, 11, 1));
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), articles, new DirectAuthorArticlePinProjectionCache(),
+            new AuthorArticlePinReconciliationSink(store), TimeProvider.System);
+
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(new(s_owner, Guid.CreateVersion7()));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Stale, page.Status);
+        Assert.Contains("collection_revision_stale", page.StaleReasons);
+        Assert.Equal(0, store.RemoveCalls);
+        Assert.Empty(page.Items);
+        Assert.Empty(page.CacheReference);
+    }
+
+    [Fact]
+    public async Task Projection_PartialRealSinkFailureRemainsUnavailableWithoutRetry()
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1, 2, 3])) { FailRemoveCall = 2 };
+        var articles = new RecordingArticleSource(articleId => articleId == 1
+            ? Fact(articleId, "alive", ArticleStatus.Published, 11, 1)
+            : MissingFact(articleId));
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), articles, cache, new AuthorArticlePinReconciliationSink(store), TimeProvider.System);
+
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(new(s_owner, Guid.CreateVersion7()));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Unavailable, page.Status);
+        Assert.Contains("article_pin_reconciliation_unavailable", page.StaleReasons);
+        Assert.Equal(2, store.RemoveCalls);
+        Assert.Equal(2, store.Snapshot.Revision);
+        Assert.Equal(new[] { 1, 3 }, store.Snapshot.Pins.Select(static pin => pin.ArticleId));
+        Assert.Equal(2, store.Reads);
+        Assert.Equal(0, cache.Reads);
+        Assert.Equal(0, cache.Writes);
+        Assert.Single(articles.Requests);
+        Assert.Empty(page.Items);
+    }
+
+    [Fact]
+    public async Task Projection_CancellationDuringPartialRealSinkRemovalIsNotRetriedIntoCurrent()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1, 2, 3]));
+        store.AfterRemoval = () => cancellation.Cancel();
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), new RecordingArticleSource(id => id == 1
+                ? Fact(id, "alive", ArticleStatus.Published, 11, 1)
+                : MissingFact(id)), cache, new AuthorArticlePinReconciliationSink(store), TimeProvider.System);
+
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.ReadAsync(new(s_owner, Guid.CreateVersion7()), cancellation.Token));
+
+        Assert.Equal(cancellation.Token, error.CancellationToken);
+        Assert.Equal(1, store.RemoveCalls);
+        Assert.Equal(2, store.Snapshot.Revision);
+        Assert.Equal(new[] { 1, 3 }, store.Snapshot.Pins.Select(static pin => pin.ArticleId));
+        Assert.Equal(2, store.Reads);
+        Assert.Equal(0, cache.Reads);
+    }
+
+    [Theory]
+    [InlineData("read")]
+    [InlineData("write")]
+    [InlineData("hit")]
+    public async Task Projection_CollectionAdvanceDuringLastCacheAwaitCannotReturnOldCurrent(string stage)
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1, 2]));
+        var articles = new RecordingArticleSource(articleId => Fact(articleId, "alive", ArticleStatus.Published, 10 + articleId, 1));
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), articles, cache, new RecordingReconciliationSink(), TimeProvider.System);
+        if (stage == "hit")
+        {
+            AuthorArticlePinProjectionPage initial = await service.ReadAsync(new(s_owner, Guid.CreateVersion7(), Limit: 1));
+            Assert.Equal(AuthorArticlePinProjectionStatus.Current, initial.Status);
+        }
+        int readsBefore = store.Reads;
+        int articleReadsBefore = articles.Requests.Count;
+        Func<Task> advance = async () =>
+        {
+            await Task.Yield();
+            store.RemoveForFixture(2);
+        };
+        if (stage is "read" or "hit")
+        {
+            cache.OnReadAsync = advance;
+        }
+        else
+        {
+            cache.OnWriteAsync = advance;
+        }
+
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(new(s_owner, Guid.CreateVersion7(), Limit: 1));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Stale, page.Status);
+        Assert.Contains("collection_revision_stale", page.StaleReasons);
+        Assert.Equal(readsBefore + 3, store.Reads);
+        Assert.Equal(articleReadsBefore + 1, articles.Requests.Count);
+        Assert.Empty(page.Items);
+        Assert.Empty(page.CacheReference);
+        Assert.Null(page.NextCursor);
+        Assert.Null(page.Receipt);
+    }
+
+    [Fact]
+    public async Task Projection_ChangedValidDigestAtSameRevisionCannotMixANewRosterWithOldFacts()
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1]));
+        store.OnRead = read =>
+        {
+            if (read == 2)
+            {
+                store.Snapshot = Collection(s_owner, [1, 2]);
+            }
+        };
+        var articles = new RecordingArticleSource(id => Fact(id, "alive", ArticleStatus.Published, 11, 1));
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), articles, cache, new RecordingReconciliationSink(), TimeProvider.System);
+
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(new(s_owner, Guid.CreateVersion7()));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Stale, page.Status);
+        Assert.Contains("collection_revision_stale", page.StaleReasons);
+        Assert.Equal(1, store.Snapshot.Revision);
+        Assert.Equal(new[] { 1 }, Assert.Single(articles.Requests));
+        Assert.Equal(0, cache.Reads);
+        Assert.Empty(page.Items);
+        Assert.Empty(page.CacheReference);
+    }
+
+    [Theory]
+    [InlineData(2, "failure")]
+    [InlineData(3, "failure")]
+    [InlineData(2, "invalid")]
+    [InlineData(3, "invalid")]
+    [InlineData(2, "foreign-owner")]
+    [InlineData(3, "foreign-owner")]
+    public async Task Projection_RecheckFailureOrInvalidAuthorityRemainsUnavailable(int failureRead, string refusal)
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1]));
+        store.OnRead = read =>
+        {
+            if (read != failureRead)
+            {
+                return;
+            }
+            if (refusal == "failure")
+            {
+                throw new IOException("collection authority unavailable");
+            }
+            store.Snapshot = refusal == "foreign-owner"
+                ? Collection(new(999, s_owner.SiteScope), [1])
+                : store.Snapshot with { ContentDigest = "tampered" };
+        };
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), new RecordingArticleSource(id => Fact(id, "alive", ArticleStatus.Published, 11, 1)),
+            new DirectAuthorArticlePinProjectionCache(), new RecordingReconciliationSink(), TimeProvider.System);
+
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(new(s_owner, Guid.CreateVersion7()));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Unavailable, page.Status);
+        Assert.Contains(refusal == "failure" ? "article_pin_collection_unavailable" : "article_pin_collection_invalid", page.StaleReasons);
+        Assert.Equal(failureRead, store.Reads);
+        Assert.Empty(page.Items);
+        Assert.Empty(page.CacheReference);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Projection_CancellationAfterAuthorityAwaitRetainsCallerCancellation(int cancelRead)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1]));
+        store.OnRead = read =>
+        {
+            if (read == cancelRead)
+            {
+                cancellation.Cancel();
+            }
+        };
+        var cache = new MemoryProjectionCache();
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), new RecordingArticleSource(id => Fact(id, "alive", ArticleStatus.Published, 11, 1)),
+            cache, new RecordingReconciliationSink(), TimeProvider.System);
+
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.ReadAsync(new(s_owner, Guid.CreateVersion7()), cancellation.Token));
+
+        Assert.Equal(cancellation.Token, error.CancellationToken);
+        Assert.Equal(cancelRead, store.Reads);
+        if (cancelRead == 2)
+        {
+            Assert.Equal(0, cache.Reads);
+        }
+    }
+
+    [Fact]
+    public async Task Projection_UnchangedCollectionRemainsCurrentWithExactlyTwoBoundedRechecks()
+    {
+        var store = new MutableProjectionPinStore(Collection(s_owner, [1]));
+        var service = new AuthorArticlePinProjectionService(
+            store, PermissionProvider(), new RecordingArticleSource(id => Fact(id, "alive", ArticleStatus.Published, 11, 1)),
+            new DirectAuthorArticlePinProjectionCache(), new RecordingReconciliationSink(), TimeProvider.System);
+
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(new(s_owner, Guid.CreateVersion7()));
+
+        Assert.Equal(AuthorArticlePinProjectionStatus.Current, page.Status);
+        Assert.Equal(store.Snapshot.Revision, page.CollectionRevision);
+        Assert.Equal(store.Snapshot.ContentDigest, page.CollectionDigest);
+        Assert.Equal(3, store.Reads);
+        Assert.NotNull(page.Receipt);
+        Assert.Equal(store.Snapshot.Revision, page.Receipt.CollectionRevision);
+    }
+
     private static AuthorArticlePinProjectionService Service(
         AuthorArticlePinCollectionSnapshot collection,
         IAuthorArticlePinPermissionProjectionProvider permissionProvider,
@@ -722,6 +998,75 @@ public sealed class AuthorArticlePinProjectionTests
             => throw new NotSupportedException();
     }
 
+    private sealed class MutableProjectionPinStore(AuthorArticlePinCollectionSnapshot snapshot) : IAuthorArticlePinStore
+    {
+        public AuthorArticlePinCollectionSnapshot Snapshot { get; set; } = snapshot;
+        public Action<int>? OnRead { get; set; }
+        public int Reads { get; private set; }
+        public int RemoveCalls { get; private set; }
+        public int FailRemoveCall { get; init; }
+        public Action? AfterRemoval { get; set; }
+
+        public Task<AuthorArticlePinCollectionSnapshot> GetAuthoritySnapshotAsync(
+            AuthorArticlePinOwner owner,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Reads++;
+            OnRead?.Invoke(Reads);
+            return Task.FromResult(Snapshot);
+        }
+
+        public void RemoveForFixture(int articleId)
+        {
+            AuthorArticlePin[] pins = [.. Snapshot.Pins.Where(pin => pin.ArticleId != articleId)];
+            if (pins.Length == Snapshot.Pins.Count)
+            {
+                return;
+            }
+            long revision = checked(Snapshot.Revision + 1);
+            Snapshot = Snapshot with
+            {
+                Revision = revision,
+                ItemCount = pins.Length,
+                Pins = pins,
+                ContentDigest = AuthorArticlePinContract.ComputeCollectionDigest(Snapshot.Owner, revision, pins)
+            };
+        }
+
+        public Task<AuthorArticlePinWriteReceipt> RemoveAsync(
+            RemoveAuthorArticlePinCommand command,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RemoveCalls++;
+            if (RemoveCalls == FailRemoveCall)
+            {
+                throw new IOException("second removal failed after first committed");
+            }
+            if (command.Owner != Snapshot.Owner || command.ExpectedRevision != Snapshot.Revision)
+            {
+                throw new InvalidOperationException("component authority CAS differs");
+            }
+            long previous = Snapshot.Revision;
+            RemoveForFixture(command.ArticleId);
+            AfterRemoval?.Invoke();
+            return Task.FromResult(new AuthorArticlePinWriteReceipt(
+                Guid.CreateVersion7(), command.Owner, command.RequestId, previous, Snapshot.Revision,
+                "remove", "applied", null, [command.ArticleId], null, Snapshot.ItemCount, false, false,
+                "component-command", Snapshot.ContentDigest, DateTime.UnixEpoch));
+        }
+
+        public Task<AuthorArticlePinWriteReceipt> AddAsync(AddAuthorArticlePinCommand command, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AuthorArticlePinWriteReceipt> ReorderAsync(ReorderAuthorArticlePinsCommand command, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AuthorArticlePinVerificationResult> VerifyAsync(AuthorArticlePinOwner owner, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+    }
+
     private sealed class RecordingPermissionProvider(
         Func<AuthorArticlePinPermissionBatchRequest, Task<AuthorArticlePinPermissionSnapshot>> resolve)
         : IAuthorArticlePinPermissionProjectionProvider
@@ -797,46 +1142,60 @@ public sealed class AuthorArticlePinProjectionTests
 
         public AuthorArticlePinProjectionCacheReadStatus ReadStatus { get; set; } = AuthorArticlePinProjectionCacheReadStatus.Miss;
         public bool WriteSucceeds { get; set; } = true;
+        public int Reads { get; private set; }
+        public int Writes { get; private set; }
+        public Func<Task>? OnReadAsync { get; set; }
+        public Func<Task>? OnWriteAsync { get; set; }
 
         public string GetReference(string identity) => $"memory:{identity}";
 
-        public Task<AuthorArticlePinProjectionCacheReadResult> TryReadAsync(
+        public async Task<AuthorArticlePinProjectionCacheReadResult> TryReadAsync(
             string identity,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Reads++;
+            if (OnReadAsync is not null)
+            {
+                await OnReadAsync();
+            }
             if (ReadStatus == AuthorArticlePinProjectionCacheReadStatus.Unavailable)
             {
-                return Task.FromResult(new AuthorArticlePinProjectionCacheReadResult(
+                return new AuthorArticlePinProjectionCacheReadResult(
                     AuthorArticlePinProjectionCacheReadStatus.Unavailable,
                     null,
-                    string.Empty));
+                    string.Empty);
             }
             if (_pages.TryGetValue(identity, out AuthorArticlePinProjectionPage? page))
             {
-                return Task.FromResult(new AuthorArticlePinProjectionCacheReadResult(
+                return new AuthorArticlePinProjectionCacheReadResult(
                     AuthorArticlePinProjectionCacheReadStatus.Hit,
                     page,
-                    GetReference(identity)));
+                    GetReference(identity));
             }
-            return Task.FromResult(new AuthorArticlePinProjectionCacheReadResult(
+            return new AuthorArticlePinProjectionCacheReadResult(
                 AuthorArticlePinProjectionCacheReadStatus.Miss,
                 null,
-                GetReference(identity)));
+                GetReference(identity));
         }
 
-        public Task<bool> WriteAsync(
+        public async Task<bool> WriteAsync(
             string identity,
             AuthorArticlePinProjectionPage page,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Writes++;
+            if (OnWriteAsync is not null)
+            {
+                await OnWriteAsync();
+            }
             if (!WriteSucceeds)
             {
-                return Task.FromResult(false);
+                return false;
             }
             _pages[identity] = page;
-            return Task.FromResult(true);
+            return true;
         }
 
         public void Tamper(Func<AuthorArticlePinProjectionPage, AuthorArticlePinProjectionPage> mutate)

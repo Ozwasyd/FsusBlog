@@ -3,6 +3,8 @@ namespace FsusBlog.Server.Services.Authoring;
 /// <summary>
 /// The sole server-side reader for private article pins. It resolves authorization before article
 /// metadata, keeps ordering server-owned, and returns content-addressed revision evidence.
+/// Reconciliation and cache awaits are followed by bounded authority rechecks. A changed collection
+/// is stale without old cursor/cache references; a new explicit request resolves a new fact batch.
 /// </summary>
 public sealed class AuthorArticlePinProjectionService(
     IAuthorArticlePinStore pinStore,
@@ -139,6 +141,13 @@ public sealed class AuthorArticlePinProjectionService(
                 "article_pin_reconciliation_unavailable");
         }
 
+        AuthorArticlePinProjectionPage? collectionFailure = await CheckCollectionSnapshotAsync(
+            request.Owner, snapshot, cancellationToken).ConfigureAwait(false);
+        if (collectionFailure is not null)
+        {
+            return collectionFailure;
+        }
+
         CursorResolution cursor = ResolveCursor(
             request,
             snapshot,
@@ -266,6 +275,15 @@ public sealed class AuthorArticlePinProjectionService(
                 return AuthorArticlePinProjectionPage.Empty(
                     AuthorArticlePinProjectionStatus.Unavailable,
                     "article_pin_projection_cache_unavailable");
+        }
+
+        // Cache operations may await while another command advances the authority. Do not accept
+        // old material as current or silently mix a new pin roster with the earlier fact batches.
+        collectionFailure = await CheckCollectionSnapshotAsync(
+            request.Owner, snapshot, cancellationToken).ConfigureAwait(false);
+        if (collectionFailure is not null)
+        {
+            return collectionFailure;
         }
 
         IReadOnlyList<string> staleReasons = GetExpectedRevisionMismatches(
@@ -409,6 +427,45 @@ public sealed class AuthorArticlePinProjectionService(
             permission.SiteRevision,
             permission.SessionRevision,
             stale ? "article_pin_open_projection_stale" : "current");
+    }
+
+    private async Task<AuthorArticlePinProjectionPage?> CheckCollectionSnapshotAsync(
+        AuthorArticlePinOwner owner,
+        AuthorArticlePinCollectionSnapshot accepted,
+        CancellationToken cancellationToken)
+    {
+        AuthorArticlePinCollectionSnapshot current;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            current = await pinStore.GetAuthoritySnapshotAsync(owner, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            current = current with { Pins = [.. current.Pins] };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return AuthorArticlePinProjectionPage.Empty(
+                AuthorArticlePinProjectionStatus.Unavailable,
+                "article_pin_collection_unavailable");
+        }
+        if (!ValidateCollectionSnapshot(owner, current))
+        {
+            return AuthorArticlePinProjectionPage.Empty(
+                AuthorArticlePinProjectionStatus.Unavailable,
+                "article_pin_collection_invalid");
+        }
+        if (current.Revision != accepted.Revision
+            || !string.Equals(current.ContentDigest, accepted.ContentDigest, StringComparison.Ordinal))
+        {
+            return AuthorArticlePinProjectionPage.Empty(
+                AuthorArticlePinProjectionStatus.Stale,
+                "collection_revision_stale");
+        }
+        return null;
     }
 
     private static bool ValidateCollectionSnapshot(
