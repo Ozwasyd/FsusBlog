@@ -2,11 +2,12 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "css-selector-custom-property",
+            "id": "environment-variable",
             "paths": [
-                "docs/database-migration.md"
+                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs",
+                "src/migration/OfflineMigrationVerifyEvidence.cs"
             ],
-            "reason": "The current migration document retains registered external CLI and documented contract spellings."
+            "reason": "Preserve original external process-environment and native-consumer spellings in the two registered C# source surfaces; internal options and identifiers retain their existing naming."
         }
     ]
 }
