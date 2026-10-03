@@ -135,6 +135,89 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         Assert.Equal("worker-crashed", instance.TerminationReason);
     }
 
+    [Theory]
+    [InlineData(false, -1)]
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(true, -1)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    public async Task ExecuteAsync_ResultBoundary_RechecksExactDeadline(
+        bool advanceInRevisionGate,
+        int deadlineOffsetTicks)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        DateTimeOffset deadline = clock.GetUtcNow().AddMinutes(1);
+        Action advance = () => clock.UtcNow = deadline.AddTicks(deadlineOffsetTicks);
+        var instance = new ResultBoundaryInstance(advanceInRevisionGate ? DoNothing : advance);
+        var gate = new ResultBoundaryRevisionGate(advanceInRevisionGate ? advance : DoNothing);
+        WorkerFixture fixture = await CreateFixtureAsync(instance, clock: clock, gate: gate);
+
+        Task<AuthoringWorkerExecutionResult> execution = fixture.Sandbox.ExecuteAsync(
+            fixture.Package,
+            fixture.Target,
+            fixture.Request with { Deadline = deadline },
+            1).AsTask();
+
+        if (deadlineOffsetTicks < 0)
+        {
+            AuthoringWorkerExecutionResult completed = await execution;
+            Assert.Equal(AuthoringWorkerResultStatus.Completed, completed.Status);
+            Assert.Equal([4, 5, 6], completed.Response?.Payload);
+            Assert.Null(instance.TerminationReason);
+            Assert.True(instance.Disposed);
+            Assert.Equal(1, gate.Calls);
+            return;
+        }
+
+        // This test double proves host rejection and awaited termination, not an OS terminal fact.
+        Assert.False(execution.IsCompleted);
+        Assert.Equal("cancelled-or-timeout", instance.TerminationReason);
+        Assert.False(instance.Disposed);
+        Assert.Equal(advanceInRevisionGate ? 1 : 0, gate.Calls);
+        instance.CompleteTermination();
+        AuthoringWorkerExecutionResult result = await execution;
+
+        Assert.Equal(AuthoringWorkerResultStatus.TimedOut, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal(0, result.ResponseBytes);
+        Assert.Equal("cancelled-or-timeout", result.StableReason);
+        Assert.Equal(AuthoringWorkerResultStatus.TimedOut, result.Receipt?.Status);
+        Assert.True(instance.Disposed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_ResultBoundary_RechecksCallerCancellation(bool cancelInRevisionGate)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var instance = new ResultBoundaryInstance(cancelInRevisionGate ? DoNothing : cancellation.Cancel);
+        var gate = new ResultBoundaryRevisionGate(cancelInRevisionGate ? cancellation.Cancel : DoNothing);
+        WorkerFixture fixture = await CreateFixtureAsync(instance, gate: gate);
+
+        Task<AuthoringWorkerExecutionResult> execution = fixture.Sandbox.ExecuteAsync(
+            fixture.Package,
+            fixture.Target,
+            fixture.Request,
+            1,
+            cancellation.Token).AsTask();
+
+        Assert.False(execution.IsCompleted);
+        Assert.Equal("cancelled-or-timeout", instance.TerminationReason);
+        Assert.False(instance.Disposed);
+        Assert.Equal(cancelInRevisionGate ? 1 : 0, gate.Calls);
+        instance.CompleteTermination();
+        AuthoringWorkerExecutionResult result = await execution;
+
+        Assert.Equal(AuthoringWorkerResultStatus.Cancelled, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal(0, result.ResponseBytes);
+        Assert.Equal("cancelled-or-timeout", result.StableReason);
+        Assert.Equal(AuthoringWorkerResultStatus.Cancelled, result.Receipt?.Status);
+        Assert.True(instance.Disposed);
+    }
+
     [Fact]
     public async Task ExecuteAsync_StaleDocumentOrUpdateIdentity_RejectsResult()
     {
@@ -516,8 +599,10 @@ public sealed class AuthoringExtensionWorkerSandboxTests
     }
 
     private static async ValueTask<WorkerFixture> CreateFixtureAsync(
-        TestInstance? instance = null,
-        bool currentRevision = true)
+        IAuthoringWorkerSandboxInstance? instance = null,
+        bool currentRevision = true,
+        TimeProvider? clock = null,
+        IAuthoringDocumentRevisionGate? gate = null)
     {
         byte[] archive = "archive"u8.ToArray();
         byte[] module = "wasm-module"u8.ToArray();
@@ -542,7 +627,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
             ]
         };
         ImmutableArray<byte> manifestBytes = ImmutableArray.Create(JsonSerializer.SerializeToUtf8Bytes(manifest));
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = clock?.GetUtcNow() ?? DateTimeOffset.UtcNow;
         var verifier = new AuthoringPackageVerifier(
             new TrustVerifier(now),
             new ArchiveReader(new AuthoringPackageArchiveContents(manifestBytes, entries)),
@@ -590,9 +675,9 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         await lifecycleResources.ActivateAtomicallyAsync(package, [target], 1, CancellationToken.None);
         var sandbox = new AuthoringExtensionWorkerSandbox(
             new TestRuntime(instance),
-            new RevisionGate(currentRevision),
+            gate ?? new RevisionGate(currentRevision),
             lifecycleResources,
-            new FixedTimeProvider(now));
+            clock ?? new FixedTimeProvider(now));
         return new WorkerFixture(package, target, request, sandbox);
     }
 
@@ -616,7 +701,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         AuthoringWorkerRequest Request,
         AuthoringExtensionWorkerSandbox Sandbox);
 
-    private sealed class TestRuntime(TestInstance instance) : IAuthoringWorkerSandboxRuntime
+    private sealed class TestRuntime(IAuthoringWorkerSandboxInstance instance) : IAuthoringWorkerSandboxRuntime
     {
         public ValueTask<IAuthoringWorkerSandboxInstance> StartAsync(
             AuthoringWorkerLaunchDescriptor descriptor,
@@ -722,5 +807,83 @@ public sealed class AuthoringExtensionWorkerSandboxTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset UtcNow
+        {
+            get; set;
+        } = now;
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+    }
+
+    private sealed class ResultBoundaryRevisionGate(Action beforeReturn) : IAuthoringDocumentRevisionGate
+    {
+        public int Calls
+        {
+            get; private set;
+        }
+
+        public ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            beforeReturn();
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    private sealed class ResultBoundaryInstance(Action beforeReturn) : IAuthoringWorkerSandboxInstance
+    {
+        private readonly TaskCompletionSource _termination = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public AuthoringWorkerCapabilityReport CapabilityReport => ClosedReport();
+
+        public string? TerminationReason
+        {
+            get; private set;
+        }
+
+        public bool Disposed
+        {
+            get; private set;
+        }
+
+        public ValueTask<AuthoringWorkerResponse> ExecuteAsync(
+            AuthoringWorkerRequest request,
+            CancellationToken cancellationToken)
+        {
+            beforeReturn();
+            return ValueTask.FromResult(new AuthoringWorkerResponse(
+                request.SchemaVersion,
+                request.RuntimeIdentity,
+                request.RequestId,
+                request.ResultSchemaReference,
+                [4, 5, 6]));
+        }
+
+        public ValueTask TerminateAsync(string reason, CancellationToken cancellationToken)
+        {
+            Assert.False(cancellationToken.CanBeCanceled);
+            TerminationReason = reason;
+            return new ValueTask(_termination.Task);
+        }
+
+        public void CompleteTermination() => _termination.SetResult();
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private static void DoNothing()
+    {
     }
 }

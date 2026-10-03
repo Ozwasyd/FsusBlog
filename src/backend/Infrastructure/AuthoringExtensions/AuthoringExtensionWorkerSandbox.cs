@@ -253,6 +253,16 @@ public sealed class AuthoringExtensionWorkerSandbox(
                     request.Payload.Length);
             }
 
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
             if (response is null || !IsResponseBound(response, request) ||
                 response.Payload.IsDefault ||
                 response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
@@ -279,6 +289,16 @@ public sealed class AuthoringExtensionWorkerSandbox(
                     AuthoringWorkerResultStatus.Stale,
                     "stale-document",
                     request.Payload.Length);
+            }
+
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
             }
 
             return new AuthoringWorkerExecutionResult(
