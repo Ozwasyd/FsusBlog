@@ -1,3 +1,4 @@
+using FsusBlog.Migration;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
@@ -195,7 +196,7 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
             static item => item.MigrationId == Id);
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[Id];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[Id];
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
@@ -203,7 +204,7 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
         Assert.Contains("sys_deployment_fence", fingerprint, StringComparison.Ordinal);
         Assert.Contains("CHECK (id = 1)", fingerprint, StringComparison.Ordinal);
         Assert.Contains("CHECK (generation > 0)", fingerprint, StringComparison.Ordinal);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
     }

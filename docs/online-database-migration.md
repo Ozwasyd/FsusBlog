@@ -27,11 +27,24 @@ a forward repair; selecting an older image against a changed database is not
 rollback. Pre-activation abandonment must retain the source binding and owned
 resource cleanup obligations.
 
-The historical classification and policy-test custody described below remains a
-separate retirement dependency. Keeping those historical facts does not authorize
-their old evaluator or provider as a current runtime API. Source changes and
-fixture checks alone do not establish three-provider migration, publish, crash
-recovery or deployment qualification.
+The sole historical classification source is now
+`src/migration/OfflineMigrationClassificationFacts.cs`. It retains every explicit
+descriptor classification, batch/resume setting, validator, rollback/lock-risk
+value and historical fence; its validator checks recorded data only. Min/max are
+historical scalars, not a Serve compatibility window. No runtime evaluator,
+Ready/warning API, previous-release selector or deployment identity parser moves
+into Migration. Recorded release values in tests are first validated by the
+existing Server `ReleaseId` owner, not reinterpreted by the historical facts API.
+
+The original `generate-offline-migration-catalog.mjs` producer derives the same
+four-field table from that single source. Its source-digest binding and the parity
+checker remain exact: source custody changes require actual regeneration, never a
+hand-edited product or an accepted stale digest. The generator source migration
+does not itself establish that regeneration has run. Historical compatibility and
+Contract/manifest test identities retain their recorded inputs as current receipt
+refusal controls, not as online Ready assertions. Source changes and component
+fixtures do not establish native observations, three-provider migration, publish,
+crash recovery or deployment qualification.
 
 ## Historical online protocol reference — not an executable runtime contract
 

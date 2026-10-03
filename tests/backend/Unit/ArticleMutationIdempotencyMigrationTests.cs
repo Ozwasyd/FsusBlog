@@ -1,5 +1,6 @@
 using System.Data;
 
+using FsusBlog.Migration;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -17,15 +18,15 @@ public sealed class ArticleMutationIdempotencyMigrationTests
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
             static migration => migration.MigrationId == MigrationId);
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[MigrationId];
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.True(descriptor.Transactional);
         Assert.Contains("article_mutation_command", fingerprint, StringComparison.Ordinal);
         Assert.Contains("ux_article_mutation_command_identity", fingerprint, StringComparison.Ordinal);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
     }

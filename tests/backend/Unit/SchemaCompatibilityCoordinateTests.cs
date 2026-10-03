@@ -1,7 +1,7 @@
 using System.Globalization;
 
+using FsusBlog.Migration;
 using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -10,8 +10,8 @@ public sealed class SchemaCompatibilityCoordinateTests
     [Fact]
     public void ReleaseCoordinates_OrderByCanonicalUtcTimestamp()
     {
-        SchemaCompatibilityCoordinate earlier = Coordinate("20260719235959-ffffffffffff");
-        SchemaCompatibilityCoordinate later = Coordinate("20260720000000-000000000000");
+        HistoricalMigrationFence earlier = Coordinate("20260719235959-ffffffffffff");
+        HistoricalMigrationFence later = Coordinate("20260720000000-000000000000");
 
         Assert.True(earlier.CompareTo(later) < 0);
     }
@@ -19,8 +19,8 @@ public sealed class SchemaCompatibilityCoordinateTests
     [Fact]
     public void SameSecondSha_OrderIsDeterministicButCarriesNoPublicationTimeMeaning()
     {
-        SchemaCompatibilityCoordinate shaA = Coordinate("20260720000000-000000000001");
-        SchemaCompatibilityCoordinate shaB = Coordinate("20260720000000-ffffffffffff");
+        HistoricalMigrationFence shaA = Coordinate("20260720000000-000000000001");
+        HistoricalMigrationFence shaB = Coordinate("20260720000000-ffffffffffff");
 
         Assert.True(shaA.CompareTo(shaB) < 0);
         Assert.Equal(0, shaA.CompareTo(Coordinate(shaA.Value)));
@@ -29,10 +29,10 @@ public sealed class SchemaCompatibilityCoordinateTests
     [Fact]
     public void CanonicalSentinelsBoundReleaseCoordinates()
     {
-        SchemaCompatibilityCoordinate release = Coordinate("20260720000000-aaaaaaaaaaaa");
+        HistoricalMigrationFence release = Coordinate("20260720000000-aaaaaaaaaaaa");
 
-        Assert.True(SchemaCompatibilityCoordinate.Minimum.CompareTo(release) < 0);
-        Assert.True(SchemaCompatibilityCoordinate.Maximum.CompareTo(release) > 0);
+        Assert.True(HistoricalMigrationFence.Minimum.CompareTo(release) < 0);
+        Assert.True(HistoricalMigrationFence.Maximum.CompareTo(release) > 0);
     }
 
     [Theory]
@@ -41,11 +41,11 @@ public sealed class SchemaCompatibilityCoordinateTests
     [InlineData("2026072000000-aaaaaaaaaaaa")]
     [InlineData("not-a-coordinate")]
     public void ManifestRejectsNonCanonicalCoordinates(string value)
-        => Assert.Throws<ArgumentException>(() => SchemaCompatibilityCoordinate.ParseManifest(value));
+        => Assert.Throws<ArgumentException>(() => ReleaseId.Parse(value));
 
     [Theory]
-    [InlineData(SchemaCompatibilityCoordinate.MinimumValue)]
-    [InlineData(SchemaCompatibilityCoordinate.MaximumValue)]
+    [InlineData(HistoricalMigrationFence.MinimumValue)]
+    [InlineData(HistoricalMigrationFence.MaximumValue)]
     [InlineData("20260720-online-migration-gate")]
     public void DeploymentReleaseIdRejectsSchemaFences(string value)
         => Assert.Throws<ArgumentException>(() => ReleaseId.Parse(value));
@@ -55,8 +55,8 @@ public sealed class SchemaCompatibilityCoordinateTests
     {
         const string LegacyValue = "20260711-online-migration-gate";
 
-        SchemaCompatibilityCoordinate coordinate =
-            SchemaCompatibilityCoordinate.FromLegacyMetadata(LegacyValue);
+        HistoricalMigrationFence coordinate =
+            HistoricalMigrationFence.FromLegacyMetadata(LegacyValue);
 
         Assert.True(coordinate.IsLegacy);
         Assert.Equal(LegacyValue, coordinate.Value);
@@ -66,8 +66,8 @@ public sealed class SchemaCompatibilityCoordinateTests
     [Fact]
     public void ComparisonIsIndependentOfCurrentCultureAndTimezone()
     {
-        SchemaCompatibilityCoordinate left = Coordinate("20260720000000-aaaaaaaaaaaa");
-        SchemaCompatibilityCoordinate right = Coordinate("20260720000000-bbbbbbbbbbbb");
+        HistoricalMigrationFence left = Coordinate("20260720000000-aaaaaaaaaaaa");
+        HistoricalMigrationFence right = Coordinate("20260720000000-bbbbbbbbbbbb");
         int invariant = left.CompareTo(right);
         CultureInfo originalCulture = CultureInfo.CurrentCulture;
         CultureInfo originalUiCulture = CultureInfo.CurrentUICulture;
@@ -86,6 +86,24 @@ public sealed class SchemaCompatibilityCoordinateTests
         }
     }
 
-    private static SchemaCompatibilityCoordinate Coordinate(string value)
-        => SchemaCompatibilityCoordinate.FromReleaseId(ReleaseId.Parse(value));
+    [Theory]
+    [InlineData("20260230-invalid-date")]
+    [InlineData("20260720-UPPERCASE")]
+    [InlineData("not-a-historical-fence")]
+    [InlineData("20260720-valid-fence ")]
+    public void HistoricalFence_RejectsCorruptLegacyScalars(string value)
+        => Assert.Throws<ArgumentException>(() => HistoricalMigrationFence.FromLegacyMetadata(value));
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData(" value", " value")]
+    [InlineData("value", "different")]
+    public void RecordedHistoricalValue_RequiresExplicitMatchingSortKey(string value, string key)
+        => Assert.Throws<ArgumentException>(() => HistoricalMigrationFence.FromRecordedValue(value, key));
+
+    private static HistoricalMigrationFence Coordinate(string value)
+    {
+        ReleaseId recorded = ReleaseId.Parse(value);
+        return HistoricalMigrationFence.FromRecordedValue(recorded.Value, recorded.Value);
+    }
 }

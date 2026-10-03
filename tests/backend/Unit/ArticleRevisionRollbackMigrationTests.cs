@@ -1,5 +1,6 @@
 using System.Data;
 
+using FsusBlog.Migration;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -16,16 +17,15 @@ public sealed class ArticleRevisionRollbackMigrationTests
             new SchemaMigrationRegistry().GetDescriptors(),
             static migration => migration.MigrationId == "20260720-pre-article-revision-rollback-package");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog()
-            .GetMetadata()[descriptor.MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[descriptor.MigrationId];
 
         Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
         Assert.True(descriptor.Transactional);
         Assert.Contains("article_revision.rollback_source_revision_id", fingerprint, StringComparison.Ordinal);
         Assert.Contains("article_revision.rollback_reason", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_article_revision_rollback_source", fingerprint, StringComparison.Ordinal);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
     }
