@@ -119,6 +119,8 @@ Allman braces apply to C# and hand-written repository C++. TS/JS/Vue, CSS, Shell
 - Define each standard only here; other documents link to the specific heading instead of copying complete rule tables.
 - Command examples must resolve to existing scripts or package scripts; do not present pseudo-commands as executable instructions.
 
+Existing externally addressable document fragments are compatibility contracts, not a general permission to embed HTML. The native style owner registers exact maintained-document paths, empty anchor IDs, associated headings and source provenance in `config/development/native-tooling-style-policy.json`. Its initial nine API aliases preserve the pre-translation fragment spelling. Admission requires both actual source closure and a uniquely bound original Markdownlint MD033 parser span; other HTML, changed or hidden aliases and unavailable span evidence fail closed. Do not disable MD033, add an element-wide allowance, use inline suppression or turn a source-control fixture into approval. See [Native and tooling style enforcement](native-tooling-style-enforcement.md#registered-document-fragment-compatibility).
+
 ## Lua
 
 - Use 4 spaces; plugin entry points live under `examples/plugins/` and are not embedded in C# or TypeScript flows.

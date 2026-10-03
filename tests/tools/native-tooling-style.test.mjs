@@ -793,3 +793,239 @@ test('native tooling style governance unified wrappers preserve the checker resu
         }
     });
 });
+
+function FragmentDocument()
+{
+    const record = sourcePolicy.markdownCompatibilityAnchors[0];
+    return `# API fragment fixture\n\n${record.anchors.map((entry) => `<a id="${entry.id}"></a>\n\n${entry.heading}\n\nMaintained section.\n`).join('\n')}`;
+}
+
+function ActualMarkdownlintEnvironment()
+{
+    const binary = (process.env.PATH ?? '').split(path.delimiter)
+        .map((directory) => path.join(directory, 'markdownlint-cli2'))
+        .find((file) =>
+        {
+            try { fs.accessSync(file, fs.constants.X_OK); return true; }
+            catch { return false; }
+        });
+    assert.ok(binary, 'required actual Markdownlint CLI is unavailable; no parser qualification from mocks');
+    return { FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0' };
+}
+
+test('native fragment compatibility retains nine raw actual CLI findings while binding complete parser spans', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+        const content = FragmentDocument();
+        WriteFile(fixtureRoot, file, content);
+        const environment = ActualMarkdownlintEnvironment();
+        const raw = spawnSync('markdownlint-cli2', ['--config', '.markdownlint-cli2.jsonc', '--no-globs', `:${file}`], {
+            cwd: fixtureRoot, env: { ...process.env, ...environment }, encoding: 'utf8', timeout: 60_000
+        });
+        assert.equal(raw.status, 1, Output(raw));
+        assert.equal([...raw.stderr.matchAll(/ error MD033\//gu)].length, 9, Output(raw));
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], environment);
+        assert.equal(result.status, 0, Output(result));
+        assert.match(result.stdout, /compatibility-aliases=9 raw-markdownlint-exit=1/u);
+        assert.equal(fs.readFileSync(path.join(fixtureRoot, file), 'utf8'), content);
+        assert.equal(fs.readFileSync(path.join(fixtureRoot, '.markdownlint-cli2.jsonc'), 'utf8'), fs.readFileSync(path.join(root, '.markdownlint-cli2.jsonc'), 'utf8'));
+    });
+});
+
+test('native fragment compatibility allows real line shifts without identity or numeric-line aliases', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+        WriteFile(fixtureRoot, file, FragmentDocument().replace('# API fragment fixture\n\n', '# API fragment fixture\n\nNew introductory prose.\n\n'));
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+        assert.equal(result.status, 0, Output(result));
+        assert.match(result.stdout, /compatibility-aliases=9 raw-markdownlint-exit=1/u);
+    });
+});
+
+const firstFragment = sourcePolicy.markdownCompatibilityAnchors[0].anchors[0];
+const firstAlias = `<a id="${firstFragment.id}"></a>`;
+const firstBlock = `${firstAlias}\n\n${firstFragment.heading}`;
+for (const [name, mutate] of [
+    ['missing', (source) => source.replace(firstAlias, '')],
+    ['duplicate', (source) => `${source}\n${firstAlias}\n`],
+    ['unknown-id', (source) => source.replace(firstAlias, '<a id="unknown-fragment"></a>')],
+    ['ASCII-case', (source) => source.replace('<a id="notification-stream-握手失败码"></a>', '<a id="Notification-stream-握手失败码"></a>')],
+    ['Unicode-identity', (source) => source.replace(firstAlias, '<a id="生产就绪详情\u200b"></a>')],
+    ['href-attribute', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}" href="https://example.invalid"></a>`)],
+    ['event-attribute', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}" onclick="alert(1)"></a>`)],
+    ['style-attribute', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}" style="display:none"></a>`)],
+    ['extra-id-attribute', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}" id="other"></a>`)],
+    ['visible-body', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}">text</a>`)],
+    ['nested-body', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}"><b>text</b></a>`)],
+    ['closing-name', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}"></b>`)],
+    ['missing-close', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}">`)],
+    ['self-close', (source) => source.replace(firstAlias, `<a id="${firstFragment.id}"/>`)],
+    ['wrong-heading', (source) => source.replace(firstFragment.heading, '## Wrong associated section')],
+    ['wrong-location', (source) => source.replace(firstBlock, `${firstAlias}\n\nIntervening body.\n\n${firstFragment.heading}`)],
+    ['generated-location', (source) => source.replace(firstBlock, `<!-- FSUSBLOG-GENERATED:BEGIN fixture -->\n\n${firstBlock}`)],
+    ['comment-hidden', (source) => source.replace(firstAlias, `<!--\n${firstAlias}\n-->`)],
+    ['fence-hidden', (source) => source.replace(firstAlias, `\`\`\`html\n${firstAlias}\n\`\`\``)],
+    ['inline-code', (source) => source.replace(firstAlias, `\`${firstAlias}\``)],
+    ['quoted-location', (source) => source.replace(firstAlias, `> ${firstAlias}`)],
+    ['same-line-extra', (source) => source.replace(firstAlias, `${firstAlias}<a id="other"></a>`)],
+    ['extra-a', (source) => `${source}\n<a id="other"></a>\n`],
+    ['mixed-HTML', (source) => `${source}\n<script>alert(1)</script>\n`]
+])
+{
+    test(`native fragment actual source/parser refuses ${name}`, () =>
+    {
+        WithFixture((fixtureRoot) =>
+        {
+            const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+            WriteFile(fixtureRoot, file, mutate(FragmentDocument()));
+            const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+            assert.notEqual(result.status, 0, Output(result));
+            assert.match(Output(result), /markdown-anchor-(?:source|span)|markdownlint-md033/u);
+        });
+    });
+}
+
+test('native fragment compatibility never carries to another actual document', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = 'docs/api/other-schema.md';
+        WriteFile(fixtureRoot, file, FragmentDocument());
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+        assert.notEqual(result.status, 0, Output(result));
+        assert.equal([...Output(result).matchAll(/markdownlint-md033:/gu)].length, 9, Output(result));
+        assert.doesNotMatch(result.stdout, /compatibility-aliases=/u);
+    });
+});
+
+test('native fragment portable checks refuse parser admission while preserving structural findings', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+        WriteFile(fixtureRoot, file, FragmentDocument());
+        const portable = RunChecker(fixtureRoot, [file]);
+        assert.notEqual(portable.status, 0, Output(portable));
+        assert.match(Output(portable), /actual Markdownlint parser spans are unavailable/u);
+        WriteFile(fixtureRoot, file, FragmentDocument().replace(firstAlias, ''));
+        const malformed = RunChecker(fixtureRoot, [file]);
+        assert.notEqual(malformed.status, 0, Output(malformed));
+        assert.match(Output(malformed), /markdown-anchor-source/u);
+        assert.match(Output(malformed), /markdown-anchor-span/u);
+    });
+});
+
+test('native fragment registry refuses unknown fields, wildcard paths and duplicate identities', () =>
+{
+    for (const mutate of [
+        (record) => { record.allowAnyAnchor = true; },
+        (record) => { record.documentPath = 'docs/api/*.md'; },
+        (record) => { record.anchors[1].id = record.anchors[0].id; },
+        (record) => { record.sourceRevision = 'caller-approved'; }
+    ])
+    {
+        WithFixture((fixtureRoot) =>
+        {
+            const policy = structuredClone(sourcePolicy);
+            mutate(policy.markdownCompatibilityAnchors[0]);
+            WriteFile(fixtureRoot, 'config/development/native-tooling-style-policy.json', `${JSON.stringify(policy, null, 4)}\n`);
+            const result = RunChecker(fixtureRoot, ['sample/Guide.md']);
+            assert.notEqual(result.status, 0, Output(result));
+            assert.match(Output(result), /markdown-anchor-policy/u);
+        });
+    }
+});
+
+test('native fragment rejects a text-only mock executable instead of granting span authority', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+        WriteFile(fixtureRoot, file, FragmentDocument());
+        WriteFile(fixtureRoot, 'bin/markdownlint-cli2', '#!/usr/bin/env bash\nexit 0\n');
+        fs.chmodSync(path.join(fixtureRoot, 'bin/markdownlint-cli2'), 0o755);
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`
+        });
+        assert.notEqual(result.status, 0, Output(result));
+        assert.match(Output(result), /markdown-anchor-span/u);
+        assert.match(Output(result), /markdownlint:/u);
+    });
+});
+
+test('native fragment actual CLI configuration errors cannot become compatibility admission', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+        WriteFile(fixtureRoot, file, FragmentDocument());
+        WriteFile(fixtureRoot, '.markdownlint-cli2.jsonc', '{ "config": ');
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+        assert.notEqual(result.status, 0, Output(result));
+        assert.match(Output(result), /markdown-anchor-span/u);
+        assert.match(Output(result), /markdownlint:/u);
+    });
+});
+
+// These mock transport controls exercise refusal only, not Markdown parsing or CLI qualification.
+for (const [name, mutate] of [
+    ['column-only', (value) => { value.findings[0].errorRange = [1]; }],
+    ['wrong-length', (value) => { value.findings[0].errorRange[1] += 1; }],
+    ['wrong-line', (value) => { value.findings[0].lineNumber += 1; }],
+    ['missing-finding', (value) => { value.findings.shift(); }],
+    ['duplicate-finding', (value) => { value.findings.push(structuredClone(value.findings[0])); }],
+    ['foreign-file', (value) => { value.findings[0].fileName = 'docs/api/other-schema.md'; }],
+    ['duplicate-report', (value) => { value.reports = 2; }],
+    ['raw-mismatch', (value) => { value.extraRaw = 'unclassified original tool error'; }],
+    ['abnormal-terminal', (value) => { value.status = 2; }]
+])
+{
+    test(`native fragment mock span transport refuses ${name} without parser qualification`, () =>
+    {
+        WithFixture((fixtureRoot) =>
+        {
+            const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
+            const content = FragmentDocument();
+            WriteFile(fixtureRoot, file, content);
+            const value = { findings: [], reports: 1, extraRaw: '', status: 1 };
+            for (const [index, line] of content.split('\n').entries())
+            {
+                if (line.startsWith('<a id="'))
+                {
+                    value.findings.push({ fileName: file, lineNumber: index + 1, ruleNames: ['MD033', 'no-inline-html'],
+                        ruleDescription: 'Inline HTML', errorDetail: 'Element: a', errorRange: [1, line.length - '</a>'.length], severity: 'error' });
+                }
+            }
+            mutate(value);
+            WriteFile(fixtureRoot, 'bin/package.json', JSON.stringify({ name: 'markdownlint-cli2', type: 'module',
+                exports: { '.': './markdownlint-cli2.mjs' }, bin: { 'markdownlint-cli2': './markdownlint-cli2' } }));
+            WriteFile(fixtureRoot, 'bin/markdownlint-cli2', '#!/usr/bin/env node\n');
+            fs.chmodSync(path.join(fixtureRoot, 'bin/markdownlint-cli2'), 0o755);
+            WriteFile(fixtureRoot, 'bin/node_modules/markdownlint-cli2-formatter-default/index.js', 'module.exports = {};\n');
+            WriteFile(fixtureRoot, 'bin/markdownlint-cli2.mjs', `
+const value = ${JSON.stringify(value)};
+export async function main(options) {
+    for (const entry of value.findings) {
+        options.logError(entry.fileName + ':' + entry.lineNumber + ':' + entry.errorRange[0]
+            + ' error ' + entry.ruleNames.join('/') + ' ' + entry.ruleDescription + ' [' + entry.errorDetail + ']');
+    }
+    if (value.extraRaw) options.logError(value.extraRaw);
+    for (let index = 0; index < value.reports; index += 1)
+        options.logMessage('FSUSBLOG-MARKDOWNLINT-SPANS ' + JSON.stringify(value.findings));
+    return value.status;
+}
+`);
+            const result = RunChecker(fixtureRoot, [file], ['--require-tools'], {
+                FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+                PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`
+            });
+            assert.notEqual(result.status, 0, Output(result));
+            assert.match(Output(result), /markdown-anchor-span/u);
+        });
+    });
+}
