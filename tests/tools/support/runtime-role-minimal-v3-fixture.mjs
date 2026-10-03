@@ -28,7 +28,7 @@ export function installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
         'config/development/document-lifecycle.json',
         ...new Set(sourceClaims.claims.map((claim) => claim.location.documentPath))
     ]
-    const values = relatives.map((relative) =>
+    for (const relative of relatives)
     {
         const bytes = fs.readFileSync(path.join(sourceRoot, relative))
         const target = path.join(repositoryRoot, relative)
@@ -44,18 +44,28 @@ export function installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
             fs.mkdirSync(path.dirname(target), { recursive: true })
             fs.writeFileSync(target, bytes)
         }
-        return relative.endsWith('.json') ? JSON.parse(bytes.toString('utf8')) : null
-    })
-    const materializedClaims = parseRepositoryClaims(repositoryRoot)
-    if (materializedClaims.contentDigest !== sourceClaims.contentDigest)
+    }
+    const authority = readRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
+    if (authority.claimReceipt.contentDigest !== sourceClaims.contentDigest)
     {
         throw new Error('claim-stage fixture parse source closure differs from the canonical source')
     }
-    return partitionBehaviorDocClaims({
-        catalog: values[0],
-        migrationLedger: values[1],
-        claimReceipt: materializedClaims
-    }).stages
+    return partitionBehaviorDocClaims(authority).stages
+}
+
+// Controlled value-test inputs read from the materialized original source.
+// Production I/O entry points never accept this fixture object as authority.
+export function readRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
+{
+    return {
+        catalog: JSON.parse(fs.readFileSync(path.join(
+            repositoryRoot, 'config/contracts/behavior-contracts.json'
+        ), 'utf8')),
+        claimReceipt: parseRepositoryClaims(repositoryRoot),
+        migrationLedger: JSON.parse(fs.readFileSync(path.join(
+            repositoryRoot, 'config/contracts/document-claim-migration-ledger.json'
+        ), 'utf8'))
+    }
 }
 
 /** Synthetic static admission envelope shared by value-contract tests only. */

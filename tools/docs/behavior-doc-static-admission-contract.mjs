@@ -1,8 +1,6 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { digestValue } from '../fact-extractors/lib/canonicalize.mjs';
 import { validateMinimalContractBuildReceipt } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
-import { parseRepositoryClaims } from './doc-claim.mjs';
 
 export const behaviorDocAdmissionReceiptSchema =
     'fsusblog.behavior-doc-static-admission-receipt.v2';
@@ -295,6 +293,7 @@ function validateAdmission(receipt, {
     expectedRunId = null,
     expectedSourceIdentity = null,
     expectedWorktree = null,
+    expectedClaimStageAuthority = null,
     artifactRepositoryRoot = null,
     expectedExtractorIds = null,
     readArtifactDigest = null
@@ -381,18 +380,15 @@ function validateAdmission(receipt, {
     {
         throw new Error('BehaviorDoc claim stages require an independent expected worktree');
     }
-    const stageAuthority = {
-        catalog: JSON.parse(fs.readFileSync(path.join(
-            expectedWorktree, 'config/contracts/behavior-contracts.json'
-        ), 'utf8')),
-        migrationLedger: JSON.parse(fs.readFileSync(path.join(
-            expectedWorktree, 'config/contracts/document-claim-migration-ledger.json'
-        ), 'utf8')),
-        // Reparse the actual source authority. Neither the envelope's own
-        // parse digest nor a caller-supplied object proves located claim bytes.
-        claimReceipt: parseRepositoryClaims(expectedWorktree)
-    };
-    validateBehaviorDocClaimStages(receipt.claimStages, stageAuthority);
+    // This value contract checks exact materials, not their I/O provenance.
+    // Real entry points must obtain them internally from the bound source.
+    if (!hasExactKeys(expectedClaimStageAuthority, ['catalog', 'claimReceipt', 'migrationLedger'])
+    || !Object.values(expectedClaimStageAuthority).every((value) =>
+        value !== null && typeof value === 'object' && !Array.isArray(value)))
+    {
+        throw new Error('BehaviorDoc claim stages require closed expected source materials');
+    }
+    validateBehaviorDocClaimStages(receipt.claimStages, expectedClaimStageAuthority);
     if (receipt.claimStages.catalogDigest !== receipt.authorityDigests.catalog
     || receipt.claimStages.parseReceiptDigest !== receipt.authorityDigests.claim)
     {

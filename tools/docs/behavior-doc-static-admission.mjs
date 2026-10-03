@@ -119,22 +119,41 @@ function authorityDigests(repositoryRoot, catalog, claimReceipt)
     };
 }
 
-export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
-    expectedRunId = null,
-    expectedSourceIdentity = null,
-    expectedWorktree = null
-} = {})
+export function validateBehaviorDocStaticAdmissionReceipt(receipt, expected = {})
 {
-    const expectedExtractorIds = expectedWorktree === null
-        ? null
-        : loadRegistry(path.join(
-            expectedWorktree,
-            'config/contracts/behavior-fact-extractors.json'
-        )).extractors.map((extractor) => extractor.id).sort();
+    if (Object.hasOwn(expected, 'expectedClaimStageAuthority'))
+    {
+        throw new Error('BehaviorDoc admission caller cannot supply claim-stage source authority');
+    }
+    const {
+        expectedRunId = null,
+        expectedSourceIdentity = null,
+        expectedWorktree = null
+    } = expected;
+    if (expectedWorktree === null)
+    {
+        throw new Error('BehaviorDoc claim stages require an independent expected worktree');
+    }
+    // The I/O facade, not the caller or the pure value contract, reparses the
+    // independently bound source using the original schema and lifecycle.
+    const expectedClaimStageAuthority = {
+        catalog: JSON.parse(fs.readFileSync(path.join(
+            expectedWorktree, 'config/contracts/behavior-contracts.json'
+        ), 'utf8')),
+        claimReceipt: parseRepositoryClaims(expectedWorktree),
+        migrationLedger: JSON.parse(fs.readFileSync(path.join(
+            expectedWorktree, 'config/contracts/document-claim-migration-ledger.json'
+        ), 'utf8'))
+    };
+    const expectedExtractorIds = loadRegistry(path.join(
+        expectedWorktree,
+        'config/contracts/behavior-fact-extractors.json'
+    )).extractors.map((extractor) => extractor.id).sort();
     return validateBehaviorDocStaticAdmissionReceiptValue(receipt, {
         expectedRunId,
         expectedSourceIdentity,
         expectedWorktree,
+        expectedClaimStageAuthority,
         expectedExtractorIds
     });
 }

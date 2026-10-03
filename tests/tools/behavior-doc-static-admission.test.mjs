@@ -108,6 +108,18 @@ test('real outer admission refuses a missing independent source worktree', () =>
         /independent expected worktree/u);
 });
 
+test('real outer admission rejects caller-supplied claim-stage authority even with valid source', () =>
+{
+    const { receipt, expected } = currentOuterAdmissionFixture();
+    assert.equal(validateBehaviorDocStaticAdmissionReceipt(receipt, expected), receipt);
+    for (const value of [undefined, null, { catalog: {}, claimReceipt: {}, migrationLedger: {} }])
+    {
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(receipt, {
+            ...expected, expectedClaimStageAuthority: value
+        }), /caller cannot supply claim-stage source authority/u);
+    }
+});
+
 function claimStageFixture()
 {
     const catalog = {

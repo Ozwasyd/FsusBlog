@@ -5,7 +5,7 @@ import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { validateMinimalContractBuildReceipt } from '../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 import { validateBehaviorDocStaticAdmissionReceipt } from '../../tools/docs/behavior-doc-static-admission-contract.mjs'
 import { root, validatePostRuntimeReaderFirewall } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
-import { createRuntimeRoleMinimalV3Fixture, createRuntimeRoleMinimalV4Fixture, createRuntimeRoleStaticV3Fixture, createRuntimeRoleStaticV4Fixture } from './support/runtime-role-minimal-v3-fixture.mjs'
+import { createRuntimeRoleMinimalV3Fixture, createRuntimeRoleMinimalV4Fixture, createRuntimeRoleStaticV3Fixture, createRuntimeRoleStaticV4Fixture, readRuntimeRoleClaimStageAuthorityFixture } from './support/runtime-role-minimal-v3-fixture.mjs'
 
 const identity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
 const seal = (value) => {
@@ -19,7 +19,8 @@ const options = { expectedRunId: 'v3-contract-test', expectedSourceIdentity: ide
 test('canonical static admission validates the current runtime-role v4 build authority', () =>
 {
     const admission = createRuntimeRoleStaticV4Fixture('v3-contract-test', identity, { repositoryRoot: root })
-    const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'] }
+    const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'],
+        expectedClaimStageAuthority: readRuntimeRoleClaimStageAuthorityFixture(root) }
     assert.equal(validateBehaviorDocStaticAdmissionReceipt(admission, expected), admission)
     for (const mutate of [
         (value) => { value.candidateSpawnCountBeforeReceipt = 1 },
@@ -46,6 +47,33 @@ test('canonical runtime-role v4 value validator preserves exact build and oracle
     assert.equal(receipt.artifacts['runtime-role-observation'].buildReceipt.schema,
         'fsusblog.runtime-role-observation-build-receipt.v4')
     validatePostRuntimeReaderFirewall(root, 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs')
+    validatePostRuntimeReaderFirewall(root, 'tools/docs/behavior-doc-static-admission-contract.mjs')
+})
+
+test('pure static admission requires closed complete source materials without authorizing their origin', () =>
+{
+    const admission = createRuntimeRoleStaticV4Fixture('v3-contract-test', identity, { repositoryRoot: root })
+    const authority = readRuntimeRoleClaimStageAuthorityFixture(root)
+    const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'],
+        expectedClaimStageAuthority: authority }
+    assert.equal(validateBehaviorDocStaticAdmissionReceipt(admission, expected), admission)
+    for (const value of [null, {}, { ...authority, extra: true },
+        { ...authority, catalog: null }, { ...authority, claimReceipt: null },
+        { ...authority, migrationLedger: null }])
+    {
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(admission, {
+            ...expected, expectedClaimStageAuthority: value
+        }), /closed expected source materials/u)
+    }
+    const withoutMaterials = { ...expected }
+    delete withoutMaterials.expectedClaimStageAuthority
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(admission, withoutMaterials),
+        /closed expected source materials/u)
+    const changed = structuredClone(authority)
+    changed.claimReceipt.claims[0].location.documentPath = 'docs/not-the-source.md'
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(admission, {
+        ...expected, expectedClaimStageAuthority: changed
+    }), /parse receipt mismatch/u)
 })
 
 test('shared static v4 fixture preserves explicit run, source, extractor and minimal-build inputs', () =>
@@ -60,7 +88,8 @@ test('shared static v4 fixture preserves explicit run, source, extractor and min
     })
     assert.equal(validateBehaviorDocStaticAdmissionReceipt(admission, {
         expectedRunId: runId, expectedSourceIdentity: source,
-        expectedWorktree: root, expectedExtractorIds: extractorIds
+        expectedWorktree: root, expectedExtractorIds: extractorIds,
+        expectedClaimStageAuthority: readRuntimeRoleClaimStageAuthorityFixture(root)
     }), admission)
     assert.deepEqual(admission.minimalContractBuild, minimalContractBuild)
     assert.notEqual(admission.minimalContractBuild, minimalContractBuild)
@@ -133,6 +162,7 @@ test('explicit historical v3 fixtures remain rejected without relabeling their s
     assert.throws(() => validateMinimalContractBuildReceipt(legacyBuild, options), /minimal contract build/u)
     const legacyAdmission = createRuntimeRoleStaticV3Fixture('v3-contract-test', identity, { repositoryRoot: root })
     assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(legacyAdmission, {
-        ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role']
+        ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'],
+        expectedClaimStageAuthority: readRuntimeRoleClaimStageAuthorityFixture(root)
     }))
 })
