@@ -161,21 +161,22 @@ function readFixedSchemaSource(file, byteLimit)
         {
             throw new Error('fixed schema source byte budget exceeded');
         }
-        const chunks = [];
+        // The single backing allocation is exactly the already-admitted file size.
+        // Slow buffers do not retain shared pools or one large backing buffer per short read.
+        const bytes = Buffer.allocUnsafeSlow(Number(before.size));
         let total = 0;
-        while (true)
+        while (total < bytes.length)
         {
-            // At the exact limit only one further byte may be observed, never a whole-file hydration.
-            const length = total === byteLimit ? 1 : Math.min(65536, byteLimit - total);
-            const buffer = Buffer.allocUnsafe(length);
-            const count = fs.readSync(descriptor, buffer, 0, length, null);
+            const length = Math.min(65536, bytes.length - total);
+            const count = fs.readSync(descriptor, bytes, total, length, null);
             if (count === 0) break;
             total += count;
-            if (total > byteLimit)
-            {
-                throw new Error('fixed schema source byte budget exceeded');
-            }
-            chunks.push(buffer.subarray(0, count));
+        }
+        if (total === bytes.length
+            && fs.readSync(descriptor, Buffer.allocUnsafeSlow(1), 0, 1, null) !== 0)
+        {
+            throw new Error(total === byteLimit ? 'fixed schema source byte budget exceeded'
+                : 'fixed schema source changed during its bounded read');
         }
         const after = fs.fstatSync(descriptor, { bigint: true });
         const pathAfter = fs.lstatSync(file, { bigint: true });
@@ -184,7 +185,7 @@ function readFixedSchemaSource(file, byteLimit)
         {
             throw new Error('fixed schema source changed during its bounded read');
         }
-        result = JSON.parse(Buffer.concat(chunks, total).toString('utf8'));
+        result = JSON.parse(bytes.toString('utf8'));
     }
     catch (error)
     {

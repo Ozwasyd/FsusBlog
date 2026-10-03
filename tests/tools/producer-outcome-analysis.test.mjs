@@ -519,7 +519,8 @@ function schemaSourceIOFixture(t, options = {})
     const files = new Map(['producer-semantic-outcome.schema.json', 'aggregate-run-outcome.schema.json']
         .map((name) => [name, fs.readFileSync(new URL(`../../config/schemas/${name}`, import.meta.url))]));
     const states = new Map();
-    const observations = { reads: 0, closes: 0, opens: 0, bytes: 0, flags: [], lengths: [] };
+    const observations = { reads: 0, closes: 0, opens: 0, bytes: 0, flags: [], lengths: [],
+        backingBuffers: new Set() };
     const metadata = (bytes, extra = {}) => ({ dev: 1n, ino: 2n, size: BigInt(bytes.length),
         mtimeNs: 3n, ctimeNs: 4n, isFile: () => true, isSymbolicLink: () => false, ...extra });
     const originalLstat = fs.lstatSync;
@@ -537,7 +538,8 @@ function schemaSourceIOFixture(t, options = {})
         observations.opens++;
         observations.flags.push(flags);
         const descriptor = 1000 + observations.opens;
-        states.set(descriptor, { file, bytes, offset: 0, stats: 0 });
+        states.set(descriptor, { file, bytes, readBytes: options.grow
+            ? Buffer.concat([bytes, Buffer.from('x')]) : bytes, offset: 0, stats: 0 });
         return descriptor;
     });
     t.mock.method(fs, 'fstatSync', (descriptor) =>
@@ -551,9 +553,10 @@ function schemaSourceIOFixture(t, options = {})
         const state = states.get(descriptor);
         observations.reads++;
         observations.lengths.push(length);
+        observations.backingBuffers.add(buffer.buffer);
         if (options.readError) throw options.readError;
-        const bytes = options.grow ? Buffer.concat([state.bytes, Buffer.from('x')]) : state.bytes;
-        const count = bytes.copy(buffer, offset, state.offset, state.offset + length);
+        const count = state.readBytes.copy(buffer, offset, state.offset,
+            state.offset + (options.shortRead ? Math.min(length, 1) : length));
         state.offset += count;
         observations.bytes += count;
         return count;
@@ -565,7 +568,8 @@ function schemaSourceIOFixture(t, options = {})
         if (options.closeError) throw options.closeError;
     });
     const maximum = Math.max(...[...files.values()].map((bytes) => bytes.length));
-    return { observations, maximum, validate: (limit = maximum) => validateOutcomeFieldDispositions(registry,
+    const combinedBytes = [...files.values()].reduce((total, bytes) => total + bytes.length, 0);
+    return { observations, maximum, combinedBytes, validate: (limit = maximum) => validateOutcomeFieldDispositions(registry,
         { ...hostExpectedLimits, maxStringBytes: limit }) };
 }
 
@@ -644,4 +648,26 @@ test('fixed schema IO treats close-only failure as failure rather than returning
     const fixture = schemaSourceIOFixture(t, { closeError: primary });
     assert.throws(() => fixture.validate(), (error) => error === primary);
     assert.equal(fixture.observations.closes, 1);
+});
+
+test('single-byte short reads retain only admitted schema buffers plus fixed EOF scratch', (t) =>
+{
+    const fixture = schemaSourceIOFixture(t, { shortRead: true });
+    assert.equal(fixture.validate().entries.length, 10);
+    assert.equal(fixture.observations.bytes, fixture.combinedBytes);
+    assert.equal(fixture.observations.closes, 2);
+    assert.equal(fixture.observations.backingBuffers.size, 4);
+    assert.equal([...fixture.observations.backingBuffers].reduce((total, buffer) => total + buffer.byteLength, 0),
+        fixture.combinedBytes + 2);
+});
+
+test('single-byte short reads still reject source growth without retaining a buffer per read', (t) =>
+{
+    const fixture = schemaSourceIOFixture(t, { shortRead: true, grow: true });
+    assert.throws(() => fixture.validate(), /changed during|byte budget/u);
+    assert.equal(fixture.observations.closes, 1);
+    assert.equal(fixture.observations.backingBuffers.size, 2);
+    assert.ok([...fixture.observations.backingBuffers].reduce((total, buffer) => total + buffer.byteLength, 0)
+        <= fixture.maximum + 1);
+    assert.ok(fixture.observations.bytes <= fixture.maximum + 1);
 });
