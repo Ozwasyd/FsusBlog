@@ -1,5 +1,7 @@
 using System.Data.Common;
 
+using MySqlConnector;
+
 using Xunit;
 
 using FsusBlog.Contracts.Migration;
@@ -9,6 +11,36 @@ namespace FsusBlog.Migration.Tests;
 /// <summary>Pre-connection refusals only, not a mock MySQL provider acceptance lane.</summary>
 public sealed class OfflineMigrationMySqlNativeSessionTests
 {
+    [Fact]
+    public async Task BorrowedBoundaryCancellationPrecedesNativeAccess()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            OfflineMigrationMySqlNativeSession.RequireBorrowedBoundaryAsync(null!, null!, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task BorrowedBoundaryMissingCancellationScopeCannotReachNativeSql()
+    {
+        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationMySqlNativeSession.RequireBorrowedBoundaryAsync(null!, null!, default));
+        Assert.Equal("offline_source_native_operation_context_required", refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BorrowedBoundaryRequiresBothActualNativeResources(bool missingConnection)
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var connection = new MySqlConnection();
+        ArgumentNullException refusal = await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            OfflineMigrationMySqlNativeSession.RequireBorrowedBoundaryAsync(missingConnection ? null! : connection, null!, cancellation.Token));
+        Assert.Equal(missingConnection ? "connection" : "transaction", refusal.ParamName);
+    }
+
     [Fact]
     public async Task CancelledCallerDoesNotCreateANativeConnection()
     {

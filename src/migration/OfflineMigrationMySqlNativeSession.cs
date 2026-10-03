@@ -191,8 +191,29 @@ internal static class OfflineMigrationMySqlNativeSession
         {
             throw new NativeFailure("offline_source_mysql_native_snapshot_session_required");
         }
+        await RequireBorrowedBoundaryAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+    }
+
+    // A borrowed transaction is never admitted by an isolation enum alone. This
+    // reuses the original native SQL/engine observations without opening, changing
+    // or disposing any caller-owned resource. The SqlSugar owner still verifies its
+    // own original adapter references before and after every owned observation.
+    internal static async Task RequireBorrowedBoundaryAsync(DbConnection connection,
+        DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!cancellationToken.CanBeCanceled)
+            throw new InvalidOperationException("offline_source_native_operation_context_required");
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+        if (connection.GetType() != typeof(MySqlConnection) || transaction.GetType() != typeof(MySqlTransaction)
+            || connection.State != ConnectionState.Open || !ReferenceEquals(transaction.Connection, connection)
+            || transaction.IsolationLevel != IsolationLevel.Snapshot)
+            throw new InvalidOperationException("offline_source_mysql_native_snapshot_session_required");
+        var nativeConnection = (MySqlConnection)connection;
+        var nativeTransaction = (MySqlTransaction)transaction;
         await using (var command = new MySqlCommand(
-            "SELECT @@session.transaction_isolation, @@session.transaction_read_only, DATABASE()", connection, transaction))
+            "SELECT @@session.transaction_isolation, @@session.transaction_read_only, DATABASE()", nativeConnection, nativeTransaction))
         {
             await using MySqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
@@ -207,7 +228,7 @@ internal static class OfflineMigrationMySqlNativeSession
         // catalog vocabulary; this port only refuses an engine outside its actual read view.
         await using var engineCommand = new MySqlCommand(
             "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' AND (ENGINE IS NULL OR ENGINE <> 'InnoDB')",
-            connection, transaction);
+            nativeConnection, nativeTransaction);
         object? count = await engineCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         if (count is not (long or ulong) || (count is long signed && signed != 0) || (count is ulong unsigned && unsigned != 0))
         {
