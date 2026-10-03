@@ -258,14 +258,12 @@ public static class ArticleRelationContractValidator
             ArticleRelationQueryScope.Authoring =>
                 visibility.PublicContext == ArticleRelationPublicContext.AuthoringActor,
             ArticleRelationQueryScope.CurrentPublicPublication =>
-                visibility.PublicContext == ArticleRelationPublicContext.AnonymousPublic
-                    && visibility.QueryActor.ActorIdentity.StartsWith("public:", StringComparison.Ordinal),
+                visibility.PublicContext == ArticleRelationPublicContext.AnonymousPublic,
             ArticleRelationQueryScope.PublicationEvidence =>
-                visibility.PublicContext == ArticleRelationPublicContext.PublicationBuild
-                    && visibility.QueryActor.ActorIdentity.StartsWith("build:", StringComparison.Ordinal),
+                visibility.PublicContext == ArticleRelationPublicContext.PublicationBuild,
             _ => false
         };
-        return contextMatches
+        return contextMatches && QueryActorMatchesScope(visibility.QueryScope, visibility.QueryActor)
             ? Valid()
             : Invalid("article_relation_query_context_mismatch");
     }
@@ -594,6 +592,11 @@ public static class ArticleRelationContractValidator
             return Invalid("article_relation_public_revision_scope_mismatch");
         }
 
+        if (!QueryActorMatchesScope(context.QueryScope, context.QueryActor))
+        {
+            return Invalid("article_relation_query_context_mismatch");
+        }
+
         return Valid();
     }
 
@@ -643,6 +646,16 @@ public static class ArticleRelationContractValidator
             {
                 return Invalid("article_relation_receipt_candidate_digest_invalid");
             }
+        }
+
+        string expectedIdentity = ArticleRelationDigest.ComputeReceipt(receipt with
+        {
+            ReceiptIdentity = string.Empty,
+            ReceiptDigest = string.Empty
+        });
+        if (!DigestEquals(receipt.ReceiptIdentity, expectedIdentity))
+        {
+            return Invalid("article_relation_receipt_identity_digest_mismatch");
         }
 
         return DigestEquals(receipt.ReceiptDigest, ArticleRelationDigest.ComputeReceipt(receipt))
@@ -766,6 +779,19 @@ public static class ArticleRelationContractValidator
                         | ArticleRelationLifecycleObligations.Reresolve
                     : ArticleRelationLifecycleObligations.Invalidate,
             _ => ArticleRelationLifecycleObligations.None
+        };
+
+    private static bool QueryActorMatchesScope(
+        ArticleRelationQueryScope scope,
+        ArticleRelationActorContext queryActor)
+        => scope switch
+        {
+            ArticleRelationQueryScope.Authoring => true,
+            ArticleRelationQueryScope.CurrentPublicPublication =>
+                queryActor.ActorIdentity.StartsWith("public:", StringComparison.Ordinal),
+            ArticleRelationQueryScope.PublicationEvidence =>
+                queryActor.ActorIdentity.StartsWith("build:", StringComparison.Ordinal),
+            _ => false
         };
 
     private static bool ValidateReceiptScope(ArticleRelationReceiptKind kind, ArticleRelationQueryScope scope)

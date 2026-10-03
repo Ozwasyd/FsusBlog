@@ -456,6 +456,167 @@ public sealed class ArticleRelationContractTests
             }).ReasonCode);
     }
 
+    [Theory]
+    [InlineData(ArticleRelationReceiptKind.Index, ArticleRelationQueryScope.Authoring, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.Authoring, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.IgnoreDecision, ArticleRelationQueryScope.Authoring, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Inspector, ArticleRelationQueryScope.Authoring, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "public:anonymous")]
+    [InlineData(ArticleRelationReceiptKind.Index, ArticleRelationQueryScope.PublicationEvidence, "build:publication")]
+    [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "build:publication")]
+    public void Receipts_AcceptOriginalScopeActorsAndTwoStageSeal(
+        ArticleRelationReceiptKind kind,
+        ArticleRelationQueryScope scope,
+        string queryActorIdentity)
+    {
+        ArticleRelationReceipt receipt = Receipt(kind, scope, queryActorIdentity);
+        string expectedIdentity = ArticleRelationDigest.ComputeReceipt(receipt with
+        {
+            ReceiptIdentity = string.Empty,
+            ReceiptDigest = string.Empty
+        });
+        Assert.Equal(expectedIdentity, receipt.ReceiptIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeReceipt(receipt), receipt.ReceiptDigest);
+        Assert.True(ArticleRelationContractValidator.Validate(receipt.Context).IsValid);
+        Assert.True(ArticleRelationContractValidator.Validate(receipt).IsValid);
+    }
+
+    [Theory]
+    [InlineData(ArticleRelationReceiptKind.Index, ArticleRelationQueryScope.Authoring, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "public:anonymous")]
+    [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "build:publication")]
+    public void Receipts_RejectIdentityReplacementEvenWithMatchingRecomputedContentDigest(
+        ArticleRelationReceiptKind kind,
+        ArticleRelationQueryScope scope,
+        string queryActorIdentity)
+    {
+        ArticleRelationReceipt valid = Receipt(kind, scope, queryActorIdentity);
+        Assert.True(ArticleRelationContractValidator.Validate(valid).IsValid);
+        ArticleRelationReceipt changed = valid with
+        {
+            ReceiptIdentity = valid.ReceiptIdentity == DigestA ? DigestB : DigestA
+        };
+        changed = changed with
+        {
+            ReceiptDigest = ArticleRelationDigest.ComputeReceipt(changed)
+        };
+        Assert.NotEqual(valid.ReceiptIdentity, changed.ReceiptIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeReceipt(changed), changed.ReceiptDigest);
+        Assert.True(ArticleRelationContractValidator.Validate(changed.Context).IsValid);
+        Assert.Equal(
+            "article_relation_receipt_identity_digest_mismatch",
+            ArticleRelationContractValidator.Validate(changed).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "build:publication")]
+    [InlineData(ArticleRelationReceiptKind.Index, ArticleRelationQueryScope.PublicationEvidence, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "actor:query")]
+    [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "public:anonymous")]
+    public void Receipts_RejectFullySealedCrossScopeActorsUsingTheVisibilityRule(
+        ArticleRelationReceiptKind kind,
+        ArticleRelationQueryScope scope,
+        string queryActorIdentity)
+    {
+        string legitimateActor = scope == ArticleRelationQueryScope.CurrentPublicPublication
+            ? "public:anonymous"
+            : "build:publication";
+        ArticleRelationReceipt valid = Receipt(kind, scope, legitimateActor);
+        Assert.True(ArticleRelationContractValidator.Validate(valid).IsValid);
+        ArticleRelationReceipt changed = ArticleRelationContractValidator.Seal(valid with
+        {
+            Context = valid.Context with
+            {
+                QueryActor = valid.Context.QueryActor with
+                {
+                    ActorIdentity = queryActorIdentity
+                }
+            }
+        });
+        Assert.Equal(ArticleRelationDigest.ComputeReceipt(changed with
+        {
+            ReceiptIdentity = string.Empty,
+            ReceiptDigest = string.Empty
+        }), changed.ReceiptIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeReceipt(changed), changed.ReceiptDigest);
+        Assert.True(ArticleRelationContractValidator.Validate(changed.Context.QueryActor).IsValid);
+        ArticleRelationPublicContext publicContext = scope == ArticleRelationQueryScope.CurrentPublicPublication
+            ? ArticleRelationPublicContext.AnonymousPublic
+            : ArticleRelationPublicContext.PublicationBuild;
+        Assert.Equal(
+            "article_relation_query_context_mismatch",
+            ArticleRelationContractValidator.Validate(new ArticleRelationVisibilityFacts(
+                changed.Context.SourceActor,
+                changed.Context.QueryActor,
+                scope,
+                publicContext,
+                DigestC)).ReasonCode);
+        Assert.Equal(
+            "article_relation_query_context_mismatch",
+            ArticleRelationContractValidator.Validate(changed.Context).ReasonCode);
+        Assert.Equal(
+            "article_relation_query_context_mismatch",
+            ArticleRelationContractValidator.Validate(changed).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData("actor:query")]
+    [InlineData("public:anonymous")]
+    [InlineData("build:publication")]
+    public void ReceiptContextScopeRule_PreservesOriginalAuthoringActorGrammar(string queryActorIdentity)
+    {
+        ArticleRelationReceipt receipt = Receipt(
+            ArticleRelationReceiptKind.Query,
+            ArticleRelationQueryScope.Authoring,
+            queryActorIdentity);
+        Assert.True(ArticleRelationContractValidator.Validate(receipt).IsValid);
+        ArticleRelationVisibilityFacts visibility = new(
+            receipt.Context.SourceActor,
+            receipt.Context.QueryActor,
+            ArticleRelationQueryScope.Authoring,
+            ArticleRelationPublicContext.AuthoringActor,
+            DigestC);
+        Assert.True(ArticleRelationContractValidator.Validate(visibility).IsValid);
+        Assert.Equal(
+            "article_relation_query_context_mismatch",
+            ArticleRelationContractValidator.Validate(visibility with
+            {
+                PublicContext = ArticleRelationPublicContext.AnonymousPublic
+            }).ReasonCode);
+    }
+
+    private static ArticleRelationReceipt Receipt(
+        ArticleRelationReceiptKind kind,
+        ArticleRelationQueryScope scope,
+        string queryActorIdentity)
+        => ArticleRelationContractValidator.Seal(new ArticleRelationReceipt(
+            ArticleRelationSchemas.Receipt,
+            ArticleRelationSchemas.Version,
+            string.Empty,
+            kind,
+            new(
+                ArticleA,
+                RevisionA,
+                4,
+                ArticleRelationRevisionKind.Current,
+                s_sourceActor,
+                s_queryActor with { ActorIdentity = queryActorIdentity },
+                scope,
+                "worktree:2236",
+                "build:d5eb8013",
+                "parser:canonical",
+                "renderer:server",
+                1,
+                1,
+                s_coordinate,
+                DigestD),
+            [Outgoing().RecordDigest],
+            [],
+            1,
+            0,
+            string.Empty));
+
     private static ArticleRelationLifecycleEvent RenameLifecycle(
         ArticleRelationLifecycleChanges changes,
         ArticleRelationLifecycleObligations obligations)
