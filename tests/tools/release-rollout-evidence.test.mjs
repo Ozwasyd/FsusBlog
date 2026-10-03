@@ -526,6 +526,100 @@ function runEvidence(args) {
   })
 }
 
+function shellCaptureFixture(t) {
+  const data = fixture(t, 'shell-capture')
+  const state = newState(data.directory)
+  writeJson(state.manifestPath, manifestPayload())
+  startRolloutStage(state, 'manifest-validate', '2026-07-11T00:00:00.000Z')
+  writeRolloutStateAtomic(data.stateFile, state)
+  const preparation = path.join(data.directory, 'shell-preparation.json')
+  const result = path.join(data.directory, 'shell-result.json')
+  const stdout = path.join(data.directory, 'stdout')
+  const stderr = path.join(data.directory, 'stderr')
+  fs.writeFileSync(stdout, 'original output\n')
+  fs.writeFileSync(stderr, '')
+  const prepare = (command = 'StageManifestValidate') => runEvidence([
+    'prepare-stage-execution', '--state', data.stateFile, '--stage', 'manifest-validate',
+    '--command-id', 'immutable-manifest', '--shell-function', command,
+    '--owner', path.join(root, 'tools/deployment/release-rollout.sh'),
+    '--started-at', '2026-07-11T00:00:00.000Z', '--out', preparation
+  ])
+  const finish = (exitCode = '0') => runEvidence([
+    'finish-stage-execution', '--state', data.stateFile, '--preparation', preparation,
+    '--exit-code', exitCode, '--completed-at', '2026-07-11T00:00:01.000Z',
+    '--stdout', stdout, '--stderr', stderr, '--out', result
+  ])
+  return { ...data, state, preparation, result, stdout, stderr, prepare, finish }
+}
+
+test('original shell capture binds real preparation bytes and raw output without granting native authority', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.equal(data.prepare().status, 0)
+  assert.equal(data.finish('23').status, 0)
+  const preparation = JSON.parse(fs.readFileSync(data.preparation, 'utf8'))
+  const result = JSON.parse(fs.readFileSync(data.result, 'utf8'))
+  assert.deepEqual(preparation.argv, ['StageManifestValidate'])
+  assert.equal(result.exitCode, 23)
+  assert.equal(result.qualification, 'diagnostic-only')
+  assert.equal(result.observation, 'shell-command-returned')
+  assert.ok(BigInt(result.monotonicCompletedNs) >= BigInt(preparation.monotonicStartedNs))
+  assert.equal(result.preparation.sha256, sha256Text(fs.readFileSync(data.preparation)))
+  assert.equal(result.output.stdout.sha256, sha256Text(fs.readFileSync(data.stdout)))
+  assert.equal(JSON.stringify(result).includes('original output'), false)
+  assert.equal('runtimeId' in result, false)
+  assert.equal('cleanupVerified' in result, false)
+  assert.notEqual(data.finish().status, 0)
+})
+
+test('shell capture refuses credentials, missing interruption preparation and unknown protocol fields', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.notEqual(data.prepare('postgres://credential@example/db').status, 0)
+  assert.notEqual(data.finish('130').status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+  assert.equal(data.prepare().status, 0)
+  const preparation = JSON.parse(fs.readFileSync(data.preparation, 'utf8'))
+  preparation.cleanupVerified = true
+  writeJson(data.preparation, preparation)
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+})
+
+test('shell capture rejects changed manifest and stale rollout attempt rather than resealing either', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.equal(data.prepare().status, 0)
+  const original = fs.readFileSync(data.state.manifestPath)
+  fs.appendFileSync(data.state.manifestPath, '\n')
+  assert.notEqual(data.finish().status, 0)
+  fs.writeFileSync(data.state.manifestPath, original)
+  const state = JSON.parse(fs.readFileSync(data.stateFile, 'utf8'))
+  state.rolloutId = 'different-rollout'
+  writeJson(data.stateFile, state)
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+})
+
+test('shell capture rejects nonregular raw output and preserves the old stage schema', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.equal(data.prepare().status, 0)
+  const descriptor = fs.openSync(data.stdout, 'r+')
+  try {
+    fs.ftruncateSync(descriptor, 64 * 1024 * 1024 + 1)
+  } finally {
+    fs.closeSync(descriptor)
+  }
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+  fs.unlinkSync(data.stdout)
+  fs.symlinkSync(data.stderr, data.stdout)
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+  const rollout = fs.readFileSync(path.join(root, 'tools/deployment/release-rollout.sh'), 'utf8')
+  assert.match(rollout, /prepare-stage-execution/u)
+  assert.match(rollout, /finish-stage-execution/u)
+  assert.match(rollout, /fsusblog\.release-rollout-stage-evidence\.v2/u)
+  assert.match(rollout, /\[\[ "\$exitCode" != "0" \]\] \|\| exitCode=70/u)
+})
+
 function parseStdout(result) {
   assert.notEqual(result.stdout.trim(), '', result.stderr)
   return JSON.parse(result.stdout)

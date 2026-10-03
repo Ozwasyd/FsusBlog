@@ -1176,7 +1176,7 @@ trap 'CleanupBackgroundProbes' EXIT
 RunStage() {
     local stage="$1" commandId="$2"
     shift 2
-    local state completed attempt started completedAt stdoutFile stderrFile evidenceFile exitCode=0 evidenceExit=0
+    local state completed attempt started completedAt stdoutFile stderrFile evidenceFile preparationFile executionFile exitCode=0 evidenceExit=0 captureExit=0
     FreshCurrentSchemaAdmission
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
     completed="$(jq -r --arg stage "$stage" '.completedStages | index($stage) != null' <<<"$state")"
@@ -1189,16 +1189,37 @@ RunStage() {
     stdoutFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
     stderrFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
     evidenceFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
+    preparationFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.shell-preparation.json"
+    executionFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.shell-result.json"
     started="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" start-stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" --at "$started" >/dev/null
     RolloutLog "stage=$stage status=running"
     RehearsalStageHold "$stage"
+    # This owner currently calls fixed shell functions with no credential
+    # arguments. Do not serialize arbitrary argv or claim native admission.
+    [[ "$#" == "1" && "$(type -t -- "$1")" == "function" ]] || RolloutFail "stage=$stage requires one original shell function"
+    node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" prepare-stage-execution \
+        --state "$ROLLOUT_STATE_FILE" --stage "$stage" --command-id "$commandId" \
+        --shell-function "$1" --owner "$ROOT_DIR/tools/deployment/release-rollout.sh" \
+        --started-at "$started" --out "$preparationFile" >/dev/null
     set +e
     "$@" >"$stdoutFile" 2>"$stderrFile"
     exitCode=$?
     set -e
     completedAt="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+    set +e
+    node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" finish-stage-execution \
+        --state "$ROLLOUT_STATE_FILE" --preparation "$preparationFile" \
+        --exit-code "$exitCode" --completed-at "$completedAt" \
+        --stdout "$stdoutFile" --stderr "$stderrFile" --out "$executionFile" >/dev/null
+    captureExit=$?
+    set -e
+    if [[ "$captureExit" != "0" ]]; then
+        # Collection failure must not replace the original command failure.
+        [[ "$exitCode" != "0" ]] || exitCode=70
+        printf '[release-rollout] shell result capture failed for %s\n' "$stage" >>"$stderrFile"
+    fi
     set +e
     node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" \
@@ -1210,7 +1231,7 @@ RunStage() {
     evidenceExit=$?
     set -e
     if [[ "$evidenceExit" != "0" ]]; then
-        exitCode=70
+        [[ "$exitCode" != "0" ]] || exitCode=70
         printf '[release-rollout] stage evidence write failed for %s\n' "$stage" >>"$stderrFile"
     fi
     if [[ "$exitCode" == "0" ]]; then
