@@ -4,6 +4,7 @@ import { validateBehaviorDocStaticAdmissionReceiptV3 } from '../docs/behavior-do
 import { verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import { createReleaseManifestValueContract } from '../release/release-manifest-value-contract.mjs'
+import { validateCurrentSchemaCodeContractObservation } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 
 const fail = (message) => { throw new Error(`[canonical-release-authorities] ${message}`) }
 const normalized = (value) => String(value ?? '').replace(/^sha256:/u, '')
@@ -40,17 +41,17 @@ function verifyRuntimeRole(relative, plan, repositoryRoot, readJson)
   const minimal = admission.value.minimalContractBuild
   const artifact = minimal?.artifacts?.['runtime-role-observation']
   const buildReceipt = artifact?.buildReceipt
-  if (buildReceipt?.schema !== 'fsusblog.runtime-role-observation-build-receipt.v3'
+  if (buildReceipt?.schema !== 'fsusblog.runtime-role-observation-build-receipt.v4'
     || buildReceipt.sourceCommit !== plan.sourceState.commit
     || normalized(buildReceipt.worktreeFingerprint) !== normalized(plan.sourceState.worktreeFingerprint))
   {
-    fail('runtime-role authority is not the merged typed v3 producer contract')
+    fail('runtime-role authority is not the current typed v4 build producer contract')
   }
   const observation = readJson(artifact.path, 'content-addressed runtime-role observation')
   const deployment = readJson(artifact.deploymentArtifactPath, 'content-addressed deployment observation')
   if (normalized(observation.ref.fileDigest) !== artifact.artifactDigest
     || normalized(deployment.ref.fileDigest) !== artifact.deploymentArtifactDigest
-    || observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+    || observation.value.schema !== 'fsusblog.runtime-role-observation.v3'
     || deployment.value.ownership?.claimEligible !== true
     || observation.value.ownership?.claimEligible !== true
     || observation.value.deploymentAuthority?.observationDigest !== deployment.value.observationDigest
@@ -58,6 +59,7 @@ function verifyRuntimeRole(relative, plan, repositoryRoot, readJson)
   {
     fail('runtime-role/deployment raw artifacts are stale, synthetic, or not claim eligible')
   }
+  validateCurrentSchemaCodeContractObservation(observation.value.currentSchemaContract)
   return { admission, minimal, artifact, buildReceipt, observation, deployment }
 }
 
