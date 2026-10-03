@@ -156,10 +156,14 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
     [InlineData(SchemaProviderKind.Sqlite)]
     public void OwnedFacts_FoldAddedColumnIntoFinalEmptyTableWithoutMutatingBoundInput(SchemaProviderKind provider)
     {
-        var column = new SchemaColumnModel("added_counter", true, false, false, null, "int64");
+        // Owned recipe columns retain the original PostgreSQL physical type;
+        // int64 projects to bigint before the portable relational fold.
+        var column = new SchemaColumnModel("added_counter", true, false, false, null, "int64", PhysicalType: "bigint");
         CurrentSchemaBootstrapInput input = Input([new(CurrentSchemaRecipeOperationKind.AddColumnIfAbsent,
             column.Name, "recipe_probe", Column: column)]);
         string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        Assert.NotEmpty(CurrentSchemaBootstrapCompiler.Compile(input, input.Producer,
+            SchemaProviderKind.PostgreSql, binding).Commands);
         CompiledCurrentSchemaBootstrap compiled = CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
             input, input.Producer, provider, binding);
         Assert.Equal(3, compiled.Commands.Count);
@@ -180,8 +184,10 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
         CurrentSchemaBootstrapInput input = Input([new(CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent,
             constraint.Name, "recipe_probe", Constraint: constraint)]);
         SchemaTableModel original = input.RequiredRecipes[0].SemanticDescription!.Table;
-        original.Columns.Add("counter", new("counter", false, false, false, null, "int64"));
+        original.Columns.Add("counter", new("counter", false, false, false, null, "int64", PhysicalType: "bigint"));
         string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        Assert.NotEmpty(CurrentSchemaBootstrapCompiler.Compile(input, input.Producer,
+            SchemaProviderKind.PostgreSql, binding).Commands);
         CompiledCurrentSchemaBootstrap compiled = CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
             input, input.Producer, provider, binding);
         Assert.Equal(3, compiled.Commands.Count);
