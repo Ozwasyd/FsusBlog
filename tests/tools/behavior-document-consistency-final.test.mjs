@@ -141,7 +141,8 @@ function finalStageFixtureFiles(includePost = false)
 {
     const catalog = finalStageFixtureCatalog(includePost)
     const documents = catalog.contracts.map(({ documents }) => documents[0])
-    const ledger = { scopes: [{ scopeId: 'alpha', behaviorIds: catalog.contracts.map(({ id }) => id),
+    const ledger = { schema: 'fsusblog.document-claim-migration-ledger.v1',
+        scopes: [{ scopeId: 'alpha', behaviorIds: catalog.contracts.map(({ id }) => id),
         entries: catalog.contracts.map(({ id, documents }) => ({
             behaviorId: id, documentPath: documents[0],
             claimIds: [id === 'alpha-behavior' ? 'alpha.current' : 'alpha-post.current'],
