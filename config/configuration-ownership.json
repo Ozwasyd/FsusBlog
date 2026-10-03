@@ -982,9 +982,11 @@
             "owner": "physical-execution-governance",
             "canonicalPath": "config/testing/physical-execution-process-policy.json",
             "pathType": "file",
-            "purpose": "Canonical tree termination, bounded pipe close, and zero-member observation policy",
+            "purpose": "Canonical tree termination, bounded pipe close, zero-member observation, and managed-only systemd control/startup budgets",
             "consumers": [
+                "tools/run-test-matrix.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
                 "tools/test/release-reliability-lifecycle-actions.mjs",
                 "tools/test/release-reliability-lifecycle.mjs",
                 "tools/test/release-reliability-receipt.mjs",

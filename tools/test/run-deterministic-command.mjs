@@ -8,9 +8,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
     finalizeRunOwnedDirectories,
+    finalizeRunOwnedDirectoriesAfterPhysical,
     prepareRunOwnedDirectories
 } from './execution-envelope-directories.mjs';
 import { prepareCorrectnessEnvironment } from './execution-envelope-environment.mjs';
+import { readPreparedBehaviorDocNuget } from './behavior-doc-nuget-preparation.mjs';
 import {
     finalizeNetworkSandbox,
     loadExecutionNetworkPolicy,
@@ -309,6 +311,10 @@ async function main(argv)
     }
     if (executionClass === 'diagnostic')
     {
+        if (options.preparedNuget)
+        {
+            throw new Error('Offline NuGet ingress cannot be used by a diagnostic command');
+        }
         if (options.projectionDirectory)
         {
             throw new Error('diagnostic execution cannot publish a correctness projection');
@@ -372,343 +378,437 @@ async function main(argv)
             throw new Error(`${producerId}: required execution service envelope is missing or drifted`);
         }
     }
-    const directoryEnvelope = prepareRunOwnedDirectories({
-        repositoryRoot: repoRoot,
-        cwd,
-        runId,
-        producerId,
-        attemptId: options.key,
-        outputs: options.outputs
-    });
-    let correctnessEnvironment;
-    let networkSandbox;
-    try
+    if (options.preparedNuget && producerId !== 'behavior-doc-static-admission')
     {
-        correctnessEnvironment = prepareCorrectnessEnvironment({
-            command,
-            parentEnvironment: process.env,
-            producerAllowlist: options.environmentNames,
-            injectedEnvironment: {
-                ...materializeTemporalEnvironment(temporalContext),
-                ...temporalRoleEnvironment,
-                ...directoryEnvelope.environment,
-                FSUSBLOG_TEST_RUN_ID: runId,
-                FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
-                FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceFingerprint
-            },
-            policy,
-            catalog
-        });
-        const networkPolicy = loadExecutionNetworkPolicy();
-        networkSandbox = prepareNetworkSandbox({
-            command: [
-                process.execPath,
-                temporalChildObserver,
-                '--',
-                ...correctnessEnvironment.command
-            ],
-            cwd,
-            directories: directoryEnvelope.fragment.directories,
-            writableRoots: directoryEnvelope.fragment.writableRoots,
-            plannedEndpoints: projectPlannedEndpoints({
-                services: producerEnvelope.requiredServices,
-                serviceEnvelope,
-                policy: networkPolicy
-            }),
-            environment: correctnessEnvironment.environment,
-            policy: networkPolicy
-        });
+        throw new Error('Prepared NuGet ingress is not declared for this producer');
     }
-    catch (error)
-    {
-        finalizeRunOwnedDirectories(directoryEnvelope);
-        throw error;
-    }
-    const observedCommand = [
-        ...networkSandbox.command
-    ];
-    const commit = git(['rev-parse', 'HEAD']);
-    const inputPaths = [...new Set([
-        ...options.paths,
-        physicalExecutionPolicy,
-        'config/schemas/test-execution-envelope-applicability.schema.json',
-        'config/schemas/test-execution-envelope-policy.schema.json',
-        'config/schemas/test-execution-envelope-receipt.schema.json',
-        'config/schemas/test-execution-network-policy.schema.json',
-        'config/testing/test-execution-envelope-applicability.json',
-        'config/testing/test-execution-envelope-policy.json',
-        'config/testing/test-execution-network-policy.json',
-        'config/testing/temporal-domain-producer-inventory.json',
-        'config/testing/temporal-shape-catalog.json',
-        'config/testing/resolved-temporal-roles.schema.json',
-        'tools/test/execution-envelope-directories.mjs',
-        'tools/test/execution-envelope-environment.mjs',
-        'tools/test/execution-envelope-network.mjs',
-        'tools/test/execution-envelope-receipt.mjs',
-        'tools/test/native/execution-envelope-landlock.c',
-        'tools/test-matrix/execution-envelope-policy.mjs',
-        'tools/test/temporal-context.mjs',
-        'tools/test/temporal-role-resolver.mjs',
-        'tools/test/temporal-shape-catalog.mjs',
-        'tools/test-fixtures/producers/temporal-child-handshake.bash',
-        'tools/test-fixtures/producers/temporal-child-handshake.cjs',
-        'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',
-        'tools/test-fixtures/producers/temporal-child-observer.mjs',
-        ...(options.browserEnvelope ? [options.browserEnvelope] : []),
-        ...(options.serviceEnvelope ? [options.serviceEnvelope] : [])
-    ])];
-    const inputDigest = await fingerprintPaths(inputPaths, {
-        root: repoRoot,
-        values: [
-            'run-bound-physical-execution-v3',
-            cwd,
-            JSON.stringify(command),
-            JSON.stringify([...options.outputs].sort()),
-            digestCanonical(temporalContext),
-            correctnessEnvironment.fragmentDigest,
-            digest(directoryEnvelope.fragment),
-            digest(networkSandbox.fragment)
-        ]
-    });
-    const environmentDigest = digest({
-        environment: correctnessEnvironment.fragment,
-        directories: directoryEnvelope.fragment,
-        network: networkSandbox.fragment
-    });
-    const worktreeFingerprint = digest({
-        commit,
-        inputDigest,
-        status: git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...inputPaths])
-    });
-    const consumerId = String(options.consumer ?? producerId).trim() || producerId;
-    const envelopeDirectory = path.join(
-        repoRoot,
-        '.tmp/test-execution-envelope',
-        sanitizeSegment(runId, 'run'),
-        sanitizeSegment(producerId, 'producer')
-    );
-    const executionEnvelopePlanFile = path.join(
-        envelopeDirectory,
-        `${sanitizeSegment(options.key, 'execution')}-plan.json`
-    );
-    const executionEnvelopeReceiptFile = path.join(
-        envelopeDirectory,
-        `${sanitizeSegment(options.key, 'execution')}-receipt.json`
-    );
-    const envelopeIdentity = {
-        producerId,
-        schedulerRunId: runId,
-        attemptId: options.key,
-        sourceCommit,
-        sourceFingerprint,
-        worktreeFingerprint: `sha256:${worktreeFingerprint}`,
-        workingDirectory: cwd
-    };
-    const plan = buildExecutionEnvelope({
-        phase: 'planned',
-        identity: envelopeIdentity,
-        applicability: producerEnvelope,
-        policy,
-        catalog,
-        environment: correctnessEnvironment.fragment,
-        directories: directoryEnvelope.fragment,
-        network: networkSandbox.fragment,
-        browser: browserEnvelope,
-        services: serviceEnvelope,
-        hostFacts: observeExecutionEnvelopeHostFacts({
-            directory: directoryEnvelope.fragment.ownedRoot
+    const preparedNuget = producerId === 'behavior-doc-static-admission'
+        ? await readPreparedBehaviorDocNuget({
+            repositoryRoot: repoRoot, runId, file: options.preparedNuget
         })
-    });
-    writePrivateJson(executionEnvelopePlanFile, plan);
+        : null;
     const controller = new AbortController();
     const abort = (signal) => controller.abort(Object.assign(new Error(`received ${signal}`), { name: 'AbortError', signal }));
     const onSigint = () => abort('SIGINT');
     const onSigterm = () => abort('SIGTERM');
     process.once('SIGINT', onSigint);
     process.once('SIGTERM', onSigterm);
-    let postflightAttempted = false;
-    let executionEnvelopeBinding = null;
-    const finalizeEnvelope = () =>
+    let directoryEnvelope;
+    let firstFailure = null;
+    let physicalStarted = false;
+    let terminalEvidence = null;
+    try
     {
-        if (postflightAttempted)
-        {
-            return executionEnvelopeBinding;
-        }
-        postflightAttempted = true;
-        let postflightError = null;
-        let networkFragment = networkSandbox.fragment;
-        let directoryFragment = directoryEnvelope.fragment;
-        let actualHostFacts = null;
+        directoryEnvelope = prepareRunOwnedDirectories({
+            repositoryRoot: repoRoot,
+            cwd,
+            runId,
+            producerId,
+            attemptId: options.key,
+            outputs: options.outputs,
+            preparedNuget
+        });
+        let correctnessEnvironment;
+        let networkSandbox;
         try
         {
-            networkFragment = finalizeNetworkSandbox(networkSandbox);
-        }
-        catch (error)
-        {
-            postflightError = error;
-        }
-        try
-        {
-            actualHostFacts = observeExecutionEnvelopeHostFacts({
-                directory: directoryEnvelope.fragment.ownedRoot
+            correctnessEnvironment = prepareCorrectnessEnvironment({
+                command,
+                parentEnvironment: process.env,
+                producerAllowlist: options.environmentNames,
+                injectedEnvironment: {
+                    ...materializeTemporalEnvironment(temporalContext),
+                    ...temporalRoleEnvironment,
+                    ...directoryEnvelope.environment,
+                    FSUSBLOG_TEST_RUN_ID: runId,
+                    FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
+                    FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceFingerprint
+                },
+                policy,
+                catalog
             });
-        }
-        catch (error)
-        {
-            postflightError ??= error;
-        }
-        try
-        {
-            directoryFragment = finalizeRunOwnedDirectories(directoryEnvelope);
-        }
-        catch (error)
-        {
-            postflightError ??= error;
-        }
-        if (postflightError)
-        {
-            writePrivateJson(executionEnvelopeReceiptFile, {
-                schema: 'fsusblog.test-execution-envelope-rejection.v1',
-                qualificationEligible: false,
+            const networkPolicy = loadExecutionNetworkPolicy();
+            networkSandbox = prepareNetworkSandbox({
+                command: [
+                    process.execPath,
+                    temporalChildObserver,
+                    '--',
+                    ...correctnessEnvironment.command
+                ],
+                cwd,
+                directories: directoryEnvelope.fragment.directories,
+                ownedDirectoryEnvelope: directoryEnvelope,
+                writableRoots: directoryEnvelope.fragment.writableRoots,
+                plannedEndpoints: projectPlannedEndpoints({
+                    services: producerEnvelope.requiredServices,
+                    serviceEnvelope,
+                    policy: networkPolicy
+                }),
+                environment: correctnessEnvironment.environment,
+                policy: networkPolicy,
                 producerId,
-                schedulerRunId: runId,
-                attemptId: options.key,
-                planDigest: plan.envelopeDigest,
-                reason: postflightError.message,
-                fragments: {
-                    environment: correctnessEnvironment.fragment,
-                    directories: directoryFragment,
-                    network: networkFragment
-                }
+                attemptId: options.key
             });
-            throw postflightError;
         }
-        const actual = buildExecutionEnvelope({
-            phase: 'actual',
+        catch (error)
+        {
+            try { finalizeRunOwnedDirectories(directoryEnvelope); }
+            catch (cleanupError) { error.cleanupError = cleanupError; }
+            throw error;
+        }
+        const observedCommand = [
+            ...networkSandbox.command
+        ];
+        const commit = git(['rev-parse', 'HEAD']);
+        const inputPaths = [...new Set([
+            ...options.paths,
+            physicalExecutionPolicy,
+            'config/schemas/test-execution-envelope-applicability.schema.json',
+            'config/schemas/test-execution-envelope-policy.schema.json',
+            'config/schemas/test-execution-envelope-receipt.schema.json',
+            'config/schemas/test-execution-network-policy.schema.json',
+            'config/testing/test-execution-envelope-applicability.json',
+            'config/testing/test-execution-envelope-policy.json',
+            'config/testing/test-execution-network-policy.json',
+            'config/testing/temporal-domain-producer-inventory.json',
+            'config/testing/temporal-shape-catalog.json',
+            'config/testing/resolved-temporal-roles.schema.json',
+            'tools/test/execution-envelope-directories.mjs',
+            'tools/test/behavior-doc-nuget-preparation.mjs',
+            ...(preparedNuget?.inputPaths ?? []),
+            'tools/test/execution-envelope-environment.mjs',
+            'tools/test/execution-envelope-network.mjs',
+            'tools/test/physical-execution-private-dotnet-scratch.mjs',
+            'tools/test/execution-envelope-receipt.mjs',
+            'tools/test/native/execution-envelope-landlock.c',
+            'tools/test-matrix/execution-envelope-policy.mjs',
+            'tools/test/temporal-context.mjs',
+            'tools/test/temporal-role-resolver.mjs',
+            'tools/test/temporal-shape-catalog.mjs',
+            'tools/test-fixtures/producers/temporal-child-handshake.bash',
+            'tools/test-fixtures/producers/temporal-child-handshake.cjs',
+            'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',
+            'tools/test-fixtures/producers/temporal-child-observer.mjs',
+            ...(options.browserEnvelope ? [options.browserEnvelope] : []),
+            ...(options.serviceEnvelope ? [options.serviceEnvelope] : [])
+        ])];
+        const inputDigest = await fingerprintPaths(inputPaths, {
+            root: repoRoot,
+            values: [
+                'run-bound-physical-execution-v3',
+                cwd,
+                JSON.stringify(command),
+                JSON.stringify([...options.outputs].sort()),
+                digestCanonical(temporalContext),
+                correctnessEnvironment.fragmentDigest,
+                digest(directoryEnvelope.fragment),
+                preparedNuget?.bindingDigest ?? null,
+                digest(networkSandbox.fragment)
+            ]
+        });
+        const environmentDigest = digest({
+            environment: correctnessEnvironment.fragment,
+            directories: directoryEnvelope.fragment,
+            network: networkSandbox.fragment
+        });
+        if (controller.signal.aborted)
+        {
+            throw controller.signal.reason;
+        }
+        const worktreeFingerprint = digest({
+            commit,
+            inputDigest,
+            status: git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...inputPaths])
+        });
+        const consumerId = String(options.consumer ?? producerId).trim() || producerId;
+        const envelopeDirectory = path.join(
+            repoRoot,
+            '.tmp/test-execution-envelope',
+            sanitizeSegment(runId, 'run'),
+            sanitizeSegment(producerId, 'producer')
+        );
+        const executionEnvelopePlanFile = path.join(
+            envelopeDirectory,
+            `${sanitizeSegment(options.key, 'execution')}-plan.json`
+        );
+        const executionEnvelopeReceiptFile = path.join(
+            envelopeDirectory,
+            `${sanitizeSegment(options.key, 'execution')}-receipt.json`
+        );
+        const envelopeIdentity = {
+            producerId,
+            schedulerRunId: runId,
+            attemptId: options.key,
+            sourceCommit,
+            sourceFingerprint,
+            worktreeFingerprint: `sha256:${worktreeFingerprint}`,
+            workingDirectory: cwd
+        };
+        const plan = buildExecutionEnvelope({
+            phase: 'planned',
             identity: envelopeIdentity,
             applicability: producerEnvelope,
             policy,
             catalog,
             environment: correctnessEnvironment.fragment,
-            directories: directoryFragment,
-            network: networkFragment,
+            directories: directoryEnvelope.fragment,
+            network: networkSandbox.fragment,
             browser: browserEnvelope,
             services: serviceEnvelope,
-            hostFacts: actualHostFacts
+            hostFacts: observeExecutionEnvelopeHostFacts({
+                directory: directoryEnvelope.fragment.ownedRoot
+            })
         });
-        const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
-        writePrivateJson(executionEnvelopeReceiptFile, receipt);
-        executionEnvelopeBinding = {
-            ...verifyExecutionEnvelopeReceipt(receipt),
-            receiptFile: path.relative(repoRoot, executionEnvelopeReceiptFile)
-                .replaceAll(path.sep, '/')
-        };
-        return executionEnvelopeBinding;
-    };
-    try
-    {
-        const result = await runBoundExecution({
-            runId,
-            key: options.key,
-            command,
-            cwd,
-            inputDigest,
-            environmentDigest,
-            outputContract: options.outputs,
-            requiredOutputs: options.outputs,
-            commit,
-            worktreeFingerprint,
-            executionEnvelopeDigest: plan.envelopeDigest,
-            testIds: options.testIds,
-            consumerId,
-            signal: controller.signal
-        }, async () =>
+        writePrivateJson(executionEnvelopePlanFile, plan);
+        let postflightAttempted = false;
+        let executionEnvelopeBinding = null;
+        const finalizeEnvelope = () =>
         {
-            let physicalExecution;
-            let executionError = null;
+            if (postflightAttempted)
+            {
+                return executionEnvelopeBinding;
+            }
+            postflightAttempted = true;
+            let postflightError = null;
+            let networkFragment = networkSandbox.fragment;
+            let directoryFragment = directoryEnvelope.fragment;
+            let actualHostFacts = null;
+            if (physicalStarted && terminalEvidence?.postObservation !== 'zero-members')
+            {
+                try
+                {
+                    finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
+                        physicalStarted, physicalExecution: terminalEvidence
+                    });
+                }
+                catch (error) { postflightError = error; }
+            }
             try
             {
-                physicalExecution = await spawnCommand(
-                    observedCommand,
-                    cwd,
-                    controller.signal,
-                    correctnessEnvironment.environment,
-                    {
-                        linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
-                        linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
-                        linuxReadWritePaths: networkSandbox.linuxReadWritePaths
+                if (!postflightError) networkFragment = finalizeNetworkSandbox(networkSandbox);
+            }
+            catch (error)
+            {
+                postflightError ??= error;
+            }
+            try
+            {
+                if (!postflightError) actualHostFacts = observeExecutionEnvelopeHostFacts({
+                    directory: directoryEnvelope.fragment.ownedRoot
+                });
+            }
+            catch (error)
+            {
+                postflightError ??= error;
+            }
+            try
+            {
+                directoryFragment = finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
+                    physicalStarted, physicalExecution: terminalEvidence
+                });
+            }
+            catch (error)
+            {
+                postflightError ??= error;
+            }
+            if (postflightError)
+            {
+                writePrivateJson(executionEnvelopeReceiptFile, {
+                    schema: 'fsusblog.test-execution-envelope-rejection.v1',
+                    qualificationEligible: false,
+                    producerId,
+                    schedulerRunId: runId,
+                    attemptId: options.key,
+                    planDigest: plan.envelopeDigest,
+                    reason: postflightError.message,
+                    recoveryObligation: postflightError.recoveryObligation ?? null,
+                    fragments: {
+                        environment: correctnessEnvironment.fragment,
+                        directories: directoryFragment,
+                        network: networkFragment
                     }
-                );
+                });
+                throw postflightError;
             }
-            catch (error)
-            {
-                executionError = error;
-                physicalExecution = error?.physicalExecution ?? null;
-            }
-            let envelopeError = null;
-            try
-            {
-                finalizeEnvelope();
-            }
-            catch (error)
-            {
-                envelopeError = error;
-            }
-            if (envelopeError)
-            {
-                envelopeError.physicalExecution = physicalExecution;
-                envelopeError.cause = executionError;
-                throw envelopeError;
-            }
-            if (executionError)
-            {
-                throw executionError;
-            }
-            return physicalExecution;
-        });
-        if (!executionEnvelopeBinding)
+            const actual = buildExecutionEnvelope({
+                phase: 'actual',
+                identity: envelopeIdentity,
+                applicability: producerEnvelope,
+                policy,
+                catalog,
+                environment: correctnessEnvironment.fragment,
+                directories: directoryFragment,
+                network: networkFragment,
+                browser: browserEnvelope,
+                services: serviceEnvelope,
+                hostFacts: actualHostFacts
+            });
+            const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
+            writePrivateJson(executionEnvelopeReceiptFile, receipt);
+            executionEnvelopeBinding = {
+                ...verifyExecutionEnvelopeReceipt(receipt),
+                receiptFile: path.relative(repoRoot, executionEnvelopeReceiptFile)
+                    .replaceAll(path.sep, '/')
+            };
+            return executionEnvelopeBinding;
+        };
+        try
         {
-            throw new Error('correctness producer completed without an execution envelope receipt');
+            const result = await runBoundExecution({
+                runId,
+                key: options.key,
+                command,
+                cwd,
+                inputDigest,
+                environmentDigest,
+                outputContract: options.outputs,
+                requiredOutputs: options.outputs,
+                commit,
+                worktreeFingerprint,
+                executionEnvelopeDigest: plan.envelopeDigest,
+                testIds: options.testIds,
+                consumerId,
+                signal: controller.signal
+            }, async () =>
+            {
+                let physicalExecution;
+                let executionError = null;
+                try
+                {
+                    physicalStarted = true;
+                    physicalExecution = await spawnCommand(
+                        observedCommand,
+                        cwd,
+                        controller.signal,
+                        correctnessEnvironment.environment,
+                        {
+                            linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
+                            linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
+                            linuxReadWritePaths: networkSandbox.linuxReadWritePaths,
+                            linuxOwnedPrivateTmp: networkSandbox.linuxOwnedPrivateTmp,
+                            privateDotnetScratch: networkSandbox.privateDotnetScratch
+                                ? {
+                                    schema: 'fsusblog.private-dotnet-scratch.v1',
+                                    path: '/tmp/.dotnet/shm',
+                                    ...envelopeIdentity
+                                } : null
+                        }
+                    );
+                }
+                catch (error)
+                {
+                    executionError = error;
+                    physicalExecution = error?.physicalExecution ?? null;
+                }
+                terminalEvidence = physicalExecution;
+                let envelopeError = null;
+                try
+                {
+                    finalizeEnvelope();
+                }
+                catch (error)
+                {
+                    envelopeError = error;
+                }
+                if (envelopeError)
+                {
+                    if (executionError)
+                    {
+                        executionError.cleanupError = envelopeError;
+                        executionError.recoveryObligation ??= envelopeError.recoveryObligation;
+                        throw executionError;
+                    }
+                    envelopeError.physicalExecution = physicalExecution;
+                    envelopeError.cause = executionError;
+                    throw envelopeError;
+                }
+                if (executionError)
+                {
+                    throw executionError;
+                }
+                return physicalExecution;
+            });
+            if (!executionEnvelopeBinding)
+            {
+                throw new Error('correctness producer completed without an execution envelope receipt');
+            }
+            const consumerEvidenceFile = options.projectionDirectory
+                ? await publishConsumerProjection({
+              result,
+              directory: options.projectionDirectory,
+              cwd,
+              runId,
+              key: options.key,
+              consumerId,
+              executionEnvelopeBinding
+            })
+                : null;
+            const temporalFiles = publishRunnerTemporalArtifacts({
+                context: temporalContext,
+                result,
+                key: options.key,
+                executionEnvelopeBinding
+            });
+            console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
         }
-        const consumerEvidenceFile = options.projectionDirectory
-            ? await publishConsumerProjection({
-          result,
-          directory: options.projectionDirectory,
-          cwd,
-          runId,
-          key: options.key,
-          consumerId,
-          executionEnvelopeBinding
-        })
-            : null;
-        const temporalFiles = publishRunnerTemporalArtifacts({
-            context: temporalContext,
-            result,
-            key: options.key,
-            executionEnvelopeBinding
-        });
-        console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
+        catch (error)
+        {
+            firstFailure = error;
+            throw error;
+        }
+        finally
+        {
+            let finalizationError = null;
+            if (!postflightAttempted)
+            {
+                try
+                {
+                    finalizeEnvelope();
+                }
+                catch (error)
+                {
+                    finalizationError = error;
+                }
+            }
+            process.off('SIGINT', onSigint);
+            process.off('SIGTERM', onSigterm);
+            if (finalizationError)
+            {
+                if (firstFailure)
+                {
+                    firstFailure.cleanupError ??= finalizationError;
+                }
+                else
+                {
+                    // eslint-disable-next-line no-unsafe-finally
+                    throw finalizationError;
+                }
+            }
+        }
+    }
+    catch (error)
+    {
+        firstFailure = error;
+        throw error;
     }
     finally
     {
-        let finalizationError = null;
-        if (!postflightAttempted)
-        {
-            try
-            {
-                finalizeEnvelope();
-            }
-            catch (error)
-            {
-                finalizationError = error;
-            }
-        }
         process.off('SIGINT', onSigint);
         process.off('SIGTERM', onSigterm);
-        if (finalizationError)
+        if (directoryEnvelope && fs.existsSync(directoryEnvelope.fragment.ownedRoot))
         {
-            // eslint-disable-next-line no-unsafe-finally
-            throw finalizationError;
+            try { finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, {
+                physicalStarted, physicalExecution: terminalEvidence
+            }); }
+            catch (cleanupError)
+            {
+                if (firstFailure)
+                {
+                    firstFailure.cleanupError ??= cleanupError;
+                    firstFailure.recoveryObligation ??= cleanupError.recoveryObligation;
+                }
+                else throw cleanupError;
+            }
         }
     }
 }
@@ -716,5 +816,11 @@ async function main(argv)
 main(process.argv.slice(2)).catch((error) =>
 {
     console.error(`[physical-execution] ${error instanceof Error ? error.message : String(error)}`);
+    if (error?.cleanupError)
+    {
+        console.error(`[physical-execution] cleanup-failure ${error.cleanupError.message ?? String(error.cleanupError)}`);
+    }
+    const recovery = error?.recoveryObligation ?? error?.cleanupError?.recoveryObligation;
+    if (recovery) console.error(`[physical-execution] recovery-obligation ${JSON.stringify(recovery)}`);
     process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
 });
