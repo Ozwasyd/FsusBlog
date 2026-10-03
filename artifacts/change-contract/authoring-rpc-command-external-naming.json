@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandContributions.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs"
+            ],
+            "reason": "Preserve existing external process and host RPC/command naming at the registered C# source boundaries while integrating original late-result checks and exact mutation-preview content binding; no environment contract, caller-visible identity or naming policy is renamed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve current Markdown contract identifiers and original owner references while documenting preview content binding without creating an approval issuer, permission authority or public UI token."
+        }
+    ]
+}

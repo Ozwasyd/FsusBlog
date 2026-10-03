@@ -158,6 +158,15 @@ public sealed class AccountSubjectHashProjectionTests
     }
 
     [Fact]
+    public void RuntimeMetadataInspection_ConstructorDescriptionIncludesStaticAndInstanceBodies()
+    {
+        string description = RuntimeMetadataInspection.DescribeConstructors(typeof(RuntimeMetadataConstructorFixture));
+
+        Assert.Contains("metadata-static-constructor", description, StringComparison.Ordinal);
+        Assert.Contains("metadata-instance-constructor", description, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RuntimeMetadataInspection_RepeatedDescribeMicrobenchmarkUsesTheCache()
     {
         Type type = typeof(RuntimeMetadataBenchmarkFixture);
@@ -193,6 +202,13 @@ public sealed class AccountSubjectHashProjectionTests
         public static string First() => "cache-first";
 
         public static string Second() => "cache-second";
+    }
+
+    private sealed class RuntimeMetadataConstructorFixture
+    {
+        static RuntimeMetadataConstructorFixture() => GC.KeepAlive("metadata-static-constructor");
+
+        public RuntimeMetadataConstructorFixture() => GC.KeepAlive("metadata-instance-constructor");
     }
 
     private static class RuntimeMetadataMutableFixture
@@ -240,6 +256,21 @@ internal static class RuntimeMetadataInspection
             key,
             () => DescribeTypeUncachedForBenchmark(type),
             CanCacheRuntimeDescription(type));
+    }
+
+    public static string DescribeConstructors(Type type)
+    {
+        MethodBase[] roots = EnumerateTypeTree(type)
+            .SelectMany(static inspectedType =>
+            {
+                IEnumerable<MethodBase> constructors = inspectedType.GetConstructors(AllDeclaredMembers);
+                return inspectedType.TypeInitializer is { } initializer
+                    ? constructors.Append(initializer)
+                    : constructors;
+            })
+            .Distinct()
+            .ToArray();
+        return Describe(type, roots, followCallsWithinType: true);
     }
 
     internal static string DescribeTypeUncachedForBenchmark(Type type)

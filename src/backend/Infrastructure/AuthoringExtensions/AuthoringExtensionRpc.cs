@@ -1,4 +1,6 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -363,7 +365,8 @@ public sealed class AuthoringExtensionRpcAuthority(
             throw new AuthoringExtensionContractException("RPC method does not carry one closed mutation plan.");
         }
 
-        AuthoringMutationPlan plan = envelope.Payload.MutationPlan;
+        envelope = CaptureOwnedMutationEnvelope(envelope);
+        AuthoringMutationPlan plan = envelope.Payload.MutationPlan!;
         await grants.RequireAsync(
             envelope.GrantDigest,
             envelope,
@@ -379,8 +382,20 @@ public sealed class AuthoringExtensionRpcAuthority(
             throw new AuthoringExtensionContractException("Mutation plan is stale; automatic rebasing is forbidden.");
         }
 
+        ValidateMutationPlan(plan, envelope, approval);
+        await grants.RequireAsync(
+            envelope.GrantDigest,
+            envelope,
+            AuthoringCapability.DocumentMutationRequest,
+            cancellationToken);
+
         lock (_gate)
         {
+            if (envelope.Deadline <= timeProvider.GetUtcNow())
+            {
+                throw new AuthoringExtensionContractException("Mutation request deadline has expired.");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
             if (!_committedRequestIds.Add(envelope.RequestId))
             {
                 throw new AuthoringExtensionContractException("Duplicate mutation request is rejected.");
@@ -393,6 +408,114 @@ public sealed class AuthoringExtensionRpcAuthority(
         }, cancellationToken);
         ValidateTransactionReceipt(receipt, plan);
         return receipt;
+    }
+
+    /// <summary>
+    /// Computes the content binding for a closed mutation preview, not permission
+    /// to approve it. The host confirmation owner must supply its own approval.
+    /// </summary>
+    /// <remarks>
+    /// Version 1 frames fields in the order below: integers are little-endian
+    /// Int64; strings have an Int64 UTF-16 code-unit count followed by the exact
+    /// little-endian code units. Ordered mutations are never sorted or normalized.
+    /// This internal hash material is not an RPC serialization or a signature.
+    /// </remarks>
+    /// <param name="envelope">The host's closed preview envelope and bounded ordered mutation plan.</param>
+    /// <returns>The lowercase SHA-256 of that exact owned content and host context.</returns>
+    /// <exception cref="AuthoringExtensionContractException">The mutation payload is missing or violates the existing plan bounds.</exception>
+    public static string ComputeMutationPreviewDigest(AuthoringRpcEnvelope envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        envelope = CaptureOwnedMutationEnvelope(envelope);
+        AuthoringMutationPlan plan = envelope.Payload.MutationPlan!;
+        ValidateMutationPlanContent(plan, envelope);
+        return ComputeOwnedMutationPreviewDigest(envelope, plan);
+    }
+
+    private static AuthoringRpcEnvelope CaptureOwnedMutationEnvelope(AuthoringRpcEnvelope envelope)
+    {
+        if (envelope.Method != AuthoringRpcMethod.MutationRequest ||
+            envelope.Payload?.MutationPlan is not { } plan ||
+            plan.Mutations.IsDefaultOrEmpty || plan.Mutations.Length > 1000)
+        {
+            throw new AuthoringExtensionContractException("RPC method does not carry one closed mutation plan.");
+        }
+        return envelope with
+        {
+            Payload = envelope.Payload with
+            {
+                MutationPlan = plan with { Mutations = [.. plan.Mutations] }
+            }
+        };
+    }
+
+    private static string ComputeOwnedMutationPreviewDigest(
+        AuthoringRpcEnvelope envelope,
+        AuthoringMutationPlan plan)
+    {
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendPreviewString(hash, "fsusblog.authoring-mutation-preview.v1");
+        AppendPreviewInteger(hash, envelope.SchemaVersion);
+        AppendPreviewInteger(hash, (int)envelope.Method);
+        AppendPreviewString(hash, envelope.RuntimeIdentity);
+        AppendPreviewString(hash, envelope.ExtensionId);
+        AppendPreviewString(hash, envelope.ExtensionVersion);
+        AppendPreviewString(hash, envelope.PackageSha256);
+        AppendPreviewString(hash, envelope.ContentSha256);
+        AppendPreviewString(hash, envelope.ContributionId);
+        AppendPreviewInteger(hash, (int)envelope.ExecutionClass);
+        AppendPreviewString(hash, envelope.RequestId);
+        AppendPreviewString(hash, envelope.DocumentId);
+        AppendPreviewInteger(hash, envelope.DocumentEpoch);
+        AppendPreviewInteger(hash, envelope.SourceRevision);
+        AppendPreviewString(hash, envelope.SnapshotSha256);
+        AppendPreviewString(hash, envelope.HostApiDigest);
+        AppendPreviewString(hash, envelope.SchemaDigest);
+        AppendPreviewString(hash, envelope.PolicyDigest);
+        AppendPreviewString(hash, envelope.GrantDigest);
+        AppendPreviewInteger(hash, envelope.Deadline.UtcTicks);
+        AppendPreviewString(hash, envelope.SiteIdentity);
+        AppendPreviewString(hash, envelope.Purpose);
+        AppendPreviewString(hash, plan.PlanId);
+        AppendPreviewString(hash, plan.DocumentId);
+        AppendPreviewInteger(hash, plan.DocumentEpoch);
+        AppendPreviewInteger(hash, plan.ExpectedSourceRevision);
+        AppendPreviewString(hash, plan.ExpectedSnapshotSha256);
+        AppendPreviewString(hash, plan.SelectionIdentity);
+        AppendPreviewInteger(hash, plan.Mutations.Length);
+        foreach (AuthoringMutation mutation in plan.Mutations)
+        {
+            AppendPreviewInteger(hash, (int)mutation.Operation);
+            AppendPreviewInteger(hash, mutation.Range.Start);
+            AppendPreviewInteger(hash, mutation.Range.End);
+            AppendPreviewString(hash, mutation.Text);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    private static void AppendPreviewInteger(IncrementalHash hash, long value)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(long)];
+        BinaryPrimitives.WriteInt64LittleEndian(bytes, value);
+        hash.AppendData(bytes);
+    }
+
+    private static void AppendPreviewString(IncrementalHash hash, string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        AppendPreviewInteger(hash, value.Length);
+        Span<byte> bytes = stackalloc byte[512];
+        for (int offset = 0; offset < value.Length;)
+        {
+            int count = Math.Min(bytes.Length / sizeof(char), value.Length - offset);
+            for (int index = 0; index < count; index++)
+            {
+                BinaryPrimitives.WriteUInt16LittleEndian(
+                    bytes.Slice(index * sizeof(char), sizeof(char)), value[offset + index]);
+            }
+            hash.AppendData(bytes[..(count * sizeof(char))]);
+            offset += count;
+        }
     }
 
     public void ValidateEnvelope(AuthoringRpcEnvelope envelope)
@@ -439,13 +562,27 @@ public sealed class AuthoringExtensionRpcAuthority(
         AuthoringRpcEnvelope envelope,
         AuthoringMutationApproval approval)
     {
-        if (!approval.Approved ||
+        if (approval is null || !approval.Approved ||
             !string.Equals(approval.PlanId, plan.PlanId, StringComparison.Ordinal) ||
-            !IsBoundedField(plan.PlanId, 256) ||
+            !IsBoundedField(approval.ApprovalReceiptId, 256) ||
+            !IsDigest(approval.PreviewDigest))
+        {
+            throw new AuthoringExtensionContractException("Mutation plan is unapproved, stale, or outside its bound.");
+        }
+        ValidateMutationPlanContent(plan, envelope);
+        if (!string.Equals(approval.PreviewDigest, ComputeOwnedMutationPreviewDigest(envelope, plan), StringComparison.Ordinal))
+        {
+            throw new AuthoringExtensionContractException("Mutation preview does not bind the exact approved plan and host context.");
+        }
+    }
+
+    private static void ValidateMutationPlanContent(
+        AuthoringMutationPlan plan,
+        AuthoringRpcEnvelope envelope)
+    {
+        if (!IsBoundedField(plan.PlanId, 256) ||
             !IsBoundedField(plan.DocumentId, 256) ||
             !IsBoundedField(plan.SelectionIdentity, 256) ||
-            !IsBoundedField(approval.ApprovalReceiptId, 256) ||
-            !IsDigest(approval.PreviewDigest) ||
             !IsDigest(plan.ExpectedSnapshotSha256) ||
             !string.Equals(plan.DocumentId, envelope.DocumentId, StringComparison.Ordinal) ||
             plan.DocumentEpoch != envelope.DocumentEpoch ||

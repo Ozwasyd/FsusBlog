@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -256,27 +258,707 @@ public sealed class AuthoringExtensionRpcTests
     }
 
     [Fact]
+    public async Task ApplyMutationAsync_RechecksRevokedGrantAfterSuspendedRevisionGateWithoutConsumingRequestId()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
+        var gate = new SuspendedAdmissionRevisionGate();
+        var grants = new AuthoringCapabilityGrantAuthority(fixture.Store, clock);
+        var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, gate, clock);
+        authority.ValidateEnvelope(fixture.Envelope);
+        await grants.RequireAsync(fixture.Envelope.GrantDigest, fixture.Envelope,
+            AuthoringCapability.DocumentMutationRequest);
+
+        Task<AuthoringTransactionReceipt> pending = authority.ApplyMutationAsync(
+            fixture.Envelope, fixture.Approval).AsTask();
+        try
+        {
+            Assert.Equal(1, gate.CallCount);
+            Assert.False(pending.IsCompleted);
+            await grants.RevokeAsync(fixture.Envelope.GrantDigest);
+            Assert.Null(await fixture.Store.FindAsync(fixture.Envelope.GrantDigest, CancellationToken.None));
+            Assert.True(fixture.Envelope.Deadline > clock.GetUtcNow());
+            gate.Release();
+
+            AuthoringExtensionContractException exception = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+                async () => await pending);
+            Assert.Equal("Capability grant is missing, expired, revoked, or outside the exact scope.", exception.Message);
+            Assert.Equal(0, fixture.Transaction.CallCount);
+        }
+        finally
+        {
+            gate.Release();
+            try
+            {
+                await pending;
+            }
+            catch (AuthoringExtensionContractException)
+            {
+            }
+        }
+
+        AuthoringCapabilityGrant renewed = await grants.IssueAsync(CreateGrantRequest());
+        Assert.Equal(fixture.Envelope.GrantDigest, renewed.GrantDigest);
+        AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval);
+        Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+        Assert.Equal(2, gate.CallCount);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+        AuthoringExtensionContractException duplicate = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval));
+        Assert.Equal("Duplicate mutation request is rejected.", duplicate.Message);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    [Fact]
+    public async Task ApplyMutationAsync_RechecksExpiredGrantAfterSuspendedRevisionGateWithoutConsumingRequestId()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
+        AuthoringRpcEnvelope envelope = fixture.Envelope with { Deadline = clock.GetUtcNow().AddMinutes(10) };
+        var gate = new SuspendedAdmissionRevisionGate();
+        var grants = new AuthoringCapabilityGrantAuthority(fixture.Store, clock);
+        var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, gate, clock);
+        authority.ValidateEnvelope(envelope);
+        AuthoringCapabilityGrant original = await grants.RequireAsync(envelope.GrantDigest, envelope,
+            AuthoringCapability.DocumentMutationRequest);
+
+        AuthoringMutationApproval approval = PreviewFor(envelope, fixture.Approval);
+        Task<AuthoringTransactionReceipt> pending = authority.ApplyMutationAsync(envelope, approval).AsTask();
+        try
+        {
+            Assert.Equal(1, gate.CallCount);
+            Assert.False(pending.IsCompleted);
+            clock.UtcNow = original.ExpiresAt;
+            Assert.True(envelope.Deadline > clock.GetUtcNow());
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await grants.RequireAsync(envelope.GrantDigest, envelope, AuthoringCapability.DocumentMutationRequest));
+            gate.Release();
+
+            AuthoringExtensionContractException exception = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+                async () => await pending);
+            Assert.Equal("Capability grant is missing, expired, revoked, or outside the exact scope.", exception.Message);
+            Assert.Equal(0, fixture.Transaction.CallCount);
+        }
+        finally
+        {
+            gate.Release();
+            try
+            {
+                await pending;
+            }
+            catch (AuthoringExtensionContractException)
+            {
+            }
+        }
+
+        AuthoringCapabilityGrant renewed = await grants.IssueAsync(CreateGrantRequest());
+        Assert.NotEqual(original.GrantDigest, renewed.GrantDigest);
+        AuthoringRpcEnvelope retry = envelope with { GrantDigest = renewed.GrantDigest };
+        Assert.Equal(envelope.RequestId, retry.RequestId);
+        AuthoringMutationApproval retryApproval = PreviewFor(retry, fixture.Approval);
+        AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(retry, retryApproval);
+        Assert.Equal(envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+        Assert.Equal(2, gate.CallCount);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+        AuthoringExtensionContractException duplicate = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await authority.ApplyMutationAsync(retry, retryApproval));
+        Assert.Equal("Duplicate mutation request is rejected.", duplicate.Message);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    [Fact]
+    public async Task ApplyMutationAsync_RechecksDeadlineAfterSuspendedGrantRecheckWithoutConsumingRequestId()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
+        var store = new SuspendedAdmissionGrantStore(fixture.Store);
+        var grants = new AuthoringCapabilityGrantAuthority(store, clock);
+        var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, new RevisionGate(true), clock);
+        authority.ValidateEnvelope(fixture.Envelope);
+        AuthoringCapabilityGrant original = await fixture.Grants.RequireAsync(
+            fixture.Envelope.GrantDigest, fixture.Envelope, AuthoringCapability.DocumentMutationRequest);
+
+        Task<AuthoringTransactionReceipt> pending = authority.ApplyMutationAsync(
+            fixture.Envelope, fixture.Approval).AsTask();
+        try
+        {
+            Assert.Equal(2, store.FindCallCount);
+            Assert.False(pending.IsCompleted);
+            clock.UtcNow = fixture.Envelope.Deadline;
+            Assert.True(original.ExpiresAt > clock.GetUtcNow());
+            store.Release();
+
+            AuthoringExtensionContractException exception = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+                async () => await pending);
+            Assert.Equal("Mutation request deadline has expired.", exception.Message);
+            Assert.Equal(0, fixture.Transaction.CallCount);
+        }
+        finally
+        {
+            store.Release();
+            try
+            {
+                await pending;
+            }
+            catch (AuthoringExtensionContractException)
+            {
+            }
+        }
+
+        AuthoringRpcEnvelope retry = fixture.Envelope with { Deadline = clock.GetUtcNow().AddMinutes(1) };
+        Assert.Equal(fixture.Envelope.RequestId, retry.RequestId);
+        AuthoringMutationApproval retryApproval = PreviewFor(retry, fixture.Approval);
+        AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(retry, retryApproval);
+        Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+        AuthoringExtensionContractException duplicate = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await authority.ApplyMutationAsync(retry, retryApproval));
+        Assert.Equal("Duplicate mutation request is rejected.", duplicate.Message);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    [Fact]
+    public async Task ApplyMutationAsync_RechecksCancellationAfterSuspendedGrantRecheckWithoutConsumingRequestId()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
+        using var caller = new CancellationTokenSource();
+        var store = new SuspendedAdmissionGrantStore(fixture.Store);
+        var grants = new AuthoringCapabilityGrantAuthority(store, clock);
+        var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, new RevisionGate(true), clock);
+        authority.ValidateEnvelope(fixture.Envelope);
+        await fixture.Grants.RequireAsync(fixture.Envelope.GrantDigest, fixture.Envelope,
+            AuthoringCapability.DocumentMutationRequest, caller.Token);
+
+        Task<AuthoringTransactionReceipt> pending = authority.ApplyMutationAsync(
+            fixture.Envelope, fixture.Approval, caller.Token).AsTask();
+        try
+        {
+            Assert.Equal(2, store.FindCallCount);
+            Assert.Equal(caller.Token, store.LastLookupToken);
+            Assert.False(pending.IsCompleted);
+            caller.Cancel();
+            Assert.True(fixture.Envelope.Deadline > clock.GetUtcNow());
+            store.Release();
+
+            OperationCanceledException exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                async () => await pending);
+            Assert.Equal(caller.Token, exception.CancellationToken);
+            Assert.Equal(0, fixture.Transaction.CallCount);
+        }
+        finally
+        {
+            store.Release();
+            try
+            {
+                await pending;
+            }
+            catch (OperationCanceledException exception) when (exception.CancellationToken == caller.Token)
+            {
+            }
+        }
+
+        AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval);
+        Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+        AuthoringExtensionContractException duplicate = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval));
+        Assert.Equal("Duplicate mutation request is rejected.", duplicate.Message);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    private sealed class SuspendedAdmissionRevisionGate : IAuthoringDocumentRevisionGate
+    {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int CallCount { get; private set; }
+
+        public void Release() => _released.TrySetResult();
+
+        public async ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            Assert.Equal("document-1", documentId);
+            Assert.Equal(1, documentEpoch);
+            Assert.Equal(2, sourceRevision);
+            CallCount++;
+            await _released.Task.WaitAsync(cancellationToken);
+            return true;
+        }
+    }
+
+    private sealed class SuspendedAdmissionGrantStore(GrantStore store) : IAuthoringCapabilityGrantStore
+    {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int FindCallCount { get; private set; }
+
+        public CancellationToken LastLookupToken { get; private set; }
+
+        public void Release() => _released.TrySetResult();
+
+        public async ValueTask<AuthoringCapabilityGrant?> FindAsync(string grantId, CancellationToken cancellationToken)
+        {
+            FindCallCount++;
+            LastLookupToken = cancellationToken;
+            if (FindCallCount == 2)
+            {
+                await _released.Task;
+            }
+            return await store.FindAsync(grantId, cancellationToken);
+        }
+
+        public ValueTask StoreAsync(AuthoringCapabilityGrant grant, CancellationToken cancellationToken) =>
+            store.StoreAsync(grant, cancellationToken);
+
+        public ValueTask RevokeAsync(string grantId, CancellationToken cancellationToken) =>
+            store.RevokeAsync(grantId, cancellationToken);
+    }
+
+    [Theory]
+    [InlineData(-1L)]
+    [InlineData(0L)]
+    [InlineData(1L)]
+    public async Task ApplyMutationAsync_RechecksDeadlineAfterRevisionGateBeforeRequestConsumption(long deadlineOffsetTicks)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
+        var gate = new AdmissionRevisionGate(_ => clock.UtcNow =
+            fixture.Envelope.Deadline.AddTicks(deadlineOffsetTicks));
+        var grants = new AuthoringCapabilityGrantAuthority(fixture.Store, clock);
+        var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, gate, clock);
+        authority.ValidateEnvelope(fixture.Envelope);
+        await grants.RequireAsync(fixture.Envelope.GrantDigest, fixture.Envelope,
+            AuthoringCapability.DocumentMutationRequest);
+
+        if (deadlineOffsetTicks < 0)
+        {
+            AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(
+                fixture.Envelope, fixture.Approval);
+            Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+            Assert.Equal(1, fixture.Transaction.CallCount);
+        }
+        else
+        {
+            AuthoringExtensionContractException exception = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+                async () => await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval));
+            Assert.Equal("Mutation request deadline has expired.", exception.Message);
+            Assert.Equal(0, fixture.Transaction.CallCount);
+        }
+        Assert.Equal(1, gate.CallCount);
+        Assert.Equal(fixture.Envelope.Deadline.AddTicks(deadlineOffsetTicks), clock.GetUtcNow());
+        AuthoringCapabilityGrant stillValidGrant = await grants.RequireAsync(
+            fixture.Envelope.GrantDigest, fixture.Envelope, AuthoringCapability.DocumentMutationRequest);
+        Assert.True(stillValidGrant.ExpiresAt > clock.GetUtcNow());
+        AuthoringRpcEnvelope retry = fixture.Envelope with
+        {
+            Deadline = clock.GetUtcNow().AddMinutes(1)
+        };
+        Assert.Equal(fixture.Envelope.RequestId, retry.RequestId);
+        AuthoringMutationApproval retryApproval = PreviewFor(retry, fixture.Approval);
+        if (deadlineOffsetTicks >= 0)
+        {
+            AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(retry, retryApproval);
+            Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+            Assert.Equal(2, gate.CallCount);
+            Assert.Equal(1, fixture.Transaction.CallCount);
+        }
+
+        AuthoringExtensionContractException duplicate = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await authority.ApplyMutationAsync(retry, retryApproval));
+        Assert.Equal("Duplicate mutation request is rejected.", duplicate.Message);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    [Fact]
+    public async Task ApplyMutationAsync_RechecksCallerCancellationAfterRevisionGateWithoutConsumingRequestId()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
+        using var caller = new CancellationTokenSource();
+        var gate = new AdmissionRevisionGate(token =>
+        {
+            Assert.Equal(caller.Token, token);
+            caller.Cancel();
+        });
+        var grants = new AuthoringCapabilityGrantAuthority(fixture.Store, clock);
+        var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, gate, clock);
+        authority.ValidateEnvelope(fixture.Envelope);
+        await grants.RequireAsync(fixture.Envelope.GrantDigest, fixture.Envelope,
+            AuthoringCapability.DocumentMutationRequest, caller.Token);
+
+        OperationCanceledException exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval, caller.Token));
+        Assert.Equal(caller.Token, exception.CancellationToken);
+        Assert.True(caller.IsCancellationRequested);
+        Assert.Equal(1, gate.CallCount);
+        Assert.Equal(0, fixture.Transaction.CallCount);
+
+        AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval);
+        Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, receipt.PlanId);
+        Assert.Equal(2, gate.CallCount);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+        AuthoringExtensionContractException duplicate = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval));
+        Assert.Equal("Duplicate mutation request is rejected.", duplicate.Message);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    private sealed class AdmissionRevisionGate(Action<CancellationToken> onCurrent) : IAuthoringDocumentRevisionGate
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            Assert.Equal("document-1", documentId);
+            Assert.Equal(1, documentEpoch);
+            Assert.Equal(2, sourceRevision);
+            CallCount++;
+            if (CallCount == 1)
+            {
+                onCurrent(cancellationToken);
+            }
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    private sealed class AdmissionTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+    }
+
+    [Fact]
     public void RpcSource_DoesNotExposeLiveEditorOrDirectMutationAuthority()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs"));
-
-        Assert.DoesNotContain("editorRef", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Pinia", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("innerHTML", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("splice", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Delegate", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Callback", source, StringComparison.Ordinal);
+        Type[] rpcTypes =
+        [
+            typeof(AuthoringRpcMethod),
+            typeof(AuthoringMutationOperation),
+            typeof(AuthoringTextRange),
+            typeof(AuthoringDocumentSnapshot),
+            typeof(AuthoringMutation),
+            typeof(AuthoringMutationPlan),
+            typeof(AuthoringRpcPayload),
+            typeof(AuthoringRpcEnvelope),
+            typeof(AuthoringCapabilityGrant),
+            typeof(AuthoringGrantRequest),
+            typeof(AuthoringMutationApproval),
+            typeof(AuthoringTransactionReceipt),
+            typeof(IAuthoringCapabilityGrantStore),
+            typeof(IAuthoringCanonicalDocumentTransaction),
+            typeof(AuthoringCapabilityGrantAuthority),
+            typeof(AuthoringExtensionRpcAuthority)
+        ];
+        Assert.All(rpcTypes, AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority);
     }
+
+    [Fact]
+    public void CompiledRpcBoundary_RejectsUncalledNestedMethodBody()
+    {
+        Type type = typeof(UncalledNestedFixture);
+        Type nested = Assert.Single(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic));
+        MethodInfo method = Assert.Single(nested.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+            | BindingFlags.Instance | BindingFlags.DeclaredOnly));
+        Assert.Equal("Read", method.Name);
+        Assert.NotNull(method.GetMethodBody());
+
+        string rootOnly = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("splice", rootOnly, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("splice", RuntimeMetadataInspection.DescribeMethods(nested, method.Name),
+            StringComparison.Ordinal);
+
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(type));
+        Assert.Contains("splice", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CompiledRpcBoundary_AcceptsAndDescribesBenignUncalledNestedMethodBody()
+    {
+        Type type = typeof(ContractOnlyFixture);
+        Type nested = Assert.Single(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic));
+        MethodInfo method = Assert.Single(nested.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+            | BindingFlags.Instance | BindingFlags.DeclaredOnly));
+        Assert.Equal("Read", method.Name);
+        Assert.NotNull(method.GetMethodBody());
+
+        string rootOnly = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("rpc-contract-safe", rootOnly, StringComparison.Ordinal);
+        Assert.Contains("rpc-contract-safe", RuntimeMetadataInspection.DescribeMethods(nested, method.Name),
+            StringComparison.Ordinal);
+        Assert.Contains("rpc-contract-safe", DescribeRpcTypeTree(type), StringComparison.Ordinal);
+        AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(type);
+    }
+
+    [Theory]
+    [InlineData("replacement", "f89348136d888080a251c21c08a688ffcf4605eea20d1c1cb04dbcfb6c658d1b")]
+    [InlineData("a\n\0é𝄞\ud800", "89f57d854aa2b871834c31342c1451edd26c031936a43cfd444f24187424f008")]
+    public async Task MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(string text, string digest)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        Assert.Equal("a80d7cc420549ed58fc55ee2cb500c2b6a23bb3e301cfcf7bacccb898ed85ca7", fixture.Envelope.GrantDigest);
+        AuthoringMutationPlan plan = fixture.Envelope.Payload.MutationPlan!;
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan with
+            {
+                Mutations = [plan.Mutations[0] with { Text = text }]
+            })
+        };
+
+        // Literal vectors were framed independently, not obtained from this producer.
+        Assert.Equal(digest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
+    }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("start")]
+    [InlineData("end")]
+    [InlineData("operation")]
+    [InlineData("selection")]
+    [InlineData("snapshot")]
+    [InlineData("epoch")]
+    [InlineData("revision")]
+    [InlineData("package")]
+    [InlineData("content")]
+    [InlineData("hostApi")]
+    [InlineData("schema")]
+    [InlineData("policy")]
+    [InlineData("deadline")]
+    public async Task ApplyMutationAsync_SamePlanIdChangedMaterialCannotReuseApproval(string field)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringMutationPlan plan = fixture.Envelope.Payload.MutationPlan!;
+        AuthoringMutation mutation = plan.Mutations[0];
+        AuthoringRpcEnvelope changed = field switch
+        {
+            "package" => fixture.Envelope with { PackageSha256 = new string('3', 64) },
+            "content" => fixture.Envelope with { ContentSha256 = new string('3', 64) },
+            "hostApi" => fixture.Envelope with { HostApiDigest = new string('3', 64) },
+            "schema" => fixture.Envelope with { SchemaDigest = new string('3', 64) },
+            "policy" => fixture.Envelope with { PolicyDigest = new string('3', 64) },
+            "deadline" => fixture.Envelope with { Deadline = fixture.Envelope.Deadline.AddTicks(1) },
+            "snapshot" => fixture.Envelope with { SnapshotSha256 = new string('3', 64) },
+            "epoch" => fixture.Envelope with { DocumentEpoch = 2 },
+            "revision" => fixture.Envelope with { SourceRevision = 3 },
+            _ => fixture.Envelope
+        };
+        plan = field switch
+        {
+            "text" => plan with { Mutations = [mutation with { Text = "changed plain text" }] },
+            "start" => plan with { Mutations = [mutation with { Range = new AuthoringTextRange(1, 1) }] },
+            "end" => plan with { Mutations = [mutation with { Range = new AuthoringTextRange(0, 2) }] },
+            "operation" => plan with { Mutations = [mutation with { Operation = AuthoringMutationOperation.Insert }] },
+            "selection" => plan with { SelectionIdentity = "selection-2" },
+            "snapshot" => plan with { ExpectedSnapshotSha256 = changed.SnapshotSha256 },
+            "epoch" => plan with { DocumentEpoch = changed.DocumentEpoch },
+            "revision" => plan with { ExpectedSourceRevision = changed.SourceRevision },
+            _ => plan
+        };
+        changed = changed with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        fixture.Authority.ValidateEnvelope(changed);
+        await fixture.Grants.RequireAsync(changed.GrantDigest, changed, AuthoringCapability.DocumentMutationRequest);
+        Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, plan.PlanId);
+        Assert.Equal(1, plan.Mutations.Length);
+        Assert.NotEqual(fixture.Approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(changed));
+
+        AuthoringExtensionContractException exception = await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await fixture.Authority.ApplyMutationAsync(changed, fixture.Approval));
+        Assert.Equal("Mutation preview does not bind the exact approved plan and host context.", exception.Message);
+        Assert.Equal(0, fixture.Transaction.CallCount);
+        await fixture.Authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    [Theory]
+    [InlineData("runtime")]
+    [InlineData("extension")]
+    [InlineData("version")]
+    [InlineData("contribution")]
+    [InlineData("class")]
+    [InlineData("request")]
+    [InlineData("document")]
+    [InlineData("site")]
+    [InlineData("purpose")]
+    [InlineData("grant")]
+    [InlineData("planId")]
+    public async Task MutationPreview_RemainingExactIdentityFieldsAffectMaterial(string field)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringRpcEnvelope changed = field switch
+        {
+            "runtime" => fixture.Envelope with { RuntimeIdentity = new string('3', 64) },
+            "extension" => fixture.Envelope with { ExtensionId = "other.extension" },
+            "version" => fixture.Envelope with { ExtensionVersion = "2.0.0" },
+            "contribution" => fixture.Envelope with { ContributionId = "other.command" },
+            "class" => fixture.Envelope with { ExecutionClass = AuthoringExecutionClass.OutOfProcessService },
+            "request" => fixture.Envelope with { RequestId = "request-2" },
+            "document" => fixture.Envelope with { DocumentId = "document-2" },
+            "site" => fixture.Envelope with { SiteIdentity = "site-2" },
+            "purpose" => fixture.Envelope with { Purpose = "other-purpose" },
+            "grant" => fixture.Envelope with { GrantDigest = new string('3', 64) },
+            _ => fixture.Envelope
+        };
+        AuthoringMutationPlan plan = changed.Payload.MutationPlan! with { DocumentId = changed.DocumentId };
+        if (field == "planId")
+        {
+            plan = plan with { PlanId = "plan-2" };
+        }
+        changed = changed with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        Assert.NotEqual(fixture.Approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(changed));
+    }
+
+    [Fact]
+    public async Task ApplyMutationAsync_OrderedMutationsAndLengthFramedTextRemainExact()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringMutationPlan plan = fixture.Envelope.Payload.MutationPlan! with
+        {
+            Mutations =
+            [
+                new(AuthoringMutationOperation.Replace, new(0, 1), "first\nsecond"),
+                new(AuthoringMutationOperation.Replace, new(2, 3), "third")
+            ]
+        };
+        AuthoringRpcEnvelope envelope = fixture.Envelope with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        AuthoringMutationApproval approval = PreviewFor(envelope, fixture.Approval);
+        AuthoringRpcEnvelope reordered = envelope with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan with { Mutations = [plan.Mutations[1], plan.Mutations[0]] })
+        };
+        AuthoringRpcEnvelope reframed = envelope with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan with
+            {
+                Mutations = [plan.Mutations[0] with { Text = "first" }, plan.Mutations[1] with { Text = "second\nthird" }]
+            })
+        };
+        foreach (AuthoringRpcEnvelope changed in new[] { reordered, reframed })
+        {
+            Assert.NotEqual(approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(changed));
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+                async () => await fixture.Authority.ApplyMutationAsync(changed, approval));
+            Assert.Equal(0, fixture.Transaction.CallCount);
+        }
+        await fixture.Authority.ApplyMutationAsync(envelope, approval);
+        Assert.Equal(plan.Mutations.ToArray(), fixture.Transaction.LastPlan!.Mutations.ToArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ApplyMutationAsync_OwnedPlanSurvivesCallerArrayMutationAcrossAuthorityAwait(bool finalGrantAwait)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringMutationPlan original = fixture.Envelope.Payload.MutationPlan!;
+        AuthoringMutation[] callerArray = [original.Mutations[0]];
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: original with
+            {
+                Mutations = ImmutableCollectionsMarshal.AsImmutableArray(callerArray)
+            })
+        };
+        var gate = new SuspendedAdmissionRevisionGate();
+        var store = new SuspendedAdmissionGrantStore(fixture.Store);
+        IAuthoringDocumentRevisionGate actualGate = finalGrantAwait ? new RevisionGate(true) : gate;
+        var grants = finalGrantAwait
+            ? new AuthoringCapabilityGrantAuthority(store, new FixedTimeProvider(envelope.Deadline.AddMinutes(-1)))
+            : fixture.Grants;
+        var authority = new AuthoringExtensionRpcAuthority(
+            grants, fixture.Transaction, actualGate, new FixedTimeProvider(envelope.Deadline.AddMinutes(-1)));
+        Task<AuthoringTransactionReceipt> pending = authority.ApplyMutationAsync(envelope, fixture.Approval).AsTask();
+        try
+        {
+            Assert.False(pending.IsCompleted);
+            callerArray[0] = callerArray[0] with { Text = "caller alias changed after preview validation" };
+            Assert.NotEqual(fixture.Approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
+            gate.Release();
+            store.Release();
+            await pending;
+            Assert.Equal("replacement", fixture.Transaction.LastPlan!.Mutations[0].Text);
+            Assert.Equal(1, fixture.Transaction.CallCount);
+        }
+        finally
+        {
+            gate.Release();
+            store.Release();
+            try
+            {
+                await pending;
+            }
+            catch (AuthoringExtensionContractException)
+            {
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(1000, true)]
+    [InlineData(1001, false)]
+    public async Task MutationPreview_OriginalOrderedMutationCeilingIsNotExpanded(int count, bool accepted)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringMutationPlan plan = fixture.Envelope.Payload.MutationPlan! with
+        {
+            Mutations = [.. Enumerable.Range(0, count).Select(index =>
+                new AuthoringMutation(AuthoringMutationOperation.Replace, new AuthoringTextRange(index * 2, index * 2 + 1), "x"))]
+        };
+        AuthoringRpcEnvelope envelope = fixture.Envelope with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        if (!accepted)
+        {
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+                async () => await fixture.Authority.ApplyMutationAsync(envelope, fixture.Approval));
+            Assert.Equal(0, fixture.Transaction.CallCount);
+            return;
+        }
+        await fixture.Authority.ApplyMutationAsync(envelope, PreviewFor(envelope, fixture.Approval));
+        Assert.Equal(count, fixture.Transaction.LastPlan!.Mutations.Length);
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task ApplyMutationAsync_ContentHashCannotGrantApprovalOrAcceptAnUnboundPreview(bool approved, bool tamperDigest)
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringMutationApproval approval = fixture.Approval with
+        {
+            Approved = approved,
+            PreviewDigest = tamperDigest ? new string('2', 64) : fixture.Approval.PreviewDigest
+        };
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(
+            async () => await fixture.Authority.ApplyMutationAsync(fixture.Envelope, approval));
+        Assert.Equal(0, fixture.Transaction.CallCount);
+    }
+
+    private static AuthoringMutationApproval PreviewFor(AuthoringRpcEnvelope envelope, AuthoringMutationApproval approval)
+        => approval with { PreviewDigest = AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope) };
 
     private static async ValueTask<RpcFixture> CreateFixtureAsync(
         bool storeGrant = true,
         bool currentRevision = true,
         bool tamperReceipt = false)
     {
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = new(639265824000000000L, TimeSpan.Zero);
         var store = new GrantStore();
         var grants = new AuthoringCapabilityGrantAuthority(store, new FixedTimeProvider(now));
         AuthoringCapabilityGrant grant = await grants.IssueAsync(CreateGrantRequest());
@@ -322,7 +1004,7 @@ public sealed class AuthoringExtensionRpcTests
             plan.PlanId,
             true,
             "approval-1",
-            new string('2', 64));
+            "f89348136d888080a251c21c08a688ffcf4605eea20d1c1cb04dbcfb6c658d1b");
         var transaction = new TransactionPort(tamperReceipt);
         var authority = new AuthoringExtensionRpcAuthority(
             grants,
@@ -387,6 +1069,8 @@ public sealed class AuthoringExtensionRpcTests
 
     private sealed class TransactionPort(bool tamperReceipt = false) : IAuthoringCanonicalDocumentTransaction
     {
+        public AuthoringMutationPlan? LastPlan { get; private set; }
+
         public int CallCount
         {
             get; private set;
@@ -397,6 +1081,7 @@ public sealed class AuthoringExtensionRpcTests
             CancellationToken cancellationToken)
         {
             CallCount++;
+            LastPlan = plan;
             var receipt = new AuthoringTransactionReceipt(
                 "transaction-1",
                 plan.PlanId,
@@ -428,5 +1113,52 @@ public sealed class AuthoringExtensionRpcTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private static void AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(Type type)
+    {
+        string compiled = DescribeRpcTypeTree(type);
+        Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("innerHTML", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("splice", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Callback", compiled, StringComparison.Ordinal);
+    }
+
+    private static string DescribeRpcTypeTree(Type type) => string.Join('\n',
+        EnumerateRpcTypeTree(type).SelectMany(candidate => new[]
+        {
+            RuntimeMetadataInspection.DescribeType(candidate),
+            RuntimeMetadataInspection.DescribeConstructors(candidate)
+        }));
+
+    private static IEnumerable<Type> EnumerateRpcTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateRpcTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static class UncalledNestedFixture
+    {
+        private static class Entry
+        {
+            public static void Read() => GC.KeepAlive("splice");
+        }
+    }
+
+    private static class ContractOnlyFixture
+    {
+        private static class Entry
+        {
+            public static string Read() => "rpc-contract-safe";
+        }
     }
 }

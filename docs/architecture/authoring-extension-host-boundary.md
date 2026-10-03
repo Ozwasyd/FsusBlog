@@ -180,6 +180,19 @@ transaction receipts are rejected. Full-document grants additionally bind one
 exact document epoch, revision, and snapshot digest; other grants cannot smuggle a
 destination, root, or revision scope.
 
+The mutation preview's version-1 content binding is produced only by
+`AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest`: length-framed
+UTF-16 code units and little-endian integers bind the complete ordered plan and
+its RPC host identities, grant and deadline. The host captures its own bounded
+mutation array before the first authority await, checks the approved digest, and
+rechecks that owned content after revision observation, then preserves the final
+grant, deadline and cancellation checks before consuming the request. Same plan
+IDs cannot authorize changed text, ranges, selection or order.
+This digest is not a signature, approval issuer or grant: computing it does not
+set `Approved`, establish consent, or validate a real preview interaction. The
+confirmation owner must bind the same material to its actual approved preview;
+the source fixtures prove content binding only, not that external integration.
+
 The registry reserves the remaining read/query/broker/diagnostic/state method
 identities, but this stage does not invent production handlers for them. In
 particular it does not create a browser, HTTP, or AEDS bridge. A real canonical
