@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 const { createSystemdResourceTransport, inspectProductionSystemdServiceBinding, prepareProductionSystemdResourceBoundary } = await import(new URL('./production-systemd-resource-boundary.mjs', import.meta.url));
 const { collectProcessIdentity } = await import(new URL('../test/process-identity.mjs', import.meta.url));
+const { freezeDeep } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
 export const resourceEnforcementSchema = 'fsusblog.production.resource-enforcement.v1';
 const controllers = ['cpu', 'memory', 'pids'];
@@ -170,7 +171,7 @@ export function resolveCgroupLimits(grant, machine)
     const memoryGiB = Number(grant.memoryGiB);
     const machineCpu = Math.max(1, Number(machine.cpuUnits ?? machine.cpuCount) || os.availableParallelism?.() || 1);
     const machineMemoryGiB = Math.max(Number.EPSILON, Number(machine.memoryGiB) || os.totalmem() / bytesPerGiB);
-    const machineMemoryBytes = Math.max(1, Math.round(machineMemoryGiB * bytesPerGiB));
+    const machineMemoryBytes = Math.max(1, Math.floor(machineMemoryGiB * bytesPerGiB));
     if (!Number.isFinite(cpuUnits) || cpuUnits <= 0 || !Number.isFinite(memoryGiB) || memoryGiB <= 0)
     {
         throw new Error('cgroup limits require positive CPU and memory grants');
@@ -179,7 +180,7 @@ export function resolveCgroupLimits(grant, machine)
     {
         throw new Error(`cgroup CPU grant ${cpuUnits} exceeds machine envelope ${machineCpu}`);
     }
-    const requestedMemoryBytes = Math.max(1, Math.round(memoryGiB * bytesPerGiB));
+    const requestedMemoryBytes = Math.max(1, Math.floor(memoryGiB * bytesPerGiB));
     if (requestedMemoryBytes > machineMemoryBytes)
     {
         throw new Error(`cgroup memory grant ${memoryGiB} GiB exceeds machine envelope ${machineMemoryGiB} GiB`);
@@ -628,6 +629,7 @@ export async function createProductionResourceEnforcer(options)
     const totalGrants = new Map();
     const containerReservations = new Map();
     const managedServices = new Map();
+    const launcherAdmissions = new Map();
     const usedReservationIds = new Set();
     let closed = false;
     let closing = false;
@@ -687,7 +689,7 @@ export async function createProductionResourceEnforcer(options)
             {
                 throw new Error('cgroup CPU grant is below the minimum representable process quota');
             }
-            if (limits.memoryHighBytes > Math.round(limits.memoryGiB * bytesPerGiB))
+            if (limits.memoryHighBytes > limits.memoryGiB * bytesPerGiB)
             {
                 throw new Error('cgroup memory grant is below the minimum 16 MiB process envelope');
             }
@@ -809,7 +811,8 @@ export async function createProductionResourceEnforcer(options)
                 throw new Error('container resource reservation is absent or crosses its exact owner');
             }
             const bundle = evidence.bundles[bundleId];
-            const launcher = bundle.launcherAdmission;
+            const launcherRecord = launcherAdmissions.get(bundleId);
+            const launcher = launcherRecord?.admission;
             const managed = managedServices.get(bundleId);
             if (Boolean(launcher) === Boolean(managed))
             {
@@ -828,9 +831,14 @@ export async function createProductionResourceEnforcer(options)
             }
             else
             {
-                if (bundle.attachStatus !== 'attached' || launcher.processIdentity?.pid !== bundle.attachedPid)
+                if (launcherRecord.status !== 'attached' || launcher.processIdentity?.pid !== launcherRecord.pid)
                 {
                     throw new Error('container reservation requires its live attached systemd launcher process');
+                }
+                if (bundle.attachStatus !== launcherRecord.status || bundle.attachedPid !== launcherRecord.pid
+                    || !isDeepStrictEqual(bundle.launcherAdmission, launcher))
+                {
+                    throw new Error('container reservation launcher report differs from its private admission');
                 }
                 requireReservationProcess(launcher.processIdentity, launcher.launcher.controlGroup);
             }
@@ -920,6 +928,7 @@ export async function createProductionResourceEnforcer(options)
     const attach = async (bundleIdValue, pid, identity = null) =>
     {
         const { bundleId, bundle } = requireBundle(bundleIdValue);
+        let launcherAdmission = null;
         if (!Number.isInteger(Number(pid)) || Number(pid) <= 0)
         {
             throw new Error('cgroup attach requires a positive PID');
@@ -938,9 +947,10 @@ export async function createProductionResourceEnforcer(options)
                 {
                     throw new Error('systemd resource attachment requires the exact registered launcher identity');
                 }
-                bundle.launcherAdmission = await systemdOwners.get(bundleId).attachLauncher(identity, {
+                launcherAdmission = await systemdOwners.get(bundleId).attachLauncher(identity, {
                     startupBudgetMs: options.systemdBoundary.startupBudgetMs
                 });
+                bundle.launcherAdmission = structuredClone(launcherAdmission);
             }
             else
             {
@@ -952,6 +962,11 @@ export async function createProductionResourceEnforcer(options)
                 }
             }
             verifyGrant(bundleId, bundle, limits);
+            if (launcherAdmission)
+            {
+                launcherAdmissions.set(bundleId, freezeDeep({ pid: Number(pid), status: 'attached',
+                    admission: structuredClone(launcherAdmission) }));
+            }
         }
         bundle.attachedPid = Number(pid);
         bundle.attachStatus = mode === 'enforced' ? 'attached' : 'advisory';
@@ -1008,6 +1023,7 @@ export async function createProductionResourceEnforcer(options)
             if (removed)
             {
                 admittedGrants.clear();
+                launcherAdmissions.clear();
                 closed = true;
             }
             return evidence.cleanup;
@@ -1046,6 +1062,7 @@ export async function createProductionResourceEnforcer(options)
             }
             evidence.cleanup = { status: 'removed', completedAt: new Date().toISOString() };
             admittedGrants.clear();
+            launcherAdmissions.clear();
             closed = true;
         }
         catch (error)

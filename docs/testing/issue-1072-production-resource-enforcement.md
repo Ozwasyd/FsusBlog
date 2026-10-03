@@ -36,7 +36,7 @@ a performance technique. A benchmark receives a stable full grant only after the
 `cpuset.cpus` is deliberately disabled: topology, NUMA placement, heterogeneous cores, and dynamic redistribution are
 not yet proven. A wrong cpuset can make throughput and benchmark variance worse even when CPU counts appear correct.
 
-`memory.high` projects the scheduler memory grant downward to the observed kernel page size. `memory.max` adds
+`memory.high` floors the scheduler memory grant to whole bytes before projecting downward to the observed kernel page size. `memory.max` adds
 machine-derived, page-aligned safety headroom while remaining inside physical memory; `pids.max` is derived from both
 granted CPU and memory. CPU quota quantization also rounds downward, not above the admitted CPU share. Expansion or contraction rewrites all
 effective controls without restarting the bundle. The scheduler evidence compares every declared grant with the
@@ -72,6 +72,7 @@ from the existing scheduler grant. It never creates a second grant, enlarges the
 remaining process share. The managed service and process slice share that original total grant. A held lease binds
 the exact producer/source identity and reobserves the retained service, live process incarnation, cgroup membership,
 and all effective process controls. A JSON snapshot is evidence of the reservation, not its in-process authority.
+Launcher admission and PID are retained as a separate frozen private snapshot; mutable evidence cannot replace them.
 
 The caller must consume the sole managed-service pre-exec binding or exact registered launcher before fixture
 admission. Source restoration alone does not complete that scheduler call chain, BehaviorDoc admission, native

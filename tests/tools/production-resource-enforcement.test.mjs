@@ -123,7 +123,7 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
             { cpuUnits: 8 + Number.EPSILON * 8, memoryGiB: roundedSameMemoryGrantGiB },
             { cpuUnits: 8, memoryGiB: machineMemoryGiB }
         ).memoryHighBytes,
-        Math.floor(Math.round(machineMemoryGiB * 1024 ** 3) / one.memoryPageBytes) * one.memoryPageBytes
+        Math.floor(Math.floor(machineMemoryGiB * 1024 ** 3) / one.memoryPageBytes) * one.memoryPageBytes
     );
     assert.throws(
         () => resolveCgroupLimits({ cpuUnits: 9, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 }),
@@ -1205,4 +1205,140 @@ test('partial systemd enforcer construction reconciles only its independently re
         assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(reference.ownerFile), 'state.json'))).phase, 'released');
     }
     assert.equal(fixture.events.filter((event) => event === 'stop').length, 1);
+});
+
+async function privateLauncherLeaseFixture(t)
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const original = structuredClone(fixture.launcherProcess);
+    const foreign = { ...original, pid: original.pid + 1, processStartIdentity: 'foreign-live-start' };
+    const foreignGroup = '/foreign-live-group';
+    const observedPids = [];
+    options.observeContainerReservationProcess = (pid) =>
+    {
+        observedPids.push(pid);
+        return structuredClone(pid === original.pid ? original : foreign);
+    };
+    options.readContainerReservationProcessCgroup = (pid) =>
+        `0::${pid === original.pid ? fixture.launcherUnit.ControlGroup : foreignGroup}\n`;
+    const enforcer = await createProductionResourceEnforcer(options);
+    const bundleId = fixture.context.bundleId;
+    enforcer.update(bundleId, { cpuUnits: 4, memoryGiB: 4 });
+    const callerIdentity = structuredClone(original);
+    await enforcer.attach(bundleId, original.pid, callerIdentity);
+    const identity = { root: fixture.context.root, runId: fixture.context.runId,
+        namespace: fixture.context.namespace, bundleId: `matrix:${bundleId}`, stepId: 'migration-services',
+        sourceState: fixture.context.sourceState };
+    const limits = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2,
+        memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+    const lease = enforcer.reserveContainerResources(bundleId, { id: 'mysql', identity, limits });
+    const context = { ...identity, resourceGrant: limits };
+    assert.equal(lease.assertHeld(context).process.cpuUnits, 3, 'real held path succeeds before report mutation');
+    assert.deepEqual(observedPids, [original.pid, original.pid]);
+    observedPids.length = 0;
+    return { fixture, enforcer, bundleId, lease, context, original, foreign, foreignGroup, observedPids, callerIdentity };
+}
+
+test('held launcher rejects a complete foreign-live public report without rebinding its private authority', async (t) =>
+{
+    const value = await privateLauncherLeaseFixture(t);
+    const report = value.enforcer.evidence().bundles[value.bundleId];
+    const originalReport = structuredClone(report.launcherAdmission);
+    report.launcherAdmission = { ...originalReport, processIdentity: value.foreign,
+        launcher: { ...originalReport.launcher, controlGroup: value.foreignGroup } };
+    report.attachedPid = value.foreign.pid;
+    report.attachStatus = 'attached';
+    assert.throws(() => value.lease.assertHeld(value.context), /report differs from its private admission/u);
+    assert.deepEqual(value.observedPids, [], 'foreign report must not select an observed process');
+    assert.equal(value.lease.snapshot().held, true);
+    assert.equal(value.enforcer.cleanup().status, 'retained-container-reservations');
+    report.launcherAdmission = originalReport;
+    report.attachedPid = value.original.pid;
+    assert.equal(value.lease.assertHeld(value.context).process.cpuUnits, 3);
+    assert.deepEqual(value.observedPids, [value.original.pid, value.original.pid]);
+});
+
+test('held launcher rejects independent and nested report mutations while preserving its original admission', async (t) =>
+{
+    const value = await privateLauncherLeaseFixture(t);
+    const report = value.enforcer.evidence().bundles[value.bundleId];
+    const originalReport = structuredClone(report.launcherAdmission);
+    for (const mutate of [
+        () => report.attachedPid = value.foreign.pid,
+        () => report.attachStatus = 'advisory',
+        () => report.launcherAdmission.processIdentity.processStartIdentity = value.foreign.processStartIdentity,
+        () => report.launcherAdmission.launcher.controlGroup = value.foreignGroup
+    ])
+    {
+        mutate();
+        assert.throws(() => value.lease.assertHeld(value.context), /report differs from its private admission/u);
+        assert.deepEqual(value.observedPids, []);
+        report.attachedPid = value.original.pid;
+        report.attachStatus = 'attached';
+        report.launcherAdmission = structuredClone(originalReport);
+        assert.equal(value.lease.assertHeld(value.context).process.cpuUnits, 3);
+        assert.deepEqual(value.observedPids, [value.original.pid, value.original.pid]);
+        value.observedPids.length = 0;
+    }
+});
+
+test('held launcher detaches caller identity and retains its private admission through failed cleanup', async (t) =>
+{
+    const value = await privateLauncherLeaseFixture(t);
+    value.callerIdentity.pid = value.foreign.pid;
+    value.callerIdentity.processStartIdentity = value.foreign.processStartIdentity;
+    assert.equal(value.lease.assertHeld(value.context).process.cpuUnits, 3);
+    assert.deepEqual(value.observedPids, [value.original.pid, value.original.pid]);
+    const failure = new Error('exact owned fixture cleanup failed');
+    await assert.rejects(value.lease.releaseAfterCleanup(async () =>
+    {
+        throw failure;
+    }), error => error === failure);
+    assert.equal(value.lease.snapshot().held, true);
+    value.observedPids.length = 0;
+    assert.equal(value.lease.assertHeld(value.context).process.cpuUnits, 3);
+    assert.deepEqual(value.observedPids, [value.original.pid, value.original.pid]);
+    await value.lease.releaseAfterCleanup(async () => ({ containerAbsent: true, credentialsRemoved: true }));
+    assert.throws(() => value.lease.assertHeld(value.context), /absent or crosses/u);
+});
+
+test('fractional byte grants and machine envelopes round downward before kernel page projection', () =>
+{
+    const byteUnit = 1024 ** 3;
+    const pageBytes = 4096;
+    const boundary = 512 * 1024 ** 2;
+    for (const fraction of [-0.25, 0, 0.25, 0.75])
+    {
+        const requestedBytes = boundary + fraction;
+        const limits = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: requestedBytes / byteUnit }, {
+            cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes
+        });
+        assert.equal(limits.memoryHighBytes, Math.floor(requestedBytes / pageBytes) * pageBytes);
+        assert.ok(limits.memoryHighBytes <= requestedBytes);
+        const bounded = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: requestedBytes / byteUnit }, {
+            cpuUnits: 8, memoryGiB: requestedBytes / byteUnit, memoryPageBytes: pageBytes
+        });
+        assert.ok(bounded.memoryHighBytes <= requestedBytes);
+        assert.ok(bounded.memoryMaxBytes <= requestedBytes);
+        assert.equal(bounded.memoryMaxBytes, Math.floor(requestedBytes / pageBytes) * pageBytes);
+    }
+});
+
+test('fractional byte projection preserves the original enforced grant without enlarging a container partition', async (t) =>
+{
+    const { fixture, options } = systemdEnforcerFixture(t);
+    const enforcer = await createProductionResourceEnforcer(options);
+    const requestedBytes = 512 * 1024 ** 2 - 0.25;
+    const limits = enforcer.update(fixture.context.bundleId, { cpuUnits: 2, memoryGiB: requestedBytes / 1024 ** 3 });
+    assert.equal(limits.memoryHighBytes, 536866816);
+    assert.ok(limits.memoryHighBytes < requestedBytes);
+    assert.equal(fs.readFileSync(path.join(limits.cgroupPath, 'memory.high'), 'utf8'), '536866816');
+    assert.equal(enforcer.evidence().bundles[fixture.context.bundleId].consistency.status, 'consistent');
+    const allocation = partitionContainerResourceGrant({ cpuUnits: 4, memoryGiB: (2 * 1024 ** 3 - 0.25) / 1024 ** 3 }, [{
+        cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2, memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128
+    }], { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: 4096 });
+    assert.equal(allocation.process.memoryHighBytes + allocation.reserved.memoryHighBytes,
+        allocation.total.memoryHighBytes);
+    assert.ok(allocation.total.memoryHighBytes < 2 * 1024 ** 3 - 0.25);
+    assert.equal(enforcer.cleanup().status, 'removed');
 });
