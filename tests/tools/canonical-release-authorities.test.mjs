@@ -22,6 +22,7 @@ import { verifyCanonicalReleaseAuthorityValues }
   from '../../tools/test-evidence/canonical-release-authorities-value-contract.mjs'
 import { validateCurrentSchemaBinding } from '../../tools/release/release-manifest-value-contract.mjs'
 import { createHistoricalWindowReleaseAuthorityFixture } from './support/pure-release-authority-fixture.mjs'
+import { readRuntimeRoleClaimStageAuthorityFixture } from './support/runtime-role-minimal-v3-fixture.mjs'
 import {
   createPureReleaseAuthorityFixture,
   createReadinessManifest,
@@ -127,6 +128,10 @@ function canonicalAuthorityFixture(context)
   const admission = createRuntimeRoleStaticV4Fixture('canonical-value-test', source, {
     repositoryRoot: directory, extractorIds, minimalContractBuild: minimal
   })
+  // The shared original fixture has materialized the real catalog, ledger,
+  // schema, lifecycle and claim documents. Read their actual parse separately;
+  // never reconstruct expected materials from admission/self-reported digests.
+  const expectedClaimStageAuthority = readRuntimeRoleClaimStageAuthorityFixture(directory)
   const admissionFile = path.join(directory, '.tmp', 'admission.json')
   write(admissionFile, admission)
   const plan = { sourceState: { commit: source.sourceCommit, worktreeFingerprint: `sha256:${source.worktreeFingerprint}` },
@@ -156,7 +161,9 @@ function canonicalAuthorityFixture(context)
       return { value, ref: { path: path.relative(directory, path.resolve(directory, file)),
         fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, contentDigest: value.contentDigest ?? null } }
     }
-    return { readJson, readBytes }
+    // Private pure value inputs only: fixture.options passed to the real I/O
+    // facade intentionally has no expectedClaimStageAuthority option.
+    return { readJson, readBytes, expectedClaimStageAuthority }
   }
   return { directory, options, snapshots, readers, rolloutFile, rollout, admissionFile, admission, artifact,
     currentReceiptFile, currentReceipt }
@@ -179,8 +186,48 @@ test('canonical authority synthetic values bind references without qualifying a 
   assert.equal(actual.runtimeRole.buildReceipt.schema, 'fsusblog.runtime-role-observation-build-receipt.v4')
 })
 
+test('canonical pure admission requires complete independently parsed stage materials', context =>
+{
+  const fixture = canonicalAuthorityFixture(context)
+  const readers = fixture.readers(fixture.snapshots)
+  const materials = readers.expectedClaimStageAuthority
+  assert.equal(Object.hasOwn(fixture.options, 'expectedClaimStageAuthority'), false)
+  assert.deepEqual(Object.keys(materials).sort(), ['catalog', 'claimReceipt', 'migrationLedger'])
+  assert.equal(materials.claimReceipt.contentDigest, fixture.admission.claimStages.parseReceiptDigest)
+  assert.equal(digestValue(materials.catalog), fixture.admission.claimStages.catalogDigest)
+  assert.equal(digestValue(materials.migrationLedger), fixture.admission.claimStages.migrationLedgerDigest)
+  for (const malformed of [
+    undefined, null, {},
+    { ...materials, extra: true },
+    { catalog: materials.catalog, claimReceipt: materials.claimReceipt },
+    { ...materials, catalog: null },
+    { catalog: fixture.admission.authorityDigests.catalog,
+      claimReceipt: fixture.admission.authorityDigests.claim, migrationLedger: fixture.admission.claimStages.migrationLedgerDigest }
+  ])
+    assert.throws(() => verifyCanonicalReleaseAuthorityValues({ ...fixture.options, ...readers,
+      expectedClaimStageAuthority: malformed }), {
+      message: 'BehaviorDoc claim stages require closed expected source materials'
+    })
+  const changed = structuredClone(materials)
+  changed.claimReceipt.claims.pop()
+  delete changed.claimReceipt.contentDigest
+  changed.claimReceipt.contentDigest = digestValue(changed.claimReceipt)
+  assert.throws(() => verifyCanonicalReleaseAuthorityValues({ ...fixture.options, ...readers,
+    expectedClaimStageAuthority: changed }), { message: 'BehaviorDoc claim stages parse receipt mismatch' })
+})
+
 // Requires the separately frozen original post-v2 I/O wrapper; no synthetic
 // metadata authority can substitute for its still-unconnected native collector.
+test('canonical authority I/O refuses public claim-stage materials before reading a plan or source', () =>
+{
+  for (const expectedClaimStageAuthority of [undefined, null, {
+    catalog: {}, claimReceipt: {}, migrationLedger: {}
+  }])
+    assert.throws(() => verifyCanonicalReleaseAuthorities({ expectedClaimStageAuthority }), {
+      message: '[canonical-release-authorities] caller cannot supply claim-stage source authority'
+    })
+})
+
 test('canonical authority I/O refuses metadata when the admitted native collector is missing', context =>
 {
   const fixture = canonicalAuthorityFixture(context)

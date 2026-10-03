@@ -81,6 +81,13 @@ files, start processes, dynamically load modules or depend on external packages.
 The original I/O owner must bind the actual bytes and native execution separately.
 This lexical reference check is not filesystem identity or native qualification.
 
+The private release value verifier passes the closed `catalog`, `claimReceipt`
+and `migrationLedger` materials to the original pure stage validator. The original
+I/O owner must construct those materials by reading and parsing its independently
+bound source worktree; admission fields and self-reported digests are not inputs
+for that construction. Passing values through the pure layer does not authenticate
+their provenance or grant a post-runtime/native execution authority.
+
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.blue-green-contract
 behaviorId: deployment-blue-green-runtime-role

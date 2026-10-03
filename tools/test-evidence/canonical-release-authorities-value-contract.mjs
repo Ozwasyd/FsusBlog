@@ -26,7 +26,7 @@ function referencedJson(metadata, label, repositoryRoot, readJson)
   return current
 }
 
-function verifyRuntimeRole(relative, plan, repositoryRoot, readJson)
+function verifyRuntimeRole(relative, plan, repositoryRoot, readJson, expectedClaimStageAuthority)
 {
   const admission = readJson(relative, 'runtime-role static admission')
   validateBehaviorDocStaticAdmissionReceiptV3(admission.value, {
@@ -35,6 +35,7 @@ function verifyRuntimeRole(relative, plan, repositoryRoot, readJson)
       worktreeFingerprint: normalized(plan.sourceState.worktreeFingerprint)
     },
     expectedWorktree: repositoryRoot,
+    expectedClaimStageAuthority,
     expectedExtractorIds: readJson(
       'config/contracts/behavior-fact-extractors.json', 'extractor registry'
     ).value.extractors.map((extractor) => extractor.id).sort()
@@ -109,7 +110,8 @@ function verifyCurrentSchemaValues(receiptRef, manifest, rollout, plan, reposito
 }
 
 export function verifyCanonicalReleaseAuthorityValues({
-  candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef, repositoryRoot, readJson, readBytes, now
+  candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, currentSchemaReceiptRef, repositoryRoot,
+  readJson, readBytes, now, expectedClaimStageAuthority
 })
 {
   if (!plan || !repositoryRoot) fail('candidate plan and repository root are required')
@@ -131,7 +133,9 @@ export function verifyCanonicalReleaseAuthorityValues({
   if (report.status !== 'pass' || report.rolloutId !== openedRollout.value.rolloutId)
     fail(`canonical release rollout verifier rejected evidence: ${report.errors.join('; ')}`)
   const rollout = { ...openedRollout, report }
-  const runtimeRole = verifyRuntimeRole(runtimeRoleAdmission, plan, repositoryRoot, readJson)
+  // The original I/O owner constructs these materials from the independently
+  // bound source. This pure value layer does not read or authenticate provenance.
+  const runtimeRole = verifyRuntimeRole(runtimeRoleAdmission, plan, repositoryRoot, readJson, expectedClaimStageAuthority)
   const manifest = referencedJson(rollout.value.auxiliary?.releaseManifest, 'release manifest', repositoryRoot, readJson)
   const { validateReleaseManifest } = createReleaseManifestValueContract({
     releaseIdContract: readJson('src/shared/Contracts/Validation/release-id-contract.json', 'release identity contract').value
