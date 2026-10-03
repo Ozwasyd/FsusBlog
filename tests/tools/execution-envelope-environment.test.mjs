@@ -6,6 +6,7 @@ const {createMinimalCorrectnessEnvironment, observeExecutableIdentity, prepareCo
 const {loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const policy = loadExecutionEnvelopePolicy();
 const catalog = loadExecutionEnvelopeApplicability();
+const { executeManagedPreparation, observeExecutableIdentityAsync, prepareCorrectnessEnvironmentAsync } = await import(new URL('../../tools/test/execution-envelope-environment.mjs', import.meta.url));
 
 test('correctness environment contains only fixed values, PATH, injected identity, and producer allowlist', () =>
 {
@@ -211,4 +212,231 @@ test('missing or unobservable executable fails closed', () =>
         readFile: () => Buffer.from('binary'),
         observeVersion: () => ({ status: 1, stdout: '', stderr: '' })
     }), /version is unobservable/u);
+});
+
+// These are consumer component simulations, not native execution or held-service qualification.
+function componentPreparationEvidence(stdout = 'fixture-tool-v1\n')
+{
+    const maximumBytesPerStream = 1_048_576;
+    return {
+        schema: 'fsusblog.physical-execution-process-tree.v1', platform: 'linux',
+        policy: { maximumCapturedOutputBytesPerStream: maximumBytesPerStream },
+        authority: { kind: 'linux-cgroup-process-group', established: true },
+        lifecycle: ['post-observe-zero-members', 'bounded-pipe-close', 'seal-completed-receipt'],
+        termination: [], postObservation: 'zero-members', logComplete: true,
+        logTruncationReason: null, forcedPipeClose: false,
+        processInventory: [{ role: 'direct-child', pid: 123, startIdentity: 'component-only-start', exitCode: 0, signal: null }],
+        stdout, stderr: '',
+        outputCapture: {
+            maximumBytesPerStream, stdoutBytes: Buffer.byteLength(stdout), stderrBytes: 0,
+            stdoutCapturedBytes: Buffer.byteLength(stdout), stderrCapturedBytes: 0,
+            stdoutTruncated: false, stderrTruncated: false
+        }
+    };
+}
+
+function componentPreparationRequest()
+{
+    return { purpose: 'executable-version', command: ['/fixture/tool', '--version'],
+        cwd: path.resolve('component-owned-directory'), environment: { LANG: 'C.UTF-8', TMPDIR: '/fixture/owned' } };
+}
+
+function componentPreparationOwner(evidence = componentPreparationEvidence())
+{
+    const accepted = new WeakSet();
+    const calls = [];
+    return {
+        evidence, calls,
+        executePreparation: async (request) =>
+        {
+            assert.ok(accepted.has(request));
+            calls.push({ phase: 'execute', request });
+            return evidence;
+        },
+        assertPreparationExecution: async ({ request, phase, physicalExecution }) =>
+        {
+            calls.push({ phase, request });
+            if (phase === 'before')
+            {
+                assert.equal(physicalExecution, null);
+                accepted.add(request);
+            }
+            else
+            {
+                assert.ok(accepted.has(request));
+                assert.equal(physicalExecution, evidence);
+            }
+        }
+    };
+}
+
+test('component async preparation requires both original-owner callbacks before effects', async () =>
+{
+    let executions = 0;
+    const executePreparation = async () => { executions += 1; return componentPreparationEvidence(); };
+    for (const ports of [{}, { executePreparation }, { assertPreparationExecution: async () => {} }])
+    {
+        await assert.rejects(executeManagedPreparation(componentPreparationRequest(), ports), /held-managed/u);
+    }
+    assert.equal(executions, 0);
+});
+
+test('component async preparation carries one detached frozen tuple through before execute and after', async () =>
+{
+    const request = componentPreparationRequest();
+    const owner = componentPreparationOwner();
+    assert.equal(await executeManagedPreparation(request, owner), owner.evidence);
+    assert.deepEqual(owner.calls.map((call) => call.phase), ['before', 'execute', 'after']);
+    const actual = owner.calls[0].request;
+    assert.notEqual(actual, request);
+    assert.notEqual(actual.command, request.command);
+    assert.notEqual(actual.environment, request.environment);
+    assert.ok(Object.isFrozen(actual) && Object.isFrozen(actual.command) && Object.isFrozen(actual.environment));
+    for (const call of owner.calls) assert.equal(call.request, actual);
+    assert.deepEqual(actual, request);
+});
+
+test('component async preparation rejects incomplete failed deadline and unverifiable terminals after a valid control', async () =>
+{
+    const control = componentPreparationOwner();
+    assert.equal(await executeManagedPreparation(componentPreparationRequest(), control), control.evidence);
+    for (const mutate of [
+        (e) => { delete e.schema; }, (e) => { e.platform = 'win32'; },
+        (e) => { e.authority.established = false; }, (e) => { e.postObservation = 'unverifiable'; },
+        (e) => { e.logComplete = false; }, (e) => { e.logTruncationReason = 'pipe-close-deadline-exceeded'; },
+        (e) => { e.forcedPipeClose = true; }, (e) => { e.lifecycle = ['seal-completed-receipt']; },
+        (e) => { e.processInventory = []; }, (e) => { e.processInventory[0].startIdentity = null; },
+        (e) => { e.processInventory[0].exitCode = 124; e.lifecycle[2] = 'seal-cancelled-or-failed-receipt'; },
+        (e) => { e.processInventory[0].signal = 'SIGTERM'; },
+        (e) => { e.termination = [{ phase: 'forced', signal: 'SIGKILL' }]; }
+    ])
+    {
+        const evidence = componentPreparationEvidence();
+        mutate(evidence);
+        const owner = componentPreparationOwner(evidence);
+        await assert.rejects(executeManagedPreparation(componentPreparationRequest(), owner), (error) =>
+        {
+            assert.match(error.message, /incomplete or failed/u);
+            assert.equal(error.physicalExecution, evidence);
+            return true;
+        });
+        assert.deepEqual(owner.calls.map((call) => call.phase), ['before', 'execute', 'after']);
+    }
+});
+
+test('component async preparation refuses missing truncated and mismatched stream captures', async () =>
+{
+    for (const stream of ['stdout', 'stderr'])
+    {
+        for (const mutate of [
+            (c) => { delete c[`${stream}Truncated`]; }, (c) => { c[`${stream}Truncated`] = true; },
+            (c) => { c[`${stream}Bytes`] = -1; }, (c) => { c[`${stream}CapturedBytes`] += 1; },
+            (c) => { c[`${stream}Bytes`] = c.maximumBytesPerStream + 1; c[`${stream}CapturedBytes`] = c[`${stream}Bytes`]; }
+        ])
+        {
+            const owner = componentPreparationOwner();
+            mutate(owner.evidence.outputCapture);
+            await assert.rejects(executeManagedPreparation(componentPreparationRequest(), owner), /capture is incomplete or unbounded/u);
+        }
+    }
+    const owner = componentPreparationOwner();
+    delete owner.evidence.outputCapture;
+    await assert.rejects(executeManagedPreparation(componentPreparationRequest(), owner), /incomplete or failed/u);
+});
+
+test('component original-owner before assertion rejects identity drift and cancellation without execution', async () =>
+{
+    for (const field of ['run', 'source', 'producer', 'attempt', 'peer-incarnation', 'cancelled'])
+    {
+        const owner = componentPreparationOwner();
+        let executed = false;
+        const failure = new Error(`component owner refused ${field}`);
+        await assert.rejects(executeManagedPreparation(componentPreparationRequest(), {
+            executePreparation: async () => { executed = true; return owner.evidence; },
+            assertPreparationExecution: async () => { throw failure; }
+        }), (error) => error === failure);
+        assert.equal(executed, false);
+    }
+});
+
+test('component original-owner after assertion rejects changed ownership and retains actual terminal', async () =>
+{
+    const owner = componentPreparationOwner();
+    const failure = new Error('component peer changed during awaited execution');
+    const phases = [];
+    await assert.rejects(executeManagedPreparation(componentPreparationRequest(), {
+        executePreparation: owner.executePreparation,
+        assertPreparationExecution: async (value) =>
+        {
+            phases.push(value.phase);
+            await owner.assertPreparationExecution(value);
+            if (value.phase === 'after') throw failure;
+        }
+    }), (error) => error === failure && error.physicalExecution === owner.evidence);
+    assert.deepEqual(phases, ['before', 'after']);
+});
+
+test('component async preparation preserves tool first cause when the post-owner assertion also fails', async () =>
+{
+    const evidence = componentPreparationEvidence();
+    const primary = Object.assign(new Error('component tool deadline'), { exitCode: 124, physicalExecution: evidence });
+    const secondary = new Error('component owner no longer verifiable');
+    const phases = [];
+    await assert.rejects(executeManagedPreparation(componentPreparationRequest(), {
+        executePreparation: async () => { throw primary; },
+        assertPreparationExecution: async ({ phase, physicalExecution }) =>
+        {
+            phases.push(phase);
+            if (phase === 'after')
+            {
+                assert.equal(physicalExecution, evidence);
+                throw secondary;
+            }
+        }
+    }), (error) => error === primary && error.exitCode === 124
+        && error.physicalExecution === evidence && error.preparationOwnerAssertionError === secondary);
+    assert.deepEqual(phases, ['before', 'after']);
+});
+
+test('component async executable observation reuses original version arguments and identity fields', async () =>
+{
+    for (const [name, arguments_] of [['node', ['--version']], ['msbuild', ['-version', '-nologo']]])
+    {
+        const owner = componentPreparationOwner();
+        const identity = await observeExecutableIdentityAsync(name, {
+            ...owner, cwd: path.resolve('.'), pathValue: '/fixture', environment: { PATH: '/fixture' },
+            resolve: (requested) => `/fixture/${requested}`, realpath: (file) => file,
+            readFile: () => Buffer.from('component-binary')
+        });
+        assert.equal(identity.requestedName, name);
+        assert.equal(identity.version, 'fixture-tool-v1');
+        assert.match(identity.sha256, /^sha256:[a-f0-9]{64}$/u);
+        assert.deepEqual(owner.calls[1].request.command, [`/fixture/${name}`, ...arguments_]);
+    }
+});
+
+test('component async executable observation rejects invented version arguments before tool execution', async () =>
+{
+    const owner = componentPreparationOwner();
+    await assert.rejects(observeExecutableIdentityAsync('node', {
+        ...owner, cwd: path.resolve('.'), pathValue: '/fixture', environment: { PATH: '/fixture' },
+        resolve: () => '/fixture/node', realpath: (file) => file, readFile: () => Buffer.from('binary'),
+        versionArgs: ['--execute-anything']
+    }), /original tool observation rule/u);
+    assert.deepEqual(owner.calls, []);
+});
+
+test('component async correctness preparation awaits both original exact executable observations', async () =>
+{
+    const owner = componentPreparationOwner();
+    const result = await prepareCorrectnessEnvironmentAsync({
+        command: [process.execPath, '-e', '0'], cwd: path.resolve('.'),
+        parentEnvironment: { PATH: process.env.PATH }, producerAllowlist: [],
+        injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'component-async-run' }, policy, catalog, ...owner
+    });
+    assert.deepEqual(owner.calls.map((call) => call.phase), ['before', 'execute', 'after', 'before', 'execute', 'after']);
+    assert.deepEqual(result.fragment.actualExecutable, result.fragment.plannedExecutable);
+    assert.equal(result.fragment.admission, 'planned-actual-exact');
+    assert.deepEqual(result.command.slice(1), ['-e', '0']);
+    assert.equal(result.environment.FSUSBLOG_TEST_RUN_ID, 'component-async-run');
 });
