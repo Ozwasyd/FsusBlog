@@ -91,8 +91,22 @@ public sealed class SchemaCompatibilityCoordinateTests
     [InlineData("20260720-UPPERCASE")]
     [InlineData("not-a-historical-fence")]
     [InlineData("20260720-valid-fence ")]
+    [InlineData("20260720-valid-fence\n")]
+    [InlineData("20260720-valid-fence\r\n")]
     public void HistoricalFence_RejectsCorruptLegacyScalars(string value)
         => Assert.Throws<ArgumentException>(() => HistoricalMigrationFence.FromLegacyMetadata(value));
+
+    [Theory]
+    [InlineData("20260720-valid-fence", "20260720000000-000000000000~legacy~valid-fence")]
+    [InlineData("20240229-leap-day", "20240229000000-000000000000~legacy~leap-day")]
+    public void HistoricalFence_PreservesValidHistoricalDateAndSuffix(string value, string expectedSortKey)
+    {
+        HistoricalMigrationFence fence = HistoricalMigrationFence.FromLegacyMetadata(value);
+
+        Assert.True(fence.IsLegacy);
+        Assert.Equal(value, fence.Value);
+        Assert.Equal(expectedSortKey, fence.SortKey);
+    }
 
     [Theory]
     [InlineData("", "")]

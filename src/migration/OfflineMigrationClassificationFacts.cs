@@ -30,7 +30,7 @@ public readonly record struct HistoricalMigrationFence : IComparable<HistoricalM
     public const string LegacyMaximumValue = "99999999-online-schema-v1";
 
     private static readonly Regex s_legacyPattern = new(
-        "^[0-9]{8}-[a-z0-9][a-z0-9-]{2,119}$",
+        "^[0-9]{8}-[a-z0-9][a-z0-9-]{2,119}\\z",
         RegexOptions.CultureInvariant);
 
     private HistoricalMigrationFence(string value, string sortKey, bool legacy, bool classificationValue)
