@@ -4,9 +4,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/migration/OfflineMigrationClassificationFacts.cs"
+                "src/migration/OfflineMigrationClassificationFacts.cs",
+                "src/migration/OfflineMigrationCatalogEntries.generated.cs"
             ],
-            "reason": "The existing registry governs this C# source path as an external environment naming surface. This repair preserves all identifiers and environment interfaces and changes only the historical scalar pattern's absolute end boundary."
+            "reason": "The existing registry governs this C# source path as an external environment naming surface. This repair preserves all identifiers and environment interfaces and changes only the historical scalar pattern's absolute end boundary. The original catalog producer also refreshes the derived source digest, navigation and classifications from the unchanged authoritative facts; generated rows are not hand-maintained."
         }
     ]
 }
