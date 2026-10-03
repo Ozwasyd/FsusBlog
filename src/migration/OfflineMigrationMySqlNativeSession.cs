@@ -68,6 +68,12 @@ internal static class OfflineMigrationMySqlNativeSession
         internal DbConnection OriginalConnection => _connection;
         internal DbTransaction OriginalTransaction => _transaction;
 
+        // Borrowers use this token for every journal/schema/DAG read, not only
+        // boundary validation. Linking cannot renew the stored creator deadline
+        // or admit an expired context; the original boundary checks still apply.
+        internal CancellationTokenSource CreateCancellationScope(CancellationToken borrowerCancellationToken)
+            => CreateBorrowedCancellationScope(_creatorCancellationToken, borrowerCancellationToken);
+
         internal async Task RequireBoundaryAsync(CancellationToken cancellationToken)
         {
             // The creator's deadline remains authoritative even when a borrower

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationMySqlNativeSession.cs"
+            ],
+            "reason": "Preserve the original native session source owner's external spellings while exposing only its existing stored-creator and borrower cancellation link; no CLI or environment authority is changed."
+        }
+    ]
+}

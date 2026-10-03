@@ -12,6 +12,48 @@ namespace FsusBlog.Migration.Tests;
 public sealed class OfflineMigrationMySqlNativeSessionTests
 {
     [Fact]
+    public void OwnedContextExposesOnlyTheOriginalTypedBorrowerCancellationScope()
+    {
+        Type context = typeof(OfflineMigrationMySqlNativeSession.OwnedReadContext);
+        var method = context.GetMethod(
+            nameof(OfflineMigrationMySqlNativeSession.OwnedReadContext.CreateCancellationScope),
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.False(method.IsStatic);
+        Assert.False(method.IsPublic);
+        Assert.Equal(typeof(CancellationTokenSource), method.ReturnType);
+        Assert.Equal(typeof(CancellationToken), Assert.Single(method.GetParameters()).ParameterType);
+        var creator = context.GetField("_creatorCancellationToken",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(creator);
+        Assert.True(creator.IsPrivate);
+        Assert.True(creator.IsInitOnly);
+        Assert.Equal(typeof(CancellationToken), creator.FieldType);
+    }
+
+    [Fact]
+    public void CancelledBorrowerCannotStartIoOrCancelTheOriginalCreator()
+    {
+        using var creator = new CancellationTokenSource();
+        using var borrower = new CancellationTokenSource();
+        borrower.Cancel();
+        OperationCanceledException refusal = Assert.Throws<OperationCanceledException>(() =>
+            OfflineMigrationMySqlNativeSession.CreateBorrowedCancellationScope(creator.Token, borrower.Token));
+        Assert.Equal(borrower.Token, refusal.CancellationToken);
+        Assert.False(creator.IsCancellationRequested);
+    }
+
+    [Fact]
+    public void MissingBorrowerScopeCannotUseTheOriginalCreatorAsAnUnboundedCaller()
+    {
+        using var creator = new CancellationTokenSource();
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationMySqlNativeSession.CreateBorrowedCancellationScope(creator.Token, default));
+        Assert.Equal("offline_source_native_operation_context_required", refusal.Message);
+        Assert.False(creator.IsCancellationRequested);
+    }
+
+    [Fact]
     public void CancelledCreatorWithFreshBorrowerCannotStartBoundaryIo()
     {
         using var creator = new CancellationTokenSource();
