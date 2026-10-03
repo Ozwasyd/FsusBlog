@@ -12,6 +12,130 @@ namespace FsusBlog.Migration.Tests;
 public sealed class OfflineMigrationMySqlNativeSessionTests
 {
     [Fact]
+    public void CurrentReadOnlyProofUsesActualAccessModeRatherThanSessionDefault()
+    {
+        var actual = CurrentReadOnlyProof();
+        Assert.True(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(actual, 19));
+        // SESSION TRANSACTION READ ONLY can remain 1 while START TRANSACTION
+        // READ WRITE overrides this transaction. The actual event must refuse it.
+        Assert.False(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(actual with { AccessMode = "READ WRITE" }, 19));
+        Assert.False(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(actual with { AccessMode = "READONLY" }, 19));
+    }
+
+    [Theory]
+    [InlineData("committed")]
+    [InlineData("rolled-back")]
+    [InlineData("ended-active")]
+    [InlineData("connection")]
+    [InlineData("zero-connection")]
+    [InlineData("thread")]
+    [InlineData("event")]
+    [InlineData("zero-thread")]
+    [InlineData("zero-event")]
+    [InlineData("isolation")]
+    [InlineData("xa")]
+    [InlineData("thread-instrumented")]
+    [InlineData("instrument")]
+    [InlineData("global-consumer")]
+    [InlineData("thread-consumer")]
+    [InlineData("current-consumer")]
+    public void CurrentTransactionMustRemainTheSameActiveInstrumentedNativeEvent(string change)
+    {
+        var initial = CurrentReadOnlyProof();
+        var current = change switch
+        {
+            "committed" => initial with { State = "COMMITTED" },
+            "rolled-back" => initial with { State = "ROLLED BACK" },
+            "ended-active" => initial with { EndEventId = 90 },
+            "connection" => initial with { ConnectionId = 20 },
+            "zero-connection" => initial with { ConnectionId = 0 },
+            "thread" => initial with { ThreadId = 32 },
+            "event" => initial with { EventId = 41 },
+            "zero-thread" => initial with { ThreadId = 0 },
+            "zero-event" => initial with { EventId = 0 },
+            "isolation" => initial with { Isolation = "READ COMMITTED" },
+            "xa" => initial with { XaState = "ACTIVE" },
+            "thread-instrumented" => initial with { ThreadInstrumented = "NO" },
+            "instrument" => initial with { InstrumentEnabled = "NO" },
+            "global-consumer" => initial with { GlobalEnabled = "NO" },
+            "thread-consumer" => initial with { ThreadEnabled = "NO" },
+            "current-consumer" => initial with { CurrentEnabled = "NO" },
+            _ => throw new InvalidOperationException("unknown source control")
+        };
+        Assert.True(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(initial, 19, initial));
+        Assert.False(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(current, 19, initial));
+    }
+
+    [Fact]
+    public void CallerParsedEvenValidFieldsCannotMintOriginalRunCapability()
+    {
+        using var connection = new MySqlConnection();
+        var fields = CurrentReadOnlyProof();
+        Assert.True(OfflineMigrationMySqlNativeSession.CurrentTransactionMatches(fields, 19));
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            new OfflineMigrationMySqlNativeSession.OwnedReadContext(new object(), connection, null!, fields));
+        Assert.Equal("offline_source_mysql_original_owned_context_required", refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
+    [Fact]
+    public void CurrentTransactionQueryBindsServerIdentityAndActualEventNotSessionReadOnly()
+    {
+        string sql = OfflineMigrationMySqlNativeSession.CurrentTransactionSql;
+        Assert.Contains("SELECT CONNECTION_ID(), t.THREAD_ID, x.EVENT_ID, x.END_EVENT_ID", sql);
+        Assert.Contains("x.STATE, x.ACCESS_MODE, x.ISOLATION_LEVEL, x.XA_STATE", sql);
+        Assert.Contains("WHERE t.PROCESSLIST_ID = CONNECTION_ID() AND x.EVENT_NAME = 'transaction'", sql);
+        Assert.Contains("i.NAME = 'transaction'", sql);
+        Assert.Contains("g.NAME = 'global_instrumentation'", sql);
+        Assert.Contains("h.NAME = 'thread_instrumentation'", sql);
+        Assert.Contains("c.NAME = 'events_transactions_current'", sql);
+        Assert.DoesNotContain("@@session.transaction_read_only", sql);
+    }
+
+    [Fact]
+    public async Task OwnedReadEntryCancellationCannotMintAContextOrOpenNativeResources()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync<int>("not parsed after cancellation",
+                (_, _) => throw new InvalidOperationException("callback must not run"), cancellation.Token));
+    }
+
+    [Fact]
+    public async Task OwnedReadEntryRequiresTheOriginalCancellationScope()
+    {
+        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync<int>("not parsed without context",
+                (_, _) => throw new InvalidOperationException("callback must not run"), default));
+        Assert.Equal("offline_source_native_operation_context_required", refusal.Message);
+    }
+
+    private static OfflineMigrationMySqlNativeSession.CurrentTransactionProof CurrentReadOnlyProof()
+        => new(19, 31, 40, null, "ACTIVE", "READ ONLY", "REPEATABLE READ", null,
+            "YES", "YES", "YES", "YES", "YES");
+
+    [Fact]
+    public async Task ArbitraryRawPairCannotAcquireOriginalFactoryCustody()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var connection = new MySqlConnection();
+        using var transaction = new CallerLabelledTransaction(connection);
+        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationMySqlNativeSession.RequireBorrowedBoundaryAsync(connection, transaction, cancellation.Token));
+        Assert.Equal("offline_source_mysql_original_owned_context_required", refusal.Message);
+        Assert.Null(refusal.InnerException);
+    }
+
+    private sealed class CallerLabelledTransaction(DbConnection connection) : DbTransaction
+    {
+        public override System.Data.IsolationLevel IsolationLevel => System.Data.IsolationLevel.Snapshot;
+        protected override DbConnection DbConnection => connection;
+        public override void Commit() => throw new NotSupportedException();
+        public override void Rollback() => throw new NotSupportedException();
+    }
+
+    [Fact]
     public async Task BorrowedBoundaryCancellationPrecedesNativeAccess()
     {
         using var cancellation = new CancellationTokenSource();
