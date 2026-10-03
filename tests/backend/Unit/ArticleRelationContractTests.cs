@@ -511,9 +511,11 @@ public sealed class ArticleRelationContractTests
     [Theory]
     [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "actor:query")]
     [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "build:publication")]
+    [InlineData(ArticleRelationReceiptKind.Query, ArticleRelationQueryScope.CurrentPublicPublication, "Public:anonymous")]
     [InlineData(ArticleRelationReceiptKind.Index, ArticleRelationQueryScope.PublicationEvidence, "actor:query")]
     [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "actor:query")]
     [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "public:anonymous")]
+    [InlineData(ArticleRelationReceiptKind.Prepublish, ArticleRelationQueryScope.PublicationEvidence, "Build:publication")]
     public void Receipts_RejectFullySealedCrossScopeActorsUsingTheVisibilityRule(
         ArticleRelationReceiptKind kind,
         ArticleRelationQueryScope scope,
@@ -558,6 +560,45 @@ public sealed class ArticleRelationContractTests
         Assert.Equal(
             "article_relation_query_context_mismatch",
             ArticleRelationContractValidator.Validate(changed).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Receipts_RejectChangedPayloadWithStaleIdentityAndRecomputedOuterDigest(int changedField)
+    {
+        ArticleRelationReceipt valid = Receipt(
+            ArticleRelationReceiptKind.Query,
+            ArticleRelationQueryScope.Authoring,
+            "actor:query");
+        Assert.True(ArticleRelationContractValidator.Validate(valid).IsValid);
+        ArticleRelationReceipt changed = changedField == 0
+            ? valid with { Context = valid.Context with { ContentDigest = DigestA } }
+            : valid with { RelationDigests = [DigestB] };
+        changed = changed with { ReceiptDigest = ArticleRelationDigest.ComputeReceipt(changed) };
+        Assert.Equal(valid.ReceiptIdentity, changed.ReceiptIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeReceipt(changed), changed.ReceiptDigest);
+        Assert.Equal(
+            "article_relation_receipt_identity_digest_mismatch",
+            ArticleRelationContractValidator.Validate(changed).ReasonCode);
+    }
+
+    [Fact]
+    public void Receipts_PreserveDraftPublicRefusalAfterFullReseal()
+    {
+        ArticleRelationReceipt valid = Receipt(
+            ArticleRelationReceiptKind.Query,
+            ArticleRelationQueryScope.CurrentPublicPublication,
+            "public:anonymous");
+        Assert.True(ArticleRelationContractValidator.Validate(valid).IsValid);
+        ArticleRelationReceipt draft = ArticleRelationContractValidator.Seal(valid with
+        {
+            Context = valid.Context with { SourceRevisionKind = ArticleRelationRevisionKind.Draft }
+        });
+        Assert.Equal(ArticleRelationDigest.ComputeReceipt(draft), draft.ReceiptDigest);
+        Assert.Equal(
+            "article_relation_public_revision_scope_mismatch",
+            ArticleRelationContractValidator.Validate(draft).ReasonCode);
     }
 
     [Theory]
