@@ -392,6 +392,15 @@ function validateMembership(membership, profile, success, reasons)
             'build artifact failure classification is incomplete');
         }
     }
+    if (profile.producerId === 'release-finalizer-semantic-outcome')
+    {
+        for (const id of membership.requiredOutputIds.filter((item) => !membership.producedOutputIds.includes(item)))
+        {
+            require(reasons.some((reason) => reason.kind === 'contract.missing-evidence'
+                && reason.identity.evidenceId === id),
+            'finalizer output failure classification is incomplete');
+        }
+    }
 }
 
 // This is structural semantic analysis, not receipt origin or execution authentication.

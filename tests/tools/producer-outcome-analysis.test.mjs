@@ -407,3 +407,27 @@ test('original missing-evidence failures remain explicit classifications rather 
         reasons: candidate.outcome.reasons.filter((reason) => reason.identity.evidenceId !== 'b:terminal') } });
     assert.throws(() => analyzeCandidateWithLimits(omitted, directOptions()), /classification is incomplete/u);
 });
+
+test('finalizer missing output keeps its original exact missing-evidence classification', () =>
+{
+    const producerId = 'release-finalizer-semantic-outcome';
+    const input = { ...identity, producerId };
+    const base = fixture();
+    const candidate = adaptReleaseFinalizerSemanticOutcome({ identity: input,
+        inputAuthorityRefs: base.inputAuthorityRefs, attemptEligibility: base.attemptEligibility,
+        plan: { inputIds: ['a'], outputIds: ['output'] }, evidence: {
+            consumedIds: ['a'], verifiedIds: ['a'], failedIds: [], blockedIds: [],
+            producedOutputIds: [], outputDigests: {} } });
+    const options = directOptions({ expectedIdentity: input, expectedProducerId: producerId,
+        expectedAuthorityId: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs' });
+    const result = analyzeCandidateWithLimits(candidate, options);
+    assert.equal(result.summary.status, 'failed');
+    assert.deepEqual(result.summary.membership.requiredOutputIds, ['output']);
+    assert.deepEqual(result.summary.membership.producedOutputIds, []);
+    assert.deepEqual(result.summary.reasons.map((reason) => reason.identity.evidenceId), ['output']);
+    assert.equal(result.producerVerificationPending, true);
+    const unrelated = sealContentDigest({ ...candidate, outcome: { ...candidate.outcome,
+        reasons: [{ kind: 'product.assertion', producerId,
+            identity: { producerId, assertionId: 'a' } }] } });
+    assert.throws(() => analyzeCandidateWithLimits(unrelated, options), /output failure classification is incomplete/u);
+});
