@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -15,6 +16,8 @@ namespace FsusBlog.Migration;
 
 public sealed partial class OfflineMigrationSourceObserver
 {
+    internal const string SourceMaterialCleanupFailuresKey = "FsusBlog.Migration.SourceMaterialCleanupFailures";
+
     // Private measurement bodies are reserved for the original apply-owned writer
     // capability. They do not weaken or replace either public read-only observer.
     private static async Task<OfflineMigrationSourceObservation> ReadMySqlControlledEmptyCandidateAsync(
@@ -761,32 +764,74 @@ public sealed partial class OfflineMigrationSourceObserver
     private static async Task<ImmutableArray<ImmutableArray<string>>> ReadProviderRowsAsync(DbConnection connection,
         DbTransaction transaction, string sql, ObservationBudget budget, CancellationToken cancellationToken)
     {
-        await using DbCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = sql;
-        command.CommandTimeout = 30;
-        await using DbDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
-        var rows = ImmutableArray.CreateBuilder<ImmutableArray<string>>();
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        var cleanupFailures = ImmutableArray.CreateBuilder<string>(2);
+        DbCommand command = connection.CreateCommand();
+        DbDataReader? reader = null;
+        ImmutableArray<ImmutableArray<string>> result = default;
+        Exception? failure = null;
+        try
         {
-            if (++budget.Rows > MaximumMetadataRows || reader.FieldCount > 16)
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.CommandTimeout = 30;
+            reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
+            var rows = ImmutableArray.CreateBuilder<ImmutableArray<string>>();
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
-            }
-            var cells = ImmutableArray.CreateBuilder<string>();
-            for (int index = 0; index < reader.FieldCount; index++)
-            {
-                string text = reader.IsDBNull(index) ? string.Empty : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? string.Empty;
-                budget.Characters += text.Length;
-                if (text.Length > MaximumCellCharacters || budget.Characters > MaximumMetadataCharacters)
+                if (++budget.Rows > MaximumMetadataRows || reader.FieldCount > 16)
                 {
                     throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
                 }
-                cells.Add(text);
+                var cells = ImmutableArray.CreateBuilder<string>();
+                for (int index = 0; index < reader.FieldCount; index++)
+                {
+                    string text = reader.IsDBNull(index) ? string.Empty : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? string.Empty;
+                    budget.Characters += text.Length;
+                    if (text.Length > MaximumCellCharacters || budget.Characters > MaximumMetadataCharacters)
+                    {
+                        throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
+                    }
+                    cells.Add(text);
+                }
+                rows.Add(cells.ToImmutable());
             }
-            rows.Add(cells.ToImmutable());
+            result = rows.ToImmutable();
         }
-        return rows.ToImmutable();
+        catch (Exception primary)
+        {
+            failure = primary;
+        }
+        if (reader is not null)
+        {
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanup)
+            {
+                failure ??= cleanup;
+                cleanupFailures.Add("offline_source_material_reader_cleanup_failed");
+            }
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            failure ??= cleanup;
+            cleanupFailures.Add("offline_source_material_command_cleanup_failed");
+        }
+        if (failure is not null)
+        {
+            if (cleanupFailures.Count > 0)
+            {
+                // Fixed diagnostics only; no secondary exception, SQL or cell data.
+                failure.Data[SourceMaterialCleanupFailuresKey] = cleanupFailures.ToImmutable();
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+        return result;
     }
 
     internal static long RequireBooleanInteger(long value) => value is 0 or 1 ? value

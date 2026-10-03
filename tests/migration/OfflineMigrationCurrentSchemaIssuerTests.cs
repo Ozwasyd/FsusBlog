@@ -1,7 +1,10 @@
 using System.Collections.Immutable;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
+using NSubstitute;
 
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
@@ -14,6 +17,219 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
 {
     private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
     private static readonly string s_digest = new('a', 64);
+
+    // Component lifecycle doubles call the original helper. They do not model
+    // Npgsql protocol state, native ReadyForQuery failure or receipt qualification.
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task NativeIdentityCleanup_PreservesOriginalValidationRefusal(bool readerFails, bool commandFails)
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture("blog ");
+        ConfigureNativeIdentityCleanup(fixture, readerFails, commandFails);
+        InvalidOperationException expected = Assert.Throws<InvalidOperationException>(() =>
+            CurrentSchemaReceiptCodec.ValidateDatabase(new(CurrentSchemaProviderKind.PostgreSql, "123", "456/blog ")));
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(fixture.Connection, fixture.Transaction, default));
+        Assert.Equal(expected.Message, actual.Message);
+        Assert.Contains(nameof(OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync), actual.StackTrace);
+        AssertNativeIdentityCleanupCodes(actual, readerFails, commandFails);
+        AssertNativeIdentityLifecycle(fixture);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task NativeIdentityCleanup_RefusesWhenOnlyCleanupFails(bool readerFails, bool commandFails)
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture("blog");
+        ConfigureNativeIdentityCleanup(fixture, readerFails, commandFails);
+        Exception actual = await Assert.ThrowsAnyAsync<Exception>(() =>
+            OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(fixture.Connection, fixture.Transaction, default));
+        Assert.Same(readerFails ? fixture.ReaderCleanupFailure : fixture.CommandCleanupFailure, actual);
+        AssertNativeIdentityCleanupCodes(actual, readerFails, commandFails);
+        AssertNativeIdentityLifecycle(fixture);
+    }
+
+    [Fact]
+    public async Task NativeIdentityCleanup_PreservesExactBodyCancellationAndToken()
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture("blog");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var first = new OperationCanceledException("fixture_body_cancellation", cancellation.Token);
+        fixture.Reader.ReadAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<bool>(first));
+        ConfigureNativeIdentityCleanup(fixture, readerFails: true, commandFails: true);
+        OperationCanceledException actual = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(fixture.Connection, fixture.Transaction, cancellation.Token));
+        Assert.Same(first, actual);
+        Assert.Equal(cancellation.Token, actual.CancellationToken);
+        AssertNativeIdentityCleanupCodes(actual, readerFails: true, commandFails: true);
+        AssertNativeIdentityLifecycle(fixture);
+    }
+
+    [Fact]
+    public async Task NativeIdentityCleanup_DisposesCommandWhenReaderCreationFails()
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture("blog");
+        var first = new InvalidOperationException("fixture_execute_failure");
+        fixture.Command.ExecuteReaderAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<DbDataReader>(first));
+        ConfigureNativeIdentityCleanup(fixture, readerFails: true, commandFails: true);
+        InvalidOperationException actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(fixture.Connection, fixture.Transaction, default));
+        Assert.Same(first, actual);
+        AssertNativeIdentityCleanupCodes(actual, readerFails: false, commandFails: true);
+        AssertNativeIdentityLifecycle(fixture, readerCreated: false);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NativeIdentityCleanup_AwaitsReaderThenCommandBeforeReturningOrThrowing(bool bodyRefuses)
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture(bodyRefuses ? "blog " : "blog");
+        var readerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readerFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var commandEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var commandFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Reader.DisposeAsync().Returns(_ =>
+        {
+            readerEntered.SetResult();
+            return new ValueTask(readerFinished.Task);
+        });
+        fixture.Command.DisposeAsync().Returns(_ =>
+        {
+            commandEntered.SetResult();
+            return new ValueTask(commandFinished.Task);
+        });
+        Task<CurrentSchemaDatabaseIdentity> operation = OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(
+            fixture.Connection, fixture.Transaction, default);
+        try
+        {
+            await readerEntered.Task;
+            Assert.False(operation.IsCompleted);
+            Assert.False(commandEntered.Task.IsCompleted);
+            if (bodyRefuses)
+            {
+                readerFinished.SetException(fixture.ReaderCleanupFailure);
+            }
+            else
+            {
+                readerFinished.SetResult();
+            }
+            await commandEntered.Task;
+            Assert.False(operation.IsCompleted);
+            if (bodyRefuses)
+            {
+                commandFinished.SetException(fixture.CommandCleanupFailure);
+                InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() => operation);
+                Assert.Equal("current_receipt_text_invalid", failure.Message);
+                AssertNativeIdentityCleanupCodes(failure, readerFails: true, commandFails: true);
+            }
+            else
+            {
+                commandFinished.SetResult();
+                Assert.Equal(new CurrentSchemaDatabaseIdentity(CurrentSchemaProviderKind.PostgreSql, "123", "456/blog"), await operation);
+            }
+            AssertNativeIdentityLifecycle(fixture);
+        }
+        finally
+        {
+            readerFinished.TrySetResult();
+            commandFinished.TrySetResult();
+        }
+    }
+
+    [Theory]
+    [InlineData("blog")]
+    [InlineData("blog ")]
+    public async Task NativeIdentityCleanup_KeepsOrdinaryIdentityAndRefusalControls(string databaseName)
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture(databaseName);
+        if (databaseName == "blog")
+        {
+            Assert.Equal(new CurrentSchemaDatabaseIdentity(CurrentSchemaProviderKind.PostgreSql, "123", "456/blog"),
+                await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(fixture.Connection, fixture.Transaction, default));
+        }
+        else
+        {
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(fixture.Connection, fixture.Transaction, default));
+            Assert.Equal("current_receipt_text_invalid", failure.Message);
+            Assert.False(failure.Data.Contains(OfflineMigrationCurrentSchemaIssuer.NativeIdentityCleanupFailuresKey));
+        }
+        AssertNativeIdentityLifecycle(fixture);
+    }
+
+    private static NativeIdentityLifecycleFixture CreateNativeIdentityLifecycleFixture(string databaseName)
+    {
+        DbConnection connection = Substitute.For<DbConnection>();
+        DbTransaction transaction = Substitute.For<DbTransaction>();
+        DbCommand command = Substitute.For<DbCommand>();
+        DbDataReader reader = Substitute.For<DbDataReader>();
+        connection.CreateCommand().Returns(command);
+        command.ExecuteReaderAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(reader));
+        reader.ReadAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true), Task.FromResult(false));
+        reader.GetString(0).Returns("123");
+        reader.GetString(1).Returns("456");
+        reader.GetString(2).Returns(databaseName);
+        reader.DisposeAsync().Returns(ValueTask.CompletedTask);
+        command.DisposeAsync().Returns(ValueTask.CompletedTask);
+        return new(connection, transaction, command, reader,
+            new IOException("fixture_reader_secondary_secret"),
+            new InvalidOperationException("fixture_command_secondary_secret"));
+    }
+
+    private static void ConfigureNativeIdentityCleanup(NativeIdentityLifecycleFixture fixture, bool readerFails, bool commandFails)
+    {
+        if (readerFails)
+        {
+            fixture.Reader.DisposeAsync().Returns(ValueTask.FromException(fixture.ReaderCleanupFailure));
+        }
+        if (commandFails)
+        {
+            fixture.Command.DisposeAsync().Returns(ValueTask.FromException(fixture.CommandCleanupFailure));
+        }
+    }
+
+    private static void AssertNativeIdentityCleanupCodes(Exception failure, bool readerFails, bool commandFails)
+    {
+        ImmutableArray<string> actual = Assert.IsType<ImmutableArray<string>>(
+            failure.Data[OfflineMigrationCurrentSchemaIssuer.NativeIdentityCleanupFailuresKey]);
+        var expected = new List<string>();
+        if (readerFails)
+        {
+            expected.Add("current_verify_native_identity_reader_cleanup_failed");
+        }
+        if (commandFails)
+        {
+            expected.Add("current_verify_native_identity_command_cleanup_failed");
+        }
+        Assert.Equal(expected, actual);
+        Assert.DoesNotContain(actual, value => value.Contains("secondary_secret", StringComparison.Ordinal));
+    }
+
+    private static void AssertNativeIdentityLifecycle(NativeIdentityLifecycleFixture fixture, bool readerCreated = true)
+    {
+        Assert.Same(fixture.Transaction, fixture.Command.Transaction);
+        Assert.Equal("""
+            SELECT control.system_identifier::text, database_identity.oid::text, current_database()::text
+            FROM pg_catalog.pg_control_system() AS control
+            CROSS JOIN pg_catalog.pg_database AS database_identity
+            WHERE database_identity.datname = current_database()
+            """, fixture.Command.CommandText);
+        Assert.Equal(readerCreated ? 1 : 0,
+            fixture.Reader.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbDataReader.DisposeAsync)));
+        Assert.Single(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync)));
+        fixture.Transaction.DidNotReceive().Commit();
+        fixture.Transaction.DidNotReceive().Rollback();
+        fixture.Connection.DidNotReceive().Open();
+    }
+
+    private sealed record NativeIdentityLifecycleFixture(DbConnection Connection, DbTransaction Transaction,
+        DbCommand Command, DbDataReader Reader, Exception ReaderCleanupFailure, Exception CommandCleanupFailure);
 
     [Theory]
     [InlineData("original-bytes")]

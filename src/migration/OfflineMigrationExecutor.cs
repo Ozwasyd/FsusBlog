@@ -67,7 +67,6 @@ internal static class OfflineMigrationExecutor
         }
 
         bool locked = false;
-        var native = new OfflineMigrationApplyNativeSession(connection, plan.Source.Database.Provider);
         bool commitUnknown = false;
         bool started = false;
         bool admissionWritesStarted = false;
@@ -81,6 +80,9 @@ internal static class OfflineMigrationExecutor
             if (failure.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey]
                 is "offline_apply_journal_command_disposal_failed")
                 cleanupCodes.Add("offline_apply_journal_command_disposal_failed");
+            if (failure.Data[OfflineMigrationApplyNativeSession.OwnedScopeCleanupFailuresKey]
+                is "offline_apply_owned_scope_cleanup_failed")
+                cleanupCodes.Add("offline_apply_owned_scope_cleanup_failed");
             if (firstFailure is null)
             {
                 firstFailure = failure;
@@ -96,6 +98,17 @@ internal static class OfflineMigrationExecutor
             cleanupCancellation ??= new CancellationTokenSource(cleanupBudget);
             return cleanupCancellation.Token;
         }
+        var native = new OfflineMigrationApplyNativeSession(connection, plan.Source.Database.Provider,
+            cancellationToken, CleanupToken);
+
+        Task RevalidateAdmissionAsync(DbTransaction transaction)
+            => native.SupportsOwnedReadContext
+                ? native.WithOwnedReadScopeAsync(transaction, (context, token) =>
+                    admission.RevalidateAsync(verified, artifact, progress, context, token), cancellationToken)
+                : admission.RevalidateAsync(verified, artifact, progress, connection, transaction, cancellationToken);
+        ValueTask<DbTransaction> BeginAdmissionAsync()
+            => native.SupportsOwnedReadContext ? native.BeginOwnedReadAsync(cancellationToken)
+                : native.BeginAsync(cancellationToken); // Original non-native fixtures do not mint native read authority.
 
         async Task<OfflineMigrationApplyResult> ExecuteCoreAsync()
         {
@@ -132,14 +145,13 @@ internal static class OfflineMigrationExecutor
                     }
                 }
 
-                await using (DbTransaction admissionTransaction = await native.BeginAsync(cancellationToken).ConfigureAwait(false))
+                await using (DbTransaction admissionTransaction = await BeginAdmissionAsync().ConfigureAwait(false))
                 {
                     try
                     {
                         await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, admissionTransaction,
                             plan.ContentDigest, plan.Source.Database, request, progress, cancellationToken).ConfigureAwait(false);
-                        await admission.RevalidateAsync(verified, artifact, progress, connection,
-                            admissionTransaction, cancellationToken).ConfigureAwait(false);
+                        await RevalidateAdmissionAsync(admissionTransaction).ConfigureAwait(false);
                         await VerifyRecordedStepsAsync(admissionTransaction).ConfigureAwait(false);
                         if (progress.Completed)
                         {
@@ -204,11 +216,10 @@ internal static class OfflineMigrationExecutor
                         await PrepareMediaAsync(step, mediaOperation).ConfigureAwait(false);
                         transactionBodyCompleted = false;
                     }
-                    await using DbTransaction transaction = await native.BeginAsync(cancellationToken).ConfigureAwait(false);
+                    await using DbTransaction transaction = await BeginAdmissionAsync().ConfigureAwait(false);
                     try
                     {
-                        await admission.RevalidateAsync(verified, artifact, progress, connection,
-                            transaction, cancellationToken).ConfigureAwait(false);
+                        await RevalidateAdmissionAsync(transaction).ConfigureAwait(false);
                         OfflineMigrationApplyJournalVerifier staged = progress.Fork();
                         OfflineMigrationApplyJournalEntry? previousUnit = progress.PendingUnit;
                         string beforePredicate = previousUnit is null ? step.SourcePrecondition
@@ -305,12 +316,11 @@ internal static class OfflineMigrationExecutor
                 }
 
                 transactionBodyCompleted = false;
-                await using (DbTransaction terminalTransaction = await native.BeginAsync(cancellationToken).ConfigureAwait(false))
+                await using (DbTransaction terminalTransaction = await BeginAdmissionAsync().ConfigureAwait(false))
                 {
                     try
                     {
-                        await admission.RevalidateAsync(verified, artifact, progress, connection,
-                            terminalTransaction, cancellationToken).ConfigureAwait(false);
+                        await RevalidateAdmissionAsync(terminalTransaction).ConfigureAwait(false);
                         await VerifyRecordedStepsAsync(terminalTransaction).ConfigureAwait(false);
                         OfflineMigrationApplyJournalVerifier staged = progress.Fork();
                         await AppendAsync(staged, terminalTransaction, Control(staged,
@@ -351,7 +361,7 @@ internal static class OfflineMigrationExecutor
                 {
                     try
                     {
-                        await using DbTransaction terminal = await native.BeginAsync(CleanupToken()).ConfigureAwait(false);
+                        await using DbTransaction terminal = await native.BeginCleanupAsync(CleanupToken()).ConfigureAwait(false);
                         OfflineMigrationApplyJournalVerifier staged = progress.Fork();
                         await AppendAsync(staged, terminal, Control(staged,
                             cancelled ? OfflineMigrationApplyJournalState.AttemptCancelled : OfflineMigrationApplyJournalState.AttemptFailed,
@@ -416,10 +426,10 @@ internal static class OfflineMigrationExecutor
 
         async Task PrepareMediaAsync(OfflineMigrationStep step, OfflineMigrationArticleMediaOperation operation)
         {
-            await using DbTransaction preparation = await native.BeginAsync(cancellationToken).ConfigureAwait(false);
+            await using DbTransaction preparation = await BeginAdmissionAsync().ConfigureAwait(false);
             try
             {
-                await admission.RevalidateAsync(verified, artifact, progress, connection, preparation, cancellationToken).ConfigureAwait(false);
+                await RevalidateAdmissionAsync(preparation).ConfigureAwait(false);
                 OfflineMigrationPredicateObservation before = await operation.ObserveAsync(
                     step.SourcePrecondition, connection, preparation, cancellationToken).ConfigureAwait(false);
                 ValidateObservation(before, step.SourcePrecondition, operation.Identity);

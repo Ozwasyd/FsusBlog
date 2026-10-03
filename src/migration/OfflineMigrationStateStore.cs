@@ -70,6 +70,50 @@ internal static class OfflineMigrationStateStore
         }
 
         await ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await ReadApplyJournalRowsAsync(provider, connection, transaction, planContentDigest,
+            database, request, verifier, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Only the original native read creator can supply this overload. Snapshot
+    // is never accepted by the raw transaction selector or any writing method.
+    internal static async Task ReadApplyJournalAsync(
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        string planContentDigest, CurrentSchemaDatabaseIdentity database,
+        OfflineMigrationApplyRequest request, OfflineMigrationApplyJournalVerifier verifier,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        if (database.Provider != CurrentSchemaProviderKind.MySql)
+            throw new InvalidOperationException("offline_apply_native_database_provider_mismatch");
+        if (!await OfflineMigrationApplyJournalDialect.ExistsAsync(CurrentSchemaProviderKind.MySql,
+            context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false))
+        {
+            if (request.Checkpoint is not null)
+                throw new InvalidOperationException("offline_apply_checkpoint_missing");
+        }
+        else
+        {
+            await ValidateApplyJournalAsync(context, cancellationToken).ConfigureAwait(false);
+            await ReadApplyJournalRowsAsync(CurrentSchemaProviderKind.MySql,
+                context.OriginalConnection, context.OriginalTransaction, planContentDigest,
+                database, request, verifier, cancellationToken).ConfigureAwait(false);
+        }
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    // The same original whole-chain SQL and verifier body serves both read paths.
+    // This private implementation is not a raw caller-owned admission surface.
+    private static async Task ReadApplyJournalRowsAsync(
+        CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
+        string planContentDigest, CurrentSchemaDatabaseIdentity database,
+        OfflineMigrationApplyRequest request, OfflineMigrationApplyJournalVerifier verifier,
+        CancellationToken cancellationToken)
+    {
         string databaseDigest = OfflineMigrationPlanValidation.Digest(database);
         await using DbCommand command = NativeCommand(connection, transaction, $"""
             SELECT invocation_id, sequence, entry_digest, parent_digest,
@@ -173,6 +217,21 @@ internal static class OfflineMigrationStateStore
             return;
         }
         await PgCurrentSchemaControlShape.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task ValidateApplyJournalAsync(
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        await OfflineMigrationApplyJournalDialect.ValidateAsync(CurrentSchemaProviderKind.MySql,
+            context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     internal static void Parameter(DbCommand command, string name, object value)

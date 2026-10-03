@@ -64,6 +64,25 @@ internal interface IOfflineMigrationPlanAdmission
         VerifiedOfflineMigrationPlan plan, CurrentSchemaArtifactReference artifact,
         OfflineMigrationApplyJournalVerifier progress, DbConnection connection,
         DbTransaction transaction, CancellationToken cancellationToken);
+
+    // Real native writer admission receives only the context minted after this
+    // executor's actual Begin. Existing admission remains the default consumer;
+    // a compiled controlled-source owner may override this without relaxing the
+    // public readonly source route. The carrier itself supplies no empty facts.
+    async Task RevalidateAsync(
+        VerifiedOfflineMigrationPlan plan, CurrentSchemaArtifactReference artifact,
+        OfflineMigrationApplyJournalVerifier progress,
+        OfflineMigrationApplyNativeSession.OwnedReadContext context, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        if (context.Database != plan.Plan.Source.Database)
+            throw new InvalidOperationException("offline_apply_original_database_changed");
+        await RevalidateAsync(plan, artifact, progress, context.OriginalConnection,
+            context.OriginalTransaction, scope.Token).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        scope.Token.ThrowIfCancellationRequested();
+    }
 }
 
 internal sealed class MissingOfflineMigrationApplyOperationRegistry : IOfflineMigrationApplyOperationRegistry
