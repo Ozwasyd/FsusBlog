@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 import { adaptReleaseProjectionSemanticOutcome } from '../../tools/test-matrix/outcomes/release-projection-adapter.mjs';
@@ -508,4 +510,138 @@ test('secret context and semantic references remain explicitly registered instea
     assert.equal(find('$.projectionReceipts[].semanticPayloadDigest').category, 'semantic-outcome');
     assert.equal(find('$.projectionReceipts[].contentDigest').category, 'evidence-location');
     assert.throws(() => sealVerifiedProducerSemanticOutcome(registry), /independent authority bridge/u);
+});
+
+// IO lifecycle doubles exercise the actual public loader, not native file authority.
+function schemaSourceIOFixture(t, options = {})
+{
+    const registry = validateOutcomeFieldDispositions();
+    const files = new Map(['producer-semantic-outcome.schema.json', 'aggregate-run-outcome.schema.json']
+        .map((name) => [name, fs.readFileSync(new URL(`../../config/schemas/${name}`, import.meta.url))]));
+    const states = new Map();
+    const observations = { reads: 0, closes: 0, opens: 0, bytes: 0, flags: [], lengths: [] };
+    const metadata = (bytes, extra = {}) => ({ dev: 1n, ino: 2n, size: BigInt(bytes.length),
+        mtimeNs: 3n, ctimeNs: 4n, isFile: () => true, isSymbolicLink: () => false, ...extra });
+    const originalLstat = fs.lstatSync;
+    t.mock.method(fs, 'lstatSync', (file, flags) =>
+    {
+        const bytes = files.get(path.basename(file));
+        if (!bytes) return originalLstat(file, flags);
+        const state = [...states.values()].find((item) => item.file === file);
+        return metadata(bytes, state ? options.pathAfter : options.pathBefore);
+    });
+    t.mock.method(fs, 'openSync', (file, flags) =>
+    {
+        const bytes = files.get(path.basename(file));
+        assert.ok(bytes, 'only the two original fixed schema paths may be opened');
+        observations.opens++;
+        observations.flags.push(flags);
+        const descriptor = 1000 + observations.opens;
+        states.set(descriptor, { file, bytes, offset: 0, stats: 0 });
+        return descriptor;
+    });
+    t.mock.method(fs, 'fstatSync', (descriptor) =>
+    {
+        const state = states.get(descriptor);
+        state.stats++;
+        return metadata(state.bytes, state.stats === 1 ? options.opened : options.after);
+    });
+    t.mock.method(fs, 'readSync', (descriptor, buffer, offset, length) =>
+    {
+        const state = states.get(descriptor);
+        observations.reads++;
+        observations.lengths.push(length);
+        if (options.readError) throw options.readError;
+        const bytes = options.grow ? Buffer.concat([state.bytes, Buffer.from('x')]) : state.bytes;
+        const count = bytes.copy(buffer, offset, state.offset, state.offset + length);
+        state.offset += count;
+        observations.bytes += count;
+        return count;
+    });
+    t.mock.method(fs, 'closeSync', (descriptor) =>
+    {
+        assert.ok(states.has(descriptor));
+        observations.closes++;
+        if (options.closeError) throw options.closeError;
+    });
+    const maximum = Math.max(...[...files.values()].map((bytes) => bytes.length));
+    return { observations, maximum, validate: (limit = maximum) => validateOutcomeFieldDispositions(registry,
+        { ...hostExpectedLimits, maxStringBytes: limit }) };
+}
+
+test('fixed schema IO validates actual source bytes through bounded held descriptors and closes both', (t) =>
+{
+    const fixture = schemaSourceIOFixture(t);
+    assert.equal(fixture.validate().entries.length, 10);
+    assert.equal(fixture.observations.opens, 2);
+    assert.equal(fixture.observations.closes, 2);
+    assert.ok(fixture.observations.lengths.every((length) => length > 0 && length <= 65536));
+    assert.ok(fixture.observations.flags.every((flags) =>
+        (flags & fs.constants.O_NOFOLLOW) !== 0 && (flags & fs.constants.O_NONBLOCK) !== 0));
+});
+
+test('fixed schema IO rejects oversized metadata before any byte hydration', (t) =>
+{
+    const fixture = schemaSourceIOFixture(t);
+    assert.throws(() => fixture.validate(1), /byte budget/u);
+    assert.equal(fixture.observations.reads, 0);
+    assert.equal(fixture.observations.closes, 1);
+});
+
+test('fixed schema IO rejects nonregular FIFO and symlink preimages before opening', async (t) =>
+{
+    for (const pathBefore of [{ isFile: () => false }, { isSymbolicLink: () => true }])
+    {
+        await t.test('nonregular or symlink preimage', (child) =>
+        {
+            const fixture = schemaSourceIOFixture(child, { pathBefore });
+            assert.throws(() => fixture.validate(), /regular non-symlink/u);
+            assert.equal(fixture.observations.opens, 0);
+            assert.equal(fixture.observations.reads, 0);
+        });
+    }
+});
+
+test('fixed schema IO rejects replaced opening or terminal identities while closing the held descriptor', async (t) =>
+{
+    for (const options of [{ opened: { ino: 99n } }, { opened: { isFile: () => false } },
+        { after: { mtimeNs: 99n } }, { pathAfter: { ino: 99n } }, { pathAfter: { isSymbolicLink: () => true } }])
+    {
+        await t.test('opening or terminal drift', (child) =>
+        {
+            const fixture = schemaSourceIOFixture(child, options);
+            assert.throws(() => fixture.validate(), /identity changed|changed during/u);
+            assert.equal(fixture.observations.closes, 1);
+        });
+    }
+});
+
+test('fixed schema IO detects growth with at most the external limit plus one byte', (t) =>
+{
+    const fixture = schemaSourceIOFixture(t, { grow: true });
+    assert.throws(() => fixture.validate(), /changed during|byte budget/u);
+    assert.equal(fixture.observations.closes, 1);
+    assert.ok(fixture.observations.bytes > 0);
+    assert.ok(fixture.observations.bytes <= fixture.maximum + 1);
+});
+
+test('fixed schema IO preserves the first read failure and records only an immutable fixed close code', (t) =>
+{
+    const primary = new Error('fixture read failure');
+    const secondary = new Error('fixture secret cleanup message');
+    const fixture = schemaSourceIOFixture(t, { readError: primary, closeError: secondary });
+    assert.throws(() => fixture.validate(), (error) => error === primary);
+    assert.equal(fixture.observations.closes, 1);
+    const codes = primary['fsusblog.outcome-schema-source.cleanup-failures.v1'];
+    assert.deepEqual(codes, ['schema-source-close-failed']);
+    assert.equal(Object.isFrozen(codes), true);
+    assert.equal(JSON.stringify(codes).includes(secondary.message), false);
+});
+
+test('fixed schema IO treats close-only failure as failure rather than returning parsed source', (t) =>
+{
+    const primary = new Error('fixture close failure');
+    const fixture = schemaSourceIOFixture(t, { closeError: primary });
+    assert.throws(() => fixture.validate(), (error) => error === primary);
+    assert.equal(fixture.observations.closes, 1);
 });

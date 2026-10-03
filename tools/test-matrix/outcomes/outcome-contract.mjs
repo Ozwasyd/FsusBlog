@@ -8,6 +8,7 @@ import { aggregateRunOutcomeSchema, getSemanticOutcomeSchemaPaths,
 const { digestCanonical, sealContentDigest } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
+const schemaSourceCleanupKey = 'fsusblog.outcome-schema-source.cleanup-failures.v1';
 const candidateFields = Object.freeze([
     'attemptEligibility', 'contentDigest', 'identity', 'inputAuthorityRefs', 'outcome',
     'producerAuthorityId', 'producerId', 'schema', 'schemaVersion', 'verificationStatus'
@@ -131,6 +132,84 @@ export function validateOutcomeFieldDispositions(file = path.join(root, 'config/
     return registry;
 }
 
+function readFixedSchemaSource(file, byteLimit)
+{
+    if (!Number.isInteger(fs.constants.O_NOFOLLOW) || !Number.isInteger(fs.constants.O_NONBLOCK))
+    {
+        throw new Error('fixed schema source requires no-follow nonblocking file access');
+    }
+    let descriptor;
+    let primary;
+    let failed = false;
+    let result;
+    try
+    {
+        const pathBefore = fs.lstatSync(file, { bigint: true });
+        if (!pathBefore.isFile() || pathBefore.isSymbolicLink())
+        {
+            throw new Error('fixed schema source must be a regular non-symlink file');
+        }
+        descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+        const before = fs.fstatSync(descriptor, { bigint: true });
+        const fields = ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'];
+        const matches = (left, right) => fields.every((field) => left[field] === right[field]);
+        if (!before.isFile() || !matches(pathBefore, before))
+        {
+            throw new Error('fixed schema source opening identity changed');
+        }
+        if (before.size < 0n || before.size > BigInt(byteLimit))
+        {
+            throw new Error('fixed schema source byte budget exceeded');
+        }
+        const chunks = [];
+        let total = 0;
+        while (true)
+        {
+            // At the exact limit only one further byte may be observed, never a whole-file hydration.
+            const length = total === byteLimit ? 1 : Math.min(65536, byteLimit - total);
+            const buffer = Buffer.allocUnsafe(length);
+            const count = fs.readSync(descriptor, buffer, 0, length, null);
+            if (count === 0) break;
+            total += count;
+            if (total > byteLimit)
+            {
+                throw new Error('fixed schema source byte budget exceeded');
+            }
+            chunks.push(buffer.subarray(0, count));
+        }
+        const after = fs.fstatSync(descriptor, { bigint: true });
+        const pathAfter = fs.lstatSync(file, { bigint: true });
+        if (!after.isFile() || !pathAfter.isFile() || pathAfter.isSymbolicLink()
+            || !matches(before, after) || !matches(after, pathAfter) || BigInt(total) !== after.size)
+        {
+            throw new Error('fixed schema source changed during its bounded read');
+        }
+        result = JSON.parse(Buffer.concat(chunks, total).toString('utf8'));
+    }
+    catch (error)
+    {
+        primary = error;
+        failed = true;
+    }
+    if (descriptor !== undefined)
+    {
+        try { fs.closeSync(descriptor); }
+        catch (error)
+        {
+            if (!failed) { primary = error; failed = true; }
+            else if (primary && (typeof primary === 'object' || typeof primary === 'function'))
+            {
+                // Never replace the first failure or publish cleanup objects/messages/secrets.
+                try { Object.defineProperty(primary, schemaSourceCleanupKey, {
+                    value: Object.freeze(['schema-source-close-failed']), enumerable: false }); }
+                catch { /* An immutable first failure must still remain the first failure. */ }
+            }
+        }
+    }
+    if (failed) throw primary;
+    return result;
+}
+
 function validateSchemaDeclarations(declarations, hostExpectedLimits)
 {
     const schemaFiles = new Map([
@@ -181,12 +260,7 @@ function validateSchemaDeclarations(declarations, hostExpectedLimits)
     }
     const sourceSchema = (name) =>
     {
-        const bytes = fs.readFileSync(path.join(root, 'config/schemas', name));
-        if (bytes.length > byteLimit)
-        {
-            throw new Error('fixed schema source byte budget exceeded');
-        }
-        return JSON.parse(bytes.toString('utf8'));
+        return readFixedSchemaSource(path.join(root, 'config/schemas', name), byteLimit);
     };
     const contracts = { producerSchema: sourceSchema(schemaFiles.get(producerSemanticOutcomeSchema)),
         aggregateSchema: sourceSchema(schemaFiles.get(aggregateRunOutcomeSchema)) };
