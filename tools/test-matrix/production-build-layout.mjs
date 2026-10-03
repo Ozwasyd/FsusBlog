@@ -1075,6 +1075,47 @@ export function recoverProductionBuildResourceTree(reference, { schedulerRecover
     return report;
 }
 
+/** Authenticate nested callers against the independently retained owner and actual service membership. */
+export function authorizeProductionBuildNestedProcess(channel, identity)
+{
+    const context = channel.reference.context;
+    const layout = resolveProductionBuildLayout({ root: context.root, runId: context.runId });
+    assertCanonicalResourceOwnerLayout(layout);
+    const { owner } = readBuildOwner(layout);
+    if (owner.state !== 'building' || processIdentityStatus(owner.ownerIdentity).status !== 'live'
+        || digestCanonical(owner.ownerIdentity) !== digestCanonical(channel.controllerIdentity)
+        || !completeProcessIdentity(identity) || processIdentityStatus(identity).status !== 'live')
+    {
+        throw new Error('nested execution requires its live original build owner and caller');
+    }
+    for (const authority of owner.managedContainmentAuthorities)
+    {
+        if (authority.schema !== resourceServiceContainmentSchema || authority.phase !== 'pre-exec'
+            || digestCanonical(authority.nestedChannel) !== digestCanonical(channel)
+            || digestCanonical(authority.serviceBinding.reference) !== digestCanonical(channel.reference))
+        {
+            continue;
+        }
+        const observed = inspectProductionSystemdServiceBinding(authority.serviceBinding, { commandBudgetMs: authority.commandBudgetMs });
+        if (observed.status === 'present' && observed.group.processIds.includes(identity.pid)
+            && processIdentityStatus(identity).status === 'live')
+        {
+            const current = readBuildOwner(layout).owner;
+            if (current.state !== 'building'
+                || digestCanonical(current.ownerIdentity) !== digestCanonical(owner.ownerIdentity)
+                || current.sourceCommit !== owner.sourceCommit || current.worktreeFingerprint !== owner.worktreeFingerprint
+                || current.namespace !== owner.namespace
+                || !current.managedContainmentAuthorities.some((entry) => digestCanonical(entry) === digestCanonical(authority))
+                || processIdentityStatus(identity).status !== 'live')
+            {
+                throw new Error('nested execution build owner changed during authentication');
+            }
+            return { authorityId: authority.authorityId, identity };
+        }
+    }
+    throw new Error('nested execution caller is not a member of an independently retained service');
+}
+
 export function assertSafeProductionBuildRunRoot(candidate, { root = defaultRoot } = {})
 {
     const repositoryRoot = path.resolve(root);
