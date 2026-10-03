@@ -70,6 +70,9 @@ internal static class ArticlePreservationSourceReader
         OfflineMigrationSourceObservation observation = await observe(token).ConfigureAwait(false);
         if (OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation).Id != OfflineMigrationSourceFingerprints.LegacyId)
             throw new InvalidOperationException("article_preservation_source_fingerprint_unsupported");
+        if (provider == CurrentSchemaProviderKind.Sqlite)
+            await SqliteArticlePreservationSourceReader.RequireBoundedTextAsync(
+                connection, transaction, limits, readBudget, token).ConfigureAwait(false);
 
         var budget = new ReadBudget(limits);
         ImmutableArray<LegacyArticlePreservationTaxonomy> categories = await ReadTaxonomyAsync(
