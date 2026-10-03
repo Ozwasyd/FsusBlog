@@ -705,8 +705,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
             }
             string root = DecodeMountPath(fields[3]);
             string mountPoint = DecodeMountPath(fields[4]);
-            ValidateMountPath(root);
-            ValidateMountPath(mountPoint);
+            ValidateMountPath(root, allowEscapedWhitespace: true);
+            ValidateMountPath(mountPoint, allowEscapedWhitespace: true);
             ValidateMountOptions(fields[5]);
             ValidateMountOptions(fields[separator + 3]);
             bool covers = mountPoint == "/" || accountingCgroupPath == mountPoint
@@ -783,10 +783,11 @@ public sealed class DocumentExportSystemdCgroupAuthority
         return decoded.ToString();
     }
 
-    private static void ValidateMountPath(string path)
+    private static void ValidateMountPath(string path, bool allowEscapedWhitespace = false)
     {
         if (!path.StartsWith("/", StringComparison.Ordinal)
-            || path.Contains('\0') || path.Contains('\r') || path.Contains('\n')
+            || path.Contains('\0') || path.Contains('\r')
+            || (!allowEscapedWhitespace && (path.Contains('\n') || path.Contains('\t')))
             || path.Contains("//", StringComparison.Ordinal)
             || (path.Length > 1 && path.EndsWith('/'))
             || path.Split('/').Any(segment => segment is "." or ".."))

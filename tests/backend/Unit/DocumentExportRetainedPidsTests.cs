@@ -503,6 +503,34 @@ public sealed class DocumentExportRetainedPidsTests
         => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
             new string('x', 128 * 1024 + 1), "/sys/fs/cgroup" + AccountingGroup));
 
+    [Theory]
+    [InlineData("\\012")]
+    [InlineData("\\011")]
+    public void UnrelatedNativeEscapedWhitespaceDoesNotChangeTheOwningProfile(string escape)
+    {
+        string mountInfo = "29 23 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n"
+            + $"30 23 0:27 /other{escape}root /other{escape}name rw - tmpfs tmpfs rw\n";
+
+        DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            mountInfo, "/sys/fs/cgroup" + AccountingGroup);
+    }
+
+    [Theory]
+    [InlineData("\\012")]
+    [InlineData("\\011")]
+    public void NativeEscapedWhitespaceCannotReplaceTheFixedOwningMountIdentity(string escape)
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            $"29 23 0:26 / /sys/fs/cgroup{escape} rw - cgroup2 cgroup rw\n",
+            "/sys/fs/cgroup" + AccountingGroup));
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\t")]
+    public void AccountingPathStillRefusesNativeOnlyWhitespace(string whitespace)
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            "29 23 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n",
+            "/sys/fs/cgroup" + AccountingGroup + whitespace));
+
     private static DocumentExportCgroupObservation CreateTerminal()
         => new(42_000, 0, 2_048, 1, 1, 0, 0, 0, false);
 
