@@ -626,7 +626,20 @@ public sealed class DocumentExportSystemdCgroupAuthority
         string accountingCgroupPath,
         CancellationToken cancellationToken)
     {
-        string mountInfo = await File.ReadAllTextAsync("/proc/self/mountinfo", cancellationToken);
+        using var stream = new FileStream(
+            "/proc/self/mountinfo", FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+        using var bytes = new MemoryStream();
+        byte[] buffer = new byte[4096];
+        int count;
+        while ((count = await stream.ReadAsync(buffer, cancellationToken)) != 0)
+        {
+            if (bytes.Length + count > ControlOutputLimitBytes)
+            {
+                throw new InvalidDataException("Document export mount identity exceeded its control-output bound.");
+            }
+            bytes.Write(buffer, 0, count);
+        }
+        string mountInfo = new UTF8Encoding(false, true).GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
         ValidateRetainedPidsMount(mountInfo, accountingCgroupPath);
         string current = "/";
         foreach (string segment in accountingCgroupPath.Split('/', StringSplitOptions.RemoveEmptyEntries))
@@ -653,6 +666,10 @@ public sealed class DocumentExportSystemdCgroupAuthority
     // mount, including non-cgroup overmounts, rather than grepping all mounts.
     internal static void ValidateRetainedPidsMount(string mountInfo, string accountingCgroupPath)
     {
+        if (mountInfo.Length > ControlOutputLimitBytes || Encoding.UTF8.GetByteCount(mountInfo) > ControlOutputLimitBytes)
+        {
+            throw new InvalidDataException("Document export mount identity exceeded its control-output bound.");
+        }
         ValidateMountPath(accountingCgroupPath);
         if (!accountingCgroupPath.StartsWith(CgroupRoot + "/", StringComparison.Ordinal))
         {

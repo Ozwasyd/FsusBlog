@@ -498,6 +498,11 @@ public sealed class DocumentExportRetainedPidsTests
         => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
             "29 23 0:26 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n", path));
 
+    [Fact]
+    public void MountAdmissionRefusesOversizedControlInputBeforeParsing()
+        => Assert.Throws<InvalidDataException>(() => DocumentExportSystemdCgroupAuthority.ValidateRetainedPidsMount(
+            new string('x', 128 * 1024 + 1), "/sys/fs/cgroup" + AccountingGroup));
+
     private static DocumentExportCgroupObservation CreateTerminal()
         => new(42_000, 0, 2_048, 1, 1, 0, 0, 0, false);
 
