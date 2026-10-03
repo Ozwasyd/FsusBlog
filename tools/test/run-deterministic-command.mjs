@@ -813,14 +813,17 @@ async function main(argv)
     }
 }
 
-main(process.argv.slice(2)).catch((error) =>
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    console.error(`[physical-execution] ${error instanceof Error ? error.message : String(error)}`);
-    if (error?.cleanupError)
+    main(process.argv.slice(2)).catch((error) =>
     {
-        console.error(`[physical-execution] cleanup-failure ${error.cleanupError.message ?? String(error.cleanupError)}`);
-    }
-    const recovery = error?.recoveryObligation ?? error?.cleanupError?.recoveryObligation;
-    if (recovery) console.error(`[physical-execution] recovery-obligation ${JSON.stringify(recovery)}`);
-    process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
-});
+        console.error(`[physical-execution] ${error instanceof Error ? error.message : String(error)}`);
+        if (error?.cleanupError)
+        {
+            console.error(`[physical-execution] cleanup-failure ${error.cleanupError.message ?? String(error.cleanupError)}`);
+        }
+        const recovery = error?.recoveryObligation ?? error?.cleanupError?.recoveryObligation;
+        if (recovery) console.error(`[physical-execution] recovery-obligation ${JSON.stringify(recovery)}`);
+        process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
+    });
+}

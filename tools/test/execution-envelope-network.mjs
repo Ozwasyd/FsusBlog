@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
+import { executeManagedPreparation, observeExecutableIdentity, observeExecutableIdentityAsync } from './execution-envelope-environment.mjs';
 import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
 import { admitsPrivateDotnetScratch, privateDotnetScratchPath } from './physical-execution-private-dotnet-scratch.mjs';
 const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
@@ -83,10 +83,9 @@ function requiredTool(name, pathValue)
     }
 }
 
-function buildLandlockHelper({ output, pathValue, environment })
+function landlockCompilerArguments(output)
 {
-    const compiler = requiredTool('cc', pathValue);
-    const compilation = spawnSync(compiler.absolutePath, [
+    return [
         '-std=c11',
         '-O2',
         '-Wall',
@@ -95,7 +94,13 @@ function buildLandlockHelper({ output, pathValue, environment })
         '-o',
         output,
         landlockSource
-    ], {
+    ];
+}
+
+function buildLandlockHelper({ output, pathValue, environment })
+{
+    const compiler = requiredTool('cc', pathValue);
+    const compilation = spawnSync(compiler.absolutePath, landlockCompilerArguments(output), {
         encoding: 'utf8',
         env: environment,
         shell: false,
@@ -166,6 +171,37 @@ export function projectPlannedEndpoints({ services, serviceEnvelope, policy })
     return endpoints;
 }
 
+async function requiredToolAsync(name, options)
+{
+    try
+    {
+        return await observeExecutableIdentityAsync(name, {
+            ...options,
+            ...(name === 'ip' ? { versionArgs: ['-Version'] } : {})
+        });
+    }
+    catch (error)
+    {
+        throw new Error(`correctness network sandbox is unavailable: ${name}`, { cause: error });
+    }
+}
+
+async function buildLandlockHelperAsync({ output, ...options })
+{
+    const compiler = await requiredToolAsync('cc', options);
+    await executeManagedPreparation({
+        purpose: 'landlock-helper-build',
+        command: [compiler.absolutePath, ...landlockCompilerArguments(output)],
+        cwd: options.cwd,
+        environment: options.environment
+    }, options);
+    fs.chmodSync(output, 0o700);
+    return {
+        compiler,
+        helper: await observeExecutableIdentityAsync(output, options)
+    };
+}
+
 export function prepareNetworkSandbox({
     command,
     // eslint-disable-next-line no-unused-vars
@@ -187,6 +223,22 @@ export function prepareNetworkSandbox({
         throw new Error(`correctness network sandbox is unavailable on ${platform}`);
     }
     const observer = requiredTool('strace', pathValue);
+    const bindings = prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId });
+    const landlock = buildLandlockHelper({
+        output: bindings.landlockExecutable,
+        pathValue,
+        environment: {
+            ...environment,
+            TMPDIR: directories.temp,
+            TMP: directories.temp,
+            TEMP: directories.temp
+        }
+    });
+    return projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock, ...bindings });
+}
+
+function prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId })
+{
     const networkLog = path.join(directories.toolCache, 'network.strace');
     const bindings = new Set([
         ...Object.values(directories),
@@ -211,16 +263,12 @@ export function prepareNetworkSandbox({
         directories.toolCache,
         'execution-envelope-landlock'
     );
-    const landlock = buildLandlockHelper({
-        output: landlockExecutable,
-        pathValue,
-        environment: {
-            ...environment,
-            TMPDIR: directories.temp,
-            TMP: directories.temp,
-            TEMP: directories.temp
-        }
-    });
+    return { networkLog, readWritePaths, privateTmpCapability, ownedPrivateTmp, privateDotnetScratch, landlockExecutable };
+}
+
+function projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock,
+    networkLog, readWritePaths, privateTmpCapability, ownedPrivateTmp, privateDotnetScratch })
+{
     return {
         command: [
             observer.absolutePath,
@@ -289,6 +337,31 @@ export function prepareNetworkSandbox({
             admission: 'pending'
         }
     };
+}
+
+export async function prepareNetworkSandboxAsync({
+    command, cwd, directories, ownedDirectoryEnvelope = null, writableRoots, plannedEndpoints = [],
+    environment, policy, producerId = null, attemptId = null,
+    executePreparation, assertPreparationExecution, platform = process.platform, pathValue = environment.PATH
+})
+{
+    if (platform !== 'linux')
+    {
+        throw new Error(`correctness network sandbox is unavailable on ${platform}`);
+    }
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('asynchronous network preparation requires the original held-managed owner port');
+    }
+    const toolOptions = { cwd, pathValue, environment, executePreparation, assertPreparationExecution };
+    const observer = await requiredToolAsync('strace', toolOptions);
+    const bindings = prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId });
+    const landlock = await buildLandlockHelperAsync({
+        ...toolOptions,
+        output: bindings.landlockExecutable,
+        environment: { ...environment, TMPDIR: directories.temp, TMP: directories.temp, TEMP: directories.temp }
+    });
+    return projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock, ...bindings });
 }
 
 function observedConnections(source)
