@@ -249,6 +249,105 @@ public sealed class AuthoringCommandContributionTests
     }
 
     [Theory]
+    [InlineData("admission-revision", -1, false)]
+    [InlineData("admission-revision", 0, false)]
+    [InlineData("admission-revision", 1, false)]
+    [InlineData("admission-revision", 0, true)]
+    [InlineData("admission-lifecycle", -1, false)]
+    [InlineData("admission-lifecycle", 0, false)]
+    [InlineData("admission-lifecycle", 1, false)]
+    [InlineData("admission-lifecycle", 0, true)]
+    [InlineData("result-revision", -1, false)]
+    [InlineData("result-revision", 0, false)]
+    [InlineData("result-revision", 1, false)]
+    [InlineData("result-revision", 0, true)]
+    [InlineData("result-lifecycle", -1, false)]
+    [InlineData("result-lifecycle", 0, false)]
+    [InlineData("result-lifecycle", 1, false)]
+    [InlineData("result-lifecycle", 0, true)]
+    public async Task ExecuteAsync_RechecksDeadlineAndCancellationAfterAdmissionAndResultCallbacks(
+        string boundary,
+        int deadlineOffsetTicks,
+        bool cancel)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        using var cancellation = new CancellationTokenSource();
+        var receipts = new LifecycleReceiptStore();
+        int callbackCount = 0;
+        int lifecycleReadCount = 0;
+        Action? changeBoundary = null;
+        int targetCall = boundary.StartsWith("admission-", StringComparison.Ordinal) ? 1 : 2;
+        var revisionGate = new CallbackRevisionGate(callCount =>
+        {
+            if (boundary.EndsWith("-revision", StringComparison.Ordinal) && callCount == targetCall)
+            {
+                changeBoundary!();
+            }
+        });
+        CommandRuntimeFixture fixture = await CreateRuntimeFixtureAsync(
+            revisionGate: revisionGate,
+            timeProvider: clock,
+            receipts: receipts);
+        AuthoringLifecycleReceipt enabled = (await fixture.Lifecycle.RestoreFromReceiptAsync(
+            fixture.Command.ExtensionId))!;
+        Assert.Equal(AuthoringLifecycleState.Running, enabled.State);
+        Assert.Equal(fixture.Context.LifecycleGeneration, enabled.Generation);
+        Assert.True(clock.GetUtcNow() < fixture.Context.Deadline);
+
+        changeBoundary = () =>
+        {
+            callbackCount++;
+            if (cancel)
+            {
+                cancellation.Cancel();
+            }
+            else
+            {
+                clock.SetUtcNow(fixture.Context.Deadline.AddTicks(deadlineOffsetTicks));
+            }
+        };
+        receipts.BeforeRead = async () =>
+        {
+            await Task.Yield();
+            lifecycleReadCount++;
+            if (boundary.EndsWith("-lifecycle", StringComparison.Ordinal) && lifecycleReadCount == targetCall)
+            {
+                changeBoundary();
+            }
+        };
+
+        if (cancel)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await fixture.Coordinator.ExecuteAsync(fixture.Command, fixture.Context, cancellation.Token));
+        }
+        else if (deadlineOffsetTicks >= 0)
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Coordinator.ExecuteAsync(fixture.Command, fixture.Context, cancellation.Token));
+        }
+        else
+        {
+            AuthoringCommandExecutionResponse response = await fixture.Coordinator.ExecuteAsync(
+                fixture.Command,
+                fixture.Context,
+                cancellation.Token);
+            Assert.Equal(fixture.Context.RuntimeIdentity, response.RuntimeIdentity);
+            Assert.Equal(fixture.Context.RequestId, response.RequestId);
+            Assert.Equal(fixture.Context.LifecycleGeneration, response.LifecycleGeneration);
+            Assert.Equal(fixture.Command.ResultSchemaReference, response.ResultSchemaReference);
+            Assert.Equal(new byte[] { 4, 5 }, response.Result);
+            Assert.NotNull(response.MutationPlan);
+        }
+
+        Assert.Equal(1, callbackCount);
+        bool rejectedAtAdmission = targetCall == 1 && (cancel || deadlineOffsetTicks >= 0);
+        Assert.Equal(rejectedAtAdmission ? 0 : 1, fixture.Port.CallCount);
+        Assert.Equal(rejectedAtAdmission ? 1 : 2, revisionGate.CallCount);
+        Assert.Equal(rejectedAtAdmission ? 1 : 2, lifecycleReadCount);
+    }
+
+    [Theory]
     [InlineData("document", "bad\ndocument")]
     [InlineData("selection", "bad\tselection")]
     [InlineData("request", " bad-request")]
@@ -375,12 +474,16 @@ public sealed class AuthoringCommandContributionTests
         ],
         new AuthoringShortcutRequest([AuthoringShortcutModifier.Control], "K"));
 
-    private static async ValueTask<CommandRuntimeFixture> CreateRuntimeFixtureAsync(ExecutionPort? port = null)
+    private static async ValueTask<CommandRuntimeFixture> CreateRuntimeFixtureAsync(
+        ExecutionPort? port = null,
+        IAuthoringDocumentRevisionGate? revisionGate = null,
+        TimeProvider? timeProvider = null,
+        LifecycleReceiptStore? receipts = null)
     {
         VerifiedAuthoringPackage package = CreatePackage();
         AuthoringCommandContribution command = CreateCommand();
         var grantCatalog = new AuthoringCapabilityGrantCatalogStub(CreateActiveGrants(command, "document-1"));
-        var receipts = new LifecycleReceiptStore();
+        receipts ??= new LifecycleReceiptStore();
         var lifecycle = new AuthoringExtensionLifecycleCoordinator(
             new LifecycleResources(),
             new LifecyclePreflight(),
@@ -407,9 +510,10 @@ public sealed class AuthoringCommandContributionTests
         port ??= new ExecutionPort();
         var coordinator = new AuthoringCommandExecutionCoordinator(
             [port],
-            new RevisionGate(true),
+            revisionGate ?? new RevisionGate(true),
             lifecycle,
-            grantCatalog);
+            grantCatalog,
+            timeProvider);
         var context = new AuthoringCommandExecutionContext(
             new string('e', 64),
             "document-1",
@@ -418,7 +522,7 @@ public sealed class AuthoringCommandContributionTests
             "selection-1",
             "request-1",
             enabled.Generation,
-            DateTimeOffset.UtcNow.AddMinutes(1),
+            (timeProvider?.GetUtcNow() ?? DateTimeOffset.UtcNow).AddMinutes(1),
             command.RequiredCapabilities.ToImmutableHashSet(),
             [1, 2, 3]);
         return new CommandRuntimeFixture(
@@ -693,8 +797,20 @@ public sealed class AuthoringCommandContributionTests
     {
         private AuthoringLifecycleReceipt? _latest;
 
-        public ValueTask<AuthoringLifecycleReceipt?> GetLatestAsync(string extensionId, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(_latest);
+        public Func<Task>? BeforeRead
+        {
+            get; set;
+        }
+
+        public async ValueTask<AuthoringLifecycleReceipt?> GetLatestAsync(string extensionId, CancellationToken cancellationToken)
+        {
+            if (BeforeRead is not null)
+            {
+                await BeforeRead();
+            }
+
+            return _latest;
+        }
 
         public ValueTask AppendAsync(AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken)
         {
@@ -710,6 +826,34 @@ public sealed class AuthoringCommandContributionTests
             long documentEpoch,
             long sourceRevision,
             CancellationToken cancellationToken) => ValueTask.FromResult(current);
+    }
+
+    private sealed class CallbackRevisionGate(Action<int> beforeReturn) : IAuthoringDocumentRevisionGate
+    {
+        public int CallCount
+        {
+            get; private set;
+        }
+
+        public async ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+            beforeReturn(++CallCount);
+            return true;
+        }
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        private DateTimeOffset _now = now;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void SetUtcNow(DateTimeOffset value) => _now = value;
     }
 
     private sealed class GrantStore : IAuthoringCapabilityGrantStore
