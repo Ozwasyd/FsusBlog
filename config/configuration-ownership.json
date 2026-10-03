@@ -986,6 +986,7 @@
             "consumers": [
                 "tools/run-test-matrix.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
                 "tools/test/release-reliability-lifecycle-actions.mjs",
                 "tools/test/release-reliability-lifecycle.mjs",
                 "tools/test/release-reliability-receipt.mjs",
