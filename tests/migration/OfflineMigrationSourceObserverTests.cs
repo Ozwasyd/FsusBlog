@@ -14,6 +14,54 @@ namespace FsusBlog.Migration.Tests;
 // These are source/profile and streaming-codec controls, not actual database qualification.
 public sealed class OfflineMigrationSourceObserverTests
 {
+    [Fact]
+    public void MySqlIdentityMaterialPreservesActualSettingsWithoutGrantingReadOrWriteAdmission()
+    {
+        ImmutableArray<ImmutableArray<string>> actual = [["12345678-1234-1234-1234-123456789abc", "actual_database", "REPEATABLE-READ", "0", "2", "3"]];
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial material = OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial(actual);
+        Assert.Equal(new CurrentSchemaDatabaseIdentity(CurrentSchemaProviderKind.MySql,
+            "mysql:12345678-1234-1234-1234-123456789abc", "actual_database"), material.Database);
+        Assert.Equal("REPEATABLE-READ", material.Isolation);
+        Assert.Equal("0", material.SessionReadOnly);
+        Assert.Equal("2", material.AutoIncrementIncrement);
+        Assert.Equal("3", material.AutoIncrementOffset);
+    }
+
+    [Theory]
+    [InlineData("not-a-uuid", "database")]
+    [InlineData("00000000-0000-0000-0000-000000000000", "database")]
+    [InlineData("12345678-1234-1234-1234-123456789abc", "")]
+    public void MySqlIdentityMaterialRefusesMissingActualIdentity(string server, string database)
+    {
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial([[server, database, "REPEATABLE-READ", "1", "1", "1"]]));
+        Assert.Equal("offline_source_mysql_snapshot_or_identity_unavailable", refusal.Message);
+    }
+
+    [Fact]
+    public void MySqlIdentityMaterialRefusesIncompleteOrAmbiguousMeasuredRows()
+    {
+        ImmutableArray<string> row = ["12345678-1234-1234-1234-123456789abc", "database", "REPEATABLE-READ", "1", "1", "1"];
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial(default));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial([]));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial([row.RemoveAt(5)]));
+        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial([row, row]));
+        Assert.Equal("database", OfflineMigrationSourceObserver.ParseMySqlNativeIdentityMaterial([row]).Database.DatabaseId);
+    }
+
+    [Fact]
+    public async Task MySqlIdentityMaterialReaderRefusesWrongDriverAndHonorsCancellationBeforeNativeIo()
+    {
+        await using var unrelated = new NpgsqlConnection();
+        using var cancellation = new CancellationTokenSource();
+        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            OfflineMigrationSourceObserver.ReadMySqlNativeIdentityMaterialAsync(unrelated, null!, cancellation.Token));
+        Assert.Equal("offline_source_native_streaming_driver_required", refusal.Message);
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            OfflineMigrationSourceObserver.ReadMySqlNativeIdentityMaterialAsync(unrelated, null!, cancellation.Token));
+    }
+
     // Candidate filters do not assert whole-journal validity or native writer custody.
     // Actual measurement must invoke the original validator and held-scope owner first.
     [Fact]
