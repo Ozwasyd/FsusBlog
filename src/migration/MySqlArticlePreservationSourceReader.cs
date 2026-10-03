@@ -1,5 +1,3 @@
-using System.Data.Common;
-
 using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
@@ -26,31 +24,25 @@ internal static class MySqlArticlePreservationSourceReader
         ArticlePreservationSourceReader.RequireReadInputs(originArtifact, documentBase);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(readBudget);
-        ArticlePreservationSourceReadResult? capture = null;
-        OfflineMigrationSourceObservation actual = await OfflineMigrationMySqlNativeSession.ObserveAsync(
-            originalConnectionString, async (connection, transaction, token) =>
-            {
-                capture = await ReadBorrowedAsync(connection, transaction, originArtifact, documentBase,
-                    limits, readBudget, token).ConfigureAwait(false);
-                return capture.Observation;
-            }, deadline.Token).ConfigureAwait(false);
-        if (capture is null || !OfflineMigrationPlanValidation.Equal(actual, capture.Observation))
-            throw new InvalidOperationException("article_preservation_mysql_native_capture_changed");
+        ArticlePreservationSourceReadResult capture = await OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync(
+            originalConnectionString, (originalRead, token) => ReadBorrowedAsync(
+                originalRead, originArtifact, documentBase, limits, readBudget, token), deadline.Token).ConfigureAwait(false);
         deadline.Token.ThrowIfCancellationRequested();
         return capture;
     }
 
     /// <summary>Consumes only the caller's original borrowed native snapshot.</summary>
     /// <remarks>
-    /// The common reader performs original MySQL boundary queries and full code-owned
-    /// fingerprint matching before reading and at terminal revalidation. A typed driver
-    /// or a Snapshot isolation label alone cannot grant access to an unknown profile.
+    /// The common reader requires the original run-owned context and its active
+    /// read-only transaction proof before reading and at terminal revalidation.
+    /// Raw driver objects, session defaults and isolation labels cannot mint this
+    /// context. Full code-owned fingerprint matching remains mandatory.
     /// The caller retains connection/transaction lifetime; this method never commits,
     /// rolls back, disposes, starts a second session or changes its database identity.
     /// </remarks>
     internal static Task<ArticlePreservationSourceReadResult> ReadBorrowedAsync(
-        DbConnection connection, DbTransaction transaction, CurrentSchemaArtifactReference originArtifact,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext originalRead, CurrentSchemaArtifactReference originArtifact,
         Uri documentBase, ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken)
-        => ArticlePreservationSourceReader.ReadAsync(CurrentSchemaProviderKind.MySql, connection, transaction,
+        => ArticlePreservationSourceReader.ReadMySqlOwnedAsync(originalRead,
             new OfflineMigrationSourceObserver(), originArtifact, documentBase, limits, readBudget, cancellationToken);
 }

@@ -27,7 +27,8 @@ public sealed class MySqlArticlePreservationSourceReaderTests
         using var connection = new LabelConnection();
         using var transaction = new LabelTransaction(connection, isolation);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => MySqlArticlePreservationSourceReader.ReadBorrowedAsync(connection, transaction,
+            () => ArticlePreservationSourceReader.ReadAsync(CurrentSchemaProviderKind.MySql, connection, transaction,
+                new OfflineMigrationSourceObserver(),
                 s_origin, s_documentBase, s_limits, TimeSpan.FromSeconds(1), default));
         Assert.Equal("article_preservation_consistent_source_session_required", failure.Message);
         Assert.Equal(0, connection.CommandsCreated);
@@ -138,6 +139,15 @@ public sealed class MySqlArticlePreservationSourceReaderTests
         Assert.Equal("offline_source_mysql_native_operation_failed", failure.Message);
         Assert.DoesNotContain(secret, failure.Message);
         Assert.Null(failure.InnerException);
+    }
+
+    [Fact]
+    public async Task Missing_original_run_owned_context_cannot_grant_a_borrowed_read()
+    {
+        ArgumentNullException failure = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => MySqlArticlePreservationSourceReader.ReadBorrowedAsync(null!, s_origin,
+                s_documentBase, s_limits, TimeSpan.FromSeconds(1), default));
+        Assert.Equal("originalRead", failure.ParamName);
     }
 
     private sealed class LabelConnection(ConnectionState state = ConnectionState.Open) : DbConnection

@@ -3,8 +3,6 @@ using System.Data;
 using System.Data.Common;
 using System.Text;
 
-using MySqlConnector;
-
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -34,6 +32,22 @@ internal static class ArticlePreservationSourceReader
             token => observer.ObserveAsync(provider, connection, transaction, token),
             originArtifact, documentBase, limits, readBudget, cancellationToken);
 
+    // Only the original native session can mint this run-owned context. Generic
+    // connection/transaction tuples cannot grant a MySQL source read.
+    internal static Task<ArticlePreservationSourceReadResult> ReadMySqlOwnedAsync(
+        OfflineMigrationMySqlNativeSession.OwnedReadContext originalRead,
+        OfflineMigrationSourceObserver observer, CurrentSchemaArtifactReference originArtifact,
+        Uri documentBase, ArticlePreservationLimits limits, TimeSpan readBudget,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(originalRead);
+        return ReadCoreAsync(CurrentSchemaProviderKind.MySql,
+            originalRead.OriginalConnection, originalRead.OriginalTransaction, observer,
+            token => observer.ObserveAsync(CurrentSchemaProviderKind.MySql,
+                originalRead.OriginalConnection, originalRead.OriginalTransaction, token),
+            originArtifact, documentBase, limits, readBudget, cancellationToken, originalRead);
+    }
+
     // Apply-phase only: the original observer validates the complete journal DDL
     // before excluding that exact infrastructure object. Planning above still
     // observes all objects and refuses a journal or an unknown/partial schema.
@@ -50,14 +64,20 @@ internal static class ArticlePreservationSourceReader
         OfflineMigrationSourceObserver observer,
         Func<CancellationToken, Task<OfflineMigrationSourceObservation>> observe,
         CurrentSchemaArtifactReference originArtifact, Uri documentBase,
-        ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken)
+        ArticlePreservationLimits limits, TimeSpan readBudget, CancellationToken cancellationToken,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext? originalMySqlRead = null)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(observe);
         ArgumentNullException.ThrowIfNull(limits);
-        RequireReadSession(provider, connection, transaction);
+        if (originalMySqlRead is null)
+            RequireReadSession(provider, connection, transaction);
+        else if (provider != CurrentSchemaProviderKind.MySql
+            || !ReferenceEquals(connection, originalMySqlRead.OriginalConnection)
+            || !ReferenceEquals(transaction, originalMySqlRead.OriginalTransaction))
+            throw new InvalidOperationException("article_preservation_consistent_source_session_required");
         RequireReadBudget(limits, readBudget);
         RequireReadInputs(originArtifact, documentBase);
 
@@ -65,8 +85,8 @@ internal static class ArticlePreservationSourceReader
         deadline.CancelAfter(readBudget);
         CancellationToken token = deadline.Token;
         token.ThrowIfCancellationRequested();
-        if (provider == CurrentSchemaProviderKind.MySql)
-            await OfflineMigrationMySqlNativeSession.RequireBorrowedBoundaryAsync(connection, transaction, token).ConfigureAwait(false);
+        if (originalMySqlRead is not null)
+            await originalMySqlRead.RequireBoundaryAsync(token).ConfigureAwait(false);
         OfflineMigrationSourceObservation observation = await observe(token).ConfigureAwait(false);
         if (OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation).Id != OfflineMigrationSourceFingerprints.LegacyId)
             throw new InvalidOperationException("article_preservation_source_fingerprint_unsupported");
@@ -153,18 +173,18 @@ internal static class ArticlePreservationSourceReader
         if (ArticlePreservationSemanticReceipt.Digest("article-source-observation-v1", observation)
             != ArticlePreservationSemanticReceipt.Digest("article-source-observation-v1", rechecked))
             throw new InvalidOperationException("article_preservation_source_changed");
-        if (provider == CurrentSchemaProviderKind.MySql)
-            await OfflineMigrationMySqlNativeSession.RequireBorrowedBoundaryAsync(connection, transaction, token).ConfigureAwait(false);
+        if (originalMySqlRead is not null)
+            await originalMySqlRead.RequireBoundaryAsync(token).ConfigureAwait(false);
         var data = new ArticlePreservationSourceData(OfflineMigrationSourceFingerprints.LegacyId,
             observation.ContentDigest, originArtifact, documentBase, articles.Count, categories.Length, tags.Length,
             articles.ToImmutable(), categories, tags, configuredSiteAuthor, discarded.ToImmutable());
         return new(data, observation, discarded.ToImmutable(), configuredSiteAuthor);
     }
 
-    // Snapshot is only the MySqlConnector spelling of the original consistent RR
-    // read view. The type/label predicate below is not admission: ReadCore additionally
-    // awaits the original owner's actual read-only/database/engine boundary before
-    // any observation and after the terminal source re-observation.
+    // MySQL is admitted only through the original run-owned context above, never
+    // a raw driver transaction, isolation enum or session default. The original
+    // PostgreSQL/SQLite shape predicate is unchanged; their native owners still
+    // perform real observation and source admission.
     internal static void RequireReadSession(CurrentSchemaProviderKind provider,
         DbConnection connection, DbTransaction transaction)
     {
@@ -172,11 +192,8 @@ internal static class ArticlePreservationSourceReader
         ArgumentNullException.ThrowIfNull(transaction);
         if (!Enum.IsDefined(provider) || connection.State != ConnectionState.Open || transaction.Connection != connection)
             throw new InvalidOperationException("article_preservation_consistent_source_session_required");
-        bool isolation = provider == CurrentSchemaProviderKind.MySql
-            ? connection is MySqlConnection && transaction is MySqlTransaction
-                && transaction.IsolationLevel == IsolationLevel.Snapshot
-            : transaction.IsolationLevel is IsolationLevel.RepeatableRead or IsolationLevel.Serializable;
-        if (!isolation)
+        if (provider == CurrentSchemaProviderKind.MySql
+            || transaction.IsolationLevel is not (IsolationLevel.RepeatableRead or IsolationLevel.Serializable))
             throw new InvalidOperationException("article_preservation_consistent_source_session_required");
     }
 
