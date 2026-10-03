@@ -300,6 +300,85 @@ public sealed class CurrentSchemaStorageProjectionTests
             PortableEntity(), [Reference(recipe)], SchemaProviderKind.MySql));
     }
 
+    [Theory]
+    [InlineData("constraint-index")]
+    [InlineData("index-index")]
+    [InlineData("constraint-constraint")]
+    public void MySqlOwnedNativeKeys_RefuseCaseOnlyNamespaceCollisions(string members)
+    {
+        var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
+        {
+            ["counter"] = new("counter", false, false, false, null, "int64"),
+            ["other"] = new("other", false, false, false, null, "int64")
+        };
+        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
+        var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
+        if (members == "index-index")
+        {
+            indexes.Add("same_name", new("same_name", true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false));
+        }
+        else
+        {
+            constraints.Add("same_name", new("same_name", "unique", ["counter"]));
+        }
+        if (members == "constraint-constraint")
+        {
+            constraints.Add("SAME_NAME", new("SAME_NAME", "unique", ["other"]));
+        }
+        else
+        {
+            indexes.Add("SAME_NAME", new("SAME_NAME", true, [new("other", "asc", "first", "default", "default")], [], "btree", null, false));
+        }
+        SchemaTableModel recipe = new("recipe", columns, indexes.Keys, indexes, constraints);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            PortableEntity(), [Reference(recipe)], SchemaProviderKind.MySql));
+    }
+
+    [Theory]
+    [InlineData("primary", true)]
+    [InlineData("PrImArY", true)]
+    [InlineData("primary", false)]
+    [InlineData("PrImArY", false)]
+    public void MySqlOwnedNativeKeys_RefuseCaseVariantsOfReservedPrimary(string name, bool explicitIndex)
+    {
+        SchemaTableModel original = PortableRecipe();
+        var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
+        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
+        if (explicitIndex)
+        {
+            indexes.Add(name, new(name, true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false));
+        }
+        else
+        {
+            constraints.Add(name, new(name, "unique", ["counter"]));
+        }
+        SchemaTableModel recipe = new(original.Name, original.Columns, indexes.Keys, indexes, constraints);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            PortableEntity(), [Reference(recipe)], SchemaProviderKind.MySql));
+    }
+
+    [Fact]
+    public void MySqlOwnedNativeKeys_PreserveNonconflictingOriginalCaseAndTargetIdentity()
+    {
+        const string name = "MiXeD_Key";
+        SchemaTableModel original = PortableRecipe();
+        var index = new SchemaIndexModel(name, true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
+        SchemaTableModel recipe = new(original.Name, original.Columns, [name], new Dictionary<string, SchemaIndexModel> { [name] = index });
+        CurrentSchemaRequiredRecipeReference[] references = [Reference(recipe)];
+        CurrentSchemaIdentity identity = CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references);
+        CurrentSchemaCompletePhysicalProjection result = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            PortableEntity(), references, SchemaProviderKind.MySql);
+        SchemaTableModel native = result.Tables.Tables[recipe.Name];
+        Assert.Equal(name, Assert.Single(native.IndexDefinitions.Keys));
+        Assert.Equal(name, Assert.Single(native.IndexDefinitions.Values).Name);
+        Assert.Equal(name, Assert.Single(native.Constraints.Keys));
+        Assert.Equal(name, Assert.Single(native.Constraints.Values).Name);
+        Assert.Equal(name, Assert.Single(recipe.IndexDefinitions.Keys));
+        Assert.Empty(recipe.Constraints);
+        Assert.Equal(identity, result.Tables.Identity);
+        Assert.Equal(identity, CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references));
+    }
+
     private static CurrentSchemaProjection PortableEntity()
         => CurrentSchemaCanonicalAuthority.Generate(Model(new("payload", false, false, false, null, "int64")));
 

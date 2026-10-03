@@ -380,8 +380,12 @@ public static class CurrentSchemaCanonicalAuthority
                 Collation = provider == SchemaProviderKind.Sqlite && original.DataType == "string" ? "BINARY" : columns[name].Collation
             };
         }
-        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
-        var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
+        // Native MySQL key names are case-insensitive on every platform. Use its
+        // comparison only for collisions; retain the original owned names and
+        // never normalize semantic input or change another provider's namespace.
+        StringComparer keyNames = provider == SchemaProviderKind.MySql ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var constraints = new Dictionary<string, SchemaConstraintModel>(keyNames);
+        var indexes = new Dictionary<string, SchemaIndexModel>(keyNames);
         int ordinal = 0;
         foreach (SchemaConstraintModel constraint in semantic.Constraints.Values.OrderBy(static value => value.Name, StringComparer.Ordinal))
         {
@@ -402,7 +406,7 @@ public static class CurrentSchemaCanonicalAuthority
                 throw new InvalidOperationException("current_schema_complete_target_allocator_provider_unavailable");
             }
             string constraintName = provider == SchemaProviderKind.MySql && constraint.Kind == "primary-key" ? "PRIMARY" : constraint.Name;
-            if (provider == SchemaProviderKind.MySql && constraintName == "PRIMARY" && constraint.Kind != "primary-key")
+            if (provider == SchemaProviderKind.MySql && keyNames.Equals(constraintName, "PRIMARY") && constraint.Kind != "primary-key")
             {
                 throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
             }
@@ -428,7 +432,7 @@ public static class CurrentSchemaCanonicalAuthority
         }
         foreach ((string name, SchemaIndexModel index) in semantic.IndexDefinitions)
         {
-            if (name != index.Name || provider == SchemaProviderKind.MySql && index.Name == "PRIMARY"
+            if (name != index.Name || provider == SchemaProviderKind.MySql && keyNames.Equals(index.Name, "PRIMARY")
                 || !indexes.TryAdd(index.Name, PortableIndex(index, columns, provider)))
             {
                 throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
