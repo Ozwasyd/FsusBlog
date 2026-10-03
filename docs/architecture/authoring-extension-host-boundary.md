@@ -282,6 +282,17 @@ or the recovery payload through `ImmutableArray` backing-array access. One linke
 copy, digest work and forward migration calls; rollback/resource cleanup retains
 its existing uncancelled recovery contract. Failure does not enable the new version.
 
+The forward deadline is also rechecked after the final `Running` append. If that
+append has already completed, recovery preserves its actual sequence and digest;
+it does not pretend to undo the receipt or use the unregistered
+`Running` → `RollbackRequired` edge. The coordinator settles the new generation,
+attempts rollback from its retained payload and records the registered `Running`
+→ `Failed` edge. The receipt identifies the old package only after actual rollback
+returns successfully; otherwise it records incomplete recovery for the new package.
+It does not automatically reactivate the old runtime from `Failed`. Primary
+completion failure and any secondary cleanup/rollback/receipt failures remain
+observable; noncommitted failures retain their original recovery path.
+
 This commit defines the generic lifecycle/resource interfaces and orchestration;
 it does not register a command contribution or a second editor authority. Durable
 production receipt/state/grant stores and a real host registration owner are still

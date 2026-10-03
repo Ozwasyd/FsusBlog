@@ -314,6 +314,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         cancellationToken.ThrowIfCancellationRequested();
         bool oldResourcesRevoked = false;
         bool newResourcesActivated = false;
+        bool runningReceiptCommitted = false;
         long newRunningGeneration = 0;
         bool oldRuntimeWasAvailable = previous?.State is AuthoringLifecycleState.Running or
             AuthoringLifecycleState.Degraded;
@@ -371,12 +372,27 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 cancellationToken);
             newResourcesActivated = true;
             cancellationToken.ThrowIfCancellationRequested();
-            return await RecordAsync(
+            AuthoringLifecycleReceipt running = await RecordAsync(
                 newPackage,
                 starting,
                 AuthoringLifecycleState.Running,
                 null,
                 cancellationToken);
+            cursor = running;
+            runningReceiptCommitted = true;
+            cancellationToken.ThrowIfCancellationRequested();
+            return running;
+        }
+        catch (Exception failure) when (runningReceiptCommitted)
+        {
+            await RecoverCommittedMigrationAsync(
+                oldPackage,
+                newPackage,
+                plan,
+                cursor,
+                newRunningGeneration,
+                failure);
+            throw;
         }
         catch
         {
@@ -438,6 +454,64 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
                 }
             }
             throw;
+        }
+    }
+
+    private async ValueTask RecoverCommittedMigrationAsync(
+        VerifiedAuthoringPackage oldPackage,
+        VerifiedAuthoringPackage newPackage,
+        AuthoringStateMigrationPlan snapshot,
+        AuthoringLifecycleReceipt committed,
+        long runningGeneration,
+        Exception primaryFailure)
+    {
+        var recoveryFailures = new List<Exception>();
+        try
+        {
+            AuthoringLifecycleResourceReport remaining = await resources.RevokeAllAsync(
+                newPackage.Contract.Manifest.Id,
+                runningGeneration,
+                CancellationToken.None);
+            if (!remaining.IsEmpty)
+            {
+                recoveryFailures.Add(new AuthoringExtensionContractException("Committed migration resource cleanup is incomplete."));
+            }
+        }
+        catch (Exception recoveryFailure)
+        {
+            recoveryFailures.Add(recoveryFailure);
+        }
+
+        bool stateRolledBack = false;
+        try
+        {
+            await InvokeFrozenStateOperationAsync(snapshot, stateStore.RollbackAsync, CancellationToken.None);
+            stateRolledBack = true;
+        }
+        catch (Exception recoveryFailure)
+        {
+            recoveryFailures.Add(recoveryFailure);
+        }
+
+        try
+        {
+            await RecordAsync(
+                stateRolledBack ? oldPackage : newPackage,
+                committed,
+                AuthoringLifecycleState.Failed,
+                recoveryFailures.Count == 0
+                    ? "migration-completion-rejected"
+                    : "migration-completion-recovery-incomplete",
+                CancellationToken.None);
+        }
+        catch (Exception recoveryFailure)
+        {
+            recoveryFailures.Add(recoveryFailure);
+        }
+        if (recoveryFailures.Count != 0)
+        {
+            throw new AggregateException("Migration completion failed and recovery is incomplete.",
+                new[] { primaryFailure }.Concat(recoveryFailures));
         }
     }
 

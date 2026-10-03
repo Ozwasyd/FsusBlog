@@ -764,6 +764,94 @@ public sealed class AuthoringExtensionLifecycleTests
             AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(state.AppliedPlan));
     }
 
+    [Theory]
+    [InlineData("caller")]
+    [InlineData("duration")]
+    public async Task UpdateAsync_FinalRunningAppendCancellationRetainsCommitAndRecordsClosedFailure(string cause)
+    {
+        using var caller = new CancellationTokenSource();
+        var clock = new MigrationDeadlineTimeProvider();
+        var receipts = new ReceiptStore
+        {
+            BeforeAppend = receipt =>
+            {
+                if (receipt.State == AuthoringLifecycleState.Running)
+                {
+                    if (cause == "caller")
+                    {
+                        caller.Cancel();
+                    }
+                    else
+                    {
+                        clock.Expire();
+                    }
+                }
+            }
+        };
+        LifecycleFixture fixture = CreateFixture(receiptStore: receipts, timeProvider: clock);
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+        AuthoringStateMigrationPlan plan = CreatePlan(fixture.Package, next);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await fixture.Coordinator.UpdateAsync(fixture.Package, next, CreateTargets(next), plan, caller.Token));
+
+        AuthoringLifecycleReceipt committed = Assert.Single(receipts.All,
+            receipt => receipt.State == AuthoringLifecycleState.Running);
+        AuthoringLifecycleReceipt failed = Assert.IsType<AuthoringLifecycleReceipt>(receipts.Latest);
+        Assert.Equal(AuthoringLifecycleState.Failed, failed.State);
+        Assert.Equal(committed.Sequence + 1, failed.Sequence);
+        Assert.Equal(committed.Generation + 1, failed.Generation);
+        Assert.Equal(committed.ReceiptSha256, failed.PreviousReceiptSha256);
+        Assert.Equal(AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(failed), failed.ReceiptSha256);
+        Assert.Equal(fixture.Package.Contract.Manifest.Version, failed.Version);
+        Assert.Equal("migration-completion-rejected", failed.FailureCode);
+        Assert.True(fixture.State.RollbackCalled);
+        Assert.False(fixture.State.RollbackToken.CanBeCanceled);
+        Assert.Equal(plan.ContentSha256,
+            AuthoringExtensionLifecycleCoordinator.ComputeMigrationPlanSha256(fixture.State.RolledBackPlan!));
+        Assert.Equal(2, fixture.Resources.RevocationCount);
+        Assert.Equal(committed.Generation, fixture.Resources.LastRevocationGeneration);
+        Assert.Equal(1, fixture.Resources.ActivationCount);
+        Assert.False(await fixture.Coordinator.AcceptResultAsync(next.Contract.Manifest.Id, committed.Generation));
+        Assert.True(clock.TimerDisposed);
+        Assert.DoesNotContain(receipts.All, receipt => receipt.State == AuthoringLifecycleState.RollbackRequired);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PostCommitRecoveryFailureKeepsPrimaryAndSecondaryErrors()
+    {
+        using var caller = new CancellationTokenSource();
+        var rollbackFailure = new IOException("owned rollback failure");
+        var state = new StateStore { RollbackFailure = rollbackFailure };
+        var receipts = new ReceiptStore
+        {
+            BeforeAppend = receipt =>
+            {
+                if (receipt.State == AuthoringLifecycleState.Running)
+                {
+                    caller.Cancel();
+                }
+            },
+            FailAppend = static receipt => receipt.State == AuthoringLifecycleState.Failed
+        };
+        LifecycleFixture fixture = CreateFixture(stateStore: state, receiptStore: receipts);
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+
+        AggregateException failure = await Assert.ThrowsAsync<AggregateException>(async () =>
+            await fixture.Coordinator.UpdateAsync(
+                fixture.Package, next, CreateTargets(next), CreatePlan(fixture.Package, next), caller.Token));
+
+        Assert.Equal(3, failure.InnerExceptions.Count);
+        Assert.IsType<OperationCanceledException>(failure.InnerExceptions[0]);
+        Assert.Same(rollbackFailure, failure.InnerExceptions[1]);
+        Assert.IsType<IOException>(failure.InnerExceptions[2]);
+        Assert.True(state.RollbackCalled);
+        Assert.False(state.RollbackToken.CanBeCanceled);
+        Assert.Equal(2, fixture.Resources.RevocationCount);
+        Assert.Single(receipts.All, receipt => receipt.State == AuthoringLifecycleState.Running);
+        Assert.DoesNotContain(receipts.All, receipt => receipt.State == AuthoringLifecycleState.Failed);
+    }
+
     [Fact]
     public async Task DeleteOwnedDataAsync_CannotDeleteCoreOrOtherPluginScope()
     {
@@ -1417,6 +1505,8 @@ public sealed class AuthoringExtensionLifecycleTests
 
     private sealed class StateStore : IAuthoringExtensionStateStore
     {
+        public Exception? RollbackFailure { get; init; }
+
         public Action<AuthoringStateMigrationPlan>? BeforeBackup { get; init; }
 
         public Action<AuthoringStateMigrationPlan>? BeforeApply { get; init; }
@@ -1491,6 +1581,10 @@ public sealed class AuthoringExtensionLifecycleTests
             RollbackCalled = true;
             RolledBackPlan = plan;
             RollbackToken = cancellationToken;
+            if (RollbackFailure is not null)
+            {
+                return ValueTask.FromException(RollbackFailure);
+            }
             Trace?.Add("rollback");
             return ValueTask.CompletedTask;
         }
