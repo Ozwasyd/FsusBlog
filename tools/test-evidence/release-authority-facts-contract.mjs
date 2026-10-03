@@ -26,12 +26,13 @@ export function deriveReleaseReadinessAuthorityFacts({ plan, authorities, build 
 {
   const rollout = authorities.rollout.value
   const runtime = authorities.runtimeRole
+  const current = nativeMaterial(authorities)
+  const schema = { target: current.receipt.target, actualSchemaDigest: current.receipt.actualSchemaDigest }
   const legacyFacts = {
     imageDigest: rollout.target.imageDigest,
     packageDigest: build.packageDigest,
     configDigest: runtime.deployment.ref.fileDigest,
-    schemaDigest: authorities.manifest.value.schemaCompatibility?.contentDigest
-      ?? semanticDigest(authorities.manifest.value.schemaCompatibility),
+    schemaDigest: semanticDigest(schema),
     manifestDigest: authorities.manifest.ref.fileDigest,
     signingDigest: rollout.auxiliary?.releaseManifest?.sha256,
     trustDigest: semanticDigest({ image: rollout.target.imageDigest, manifest: authorities.manifest.ref.fileDigest }),
@@ -40,7 +41,6 @@ export function deriveReleaseReadinessAuthorityFacts({ plan, authorities, build 
     versionReady: true, credentialReady: true, identityMatch: true,
     runtimeRoleContractSatisfied: true, monolithicOwnershipSatisfied: true
   }
-  const current = nativeMaterial(authorities)
   const rawFacts = {
     artifact: {
       rollout: authorities.rollout.ref,
@@ -51,7 +51,7 @@ export function deriveReleaseReadinessAuthorityFacts({ plan, authorities, build 
     image: rollout.target.imageDigest,
     package: { receipt: build.receipt.ref, artifacts: build.receipt.value.artifacts },
     config: runtime.deployment.value,
-    schema: { target: current.receipt.target, actualSchemaDigest: current.receipt.actualSchemaDigest },
+    schema,
     runtimeRole: 'monolithic',
     candidateId: plan.candidate.candidateId,
     releaseId: plan.candidate.releaseId,

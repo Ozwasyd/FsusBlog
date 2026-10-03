@@ -66,8 +66,12 @@ function fixture(context, { includeObservations = true } = {})
   const directory = fs.mkdtempSync(path.join(root, '.tmp', 'post-runtime-current-'))
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const runId = path.basename(directory)
-  const authority = JSON.parse(fs.readFileSync(path.join(root,
-    'config/testing/post-runtime-producer-registry.json'), 'utf8')).receiptSemantics.acceptedTerminalAuthority
+  const registry = JSON.parse(fs.readFileSync(path.join(root,
+    'config/testing/post-runtime-producer-registry.json'), 'utf8'))
+  const producer = registry.producers.find(({ behaviorId }) =>
+    behaviorId === BehaviorId('browserless-production-correctness'))
+  assert.ok(producer, 'the fixture requires its registered application producer')
+  const authority = registry.receiptSemantics.acceptedTerminalAuthority
   const publicationDirectory = path.join(root, authority.referenceRoot, runId, 'attempt-0001')
   fs.mkdirSync(publicationDirectory, { recursive: true })
   context.after(() => fs.rmSync(path.dirname(publicationDirectory), { recursive: true, force: true }))
@@ -116,7 +120,8 @@ function fixture(context, { includeObservations = true } = {})
   fs.writeFileSync(path.join(root, terminalPayload), `${JSON.stringify(terminal, null, 2)}\n`)
   finalizeCurrentRunEvidencePublication({ ...publicationOptions, sessionId: session.sessionId,
     payloadSchema: terminal.schema, terminalStatus: 'success' })
-  const claims = produceAcceptedClaims({ terminalReceipt: relative('terminal.json'), expectedRunId: runId, repositoryRoot: root })
+  const claims = produceAcceptedClaims({ terminalReceipt: relative('terminal.json'), expectedRunId: runId,
+    producerId: producer.producerId, repositoryRoot: root })
   const fixtureBehaviorId = BehaviorId('browserless-production-correctness')
   const pre = seal({
     schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
@@ -177,8 +182,6 @@ function fixture(context, { includeObservations = true } = {})
     context: relative('context.json'), identityAuthorityDirectory: relative('identity-authorities'),
     observationPaths: paths, repositoryRoot: root })
   write('plan.json', plan)
-  const registry = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/post-runtime-producer-registry.json'), 'utf8'))
-  const producer = registry.producers[0]
   const ref = (name) => {
     const relativePath = relative(name)
     const bytes = fs.readFileSync(path.join(root, relativePath))

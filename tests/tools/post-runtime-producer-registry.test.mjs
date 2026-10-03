@@ -221,7 +221,9 @@ function createRuntimeRoleAdmission(sourceState)
 
 function producerReceipt(classId = 'route-response-error')
 {
-    const producer = registry.producers[0];
+    const producerId = validatePostRuntimeClassOwnership(registry).get(classId);
+    const producer = registry.producers.find((entry) => entry.producerId === producerId);
+    assert.ok(producer, `the fixture requires the registered owner of ${classId}`);
     const definition = registry.observationClasses[classId];
     const requiredModes = Object.entries(producer.requiredObservations)
         .filter(([, classes]) => classes.includes(classId))
@@ -903,7 +905,7 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
         }),
         /missing route-response-error identity worktreeFingerprint/u);
 
-    const staleTool = seal({ ...receipt, toolVersion: 'production-correctness-scheduler@2' });
+    const staleTool = seal({ ...receipt, toolVersion: 'production-correctness-scheduler@1' });
     assert.throws(
         () => validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt: staleTool }),
         /producer\/tool version mismatch/u);
@@ -926,9 +928,10 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
 
 test('every observation class accepts only its declared source identities', () =>
 {
-    const producerId = registry.producers[0].producerId;
+    const owners = validatePostRuntimeClassOwnership(registry);
     for (const [classId, definition] of Object.entries(registry.observationClasses))
     {
+        const producerId = owners.get(classId);
         const receipt = producerReceipt(classId);
         assert.equal(validateProducerReceiptAgainstRegistry({
             registry, producerId, receipt, classId
