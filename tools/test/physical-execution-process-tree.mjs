@@ -120,7 +120,8 @@ export function resourceServiceContainmentIsComplete(authority)
 
 const controlCarrierFiles = new Set(['command.json', 'environment.json', 'admission.json', 'resource-boundary.json',
     'ready', 'start', 'child.json', 'resource-admitted.json', 'release.json', 'result.json', 'finalize',
-    'sender-plan.json', 'sender-terminal.json']);
+    'sender-plan.json', 'sender-terminal.json',
+    'private-dotnet-scratch-prepared.json', 'private-dotnet-scratch-finalized.json']);
 const residentCleanupJournalName = 'resident-cleanup-plan.json';
 const residentCleanupPendingName = `${residentCleanupJournalName}.pending`;
 
@@ -2253,12 +2254,12 @@ export async function runPhysicalExecution({
                 platform: 'linux',
                 policy,
                 authority: null,
-                lifecycle: ['created', 'containment-authority-not-established'],
+                lifecycle: ['created', 'containment-authority-not-established', 'post-observation-unverifiable'],
                 termination: [],
-                postObservation: 'zero-members',
+                postObservation: 'unverifiable',
                 processInventory: [],
-                logComplete: true,
-                logTruncationReason: null,
+                logComplete: false,
+                logTruncationReason: 'adapter-failed-before-pipe-closure',
                 forcedPipeClose: false,
                 outputCapture: {
                     maximumBytesPerStream: policy.maximumCapturedOutputBytesPerStream,
@@ -2272,17 +2273,27 @@ export async function runPhysicalExecution({
                 stdout: '',
                 stderr: ''
             };
-            if (failureEvidence.postObservation !== 'zero-members')
-            {
-                failureEvidence.residualBlock = writeResidualMarker(
-                    residualRoot,
-                    failureEvidence,
-                    error instanceof Error ? error.message : String(error)
-                );
-            }
             if (error && typeof error === 'object')
             {
                 error.physicalExecution = failureEvidence;
+            }
+            if (failureEvidence.postObservation !== 'zero-members')
+            {
+                try
+                {
+                    failureEvidence.residualBlock = writeResidualMarker(
+                        residualRoot,
+                        failureEvidence,
+                        error instanceof Error ? error.message : String(error)
+                    );
+                }
+                catch (markerError)
+                {
+                    if (error && typeof error === 'object')
+                    {
+                        error.physicalExecutionFinalizeError ??= markerError;
+                    }
+                }
             }
             throw error;
         }
