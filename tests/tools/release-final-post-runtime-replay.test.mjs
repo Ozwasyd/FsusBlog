@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 import {
     assertReleaseFinalPostRuntimeCandidate,
@@ -110,4 +112,107 @@ test('release replay requires the independent current-run context before receipt
     assert.throws(() => verifyReleaseFinalPostRuntimeAuthority({
         directEvidence: {}, repositoryRoot: process.cwd(), environment: {}
     }), /current-run context schema mismatch/u);
+});
+
+// Exact original caller body with controlled dependencies: interface/order
+// components only, not persisted replay, scheduler terminal or native authority.
+function replayCallerComponent(dependencies)
+{
+    const source = readFileSync(new URL(
+        '../../tools/release/release-final-domain-evidence.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf('export function verifyReleaseFinalPostRuntimeAuthority(');
+    const end = source.indexOf('\nexport function assertReleaseFinalBehaviorAuthorityBinding(', start);
+    assert.ok(start >= 0 && end > start, 'original caller source boundaries must be present');
+    return runInNewContext(`${source.slice(start, end).replace(/^export /u, '')}\n`
+        + 'verifyReleaseFinalPostRuntimeAuthority;', dependencies);
+}
+
+function replayCallerInput()
+{
+    const receipt = {
+        contentDigest: digest('1'),
+        observationRefs: [
+            { producerId: 'alpha-producer', scope: 'application', path: '.tmp/current-run/alpha-application.json' },
+            { producerId: 'alpha-producer', scope: 'release-deployment', path: '.tmp/current-run/alpha-release.json' },
+            { producerId: 'beta-producer', scope: 'application', path: '.tmp/current-run/beta-application.json' },
+            { producerId: 'beta-producer', scope: 'release-deployment', path: '.tmp/current-run/beta-release.json' }
+        ],
+        acceptedClaimsRefs: {
+            'alpha-producer': { path: '.tmp/current-run/alpha-claims.json' },
+            'beta-producer': { path: '.tmp/current-run/beta-claims.json' }
+        },
+        schedulerEvidence: { path: '.tmp/current-run/scheduler-admission.json' }
+    };
+    return {
+        currentRunContext: { component: 'independent-current-context' },
+        repositoryRoot: '/component-repository',
+        directEvidence: {
+            behaviorPostRuntime: { file: '.tmp/current-run/post.json', receipt },
+            behaviorPreRuntime: { file: '.tmp/current-run/pre.json' },
+            browserContract: { receipt: { component: 'original-browser' } },
+            productionBuild: { receipt: { component: 'original-build' } }
+        }
+    };
+}
+
+test('release v2 caller component forwards exact original persisted replay inputs', () =>
+{
+    const input = replayCallerInput();
+    const post = input.directEvidence.behaviorPostRuntime.receipt;
+    const order = [];
+    const caller = replayCallerComponent({
+        validateCurrentRunEvidenceContext: (value) => { order.push('context'); return value; },
+        validatePostRuntimeReceipt: (value) => { order.push('post'); assert.equal(value, post); return value; },
+        verifyBehaviorEvidencePostRuntime: (options) => {
+            order.push('replay');
+            assert.deepEqual(Object.keys(options).sort(), [
+                'receipt', 'preRuntimeReceipt', 'catalog', 'registry',
+                'observationReceipts', 'schedulerEvidence', 'repositoryRoot'
+            ].sort());
+            assert.equal(options.receipt, input.directEvidence.behaviorPostRuntime.file);
+            assert.equal(options.preRuntimeReceipt, input.directEvidence.behaviorPreRuntime.file);
+            assert.equal(options.catalog, 'config/contracts/behavior-contracts.json');
+            assert.equal(options.registry, 'config/testing/post-runtime-producer-registry.json');
+            assert.deepEqual(Array.from(options.observationReceipts), post.observationRefs.map(({ path }) => path));
+            assert.equal(options.schedulerEvidence, post.schedulerEvidence.path);
+            assert.equal(options.repositoryRoot, input.repositoryRoot);
+            return post;
+        },
+        assertReleaseFinalPostRuntimeCandidate: (options) => {
+            order.push('candidate');
+            assert.equal(options.postRuntimeReceipt, post);
+            assert.equal(options.currentRunContext, input.currentRunContext);
+            assert.equal(options.browserContractReceipt, input.directEvidence.browserContract.receipt);
+            assert.equal(options.buildReceipt, input.directEvidence.productionBuild.receipt);
+        }
+    });
+    assert.equal(caller(input), post);
+    assert.deepEqual(order, ['context', 'post', 'replay', 'candidate']);
+});
+
+test('release v2 caller component retains replay failures and located digest binding', () =>
+{
+    for (const boundary of ['post-validator', 'independent-replay', 'replay-digest'])
+    {
+        const input = replayCallerInput();
+        const post = input.directEvidence.behaviorPostRuntime.receipt;
+        const failure = new Error(`original ${boundary} refusal`);
+        let candidateCalls = 0;
+        const caller = replayCallerComponent({
+            validateCurrentRunEvidenceContext: (value) => value,
+            validatePostRuntimeReceipt: (value) => {
+                if (boundary === 'post-validator') throw failure;
+                return value;
+            },
+            verifyBehaviorEvidencePostRuntime: () => {
+                if (boundary === 'independent-replay') throw failure;
+                return { ...post, contentDigest: digest('2') };
+            },
+            assertReleaseFinalPostRuntimeCandidate: () => { candidateCalls += 1; }
+        });
+        if (boundary === 'replay-digest')
+            assert.throws(() => caller(input), /post-runtime replay differs from located receipt/u);
+        else assert.throws(() => caller(input), (error) => error === failure);
+        assert.equal(candidateCalls, 0);
+    }
 });

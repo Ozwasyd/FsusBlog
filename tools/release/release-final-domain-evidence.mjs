@@ -5,7 +5,6 @@ const {readEvidenceDocument} = await import(new URL('../test-matrix/content-addr
 const {collectReleaseFinalDomainProjectionReceipts, releaseFinalDomainProjectionTierIds} = await import(new URL('../test-matrix/release-domain-evidence.mjs', import.meta.url));
 const {loadCanonicalReleaseFinalEvidenceInputs} = await import(new URL('../test-matrix/release-final-evidence-contract.mjs', import.meta.url));
 const {validatePostRuntimeReceipt, verifyBehaviorEvidencePostRuntime} = await import(new URL('../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
-const schedulerAuthority = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
 const {authorityDigest} = await import(new URL('../test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
 const {validateCurrentRunEvidenceContext} = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 const {assertPreRuntimeQualified} = await import(new URL('../test-matrix/behavior-evidence-pre-runtime.mjs', import.meta.url));
@@ -58,36 +57,21 @@ export function assertReleaseFinalPostRuntimeCandidate({
 }
 
 export function verifyReleaseFinalPostRuntimeAuthority({
-    directEvidence, currentRunContext, repositoryRoot,
-    environment = process.env
+    directEvidence, currentRunContext, repositoryRoot
 })
 {
     const context = validateCurrentRunEvidenceContext(currentRunContext);
     const input = directEvidence.behaviorPostRuntime;
     const post = validatePostRuntimeReceipt(input.receipt, { repositoryRoot });
-    const schedulerVerificationContext = schedulerAuthority.readSchedulerVerificationContext({
-        root: repositoryRoot,
-        runsRoot: path.join(repositoryRoot, '.tmp/test-runs'),
-        file: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT,
-        expectedContentDigest: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST,
-        expectedCandidateIdentityDigest: environment.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST,
-        expectedRunId: context.schedulerRunId,
-        expectedSourceState: {
-            commit: context.sourceCommit,
-            worktreeFingerprint: context.worktreeFingerprint.replace(/^sha256:/u, '')
-        }
-    });
     const verified = verifyBehaviorEvidencePostRuntime({
         receipt: input.file,
         preRuntimeReceipt: directEvidence.behaviorPreRuntime.file,
         catalog: 'config/contracts/behavior-contracts.json',
         registry: 'config/testing/post-runtime-producer-registry.json',
-        observationReceipts: post.observationRefs.map((reference) => reference.ref),
-        acceptedClaimsReceipts: post.acceptedClaimRefs.map((reference) => reference.ref),
-        executionContext: post.executionContext.ref,
-        schedulerEvidence: post.schedulerEvidence.ref,
-        verificationMode: 'completed-tier',
-        schedulerVerificationContext,
+        // Original v2 replay obtains each producer's claims and candidate context
+        // from its aggregate, and revalidates the exact live scheduler admission.
+        observationReceipts: post.observationRefs.map((reference) => reference.path),
+        schedulerEvidence: post.schedulerEvidence.path,
         repositoryRoot
     });
     if (verified.contentDigest !== post.contentDigest)
