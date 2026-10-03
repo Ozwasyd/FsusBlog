@@ -7,12 +7,17 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createCurrentSchemaCodeContractFixture } from './support/runtime-role-minimal-v3-fixture.mjs';
+import {
+    partitionBehaviorDocClaims,
+    validateBehaviorDocClaimStages
+} from '../../tools/docs/behavior-doc-static-admission-contract.mjs';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestPath, digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
+const { parseRepositoryClaims } = await import(new URL("../../tools/docs/doc-claim.mjs", import.meta.url));
 const { establishBehaviorDocAdmission, runLocalProfile } = await import(new URL("../../tools/run-test-matrix.mjs", import.meta.url));
 const { behaviorDocStaticAdmissionTierId, localBehaviorDocCandidateBundleIds, validateBehaviorDocStaticAdmissionMatrix } = await import(new URL("../../tools/test-matrix/behavior-doc-static-admission-contract.mjs", import.meta.url));
 const { parseMatrix } = await import(new URL("../../tools/test-matrix/parse-matrix.mjs", import.meta.url));
@@ -31,6 +36,118 @@ function seal(value)
     const receipt = { ...structuredClone(value), contentDigest: null };
     receipt.contentDigest = digestValue(receipt);
     return receipt;
+}
+
+function claimStageFixture()
+{
+    const catalog = {
+        contracts: ['pre-runtime', 'post-runtime'].map((evidenceStage, index) => ({
+            id: `stage-${index}`,
+            status: 'active',
+            documentationPolicy: 'required',
+            documents: [`docs/stage-${index}.md`],
+            evidenceStage
+        }))
+    };
+    const claims = catalog.contracts.map((contract) => ({
+        declaration: {
+            claimId: `${contract.id}.claim`,
+            behaviorId: contract.id,
+            claimType: 'scalar',
+            factPath: `${contract.id}.value`
+        },
+        location: {
+            documentPath: contract.documents[0],
+            documentStatus: 'current',
+            bodyText: 'one'
+        }
+    }));
+    const claimReceipt = {
+        schema: 'fsusblog.doc-claim-parse-receipt.v1',
+        behaviorCatalogDigest: digestValue(catalog),
+        claims
+    };
+    claimReceipt.contentDigest = digestValue(claimReceipt);
+    const migrationLedger = {
+        schema: 'fsusblog.document-claim-migration-ledger.v1',
+        scopes: [{
+            behaviorIds: catalog.contracts.map((contract) => contract.id),
+            entries: catalog.contracts.map((contract) => ({
+                behaviorId: contract.id,
+                documentPath: contract.documents[0],
+                claimIds: [`${contract.id}.claim`]
+            }))
+        }]
+    };
+    return { catalog, claimReceipt, migrationLedger };
+}
+
+test('catalog stages defer post-runtime claims without fabricating verification', () =>
+{
+    const fixture = claimStageFixture();
+    const result = partitionBehaviorDocClaims(fixture);
+    assert.deepEqual(result.preRuntimeClaims, [fixture.claimReceipt.claims[0]]);
+    assert.deepEqual(result.deferredPostClaims, [fixture.claimReceipt.claims[1]]);
+    assert.equal(result.stages.preRuntimeClaims[0].claimId, 'stage-0.claim');
+    assert.equal(result.stages.deferredPostClaims[0].claimId, 'stage-1.claim');
+    assert.equal(Object.hasOwn(result.stages.deferredPostClaims[0], 'status'), false);
+    assert.equal(Object.hasOwn(result.stages.deferredPostClaims[0], 'nativeQualification'), false);
+    assert.equal(validateBehaviorDocClaimStages(result.stages, fixture), result.stages);
+});
+
+for (const [label, mutate] of [
+    ['empty required claim roster', (fixture) =>
+    {
+        fixture.claimReceipt.claims = [];
+        fixture.migrationLedger.scopes[0].entries.forEach((entry) => { entry.claimIds = []; });
+    }],
+    ['unknown stage', (fixture) => { fixture.catalog.contracts[1].evidenceStage = 'unknown'; }],
+    ['missing stage', (fixture) => { delete fixture.catalog.contracts[1].evidenceStage; }],
+    ['duplicate catalog identity', (fixture) => { fixture.catalog.contracts.push(fixture.catalog.contracts[0]); }],
+    ['missing parsed claim', (fixture) => { fixture.claimReceipt.claims.pop(); }],
+    ['extra parsed claim', (fixture) =>
+    {
+        const extra = structuredClone(fixture.claimReceipt.claims[0]);
+        extra.declaration.claimId = 'stage-0.extra';
+        fixture.claimReceipt.claims.push(extra);
+    }],
+    ['duplicate parsed claim', (fixture) => { fixture.claimReceipt.claims.push(fixture.claimReceipt.claims[0]); }],
+    ['duplicate ledger claim', (fixture) => { fixture.migrationLedger.scopes[0].entries[0].claimIds.push('stage-0.claim'); }],
+    ['missing ledger claim', (fixture) => { fixture.migrationLedger.scopes[0].entries[1].claimIds = []; }],
+    ['extra ledger claim', (fixture) => { fixture.migrationLedger.scopes[0].entries[1].claimIds.push('stage-1.extra'); }]
+])
+{
+    test(`catalog claim stages reject ${label}`, () =>
+    {
+        const fixture = claimStageFixture();
+        mutate(fixture);
+        fixture.claimReceipt.behaviorCatalogDigest = digestValue(fixture.catalog);
+        delete fixture.claimReceipt.contentDigest;
+        fixture.claimReceipt.contentDigest = digestValue(fixture.claimReceipt);
+        assert.throws(() => partitionBehaviorDocClaims(fixture));
+    });
+}
+
+for (const [label, mutate] of [
+    ['reclassified post claim', (stages) =>
+    {
+        stages.preRuntimeClaims.push(stages.deferredPostClaims.pop());
+    }],
+    ['missing post claim', (stages) => { stages.deferredPostClaims = []; }],
+    ['duplicate post claim', (stages) => { stages.deferredPostClaims.push(stages.deferredPostClaims[0]); }],
+    ['unsealed extra field', (stages) => { stages.nativeQualification = true; }],
+    ['altered claim body digest', (stages) => { stages.deferredPostClaims[0].claimDigest = 'a'.repeat(64); }]
+])
+{
+    test(`sealed claim stages reject ${label} even after resealing`, () =>
+    {
+        const fixture = claimStageFixture();
+        const { stages } = partitionBehaviorDocClaims(fixture);
+        mutate(stages);
+        stages.contentDigest = null;
+        stages.contentDigest = digestValue(stages);
+        assert.throws(() => validateBehaviorDocClaimStages(stages, fixture));
+    });
 }
 
 test('successful fact observations are materialized for canonical drift repair', (t) =>
@@ -228,6 +345,15 @@ function validAdmissionReceipt({
             contentDigest: 'f'.repeat(64)
         }
     ]));
+    const catalog = JSON.parse(fs.readFileSync(path.join(
+        root, 'config/contracts/behavior-contracts.json'
+    ), 'utf8'));
+    const migrationLedger = JSON.parse(fs.readFileSync(path.join(
+        root, 'config/contracts/document-claim-migration-ledger.json'
+    ), 'utf8'));
+    const { stages: claimStages } = partitionBehaviorDocClaims({
+        catalog, migrationLedger, claimReceipt: parseRepositoryClaims(root)
+    });
     return seal({
         schema: behaviorDocAdmissionReceiptSchema,
         run: { id: runId },
@@ -244,8 +370,8 @@ function validAdmissionReceipt({
             directoryBuildPropsDigest: '1'.repeat(64)
         },
         authorityDigests: {
-            catalog: '2'.repeat(64),
-            claim: '3'.repeat(64),
+            catalog: claimStages.catalogDigest,
+            claim: claimStages.parseReceiptDigest,
             extractorRegistry: '4'.repeat(64),
             generatedSectionCatalog: '5'.repeat(64),
             generatedRenderer: '6'.repeat(64),
@@ -257,6 +383,7 @@ function validAdmissionReceipt({
             bindingCount: 1,
             contentDigest: '9'.repeat(64)
         },
+        claimStages,
         factObservations,
         minimalContractBuild: fakeMinimalReceipt(runId, source),
         generated: {
@@ -266,7 +393,8 @@ function validAdmissionReceipt({
         },
         prose: {
             status: 'ok',
-            verifiedClaimCount: 0,
+            verifiedClaimCount: claimStages.preRuntimeClaims
+                .filter((claim) => claim.claimType !== 'generated-section').length,
             contentDigest: 'b'.repeat(64)
         },
         mutationFixtures: {

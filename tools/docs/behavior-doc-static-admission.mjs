@@ -21,6 +21,7 @@ import {
     behaviorDocAdmissionReceiptSchema,
     defaultBehaviorDocAdmissionComponentsDirectory,
     defaultBehaviorDocAdmissionReceipt,
+    partitionBehaviorDocClaims,
     validateBehaviorDocStaticAdmissionReceipt as validateBehaviorDocStaticAdmissionReceiptValue
 } from './behavior-doc-static-admission-contract.mjs';
 export {
@@ -201,6 +202,7 @@ export async function runBehaviorDocStaticAdmission({
         worktree: { root: path.resolve(repositoryRoot) },
         toolchain,
         authorityDigests: {},
+        claimStages: null,
         implementationOwner: { status: 'failed', bindingCount: 0, contentDigest: null },
         factObservations: {},
         minimalContractBuild: null,
@@ -242,6 +244,11 @@ export async function runBehaviorDocStaticAdmission({
         }
         const claimReceipt = parseRepositoryClaims(repositoryRoot);
         validateRepositoryMigrationLedger(repositoryRoot);
+        const migrationLedger = JSON.parse(fs.readFileSync(path.join(
+            repositoryRoot, 'config/contracts/document-claim-migration-ledger.json'
+        ), 'utf8'));
+        const claimPartition = partitionBehaviorDocClaims({ catalog, claimReceipt, migrationLedger });
+        base.claimStages = claimPartition.stages;
         base.authorityDigests = authorityDigests(repositoryRoot, catalog, claimReceipt);
 
         const owner = formatOwnerBindingReport(scanBehaviorOwnerBindings({
@@ -356,14 +363,16 @@ export async function runBehaviorDocStaticAdmission({
             throw new Error(formatProseGovernanceViolations(proseGovernance)[0]);
         }
         const proseResult = verifyProseClaims({
-            claims: claimReceipt.claims,
+            claims: claimPartition.preRuntimeClaims,
             receipts: observationReceipts
         });
         if (!proseResult.ok)
         {
             throw new Error(`prose verification failed: ${proseResult.diagnostics[0]?.message}`);
         }
-        const proseClaims = claimReceipt.claims
+        // Post-runtime claims are sealed in claimStages, never marked verified
+        // by the pre-runtime DocClaimVerificationReceipt.v1 producer.
+        const proseClaims = claimPartition.preRuntimeClaims
             .filter((claim) => claim.declaration.claimType !== 'generated-section');
         const proseReceipt = sealDocClaimVerificationReceipt({
             sourceCommit: sourceIdentity.sourceCommit,

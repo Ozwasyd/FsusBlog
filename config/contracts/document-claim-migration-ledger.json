@@ -551,7 +551,8 @@
             "scopeId": "protocol-release-deployment-ownership",
             "behaviorIds": [
                 "release-final-aggregate-contract",
-                "deployment-blue-green-runtime-role"
+                "deployment-blue-green-runtime-role",
+                "deployment-current-schema-admission"
             ],
             "entries": [
                 {

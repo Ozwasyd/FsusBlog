@@ -3,7 +3,7 @@ import path from 'node:path';
 
 export const behaviorDocStaticAdmissionTierId = 'behavior-doc-static-admission';
 export const behaviorDocStaticAdmissionReceiptSchema =
-    'fsusblog.behavior-doc-static-admission-receipt.v1';
+    'fsusblog.behavior-doc-static-admission-receipt.v2';
 export const behaviorDocStaticAdmissionCommand =
     'node tools/docs/behavior-doc-static-admission.mjs';
 export const behaviorDocStaticAdmissionReceiptPath =

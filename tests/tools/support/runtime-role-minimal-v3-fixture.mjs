@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto'
+import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { digestValue } from '../../../tools/fact-extractors/lib/canonicalize.mjs'
+import { partitionBehaviorDocClaims } from '../../../tools/docs/behavior-doc-static-admission-contract.mjs'
+import { parseRepositoryClaims } from '../../../tools/docs/doc-claim.mjs'
 import { hostDeclarations, runtimeReproduciblePathMapArgument } from '../../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 
 // Exact canonical test fixture body from c1cf3c7abc; synthetic, never runtime evidence.
@@ -11,6 +15,40 @@ function seal(value)
     return receipt;
 }
 
+// Value-contract fixtures retain the same canonical catalog/ledger source
+// authority as the observed worktree. These copies are not native evidence.
+export function installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
+{
+    const sourceRoot = fileURLToPath(new URL('../../../', import.meta.url))
+    const relatives = [
+        'config/contracts/behavior-contracts.json',
+        'config/contracts/document-claim-migration-ledger.json'
+    ]
+    const values = relatives.map((relative) =>
+    {
+        const bytes = fs.readFileSync(path.join(sourceRoot, relative))
+        const target = path.join(repositoryRoot, relative)
+        if (fs.existsSync(target))
+        {
+            if (!fs.readFileSync(target).equals(bytes))
+            {
+                throw new Error('claim-stage fixture cannot overwrite a different source authority')
+            }
+        }
+        else
+        {
+            fs.mkdirSync(path.dirname(target), { recursive: true })
+            fs.writeFileSync(target, bytes)
+        }
+        return JSON.parse(bytes.toString('utf8'))
+    })
+    return partitionBehaviorDocClaims({
+        catalog: values[0],
+        migrationLedger: values[1],
+        claimReceipt: parseRepositoryClaims(sourceRoot)
+    }).stages
+}
+
 /** Synthetic static admission envelope shared by value-contract tests only. */
 export function createRuntimeRoleStaticV3Fixture(runId, source, {
     repositoryRoot,
@@ -18,20 +56,27 @@ export function createRuntimeRoleStaticV3Fixture(runId, source, {
     minimalContractBuild = createRuntimeRoleMinimalV3Fixture(runId, source)
 } = {})
 {
+    const claimStages = installRuntimeRoleClaimStageAuthorityFixture(repositoryRoot)
     return seal({
-        schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
+        schema: 'fsusblog.behavior-doc-static-admission-receipt.v2',
         run: { id: runId },
         source: { commit: source.sourceCommit, worktreeFingerprint: source.worktreeFingerprint },
         worktree: { root: repositoryRoot },
         toolchain: { node: 'v24.0.0', dotnet: '10.0.100', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
         authorityDigests: Object.fromEntries(['catalog', 'claim', 'extractorRegistry', 'generatedSectionCatalog',
-            'generatedRenderer', 'proseRenderer', 'mutationCatalog'].map((key) => [key, '2'.repeat(64)])),
+            'generatedRenderer', 'proseRenderer', 'mutationCatalog'].map((key) => [
+                key, key === 'catalog' ? claimStages.catalogDigest
+                    : key === 'claim' ? claimStages.parseReceiptDigest : '2'.repeat(64)
+            ])),
+        claimStages,
         implementationOwner: { status: 'ok', bindingCount: 1, contentDigest: '3'.repeat(64) },
         factObservations: Object.fromEntries(extractorIds.map((id) => [id,
             { status: 'ok', extractorDigest: '4'.repeat(64), semanticDigest: '5'.repeat(64), contentDigest: '6'.repeat(64) }])),
         minimalContractBuild,
         generated: { status: 'ok', documentCount: 0, contentDigest: '7'.repeat(64) },
-        prose: { status: 'ok', verifiedClaimCount: 0, contentDigest: '8'.repeat(64) },
+        prose: { status: 'ok', verifiedClaimCount: claimStages.preRuntimeClaims
+            .filter((claim) => claim.claimType !== 'generated-section').length,
+            contentDigest: '8'.repeat(64) },
         mutationFixtures: { status: 'ok', caseCount: 9, contentDigest: '9'.repeat(64) },
         candidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: [], durationMs: 1
     })
