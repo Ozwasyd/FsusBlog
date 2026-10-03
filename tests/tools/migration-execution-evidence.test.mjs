@@ -1269,6 +1269,70 @@ test('MySQL admission pins publication and never writes to a replacement linked 
     });
 });
 
+test('MySQL admission retains parent-open first failure and reports failed descriptor cleanup', async (t) =>
+{
+    await ownedAdmissionFixture(t, ({ admission, context, expected }) =>
+    {
+        const primary = new Error('original parent inspection failure');
+        const cleanup = new Error('controlled descriptor close failure');
+        const open = fs.openSync;
+        const inspect = fs.fstatSync;
+        const close = fs.closeSync;
+        let parentFd;
+        const opened = t.mock.method(fs, 'openSync', (file, ...args) =>
+        {
+            const fd = open(file, ...args);
+            if (file === context.root)
+            {
+                parentFd = fd;
+            }
+            return fd;
+        });
+        const inspected = t.mock.method(fs, 'fstatSync', (fd, ...args) =>
+        {
+            if (fd === parentFd)
+            {
+                throw primary;
+            }
+            return inspect(fd, ...args);
+        });
+        const closed = t.mock.method(fs, 'closeSync', (fd, ...args) =>
+        {
+            if (fd === parentFd)
+            {
+                throw cleanup;
+            }
+            return close(fd, ...args);
+        });
+        try
+        {
+            assert.throws(() => readMySqlFixtureAdmissionForRun(expected, { file: admission }), (error) =>
+            {
+                assert.ok(error instanceof AggregateError);
+                assert.equal(error.cause, primary);
+                assert.deepEqual(error.errors, [primary, cleanup]);
+                assert.match(error.message, /original parent inspection failure/u);
+                assert.match(error.message, /descriptor cleanup failed/u);
+                return true;
+            });
+            assert.equal(typeof parentFd, 'number');
+            // Failure does not establish successful cleanup. The isolated
+            // fixture explicitly recovers its own descriptor after the refusal.
+            assert.ok(inspect(parentFd).isDirectory());
+        }
+        finally
+        {
+            closed.mock.restore();
+            inspected.mock.restore();
+            opened.mock.restore();
+            if (parentFd !== undefined)
+            {
+                close(parentFd);
+            }
+        }
+    });
+});
+
 test('Migration evidence rejects discovery omissions, duplicates, foreign methods and source drift', () =>
 {
     const mutations = [

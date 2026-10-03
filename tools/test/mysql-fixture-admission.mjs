@@ -97,7 +97,16 @@ function withOwnedAdmissionFile(root, file, { create = false } = {}, consume)
         }
         catch (error)
         {
-            fs.closeSync(fd);
+            try
+            {
+                fs.closeSync(fd);
+            }
+            catch (cleanupError)
+            {
+                throw new AggregateError([error, cleanupError],
+                    `${error.message}; MySQL admission descriptor cleanup failed: ${cleanupError.message}`,
+                    { cause: error });
+            }
             throw error;
         }
     };
