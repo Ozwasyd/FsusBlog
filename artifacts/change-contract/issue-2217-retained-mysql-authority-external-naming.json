@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs",
+                "src/migration/OfflineMigrationCurrentSchemaVerificationPorts.cs",
+                "src/migration/OfflineMigrationRetainedEvidenceAuthority.cs"
+            ],
+            "reason": "Preserve the original external process-environment and native-consumer spellings on the three registered C# source surfaces; the owned overload adds no process environment or permission and internal identifiers retain their existing naming."
+        }
+    ]
+}

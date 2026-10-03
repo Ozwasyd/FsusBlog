@@ -104,4 +104,75 @@ internal sealed class OfflineMigrationRetainedEvidenceAuthority
         return new(backup, retained.Tool, current.Tool, OfflineMigrationSourceFingerprints.CreateRegistry(),
             retained.Dag, retained.MaximumBackupAge, recovery);
     }
+
+    public async Task<OfflineMigrationCurrentSchemaAuthoritySnapshot> ReadAsync(
+        OfflineMigrationPlan plan, OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
+        CancellationToken token = scope.Token;
+        OfflineMigrationRetainedOwnedBackup backupOwner = Volatile.Read(ref _retainedBackup)
+            ?? throw new InvalidOperationException("offline_actual_plan_time_backup_invocation_required");
+        OfflineMigrationPlanningAuthority retained = _retainedPlanning
+            ?? throw new InvalidOperationException("offline_actual_plan_time_tool_snapshot_required");
+
+        // Both samples use the creator's original live connection and transaction.
+        // Native identity/settings are observed by the existing source reader;
+        // the context independently proves the read-only transaction epoch.
+        await context.RequireBoundaryAsync(token).ConfigureAwait(false);
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial initial =
+            await OfflineMigrationSourceObserver.ReadMySqlNativeIdentityMaterialAsync(
+                context.OriginalConnection, context.OriginalTransaction, token).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(token).ConfigureAwait(false);
+        OfflineMigrationBackupObservation backup = await backupOwner.RevalidateAsync(token).ConfigureAwait(false);
+        OfflineMigrationPlanningAuthority current = await _planning.ReadAsync(initial.Database.Provider, token)
+            .ConfigureAwait(false);
+        ValidateRetainedBindings(initial.Database, backup.SourceAtCapture.Database, retained, current);
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial terminal =
+            await OfflineMigrationSourceObserver.ReadMySqlNativeIdentityMaterialAsync(
+                context.OriginalConnection, context.OriginalTransaction, token).ConfigureAwait(false);
+        RequireMySqlIdentityUnchanged(initial, terminal);
+        await context.RequireBoundaryAsync(token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+
+        // Only the earlier successful original capture published this pair. The
+        // plan argument, raw pair and these measured values cannot recreate it.
+        ImmutableArray<CurrentSchemaArtifactReference> recovery = [backup.Package, backup.Manifest, backup.RestoreDrill];
+        return new(backup, retained.Tool, current.Tool, OfflineMigrationSourceFingerprints.CreateRegistry(),
+            retained.Dag, retained.MaximumBackupAge, recovery);
+    }
+
+    // Pure comparison controls do not mint either retained backup or native context.
+    internal static void ValidateRetainedBindings(CurrentSchemaDatabaseIdentity actualDatabase,
+        CurrentSchemaDatabaseIdentity capturedDatabase, OfflineMigrationPlanningAuthority retained,
+        OfflineMigrationPlanningAuthority current)
+    {
+        ArgumentNullException.ThrowIfNull(actualDatabase);
+        ArgumentNullException.ThrowIfNull(capturedDatabase);
+        ArgumentNullException.ThrowIfNull(retained);
+        ArgumentNullException.ThrowIfNull(current);
+        if (actualDatabase != capturedDatabase)
+        {
+            throw new InvalidOperationException("offline_retained_backup_native_database_changed");
+        }
+        if (!OfflineMigrationPlanValidation.Equal(retained, current))
+        {
+            throw new InvalidOperationException("offline_retained_plan_authority_changed");
+        }
+    }
+
+    internal static void RequireMySqlIdentityUnchanged(
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial initial,
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial terminal)
+    {
+        ArgumentNullException.ThrowIfNull(initial);
+        ArgumentNullException.ThrowIfNull(terminal);
+        if (initial != terminal)
+        {
+            throw new InvalidOperationException("offline_retained_backup_native_database_changed");
+        }
+    }
 }

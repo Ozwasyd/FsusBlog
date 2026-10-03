@@ -304,8 +304,9 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         CurrentSchemaAdmissionObservation current = await owners.CurrentSchema.ObserveAsync(
             connection, transaction, database, cancellationToken).ConfigureAwait(false);
         ValidateCurrentObservation(current, database, plan.Target);
-        OfflineMigrationCurrentSchemaAuthoritySnapshot authority = await owners.Authority.ReadAsync(
-            plan, connection, transaction, cancellationToken).ConfigureAwait(false);
+        OfflineMigrationCurrentSchemaAuthoritySnapshot authority = mysqlContext is null
+            ? await owners.Authority.ReadAsync(plan, connection, transaction, cancellationToken).ConfigureAwait(false)
+            : await owners.Authority.ReadAsync(plan, mysqlContext, cancellationToken).ConfigureAwait(false);
         if (authority.CurrentVerifier.SourceRevision == new string('0', 40))
         {
             throw new InvalidOperationException("current_verify_producer_source_unobserved");

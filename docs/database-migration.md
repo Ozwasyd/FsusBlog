@@ -423,6 +423,20 @@ SHA-256. The owned existing-receipt API independently reruns this same route;
 integration of that additional API into the Host's existing-receipt caller is not
 completed by this source slice.
 
+The retained evidence authority has an owned MySQL read overload on the same
+verification port. It accepts only the original creator's live context, keeps its
+linked cancellation scope through backup revalidation and fresh planning reads,
+and samples the original native identity/settings and transaction epoch before
+and after that work. The actual database must match the retained capture, and the
+complete target/tool/DAG/age planning identity must match the plan-time owner
+snapshot. Existing raw-pair authority implementations refuse this overload rather
+than being called as a fallback. Neither plan JSON nor observed database records
+create a retained backup or transaction capability. The earlier original backup
+invocation must have successfully published the pair; missing capture still
+refuses. Pure binding comparison controls are not a successful retained/native
+run. This component adds no backup producer, target projection, factory default,
+permission, fixture or provider qualification.
+
 This is a source implementation, not MySQL qualification. Complete current-target
 and authenticated retained-evidence owners are still required; catalog-only facts,
 caller target DTOs and successful statuses cannot substitute for them. The default
