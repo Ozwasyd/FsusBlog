@@ -13,6 +13,10 @@ namespace FsusBlog.Migration;
 // actual provider postconditions are supported. No PostgreSQL SQL is rewritten.
 internal static class CurrentSchemaPortableBootstrapCompiler
 {
+    // Even source-bound commands omit the original native control/operation and
+    // unknown allocator/effect owners. Consumers must not register a complete DAG.
+    internal const bool ProducesCompleteCurrentBootstrap = false;
+
     internal static CompiledCurrentSchemaBootstrap CompileEntitySubset(
         CurrentSchemaProjection projection, SchemaProviderKind provider)
     {
@@ -28,6 +32,15 @@ internal static class CurrentSchemaPortableBootstrapCompiler
         SchemaProviderKind provider, string verifiedOwnedInputDigest)
     {
         RequireProvider(provider);
+        ArgumentNullException.ThrowIfNull(input);
+        // Rejection-only capability preflight: this is not owner admission. In
+        // particular an unavailable sequence/guard/seed never reaches a renderer
+        // or obtains commands merely because the original PG grammar supports it.
+        if (input.RequiredRecipes.Any(static reference => reference.SemanticDescription is { } facts
+            && facts.AdditionalOperations.Any(static operation => operation.Kind is not
+                (CurrentSchemaRecipeOperationKind.CreateIndex or CurrentSchemaRecipeOperationKind.AddColumnIfAbsent
+                or CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent))))
+            throw new InvalidOperationException("portable_bootstrap_recipe_effect_unavailable");
         // Reuse original closed owner/recipe admission and the sole composite target.
         // Only the typed facts below are rendered; these PG commands are never used.
         CompiledCurrentSchemaBootstrap admitted = CurrentSchemaBootstrapCompiler.Compile(
@@ -38,20 +51,47 @@ internal static class CurrentSchemaPortableBootstrapCompiler
             if (!tables.TryAdd(reference.TableName, reference.SemanticDescription!.Table))
                 throw new InvalidOperationException("portable_bootstrap_recipe_overlap");
         }
-        List<SchemaMigrationCommand> commands = CompileTables(tables, provider, input.EntityProjection.Identity.SourceDigest);
         foreach (CurrentSchemaRequiredRecipeReference reference in input.RequiredRecipes)
         {
             foreach (CurrentSchemaRecipeOperation operation in reference.SemanticDescription!.AdditionalOperations)
             {
-                if (operation.Kind != CurrentSchemaRecipeOperationKind.CreateIndex || operation.Index is null
-                    || operation.Table is null || !tables.TryGetValue(operation.Table, out SchemaTableModel? table)
-                    || operation.Name != operation.Index.Name
-                    || operation != new CurrentSchemaRecipeOperation(operation.Kind, operation.Name,
-                        operation.Table, Index: operation.Index))
+                if (operation.Table is null || !tables.TryGetValue(operation.Table, out SchemaTableModel? table))
                     throw new InvalidOperationException("portable_bootstrap_recipe_effect_unavailable");
-                commands.Add(RenderIndex(table, operation.Index, provider));
+                var columns = new Dictionary<string, SchemaColumnModel>(table.Columns, StringComparer.Ordinal);
+                var constraints = new Dictionary<string, SchemaConstraintModel>(table.Constraints, StringComparer.Ordinal);
+                var indexes = new Dictionary<string, SchemaIndexModel>(table.IndexDefinitions, StringComparer.Ordinal);
+                switch (operation.Kind)
+                {
+                    case CurrentSchemaRecipeOperationKind.CreateIndex:
+                        if (operation.Index is not { } index || index.Name != operation.Name
+                            || !indexes.TryAdd(index.Name, index)
+                            || operation != new CurrentSchemaRecipeOperation(operation.Kind, operation.Name, operation.Table, Index: index))
+                            throw new InvalidOperationException("portable_bootstrap_recipe_effect_unavailable");
+                        break;
+                    case CurrentSchemaRecipeOperationKind.AddColumnIfAbsent:
+                        if (operation.Column is not { } column || column.Name != operation.Name
+                            || operation != new CurrentSchemaRecipeOperation(operation.Kind, operation.Name, operation.Table, Column: column))
+                            throw new InvalidOperationException("portable_bootstrap_recipe_effect_unavailable");
+                        if (columns.TryGetValue(column.Name, out SchemaColumnModel? existing) && existing != column)
+                            throw new InvalidOperationException("portable_bootstrap_recipe_column_conflict");
+                        columns[column.Name] = column;
+                        break;
+                    case CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent:
+                        if (operation.Constraint is not { } constraint || constraint.Name != operation.Name
+                            || !constraints.TryAdd(constraint.Name, constraint)
+                            || operation != new CurrentSchemaRecipeOperation(operation.Kind, operation.Name, operation.Table, Constraint: constraint))
+                            throw new InvalidOperationException("portable_bootstrap_recipe_effect_unavailable");
+                        break;
+                    default:
+                        throw new InvalidOperationException("portable_bootstrap_recipe_effect_unavailable");
+                }
+                // Copy only the source's typed facts. Rendering a final empty
+                // table avoids nonportable ALTER/IF NOT EXISTS syntax and never
+                // mutates the original producer input or its complete identity.
+                tables[table.Name] = new(table.Name, columns, indexes.Keys, indexes, constraints, table.Owner);
             }
         }
+        List<SchemaMigrationCommand> commands = CompileTables(tables, provider, input.EntityProjection.Identity.SourceDigest);
         return Freeze(provider, admitted.Target, commands);
     }
 

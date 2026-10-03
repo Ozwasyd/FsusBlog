@@ -151,6 +151,107 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
         Assert.Contains("DEFAULT " + literal, compiled.Commands[0].Sql);
     }
 
+    [Theory]
+    [InlineData(SchemaProviderKind.MySql)]
+    [InlineData(SchemaProviderKind.Sqlite)]
+    public void OwnedFacts_FoldAddedColumnIntoFinalEmptyTableWithoutMutatingBoundInput(SchemaProviderKind provider)
+    {
+        var column = new SchemaColumnModel("added_counter", true, false, false, null, "int64");
+        CurrentSchemaBootstrapInput input = Input([new(CurrentSchemaRecipeOperationKind.AddColumnIfAbsent,
+            column.Name, "recipe_probe", Column: column)]);
+        string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
+            input, input.Producer, provider, binding);
+        Assert.Equal(3, compiled.Commands.Count);
+        Assert.Contains(provider == SchemaProviderKind.MySql ? "`added_counter` bigint NULL" : "\"added_counter\" INTEGER NULL", compiled.Commands[1].Sql);
+        Assert.All(compiled.Commands, command => Assert.DoesNotContain("ALTER TABLE", command.Sql));
+        Assert.False(input.RequiredRecipes[0].SemanticDescription!.Table.Columns.ContainsKey(column.Name));
+        Assert.Equal(binding, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), compiled.Target);
+        Assert.False(CurrentSchemaPortableBootstrapCompiler.ProducesCompleteCurrentBootstrap);
+    }
+
+    [Theory]
+    [InlineData(SchemaProviderKind.MySql)]
+    [InlineData(SchemaProviderKind.Sqlite)]
+    public void OwnedFacts_FoldTypedUniqueConstraintOnceWithoutAnotherBackingIndexCommand(SchemaProviderKind provider)
+    {
+        var constraint = new SchemaConstraintModel("uq_recipe_counter", "unique", ["counter"]);
+        CurrentSchemaBootstrapInput input = Input([new(CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent,
+            constraint.Name, "recipe_probe", Constraint: constraint)]);
+        SchemaTableModel original = input.RequiredRecipes[0].SemanticDescription!.Table;
+        original.Columns.Add("counter", new("counter", false, false, false, null, "int64"));
+        string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
+            input, input.Producer, provider, binding);
+        Assert.Equal(3, compiled.Commands.Count);
+        Assert.Contains(provider == SchemaProviderKind.MySql ? "CONSTRAINT `uq_recipe_counter` UNIQUE (`counter`)"
+            : "CONSTRAINT \"uq_recipe_counter\" UNIQUE (\"counter\")", compiled.Commands[1].Sql);
+        Assert.All(compiled.Commands, command => Assert.DoesNotContain("CREATE UNIQUE INDEX", command.Sql));
+        Assert.False(original.Constraints.ContainsKey(constraint.Name));
+        Assert.Equal(binding, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), compiled.Target);
+        Assert.False(CurrentSchemaPortableBootstrapCompiler.ProducesCompleteCurrentBootstrap);
+    }
+
+    [Theory]
+    [InlineData(SchemaProviderKind.MySql, "conflicting-column")]
+    [InlineData(SchemaProviderKind.Sqlite, "conflicting-column")]
+    [InlineData(SchemaProviderKind.MySql, "unused-effect-field")]
+    [InlineData(SchemaProviderKind.Sqlite, "unused-effect-field")]
+    [InlineData(SchemaProviderKind.MySql, "raw-check")]
+    [InlineData(SchemaProviderKind.Sqlite, "raw-check")]
+    [InlineData(SchemaProviderKind.MySql, "raw-predicate")]
+    [InlineData(SchemaProviderKind.Sqlite, "raw-predicate")]
+    [InlineData(SchemaProviderKind.MySql, "foreign-key")]
+    [InlineData(SchemaProviderKind.Sqlite, "foreign-key")]
+    public void OwnedFacts_RefuseConflictsAndUnspecifiedTypedOrRawRelationalEffects(SchemaProviderKind provider, string invalid)
+    {
+        var column = new SchemaColumnModel(invalid == "conflicting-column" ? "id" : "added", false, false, false, null, "int64");
+        CurrentSchemaRecipeOperation effect = invalid switch
+        {
+            "raw-check" => new(CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent, "ck_recipe", "recipe_probe",
+                Constraint: new("ck_recipe", "check", [], Expression: "id > 0")),
+            "raw-predicate" => new(CurrentSchemaRecipeOperationKind.CreateIndex, "ix_recipe", "recipe_probe",
+                Index: new("ix_recipe", false, [new("id", "asc", "last", "default", "default")], [], "btree", "id > 0", false)),
+            "foreign-key" => new(CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent, "fk_recipe", "recipe_probe",
+                Constraint: new("fk_recipe", "foreign-key", ["id"], ReferencedTable: "probe", ReferencedColumns: ["id"],
+                    ReferencedSchema: "public", ForeignKeyMatchType: "simple", ForeignKeyUpdateAction: "no-action", ForeignKeyDeleteAction: "no-action")),
+            _ => new(CurrentSchemaRecipeOperationKind.AddColumnIfAbsent, column.Name, "recipe_probe", Column: column,
+                Values: invalid == "unused-effect-field" ? ["1"] : null)
+        };
+        CurrentSchemaBootstrapInput input = Input([effect]);
+        string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        if (invalid is "raw-check" or "raw-predicate" or "foreign-key")
+        {
+            // The original source/input and PG grammar are accepted. Portable
+            // refusal must not be mistaken for an obsolete ownership seal.
+            Assert.NotEmpty(CurrentSchemaBootstrapCompiler.Compile(input, input.Producer,
+                SchemaProviderKind.PostgreSql, binding).Commands);
+        }
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
+            input, input.Producer, provider, binding));
+        Assert.Equal(binding, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        Assert.False(CurrentSchemaPortableBootstrapCompiler.ProducesCompleteCurrentBootstrap);
+    }
+
+    [Theory]
+    [InlineData(SchemaProviderKind.MySql)]
+    [InlineData(SchemaProviderKind.Sqlite)]
+    public void OwnedFacts_StillBindWholeOriginalOwnerAndInputBeforeRelationalFold(SchemaProviderKind provider)
+    {
+        var column = new SchemaColumnModel("added", false, false, false, null, "int64");
+        CurrentSchemaBootstrapInput input = Input([new(CurrentSchemaRecipeOperationKind.AddColumnIfAbsent,
+            column.Name, "recipe_probe", Column: column)]);
+        string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
+            input, input.Producer with { ContractAssemblySha256 = new string('e', 64) }, provider, binding));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
+            input, input.Producer, provider, new string('e', 64)));
+        Assert.False(input.RequiredRecipes[0].SemanticDescription!.Table.Columns.ContainsKey(column.Name));
+        Assert.Equal(binding, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+    }
+
     private static CurrentSchemaBootstrapInput Input(IReadOnlyList<CurrentSchemaRecipeOperation> operations)
     {
         var recipe = new SchemaTableModel("recipe_probe", new Dictionary<string, SchemaColumnModel>

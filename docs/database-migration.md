@@ -258,6 +258,19 @@ the structural projection does not make either complete current bootstrap runnab
 Native DDL/observation, original producer execution, compiled operation registration
 and all three-provider acceptance remain pending. No producer output is hand-edited.
 
+The original portable compiler's `CompileOwnedFacts` reuses the existing complete
+owner/input binding and current type projector. Closed typed added columns and
+unique constraints, together with indexes, are folded into a copied final empty
+table before rendering rather than translated into unsupported ALTER syntax.
+The producer's input, recipe identities and complete target identity are not
+mutated. No second field inventory or control renderer is introduced. Its explicit
+`ProducesCompleteCurrentBootstrap = false` describes the partial command result;
+it is not an admission or registration flag. Raw CHECK/default/predicate expressions,
+unsupported foreign-key semantics, sequence/guard/dynamic seeds and full native
+control/bootstrap postconditions remain unavailable, so these commands cannot
+qualify a complete current bootstrap. Existing narrowly supported literal default
+syntax remains a subset compiler capability, not a new typed-expression authority.
+
 This closure changes the current model to `fsusblog.current-schema.v3` and the
 projection generator to `fsusblog.current-schema-projection.v3`; the reflection
 extractor version remains v2. Both composite source/content identities include
