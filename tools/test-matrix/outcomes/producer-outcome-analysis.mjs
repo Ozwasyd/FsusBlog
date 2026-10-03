@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { types } from 'node:util';
 
 import {
     outcomeNormalizationRules,
@@ -22,7 +23,7 @@ function require(condition, message)
 
 function object(value, label)
 {
-    require(value !== null && typeof value === 'object'
+    require(value !== null && typeof value === 'object' && !types.isProxy(value)
         && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype,
     `${label} must be a plain object`);
     const descriptors = Object.getOwnPropertyDescriptors(value);
@@ -33,7 +34,7 @@ function object(value, label)
 
 function sequence(value, label)
 {
-    require(Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype,
+    require(!types.isProxy(value) && Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype,
         `${label} must be an array`);
     const keys = Reflect.ownKeys(value);
     require(keys.length === value.length + 1 && keys.includes('length')
@@ -42,6 +43,83 @@ function sequence(value, label)
             const descriptor = Object.getOwnPropertyDescriptor(value, key);
             return descriptor?.enumerable && Object.hasOwn(descriptor, 'value');
         }), `${label} must be a dense JSON data array`);
+}
+
+// These are caller-owned host budgets, never candidate fields or policy defaults.
+// Inspect descriptors before reading values; do not clone, hash or invoke toJSON.
+function preflight(candidate, options)
+{
+    object(options, 'analysis options');
+    const optionDescriptors = Object.getOwnPropertyDescriptors(options);
+    const requiredOptions = ['expectedIdentity', 'expectedProducerId', 'expectedAuthorityId', 'hostExpectedLimits'];
+    require(requiredOptions.every((key) => Object.hasOwn(optionDescriptors, key))
+        && Object.keys(optionDescriptors).every((key) => [...requiredOptions, 'metadata'].includes(key)),
+    'external expected identity, authority and host budgets are required');
+    const limits = optionDescriptors.hostExpectedLimits.value;
+    const limitKeys = ['maxDepth', 'maxNodes', 'maxStringBytes', 'maxArrayItems', 'maxObjectKeys'];
+    exact(limits, limitKeys, 'host expected limits');
+    require(limitKeys.every((key) => Number.isSafeInteger(limits[key]) && limits[key] > 0),
+        'host expected limits must be finite positive safe integers');
+    const active = new WeakSet();
+    const pending = [{ value: options, depth: 0 }, { value: candidate, depth: 0 }];
+    let scheduledNodes = pending.length;
+    require(scheduledNodes <= limits.maxNodes, 'JSON node budget exceeded');
+    let stringBytes = 0;
+    const chargeString = (value) =>
+    {
+        stringBytes += Buffer.byteLength(value, 'utf8');
+        require(stringBytes <= limits.maxStringBytes, 'JSON string byte budget exceeded');
+    };
+    while (pending.length)
+    {
+        const entry = pending.pop();
+        if (entry.exit)
+        {
+            active.delete(entry.value);
+            continue;
+        }
+        require(entry.depth <= limits.maxDepth, 'JSON depth budget exceeded');
+        const value = entry.value;
+        if (value === null || typeof value === 'boolean') continue;
+        if (typeof value === 'string')
+        {
+            chargeString(value);
+            continue;
+        }
+        if (typeof value === 'number')
+        {
+            require(Number.isFinite(value), 'JSON number must be finite');
+            continue;
+        }
+        require(typeof value === 'object' && !types.isProxy(value),
+            'input must contain only plain JSON data fields');
+        require(!active.has(value), 'cyclic JSON input is not allowed');
+        const array = Array.isArray(value);
+        if (array)
+        {
+            require(Object.getOwnPropertyDescriptor(value, 'length').value <= limits.maxArrayItems,
+                'JSON array item budget exceeded');
+            sequence(value, 'input');
+        }
+        else
+        {
+            require(Object.getOwnPropertyNames(value).length <= limits.maxObjectKeys,
+                'JSON object key budget exceeded');
+            object(value, 'input');
+        }
+        active.add(value);
+        pending.push({ value, exit: true });
+        const descriptors = Object.getOwnPropertyDescriptors(value);
+        const keys = Object.keys(descriptors).filter((key) => !array || key !== 'length');
+        scheduledNodes += keys.length;
+        require(scheduledNodes <= limits.maxNodes, 'JSON node budget exceeded');
+        for (const key of keys)
+        {
+            if (!array) chargeString(key);
+            pending.push({ value: descriptors[key].value, depth: entry.depth + 1 });
+        }
+    }
+    return options;
 }
 
 function exact(value, keys, label)
@@ -254,7 +332,7 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
     return result;
 }
 
-function validateMembership(membership, profile, success)
+function validateMembership(membership, profile, success, reasons)
 {
     for (const relation of profile.setRelations)
     {
@@ -268,6 +346,21 @@ function validateMembership(membership, profile, success)
         const members = group.flatMap((name) => membership[name]);
         require(members.every((id) => typeof id === 'string') && new Set(members).size === members.length,
             'terminal membership sets overlap');
+        const requiredName = profile.setRelations.find((relation) => relation.subset === group[0])?.superset;
+        const requiredIds = profile.setRelations.find((relation) => relation.subset === requiredName)?.superset;
+        require(requiredIds, 'terminal membership relation is unregistered');
+        for (const id of membership[requiredIds].filter((item) => !members.includes(item)))
+        {
+            const missing = (evidenceId) => reasons.some((reason) =>
+                reason.kind === 'contract.missing-evidence' && reason.identity.evidenceId === evidenceId);
+            // Missing evidence is an original adapter failure classification, not a
+            // synthesized passed/failed/blocked ID or permission to drop planned IDs.
+            const classified = profile.producerId === 'release-projection-semantic-outcome'
+                ? missing(`${id}:terminal`) && (membership[requiredName].includes(id) || missing(id))
+                : profile.producerId === 'release-finalizer-semantic-outcome'
+                    && !membership[requiredName].includes(id) && missing(id);
+            require(!success && classified, 'terminal membership classification is incomplete');
+        }
     }
     if (success)
     {
@@ -288,14 +381,25 @@ function validateMembership(membership, profile, success)
         require(canonicalJson(Object.keys(membership[binding.map]).sort()) === canonicalJson(membership[binding.ids]),
             'semantic digest map does not exactly match members');
     }
+    if (profile.producerId === 'immutable-build-semantic-outcome')
+    {
+        for (const id of membership.plannedArtifactIds.filter((item) => !membership.verifiedArtifactIds.includes(item)))
+        {
+            require(reasons.some((reason) => (reason.kind === 'contract.missing-evidence'
+                && reason.identity.evidenceId === id && !membership.actualArtifactIds.includes(id))
+                || (reason.kind === 'product.state-mismatch' && reason.identity.semanticId === id
+                    && membership.actualArtifactIds.includes(id))),
+            'build artifact failure classification is incomplete');
+        }
+    }
 }
 
 // This is structural semantic analysis, not receipt origin or execution authentication.
 // The external expected identity is mandatory; candidate fields never supply it.
-export function analyzeProducerSemanticOutcomeCandidate(candidate, {
-    expectedIdentity, expectedProducerId, expectedAuthorityId, metadata = {}
-})
+export function analyzeProducerSemanticOutcomeCandidate(candidate, options)
 {
+    preflight(candidate, options);
+    const { expectedIdentity, expectedProducerId, expectedAuthorityId, metadata = {} } = options;
     const registry = validateOutcomeFieldDispositions();
     const taxonomy = readOutcomeFailureTaxonomy();
     validateProducerSemanticOutcomeCandidate(candidate, { taxonomy,
@@ -317,7 +421,7 @@ export function analyzeProducerSemanticOutcomeCandidate(candidate, {
     }
     const canonicalMetadata = normalize(metadata, '$metadata', map, taxonomy, candidate.producerId, false);
     const semanticMetadata = normalize(metadata, '$metadata', map, taxonomy, candidate.producerId, true);
-    validateMembership(canonical.outcome.membership, profile, canonical.outcome.status === 'success');
+    validateMembership(canonical.outcome.membership, profile, canonical.outcome.status === 'success', canonical.outcome.reasons);
     const version = { algorithm: registry.fingerprintAlgorithmVersion,
         candidateSchema: candidate.schema, registrySchema: registry.schema,
         registryVersion: registry.schemaVersion, registryDigest: digestCanonical(registry) };

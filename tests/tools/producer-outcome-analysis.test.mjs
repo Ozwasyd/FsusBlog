@@ -5,7 +5,7 @@ import { adaptReleaseProjectionSemanticOutcome } from '../../tools/test-matrix/o
 import { adaptImmutableBuildSemanticOutcome } from '../../tools/test-matrix/outcomes/immutable-build-adapter.mjs';
 import { adaptReleaseFinalizerSemanticOutcome } from '../../tools/test-matrix/outcomes/release-finalizer-adapter.mjs';
 import { validateOutcomeFieldDispositions } from '../../tools/test-matrix/outcomes/outcome-contract.mjs';
-import { analyzeProducerSemanticOutcomeCandidate, sealVerifiedProducerSemanticOutcome } from '../../tools/test-matrix/outcomes/producer-outcome-analysis.mjs';
+import { analyzeProducerSemanticOutcomeCandidate as analyzeCandidateWithLimits, sealVerifiedProducerSemanticOutcome } from '../../tools/test-matrix/outcomes/producer-outcome-analysis.mjs';
 import { sealContentDigest, digestCanonical } from '../../tools/test/attempt-provenance.mjs';
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
@@ -13,6 +13,15 @@ const identity = Object.freeze({ buildIdentity: digest('1'), executionEnvelopeDi
     producerId: 'release-projection-semantic-outcome', replayPlanDigest: digest('3'),
     schedulerRunId: 'fixture-run', sourceCommit: '4'.repeat(40), temporalContextDigest: digest('5'),
     toolchainDigest: digest('6'), worktreeFingerprint: digest('7') });
+
+const hostExpectedLimits = Object.freeze({ maxDepth: 32, maxNodes: 4096,
+    maxStringBytes: 131072, maxArrayItems: 256, maxObjectKeys: 128 });
+
+// The original controls receive an explicit host fixture budget, not payload defaults.
+function analyzeProducerSemanticOutcomeCandidate(candidate, options)
+{
+    return analyzeCandidateWithLimits(candidate, { ...options, hostExpectedLimits });
+}
 
 function fixture(ids = ['a', 'b'])
 {
@@ -246,4 +255,155 @@ test('the single registry migrates explicitly and refuses old version, unknown n
     const unowned = structuredClone(original);
     unowned.canonicalization.profiles[0].fields[0].owner = '';
     assert.throws(() => validateOutcomeFieldDispositions(unowned), /unowned/u);
+});
+
+function directOptions(extra = {})
+{
+    return { expectedIdentity: identity, expectedProducerId: identity.producerId,
+        expectedAuthorityId: 'tools/test-matrix/outcomes/release-projection-adapter.mjs',
+        hostExpectedLimits, ...extra };
+}
+
+test('public entry refuses candidate and expected getters before any legacy validator or digest', () =>
+{
+    let calls = 0;
+    for (const key of ['schema', 'identity', 'outcome'])
+    {
+        const candidate = { ...fixture() };
+        Object.defineProperty(candidate, key, { get() { calls++; throw new Error('getter invoked'); }, enumerable: true });
+        assert.throws(() => analyzeCandidateWithLimits(candidate, directOptions()), /JSON data fields/u);
+    }
+    const candidate = structuredClone(fixture());
+    Object.defineProperty(candidate.outcome, 'membership', { get() { calls++; throw new Error('membership invoked'); }, enumerable: true });
+    assert.throws(() => analyzeCandidateWithLimits(candidate, directOptions()), /JSON data fields/u);
+    const expected = { ...identity };
+    Object.defineProperty(expected, 'sourceCommit', { get() { calls++; throw new Error('expected invoked'); }, enumerable: true });
+    assert.throws(() => analyzeCandidateWithLimits(fixture(), directOptions({ expectedIdentity: expected })), /JSON data fields/u);
+    const options = directOptions();
+    Object.defineProperty(options, 'expectedIdentity', { get() { calls++; throw new Error('option invoked'); }, enumerable: true });
+    assert.throws(() => analyzeCandidateWithLimits(fixture(), options), /JSON data fields/u);
+    assert.equal(calls, 0);
+});
+
+test('public entry refuses toJSON, cycles, nonplain objects and proxies before hashing or cloning', () =>
+{
+    let calls = 0;
+    const candidate = { ...fixture(), toJSON() { calls++; return fixture(); } };
+    assert.throws(() => analyzeCandidateWithLimits(candidate, directOptions()), /plain JSON/u);
+    const cyclic = structuredClone(fixture());
+    cyclic.outcome.membership.loop = cyclic;
+    assert.throws(() => analyzeCandidateWithLimits(cyclic, directOptions()), /cyclic JSON/u);
+    assert.throws(() => analyzeCandidateWithLimits(fixture(), directOptions({ metadata: { generatedAt: new Date(0) } })), /plain object/u);
+    const proxy = new Proxy(fixture(), { getPrototypeOf() { calls++; return Object.prototype; }, ownKeys() { calls++; return []; } });
+    assert.throws(() => analyzeCandidateWithLimits(proxy, directOptions()), /plain JSON/u);
+    const limits = { ...hostExpectedLimits };
+    Object.defineProperty(limits, 'maxDepth', { get() { calls++; return 32; }, enumerable: true });
+    assert.throws(() => analyzeCandidateWithLimits(fixture(), directOptions({ hostExpectedLimits: limits })), /JSON data fields/u);
+    assert.equal(calls, 0);
+});
+
+test('public entry requires external finite host limits and enforces each bound before legacy validation', () =>
+{
+    const withoutLimits = directOptions();
+    delete withoutLimits.hostExpectedLimits;
+    assert.throws(() => analyzeCandidateWithLimits(fixture(), withoutLimits), /host budgets/u);
+    for (const key of Object.keys(hostExpectedLimits))
+    {
+        for (const invalid of [0, -1, Infinity, NaN, '32'])
+        {
+            assert.throws(() => analyzeCandidateWithLimits(fixture(), directOptions({
+                hostExpectedLimits: { ...hostExpectedLimits, [key]: invalid } })), /finite positive/u);
+        }
+        assert.throws(() => analyzeCandidateWithLimits(fixture(), directOptions({
+            hostExpectedLimits: { ...hostExpectedLimits, [key]: 1 } })), /budget exceeded/u);
+    }
+    assert.equal(analyzeCandidateWithLimits(fixture(), directOptions()).dataOnly, true);
+    assert.throws(() => analyzeCandidateWithLimits(fixture(), directOptions({
+        metadata: { errorText: '😀'.repeat(2048) },
+        hostExpectedLimits: { ...hostExpectedLimits, maxStringBytes: 4096 } })), /string byte budget/u);
+});
+
+test('resealed failed projection must classify every required member, not merely carry a valid failure reason', () =>
+{
+    const original = fixture();
+    const partial = { ...original.outcome.membership, verifiedProjectionIds: ['a'],
+        failedProjectionIds: [], blockedProjectionIds: [], semanticDigests: { a: digest('b') } };
+    const candidate = sealContentDigest({ ...original, outcome: { ...original.outcome,
+        status: 'failed', requiredMembershipVerified: false, membership: partial,
+        semanticPayloadDigest: digestCanonical(partial),
+        reasons: [{ kind: 'product.assertion', producerId: identity.producerId,
+            identity: { producerId: identity.producerId, assertionId: 'otherwise-valid' } }] } });
+    assert.throws(() => analyzeCandidateWithLimits(candidate, directOptions()), /classification is incomplete/u);
+});
+
+test('actual failed and blocked projection classifications remain analyzable without laundering status', () =>
+{
+    for (const blocked of [false, true])
+    {
+        const base = fixture();
+        const candidate = adaptReleaseProjectionSemanticOutcome({ identity,
+            inputAuthorityRefs: base.inputAuthorityRefs, attemptEligibility: base.attemptEligibility,
+            plan: { projectionIds: ['a', 'b'] }, evidence: {
+                producedIds: blocked ? ['a'] : ['a', 'b'], verifiedIds: ['a'],
+                failedIds: blocked ? [] : ['b'], blockedIds: blocked ? ['b'] : [],
+                semanticDigests: { a: digest('b') } } });
+        const result = analyzeCandidateWithLimits(candidate, directOptions());
+        assert.equal(result.summary.status, 'failed');
+        assert.equal(result.producerVerificationPending, true);
+        assert.deepEqual(result.summary.membership[blocked ? 'blockedProjectionIds' : 'failedProjectionIds'], ['b']);
+    }
+});
+
+test('failed finalizer input membership must also cover the complete original required set', () =>
+{
+    const producerId = 'release-finalizer-semantic-outcome';
+    const input = { ...identity, producerId };
+    const base = fixture();
+    const candidate = adaptReleaseFinalizerSemanticOutcome({ identity: input,
+        inputAuthorityRefs: base.inputAuthorityRefs, attemptEligibility: base.attemptEligibility,
+        plan: { inputIds: ['a', 'b'], outputIds: ['output'] }, evidence: {
+            consumedIds: ['a', 'b'], verifiedIds: ['a'], failedIds: ['b'], blockedIds: [],
+            producedOutputIds: ['output'], outputDigests: { output: digest('c') } } });
+    const options = directOptions({ expectedIdentity: input, expectedProducerId: producerId,
+        expectedAuthorityId: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs' });
+    assert.equal(analyzeCandidateWithLimits(candidate, options).summary.status, 'failed');
+    assert.throws(() => analyzeCandidateWithLimits(reseal(candidate, {
+        ...candidate.outcome.membership, failedInputIds: [] }), options), /classification is incomplete/u);
+});
+
+test('actual build failures require their original per-artifact failure classification', () =>
+{
+    const producerId = 'immutable-build-semantic-outcome';
+    const input = { ...identity, producerId };
+    const base = fixture();
+    const candidate = adaptImmutableBuildSemanticOutcome({ identity: input,
+        inputAuthorityRefs: base.inputAuthorityRefs, attemptEligibility: base.attemptEligibility,
+        plan: { artifactIds: ['missing'], verificationAssertionIds: ['assertion'] },
+        evidence: { artifacts: [], verificationAssertions: [{ id: 'assertion', status: 'passed' }] } });
+    const options = directOptions({ expectedIdentity: input, expectedProducerId: producerId,
+        expectedAuthorityId: 'tools/test-matrix/outcomes/immutable-build-adapter.mjs' });
+    assert.equal(analyzeCandidateWithLimits(candidate, options).summary.status, 'failed');
+    const unrelated = sealContentDigest({ ...candidate, outcome: { ...candidate.outcome,
+        reasons: [{ kind: 'product.assertion', producerId,
+            identity: { producerId, assertionId: 'assertion' } }] } });
+    assert.throws(() => analyzeCandidateWithLimits(unrelated, options), /failure classification is incomplete/u);
+});
+
+test('original missing-evidence failures remain explicit classifications rather than invented terminal IDs', () =>
+{
+    const base = fixture();
+    const candidate = adaptReleaseProjectionSemanticOutcome({ identity,
+        inputAuthorityRefs: base.inputAuthorityRefs, attemptEligibility: base.attemptEligibility,
+        plan: { projectionIds: ['a', 'b'] }, evidence: {
+            producedIds: ['a'], verifiedIds: ['a'], failedIds: [], blockedIds: [],
+            semanticDigests: { a: digest('b') } } });
+    const result = analyzeCandidateWithLimits(candidate, directOptions());
+    assert.equal(result.summary.status, 'failed');
+    assert.deepEqual(result.summary.membership.requiredProjectionIds, ['a', 'b']);
+    assert.deepEqual(result.summary.membership.verifiedProjectionIds, ['a']);
+    assert.deepEqual(result.summary.membership.failedProjectionIds, []);
+    assert.deepEqual(result.summary.reasons.map((reason) => reason.identity.evidenceId).sort(), ['b', 'b:terminal']);
+    const omitted = sealContentDigest({ ...candidate, outcome: { ...candidate.outcome,
+        reasons: candidate.outcome.reasons.filter((reason) => reason.identity.evidenceId !== 'b:terminal') } });
+    assert.throws(() => analyzeCandidateWithLimits(omitted, directOptions()), /classification is incomplete/u);
 });
