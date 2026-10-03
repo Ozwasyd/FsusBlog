@@ -592,7 +592,7 @@ export function prepareProductionBuildLayout(options = {})
         fs.mkdirSync(directory, { recursive: true });
     }
     const artifacts = productionDotnetArtifacts(layout);
-    const projects = [artifacts.server, artifacts.tests, artifacts.benchmark];
+    const projects = [artifacts.server, artifacts.tests, artifacts.migrationTests, artifacts.xunitAdapter, artifacts.benchmark];
     if (new Set(projects.map((entry) => entry.projectExtensionsPath)).size !== projects.length)
     {
         throw new Error('production MSBuild project extension paths are not isolated');
