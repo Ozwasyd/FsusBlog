@@ -4,7 +4,9 @@ using System.Data.Common;
 using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
+using System.Text;
 
+using MySqlConnector;
 using Npgsql;
 
 using FsusBlog.Contracts.Migration;
@@ -24,6 +26,82 @@ internal static class ArticlePreservationStorageWriter
     internal const string CleanupFailuresKey = "FsusBlog.ArticlePreservation.StorageCleanupFailures";
     private const string ArticleOwner = "FsusBlog.Server.Entities.Article";
     private const string ConfigurationOwner = "FsusBlog.Server.Entities.SystemConfig";
+    private static readonly UTF8Encoding s_utf8 = new(false, true);
+
+    // Data stage only. This capability comes from the original locked RW Begin,
+    // not the read-only source session, an expected database DTO or a raw tuple.
+    // In particular this does not register the PG whole-legacy transaction step
+    // or execute MySQL DDL/allocator repair (which would implicitly commit).
+    internal static async Task<ArticlePreservationStorageStage> StageMySqlAsync(
+        ArticlePreservationWritePlan plan, ArticlePreservationSourceExport source, ArticlePreservationCurrentExport current,
+        OwnedCurrentSchemaTarget ownedTarget, OfflineMigrationApplyNativeSession.OwnedReadContext originalWrite,
+        ArticlePreservationLimits projectionLimits, ArticleMediaLimits mediaLimits,
+        ArticlePreservationWriteLimits writeLimits, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(originalWrite);
+        RequireLimits(writeLimits);
+        using CancellationTokenSource scope = originalWrite.CreateReadScope(cancellationToken);
+        scope.CancelAfter(writeLimits.OperationBudget);
+        CancellationToken token = scope.Token;
+        if (originalWrite.Provider != CurrentSchemaProviderKind.MySql
+            || originalWrite.OriginalConnection.GetType() != typeof(MySqlConnection)
+            || originalWrite.OriginalTransaction.GetType() != typeof(MySqlTransaction))
+            throw new InvalidOperationException("article_preservation_native_provider_unavailable");
+        await originalWrite.RequireBoundaryAsync(token).ConfigureAwait(false);
+        DbConnection connection = originalWrite.OriginalConnection;
+        DbTransaction transaction = originalWrite.OriginalTransaction;
+        RequireSession(connection, transaction);
+        await ownedTarget.RevalidateRetainedArtifactAsync(token).ConfigureAwait(false);
+        ArticlePreservationWritePlan expected = ArticlePreservationProjection.Project(
+            source, current, plan.Media, projectionLimits, mediaLimits, token);
+        if (expected.ContentDigest != plan.ContentDigest)
+            throw new InvalidOperationException("article_preservation_native_plan_changed");
+        ArticlePreservationStorageProgram program = ArticlePreservationStorageProgram.Compile(expected, ownedTarget, token);
+        RequireRows(program.Rows, writeLimits);
+        await RequirePublishedAsync(source.Artifact, source.Bytes, writeLimits, token).ConfigureAwait(false);
+        await RequirePublishedAsync(current.Artifact, current.Bytes, writeLimits, token).ConfigureAwait(false);
+        if (current.DefaultPolicy is not null)
+            await RequirePublishedAsync(current.DefaultPolicy.Artifact, current.DefaultPolicy.Bytes, writeLimits, token).ConfigureAwait(false);
+        foreach (ArticlePreservationCurrentPackage article in current.Articles)
+        {
+            token.ThrowIfCancellationRequested();
+            await RequirePublishedAsync(article.Artifact, article.Bytes, writeLimits, token).ConfigureAwait(false);
+        }
+        await RequireMySqlDataTablesAsync(program.Rows, originalWrite, token).ConfigureAwait(false);
+        await RequireSiteAuthorAsync(source, ownedTarget.ReadBoundInput().EntityProjection.Schema,
+            connection, transaction, writeLimits, token, SchemaProviderKind.MySql).ConfigureAwait(false);
+        bool alreadyPresent = await StageRowsAsync(program.Rows, connection, transaction,
+            writeLimits, token, SchemaProviderKind.MySql).ConfigureAwait(false);
+        await RequireMySqlDataTablesAsync(program.Rows, originalWrite, token).ConfigureAwait(false);
+        await RequireSiteAuthorAsync(source, ownedTarget.ReadBoundInput().EntityProjection.Schema,
+            connection, transaction, writeLimits, token, SchemaProviderKind.MySql).ConfigureAwait(false);
+        await ownedTarget.RevalidateRetainedArtifactAsync(token).ConfigureAwait(false);
+        await originalWrite.RequireBoundaryAsync(token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return new(plan.ContentDigest, program.Rows.Length, alreadyPresent);
+    }
+
+    private static async Task RequireMySqlDataTablesAsync(ImmutableArray<ArticlePreservationStorageRow> rows,
+        OfflineMigrationApplyNativeSession.OwnedReadContext originalWrite, CancellationToken token)
+    {
+        MySqlCurrentSchemaCatalog actual = await MySqlCurrentSchemaCatalogObserver.ReadAsync(
+            originalWrite.OriginalConnection, originalWrite.OriginalTransaction, token).ConfigureAwait(false);
+        if (actual.Database != originalWrite.Database)
+            throw new InvalidOperationException("article_preservation_native_database_changed");
+        foreach (string table in rows.Select(static row => row.Table).Distinct(StringComparer.Ordinal))
+        {
+            token.ThrowIfCancellationRequested();
+            MySqlCatalogRow[] facts = actual.Rows.Where(row => row.Part == MySqlCatalogPart.Tables
+                && row.Cells.Single(cell => cell.Name == "TABLE_NAME").Value == table).ToArray();
+            if (facts.Length != 1 || facts[0].Cells.Single(cell => cell.Name == "TABLE_TYPE").Value != "BASE TABLE"
+                || facts[0].Cells.Single(cell => cell.Name == "ENGINE").Value != "InnoDB"
+                || actual.Rows.Any(row => row.Part == MySqlCatalogPart.Triggers
+                    && row.Cells.Single(cell => cell.Name == "EVENT_OBJECT_TABLE").Value == table))
+                throw new InvalidOperationException("article_preservation_mysql_rollbackable_data_table_required");
+        }
+        // Native measured effects only: not a complete expected current target.
+        await originalWrite.RequireBoundaryAsync(token).ConfigureAwait(false);
+    }
 
     internal static async Task<ArticlePreservationStorageStage> StagePostgreSqlAsync(
         ArticlePreservationWritePlan plan, ArticlePreservationSourceExport source, ArticlePreservationCurrentExport current,
@@ -150,8 +228,10 @@ internal static class ArticlePreservationStorageWriter
     // This same body is exercised by caller-transaction command tests. Metadata-only
     // tests do not construct the original-owner capability or qualify a native provider.
     internal static async Task<bool> StageRowsAsync(ImmutableArray<ArticlePreservationStorageRow> rows,
-        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token)
+        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token,
+        SchemaProviderKind provider = SchemaProviderKind.PostgreSql)
     {
+        RequireDataDialect(provider);
         RequireSession(connection, transaction);
         RequireRows(rows, limits);
         token.ThrowIfCancellationRequested();
@@ -162,7 +242,7 @@ internal static class ArticlePreservationStorageWriter
         {
             long count = await CommandAsync(connection, transaction, limits, async command =>
             {
-                command.CommandText = $"SELECT count(*) FROM public.{Quote(group.Key)};";
+                command.CommandText = $"SELECT count(*) FROM {DataTable(group.Key, provider)};";
                 return Convert.ToInt64(await command.ExecuteScalarAsync(token).ConfigureAwait(false), CultureInfo.InvariantCulture);
             }).ConfigureAwait(false);
             anyExisting |= count != 0;
@@ -171,7 +251,8 @@ internal static class ArticlePreservationStorageWriter
         if (anyExisting)
         {
             if (!allComplete) throw new InvalidOperationException("article_preservation_native_partial_target_refused");
-            await VerifyRowsAsync(groups, connection, transaction, limits, token).ConfigureAwait(false);
+            await VerifyRowsAsync(groups, connection, transaction, limits, token, provider).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             return true;
         }
         foreach (IGrouping<string, ArticlePreservationStorageRow> group in groups)
@@ -184,30 +265,43 @@ internal static class ArticlePreservationStorageWriter
                 ArticlePreservationStorageRow[] batch = batchSource.Skip(offset).Take(batchSize).ToArray();
                 await CommandAsync(connection, transaction, limits, async command =>
                 {
-                    ConfigureInsert(command, batch);
+                    ConfigureInsert(command, batch, provider);
                     if (await command.ExecuteNonQueryAsync(token).ConfigureAwait(false) != batch.Length)
                         throw new InvalidOperationException("article_preservation_native_batch_count_changed");
                     return true;
                 }).ConfigureAwait(false);
             }
         }
-        foreach (ArticlePreservationStorageRow article in rows.Where(static row => row.EntityOwner == ArticleOwner))
+        if (provider == SchemaProviderKind.MySql)
         {
-            token.ThrowIfCancellationRequested();
-            await CommandAsync(connection, transaction, limits, async command =>
-            {
-                ConfigurePointerCas(command, article);
-                if (await command.ExecuteNonQueryAsync(token).ConfigureAwait(false) != 1)
-                    throw new InvalidOperationException("article_preservation_native_pointer_cas_failed");
-                return true;
-            }).ConfigureAwait(false);
+            await StageMySqlPointerBatchesAsync(rows, connection, transaction, limits, token).ConfigureAwait(false);
         }
-        await VerifyRowsAsync(groups, connection, transaction, limits, token).ConfigureAwait(false);
+        else
+        {
+            foreach (ArticlePreservationStorageRow article in rows.Where(static row => row.EntityOwner == ArticleOwner))
+            {
+                token.ThrowIfCancellationRequested();
+                await CommandAsync(connection, transaction, limits, async command =>
+                {
+                    ConfigurePointerCas(command, article);
+                    if (await command.ExecuteNonQueryAsync(token).ConfigureAwait(false) != 1)
+                        throw new InvalidOperationException("article_preservation_native_pointer_cas_failed");
+                    return true;
+                }).ConfigureAwait(false);
+            }
+        }
+        await VerifyRowsAsync(groups, connection, transaction, limits, token, provider).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         return false;
     }
 
     internal static void ConfigureInsert(DbCommand command, IReadOnlyList<ArticlePreservationStorageRow> rows)
+        => ConfigureInsert(command, rows, SchemaProviderKind.PostgreSql);
+
+    internal static void ConfigureMySqlInsert(DbCommand command, IReadOnlyList<ArticlePreservationStorageRow> rows)
+        => ConfigureInsert(command, rows, SchemaProviderKind.MySql);
+
+    private static void ConfigureInsert(DbCommand command, IReadOnlyList<ArticlePreservationStorageRow> rows, SchemaProviderKind provider)
     {
         ArticlePreservationStorageRow first = rows[0];
         var values = new List<string>(rows.Count);
@@ -221,8 +315,9 @@ internal static class ArticlePreservationStorageWriter
             }
             values.Add("(" + string.Join(',', parameters) + ")");
         }
-        string identity = first.Columns.Any(static column => column.IsIdentity) ? " OVERRIDING SYSTEM VALUE" : string.Empty;
-        command.CommandText = $"INSERT INTO public.{Quote(first.Table)} ({string.Join(',', first.Columns.Select(static column => Quote(column.Name)))}){identity} VALUES {string.Join(',', values)};";
+        string identity = provider == SchemaProviderKind.PostgreSql && first.Columns.Any(static column => column.IsIdentity)
+            ? " OVERRIDING SYSTEM VALUE" : string.Empty;
+        command.CommandText = $"INSERT INTO {DataTable(first.Table, provider)} ({string.Join(',', first.Columns.Select(column => DataQuote(column.Name, provider)))}){identity} VALUES {string.Join(',', values)};";
     }
 
     internal static void ConfigurePointerCas(DbCommand command, ArticlePreservationStorageRow row)
@@ -237,39 +332,94 @@ internal static class ArticlePreservationStorageWriter
     }
 
     internal static async Task VerifyRowsAsync(IEnumerable<IGrouping<string, ArticlePreservationStorageRow>> groups,
-        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token)
+        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token,
+        SchemaProviderKind provider = SchemaProviderKind.PostgreSql)
     {
+        RequireDataDialect(provider);
         foreach (IGrouping<string, ArticlePreservationStorageRow> group in groups)
         {
             ArticlePreservationStorageColumn[] columns = group.First().Columns.OrderByDescending(static column => column.IsPrimaryKey)
                 .ThenBy(static column => column.Name, StringComparer.Ordinal).ToArray();
             int keys = columns.Count(static column => column.IsPrimaryKey);
+            ArticlePreservationStorageColumn[] textColumns = provider == SchemaProviderKind.MySql
+                ? columns.Where(static column => column.DataType == "string").ToArray() : [];
+            long[] textBounds = new long[textColumns.Length];
+            for (int textIndex = 0; textIndex < textColumns.Length; textIndex++)
+                foreach (ArticlePreservationStorageRow row in group)
+                {
+                    token.ThrowIfCancellationRequested();
+                    object? value = row.Columns.Single(column => column.Name == textColumns[textIndex].Name).Value;
+                    long bytes = value is string text ? s_utf8.GetByteCount(text) : 0;
+                    if (bytes > limits.MaximumArtifactBytes)
+                        throw new InvalidOperationException("article_preservation_mysql_row_text_budget_exceeded");
+                    textBounds[textIndex] = Math.Max(textBounds[textIndex], bytes);
+                }
             var expected = group.ToDictionary(row => Key(row.Columns.Where(static column => column.IsPrimaryKey)
                 .OrderBy(static column => column.Name, StringComparer.Ordinal).Select(static column => column.Value).ToArray()), StringComparer.Ordinal);
             await CommandAsync(connection, transaction, limits, async command =>
             {
-                command.CommandText = $"SELECT {string.Join(',', columns.Select(static column => Quote(column.Name)))} FROM public.{Quote(group.Key)};";
+                var select = new List<string>(columns.Length + textColumns.Length);
+                select.AddRange(textColumns.Select(column => "OCTET_LENGTH(" + DataQuote(column.Name, provider) + ")"));
+                foreach (ArticlePreservationStorageColumn column in columns)
+                {
+                    string name = DataQuote(column.Name, provider);
+                    int textIndex = Array.FindIndex(textColumns, value => value.Name == column.Name);
+                    if (textIndex < 0)
+                        select.Add(provider == SchemaProviderKind.MySql && column.DataType == "boolean"
+                            ? "CAST(" + name + " AS SIGNED) AS " + name : name);
+                    else
+                    {
+                        DbParameter bound = command.CreateParameter();
+                        bound.ParameterName = "@length" + textIndex.ToString(CultureInfo.InvariantCulture);
+                        bound.DbType = DbType.Int64;
+                        bound.Value = textBounds[textIndex];
+                        command.Parameters.Add(bound);
+                        // MySqlConnector GetTextReader constructs a complete string.
+                        // Bound the actual result in SQL before that allocation, then
+                        // independently reject the measured length, even for NULL
+                        // expected values. SequentialAccess alone is not a byte cap.
+                        select.Add($"CASE WHEN OCTET_LENGTH({name})<={bound.ParameterName} THEN {name} ELSE NULL END AS {name}");
+                    }
+                }
+                command.CommandText = $"SELECT {string.Join(',', select)} FROM {DataTable(group.Key, provider)};";
                 await ReaderAsync(command, token, async reader =>
                 {
                     while (await reader.ReadAsync(token).ConfigureAwait(false))
                     {
+                        // These added scalar length fields cannot allocate the raw
+                        // oversized text suppressed by the CASE projection above.
+                        for (int textIndex = 0; textIndex < textColumns.Length; textIndex++)
+                        {
+                            int ordinal = textIndex;
+                            if (!await reader.IsDBNullAsync(ordinal, token).ConfigureAwait(false))
+                            {
+                                long length = Convert.ToInt64(reader.GetValue(ordinal), CultureInfo.InvariantCulture);
+                                if (length < 0 || length > textBounds[textIndex])
+                                    throw new InvalidOperationException("article_preservation_mysql_row_text_budget_exceeded");
+                            }
+                        }
                         object?[] key = new object?[keys];
-                        for (int index = 0; index < keys; index++) key[index] = reader.IsDBNull(index) ? null : reader.GetValue(index);
+                        for (int index = 0; index < keys; index++)
+                        {
+                            int ordinal = textColumns.Length + index;
+                            key[index] = reader.IsDBNull(ordinal) ? null : reader.GetValue(ordinal);
+                        }
                         if (!expected.Remove(Key(key), out ArticlePreservationStorageRow? row))
                             throw new InvalidOperationException("article_preservation_native_row_identity_changed");
                         var values = row.Columns.ToDictionary(static column => column.Name, static column => column.Value, StringComparer.Ordinal);
                         for (int index = keys; index < columns.Length; index++)
                         {
+                            int ordinal = textColumns.Length + index;
                             object? wanted = values[columns[index].Name];
-                            if (await reader.IsDBNullAsync(index, token).ConfigureAwait(false))
+                            if (await reader.IsDBNullAsync(ordinal, token).ConfigureAwait(false))
                             {
                                 if (wanted is not null) throw new InvalidOperationException("article_preservation_native_row_value_changed");
                             }
                             else if (wanted is string text)
                             {
-                                await CompareTextAsync(reader.GetTextReader(index), text, token).ConfigureAwait(false);
+                                await CompareTextAsync(reader.GetTextReader(ordinal), text, token).ConfigureAwait(false);
                             }
-                            else if (!Equals(wanted, reader.GetValue(index)))
+                            else if (!Equals(wanted, DataValue(reader.GetValue(ordinal), columns[index], provider)))
                                 throw new InvalidOperationException("article_preservation_native_row_value_changed");
                         }
                     }
@@ -314,7 +464,8 @@ internal static class ArticlePreservationStorageWriter
     }
 
     private static async Task RequireSiteAuthorAsync(ArticlePreservationSourceExport source, SchemaModelSnapshot schema,
-        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token)
+        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token,
+        SchemaProviderKind provider = SchemaProviderKind.PostgreSql)
     {
         SchemaTableModel table = schema.Tables.Values.Single(static table => table.Owner?.Owner == ConfigurationOwner);
         SchemaColumnModel key = table.Columns.Values.Single(static column => column.Owner?.Owner == ConfigurationOwner + ".Key");
@@ -328,13 +479,35 @@ internal static class ArticlePreservationStorageWriter
             parameter.DbType = DbType.String;
             parameter.Value = PublicSiteAuthorPolicy.ConfigurationKey;
             command.Parameters.Add(parameter);
-            command.CommandText = $"SELECT {Quote(value.Name)} FROM public.{Quote(table.Name)} WHERE {Quote(key.Name)}=@key;";
+            int valueOrdinal = 0;
+            long maximumBytes = 0;
+            string projection = DataQuote(value.Name, provider);
+            if (provider == SchemaProviderKind.MySql)
+            {
+                if (value.MaxLength is not > 0)
+                    throw new InvalidOperationException("article_preservation_mysql_site_author_bound_required");
+                maximumBytes = Math.Min(limits.MaximumArtifactBytes, checked((long)value.MaxLength.Value * 4));
+                DbParameter bound = command.CreateParameter();
+                bound.ParameterName = "@length";
+                bound.DbType = DbType.Int64;
+                bound.Value = maximumBytes;
+                command.Parameters.Add(bound);
+                projection = $"OCTET_LENGTH({projection}),CASE WHEN OCTET_LENGTH({projection})<=@length THEN {projection} ELSE NULL END";
+                valueOrdinal = 1;
+            }
+            command.CommandText = $"SELECT {projection} FROM {DataTable(table.Name, provider)} WHERE {DataQuote(key.Name, provider)}=@key;";
             return await ReaderAsync(command, token, async reader =>
             {
                 string? result = null;
                 if (await reader.ReadAsync(token).ConfigureAwait(false))
                 {
-                    result = reader.IsDBNull(0) ? null : reader.GetString(0);
+                    if (provider == SchemaProviderKind.MySql && !reader.IsDBNull(0))
+                    {
+                        long length = Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
+                        if (length < 0 || length > maximumBytes)
+                            throw new InvalidOperationException("article_preservation_mysql_site_author_budget_exceeded");
+                    }
+                    result = reader.IsDBNull(valueOrdinal) ? null : reader.GetString(valueOrdinal);
                     if (await reader.ReadAsync(token).ConfigureAwait(false))
                         throw new InvalidOperationException("article_preservation_native_site_author_ambiguous");
                 }
@@ -443,4 +616,79 @@ internal static class ArticlePreservationStorageWriter
         => column.PropertyOwner == ArticleOwner + ".CurrentRevisionId" || column.PropertyOwner == ArticleOwner + ".CurrentPublicationId";
     private static string Key(object?[] values) => ArticlePreservationSemanticReceipt.Digest("article-storage-native-key-v1", values);
     private static string Quote(string identifier) => SchemaMigrationSql.QuoteIdentifier(identifier);
+
+    private static void RequireDataDialect(SchemaProviderKind provider)
+    {
+        if (provider is not (SchemaProviderKind.PostgreSql or SchemaProviderKind.MySql))
+            throw new InvalidOperationException("article_preservation_native_provider_unavailable");
+    }
+
+    private static string DataQuote(string identifier, SchemaProviderKind provider)
+        => provider == SchemaProviderKind.MySql ? "`" + identifier.Replace("`", "``", StringComparison.Ordinal) + "`" : Quote(identifier);
+
+    private static string DataTable(string table, SchemaProviderKind provider)
+        => provider == SchemaProviderKind.MySql ? DataQuote(table, provider) : "public." + Quote(table);
+
+    private static object DataValue(object actual, ArticlePreservationStorageColumn column, SchemaProviderKind provider)
+        => provider == SchemaProviderKind.MySql && column.DataType == "boolean" ? actual switch
+        {
+            sbyte value when value is 0 or 1 => value == 1,
+            byte value when value is 0 or 1 => value == 1,
+            long value when value is 0 or 1 => value == 1,
+            _ => actual
+        } : actual;
+
+    private static async Task StageMySqlPointerBatchesAsync(ImmutableArray<ArticlePreservationStorageRow> rows,
+        DbConnection connection, DbTransaction transaction, ArticlePreservationWriteLimits limits, CancellationToken token)
+    {
+        foreach (IGrouping<string, ArticlePreservationStorageRow> group in rows.Where(static row => row.EntityOwner == ArticleOwner)
+            .GroupBy(static row => row.Table, StringComparer.Ordinal))
+        {
+            ArticlePreservationStorageRow[] articles = group.ToArray();
+            int batchSize = Math.Min(limits.MaximumBatchRows, limits.MaximumBatchParameters / 3);
+            for (int offset = 0; offset < articles.Length; offset += batchSize)
+            {
+                token.ThrowIfCancellationRequested();
+                ArticlePreservationStorageRow[] batch = articles.Skip(offset).Take(batchSize).ToArray();
+                await CommandAsync(connection, transaction, limits, async command =>
+                {
+                    ConfigureMySqlPointerBatch(command, batch);
+                    if (await command.ExecuteNonQueryAsync(token).ConfigureAwait(false) != batch.Length)
+                        throw new InvalidOperationException("article_preservation_native_pointer_cas_failed");
+                    return true;
+                }).ConfigureAwait(false);
+            }
+        }
+    }
+
+    internal static void ConfigureMySqlPointerBatch(DbCommand command, IReadOnlyList<ArticlePreservationStorageRow> rows)
+    {
+        if (rows.Count == 0) throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
+        ArticlePreservationStorageRow first = rows[0];
+        ArticlePreservationStorageColumn[] pointers = first.Columns.Where(static column => IsPointer(column)).ToArray();
+        ArticlePreservationStorageColumn[] keys = first.Columns.Where(static column => column.IsPrimaryKey).ToArray();
+        if (first.EntityOwner != ArticleOwner || pointers.Length != 2 || keys.Length != 1)
+            throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
+        ArticlePreservationStorageColumn[] shape = [keys[0], .. pointers];
+        var selects = new List<string>(rows.Count);
+        foreach (ArticlePreservationStorageRow row in rows)
+        {
+            if (row.Table != first.Table || row.EntityOwner != first.EntityOwner || row.Columns.Length != first.Columns.Length)
+                throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
+            var fields = new List<string>(3);
+            foreach (ArticlePreservationStorageColumn column in shape)
+            {
+                ArticlePreservationStorageColumn actual = row.Columns.Single(value => value.Name == column.Name);
+                if ((actual with { Value = null }) != (column with { Value = null }) || actual.Value is null)
+                    throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
+                fields.Add(Parameter(command, actual, actual.Value) + " AS " + DataQuote(column.Name, SchemaProviderKind.MySql));
+            }
+            selects.Add("SELECT " + string.Join(',', fields));
+        }
+        string key = DataQuote(keys[0].Name, SchemaProviderKind.MySql);
+        string assignments = string.Join(',', pointers.Select(column => "target." + DataQuote(column.Name, SchemaProviderKind.MySql)
+            + "=desired." + DataQuote(column.Name, SchemaProviderKind.MySql)));
+        string nulls = string.Join(" AND ", pointers.Select(column => "target." + DataQuote(column.Name, SchemaProviderKind.MySql) + " IS NULL"));
+        command.CommandText = $"UPDATE {DataTable(first.Table, SchemaProviderKind.MySql)} AS target JOIN ({string.Join(" UNION ALL ", selects)}) AS desired ON target.{key}=desired.{key} SET {assignments} WHERE {nulls};";
+    }
 }

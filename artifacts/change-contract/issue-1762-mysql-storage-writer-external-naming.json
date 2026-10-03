@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "third-party-sdk-callback",
+            "paths": [
+                "src/migration/ArticlePreservationStorageWriter.cs",
+                "tests/migration/ArticlePreservationMySqlStorageWriterTests.cs"
+            ],
+            "reason": "Preserve the original DbConnection/DbTransaction/DbCommand/DbDataReader and MySqlConnector lifecycle signatures. The typed data stage borrows only the original native RW context; direct command/reader SOURCE simulations never mint a native capability, close the caller connection or qualify a whole migration operation."
+        }
+    ]
+}

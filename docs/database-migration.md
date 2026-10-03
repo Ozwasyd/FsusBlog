@@ -559,6 +559,39 @@ schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
 
+The original `ArticlePreservationStorageWriter.StageMySqlAsync` now has a bounded
+data-stage dialect, not a registered whole legacy operation. It consumes only the
+original locked native RW `OwnedReadContext`, keeps its creator/caller cancellation
+linked through all awaited reads/writes/disposals, and checks the same native
+transaction/database boundaries before and after staging. The sole projection and
+storage program still map source/current policy packages to rows. Original published
+artifact bytes and plan digest are rechecked; the original native MySQL catalog
+reader refuses affected views, non-InnoDB tables and unapproved trigger effects.
+Bounded multi-row inserts defer article pointers; a bounded parameterized UPDATE
+JOIN CAS sets both pointers after the graph exists. The original complete row and
+bounded text-comparison oracle checks every stored value, including NULL/empty, Markdown
+newlines and both graph coordinates. A partial target or wrong affected count
+refuses. The writer neither opens/closes the caller connection nor commits,
+rolls back, publishes media, issues a receipt or writes another journal.
+MySqlConnector's `GetTextReader` materializes the field as a string. The MySQL
+oracle therefore selects native OCTET_LENGTH scalars before value fields and uses
+a CASE projection bounded by the strictly encoded expected text bytes; measured
+oversize refuses before a full oversized text result can be returned. This is a
+result-value bound, not a driver/network total-heap or physical deadline claim.
+
+This writer does not establish a fresh MySQL legacy source capability, complete
+current target/guard semantics or native allocator recovery. Explicit IDs can
+affect MySQL AUTO_INCREMENT state even when data rolls back; no allocator rollback
+claim or ALTER-based repair is made. The PG whole legacy step includes structural
+DDL and non-article recovery inside its original transaction. MySQL DDL implicitly
+commits, so copying that step would break the journal/media atomicity contract.
+The original `ImplicitCommit`/`AtomicOwnerMissing` refusal and complete all-provider
+registry requirement remain unchanged. A separately governed original MySQL target
+preparation/recovery semantic-step contract is still needed before whole-route
+registration (G1). SQLite still refuses minting a writer capability without its
+continuous transaction epoch. Direct command/reader SOURCE controls for this
+writer are unexecuted simulations, not native MySQL, SDK or migration acceptance.
+
 `PgCurrentSchemaCatalogObserver`, `PgCurrentSchemaEffectObserver` and
 `PgCurrentSchemaExpressionParser` are the single current native PostgreSQL
 measurement/parser implementation in Shared.Algorithms, not another expected-schema
