@@ -17,6 +17,10 @@ const {
     requestedEvaluationProfile,
     profileMarker,
     publishProfileMarker,
+    migrationToolProfile,
+    migrationToolProfileMarker,
+    loadInventory,
+    validateMigrationEmbeddedResources,
     assertDockerfile,
     assertBuildScript,
     validateEvaluatedRestoreConfiguration,
@@ -331,7 +335,8 @@ async function createFixture(t, produceLocks = true)
     write(fixture, 'config/moderation/policy.yaml', 'policy: fixture\n');
     write(fixture, 'config/build/backend-restore.xml', '<configuration><packageSources><clear /></packageSources></configuration>');
     write(fixture, 'config/build/backend-docker-inputs.json', `${JSON.stringify({
-        schema: 'fsusblog.backend-docker-inputs.v1',
+        schema: 'fsusblog.backend-docker-inputs.v2',
+        tools: [],
         entryProject: 'src/app/App.csproj',
         restoreConfigFile: 'config/build/backend-restore.xml',
         evaluationProperties: {
@@ -986,6 +991,186 @@ test('symlinked optional publish root fails closed', async t =>
     const result = run(fixture, 'check');
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /publish input root must be a regular directory/u);
+});
+
+test('independent Migration inventory is versioned and never enters the Server graph', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const file = 'config/build/backend-docker-inputs.json';
+    const base = JSON.parse(fs.readFileSync(path.join(fixture, file), 'utf8'));
+    const actual = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    const valid = { ...base, tools: structuredClone(actual.tools) };
+    const put = value => write(fixture, file, JSON.stringify(value));
+    put(valid);
+    assert.deepEqual(loadInventory(fixture).tools, actual.tools);
+    assert.deepEqual(loadInventory(fixture).projects, base.projects);
+    put({ ...valid, schema: 'fsusblog.backend-docker-inputs.v1' });
+    assert.throws(() => loadInventory(fixture), /schema/u);
+    for (const mutate of [value => value.tools[0].id = 'other',
+        value => value.tools[0].entryProject = 'src/backend/FsusBlog.Server.csproj',
+        value => value.tools[0].projects[0].references = ['src/core/FsusBlog.Core.csproj'],
+        value => value.tools[0].allowUndeclaredItems = true,
+        value => value.projects[0].references.push('src/migration/FsusBlog.Migration.csproj')])
+    {
+        const changed = structuredClone(valid);
+        mutate(changed);
+        put(changed);
+        assert.throws(() => loadInventory(fixture), /independent|Server graph/u);
+    }
+});
+
+test('independent Migration profile binds source, configuration and runtime without Server publish flags', () =>
+{
+    const input = { Configuration: 'Release', RuntimeIdentifier: 'linux-musl-x64',
+        FsusBlogCommitSha: 'a'.repeat(40), PublishSingleFile: 'true', PublishReadyToRun: 'true' };
+    const actual = migrationToolProfile(input);
+    assert.equal(actual.PublishSingleFile, 'false');
+    assert.equal(actual.PublishReadyToRun, 'false');
+    assert.equal(actual.UseAppHost, 'false');
+    assert.equal(actual.SelfContained, 'true');
+    assert.equal(actual.PublishTrimmed, 'false');
+    assert.equal(actual.FsusBlogCommitSha, input.FsusBlogCommitSha);
+    for (const changed of [{ Configuration: 'Debug' }, { RuntimeIdentifier: 'linux-x64' },
+        { FsusBlogCommitSha: 'b'.repeat(40) }])
+    {
+        assert.notEqual(migrationToolProfileMarker(migrationToolProfile({ ...input, ...changed })), migrationToolProfileMarker(actual));
+    }
+    for (const invalid of [undefined, 'latest', '0'.repeat(40)])
+    {
+        assert.throws(() => migrationToolProfile({ ...input, FsusBlogCommitSha: invalid }), /source commit/u);
+    }
+});
+
+test('selected Migration uses the original evaluated closure and refuses a real undeclared resource after a valid control', async t =>
+{
+    const fixture = await createFixture(t);
+    const project = 'src/migration/FsusBlog.Migration.csproj';
+    write(fixture, project, '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="../shared/FsusBlog.Shared.csproj" /></ItemGroup></Project>');
+    write(fixture, 'src/migration/Tool.cs', 'public sealed class MigrationTool {}\n');
+    write(fixture, 'src/shared/FsusBlog.Shared.csproj', '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>');
+    write(fixture, 'src/shared/Contract.cs', 'public sealed class SharedContract {}\n');
+    await runFixtureDotnet(fixture, 'generate-migration-locks', ['restore', project,
+        '--configfile', 'config/build/backend-restore.xml', '--force-evaluate', '--use-lock-file',
+        '--disable-parallel', '-p:RestoreLockedMode=false', '-p:NuGetAudit=false', '-nologo']);
+    const file = 'config/build/backend-docker-inputs.json';
+    const inventory = JSON.parse(fs.readFileSync(path.join(fixture, file), 'utf8'));
+    inventory.tools = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')).tools;
+    for (const resource of inventory.tools[0].embeddedResources)
+    {
+        write(fixture, resource.path, fs.readFileSync(path.join(root, resource.path)));
+    }
+    const resources = inventory.tools[0].embeddedResources.map(item =>
+        `<EmbeddedResource Include="../../${item.path}" LogicalName="${item.logicalName}" />`).join('');
+    const projectSource = fs.readFileSync(path.join(fixture, project), 'utf8').replace('</Project>',
+        `<ItemGroup>${resources}</ItemGroup></Project>`);
+    write(fixture, project, projectSource);
+    write(fixture, file, JSON.stringify(inventory));
+    const args = ['--tool', 'migration', '--commit-sha', 'a'.repeat(40)];
+    const valid = run(fixture, 'print', ...args);
+    assert.equal(valid.status, 0, valid.stderr);
+    const summary = JSON.parse(valid.stdout);
+    assert.equal(summary.schema, 'fsusblog.backend-docker-input-closure.v2');
+    assert.ok(summary.domains['migration/compile'].paths.includes('src/migration/Tool.cs'));
+    assert.ok(summary.domains['migration/compile'].paths.includes('src/shared/Contract.cs'));
+    for (const item of inventory.tools[0].embeddedResources)
+    {
+        assert.ok(summary.domains['migration/compile'].paths.includes(item.path));
+        assert.ok(!summary.domains.compile.paths.includes(item.path));
+    }
+    assert.ok(!summary.domains.compile.paths.includes('src/migration/Tool.cs'));
+    assert.ok(!Object.hasOwn(readSummary(fixture).domains, 'migration/compile'));
+    write(fixture, 'tools/unregistered.data', 'unregistered actual resource');
+    write(fixture, project, fs.readFileSync(path.join(fixture, project), 'utf8').replace('</Project>',
+        '<ItemGroup><EmbeddedResource Include="../../tools/unregistered.data" /></ItemGroup></Project>'));
+    const rejected = run(fixture, 'print', ...args);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /embedded resource closure mismatch/u);
+    for (const changed of [projectSource.replace(resources, ''),
+        projectSource.replace(inventory.tools[0].embeddedResources[0].logicalName, 'Changed.Resource.Name')])
+    {
+        write(fixture, project, changed);
+        const result = run(fixture, 'print', ...args);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /embedded resource closure mismatch/u);
+    }
+});
+
+test('retained embedded resource metadata requires the exact original project, logical names and one item per input', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const tool = JSON.parse(fs.readFileSync(path.join(root, 'config/build/backend-docker-inputs.json'), 'utf8')).tools[0];
+    for (const resource of tool.embeddedResources)
+    {
+        write(fixture, resource.path, fs.readFileSync(path.join(root, resource.path)));
+    }
+    const items = { EmbeddedResource: tool.embeddedResources.map(item => ({
+        FullPath: path.join(fixture, item.path), LogicalName: item.logicalName })) };
+    assert.doesNotThrow(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items));
+    for (const changed of [items.EmbeddedResource.slice(1), [...items.EmbeddedResource, items.EmbeddedResource[0]],
+        items.EmbeddedResource.map((item, index) => index === 0 ? { ...item, LogicalName: 'wrong' } : item),
+        items.EmbeddedResource.map((item, index) => index === 0 ? { ...item, CopyToPublishDirectory: 'Always' } : item)])
+    {
+        assert.throws(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool,
+            { EmbeddedResource: changed }), /closure mismatch/u);
+    }
+    assert.throws(() => validateMigrationEmbeddedResources(fixture, 'src/shared/FsusBlog.Shared.csproj', tool, items), /closure mismatch/u);
+    assert.doesNotThrow(() => validateMigrationEmbeddedResources(fixture, 'src/shared/FsusBlog.Shared.csproj', tool, {}));
+});
+
+test('retained embedded resource observation refuses missing files and symlinked source substitution', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const tool = JSON.parse(fs.readFileSync(path.join(root, 'config/build/backend-docker-inputs.json'), 'utf8')).tools[0];
+    const items = { EmbeddedResource: tool.embeddedResources.map(item => ({
+        FullPath: path.join(fixture, item.path), LogicalName: item.logicalName })) };
+    for (const resource of tool.embeddedResources)
+    {
+        write(fixture, resource.path, fs.readFileSync(path.join(root, resource.path)));
+    }
+    assert.doesNotThrow(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items));
+    const file = path.join(fixture, tool.embeddedResources[0].path);
+    fs.unlinkSync(file);
+    assert.throws(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items), /missing/u);
+    fs.symlinkSync(path.join(fixture, tool.embeddedResources[1].path), file);
+    assert.throws(() => validateMigrationEmbeddedResources(fixture, tool.entryProject, tool, items), /regular non-symlink/u);
+});
+
+test('retained resource declarations reject malformed, extra, duplicate and mismatched resource identities', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const file = 'config/build/backend-docker-inputs.json';
+    const inventory = JSON.parse(fs.readFileSync(path.join(fixture, file), 'utf8'));
+    inventory.tools = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')).tools;
+    const put = value => write(fixture, file, JSON.stringify(value));
+    put(inventory);
+    assert.doesNotThrow(() => loadInventory(fixture));
+    for (const mutate of [value => value.tools[0].embeddedResources.pop(),
+        value => value.tools[0].embeddedResources.push(value.tools[0].embeddedResources[0]),
+        value => value.tools[0].embeddedResources[0].logicalName = 'wrong',
+        value => value.tools[0].embeddedResources[0].path = '../outside.mjs',
+        value => value.tools[0].embeddedResources[0].extra = true])
+    {
+        const changed = structuredClone(inventory);
+        mutate(changed);
+        put(changed);
+        assert.throws(() => loadInventory(fixture), /resource declarations/u);
+    }
+});
+
+test('task tool Docker consumers preserve sealed inputs, separate output and inherited Server entrypoint', async t =>
+{
+    const fixture = await createFixture(t, false);
+    const file = 'ops/docker/FsusBlog.Server.Dockerfile';
+    const source = fs.readFileSync(path.join(fixture, file), 'utf8');
+    assert.doesNotThrow(() => assertDockerfile(fixture));
+    for (const changed of [source.replace('-o /app/migration-publish', '-o /app/publish'),
+        source.replace('COPY --from=backend-inputs /migration/compile/ /src/', 'COPY src/migration /src/migration'),
+        source.replace('FROM final AS current-native-task', 'FROM final AS current-native-task\nENTRYPOINT ["dotnet", "/app/tools/migration/FsusBlog.Migration.dll"]'),
+        source.replace('/app/migration-publish /app/tools/migration', '/app/migration-publish /app')])
+    {
+        write(fixture, file, changed);
+        assert.throws(() => assertDockerfile(fixture), /binding|authority|task tool image/u);
+    }
 });
 
 test('Docker ancestor configuration guard cannot be removed or placed after input copying', async t =>

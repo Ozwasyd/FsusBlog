@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using FsusBlog.Migration;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -213,14 +214,14 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
             new SchemaMigrationRegistry().GetDescriptors(),
             descriptor => descriptor.MigrationId == MigrationId);
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[MigrationId];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[MigrationId];
 
         Assert.True(descriptor.Transactional);
         Assert.Contains("article_mutation_outbox.claim_token:varchar(64) NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("article_mutation_outbox.claim_expires_at:timestamp NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("article_mutation_outbox_edge.delivery_key:varchar(64) NULL", fingerprint, StringComparison.Ordinal);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
     }
