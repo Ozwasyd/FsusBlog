@@ -113,6 +113,7 @@ public sealed class AuthoringExtensionExecutionResolverTests
     [InlineData("module", "update")]
     [InlineData("module", "cancel")]
     [InlineData("module", "cancel-final-read")]
+    [InlineData("module", "cancel-final-find")]
     [InlineData("module", "adapter-final-read")]
     public async Task ResolveAsync_RechecksOwnedAuthorityAfterActualSourceAndModuleVerification(string gateAt, string change)
     {
@@ -185,11 +186,27 @@ public sealed class AuthoringExtensionExecutionResolverTests
                     }
                 };
             }
+            else if (change == "cancel-final-find")
+            {
+                registry.AfterFind = (count, actual) =>
+                {
+                    if (count == 2)
+                    {
+                        Assert.Equal(descriptor, actual);
+                        cancellation.Cancel();
+                    }
+                };
+            }
             source.Release.TrySetResult(true);
             module.Release.TrySetResult(true);
-            if (change is "cancel" or "cancel-final-read")
+            if (change is "cancel" or "cancel-final-read" or "cancel-final-find")
             {
                 await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => { await pending; });
+                if (change == "cancel-final-find")
+                {
+                    Assert.Equal(2, store.ReadCount);
+                    Assert.Equal(2, registry.FindCount);
+                }
             }
             else
             {
@@ -197,6 +214,7 @@ public sealed class AuthoringExtensionExecutionResolverTests
                 Assert.Equal(2, store.ReadCount);
                 if (change == "stable")
                 {
+                    Assert.Equal(2, registry.FindCount);
                     Assert.Equal(AuthoringExecutionResolutionStatus.Ready, result.Status);
                     Assert.Equal(descriptor.AdapterId, result.TrustedAdapterId);
                     Assert.Matches("^[0-9a-f]{64}$", result.RuntimeIdentity);
@@ -222,7 +240,17 @@ public sealed class AuthoringExtensionExecutionResolverTests
     {
         public ITrustedAuthoringAdapterRegistry Current { get; set; } = current;
 
-        public TrustedAuthoringAdapterDescriptor? Find(string adapterId) => Current.Find(adapterId);
+        public int FindCount { get; private set; }
+
+        public Action<int, TrustedAuthoringAdapterDescriptor?>? AfterFind { get; set; }
+
+        public TrustedAuthoringAdapterDescriptor? Find(string adapterId)
+        {
+            TrustedAuthoringAdapterDescriptor? actual = Current.Find(adapterId);
+            FindCount++;
+            AfterFind?.Invoke(FindCount, actual);
+            return actual;
+        }
     }
 
     private sealed class GatedSourceVerifier(ITrustedAuthoringAdapterSourceVerifier inner, bool gate) : ITrustedAuthoringAdapterSourceVerifier

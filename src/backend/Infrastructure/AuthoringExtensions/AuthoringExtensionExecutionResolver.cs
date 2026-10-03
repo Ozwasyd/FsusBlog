@@ -449,6 +449,7 @@ public sealed class AuthoringExecutionResolver(
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         return new AuthoringExecutionTarget(
             AuthoringExecutionResolutionStatus.Ready,
             contribution.ExecutionClass,
