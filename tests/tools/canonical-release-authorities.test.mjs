@@ -21,6 +21,7 @@ import {
 import { verifyCanonicalReleaseAuthorityValues }
   from '../../tools/test-evidence/canonical-release-authorities-value-contract.mjs'
 import { validateCurrentSchemaBinding } from '../../tools/release/release-manifest-value-contract.mjs'
+import { createHistoricalWindowReleaseAuthorityFixture } from './support/pure-release-authority-fixture.mjs'
 import {
   createPureReleaseAuthorityFixture,
   createReadinessManifest,
@@ -436,19 +437,84 @@ test('pure release authority seal preserves the original digest convention', () 
   assert.equal(value.contentDigest, 'stale')
 })
 
-test('pure release authority bundle and facts preserve original-body golden parity', () =>
+test('pure current-only release authority bundle and facts bind the complete v2 material contract', () =>
 {
   const fixture = pureAuthorityFixture()
   const snapshot = structuredClone(fixture)
   const context = { plan: fixture.plan, candidatePlanRef: fixture.planInput.ref }
+  const releaseFacts = deriveReleaseReadinessAuthorityFacts(fixture)
+  const blueGreenFacts = deriveBlueGreenAuthorityFacts(fixture)
   const actual = {
-    releaseBundle: buildReleaseReadinessAuthorityBundle(fixture),
-    blueGreenBundle: buildBlueGreenAuthorityBundle({ ...fixture, candidatePlan: fixture.planInput.ref.path, context }),
-    releaseFacts: deriveReleaseReadinessAuthorityFacts(fixture),
-    blueGreenFacts: deriveBlueGreenAuthorityFacts(fixture)
+    releaseBundle: buildReleaseReadinessAuthorityBundle({ ...fixture, rawFacts: releaseFacts.rawFacts,
+      output: '.tmp/contract-fixture-release-bundle.json' }),
+    blueGreenBundle: buildBlueGreenAuthorityBundle({ ...fixture, candidatePlan: fixture.planInput.ref.path, context,
+      rawFacts: blueGreenFacts.rawFacts, output: '.tmp/contract-fixture-blue-green-bundle.json' }),
+    releaseFacts,
+    blueGreenFacts
   }
-  // Captured from original bundle bodies at 0e8ed680 and projector bodies at 311cf194e.
-  assert.equal(semanticDigest(actual), 'sha256:52c0b87d0be0abf9a13d578164af0910679485fa3e7f6ac7b3b7df494fa0e0d4')
+  const current = fixture.authorities.currentSchema
+  const schemaView = { target: current.receipt.target, actualSchemaDigest: current.receipt.actualSchemaDigest }
+  assert.deepEqual(schemaView, {
+    target: { modelVersion: 'contract-fixture-model.v1', extractorVersion: 'contract-fixture-extractor.v1',
+      generatorVersion: 'contract-fixture-generator.v1', sourceDigest: '2'.repeat(64), contentDigest: '3'.repeat(64) },
+    actualSchemaDigest: '4'.repeat(64)
+  })
+  assert.deepEqual(current.receiptRef, { path: fixture.authorities.manifest.value.currentSchema.receipt.reference,
+    fileDigest: `sha256:${fixture.authorities.manifest.value.currentSchema.receipt.sha256}`,
+    contentDigest: `sha256:${current.receipt.contentDigest}`, schema: 'fsusblog.current-schema-receipt.v1' })
+  assert.equal(current.admission.ref.contentDigest, null)
+  assert.deepEqual(releaseFacts.rawFacts, {
+    artifact: { rollout: fixture.authorities.rollout.ref, runtimeRole: fixture.authorities.runtimeRole.observation.ref,
+      manifest: fixture.authorities.manifest.ref, currentSchema: current.receiptRef },
+    image: fixture.authorities.rollout.value.target.imageDigest,
+    package: { receipt: fixture.build.receipt.ref, artifacts: fixture.build.receipt.value.artifacts },
+    config: fixture.authorities.runtimeRole.deployment.value,
+    schema: schemaView,
+    runtimeRole: 'monolithic', candidateId: fixture.plan.candidate.candidateId, releaseId: fixture.plan.candidate.releaseId,
+    readiness: { rollout: fixture.authorities.rollout.ref, currentSchemaAdmission: current.admission }
+  })
+  assert.equal(releaseFacts.legacyFacts.schemaDigest, semanticDigest(schemaView))
+  assert.equal(releaseFacts.typedFacts.schemaDigest, semanticDigest(schemaView))
+  const rollout = fixture.authorities.rollout
+  const stage = name => rollout.value.stages.find(value => value.stage === name)
+  assert.deepEqual(blueGreenFacts.rawFacts, {
+    activeBefore: rollout.value.source, standbyBefore: rollout.value.target,
+    activeAfter: rollout.value.target, standbyAfter: rollout.value.source,
+    promotion: stage('candidate-readiness'), switch: stage('gateway-switch'), health: stage('target-health'),
+    rollback: rollout.value.recoveries, trafficOwnership: rollout.value.artifacts.publicTraffic,
+    containment: { artifact: rollout.value.artifacts.assetCompatibility.sha256,
+      volume: rollout.value.artifacts.resourceBudget.sha256,
+      schema: rollout.value.auxiliary.compatibilityMatrix.sha256,
+      process: fixture.authorities.runtimeRole.observation.ref.fileDigest,
+      currentSchema: current.receiptRef, nativeAdmission: current.admission },
+    terminalReceipt: rollout.ref
+  })
+  for (const [field, value] of Object.entries(releaseFacts.rawFacts))
+    assert.deepEqual(releaseFacts.typedFacts[field === 'runtimeRole' || field.endsWith('Id') ? field : `${field}Digest`],
+      field === 'runtimeRole' || field.endsWith('Id') ? value : semanticDigest(value))
+  for (const [field, value] of Object.entries(blueGreenFacts.rawFacts))
+    assert.equal(blueGreenFacts.typedFacts[`${field}Digest`], semanticDigest(value))
+  assert.deepEqual(blueGreenFacts.rawFacts.containment.currentSchema, current.receiptRef)
+  assert.deepEqual(blueGreenFacts.rawFacts.containment.nativeAdmission, current.admission)
+  for (const [bundle, schema, rawFacts] of [
+    [actual.releaseBundle, 'fsusblog.release-identity-readiness-authority-bundle.v2', releaseFacts.rawFacts],
+    [actual.blueGreenBundle, 'fsusblog.blue-green-containment-authority-bundle.v2', blueGreenFacts.rawFacts]
+  ])
+  {
+    assert.equal(bundle.schema, schema)
+    assert.equal(bundle.producerId, fixture.producer.producerId)
+    assert.equal(bundle.toolVersion, 'production-correctness-scheduler@2')
+    assert.deepEqual(bundle.sourceState, fixture.sourceState)
+    assert.deepEqual(bundle.rawFacts, rawFacts)
+    assert.deepEqual(bundle.currentSchemaReceiptRef, current.receiptRef)
+    assert.equal(bundle.runtimeRoleAdmissionRef.schema, 'fsusblog.behavior-doc-static-admission-receipt.v2')
+    assert.equal(bundle.runtimeRoleAdmissionRef.role, 'runtime-role-admission')
+    assert.equal(bundle.rolloutEvidenceRef.schema, 'fsusblog.release-rollout-evidence.v1')
+    assert.equal(bundle.rolloutEvidenceRef.role, 'release-rollout')
+    assert.deepEqual(bundle.candidatePlanRef, fixture.planInput.ref)
+    assert.equal(bundle.authorityDigest, fixture.authorities.authorityDigest)
+    assert.deepEqual(pureSeal(bundle), bundle)
+  }
   assert.deepEqual(fixture, snapshot)
 })
 
@@ -456,16 +522,92 @@ test('pure release authority facts follow current inputs and preserve projection
 {
   const fixture = pureAuthorityFixture()
   fixture.build.packageDigest = semanticDigest('changed-package')
-  fixture.authorities.manifest.value.schemaCompatibility.contentDigest = semanticDigest('explicit-schema')
+  fixture.build.receipt.value.artifacts[0].fileDigest = semanticDigest('changed-package-artifact')
+  const current = fixture.authorities.currentSchema
+  current.receipt.target.contentDigest = 'f'.repeat(64)
+  fixture.authorities.manifest.value.currentSchema.target.contentDigest = current.receipt.target.contentDigest
+  const expectedSchemaView = { target: current.receipt.target, actualSchemaDigest: current.receipt.actualSchemaDigest }
   const release = deriveReleaseReadinessAuthorityFacts(fixture)
-  assert.equal(release.typedFacts.packageDigest, fixture.build.packageDigest)
+  assert.equal(release.typedFacts.packageDigest, semanticDigest({
+    receipt: fixture.build.receipt.ref, artifacts: fixture.build.receipt.value.artifacts
+  }))
   assert.equal(release.legacyFacts.packageDigest, fixture.build.packageDigest)
-  assert.equal(release.typedFacts.schemaDigest, fixture.authorities.manifest.value.schemaCompatibility.contentDigest)
+  assert.deepEqual(release.rawFacts.schema, expectedSchemaView)
+  assert.equal(release.typedFacts.schemaDigest, semanticDigest(expectedSchemaView))
+  assert.equal(release.legacyFacts.schemaDigest, semanticDigest(expectedSchemaView))
+  current.receipt.actualSchemaDigest = 'e'.repeat(64)
+  fixture.authorities.manifest.value.currentSchema.actualSchemaDigest = current.receipt.actualSchemaDigest
+  const changedSchema = deriveReleaseReadinessAuthorityFacts(fixture)
+  assert.notEqual(changedSchema.typedFacts.schemaDigest, release.typedFacts.schemaDigest)
+  assert.equal(changedSchema.legacyFacts.schemaDigest, changedSchema.typedFacts.schemaDigest)
   fixture.authorities.rollout.value.stages = fixture.authorities.rollout.value.stages.filter(({ stage }) => stage !== 'candidate-readiness')
   const blue = deriveBlueGreenAuthorityFacts(fixture)
   assert.equal(blue.typedFacts.promotionDigest, blue.typedFacts.switchDigest)
   fixture.authorities.rollout.value.artifacts.assetCompatibility.sha256 = semanticDigest('changed-assets')
   assert.notEqual(deriveBlueGreenAuthorityFacts(fixture).typedFacts.containmentDigest, blue.typedFacts.containmentDigest)
+})
+
+test('pure current-only projection cannot fall back to a historical window when native material is absent', () =>
+{
+  const fixture = pureAuthorityFixture()
+  delete fixture.authorities.currentSchema
+  fixture.authorities.manifest.value.schemaCompatibility = { minimum: 1, maximum: 2,
+    contentDigest: semanticDigest('historical-window') }
+  for (const project of [deriveReleaseReadinessAuthorityFacts, deriveBlueGreenAuthorityFacts])
+    assert.throws(() => project(fixture), {
+      message: '[canonical-release-authorities] independently verified native material is unavailable'
+    })
+})
+
+test('current v2 consumers refuse the unchanged historical window fixture', () =>
+{
+  const historical = createHistoricalWindowReleaseAuthorityFixture(semanticDigest)
+  const snapshot = structuredClone(historical)
+  // Historical golden custody: original test/body is fixed at 7beb094e.
+  // assert.equal(semanticDigest(actual), 'sha256:52c0b87d0be0abf9a13d578164af0910679485fa3e7f6ac7b3b7df494fa0e0d4')
+  // No historical projector is executed here and no replacement golden is invented.
+  assert.deepEqual(historical.authorities.manifest.value, { schemaCompatibility: { minimum: 1, maximum: 2 } })
+  for (const project of [deriveReleaseReadinessAuthorityFacts, deriveBlueGreenAuthorityFacts])
+    assert.throws(() => project(historical), {
+      message: '[canonical-release-authorities] independently verified native material is unavailable'
+    })
+  const current = pureAuthorityFixture()
+  const options = { ...historical, plan: current.plan, producer: current.producer, sourceState: current.sourceState,
+    rawFacts: {}, output: '.tmp/contract-fixture-legacy-bundle.json', candidatePlan: historical.planInput.ref.path,
+    context: { plan: current.plan, candidatePlanRef: historical.planInput.ref } }
+  for (const build of [buildReleaseReadinessAuthorityBundle, buildBlueGreenAuthorityBundle])
+    assert.throws(() => build(options), {
+      message: '[canonical-release-authorities] current-schema native verification owner is unavailable'
+    })
+  assert.deepEqual(historical, snapshot)
+})
+
+test('current schema facts bind every target field and the observed physical schema independently', () =>
+{
+  const original = pureAuthorityFixture()
+  const expected = deriveReleaseReadinessAuthorityFacts(original)
+  for (const field of ['modelVersion', 'extractorVersion', 'generatorVersion', 'sourceDigest', 'contentDigest', 'actualSchemaDigest'])
+  {
+    const changed = structuredClone(original)
+    const current = changed.authorities.currentSchema
+    if (field === 'actualSchemaDigest')
+    {
+      current.receipt.actualSchemaDigest = 'e'.repeat(64)
+      changed.authorities.manifest.value.currentSchema.actualSchemaDigest = current.receipt.actualSchemaDigest
+    }
+    else
+    {
+      current.receipt.target[field] = field.endsWith('Digest') ? 'f'.repeat(64) : `changed-${field}`
+      changed.authorities.manifest.value.currentSchema.target[field] = current.receipt.target[field]
+    }
+    const actual = deriveReleaseReadinessAuthorityFacts(changed)
+    assert.deepEqual(actual.rawFacts.schema, { target: current.receipt.target,
+      actualSchemaDigest: current.receipt.actualSchemaDigest })
+    assert.notEqual(actual.typedFacts.schemaDigest, expected.typedFacts.schemaDigest, field)
+    assert.equal(actual.legacyFacts.schemaDigest, actual.typedFacts.schemaDigest, field)
+    for (const key of Object.keys(expected.typedFacts).filter(key => key !== 'schemaDigest'))
+      assert.deepEqual(actual.typedFacts[key], expected.typedFacts[key], `${field}:${key}`)
+  }
 })
 
 const commit = resolveSourceCommit(root)
