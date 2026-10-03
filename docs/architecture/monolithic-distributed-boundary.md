@@ -12,6 +12,15 @@ render: rationale-prose
 
 ## Invariants
 
+The required compiled runtime-role observer refuses with
+`runtime_role_current_schema_observation_unavailable` before deployment-oracle
+execution or observation publication. Its CLI has no explicit current-schema
+receipt and fresh database admission inputs; retired compatibility catalogs,
+release windows and synthesized successful history cannot supply that evidence.
+The existing receipt schema is not replaced with an empty or self-reported
+success. The generated runtime-role section below remains unchanged pending its
+original producer and is not current evidence that this required observer passed.
+
 ## Runtime modes
 
 <!-- fsus-doc-claim

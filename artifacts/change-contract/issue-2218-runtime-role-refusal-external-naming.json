@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "runtime-role-observation-authority",
+            "paths": [
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs"
+            ],
+            "reason": "Preserve the original runtime-role CLI, artifact and receipt field spelling while refusing unavailable current evidence; internal symbols and observation authority are not relaxed."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/monolithic-distributed-boundary.md"
+            ],
+            "reason": "Preserve the original post-runtime observation and document identifiers while documenting required refusal. Existing generated sections are retained without a new success or execution claim."
+        }
+    ]
+}
