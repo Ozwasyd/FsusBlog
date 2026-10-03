@@ -36,8 +36,9 @@ a performance technique. A benchmark receives a stable full grant only after the
 `cpuset.cpus` is deliberately disabled: topology, NUMA placement, heterogeneous cores, and dynamic redistribution are
 not yet proven. A wrong cpuset can make throughput and benchmark variance worse even when CPU counts appear correct.
 
-`memory.high` equals the scheduler memory grant. `memory.max` adds machine-derived safety headroom while remaining
-inside physical memory; `pids.max` is derived from both granted CPU and memory. Expansion or contraction rewrites all
+`memory.high` floors the scheduler memory grant to whole bytes before projecting downward to the observed kernel page size. `memory.max` adds
+machine-derived, page-aligned safety headroom while remaining inside physical memory; `pids.max` is derived from both
+granted CPU and memory. CPU quota quantization also rounds downward, not above the admitted CPU share. Expansion or contraction rewrites all
 effective controls without restarting the bundle. The scheduler evidence compares every declared grant with the
 values read back from `cpu.max`, `cpu.weight`, `memory.high`, `memory.max`, and `pids.max`.
 Any CPU or memory grant above the admitted machine envelope fails before control files are written, so enforcement
@@ -58,6 +59,28 @@ is supported only when its daemon accepts the same flags, otherwise the real Doc
 Once any OCI limit is present, the entire CPU/memory/pids tuple and all three identity fields are mandatory; partial,
 zero, inverted memory, or anonymous configurations fail closed instead of starting an unconstrained container.
 
+## Managed MySQL fixture reservations
+
+The resource owner exposes an explicit systemd user-manager boundary for the run-owned MySQL migration fixture.
+Its context binds the literal repository root, run, namespace, source state, bundle, and scheduler incarnation;
+the sole boundary owner durably retains its private creation reference before a unit is created. Selecting this
+interface does not grant host permission or attest that a local manager is usable. An explicitly selected filesystem
+delegate root cannot be silently replaced by this interface, and neither advisory nor off mode can issue its lease.
+
+`partitionContainerResourceGrant` subtracts the catalog's exact CPU, memory-high, memory-max, and PID reservation
+from the existing scheduler grant. It never creates a second grant, enlarges the envelope, or removes the minimum
+remaining process share. The managed service and process slice share that original total grant. A held lease binds
+the exact producer/source identity and reobserves the retained service, live process incarnation, cgroup membership,
+and all effective process controls. A JSON snapshot is evidence of the reservation, not its in-process authority.
+Launcher admission and PID are retained as a separate frozen private snapshot; mutable evidence cannot replace them.
+
+The caller must consume the sole managed-service pre-exec binding or exact registered launcher before fixture
+admission. Source restoration alone does not complete that scheduler call chain, BehaviorDoc admission, native
+service qualification, or Migration execution. `releaseAfterCleanup` restores the process share and releases the
+reservation only after the lifecycle owner proves both exact container absence and credential removal; failed or
+incomplete cleanup retains the lease. Resource-owner finalization reports `retained-container-reservations` while
+any such reservation remains, rather than deleting its ancestor or admitting another execution.
+
 ## Evidence and cleanup
 
 The #1071 canonical resource report embeds `resourceEnforcement` from the final checkpoint. Per bundle it includes:
@@ -68,6 +91,8 @@ The #1071 canonical resource report embeds `resourceEnforcement` from the final 
 - CPU and memory PSI;
 - `memory.current`, `memory.events` including high/max/OOM/OOM-kill;
 - `pids.current`, `pids.events`, and Docker effective limits.
+
+Unavailable numeric counters remain `null`; missing observations are not fabricated zeroes.
 
 Normal completion, failure, SIGINT, and SIGTERM terminate bundle process groups, sample final counters, and remove empty
 owned cgroups. Cleanup retains a cgroup containing live processes and reports `retained-active`, so an active run is
