@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+            ],
+            "reason": "Preserve the resolver source owner's existing caller-visible spellings while repairing verified contract and active-package identity admission; no process environment or public protocol is changed."
+        }
+    ]
+}

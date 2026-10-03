@@ -1,14 +1,296 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
 public sealed class AuthoringExtensionExecutionResolverTests
 {
+    [Theory]
+    [InlineData("path")]
+    [InlineData("class")]
+    [InlineData("capabilities")]
+    [InlineData("version")]
+    [InlineData("registry")]
+    public async Task ResolveAsync_RejectsCopiedIdentityWithChangedTypedContract(string field)
+    {
+        VerifiedAuthoringPackage original = await CreateVerifiedPackageAsync(
+            AuthoringExecutionClass.IsolatedWorkerWasm, AuthoringEntrypointFormat.WasmModule, "worker/main.wasm");
+        var store = new MutableInstalledPackageStore(original);
+        var authority = new ActiveAuthoringInstalledPackageAuthority(store);
+        var resolver = new AuthoringExecutionResolver(
+            new ClosedTrustedAuthoringAdapterRegistry([]),
+            new ExactSourceVerifier(true),
+            new ExactModuleVerifier(true),
+            authority);
+        Assert.True(await authority.IsActiveExactAsync(original, default));
+        Assert.Equal(AuthoringExecutionResolutionStatus.Ready,
+            (await resolver.ResolveAsync(original, "acme.command.format", AuthoringHostPlatform.ServerLinux)).Status);
+        AuthoringContributionDeclaration contribution = original.Contract.Manifest.Contributions[0];
+        AuthoringExtensionManifest changed = field switch
+        {
+            "path" => original.Contract.Manifest with
+            {
+                Contributions = [contribution with { Entrypoint = contribution.Entrypoint with { PathOrAdapterId = "worker/other.wasm" } }]
+            },
+            "class" => original.Contract.Manifest with
+            {
+                Contributions = [contribution with
+                {
+                    ExecutionClass = AuthoringExecutionClass.OutOfProcessService,
+                    Entrypoint = contribution.Entrypoint with { Format = AuthoringEntrypointFormat.ServiceExecutable }
+                }]
+            },
+            "capabilities" => original.Contract.Manifest with
+            {
+                Contributions = [contribution with { Capabilities = [AuthoringCapability.SelectionRead] }]
+            },
+            "version" => original.Contract.Manifest with { Version = "9.0.0" },
+            _ => original.Contract.Manifest
+        };
+        VerifiedAuthoringExtensionContract recomputed = AuthoringExtensionContractValidator.Verify(changed);
+        VerifiedAuthoringPackage forged = original with
+        {
+            Contract = original.Contract with
+            {
+                Manifest = changed,
+                RegistryIdentity = field == "registry" ? new string('0', 64) : original.Contract.RegistryIdentity
+            }
+        };
+        Assert.Equal(original.PackageIdentity, forged.PackageIdentity);
+        Assert.Equal(original.Contract.ContractIdentity, forged.Contract.ContractIdentity);
+        Assert.Equal(original.Artifact, forged.Artifact);
+        Assert.Equal(original.Contents, forged.Contents);
+        if (field == "registry")
+        {
+            Assert.NotEqual(recomputed.RegistryIdentity, forged.Contract.RegistryIdentity);
+        }
+        else
+        {
+            Assert.NotEqual(recomputed.ContractIdentity, forged.Contract.ContractIdentity);
+        }
+        Assert.False(await authority.IsActiveExactAsync(forged, default));
+        AuthoringExecutionTarget rejected = await resolver.ResolveAsync(
+            forged, "acme.command.format", AuthoringHostPlatform.ServerLinux);
+        Assert.Equal(AuthoringExecutionResolutionStatus.BlockedIdentityDrift, rejected.Status);
+        Assert.Equal("runtime-identity-drift", rejected.BlockedReason);
+        Assert.Empty(rejected.RuntimeIdentity);
+        Assert.Equal(AuthoringExecutionResolutionStatus.Ready,
+            (await resolver.ResolveAsync(original, "acme.command.format", AuthoringHostPlatform.ServerLinux)).Status);
+    }
+
+    [Fact]
+    public async Task InstalledPackageAuthority_RejectsChangedActiveManifestWithCopiedDigest()
+    {
+        VerifiedAuthoringPackage original = await CreateVerifiedPackageAsync(
+            AuthoringExecutionClass.IsolatedWorkerWasm, AuthoringEntrypointFormat.WasmModule, "worker/main.wasm");
+        var store = new MutableInstalledPackageStore(original);
+        var authority = new ActiveAuthoringInstalledPackageAuthority(store);
+        Assert.True(await authority.IsActiveExactAsync(original, default));
+        VerifiedAuthoringPackage changed = original with
+        {
+            Contract = original.Contract with { Manifest = original.Contract.Manifest with { Version = "9.0.0" } }
+        };
+        store.Active = changed;
+        Assert.Equal(original.Contract.ContractIdentity, changed.Contract.ContractIdentity);
+        Assert.False(await authority.IsActiveExactAsync(original, default));
+        store.Active = original;
+        Assert.True(await authority.IsActiveExactAsync(original, default));
+    }
+
+    [Theory]
+    [InlineData("source", "stable")]
+    [InlineData("module", "stable")]
+    [InlineData("source", "uninstall")]
+    [InlineData("module", "uninstall")]
+    [InlineData("source", "update")]
+    [InlineData("module", "update")]
+    [InlineData("module", "cancel")]
+    [InlineData("module", "cancel-final-read")]
+    [InlineData("module", "adapter-final-read")]
+    public async Task ResolveAsync_RechecksOwnedAuthorityAfterActualSourceAndModuleVerification(string gateAt, string change)
+    {
+        const string SourcePath = "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs";
+        string sourceDigest = Convert.ToHexStringLower(SHA256.HashData(
+            await File.ReadAllBytesAsync(Path.Combine(BackendTestPaths.RepositoryRoot, SourcePath))));
+        Assembly assembly = typeof(AuthoringExecutionResolver).Assembly;
+        string moduleDigest = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(assembly.Location)));
+        VerifiedAuthoringPackage package = await CreateVerifiedPackageAsync(
+            AuthoringExecutionClass.TrustedHostAdapter, AuthoringEntrypointFormat.HostAdapterIdentity,
+            "fsusblog.authoring.adapter.command", publisher: "fsusblog", entrypointDigest: sourceDigest);
+        var descriptor = new TrustedAuthoringAdapterDescriptor(
+            "fsusblog.authoring.adapter.command", "acme.command.format", AuthoringContributionKind.Command,
+            1, SourcePath, sourceDigest, assembly.GetName().Name!, moduleDigest, "authoring-maintainers",
+            [AuthoringHostPlatform.ServerLinux]);
+        var actualSource = new CheckedInAuthoringAdapterSourceVerifier(BackendTestPaths.RepositoryRoot);
+        var actualModule = new LoadedAssemblyTrustedAuthoringAdapterModuleVerifier();
+        Assert.True(await actualSource.IsCheckedInSourceExactAsync(descriptor, default));
+        Assert.True(await actualModule.IsLoadedModuleExactAsync(descriptor, default));
+        var registry = new MutableAdapterRegistry(new ClosedTrustedAuthoringAdapterRegistry([descriptor]));
+        var store = new MutableInstalledPackageStore(package);
+        var authority = new ActiveAuthoringInstalledPackageAuthority(store);
+        Assert.True(await authority.IsActiveExactAsync(package, default));
+        store.ReadCount = 0;
+        var source = new GatedSourceVerifier(actualSource, gateAt == "source");
+        var module = new GatedModuleVerifier(actualModule, gateAt == "module");
+        var resolver = new AuthoringExecutionResolver(registry, source, module, authority);
+        using var cancellation = new CancellationTokenSource();
+        Task<AuthoringExecutionTarget> pending = resolver.ResolveAsync(
+            package, "acme.command.format", AuthoringHostPlatform.ServerLinux,
+            cancellationToken: cancellation.Token).AsTask();
+        try
+        {
+            await (gateAt == "source" ? source.Entered.Task : module.Entered.Task).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(1, store.ReadCount);
+            if (change == "uninstall")
+            {
+                store.Active = null;
+            }
+            else if (change == "update")
+            {
+                VerifiedAuthoringPackage updated = await CreateVerifiedPackageAsync(
+                    AuthoringExecutionClass.TrustedHostAdapter, AuthoringEntrypointFormat.HostAdapterIdentity,
+                    "fsusblog.authoring.adapter.updated", publisher: "fsusblog", entrypointDigest: sourceDigest);
+                Assert.NotEqual(package.PackageIdentity, updated.PackageIdentity);
+                store.Active = updated;
+            }
+            else if (change == "cancel")
+            {
+                cancellation.Cancel();
+            }
+            else if (change == "cancel-final-read")
+            {
+                store.AfterRead = count =>
+                {
+                    if (count == 2)
+                    {
+                        cancellation.Cancel();
+                    }
+                };
+            }
+            else if (change == "adapter-final-read")
+            {
+                store.AfterRead = count =>
+                {
+                    if (count == 2)
+                    {
+                        registry.Current = new ClosedTrustedAuthoringAdapterRegistry(
+                            [descriptor with { ReviewOwner = "authoring-maintainers-revised" }]);
+                    }
+                };
+            }
+            source.Release.TrySetResult(true);
+            module.Release.TrySetResult(true);
+            if (change is "cancel" or "cancel-final-read")
+            {
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => { await pending; });
+            }
+            else
+            {
+                AuthoringExecutionTarget result = await pending;
+                Assert.Equal(2, store.ReadCount);
+                if (change == "stable")
+                {
+                    Assert.Equal(AuthoringExecutionResolutionStatus.Ready, result.Status);
+                    Assert.Equal(descriptor.AdapterId, result.TrustedAdapterId);
+                    Assert.Matches("^[0-9a-f]{64}$", result.RuntimeIdentity);
+                }
+                else
+                {
+                    Assert.Equal(change == "adapter-final-read"
+                        ? AuthoringExecutionResolutionStatus.BlockedIdentityDrift
+                        : AuthoringExecutionResolutionStatus.BlockedPackageNotActive, result.Status);
+                    Assert.Empty(result.RuntimeIdentity);
+                }
+            }
+        }
+        finally
+        {
+            source.Release.TrySetResult(true);
+            module.Release.TrySetResult(true);
+            cancellation.Cancel();
+        }
+    }
+
+    private sealed class MutableAdapterRegistry(ITrustedAuthoringAdapterRegistry current) : ITrustedAuthoringAdapterRegistry
+    {
+        public ITrustedAuthoringAdapterRegistry Current { get; set; } = current;
+
+        public TrustedAuthoringAdapterDescriptor? Find(string adapterId) => Current.Find(adapterId);
+    }
+
+    private sealed class GatedSourceVerifier(ITrustedAuthoringAdapterSourceVerifier inner, bool gate) : ITrustedAuthoringAdapterSourceVerifier
+    {
+        public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask<bool> IsCheckedInSourceExactAsync(TrustedAuthoringAdapterDescriptor descriptor, CancellationToken cancellationToken)
+        {
+            bool valid = await inner.IsCheckedInSourceExactAsync(descriptor, cancellationToken);
+            if (gate)
+            {
+                Assert.True(valid);
+                Entered.TrySetResult(true);
+                await Release.Task;
+            }
+            return valid;
+        }
+    }
+
+    private sealed class GatedModuleVerifier(ITrustedAuthoringAdapterModuleVerifier inner, bool gate) : ITrustedAuthoringAdapterModuleVerifier
+    {
+        public TaskCompletionSource<bool> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask<bool> IsLoadedModuleExactAsync(TrustedAuthoringAdapterDescriptor descriptor, CancellationToken cancellationToken)
+        {
+            bool valid = await inner.IsLoadedModuleExactAsync(descriptor, cancellationToken);
+            if (gate)
+            {
+                Assert.True(valid);
+                Entered.TrySetResult(true);
+                await Release.Task;
+            }
+            return valid;
+        }
+    }
+
+    private sealed class MutableInstalledPackageStore(VerifiedAuthoringPackage active) : IAuthoringPackageStore
+    {
+        public VerifiedAuthoringPackage? Active { get; set; } = active;
+
+        public int ReadCount { get; set; }
+
+        public Action<int>? AfterRead { get; set; }
+
+        public ValueTask<VerifiedAuthoringPackage?> GetActiveAsync(string extensionId, CancellationToken cancellationToken)
+        {
+            ReadCount++;
+            AfterRead?.Invoke(ReadCount);
+            return ValueTask.FromResult(Active);
+        }
+
+        public ValueTask<bool> ContainsAsync(string packageIdentity, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask StageAsync(VerifiedAuthoringPackage package, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask ActivateAsync(string extensionId, string packageIdentity, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask DeactivateAsync(string extensionId, string expectedPackageIdentity, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask RemoveStagedAsync(string packageIdentity, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask AssertContentUnchangedAsync(string packageIdentity, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
     [Fact]
     public async Task ResolveAsync_ThirdPartyTrustedAdapter_FailsClosed()
     {
@@ -286,21 +568,391 @@ public sealed class AuthoringExtensionExecutionResolverTests
     [Fact]
     public void ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"));
+        Type[] resolverTypes =
+        [
+            typeof(AuthoringExecutionResolutionStatus),
+            typeof(TrustedAuthoringAdapterDescriptor),
+            typeof(AuthoringExecutionTarget),
+            typeof(ITrustedAuthoringAdapterRegistry),
+            typeof(ITrustedAuthoringAdapterModuleVerifier),
+            typeof(ITrustedAuthoringAdapterSourceVerifier),
+            typeof(CheckedInAuthoringAdapterSourceVerifier),
+            typeof(IAuthoringInstalledPackageAuthority),
+            typeof(ActiveAuthoringInstalledPackageAuthority),
+            typeof(LoadedAssemblyTrustedAuthoringAdapterModuleVerifier),
+            typeof(ClosedTrustedAuthoringAdapterRegistry),
+            typeof(AuthoringExecutionResolver)
+        ];
+        Assert.All(resolverTypes, AssertNoResolverSurface);
+    }
 
-        Assert.DoesNotContain("Assembly.Load", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Activator.CreateInstance", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("editorRef", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Pinia", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("WebView", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("iframe", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("object Payload", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Func<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Action<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("dynamic ", source, StringComparison.Ordinal);
+    private static void AssertNoResolverSurface(Type rootType)
+    {
+        foreach (Type type in EnumerateResolverTypeTree(rootType))
+        {
+            AssertNoCompiledResolverSurface(type);
+            AssertNoErasedResolverSurface(type);
+        }
+    }
+
+    private static void AssertNoCompiledResolverSurface(Type type)
+    {
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("Assembly.Load", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Activator.CreateInstance", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.CSharp.RuntimeBinder", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Runtime.CompilerServices.CallSite", compiled, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<Type> EnumerateResolverTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateResolverTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static void AssertNoErasedResolverSurface(Type type)
+    {
+        const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Instance | BindingFlags.Static;
+        AssertNoDynamicAttribute(type.CustomAttributes);
+        foreach (MemberInfo member in type.GetMembers(Declared))
+        {
+            AssertNoDynamicAttribute(member.CustomAttributes);
+            Type? valueType = member switch
+            {
+                FieldInfo field => field.FieldType,
+                PropertyInfo property => property.PropertyType,
+                EventInfo eventInfo => eventInfo.EventHandlerType,
+                MethodInfo method => method.ReturnType,
+                _ => null
+            };
+            if (valueType is not null)
+            {
+                Assert.False(IsFuncOrAction(valueType), $"{type.FullName}.{member.Name}: Func/Action");
+                Assert.False(member.Name == "Payload" && IsObjectPayloadType(valueType),
+                    $"{type.FullName}.{member.Name}: object Payload");
+            }
+
+            if (member is MethodInfo methodInfo)
+            {
+                AssertNoDynamicAttribute(methodInfo.ReturnParameter.CustomAttributes);
+            }
+
+            if (member is MethodBase methodBase)
+            {
+                foreach (ParameterInfo parameter in methodBase.GetParameters())
+                {
+                    AssertNoDynamicAttribute(parameter.CustomAttributes);
+                    Assert.False(IsFuncOrAction(parameter.ParameterType),
+                        $"{type.FullName}.{member.Name}({parameter.Name}): Func/Action");
+                    Assert.False(parameter.Name == "Payload" && IsObjectPayloadType(parameter.ParameterType),
+                        $"{type.FullName}.{member.Name}({parameter.Name}): object Payload");
+                }
+            }
+        }
+    }
+
+    private static void AssertNoDynamicAttribute(IEnumerable<CustomAttributeData> attributes) =>
+        Assert.DoesNotContain(attributes, attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+    private static bool IsObjectPayloadType(Type type) =>
+        type == typeof(object) || type.IsByRef && type.GetElementType() == typeof(object);
+
+    private static bool IsFuncOrAction(Type type)
+    {
+        if (type.HasElementType)
+        {
+            return IsFuncOrAction(type.GetElementType()!);
+        }
+
+        return type.Namespace == "System" &&
+               (type.Name == "Action" || type.Name.StartsWith("Action`", StringComparison.Ordinal) ||
+                type.Name.StartsWith("Func`", StringComparison.Ordinal)) ||
+               type.IsGenericType && type.GetGenericArguments().Any(IsFuncOrAction);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsUncalledNestedLiteral()
+    {
+        Type root = typeof(NestedTextFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Assert.Contains(nested, EnumerateResolverTypeTree(root));
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.NotNull(method.GetMethodBody());
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(root),
+            RuntimeMetadataInspection.DescribeConstructors(root));
+        Assert.DoesNotContain("Pinia", oldRoots, StringComparison.Ordinal);
+        string nestedBody = RuntimeMetadataInspection.DescribeMethods(nested, "Read");
+        Assert.Contains("Pinia", nestedBody, StringComparison.Ordinal);
+        AssertNoErasedResolverSurface(root);
+        AssertNoErasedResolverSurface(nested);
+
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains("Pinia", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedErasedInput()
+    {
+        Type root = typeof(NestedInputFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        ParameterInfo parameter = Assert.Single(method.GetParameters());
+        Assert.Equal(typeof(object), parameter.ParameterType);
+        Assert.Contains(parameter.CustomAttributes,
+            attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "DynamicAttribute");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedErasedOutput()
+    {
+        Type root = typeof(NestedOutputFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.Equal(typeof(object), method.ReturnType);
+        Assert.Contains(method.ReturnParameter.CustomAttributes,
+            attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "DynamicAttribute");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedFactorySignature()
+    {
+        Type root = typeof(NestedFactoryFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        PropertyInfo property = nested.GetProperty("Factory")!;
+        Assert.Equal(nested, property.DeclaringType);
+        Assert.Equal(typeof(Func<int>), property.PropertyType);
+        Assert.True(IsFuncOrAction(property.PropertyType));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "Func/Action");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedHandlerSignature()
+    {
+        Type root = typeof(NestedHandlerFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        PropertyInfo property = nested.GetProperty("Handler")!;
+        Assert.Equal(nested, property.DeclaringType);
+        Assert.Equal(typeof(Action<int>), property.PropertyType);
+        Assert.True(IsFuncOrAction(property.PropertyType));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "Func/Action");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedObjectPayload()
+    {
+        Type root = typeof(NestedValueFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        PropertyInfo property = nested.GetProperty("Payload")!;
+        Assert.Equal(nested, property.DeclaringType);
+        Assert.Equal("Payload", property.Name);
+        Assert.Equal(typeof(object), property.PropertyType);
+
+        AssertNestedErasedFixtureRefusal(root, nested, "object Payload");
+    }
+
+    [Fact]
+    public void ResolverSurface_AcceptsUnrelatedReferenceInputWithObjectShape()
+    {
+        Type root = typeof(ReferenceInputFixture);
+        ParameterInfo parameter = Assert.Single(root.GetMethod("Read")!.GetParameters());
+        Assert.Equal("payload", parameter.Name);
+        Assert.True(parameter.ParameterType.IsByRef);
+        Assert.NotEqual(typeof(object), parameter.ParameterType);
+        Assert.Equal(typeof(object), parameter.ParameterType.GetElementType());
+        Assert.True(IsObjectPayloadType(parameter.ParameterType));
+        Assert.False(parameter.Name == "Payload" && IsObjectPayloadType(parameter.ParameterType));
+
+        AssertNoCompiledResolverSurface(root);
+        AssertNoResolverSurface(root);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsReferencePayloadOutput()
+    {
+        Type root = typeof(ReferenceOutputFixture);
+        MethodInfo method = root.GetMethod("Payload")!;
+        Assert.Equal("Payload", method.Name);
+        Assert.True(method.ReturnType.IsByRef);
+        Assert.NotEqual(typeof(object), method.ReturnType);
+        Assert.Equal(typeof(object), method.ReturnType.GetElementType());
+
+        AssertReferenceFixtureRefusal(root);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsReferencePayloadMember()
+    {
+        Type root = typeof(ReferenceMemberFixture);
+        PropertyInfo property = root.GetProperty("Payload")!;
+        Assert.Equal(root, property.DeclaringType);
+        Assert.Equal("Payload", property.Name);
+        Assert.True(property.PropertyType.IsByRef);
+        Assert.NotEqual(typeof(object), property.PropertyType);
+        Assert.Equal(typeof(object), property.PropertyType.GetElementType());
+
+        AssertReferenceFixtureRefusal(root);
+    }
+
+    [Fact]
+    public void ResolverSurface_AcceptsNestedUnrelatedObjectAndReference()
+    {
+        Type root = typeof(SafeTreeFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Assert.Contains(nested, EnumerateResolverTypeTree(root));
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.NotNull(method.GetMethodBody());
+        ParameterInfo parameter = Assert.Single(nested.GetMethod("Read")!.GetParameters());
+        Assert.Equal("value", parameter.Name);
+        Assert.Equal(typeof(object), parameter.ParameterType);
+        PropertyInfo property = nested.GetProperty("Current")!;
+        Assert.Equal("Current", property.Name);
+        Assert.True(property.PropertyType.IsByRef);
+        Assert.Equal(typeof(object), property.PropertyType.GetElementType());
+        Assert.False(IsObjectPayloadType(typeof(object[])));
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(root),
+            RuntimeMetadataInspection.DescribeConstructors(root));
+        Assert.DoesNotContain(".Read ", oldRoots, StringComparison.Ordinal);
+        string nestedBody = RuntimeMetadataInspection.DescribeMethods(nested, "Read");
+        Assert.Contains("closed-surface", nestedBody, StringComparison.Ordinal);
+
+        AssertNoResolverSurface(root);
+    }
+
+    private static void AssertNestedErasedFixtureRefusal(Type root, Type nested, string diagnostic)
+    {
+        Assert.Contains(nested, EnumerateResolverTypeTree(root));
+        AssertNoErasedResolverSurface(root);
+        Assert.All(EnumerateResolverTypeTree(root), AssertNoCompiledResolverSurface);
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains(diagnostic, exception.Message, StringComparison.Ordinal);
+    }
+
+    private static void AssertReferenceFixtureRefusal(Type root)
+    {
+        Assert.Equal(root, Assert.Single(EnumerateResolverTypeTree(root)));
+        AssertNoCompiledResolverSurface(root);
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains("object Payload", exception.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class NestedTextFixture
+    {
+        private sealed class Node
+        {
+            public static string Read() => "Pinia";
+        }
+    }
+
+    private sealed class NestedInputFixture
+    {
+        private sealed class Node
+        {
+            public static void Read(dynamic value)
+            {
+            }
+        }
+    }
+
+    private sealed class NestedOutputFixture
+    {
+        private sealed class Node
+        {
+            public static dynamic Read() => new object();
+        }
+    }
+
+    private sealed class NestedFactoryFixture
+    {
+        private sealed class Node
+        {
+            public Func<int>? Factory => null;
+        }
+    }
+
+    private sealed class NestedHandlerFixture
+    {
+        private sealed class Node
+        {
+            public Action<int>? Handler => null;
+        }
+    }
+
+    private sealed class NestedValueFixture
+    {
+        private sealed class Node
+        {
+            public object Payload => new();
+        }
+    }
+
+    private sealed class ReferenceInputFixture
+    {
+        public static void Read(ref object payload)
+        {
+        }
+    }
+
+    private sealed class ReferenceOutputFixture
+    {
+        private static object s_value = new();
+
+        public static ref object Payload() => ref s_value;
+    }
+
+    private sealed class ReferenceMemberFixture
+    {
+        private static object s_value = new();
+
+        public static ref object Payload => ref s_value;
+    }
+
+    private sealed class SafeTreeFixture
+    {
+        private sealed class Node
+        {
+            private static object s_value = new();
+
+            public static object Read(object value) => "closed-surface";
+
+            public static ref object Current => ref s_value;
+        }
     }
 
     private static TrustedAuthoringAdapterDescriptor CreateDescriptor() => new(

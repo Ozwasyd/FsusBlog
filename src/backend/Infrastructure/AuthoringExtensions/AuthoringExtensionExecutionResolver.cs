@@ -158,10 +158,16 @@ public sealed class ActiveAuthoringInstalledPackageAuthority(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(package);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsContractIdentityExact(package.Contract))
+        {
+            return false;
+        }
         VerifiedAuthoringPackage? active = await packageStore.GetActiveAsync(
             package.Contract.Manifest.Id,
             cancellationToken);
-        return active is not null &&
+        cancellationToken.ThrowIfCancellationRequested();
+        return active is not null && IsContractIdentityExact(active.Contract) &&
             string.Equals(active.PackageIdentity, package.PackageIdentity, StringComparison.Ordinal) &&
             string.Equals(active.Contract.ContractIdentity, package.Contract.ContractIdentity, StringComparison.Ordinal) &&
             string.Equals(active.Artifact.ArchiveSha256, package.Artifact.ArchiveSha256, StringComparison.Ordinal) &&
@@ -174,6 +180,26 @@ public sealed class ActiveAuthoringInstalledPackageAuthority(
                 package.Contract.Manifest.ContentSha256,
                 StringComparison.Ordinal) &&
             active.Trust.Status == AuthoringPackageTrustStatus.Trusted;
+    }
+
+    internal static bool IsContractIdentityExact(VerifiedAuthoringExtensionContract contract)
+    {
+        if (contract.Manifest is null || contract.Manifest.SupportedPlatforms.IsDefaultOrEmpty)
+        {
+            return false;
+        }
+        try
+        {
+            VerifiedAuthoringExtensionContract verified = AuthoringExtensionContractValidator.Verify(
+                contract.Manifest,
+                contract.Manifest.SupportedPlatforms[0]);
+            return string.Equals(verified.ContractIdentity, contract.ContractIdentity, StringComparison.Ordinal)
+                && string.Equals(verified.RegistryIdentity, contract.RegistryIdentity, StringComparison.Ordinal);
+        }
+        catch (AuthoringExtensionContractException)
+        {
+            return false;
+        }
     }
 }
 
@@ -303,9 +329,19 @@ public sealed class AuthoringExecutionResolver(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(package);
+        cancellationToken.ThrowIfCancellationRequested();
         AuthoringContributionDeclaration contribution = package.Contract.Manifest.Contributions.SingleOrDefault(candidate =>
             string.Equals(candidate.Id, contributionId, StringComparison.Ordinal)) ??
             throw new AuthoringExtensionContractException("Contribution is not declared by the verified package.");
+
+        if (!ActiveAuthoringInstalledPackageAuthority.IsContractIdentityExact(package.Contract))
+        {
+            return Blocked(
+                package,
+                contribution,
+                AuthoringExecutionResolutionStatus.BlockedIdentityDrift,
+                "runtime-identity-drift");
+        }
 
         if (!await installedPackageAuthority.IsActiveExactAsync(package, cancellationToken))
         {
@@ -378,6 +414,39 @@ public sealed class AuthoringExecutionResolver(
                 contribution,
                 AuthoringExecutionResolutionStatus.BlockedIdentityDrift,
                 "runtime-identity-drift");
+        }
+
+        // Source/module verification can await while activation is updated or revoked.
+        // Re-read the owned package authority after those awaits, before returning Ready.
+        if (!await installedPackageAuthority.IsActiveExactAsync(package, cancellationToken))
+        {
+            return Blocked(
+                package,
+                contribution,
+                AuthoringExecutionResolutionStatus.BlockedPackageNotActive,
+                "package-not-active");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!ActiveAuthoringInstalledPackageAuthority.IsContractIdentityExact(package.Contract))
+        {
+            return Blocked(
+                package,
+                contribution,
+                AuthoringExecutionResolutionStatus.BlockedIdentityDrift,
+                "runtime-identity-drift");
+        }
+        if (adapter is not null)
+        {
+            TrustedAuthoringAdapterDescriptor? currentAdapter = adapterRegistry.Find(adapter.AdapterId);
+            if (currentAdapter is null || !string.Equals(
+                    ComputeTrustedAdapterIdentity(currentAdapter), trustedAdapterIdentity, StringComparison.Ordinal))
+            {
+                return Blocked(
+                    package,
+                    contribution,
+                    AuthoringExecutionResolutionStatus.BlockedIdentityDrift,
+                    "runtime-identity-drift");
+            }
         }
 
         return new AuthoringExecutionTarget(
