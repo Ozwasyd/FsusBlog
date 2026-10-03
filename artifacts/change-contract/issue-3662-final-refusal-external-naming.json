@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "reason": "Preserve original process and CLI contract spellings while explicitly consuming v2 stage envelopes and retaining native discharge refusal."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-document-consistency-final-report.schema.json",
+                "config/testing/required-evidence-authority-ledger.json"
+            ],
+            "reason": "Preserve registered JSON field spellings and proof ownership; only explicit schema versions and the closed final stage report change."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": ["docs/development/doc-claim-protocol.md"],
+            "reason": "Preserve original Markdown contract identifiers and anchors."
+        }
+    ]
+}

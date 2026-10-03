@@ -9,8 +9,12 @@ import { fileURLToPath } from 'node:url'
 
 import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
+import { partitionBehaviorDocClaims } from '../../tools/docs/behavior-doc-static-admission-contract.mjs'
+import { parseRepositoryClaims } from '../../tools/docs/doc-claim.mjs'
+import { sealDocClaimVerificationReceipt } from '../../tools/contracts/behavior-graph-join.mjs'
 import {
     buildFinalConsistencyReport,
+    buildClaimStageDischarge,
     scanZeroLegacyGovernance,
     validateFinalReport,
     validateZeroLegacyScan,
@@ -111,6 +115,59 @@ function repositoryFixture(t, files)
     return repositoryRoot
 }
 
+function finalStageFixtureCatalog(includePost = false)
+{
+    const contract = {
+        id: 'alpha-behavior', domain: 'testing', risk: 'high', status: 'active',
+        implementationOwnerCardinality: 'one', allowedImplementationOwnerRoles: [],
+        factExtractorId: 'alpha-facts', requiredTestKinds: ['positive'],
+        documentationPolicy: 'required', documentationRationale: 'Alpha is current.',
+        allowedClaimTypes: ['boolean'], releaseQualification: true,
+        evidenceStage: 'pre-runtime', coverageIds: ['alpha'], documents: ['docs/alpha.md']
+    }
+    return {
+        schema: 'fsusblog.behavior-contract-catalog.v1',
+        digestAlgorithm: 'sha256', canonicalSerialization: 'json-utf8-v1',
+        domains: ['testing'], extractors: [{ id: 'alpha-facts', path: 'tools/alpha.mjs' }],
+        contracts: [contract, ...(includePost ? [{ ...contract,
+            id: 'alpha-post', evidenceStage: 'post-runtime', coverageIds: ['alpha-post'],
+            documents: ['docs/alpha-post.md']
+        }] : [])]
+    }
+}
+
+// Source-bound component fixture, not a native collector or runtime receipt.
+function finalStageFixtureFiles(includePost = false)
+{
+    const catalog = finalStageFixtureCatalog(includePost)
+    const documents = catalog.contracts.map(({ documents }) => documents[0])
+    const ledger = { scopes: [{ scopeId: 'alpha', behaviorIds: catalog.contracts.map(({ id }) => id),
+        entries: catalog.contracts.map(({ id, documents }) => ({
+            behaviorId: id, documentPath: documents[0],
+            claimIds: [id === 'alpha-behavior' ? 'alpha.current' : 'alpha-post.current'],
+            generatedSectionIds: []
+        })) }] }
+    const declaration = (claimId, behaviorId, factPath) =>
+        `# Alpha\n\n<!-- fsus-doc-claim\nclaimId: ${claimId}\nbehaviorId: ${behaviorId}\nclaimType: boolean\nfactPath: ${factPath}\nrender: boolean-affirmed\n-->\n\nAlpha is true.\n`
+    return {
+        'config/contracts/behavior-contracts.json': JSON.stringify(catalog),
+        'config/contracts/document-claim-migration-ledger.json': JSON.stringify(ledger),
+        'config/schemas/doc-claim.schema.json': fs.readFileSync(path.join(
+            repositorySourceRoot, 'config/schemas/doc-claim.schema.json')),
+        'config/development/document-lifecycle.json': JSON.stringify({
+            documents: documents.map((documentPath) => ({ path: documentPath, status: 'current' }))
+        }),
+        'docs/alpha.md': declaration('alpha.current', 'alpha-behavior', 'alpha.isEnabled'),
+        ...(includePost ? { 'docs/alpha-post.md': declaration(
+            'alpha-post.current', 'alpha-post', 'currentSchemaAdmission.nativeReverified') } : {})
+    }
+}
+
+function finalSourceRepositoryFixture(t, files = {}, { includePost = false } = {})
+{
+    return sourceRepositoryFixture(t, { ...finalStageFixtureFiles(includePost), ...files })
+}
+
 function sourceRepositoryFixture(t, files = {})
 {
     const repositoryRoot = repositoryFixture(t, files)
@@ -132,35 +189,47 @@ function fixture(overrides = {})
         : sealSourceIdentity(sourceRoot)
     const sourceCommit = sourceIdentity.sourceCommit
     const sourceFingerprint = sourceIdentity.worktreeFingerprint
-    const catalog = {
-        schema: 'fsusblog.behavior-contract-catalog.v1',
-        digestAlgorithm: 'sha256',
-        canonicalSerialization: 'json-utf8-v1',
-        domains: ['testing'],
-        extractors: [{ id: 'alpha-facts', path: 'tools/alpha.mjs' }],
-        contracts: [{
-            id: 'alpha-behavior', domain: 'testing', risk: 'high', status: 'active',
-            implementationOwnerCardinality: 'one', allowedImplementationOwnerRoles: [],
-            factExtractorId: 'alpha-facts', requiredTestKinds: ['positive'],
-            documentationPolicy: 'required', documentationRationale: 'Alpha is current.',
-            allowedClaimTypes: ['behavioral'], releaseQualification: true,
-            evidenceStage: 'pre-runtime', coverageIds: ['alpha'], documents: ['docs/alpha.md']
-        }]
+    const catalog = JSON.parse(fs.readFileSync(path.join(sourceRoot,
+        'config/contracts/behavior-contracts.json'), 'utf8'));
+    const migrationLedger = JSON.parse(fs.readFileSync(path.join(sourceRoot,
+        'config/contracts/document-claim-migration-ledger.json'), 'utf8'));
+    const claims = parseRepositoryClaims(sourceRoot);
+    const { stages: claimStages } = partitionBehaviorDocClaims({ catalog, migrationLedger, claimReceipt: claims });
+    const factValue = {
+        schema: 'fsusblog.fact-observation-receipt.v1',
+        status: 'ok', extractorId: 'alpha-facts', behaviorIds: catalog.contracts.map(({ id }) => id),
+        sourceCommit, worktreeFingerprint: sourceFingerprint, buildIdentity: null,
+        extractorDigest: 'a'.repeat(64), registryDigest: 'b'.repeat(64),
+        consumedInputDigests: [{ path: 'src/alpha.cs', digest: 'c'.repeat(64) }],
+        observations: { alpha: { isEnabled: true }, currentSchemaAdmission: { nativeReverified: true } },
+        failureReasons: []
     };
+    const fact = { ...factValue, contentDigest: hash(factValue) };
+    const verification = sealDocClaimVerificationReceipt({
+        sourceCommit, worktreeFingerprint: sourceFingerprint, catalogDigest: digestCatalog(catalog),
+        parseReceiptDigest: claims.contentDigest,
+        factObservationDigests: [{ extractorId: fact.extractorId, contentDigest: fact.contentDigest }],
+        results: claimStages.preRuntimeClaims.map((claim) => ({
+            claimId: claim.claimId, behaviorId: claim.behaviorId, claimType: claim.claimType,
+            documentPath: claim.documentPath, documentStatus: claim.documentStatus,
+            factPath: claim.factPath, status: 'verified', reason: null
+        })), status: 'ok', failureReasons: []
+    });
     const catalogHash = digestCatalog(catalog);
     const admission = seal({
-        schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
+        schema: 'fsusblog.behavior-doc-static-admission-receipt.v2',
         run: { id: runId },
         source: { commit: sourceCommit, worktreeFingerprint: sourceFingerprint },
         worktree: { root: admittedSourceRoot ?? '/repo' },
         toolchain: { node: 'v24', dotnet: '10', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
         authorityDigests: {
-            catalog: catalogHash, claim: '2'.repeat(64), extractorRegistry: '3'.repeat(64),
+            catalog: catalogHash, claim: claims.contentDigest, extractorRegistry: '3'.repeat(64),
             generatedSectionCatalog: '4'.repeat(64), generatedRenderer: '5'.repeat(64),
             proseRenderer: '6'.repeat(64), mutationCatalog: '7'.repeat(64)
         },
         implementationOwner: { status: 'ok', bindingCount: 1, contentDigest: '8'.repeat(64) },
-        factObservations: {},
+        claimStages,
+        factObservations: { 'alpha-facts': { contentDigest: fact.contentDigest } },
         minimalContractBuild: { contentDigest: '9'.repeat(64) },
         generated: { status: 'ok' }, prose: { status: 'ok' }, mutationFixtures: { status: 'ok' },
         candidateSpawnCountBeforeReceipt: 0,
@@ -183,7 +252,7 @@ function fixture(overrides = {})
         runtimeCandidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: []
     });
     const post = seal({
-        schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
+        schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v2', scope: 'post-runtime',
         runIdentity: runId, sourceIdentity: { commit: sourceCommit, worktreeFingerprint: `sha256:${sourceFingerprint}` },
         candidateIdentity: {
             sourceCommit, worktreeFingerprint: `sha256:${sourceFingerprint}`,
@@ -202,8 +271,11 @@ function fixture(overrides = {})
         catalogDigest: `sha256:${catalogHash}`, registryDigest: `sha256:${'1'.repeat(64)}`,
         behaviorIds: ['alpha-post'], requiredRuntimeProducers: ['alpha-post-producer'],
         requiredObservationScopes: ['application', 'release-deployment'],
-        requiredProducerClasses: { 'alpha-post-producer': ['route-response-error'] },
-        observedProducerClasses: { 'alpha-post-producer': ['route-response-error'] },
+        requiredProducerClasses: { 'alpha-post-producer': ['route-response-error', 'release-rollout'] },
+        observedProducerClasses: { 'alpha-post-producer': ['route-response-error', 'release-rollout'] },
+        requiredProducerScopes: { 'alpha-post-producer': ['application', 'release-deployment'] },
+        requiredProducerClaims: { 'alpha-post-producer': ['alpha.current'] },
+        observedProducerClaims: { 'alpha-post-producer': ['alpha.current'] },
         observedBehaviorResults: [{
             behaviorId: 'alpha-post', extractorId: 'alpha-post-producer', status: 'ok',
             producerId: 'alpha-post-producer', scope: 'application',
@@ -213,15 +285,21 @@ function fixture(overrides = {})
             rawReceiptPath: '.tmp/final/raw.json',
             rawReceiptDigest: `sha256:${'a'.repeat(64)}`,
             semanticFactsDigest: `sha256:${'b'.repeat(64)}`
+        }, {
+            behaviorId: 'alpha-post', extractorId: 'alpha-post-producer', status: 'ok',
+            producerId: 'alpha-post-producer', scope: 'release-deployment', classId: 'release-rollout',
+            classReceiptPath: '.tmp/final/release-class.json', classReceiptDigest: `sha256:${'9'.repeat(64)}`,
+            rawReceiptPath: '.tmp/final/release-raw.json', rawReceiptDigest: `sha256:${'a'.repeat(64)}`,
+            semanticFactsDigest: `sha256:${'b'.repeat(64)}`
         }],
         observationRefs: [
-            { scope: 'application', path: '.tmp/final/application.json', fileDigest: `sha256:${'2'.repeat(64)}`, contentDigest: `sha256:${'3'.repeat(64)}` },
-            { scope: 'release-deployment', path: '.tmp/final/release.json', fileDigest: `sha256:${'4'.repeat(64)}`, contentDigest: `sha256:${'5'.repeat(64)}` }
+            { producerId: 'alpha-post-producer', scope: 'application', path: '.tmp/final/application.json', fileDigest: `sha256:${'2'.repeat(64)}`, contentDigest: `sha256:${'3'.repeat(64)}` },
+            { producerId: 'alpha-post-producer', scope: 'release-deployment', path: '.tmp/final/release.json', fileDigest: `sha256:${'4'.repeat(64)}`, contentDigest: `sha256:${'5'.repeat(64)}` }
         ],
-        acceptedClaimsRef: {
+        acceptedClaimsRefs: { 'alpha-post-producer': {
             path: '.tmp/final/claims.json', fileDigest: `sha256:${'6'.repeat(64)}`,
             contentDigest: `sha256:${'7'.repeat(64)}`
-        },
+        } },
         documentClaimDigests: { 'alpha.current': `sha256:${'8'.repeat(64)}` },
         documentClaimTerminalDigest: `sha256:${'9'.repeat(64)}`,
         schedulerEvidence: {
@@ -233,12 +311,9 @@ function fixture(overrides = {})
         releaseFinalSpawnCountBeforeReceipt: 0,
         status: 'ok', failureReasons: []
     });
-    const owner = seal({ status: 'ok', bindings: [{ behaviorId: 'alpha-behavior', sourcePath: 'src/alpha.cs' }] });
-    const fact = seal({ status: 'ok', extractorId: 'alpha-facts', behaviorIds: ['alpha-behavior'], sourceCommit, worktreeFingerprint: sourceFingerprint });
-    const claims = seal({ claims: [{ declaration: { behaviorId: 'alpha-behavior', claimId: 'alpha.current' } }] });
-    const verification = seal({ status: 'ok' });
+    const owner = seal({ status: 'ok', bindings: catalog.contracts.map(({ id }) =>
+        ({ behaviorId: id, sourcePath: 'src/alpha.cs' })) });
     const generated = seal({ status: 'ok' });
-    const migrationLedger = { schema: 'fixture', scopes: [{ scopeId: 'alpha', entries: [{ behaviorId: 'alpha-behavior', documentPath: 'docs/alpha.md', claimIds: ['alpha.current'], generatedSectionIds: [] }] }] };
     const matrix = { tiers: [
         { id: 'static', executionDependsOn: [], summaryAuthority: null },
         { id: 'pre', executionDependsOn: ['static'], summaryAuthority: null },
@@ -248,23 +323,146 @@ function fixture(overrides = {})
         staticAdmissionReceipt: admission, preRuntimeReceipt: pre, postRuntimeReceipt: post,
         ownerReceipt: owner, factObservationReceipts: [fact], docClaimParseReceipt: claims,
         docClaimVerificationReceipt: verification, generatedSectionReceipt: generated,
-        catalog, migrationLedger, matrix,
+        catalog, migrationLedger, matrix, expectedWorktree: sourceRoot,
         ...overrides
     };
 }
 
 test('final consistency report deterministically closes every behavior edge', (t) =>
 {
-    const sourceRoot = sourceRepositoryFixture(t)
+    const sourceRoot = finalSourceRepositoryFixture(t)
     const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
-    assert.equal(validateFinalReport(report).status, 'ok', report.failureReasons.join('; '))
+    assert.equal(validateFinalReport(report, { expectedWorktree: sourceRoot }).status, 'ok', report.failureReasons.join('; '))
     assert.equal(report.behaviorNodes[0].status, 'ok')
     assert.equal(report.dagAudit.stronglyConnectedComponents.length, 0)
 })
 
+function stageDischargeInputs(input)
+{
+    return {
+        admission: input.staticAdmissionReceipt,
+        claimReceipt: input.docClaimParseReceipt,
+        claimVerification: input.docClaimVerificationReceipt,
+        behaviorCatalog: input.catalog, migrationLedger: input.migrationLedger,
+        facts: input.factObservationReceipts, expectedWorktree: input.expectedWorktree
+    }
+}
+
+test('current final keeps post claims uncleared despite sealed class references and true v1 facts', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t, {}, { includePost: true }) })
+    const report = buildFinalConsistencyReport(input)
+    assert.equal(report.status, 'failed')
+    assert.deepEqual(report.claimStageDischarge.verifiedPostClaimIds, [])
+    assert.deepEqual(report.claimStageDischarge.unclearedPostClaimIds, ['alpha-post.current'])
+    assert.deepEqual(report.claimStageDischarge.verifiedPreProseClaimIds, ['alpha.current'])
+    assert.ok(report.failureReasons.some((reason) => reason.includes('native post-runtime FactObservation bridge unavailable')))
+    const expected = { expectedWorktree: input.expectedWorktree }
+    assert.equal(validateFinalReport(report, expected), report)
+    const forgedOk = seal({ ...report, status: 'ok', failureReasons: [] })
+    assert.throws(() => validateFinalReport(forgedOk, expected), /cannot retain undischargeable post-runtime claims/u)
+    const cleared = structuredClone(report)
+    cleared.claimStageDischarge = seal({ ...cleared.claimStageDischarge, unclearedPostClaimIds: [] })
+    assert.throws(() => validateFinalReport(seal(cleared), expected), /exact original source claim roster/u)
+    const dropped = structuredClone(cleared)
+    dropped.behaviorNodes = dropped.behaviorNodes.filter((node) => node.evidenceStage !== 'post-runtime')
+    assert.throws(() => validateFinalReport(seal(dropped), expected), /exact original source claim roster/u)
+    const fakeVerified = structuredClone(cleared)
+    fakeVerified.claimStageDischarge = seal({ ...fakeVerified.claimStageDischarge,
+        verifiedPostClaimIds: ['alpha-post.current'] })
+    assert.throws(() => validateFinalReport(seal(fakeVerified), expected), /native post-runtime FactObservation bridge is unavailable/u)
+})
+
+test('final stage source entry rejects missing root and coordinated caller ledger material', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const expected = stageDischargeInputs(input)
+    assert.deepEqual(buildClaimStageDischarge(expected).verifiedPreProseClaimIds, ['alpha.current'])
+    assert.throws(() => buildClaimStageDischarge({ ...expected, expectedWorktree: null }),
+        /independent expected source root mismatch/u)
+    const wrongLedger = structuredClone(expected.migrationLedger)
+    wrongLedger.scopes[0].scopeId = 'caller-supplied-material'
+    assert.throws(() => buildClaimStageDischarge({ ...expected, migrationLedger: wrongLedger }),
+        /differs from its admitted source authority/u)
+    const report = buildFinalConsistencyReport(input)
+    const readerOptions = { expectedWorktree: input.expectedWorktree }
+    assert.equal(validateFinalReport(report, readerOptions), report)
+    assert.throws(() => validateFinalReport(report, { expectedWorktree: null }),
+        /independent expected source worktree/u)
+    const anotherSourceRoot = finalSourceRepositoryFixture(t)
+    assert.throws(() => validateFinalReport(report, { expectedWorktree: anotherSourceRoot }),
+        /independent expected source worktree/u)
+})
+
+test('final stage rejects resealed missing extra duplicate or unverified pre-runtime results', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const expected = stageDischargeInputs(input)
+    assert.deepEqual(buildClaimStageDischarge(expected).verifiedPreProseClaimIds, ['alpha.current'])
+    for (const mutate of [
+        (value) => { value.results = [] },
+        (value) => { value.results.push({ ...value.results[0], claimId: 'alpha.extra' }) },
+        (value) => { value.results.push(value.results[0]) },
+        (value) => { value.results[0].status = 'deferred' },
+        (value) => { value.results[0].status = 'failed' },
+        (value) => { value.results[0].factPath = 'alpha.other' }
+    ])
+    {
+        const changed = structuredClone(expected.claimVerification)
+        mutate(changed)
+        assert.throws(() => buildClaimStageDischarge({ ...expected, claimVerification: seal(changed) }),
+            /pre-runtime DocClaim/u)
+    }
+})
+
+test('final stage re-compares pre-runtime prose after coordinated fact and receipt resealing', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const expected = stageDischargeInputs(input)
+    assert.deepEqual(buildClaimStageDischarge(expected).verifiedPreProseClaimIds, ['alpha.current'])
+    const fact = structuredClone(expected.facts[0])
+    fact.observations.alpha.isEnabled = false
+    delete fact.contentDigest
+    fact.contentDigest = hash(fact)
+    const admission = structuredClone(expected.admission)
+    admission.factObservations['alpha-facts'].contentDigest = fact.contentDigest
+    const verification = structuredClone(expected.claimVerification)
+    verification.factObservationDigests[0].contentDigest = fact.contentDigest
+    assert.throws(() => buildClaimStageDischarge({ ...expected,
+        admission: seal(admission, true), claimVerification: seal(verification), facts: [fact]
+    }), /pre-runtime prose comparison failed/u)
+})
+
+test('final stage rejects a resealed DocClaim parse receipt that is not the actual source', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    const expected = stageDischargeInputs(input)
+    assert.deepEqual(buildClaimStageDischarge(expected).verifiedPreProseClaimIds, ['alpha.current'])
+    const claims = structuredClone(expected.claimReceipt)
+    claims.claims[0].location.bodyText = 'Alpha is false.'
+    delete claims.contentDigest
+    claims.contentDigest = hash(claims)
+    assert.throws(() => buildClaimStageDischarge({ ...expected, claimReceipt: claims }),
+        /parse receipt differs from actual admitted source/u)
+})
+
+test('final rejects old outer and post versions without schema aliasing', (t) =>
+{
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
+    assert.deepEqual(buildClaimStageDischarge(stageDischargeInputs(input)).verifiedPreProseClaimIds, ['alpha.current'])
+    assert.throws(() => buildClaimStageDischarge({ ...stageDischargeInputs(input),
+        admission: seal({ ...input.staticAdmissionReceipt,
+            schema: 'fsusblog.behavior-doc-static-admission-receipt.v1' }, true)
+    }), /explicit v2 static admission envelope/u)
+    assert.throws(() => buildFinalConsistencyReport({ ...input,
+        postRuntimeReceipt: seal({ ...input.postRuntimeReceipt,
+            schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1' })
+    }), /explicit v2 post-runtime envelope/u)
+})
+
 test('stale identities, graph cycles and legacy residue fail without repairing producers', (t) =>
 {
-    const sourceRoot = sourceRepositoryFixture(t, {
+    const sourceRoot = finalSourceRepositoryFixture(t, {
         'config/testing/behavior-qualification.json': JSON.stringify({ lastReviewedAt: 'now' })
     })
     const stalePost = fixture({ sourceRoot }).postRuntimeReceipt
@@ -284,7 +482,7 @@ test('stale identities, graph cycles and legacy residue fail without repairing p
 
 test('tampered input receipt is rejected before final aggregation', (t) =>
 {
-    const input = fixture({ sourceRoot: sourceRepositoryFixture(t) })
+    const input = fixture({ sourceRoot: finalSourceRepositoryFixture(t) })
     input.ownerReceipt.bindings = []
     assert.throws(() => buildFinalConsistencyReport(input), /contentDigest mismatch/u)
 })
@@ -1298,7 +1496,7 @@ test('zero-legacy malformed machine JSON fails closed through final aggregation'
     assert.ok(scan.findings.some((finding) => finding.file === 'config/testing/active-behavior-qualification.jsonc'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
 
-    const sourceRoot = sourceRepositoryFixture(t, {
+    const sourceRoot = finalSourceRepositoryFixture(t, {
         'config/testing/malformed-behavior-qualification.json': malformed
     })
     const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
@@ -1318,7 +1516,7 @@ test('zero-legacy malformed ECMAScript fails closed through final aggregation', 
         && finding.rule === 'invalid-machine-source'
         && finding.location.startsWith('source:line:')))
 
-    const sourceRoot = sourceRepositoryFixture(t, {
+    const sourceRoot = finalSourceRepositoryFixture(t, {
         'tools/release/malformed-behavior-qualification.mjs': malformed
     })
     const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
@@ -1647,7 +1845,7 @@ test('zero-legacy reports worktree mode and content splits while scanning active
 
 test('final builder recomputes zero-legacy findings from the sealed source state', (t) =>
 {
-    const residueRoot = sourceRepositoryFixture(t, {
+    const residueRoot = finalSourceRepositoryFixture(t, {
         'config/testing/behavior-qualification.json': JSON.stringify({ latestReceipt: 'ambient.json' })
     })
     const injected = buildFinalConsistencyReport(fixture({
@@ -1657,12 +1855,12 @@ test('final builder recomputes zero-legacy findings from the sealed source state
     assert.equal(injected.status, 'failed')
     assert.ok(injected.zeroLegacyScan.findings.some((finding) => finding.rule === 'forbidden-evidence-selection:latestReceipt'))
 
-    const driftRoot = sourceRepositoryFixture(t, { 'src/current.mjs': 'export const current = true\n' })
+    const driftRoot = finalSourceRepositoryFixture(t, { 'src/current.mjs': 'export const current = true\n' })
     const drifted = fixture({ sourceRoot: driftRoot })
     fs.writeFileSync(path.join(driftRoot, 'src/current.mjs'), 'export const current = false\n')
     assert.throws(() => buildFinalConsistencyReport(drifted), /source\/worktree identity mismatch before scan/u)
 
-    const parentRoot = sourceRepositoryFixture(t, Object.fromEntries(
+    const parentRoot = finalSourceRepositoryFixture(t, Object.fromEntries(
         ['config', 'docs', 'src', 'tests', 'tools'].map((directory) => [
             `nested/${directory}/current.txt`,
             'current\n'
@@ -1697,7 +1895,8 @@ test('zero-legacy scan and final report schema are deterministic and structurall
     duplicateFindingClass.findings[0].pathClasses.push(duplicateFindingClass.findings[0].pathClasses[0])
     assert.throws(() => validateZeroLegacyScan(duplicateFindingClass), /finding shape is invalid/u)
 
-    const report = buildFinalConsistencyReport(fixture({ sourceRoot: sourceRepositoryFixture(t) }))
+    const sourceRoot = finalSourceRepositoryFixture(t)
+    const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
     const forgedOk = structuredClone(report)
     forgedOk.zeroLegacyScan.findings.push({
         file: 'config/testing/forged.json',
@@ -1708,7 +1907,7 @@ test('zero-legacy scan and final report schema are deterministic and structurall
     forgedOk.contentDigest = `sha256:${hash(Object.fromEntries(
         Object.entries(forgedOk).filter(([key]) => key !== 'contentDigest')
     ))}`
-    assert.throws(() => validateFinalReport(forgedOk), /ok report has zero-legacy findings/u)
+    assert.throws(() => validateFinalReport(forgedOk, { expectedWorktree: sourceRoot }), /ok report has zero-legacy findings/u)
 
     const schema = JSON.parse(fs.readFileSync('config/schemas/behavior-document-consistency-final-report.schema.json', 'utf8'))
     assert.deepEqual(validateJsonSchema(report, schema), [])

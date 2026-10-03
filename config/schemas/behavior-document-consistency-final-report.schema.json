@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.behavior-document-consistency-final-report.v1",
+    "$id": "fsusblog.behavior-document-consistency-final-report.v2",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -15,6 +15,7 @@
         "behaviorNodes",
         "edges",
         "migrationLedger",
+        "claimStageDischarge",
         "singleMutationCoverage",
         "zeroLegacyScan",
         "dagAudit",
@@ -25,7 +26,10 @@
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.behavior-document-consistency-final-report.v1"
+            "const": "fsusblog.behavior-document-consistency-final-report.v2"
+        },
+        "claimStageDischarge": {
+            "$ref": "#/$defs/claimStageDischarge"
         },
         "sourceIdentity": {
             "type": "object"
@@ -129,9 +133,20 @@
             "then": {
                 "type": "object",
                 "required": [
-                    "zeroLegacyScan"
+                    "zeroLegacyScan",
+                    "claimStageDischarge"
                 ],
                 "properties": {
+                    "claimStageDischarge": {
+                        "type": "object",
+                        "required": ["unclearedPostClaimIds"],
+                        "properties": {
+                            "unclearedPostClaimIds": {
+                                "type": "array",
+                                "maxItems": 0
+                            }
+                        }
+                    },
                     "zeroLegacyScan": {
                         "type": "object",
                         "required": [
@@ -149,6 +164,32 @@
         }
     ],
     "$defs": {
+        "claimStageDischarge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "catalogDigest", "parseReceiptDigest", "migrationLedgerDigest",
+                "admissionClaimStagesDigest", "preVerificationReceiptDigest",
+                "verifiedPreProseClaimIds", "verifiedPostClaimIds",
+                "unclearedPostClaimIds", "contentDigest"
+            ],
+            "properties": {
+                "catalogDigest": { "$ref": "#/$defs/digest" },
+                "parseReceiptDigest": { "$ref": "#/$defs/digest" },
+                "migrationLedgerDigest": { "$ref": "#/$defs/digest" },
+                "admissionClaimStagesDigest": { "$ref": "#/$defs/digest" },
+                "preVerificationReceiptDigest": { "$ref": "#/$defs/digest" },
+                "verifiedPreProseClaimIds": { "$ref": "#/$defs/claimIdRoster" },
+                "verifiedPostClaimIds": { "$ref": "#/$defs/claimIdRoster" },
+                "unclearedPostClaimIds": { "$ref": "#/$defs/claimIdRoster" },
+                "contentDigest": { "$ref": "#/$defs/digest" }
+            }
+        },
+        "claimIdRoster": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+        },
         "digest": {
             "type": "string",
             "pattern": "^sha256:[a-f0-9]{64}$"

@@ -687,14 +687,13 @@ function postRuntimeBindingShape(pre)
     const classes = Object.fromEntries(registry.producers.map((producer) => [producer.producerId,
         [...new Set(Object.values(producer.requiredObservations).flat())].sort()]));
     const results = registry.producers.flatMap((producer) =>
-        classes[producer.producerId].map((classId, index) => ({
+        Object.entries(producer.requiredObservations).flatMap(([scope, classIds]) =>
+        classIds.map((classId) => ({
             behaviorId: BehaviorId(producer.behaviorId),
             extractorId: catalog.contracts
                 .find((behavior) => behavior.id === producer.behaviorId).factExtractorId,
             producerId: producer.producerId,
-            scope: index < classes[producer.producerId].length - 2
-                ? 'application'
-                : 'release-deployment',
+            scope,
             classId,
             classReceiptPath: `.tmp/current-run/classes/${classId}.json`,
             classReceiptDigest: authorityDigest({ classId, receipt: true }),
@@ -702,7 +701,7 @@ function postRuntimeBindingShape(pre)
             rawReceiptDigest: authorityDigest({ classId, raw: true }),
             semanticFactsDigest: authorityDigest({ classId, semanticFacts: true }),
             status: 'ok'
-        })));
+        }))));
     const reference = (name, contentDigest = authorityDigest({ name })) => ({
         path: `.tmp/current-run/${name}.json`,
         fileDigest: authorityDigest({ bytes: name }),
@@ -712,7 +711,7 @@ function postRuntimeBindingShape(pre)
         .flatMap((producer) => producer.acceptedClaimRefs)
         .sort();
     return sealDocument({
-        schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
+        schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v2', scope: 'post-runtime',
         runIdentity: pre.runIdentity, sourceIdentity: pre.sourceIdentity,
         preRuntimeReceiptDigest: pre.contentDigest,
         staticClaimVerificationDigest: `sha256:${pre.staticClaimVerificationDigest}`,
@@ -733,12 +732,20 @@ function postRuntimeBindingShape(pre)
         requiredRuntimeProducers: registry.producers.map((producer) => producer.producerId),
         requiredObservationScopes: ['application', 'release-deployment'],
         requiredProducerClasses: classes, observedProducerClasses: structuredClone(classes),
+        requiredProducerScopes: Object.fromEntries(registry.producers.map((producer) =>
+            [producer.producerId, Object.keys(producer.requiredObservations).sort()])),
+        requiredProducerClaims: Object.fromEntries(registry.producers.map((producer) =>
+            [producer.producerId, [...producer.acceptedClaimRefs].sort()])),
+        observedProducerClaims: Object.fromEntries(registry.producers.map((producer) =>
+            [producer.producerId, [...producer.acceptedClaimRefs].sort()])),
         observedBehaviorResults: results,
-        observationRefs: [
-            { scope: 'application', ...reference('application-observation') },
-            { scope: 'release-deployment', ...reference('release-deployment-observation') }
-        ],
-        acceptedClaimsRef: reference('accepted-claims'),
+        observationRefs: registry.producers.flatMap((producer) =>
+            Object.keys(producer.requiredObservations).sort().map((scope) => ({
+                producerId: producer.producerId, scope,
+                ...reference(`${producer.producerId}-${scope}-observation`)
+            }))),
+        acceptedClaimsRefs: Object.fromEntries(registry.producers.map((producer) =>
+            [producer.producerId, reference(`${producer.producerId}-accepted-claims`)])),
         documentClaimDigests: Object.fromEntries(claimIds.map((claimId) =>
             [claimId, authorityDigest({ claimId })])),
         documentClaimTerminalDigest: authorityDigest({ terminal: claimIds }),
@@ -826,7 +833,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
     const consistencyFinal = sealDocument({
-        schema: 'fsusblog.behavior-document-consistency-final-report.v1',
+        schema: 'fsusblog.behavior-document-consistency-final-report.v2',
         sourceIdentity: preRuntime.sourceIdentity,
         receiptDigests: {
             preRuntime: preRuntime.contentDigest,

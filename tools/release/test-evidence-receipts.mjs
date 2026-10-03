@@ -1386,7 +1386,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         }
     }
     if (binding?.receipts?.behaviorPostRuntime?.schema
-        !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
+        !== 'fsusblog.behavior-evidence-post-runtime-receipt.v2')
     {
         errors.push('release-final binding behaviorPostRuntime schema is invalid');
     }
@@ -1396,7 +1396,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         errors.push('release-final binding behaviorPreRuntime schema is invalid');
     }
     if (binding?.receipts?.behaviorConsistencyFinal?.schema
-        !== 'fsusblog.behavior-document-consistency-final-report.v1')
+        !== 'fsusblog.behavior-document-consistency-final-report.v2')
     {
         errors.push('release-final binding behaviorConsistencyFinal schema is invalid');
     }
