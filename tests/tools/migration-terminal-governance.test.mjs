@@ -592,3 +592,95 @@ test('MSBuild friend lists retain benign members, update semantics and unresolve
     append(root, project, '<InternalsVisibleTo Update="FsusBlog.Tests;FsusBlog.Migration" />');
     assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo FsusBlog.Migration')));
 });
+
+for (const [path, target] of friendDirections)
+{
+    test(`namespace-local aliases cannot hide the compilation-unit friend from ${path} to ${target}`, t =>
+    {
+        const root = fixture(t);
+        assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+        add(root, path, `using System.Runtime.CompilerServices;
+[assembly: InternalsVisibleTo("${target}")]
+namespace N
+{
+    using InternalsVisibleTo = Other.MarkerAttribute;
+}
+namespace Other
+{
+    public sealed class MarkerAttribute : global::System.Attribute
+    {
+        public MarkerAttribute(string value) { }
+    }
+}
+`);
+        assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes(`InternalsVisibleTo ${target}`)
+            && value.includes(path)), path);
+    });
+}
+
+test('a namespace-local same-name alias does not conflict with a permitted outer friend alias', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/ScopedFriend.cs', `using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("FsusBlog.Migration.Tests")]
+namespace N
+{
+    using Friend = Other.MarkerAttribute;
+    namespace Nested
+    {
+        using Friend = System.ObsoleteAttribute;
+    }
+}
+namespace Other
+{
+    public sealed class MarkerAttribute : global::System.Attribute
+    {
+        public MarkerAttribute(string value) { }
+    }
+}
+`);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+});
+
+test('file-scoped namespace aliases do not rebind a preceding global assembly attribute', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/FileScopedFriend.cs', `using System.Runtime.CompilerServices;
+[assembly: InternalsVisibleTo("FsusBlog.Server")]
+namespace N;
+using InternalsVisibleTo = global::System.ObsoleteAttribute;
+`);
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo FsusBlog.Server')
+        && value.includes('FileScopedFriend.cs')));
+});
+
+test('permitted outer aliases remain visible before a file-scoped namespace with a local same-name alias', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/PermittedFileScopedFriend.cs', `using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;
+[assembly: Friend("FsusBlog.Migration.Tests")]
+namespace N;
+using Friend = global::System.ObsoleteAttribute;
+`);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+});
+
+test('only compilation-unit global aliases enter the owning project alias map', t =>
+{
+    const root = fixture(t);
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/GlobalScopedFriend.cs', 'global using Friend = System.Runtime.CompilerServices.InternalsVisibleToAttribute;\n');
+    add(root, 'src/migration/LocalScopedFriend.cs', `namespace N
+{
+    using Friend = System.ObsoleteAttribute;
+}
+`);
+    add(root, 'src/migration/GlobalFriendUse.cs', '[assembly: Friend("FsusBlog.Migration.Tests")]\n');
+    assert.deepEqual(inspectMigrationTerminalGovernance(root).failures, []);
+    add(root, 'src/migration/GlobalFriendUse.cs', '[assembly: Friend("FsusBlog.Server")]\n');
+    assert.ok(inspectMigrationTerminalGovernance(root).failures.some(value => value.includes('InternalsVisibleTo FsusBlog.Server')
+        && value.includes('GlobalFriendUse.cs')));
+});

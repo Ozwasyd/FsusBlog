@@ -78,8 +78,35 @@ function friendLiteralArgument(source)
 function usingAliases(source, globalOnly = false)
 {
     const aliases = new Map();
-    for (const declaration of maskCSharp(source).matchAll(/\b(?:(global)\s+)?using\s+(@?[A-Za-z_]\w*)\s*=\s*([^;]+);/gu))
+    let depth = 0;
+    let fileNamespace = false;
+    // Assembly attributes see compilation-unit aliases, not using directives
+    // inside a block or file-scoped namespace. Traverse only the masked lexical
+    // seams; this does not evaluate directives or replace compiler binding.
+    for (const declaration of maskCSharp(source).matchAll(/(?<![\w@])namespace\b[^{};]*[;{]|[{}]|\b(?:(global)\s+)?using\s+(@?[A-Za-z_]\w*)\s*=\s*([^;]+);/gu))
     {
+        const token = declaration[0];
+        if (token.startsWith('namespace'))
+        {
+            if (token.endsWith('{'))
+            {
+                depth += 1;
+            }
+            else if (depth === 0)
+            {
+                fileNamespace = true;
+            }
+            continue;
+        }
+        if (token === '{' || token === '}')
+        {
+            depth += token === '{' ? 1 : -1;
+            continue;
+        }
+        if (depth !== 0 || fileNamespace)
+        {
+            continue;
+        }
         if (globalOnly && !declaration[1])
         {
             continue;
