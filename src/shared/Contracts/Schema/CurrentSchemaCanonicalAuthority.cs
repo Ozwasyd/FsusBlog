@@ -6,9 +6,9 @@ namespace FsusBlog.Contracts.Schema;
 
 public static class CurrentSchemaCanonicalAuthority
 {
-    public const string ModelVersion = "fsusblog.current-schema.v4";
+    public const string ModelVersion = "fsusblog.current-schema.v5";
     public const string ExtractorVersion = "fsusblog.current-schema-reflection.v2";
-    public const string GeneratorVersion = "fsusblog.current-schema-projection.v4";
+    public const string GeneratorVersion = "fsusblog.current-schema-projection.v5";
 
     /// <summary>Seals facts supplied by the single current extractor, not by migration descriptors.</summary>
     /// <param name="tables">The current extractor's complete entity descriptions.</param>
@@ -17,6 +17,7 @@ public static class CurrentSchemaCanonicalAuthority
     public static CurrentSchemaCanonicalModel Create(IReadOnlyDictionary<string, SchemaTableModel> tables, string sourceDigest)
     {
         ArgumentNullException.ThrowIfNull(tables);
+        ValidateIndexKeys(tables, SchemaProviderKind.Semantic);
         if (string.IsNullOrWhiteSpace(sourceDigest) || sourceDigest.Length != 64
             || sourceDigest.Any(static character => character is not (>= '0' and <= '9' or >= 'a' and <= 'f')))
         {
@@ -39,6 +40,8 @@ public static class CurrentSchemaCanonicalAuthority
         CurrentSchemaCanonicalModel canonical,
         SchemaProviderKind provider)
     {
+        VerifyIdentity(canonical.SemanticSchema, canonical.Identity);
+        ValidateIndexKeys(canonical.SemanticSchema.Tables, provider);
         if (provider == SchemaProviderKind.Semantic)
         {
             return Generate(canonical).Schema;
@@ -168,6 +171,10 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 case CurrentSchemaRecipeOperationKind.CreateIndex:
                     SchemaIndexModel index = operation.Index ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    foreach (SchemaIndexKeyModel key in index.Keys)
+                        SchemaIndexKeyFacts.Validate(key, table.Columns, provider);
+                    if (index.IsUnique && index.Keys.Any(static key => key.Kind == SchemaIndexKeyKind.Expression))
+                        throw new InvalidOperationException("current_schema_complete_target_unique_expression_unavailable");
                     if (index.Name != operation.Name || !indexes.TryAdd(index.Name, index))
                     {
                         throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
@@ -280,6 +287,7 @@ public static class CurrentSchemaCanonicalAuthority
             throw new InvalidOperationException("Current schema projection identity version mismatch.");
         }
 
+        ValidateIndexKeys(snapshot.Tables, snapshot.Provider);
         string contentDigest = ComputeContentDigest(snapshot.Tables);
         if (!string.Equals(identity.ContentDigest, contentDigest, StringComparison.Ordinal))
         {
@@ -289,6 +297,18 @@ public static class CurrentSchemaCanonicalAuthority
 
     public static string NormalizeIdentifier(string name)
         => name.Trim().ToLowerInvariant();
+
+    private static void ValidateIndexKeys(IReadOnlyDictionary<string, SchemaTableModel> tables, SchemaProviderKind provider)
+    {
+        foreach (SchemaTableModel table in tables.Values)
+        {
+            foreach (SchemaIndexModel index in table.IndexDefinitions.Values)
+            {
+                foreach (SchemaIndexKeyModel key in index.Keys)
+                    SchemaIndexKeyFacts.Validate(key, table.Columns, provider);
+            }
+        }
+    }
 
     public static string ComputeContentDigest(IReadOnlyDictionary<string, SchemaTableModel> tables)
     {

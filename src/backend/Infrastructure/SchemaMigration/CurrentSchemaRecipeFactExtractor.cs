@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
@@ -43,7 +44,8 @@ internal static class CurrentSchemaRecipeFactExtractor
         }
         var table = new SchemaTableModel(recipe.TableName, columns, [], constraints: constraints,
             owner: new("current-runtime-recipe", "CurrentSchemaRuntimeRollupTables.Tables"));
-        CurrentSchemaRecipeOperation[] operations = (recipe.AdditionalSql ?? []).Select(Additional).ToArray();
+        CurrentSchemaRecipeOperation[] operations = (recipe.AdditionalSql ?? [])
+            .Select(source => Additional(source, columns)).ToArray();
         return new CurrentSchemaRecipeFacts(table, operations);
     }
 
@@ -128,20 +130,29 @@ internal static class CurrentSchemaRecipeFactExtractor
             ForeignKeyUpdateAction: "no-action", ForeignKeyMatchType: "simple", ReferencedSchema: "public");
     }
 
-    private static CurrentSchemaRecipeOperation Additional(string source)
+    private static CurrentSchemaRecipeOperation Additional(string source,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns)
     {
         source = source.Trim();
         if (Starts(source, "CREATE INDEX") || Starts(source, "CREATE UNIQUE INDEX"))
         {
-            Match match = Match(source, $"CREATE (?<unique>UNIQUE )?INDEX IF NOT EXISTS (?<name>{Id}) ON (?<table>{Id})\\s*\\((?<keys>[^)]+)\\)\\s*(?:WHERE (?<predicate>.*?))?;");
-            SchemaIndexKeyModel[] keys = Split(match.Groups["keys"].Value).Select(static key =>
+            Match match = Match(source, $"CREATE (?<unique>UNIQUE )?INDEX IF NOT EXISTS (?<name>{Id}) ON (?<table>{Id})\\s*(?<body>\\(.*);");
+            (string members, string? predicate) = IndexMembers(match.Groups["body"].Value);
+            SchemaIndexKeyModel[] keys = Split(members).Select(key =>
             {
-                Match parsed = Match(key, $"(?<name>{Id})(?: (?<direction>ASC|DESC))?");
+                Match parsed = Match(key, "(?<value>.+?)(?: (?<direction>ASC|DESC))?");
                 bool descending = parsed.Groups["direction"].Value.Equals("DESC", StringComparison.OrdinalIgnoreCase);
-                return new SchemaIndexKeyModel(parsed.Groups["name"].Value, descending ? "desc" : "asc",
-                    descending ? "first" : "last", "default", "default");
+                string value = parsed.Groups["value"].Value;
+                bool column = Regex.IsMatch(value, "\\A(?:" + Id + ")\\z", RegexOptions.CultureInvariant);
+                var result = new SchemaIndexKeyModel(column ? value : string.Empty, descending ? "desc" : "asc",
+                    descending ? "first" : "last", "default", "default")
+                {
+                    Kind = column ? SchemaIndexKeyKind.Column : SchemaIndexKeyKind.Expression,
+                    Expression = column ? null : PgCurrentSchemaExpressionParser.Parse(value, columns)
+                };
+                SchemaIndexKeyFacts.Validate(result, columns, SchemaProviderKind.PostgreSql);
+                return result;
             }).ToArray();
-            string? predicate = match.Groups["predicate"].Success ? match.Groups["predicate"].Value : null;
             if (predicate is not null) ValidateExpression(predicate);
             var index = new SchemaIndexModel(match.Groups["name"].Value, match.Groups["unique"].Success,
                 keys, [], "btree", predicate, false);
@@ -196,6 +207,37 @@ internal static class CurrentSchemaRecipeFactExtractor
                 match.Groups["table"].Value, Constraint: constraint);
         }
         throw new InvalidOperationException("current_schema_recipe_operation_unavailable");
+    }
+
+    private static (string Members, string? Predicate) IndexMembers(string body)
+    {
+        int depth = 0;
+        char quote = '\0';
+        for (int index = 0; index < body.Length; index++)
+        {
+            char character = body[index];
+            if (quote != '\0')
+            {
+                if (character == quote)
+                {
+                    if (index + 1 < body.Length && body[index + 1] == quote) index++;
+                    else quote = '\0';
+                }
+            }
+            else if (character is '\'' or '"') quote = character;
+            else if (character == '(') depth++;
+            else if (character == ')')
+            {
+                if (--depth < 0) Fail("unbalanced_index");
+                if (depth != 0) continue;
+                string tail = body[(index + 1)..].Trim();
+                if (tail.Length == 0) return (body[1..index], null);
+                if (!Consume(ref tail, "WHERE") || tail.Length == 0) Fail("index_tail_unavailable");
+                ValidateExpression(tail);
+                return (body[1..index], tail);
+            }
+        }
+        throw new InvalidOperationException("current_schema_recipe_unbalanced_index");
     }
 
     private static Match Match(string source, string expression)

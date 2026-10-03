@@ -256,11 +256,11 @@ schema facts only; journal JSON, history, sequence/parent seals, media states an
 resume remain the original Migration owners' responsibility.
 
 The durable-control closure introduced model/projection v3. The current typed
-physical representation uses `fsusblog.current-schema.v4` and
-`fsusblog.current-schema-projection.v4`; the reflection extractor remains v2.
+physical representation uses `fsusblog.current-schema.v5` and
+`fsusblog.current-schema-projection.v5`; the reflection extractor remains v2.
 Both composite source/content identities include
 the explicit control version and complete sole shape. Previously sealed v2/v3 owned
-targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
+targets, plans and receipts, including the previous v4 key representation, cannot be reinterpreted, auto-resealed or accepted
 through a second version path. A new candidate must invoke the original owned
 projection producer and obtain fresh exact authorized source/backup/DAG/target
 bindings, apply artifacts and independent current verification. An interrupted
@@ -270,6 +270,35 @@ checkpoint or re-plan partial effects. Rollback requires those original bindings
 and the authenticated backup/recovery procedure, not journal deletion. This
 source repair and unexecuted source cases do not establish native crash/resume,
 backup, three-provider or deployment qualification.
+
+The v5 index key has a required closed `Kind` discriminator (`Column` or
+`Expression`). A column key retains its exact bound `Column` and has no expression
+payload. An expression key has an empty `Column` and a complete ordered
+`SchemaExpressionNode` tree; SQL text is never stored in the column-name field.
+The existing PostgreSQL expression parser binds the original recipe's expression
+to its table columns. The currently implemented expression-key capability is
+`GREATEST` of at least two bound `timestamp` columns, with no literals, casts,
+nested calls or foreign columns. The original recent-history index retains all
+three nullable timestamps and their order, its ordinary owner/site/article keys,
+directions, null placement, operator class and collation. Complete source/input
+and content identities include the discriminator, tree and all original key
+facts. The PostgreSQL compiler renders only these validated bound facts; unsupported
+unique expression keys refuse rather than invent a column-only unique constraint.
+MySQL and SQLite expression-key projection remains explicitly unavailable;
+ordinary column-key capability is unchanged.
+
+The PostgreSQL native index observer reads expression keys where `indkey` is zero
+using `pg_get_indexdef(index_oid, key_position, false)`, independently of direction,
+null placement, operator class and collation from their native catalog fields.
+It binds parsed expression columns to the actual table and compares the whole
+expression-index dependency set with positive same-table attribute dependencies
+from `pg_depend`, including ordinary keys, included columns and predicates.
+Foreign-table dependencies, inconsistent expression presence, unknown calls,
+casts, unbound columns and trailing syntax refuse. Expected facts still originate
+from the independent owned recipe, not native SQL or a live snapshot. The original
+owned repeatable-read session and complete-target comparison remain required.
+These source interfaces and unexecuted cases do not produce a new schema artifact,
+resolve the whole-descriptor fingerprint oracle, or prove native/provider admission.
 
 Completed-Apply plan-binding verification independently hashes the original raw
 artifact bytes and rechecks closure against authenticated capture/restore evidence

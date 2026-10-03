@@ -69,13 +69,17 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 if (index.Name != operation.Name || index.Keys.Count == 0 || index.AccessMethod != "btree"
                     || index.IncludedColumns.Count != 0 || index.NullsNotDistinct)
                     throw new InvalidOperationException("current_schema_bootstrap_recipe_index_capability_unavailable");
-                RequireColumns(tables[operation.Table!], index.Keys.Select(static key => key.Column).ToArray());
                 string[] keys = index.Keys.Select(key =>
                 {
+                    SchemaIndexKeyFacts.Validate(key, tables[operation.Table!].Columns, SchemaProviderKind.PostgreSql);
                     if (key.OperatorClass != "default" || key.Collation != "default"
                         || key.Direction is not ("asc" or "desc") || key.NullPlacement is not ("first" or "last"))
                         throw new InvalidOperationException("current_schema_bootstrap_recipe_index_key_invalid");
-                    return $"{Identifier(key.Column)} {key.Direction.ToUpperInvariant()} NULLS {key.NullPlacement.ToUpperInvariant()}";
+                    if (index.IsUnique && key.Kind == SchemaIndexKeyKind.Expression)
+                        throw new InvalidOperationException("current_schema_bootstrap_recipe_unique_expression_unavailable");
+                    string value = key.Kind == SchemaIndexKeyKind.Column ? Identifier(key.Column)
+                        : $"GREATEST({string.Join(", ", key.Expression!.Arguments.Select(argument => Identifier(argument.Value)))})";
+                    return $"{value} {key.Direction.ToUpperInvariant()} NULLS {key.NullPlacement.ToUpperInvariant()}";
                 }).ToArray();
                 string where = index.Predicate is null ? "" : $" WHERE {Expression(index.Predicate)}";
                 sql = $"CREATE {(index.IsUnique ? "UNIQUE " : "")}INDEX {name} ON {Table()} ({string.Join(", ", keys)}){where};";

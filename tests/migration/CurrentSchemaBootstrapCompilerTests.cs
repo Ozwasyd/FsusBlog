@@ -7,6 +7,118 @@ namespace FsusBlog.Migration.Tests;
 public sealed class CurrentSchemaBootstrapCompilerTests
 {
     [Fact]
+    public void Bootstrap_HistoryOrderExpressionRendersOnlyBoundFactsAndBindsEveryOrderedKey()
+    {
+        CurrentSchemaBootstrapInput input = HistoryExpressionInput();
+        CurrentSchemaProducerIdentity owner = input.Producer;
+        string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner,
+            SchemaProviderKind.PostgreSql, binding);
+        Assert.Equal("CREATE INDEX \"ix_history_order\" ON \"history_probe\" (\"owner_id\" ASC NULLS LAST, GREATEST(\"opened\", \"edited\", \"activated\") DESC NULLS FIRST, \"article_id\" DESC NULLS FIRST);",
+            compiled.Commands[^1].Sql);
+        Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), compiled.Target);
+        CurrentSchemaCompletePhysicalProjection complete = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input,
+            SchemaProviderKind.PostgreSql);
+        SchemaIndexModel original = input.RequiredRecipes[0].SemanticDescription!.AdditionalOperations[0].Index!;
+        Assert.Equal(original, complete.Tables.Tables["history_probe"].IndexDefinitions["ix_history_order"]);
+        Assert.DoesNotContain(complete.Tables.Tables["history_probe"].Constraints.Values,
+            static constraint => constraint.Kind == "unique" && constraint.Columns.Contains(""));
+        SchemaIndexKeyModel key = original.Keys[1];
+        SchemaIndexModel reordered = original with
+        {
+            Keys = [original.Keys[0], key with
+            {
+                Expression = key.Expression! with { Arguments = key.Expression.Arguments.Reverse().ToArray() }
+            }, original.Keys[2]]
+        };
+        CurrentSchemaBootstrapInput changed = WithHistoryIndex(input, reordered);
+        Assert.NotEqual(binding, CurrentSchemaBootstrapCompiler.OwnedInputDigest(changed));
+        Assert.NotEqual(compiled.Target.ContentDigest, CurrentSchemaOwnedTargetProjection.Observe(changed).ContentDigest);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.Compile(changed, owner,
+            SchemaProviderKind.PostgreSql, binding));
+        Assert.NotEqual(compiled.CommandDigest, CurrentSchemaBootstrapCompiler.Compile(changed, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(changed)).CommandDigest);
+    }
+
+    [Theory]
+    [InlineData("kind")]
+    [InlineData("column-with-expression")]
+    [InlineData("raw-column")]
+    [InlineData("missing-tree")]
+    [InlineData("unknown-function")]
+    [InlineData("foreign-column")]
+    [InlineData("cast")]
+    [InlineData("physical-mysql-payload")]
+    [InlineData("unique-expression")]
+    public void Bootstrap_HistoryExpressionUnknownOrIgnoredFactsRefuseBeforeCommands(string mutation)
+    {
+        CurrentSchemaBootstrapInput input = HistoryExpressionInput();
+        SchemaIndexModel original = input.RequiredRecipes[0].SemanticDescription!.AdditionalOperations[0].Index!;
+        SchemaIndexKeyModel key = original.Keys[1];
+        SchemaIndexKeyModel altered = mutation switch
+        {
+            "kind" => key with { Kind = (SchemaIndexKeyKind)999 },
+            "column-with-expression" => key with { Kind = SchemaIndexKeyKind.Column, Column = "opened" },
+            "raw-column" => key with { Column = "GREATEST(opened, edited, activated)" },
+            "missing-tree" => key with { Expression = null },
+            "unknown-function" => key with { Expression = key.Expression! with { Value = "least" } },
+            "foreign-column" => key with { Expression = new("call", "greatest", [new("column", "missing", []), new("column", "edited", [])]) },
+            "cast" => key with { Expression = new("call", "greatest", [new("cast", "timestamp", [new("column", "opened", [])]), new("column", "edited", [])]) },
+            "physical-mysql-payload" => key with { MySqlPhysical = new(null, "ignored") },
+            "unique-expression" => key,
+            _ => throw new InvalidOperationException("unknown mutation fixture")
+        };
+        CurrentSchemaBootstrapInput changed = WithHistoryIndex(input, original with
+        {
+            IsUnique = mutation == "unique-expression",
+            Keys = [original.Keys[0], altered, original.Keys[2]]
+        });
+        Assert.NotEqual(CurrentSchemaBootstrapCompiler.OwnedInputDigest(input),
+            CurrentSchemaBootstrapCompiler.OwnedInputDigest(changed));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.Compile(changed,
+            changed.Producer, SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(changed)));
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(changed,
+            SchemaProviderKind.PostgreSql));
+    }
+
+    private static CurrentSchemaBootstrapInput WithHistoryIndex(CurrentSchemaBootstrapInput input, SchemaIndexModel index)
+    {
+        CurrentSchemaRequiredRecipeReference reference = input.RequiredRecipes[0];
+        CurrentSchemaRecipeFacts facts = reference.SemanticDescription!;
+        return input with { RequiredRecipes = [reference with
+        {
+            SemanticDescription = facts with
+            {
+                AdditionalOperations = [facts.AdditionalOperations[0] with { Index = index }]
+            }
+        }] };
+    }
+
+    private static CurrentSchemaBootstrapInput HistoryExpressionInput()
+    {
+        var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
+        {
+            ["owner_id"] = new("owner_id", false, false, false, null, "int64", PhysicalType: "bigint"),
+            ["article_id"] = new("article_id", false, false, false, null, "int64", PhysicalType: "bigint"),
+            ["opened"] = new("opened", true, false, false, null, "timestamp", PhysicalType: "timestamp without time zone"),
+            ["edited"] = new("edited", true, false, false, null, "timestamp", PhysicalType: "timestamp without time zone"),
+            ["activated"] = new("activated", true, false, false, null, "timestamp", PhysicalType: "timestamp without time zone")
+        };
+        var key = new SchemaIndexKeyModel("", "desc", "first", "default", "default")
+        {
+            Kind = SchemaIndexKeyKind.Expression,
+            Expression = new("call", "greatest", [new("column", "opened", []), new("column", "edited", []), new("column", "activated", [])])
+        };
+        var index = new SchemaIndexModel("ix_history_order", false,
+            [new("owner_id", "asc", "last", "default", "default"), key, new("article_id", "desc", "first", "default", "default")],
+            [], "btree", null, false);
+        var table = new SchemaTableModel("history_probe", columns, []);
+        var operation = new CurrentSchemaRecipeOperation(CurrentSchemaRecipeOperationKind.CreateIndex, index.Name,
+            table.Name, Index: index);
+        return new(Projection(), Owner(), [new(table.Name, SchemaProviderKind.PostgreSql, new string('d', 64), new(table, [operation]))]);
+    }
+
+    [Fact]
     public void Bootstrap_IndependentSequenceTypedFactsPreserveOriginalSqlAndBindCompleteTarget()
     {
         CurrentSchemaProducerIdentity owner = Owner();

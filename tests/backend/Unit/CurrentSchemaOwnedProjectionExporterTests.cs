@@ -11,6 +11,157 @@ namespace FsusBlog.Server.Tests;
 public sealed class CurrentSchemaOwnedProjectionExporterTests
 {
     [Fact]
+    public void HistoryOrderExpression_ExtractsBoundOrderedFactsAndRoundTripsTheClosedKey()
+    {
+        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(HistoryOrderRecipe());
+        SchemaIndexModel index = Assert.Single(facts.AdditionalOperations).Index!;
+        Assert.Equal(new[] { "owner_admin_principal_id", "site_scope", "", "article_id" },
+            index.Keys.Select(static key => key.Column));
+        SchemaIndexKeyModel key = index.Keys[2];
+        Assert.Equal(SchemaIndexKeyKind.Expression, key.Kind);
+        Assert.Equal("call", key.Expression!.Kind);
+        Assert.Equal("greatest", key.Expression.Value);
+        Assert.Equal(new[] { "last_opened_at_utc", "last_edited_at_utc", "last_activated_at_utc" },
+            key.Expression.Arguments.Select(static argument => argument.Value));
+        Assert.All(key.Expression.Arguments, argument =>
+        {
+            Assert.Equal("column", argument.Kind);
+            Assert.Empty(argument.Arguments);
+            Assert.Equal("timestamp", facts.Table.Columns[argument.Value].DataType);
+        });
+        Assert.Equal("desc", key.Direction);
+        Assert.Equal("first", key.NullPlacement);
+        Assert.Equal("default", key.OperatorClass);
+        Assert.Equal("default", key.Collation);
+        Assert.False(index.IsUnique);
+        Assert.Null(index.Predicate);
+        string json = JsonSerializer.Serialize(key);
+        SchemaIndexKeyModel restored = JsonSerializer.Deserialize<SchemaIndexKeyModel>(json)!;
+        Assert.NotSame(key.Expression, restored.Expression);
+        Assert.Equal(key, restored);
+        Assert.Equal(key.GetHashCode(), restored.GetHashCode());
+        System.Text.Json.Nodes.JsonObject missingKind = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        Assert.True(missingKind.Remove("Kind"));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SchemaIndexKeyModel>(missingKind.ToJsonString()));
+        Assert.NotEqual(key, key with
+        {
+            Expression = key.Expression with { Arguments = key.Expression.Arguments.Reverse().ToArray() }
+        });
+    }
+
+    [Theory]
+    [InlineData("LEAST(last_opened_at_utc, last_edited_at_utc)")]
+    [InlineData("GREATEST(last_opened_at_utc, missing_column)")]
+    [InlineData("GREATEST(last_opened_at_utc, article_id)")]
+    [InlineData("GREATEST(last_opened_at_utc::timestamp, last_edited_at_utc)")]
+    [InlineData("GREATEST(last_opened_at_utc, GREATEST(last_edited_at_utc, last_activated_at_utc))")]
+    [InlineData("GREATEST(last_opened_at_utc)")]
+    [InlineData("GREATEST(last_opened_at_utc, NULL)")]
+    [InlineData("GREATEST(last_opened_at_utc, last_edited_at_utc) trailing")]
+    public void HistoryOrderExpression_UnknownUnboundOrLossyCapabilityRefusesWholeExtraction(string expression)
+    {
+        CurrentSchemaRuntimeRollupTable recipe = HistoryOrderRecipe();
+        string original = recipe.AdditionalSql![0];
+        CurrentSchemaRecipeFacts control = CurrentSchemaRecipeFactExtractor.Extract(recipe);
+        Assert.Equal(SchemaIndexKeyKind.Expression, control.AdditionalOperations[0].Index!.Keys[2].Kind);
+        recipe = recipe with
+        {
+            AdditionalSql = [original.Replace(
+                "GREATEST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc)", expression,
+                StringComparison.Ordinal)]
+        };
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
+    }
+
+    [Theory]
+    [InlineData(" NULLS LAST;")]
+    [InlineData("; DROP TABLE author_recent_history_entry;")]
+    [InlineData(" trailing;")]
+    public void HistoryOrderExpression_UnsupportedIndexTailNeverDisappears(string tail)
+    {
+        CurrentSchemaRuntimeRollupTable recipe = HistoryOrderRecipe();
+        Assert.Equal(4, CurrentSchemaRecipeFactExtractor.Extract(recipe).AdditionalOperations[0].Index!.Keys.Count);
+        recipe = recipe with { AdditionalSql = [recipe.AdditionalSql![0].TrimEnd().TrimEnd(';') + tail] };
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
+    }
+
+    [Theory]
+    [InlineData(SchemaProviderKind.Semantic)]
+    [InlineData(SchemaProviderKind.PostgreSql)]
+    [InlineData(SchemaProviderKind.MySql)]
+    [InlineData(SchemaProviderKind.Sqlite)]
+    public void ClosedKey_UnsupportedExpressionDoesNotRemoveExistingColumnCapability(SchemaProviderKind provider)
+    {
+        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(HistoryOrderRecipe());
+        SchemaIndexModel index = facts.AdditionalOperations[0].Index!;
+        SchemaIndexKeyFacts.Validate(index.Keys[0], facts.Table.Columns, provider);
+        if (provider is SchemaProviderKind.Semantic or SchemaProviderKind.PostgreSql)
+            SchemaIndexKeyFacts.Validate(index.Keys[2], facts.Table.Columns, provider);
+        else
+            Assert.Contains("expression_provider_unavailable", Assert.Throws<InvalidOperationException>(() =>
+                SchemaIndexKeyFacts.Validate(index.Keys[2], facts.Table.Columns, provider)).Message);
+    }
+
+    [Fact]
+    public void ClosedKey_V4IdentityCannotBeReinterpretedAsTheV5ExpressionContract()
+    {
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+            inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        CurrentSchemaIdentity previous = entity.Identity with
+        {
+            ModelVersion = "fsusblog.current-schema.v4",
+            GeneratorVersion = "fsusblog.current-schema-projection.v4"
+        };
+        Assert.Equal("fsusblog.current-schema.v5", entity.Identity.ModelVersion);
+        Assert.Equal("fsusblog.current-schema-projection.v5", entity.Identity.GeneratorVersion);
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.Generate(
+            new(new SchemaModelSnapshot(entity.Schema.Tables, previous), previous)));
+    }
+
+    [Fact]
+    public void ClosedKey_WholeContentIdentityRetainsDirectionNullsOperatorClassAndCollation()
+    {
+        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(HistoryOrderRecipe());
+        SchemaIndexModel index = facts.AdditionalOperations[0].Index!;
+        SchemaIndexKeyModel key = index.Keys[2];
+        string Digest(SchemaIndexKeyModel expressionKey)
+        {
+            SchemaIndexModel changed = index with
+            {
+                Keys = [index.Keys[0], index.Keys[1], expressionKey, index.Keys[3]]
+            };
+            var table = new SchemaTableModel(facts.Table.Name, facts.Table.Columns, [changed.Name],
+                new Dictionary<string, SchemaIndexModel> { [changed.Name] = changed });
+            return CurrentSchemaCanonicalAuthority.Create(
+                new Dictionary<string, SchemaTableModel> { [table.Name] = table }, new string('a', 64)).Identity.ContentDigest;
+        }
+        string original = Digest(key);
+        Assert.NotEqual(original, Digest(key with { Direction = "asc" }));
+        Assert.NotEqual(original, Digest(key with { NullPlacement = "last" }));
+        Assert.NotEqual(original, Digest(key with { OperatorClass = "foreign_ops" }));
+        Assert.NotEqual(original, Digest(key with { Collation = "foreign_collation" }));
+    }
+
+    private static CurrentSchemaRuntimeRollupTable HistoryOrderRecipe()
+        => new("author_recent_history_entry", """
+            CREATE TABLE IF NOT EXISTS author_recent_history_entry (
+                owner_admin_principal_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                last_opened_at_utc timestamp without time zone NULL,
+                last_edited_at_utc timestamp without time zone NULL,
+                last_activated_at_utc timestamp without time zone NULL,
+                article_id bigint NOT NULL
+            );
+            """, ["""
+            CREATE INDEX IF NOT EXISTS ix_author_recent_history_entry_order
+                ON author_recent_history_entry(
+                    owner_admin_principal_id, site_scope,
+                    GREATEST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc) DESC,
+                    article_id DESC);
+            """]);
+
+    [Fact]
     public void OriginalIndependentSequence_ExportsEveryConfigurationFactAndNotAColumnIdentity()
     {
         CurrentSchemaRequiredRecipeReference recipe = Assert.Single(

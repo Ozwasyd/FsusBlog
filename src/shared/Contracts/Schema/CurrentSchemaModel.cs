@@ -79,6 +79,13 @@ public sealed record SchemaConstraintModel(
     string? ForeignKeyMatchType = null,
     string? ReferencedSchema = null);
 
+/// <summary>Closed identity of an ordinary bound column or an explicitly modelled expression key.</summary>
+public enum SchemaIndexKeyKind
+{
+    Column,
+    Expression
+}
+
 public sealed record SchemaIndexKeyModel(
     string Column,
     string Direction,
@@ -86,8 +93,77 @@ public sealed record SchemaIndexKeyModel(
     string OperatorClass,
     string Collation)
 {
+    /// <summary>The serialized discriminator is required; expression facts never masquerade as a column name.</summary>
+    [JsonRequired]
+    public SchemaIndexKeyKind Kind { get; init; } = SchemaIndexKeyKind.Column;
+
+    /// <summary>Complete ordered bound facts for an expression key; absent for an ordinary column.</summary>
+    public SchemaExpressionNode? Expression { get; init; }
+
     /// <summary>Required for physical MySQL comparison; null is unobserved, not a complete key.</summary>
     public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical { get; init; }
+
+    /// <summary>Independent parsed trees compare by their complete semantic identity, not list reference equality.</summary>
+    public bool Equals(SchemaIndexKeyModel? other)
+        => other is not null && Column == other.Column && Direction == other.Direction
+            && NullPlacement == other.NullPlacement && OperatorClass == other.OperatorClass
+            && Collation == other.Collation && Kind == other.Kind && MySqlPhysical == other.MySqlPhysical
+            && (Expression is null ? other.Expression is null
+                : other.Expression is not null && SchemaExpressionIdentity.Equal(Expression, other.Expression));
+
+    /// <summary>Matches the complete scalar and ordered-expression identity used by equality.</summary>
+    public override int GetHashCode()
+        => HashCode.Combine(Column, Direction, NullPlacement, OperatorClass, Collation, Kind,
+            MySqlPhysical, Expression is null ? null : SchemaExpressionIdentity.Digest(Expression));
+}
+
+/// <summary>Pure closed validation for existing owned index facts; it neither parses SQL nor observes a database.</summary>
+public static class SchemaIndexKeyFacts
+{
+    /// <summary>Requires exact bound columns or complete expression facts in a supported physical domain.</summary>
+    public static void Validate(SchemaIndexKeyModel key, IReadOnlyDictionary<string, SchemaColumnModel> columns,
+        SchemaProviderKind provider)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(columns);
+        if (key.Direction is not ("asc" or "desc") || key.NullPlacement is not ("first" or "last")
+            || string.IsNullOrWhiteSpace(key.OperatorClass) || string.IsNullOrWhiteSpace(key.Collation))
+            throw new InvalidOperationException("current_schema_index_key_facts_invalid");
+        switch (key.Kind)
+        {
+            case SchemaIndexKeyKind.Column:
+                if (key.Expression is not null || string.IsNullOrEmpty(key.Column) || !columns.ContainsKey(key.Column))
+                    throw new InvalidOperationException("current_schema_index_column_binding_invalid");
+                break;
+            case SchemaIndexKeyKind.Expression:
+                if (key.Column != string.Empty || key.Expression is null || key.MySqlPhysical is not null)
+                    throw new InvalidOperationException("current_schema_index_expression_binding_invalid");
+                if (provider is not (SchemaProviderKind.Semantic or SchemaProviderKind.PostgreSql))
+                    throw new InvalidOperationException("current_schema_index_expression_provider_unavailable");
+                ValidateExpression(key.Expression, columns);
+                break;
+            default:
+                throw new InvalidOperationException("current_schema_index_key_kind_unavailable");
+        }
+    }
+
+    /// <summary>Admits only the original greatest-of-bound-timestamps capability, preserving every ordered operand.</summary>
+    public static void ValidateExpression(SchemaExpressionNode expression,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(columns);
+        if (expression.Kind != "call" || expression.Value != "greatest"
+            || expression.Arguments is null || expression.Arguments.Count < 2)
+            throw new InvalidOperationException("current_schema_index_expression_capability_unavailable");
+        foreach (SchemaExpressionNode argument in expression.Arguments)
+        {
+            if (argument is null || argument.Kind != "column" || argument.Arguments is null
+                || argument.Arguments.Count != 0 || !columns.TryGetValue(argument.Value, out SchemaColumnModel? column)
+                || column.DataType != "timestamp")
+                throw new InvalidOperationException("current_schema_index_expression_column_binding_invalid");
+        }
+    }
 }
 
 public sealed record SchemaIndexModel(
