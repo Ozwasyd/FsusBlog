@@ -1010,6 +1010,193 @@ test('systemd container reservation retains the original grant until exact clean
     assert.equal(enforcer.cleanup().status, 'removed');
 });
 
+test('scheduler MySQL recovery precedes original tree release and gates the grant commit', () =>
+{
+    const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+    const recovery = source.slice(source.indexOf('export async function reconcileSchedulerResourceGrants('),
+        source.indexOf('function assertPriorSchedulerResourcesSettled('));
+    const mysql = recovery.indexOf('recovery.mysqlFixtureReconciliation = await reconcileRetainedMySqlFixtureServices(');
+    const tree = recovery.indexOf('result = build.recoverProductionBuildResourceTree(');
+    assert.ok(mysql >= 0 && mysql < tree, 'retained MySQL lifecycle must settle before original tree/grant release');
+    const completion = source.slice(source.indexOf('export function completeSchedulerResourceRecovery('),
+        source.indexOf('export async function reconcileSchedulerResourceGrants('));
+    const verification = completion.indexOf('assertMySqlFixtureRecoveryComplete(checkpoint, recovery.mysqlFixtureReconciliation');
+    const release = completion.indexOf('checkpoint.resourceUtilization.resourceGrants =');
+    assert.ok(verification >= 0 && verification < release, 'grant completion must independently require current MySQL cleanup');
+});
+
+test('scheduler MySQL recovery publication retry preserves its sealed proof', async () =>
+{
+    const drift = false;
+    const { runInNewContext } = await import('node:vm');
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const sealed = await reconcileRetainedMySqlFixtureServices(fixture);
+    fixture.record.status = 'cleaned';
+    fixture.record.cleanup = structuredClone(sealed[0].cleanup);
+    const verify = fixture.lifecycle.verifyMySqlFixtureServiceCleanup;
+    fixture.lifecycle.verifyMySqlFixtureServiceCleanup = (...args) =>
+    {
+        const observed = verify(...args);
+        if (drift)
+        {
+            observed.stateDigest = 'sha256:' + '1'.repeat(64);
+        }
+        return observed;
+    };
+    const current = await reconcileRetainedMySqlFixtureServices(fixture);
+    const checkpoint = { mysqlFixtureServices: fixture.allocations,
+        resourceReconciliation: { mysqlFixtureReconciliation: structuredClone(sealed) },
+        resourceUtilization: { resourceGrants: { grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } } } };
+    const fingerprint = value => JSON.stringify(value);
+    const originalCheckpoint = fingerprint(checkpoint);
+    const journalBytes = 'original sealed resource-grants-reconciled event\n';
+    const views = { journal: journalBytes, compatibility: 'old compatibility bytes', grants: 'old grant bytes' };
+    const originalViews = structuredClone(views);
+    const writes = [];
+    const capability = {};
+    const recovery = { binding: fixture.binding, reference: { runId: fixture.binding.runId },
+        checkpointDigest: fingerprint(checkpoint), mysqlFixtureReconciliation: current,
+        mysqlFixtureLifecycle: fixture.lifecycle };
+    const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf('export function completeSchedulerResourceRecovery(');
+    const end = source.indexOf('/** Reconcile only the original retained build', start);
+    assert.ok(start >= 0 && end > start);
+    // Execute the exact completion function with memory-only I/O and held-lease adapters.
+    // This is a publication component regression, not live Docker or recovery qualification.
+    const context = { fingerprint, path,
+        assertSchedulerResourceRecovery: () => ({ status: 'verified' }),
+        schedulerResourceRecoveries: new Map([[capability, recovery]]),
+        readOriginalSchedulerResourceCheckpoint: () => ({ checkpointFile: '/owned/runs/owned-run/checkpoint.json', checkpoint }),
+        assertMySqlFixtureRecoveryComplete: (value, records, lifecycle) =>
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices, records, lifecycle }),
+        schedulerResourceReconciliationIsComplete: value =>
+        {
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices,
+                records: value.resourceReconciliation.mysqlFixtureReconciliation, requireCleaned: true });
+            return true;
+        },
+        checkpointPersistence: new Map(),
+        schedulerPersistence: () => ({ store: { readJournal: () => [{ sequence: 1 }] } }),
+        publishCheckpointBoundary: () =>
+        {
+            writes.push('compatibility');
+            views.compatibility = fingerprint(checkpoint);
+        },
+        fs: {
+            writeFileSync: (_file, bytes) =>
+            {
+                writes.push('grant');
+                views.grants = bytes;
+            },
+            renameSync: () => writes.push('grant-rename')
+        },
+        process: { pid: process.pid },
+        schedulerResourcesUnsettled: () => false };
+    runInNewContext(source.slice(start, end).replace('export function ', 'function ')
+        + '\nglobalThis.complete = completeSchedulerResourceRecovery;', context);
+    if (drift)
+    {
+        assert.notEqual(current[0].stateDigest, sealed[0].stateDigest);
+        assert.throws(() => context.complete(capability, { reference: recovery.reference }), /changed before grant release/u);
+        assert.deepEqual(writes, []);
+        assert.deepEqual(views, originalViews, 'rejection preserves original journal, grant and compatibility bytes');
+    }
+    else
+    {
+        context.complete(capability, { reference: recovery.reference });
+        assert.deepEqual(writes, ['compatibility', 'grant', 'grant-rename']);
+        assert.equal(views.journal, journalBytes, 'normal publication retry cannot append a second release');
+    }
+    assert.equal(fingerprint(checkpoint), originalCheckpoint, 'neither retry can replace the sealed cleanup proof');
+});
+
+test('scheduler MySQL recovery publication retry rejects rehashed cleanup', async () =>
+{
+    const drift = true;
+    const { runInNewContext } = await import('node:vm');
+    const { reconcileRetainedMySqlFixtureServices, assertRetainedMySqlFixtureRecoveryComplete } = await import(new URL('../../tools/test-matrix/mysql-fixture-recovery.mjs', import.meta.url));
+    const fixture = retainedMySqlRecoveryFixture();
+    const sealed = await reconcileRetainedMySqlFixtureServices(fixture);
+    fixture.record.status = 'cleaned';
+    fixture.record.cleanup = structuredClone(sealed[0].cleanup);
+    const verify = fixture.lifecycle.verifyMySqlFixtureServiceCleanup;
+    fixture.lifecycle.verifyMySqlFixtureServiceCleanup = (...args) =>
+    {
+        const observed = verify(...args);
+        if (drift)
+        {
+            observed.stateDigest = 'sha256:' + '1'.repeat(64);
+        }
+        return observed;
+    };
+    const current = await reconcileRetainedMySqlFixtureServices(fixture);
+    const checkpoint = { mysqlFixtureServices: fixture.allocations,
+        resourceReconciliation: { mysqlFixtureReconciliation: structuredClone(sealed) },
+        resourceUtilization: { resourceGrants: { grants: {}, residentReservation: { cpuUnits: 0, memoryGiB: 0 } } } };
+    const fingerprint = value => JSON.stringify(value);
+    const originalCheckpoint = fingerprint(checkpoint);
+    const journalBytes = 'original sealed resource-grants-reconciled event\n';
+    const views = { journal: journalBytes, compatibility: 'old compatibility bytes', grants: 'old grant bytes' };
+    const originalViews = structuredClone(views);
+    const writes = [];
+    const capability = {};
+    const recovery = { binding: fixture.binding, reference: { runId: fixture.binding.runId },
+        checkpointDigest: fingerprint(checkpoint), mysqlFixtureReconciliation: current,
+        mysqlFixtureLifecycle: fixture.lifecycle };
+    const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf('export function completeSchedulerResourceRecovery(');
+    const end = source.indexOf('/** Reconcile only the original retained build', start);
+    assert.ok(start >= 0 && end > start);
+    // Execute the exact completion function with memory-only I/O and held-lease adapters.
+    // This is a publication component regression, not live Docker or recovery qualification.
+    const context = { fingerprint, path,
+        assertSchedulerResourceRecovery: () => ({ status: 'verified' }),
+        schedulerResourceRecoveries: new Map([[capability, recovery]]),
+        readOriginalSchedulerResourceCheckpoint: () => ({ checkpointFile: '/owned/runs/owned-run/checkpoint.json', checkpoint }),
+        assertMySqlFixtureRecoveryComplete: (value, records, lifecycle) =>
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices, records, lifecycle }),
+        schedulerResourceReconciliationIsComplete: value =>
+        {
+            assertRetainedMySqlFixtureRecoveryComplete({ allocations: value.mysqlFixtureServices,
+                records: value.resourceReconciliation.mysqlFixtureReconciliation, requireCleaned: true });
+            return true;
+        },
+        checkpointPersistence: new Map(),
+        schedulerPersistence: () => ({ store: { readJournal: () => [{ sequence: 1 }] } }),
+        publishCheckpointBoundary: () =>
+        {
+            writes.push('compatibility');
+            views.compatibility = fingerprint(checkpoint);
+        },
+        fs: {
+            writeFileSync: (_file, bytes) =>
+            {
+                writes.push('grant');
+                views.grants = bytes;
+            },
+            renameSync: () => writes.push('grant-rename')
+        },
+        process: { pid: process.pid },
+        schedulerResourcesUnsettled: () => false };
+    runInNewContext(source.slice(start, end).replace('export function ', 'function ')
+        + '\nglobalThis.complete = completeSchedulerResourceRecovery;', context);
+    if (drift)
+    {
+        assert.notEqual(current[0].stateDigest, sealed[0].stateDigest);
+        assert.throws(() => context.complete(capability, { reference: recovery.reference }), /changed before grant release/u);
+        assert.deepEqual(writes, []);
+        assert.deepEqual(views, originalViews, 'rejection preserves original journal, grant and compatibility bytes');
+    }
+    else
+    {
+        context.complete(capability, { reference: recovery.reference });
+        assert.deepEqual(writes, ['compatibility', 'grant', 'grant-rename']);
+        assert.equal(views.journal, journalBytes, 'normal publication retry cannot append a second release');
+    }
+    assert.equal(fingerprint(checkpoint), originalCheckpoint, 'neither retry can replace the sealed cleanup proof');
+});
+
 test('systemd container reservation rejects crossed source, process and controls', async (t) =>
 {
     const { fixture, options } = systemdEnforcerFixture(t);
@@ -1341,4 +1528,151 @@ test('fractional byte projection preserves the original enforced grant without e
         allocation.total.memoryHighBytes);
     assert.ok(allocation.total.memoryHighBytes < 2 * 1024 ** 3 - 0.25);
     assert.equal(enforcer.cleanup().status, 'removed');
+});
+
+function schedulerSourceInterval(startMarker, endMarker)
+{
+    const source = fs.readFileSync(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf(startMarker);
+    assert.ok(start >= 0, 'the real scheduler caller branch must exist');
+    assert.equal(source.indexOf(startMarker, start + startMarker.length), -1, 'caller marker must be unique');
+    const end = source.indexOf(endMarker, start);
+    assert.ok(end > start, 'the real caller branch must have its original boundary');
+    return source.slice(start, end);
+}
+
+async function schedulerMySqlCleanupComponent(executionResult, cleanup)
+{
+    const { runInNewContext } = await import('node:vm');
+    const branch = schedulerSourceInterval('                if (mysqlScope)\n                {\n                    try\n',
+        '                const logFinalization = await outputPipeline.close(');
+    const context = {};
+    // Exact caller branch, not runDag, native service cleanup or an OS lease proof.
+    runInNewContext(`globalThis.invoke = async (executionResult, mysqlScope) => {\n${branch}\nreturn executionResult;\n};`, context);
+    return context.invoke(executionResult, { cleanup });
+}
+
+test('scheduler MySQL cleanup refusal preserves the original timeout code phase error and cause', async () =>
+{
+    const cause = new Error('original timeout cause');
+    const primary = new Error('original migration deadline', { cause });
+    const cleanup = new Error('owned MySQL cleanup refused');
+    const previousCleanup = new Error('previous cleanup observation');
+    const initial = { code: 124, signal: null, error: primary, timeoutPhase: 'execution',
+        cleanupFailures: [previousCleanup] };
+    const result = await schedulerMySqlCleanupComponent(initial, async () =>
+    {
+        throw cleanup;
+    });
+    assert.equal(result.code, 124);
+    assert.equal(result.timeoutPhase, 'execution');
+    assert.equal(result.error, primary);
+    assert.equal(result.error.cause, cause);
+    assert.deepEqual(Array.from(result.cleanupFailures), [previousCleanup, cleanup]);
+    assert.deepEqual(initial.cleanupFailures, [previousCleanup], 'caller cannot mutate prior failure evidence');
+});
+
+test('scheduler MySQL cleanup refusal preserves a nonzero business exit without inventing a primary error', async () =>
+{
+    const cleanup = new Error('owned MySQL cleanup refused');
+    const initial = { code: 7, signal: null, timeoutPhase: 'business', reason: 'original business refusal' };
+    const result = await schedulerMySqlCleanupComponent(initial, async () =>
+    {
+        throw cleanup;
+    });
+    assert.equal(result.code, 7);
+    assert.equal(result.timeoutPhase, 'business');
+    assert.equal(result.reason, initial.reason);
+    assert.equal(Object.hasOwn(result, 'error'), false);
+    assert.deepEqual(Array.from(result.cleanupFailures), [cleanup]);
+});
+
+test('scheduler MySQL cleanup refusal turns a successful execution into failure only after the positive cleanup control', async () =>
+{
+    const initial = { code: 0, signal: null, phase: 'completed' };
+    const positive = await schedulerMySqlCleanupComponent(initial, async () =>
+        ({ containerAbsent: true, credentialsRemoved: true }));
+    assert.equal(positive, initial, 'successful cleanup preserves the real caller result');
+    const cleanup = new Error('owned MySQL cleanup refused');
+    const result = await schedulerMySqlCleanupComponent(initial, async () =>
+    {
+        throw cleanup;
+    });
+    assert.equal(result.code, 1);
+    assert.equal(result.error, cleanup);
+    assert.equal(result.phase, 'completed');
+    assert.deepEqual(Array.from(result.cleanupFailures), [cleanup]);
+    assert.equal(initial.code, 0);
+});
+
+test('scheduler MySQL preparation and cleanup refusals retain the original cause and close incomplete output', async () =>
+{
+    const { runInNewContext } = await import('node:vm');
+    const branch = schedulerSourceInterval('                let failure = error;\n',
+        '\n                throw failure;') + '\n                throw failure;';
+    const context = {};
+    runInNewContext(`globalThis.invoke = async (error, mysqlScope, outputPipeline) => {\n${branch}\n};`, context);
+    const primary = new Error('original preparation refusal');
+    const cleanup = new Error('original cleanup refusal');
+    const closed = [];
+    await assert.rejects(context.invoke(primary, { cleanup: async () =>
+    {
+        throw cleanup;
+    } }, { close: async value => closed.push(value) }), error =>
+    {
+        assert.equal(error.name, 'AggregateError');
+        assert.equal(error.message, primary.message);
+        assert.equal(error.cause, primary);
+        assert.equal(error.errors[0], primary);
+        assert.equal(error.errors[1], cleanup);
+        return true;
+    });
+    assert.equal(closed.length, 1);
+    assert.equal(closed[0].complete, false);
+    assert.equal(closed[0].truncationReason, 'mysql-preparation-failed');
+});
+
+test('scheduler settlement refusal cancels each active sibling once even when ordinary failures are collected', async () =>
+{
+    const { runInNewContext } = await import('node:vm');
+    const branch = schedulerSourceInterval('        if (settlementAdmissionClosed)\n        {\n            for (const sibling of active.values())',
+        '\n    }\n\n    checkpoint.status =');
+    const context = {};
+    runInNewContext(`globalThis.invoke = (active, settlementAdmissionClosed, collectFailures) => {\n${branch}\n};`, context);
+    const calls = [];
+    const first = { cancelRequested: false, terminate: () => calls.push('first') };
+    const second = { cancelRequested: false, terminate: () => calls.push('second') };
+    const previouslyCancelled = { cancelRequested: true, terminate: () => calls.push('previous') };
+    const active = new Map([['first', first], ['second', second], ['previous', previouslyCancelled]]);
+    context.invoke(active, false, true);
+    assert.deepEqual(calls, [], 'the positive open-admission control must not cancel work');
+    context.invoke(active, true, true);
+    context.invoke(active, true, true);
+    assert.deepEqual(calls, ['first', 'second']);
+    assert.equal(first.cancelRequested, true);
+    assert.equal(second.cancelRequested, true);
+    assert.equal(previouslyCancelled.cancelRequested, true);
+});
+
+test('held launcher report restoration cannot hide a changed original process incarnation', async (t) =>
+{
+    const value = await privateLauncherLeaseFixture(t);
+    const report = value.enforcer.evidence().bundles[value.bundleId];
+    const originalReport = structuredClone(report.launcherAdmission);
+    report.attachedPid = value.foreign.pid;
+    report.launcherAdmission = { ...originalReport, processIdentity: value.foreign,
+        launcher: { ...originalReport.launcher, controlGroup: value.foreignGroup } };
+    assert.throws(() => value.lease.assertHeld(value.context), /report differs from its private admission/u);
+    assert.deepEqual(value.observedPids, []);
+    report.attachedPid = value.original.pid;
+    report.launcherAdmission = originalReport;
+    const originalStart = value.original.processStartIdentity;
+    value.original.processStartIdentity = 'original-pid-reused';
+    assert.throws(() => value.lease.assertHeld(value.context), /live attached systemd process/u);
+    assert.deepEqual(value.observedPids, [value.original.pid]);
+    assert.equal(value.lease.snapshot().held, true);
+    value.original.processStartIdentity = originalStart;
+    value.observedPids.length = 0;
+    assert.equal(value.lease.assertHeld(value.context).process.cpuUnits, 3);
+    assert.deepEqual(value.observedPids, [value.original.pid, value.original.pid]);
 });
