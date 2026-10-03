@@ -97,7 +97,6 @@ internal sealed class OfflineMigrationSourceRegistry
     internal OfflineMigrationFingerprintDefinition Match(OfflineMigrationSourceObservation observation)
     {
         OfflineMigrationPlanValidation.ValidateObservation(observation);
-        var differences = new List<string>();
         var matches = new List<OfflineMigrationFingerprintDefinition>();
         OfflineMigrationSourceShape actual = OfflineMigrationPlanValidation.Shape(observation);
         foreach (OfflineMigrationFingerprintDefinition entry in _entries)
@@ -108,17 +107,14 @@ internal sealed class OfflineMigrationSourceRegistry
             {
                 matches.Add(entry);
             }
-            else
-            {
-                differences.AddRange(entryDifferences.Select(value => $"{entry.Id}:{value}"));
-            }
         }
 
         if (matches.Count != 1)
         {
-            throw new InvalidOperationException(matches.Count == 0
-                ? $"source_fingerprint_unknown:{string.Join(';', differences)}"
-                : $"source_fingerprint_ambiguous:{string.Join(';', matches.Select(entry => entry.Id))}");
+            throw matches.Count == 0
+                ? OfflineMigrationSourceFingerprintException.Unknown(_entries.Select(entry =>
+                    (entry.Id, entry.Providers.Single(shape => shape.Provider == actual.Provider))), actual)
+                : OfflineMigrationSourceFingerprintException.Ambiguous(matches.Select(entry => entry.Id));
         }
 
         return matches[0];

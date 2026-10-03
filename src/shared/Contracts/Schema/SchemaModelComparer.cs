@@ -10,6 +10,8 @@ public static class SchemaModelComparer
         IReadOnlyCollection<string>? requiredExtraTables = null)
     {
         var errors = new List<string>();
+        if (expected.Provider != SchemaProviderKind.Semantic && expected.Provider != actual.Provider)
+            errors.Add($"provider mismatch expected={expected.Provider} actual={actual.Provider}");
         foreach ((string tableName, SchemaTableModel expectedTable) in expected.Tables.OrderBy(static table => table.Key, StringComparer.Ordinal))
         {
             if (!actual.Tables.TryGetValue(tableName, out SchemaTableModel? actualTable))
@@ -21,6 +23,7 @@ public static class SchemaModelComparer
                 expectedTable,
                 actualTable,
                 expected.Provider == SchemaProviderKind.PostgreSql,
+                expected.Provider == SchemaProviderKind.MySql,
                 allowedExtraLinks,
                 errors);
         }
@@ -56,9 +59,26 @@ public static class SchemaModelComparer
         SchemaTableModel expected,
         SchemaTableModel actual,
         bool requireExactPostgresPhysicalSemantics,
+        bool requireExactMySqlPhysicalSemantics,
         IReadOnlySet<string>? allowedExtraLinks,
         List<string> errors)
     {
+        if (requireExactMySqlPhysicalSemantics)
+        {
+            SchemaMySqlTablePhysicalFacts? wanted = expected.MySqlPhysical;
+            SchemaMySqlTablePhysicalFacts? observed = actual.MySqlPhysical;
+            if (!HasMySqlTableFacts(wanted) || !HasMySqlTableFacts(observed))
+                errors.Add($"mysql-physical unobserved table {expected.Name} owner={Describe(expected.Owner)}");
+            else if (wanted is not null && observed is not null
+                && (wanted.TableType != observed.TableType || wanted.Engine != observed.Engine
+                    || wanted.RowFormat != observed.RowFormat || wanted.Collation != observed.Collation
+                    || wanted.CreateOptions != observed.CreateOptions || wanted.Comment != observed.Comment
+                    || !wanted.Partitions.SequenceEqual(observed.Partitions)))
+                errors.Add($"mysql-physical table mismatch {expected.Name} owner={Describe(expected.Owner)}");
+            if (!expected.Indexes.SetEquals(expected.IndexDefinitions.Keys)
+                || !actual.Indexes.SetEquals(actual.IndexDefinitions.Keys))
+                errors.Add($"mysql-physical unobserved index definitions {expected.Name} owner={Describe(expected.Owner)}");
+        }
         foreach ((string columnName, SchemaColumnModel expectedColumn) in expected.Columns.OrderBy(static column => column.Key, StringComparer.Ordinal))
         {
             if (!actual.Columns.TryGetValue(columnName, out SchemaColumnModel? actualColumn))
@@ -71,6 +91,7 @@ public static class SchemaModelComparer
                 expectedColumn,
                 actualColumn,
                 requireExactPostgresPhysicalSemantics,
+                requireExactMySqlPhysicalSemantics,
                 errors);
         }
         foreach (string columnName in actual.Columns.Keys.Except(expected.Columns.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
@@ -93,13 +114,17 @@ public static class SchemaModelComparer
         {
             SchemaIndexModel expectedIndex = expected.IndexDefinitions[indexName];
             SchemaIndexModel actualIndex = actual.IndexDefinitions[indexName];
+            if (requireExactMySqlPhysicalSemantics
+                && (!HasMySqlIndexFacts(expectedIndex) || !HasMySqlIndexFacts(actualIndex)))
+                errors.Add($"mysql-physical unobserved index {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
             if (expectedIndex.Name != actualIndex.Name
                 || expectedIndex.IsUnique != actualIndex.IsUnique
                 || !expectedIndex.Keys.SequenceEqual(actualIndex.Keys)
                 || !expectedIndex.IncludedColumns.SequenceEqual(actualIndex.IncludedColumns, StringComparer.Ordinal)
                 || expectedIndex.AccessMethod != actualIndex.AccessMethod
                 || expectedIndex.Predicate != actualIndex.Predicate
-                || expectedIndex.NullsNotDistinct != actualIndex.NullsNotDistinct)
+                || expectedIndex.NullsNotDistinct != actualIndex.NullsNotDistinct
+                || (requireExactMySqlPhysicalSemantics && expectedIndex.MySqlPhysical != actualIndex.MySqlPhysical))
             {
                 errors.Add($"index mismatch {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
             }
@@ -146,6 +171,7 @@ public static class SchemaModelComparer
         SchemaColumnModel expected,
         SchemaColumnModel actual,
         bool requireExactPostgresPhysicalSemantics,
+        bool requireExactMySqlPhysicalSemantics,
         List<string> errors)
     {
         void Difference(string field, object? expectedValue, object? actualValue)
@@ -167,7 +193,14 @@ public static class SchemaModelComparer
             Difference("conversion", expected.Conversion, actual.Conversion);
         if (expected.ComputedExpression != actual.ComputedExpression)
             Difference("computed", expected.ComputedExpression, actual.ComputedExpression);
-        if (requireExactPostgresPhysicalSemantics)
+        if (requireExactMySqlPhysicalSemantics)
+        {
+            if (!HasMySqlColumnFacts(expected.MySqlPhysical) || !HasMySqlColumnFacts(actual.MySqlPhysical))
+                errors.Add($"mysql-physical unobserved column {table}.{expected.Name} owner={Describe(expected.Owner)}");
+            else if (expected.MySqlPhysical != actual.MySqlPhysical)
+                Difference("mysql-physical", expected.MySqlPhysical, actual.MySqlPhysical);
+        }
+        if (requireExactPostgresPhysicalSemantics || requireExactMySqlPhysicalSemantics)
         {
             if (expected.PhysicalType != actual.PhysicalType)
                 Difference("physical-type", expected.PhysicalType, actual.PhysicalType);
@@ -182,4 +215,22 @@ public static class SchemaModelComparer
 
     private static string Describe(SchemaOwnerModel? owner)
         => owner is null ? "unknown" : $"{owner.Owner}@{owner.SourceRange}";
+
+    private static bool HasMySqlTableFacts(SchemaMySqlTablePhysicalFacts? facts)
+        => facts is not null && !string.IsNullOrWhiteSpace(facts.TableType)
+            && facts.CreateOptions is not null && facts.Comment is not null
+            && facts.Partitions is not null && facts.Partitions.All(static partition => partition is not null)
+            && (facts.TableType != "BASE TABLE" || (facts.Partitions.Count > 0 && !string.IsNullOrWhiteSpace(facts.Engine)
+                && !string.IsNullOrWhiteSpace(facts.RowFormat) && !string.IsNullOrWhiteSpace(facts.Collation)));
+
+    private static bool HasMySqlColumnFacts(SchemaMySqlColumnPhysicalFacts? facts)
+        => facts is not null && facts.Extra is not null && facts.GenerationExpression is not null && facts.Comment is not null;
+
+    private static bool HasMySqlIndexFacts(SchemaIndexModel index)
+        => index.MySqlPhysical is not null && index.MySqlPhysical.Comment is not null
+            && index.MySqlPhysical.IndexComment is not null && index.Keys.Count > 0 && index.Keys.All(static key =>
+                key.MySqlPhysical is not null && key.MySqlPhysical.PrefixLength is not <= 0
+                    && key.MySqlPhysical.Expression != string.Empty
+                    && (key.MySqlPhysical.Expression is null ? !string.IsNullOrWhiteSpace(key.Column)
+                        : key.Column == string.Empty && key.MySqlPhysical.PrefixLength is null));
 }

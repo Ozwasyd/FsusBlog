@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Collections.Immutable;
 
 using FsusBlog.Contracts.Migration;
 
@@ -20,7 +21,12 @@ internal sealed record OfflineMigrationPlanCommandOptions(
     string BackupManifestPath,
     string RestoreDrillPath,
     string RestoreEnvironmentFilePath,
-    string PlanOutputPath);
+    string PlanOutputPath,
+    int TimeoutSeconds)
+{
+    // Invocation-only Host state; never serialized into a plan or supplied by CLI JSON.
+    internal OfflineMigrationOperationDeadline? OperationDeadline { get; init; }
+}
 
 internal sealed record OfflineMigrationSourceCommandOptions(
     CurrentSchemaProviderKind Provider,
@@ -28,6 +34,25 @@ internal sealed record OfflineMigrationSourceCommandOptions(
     bool CaptureSession,
     string? DumpOutputPath,
     int TimeoutSeconds);
+
+internal sealed record OfflineMigrationVerifyCommandOptions(
+    OfflineMigrationCurrentSchemaVerifyRequest Request,
+    string EnvironmentFilePath,
+    string OutputPath,
+    int TimeoutSeconds);
+
+internal sealed record OfflineMigrationApplyCommandOptions(
+    CurrentSchemaDatabaseIdentity Database,
+    string EnvironmentFilePath,
+    CurrentSchemaArtifactReference Plan,
+    string InvocationId,
+    int Attempt,
+    bool ConfirmDestructive,
+    CurrentSchemaArtifactReference? Checkpoint,
+    string OutputPath,
+    string CheckpointOutputPath,
+    int TimeoutSeconds,
+    int CleanupTimeoutSeconds);
 
 internal static class OfflineMigrationCommandLine
 {
@@ -122,7 +147,7 @@ internal static class OfflineMigrationCommandLine
         }
 
         string[] allowed = ["--provider", "--instance-id", "--database-id", "--env-file", "--backup-package",
-            "--backup-manifest", "--restore-drill", "--restore-env-file", "--output"];
+            "--backup-manifest", "--restore-drill", "--restore-env-file", "--output", "--timeout-seconds"];
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 1; index < args.Count; index++)
         {
@@ -133,6 +158,10 @@ internal static class OfflineMigrationCommandLine
             }
 
             string value = ReadValue(args, ref index, argument);
+            if (argument == "--timeout-seconds" && value != args[index])
+            {
+                throw new InvalidOperationException("schema_plan_timeout_invalid");
+            }
             if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl) || !values.TryAdd(argument, value))
             {
                 throw new InvalidOperationException($"schema_plan_argument_invalid_or_duplicate:{argument}");
@@ -154,9 +183,215 @@ internal static class OfflineMigrationCommandLine
             "sqlite" => CurrentSchemaProviderKind.Sqlite,
             _ => throw new InvalidOperationException("schema_plan_provider_unknown")
         };
+        string timeoutValue = values["--timeout-seconds"];
+        if (timeoutValue.Length is 0 or > 7 || timeoutValue[0] == '0'
+            || timeoutValue.Any(character => character is < '0' or > '9')
+            || !int.TryParse(timeoutValue, NumberStyles.None, CultureInfo.InvariantCulture, out int timeoutSeconds)
+            || timeoutSeconds > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_plan_timeout_invalid");
+        }
         return new(new(provider, values["--instance-id"], values["--database-id"]), values["--env-file"],
             values["--backup-package"], values["--backup-manifest"], values["--restore-drill"],
-            values["--restore-env-file"], values["--output"]);
+            values["--restore-env-file"], values["--output"], timeoutSeconds);
+    }
+
+    internal static OfflineMigrationVerifyCommandOptions ParseVerify(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "verify")
+        {
+            throw new InvalidOperationException("schema_verify_command_required");
+        }
+        string[] required = ["--provider", "--instance-id", "--database-id", "--env-file", "--plan", "--plan-sha256",
+            "--apply", "--apply-sha256", "--invocation-id", "--output", "--timeout-seconds"];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        var checkpoints = ImmutableArray.CreateBuilder<CurrentSchemaArtifactReference>();
+        for (int index = 1; index < args.Count; index++)
+        {
+            string name = args[index];
+            if (name == "--checkpoint")
+            {
+                string path = ReadExact(ref index);
+                string digest = ReadExact(ref index);
+                checkpoints.Add(Reference(path, digest));
+                continue;
+            }
+            if (!required.Contains(name, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException("schema_verify_argument_unknown");
+            }
+            if (!values.TryAdd(name, ReadExact(ref index)))
+            {
+                throw new InvalidOperationException("schema_verify_argument_duplicate");
+            }
+        }
+        if (required.Any(name => !values.ContainsKey(name)))
+        {
+            throw new InvalidOperationException("schema_verify_explicit_arguments_required");
+        }
+        if (values["--provider"] != "postgresql")
+        {
+            throw new InvalidOperationException("schema_verify_native_provider_not_supported");
+        }
+        string timeout = values["--timeout-seconds"];
+        if (timeout.Length is 0 or > 7 || timeout[0] == '0' || timeout.Any(value => value is < '0' or > '9')
+            || !int.TryParse(timeout, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds)
+            || seconds > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_verify_timeout_invalid");
+        }
+        string environment = CanonicalPath(values["--env-file"]);
+        string output = CanonicalPath(values["--output"]);
+        var request = new OfflineMigrationCurrentSchemaVerifyRequest(
+            Reference(values["--plan"], values["--plan-sha256"]),
+            Reference(values["--apply"], values["--apply-sha256"]), checkpoints.ToImmutable(),
+            new(CurrentSchemaProviderKind.PostgreSql, values["--instance-id"], values["--database-id"]),
+            values["--invocation-id"]);
+        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(request);
+        if (new[] { request.Plan.Reference, request.Apply.Reference, environment }
+            .Concat(request.Checkpoints.Select(value => value.Reference)).Contains(output, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("schema_verify_output_conflicts_with_input");
+        }
+        return new(request, environment, output, seconds);
+
+        string ReadExact(ref int index)
+        {
+            if (++index >= args.Count)
+            {
+                throw new InvalidOperationException("schema_verify_argument_value_required");
+            }
+            string value = args[index];
+            if (string.IsNullOrWhiteSpace(value) || value != value.Trim() || value.Any(char.IsControl))
+            {
+                throw new InvalidOperationException("schema_verify_argument_value_invalid");
+            }
+            return value;
+        }
+
+        static string CanonicalPath(string path)
+        {
+            if (!Path.IsPathFullyQualified(path) || Path.GetFullPath(path) != path
+                || path.Split('/', '\\').Any(value => value.Equals("latest", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("schema_verify_original_path_required");
+            }
+            return path;
+        }
+
+        static CurrentSchemaArtifactReference Reference(string path, string digest)
+        {
+            OfflineMigrationPlanValidation.RequireDigest(digest, "schema_verify_original_sha_invalid");
+            return new(CanonicalPath(path), digest);
+        }
+    }
+
+    internal static OfflineMigrationApplyCommandOptions ParseApply(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0 || args[0] != "apply")
+        {
+            throw new InvalidOperationException("schema_apply_command_required");
+        }
+        string[] required = ["--provider", "--instance-id", "--database-id", "--env-file", "--plan", "--plan-sha256",
+            "--invocation-id", "--attempt", "--output", "--checkpoint-output", "--timeout-seconds", "--cleanup-timeout-seconds"];
+        string[] optional = ["--checkpoint", "--checkpoint-sha256"];
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        bool destructive = false;
+        for (int index = 1; index < args.Count; index++)
+        {
+            string name = args[index];
+            if (name == "--confirm-destructive")
+            {
+                if (destructive)
+                {
+                    throw new InvalidOperationException("schema_apply_argument_duplicate");
+                }
+                destructive = true;
+                continue;
+            }
+            if (!required.Contains(name, StringComparer.Ordinal) && !optional.Contains(name, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException("schema_apply_argument_unknown");
+            }
+            if (++index >= args.Count)
+            {
+                throw new InvalidOperationException("schema_apply_argument_value_required");
+            }
+            string value = args[index];
+            if (string.IsNullOrWhiteSpace(value) || value != value.Trim() || value.Any(char.IsControl))
+            {
+                throw new InvalidOperationException("schema_apply_argument_value_invalid");
+            }
+            if (!values.TryAdd(name, value))
+            {
+                throw new InvalidOperationException("schema_apply_argument_duplicate");
+            }
+        }
+        if (required.Any(name => !values.ContainsKey(name)))
+        {
+            throw new InvalidOperationException("schema_apply_explicit_arguments_required");
+        }
+        if (values["--provider"] != "postgresql")
+        {
+            throw new InvalidOperationException("schema_apply_native_provider_not_supported");
+        }
+        if (values.ContainsKey("--checkpoint") != values.ContainsKey("--checkpoint-sha256"))
+        {
+            throw new InvalidOperationException("schema_apply_exact_checkpoint_pair_required");
+        }
+        int attempt = Positive(values["--attempt"], int.MaxValue, "schema_apply_attempt_invalid");
+        CurrentSchemaArtifactReference? checkpoint = values.ContainsKey("--checkpoint")
+            ? Reference(values["--checkpoint"], values["--checkpoint-sha256"]) : null;
+        // A completed invocation can be re-verified with its original attempt and exact
+        // checkpoint; the native journal owner decides no-op versus successor attempt.
+        if (attempt > 1 && checkpoint is null)
+        {
+            throw new InvalidOperationException("schema_apply_attempt_checkpoint_invalid");
+        }
+        string invocation = values["--invocation-id"];
+        if (invocation.Length > 160)
+        {
+            throw new InvalidOperationException("schema_apply_invocation_invalid");
+        }
+        var database = new CurrentSchemaDatabaseIdentity(CurrentSchemaProviderKind.PostgreSql,
+            values["--instance-id"], values["--database-id"]);
+        string environment = PathArgument(values["--env-file"]);
+        CurrentSchemaArtifactReference plan = Reference(values["--plan"], values["--plan-sha256"]);
+        string output = PathArgument(values["--output"]);
+        string checkpointOutput = PathArgument(values["--checkpoint-output"]);
+        string[] inputs = checkpoint is null ? [environment, plan.Reference] : [environment, plan.Reference, checkpoint.Reference];
+        if (output == checkpointOutput || inputs.Contains(output, StringComparer.Ordinal)
+            || inputs.Contains(checkpointOutput, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("schema_apply_output_conflicts_with_input");
+        }
+        return new(database, environment, plan, invocation, attempt, destructive, checkpoint, output, checkpointOutput,
+            Positive(values["--timeout-seconds"], int.MaxValue / 1000, "schema_apply_timeout_invalid"),
+            Positive(values["--cleanup-timeout-seconds"], int.MaxValue / 1000, "schema_apply_cleanup_timeout_invalid"));
+
+        static int Positive(string value, int maximum, string code)
+        {
+            if (value.Length is 0 or > 10 || value[0] == '0' || value.Any(character => character is < '0' or > '9')
+                || !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int number) || number > maximum)
+            {
+                throw new InvalidOperationException(code);
+            }
+            return number;
+        }
+        static string PathArgument(string path)
+        {
+            if (!Path.IsPathFullyQualified(path) || Path.GetFullPath(path) != path
+                || path.Split('/', '\\').Any(value => value.Equals("latest", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("schema_apply_original_path_required");
+            }
+            return path;
+        }
+        static CurrentSchemaArtifactReference Reference(string path, string digest)
+        {
+            OfflineMigrationPlanValidation.RequireDigest(digest, "schema_apply_original_sha_invalid");
+            return new(PathArgument(path), digest);
+        }
     }
 
     public static OfflineMigrationCommandOptions Parse(IReadOnlyList<string> args)

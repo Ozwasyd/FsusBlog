@@ -271,10 +271,22 @@ control/bootstrap postconditions remain unavailable, so these commands cannot
 qualify a complete current bootstrap. Existing narrowly supported literal default
 syntax remains a subset compiler capability, not a new typed-expression authority.
 
-This closure changes the current model to `fsusblog.current-schema.v3` and the
-projection generator to `fsusblog.current-schema-projection.v3`; the reflection
+The same source assembly also contains the original SQLite owned-domain observer.
+It measures the complete catalog on the borrowed original connection/transaction;
+only the sole apply control and its native indexes are excluded after the original
+whole-shape validator succeeds. Other objects, history, effects and allocator state
+remain visible and refuse the empty-domain precondition. The complete observation
+is retained alongside its domain view. This helper does not authenticate journal
+rows, select an empty source fingerprint, mint an owned writer scope, or register
+the portable commands as a complete bootstrap. Public planning/backup observation
+and original control creation/admission rules are unchanged.
+
+This source combination retains the original complete MySQL physical-fact model,
+comparison and canonical hash/clone closure rather than discarding observed native
+metadata. It changes the current model to `fsusblog.current-schema.v4` and the
+projection generator to `fsusblog.current-schema-projection.v4`; the reflection
 extractor version remains v2. Both composite source/content identities include
-the explicit control version and complete sole shape. Previously sealed v2 owned
+the explicit control version and complete sole shape. Previously sealed v2/v3 owned
 targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
 through a second version path. A new candidate must invoke the original owned
 projection producer and obtain fresh exact authorized source/backup/DAG/target

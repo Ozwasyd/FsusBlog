@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 using FsusBlog.Contracts.Migration;
 
@@ -24,7 +25,11 @@ public enum OfflineMigrationApplyJournalState
     AttemptFailed,
     AttemptCancelled,
     RecoveryRequired,
-    ApplyCompleted
+    ApplyCompleted,
+    /// <summary>Original Core durably retained an exact article/media binding before publication or graph effects.</summary>
+    MediaPrepared,
+    /// <summary>Verified physical publication CAS, committed atomically with its graph unit on the original transaction.</summary>
+    MediaPublished
 }
 
 /// <summary>
@@ -100,7 +105,17 @@ public sealed record OfflineMigrationApplyJournalEntry(
     string PreviousDigest,
     string ContentDigest,
     string? FailureCode,
-    DateTimeOffset RecordedAt);
+    DateTimeOffset RecordedAt)
+{
+    // Migration-owned raw media binding; never crosses the current Shared receipt boundary.
+    // Null is omitted so every original non-media v1 payload and digest remains unchanged.
+    [JsonInclude]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    internal OfflineMigrationMediaJournalEvidence? Media { get; init; }
+}
+
+internal sealed record OfflineMigrationMediaJournalEvidence(
+    string InvocationId, ArticleMediaBinding Binding, string? GenerationIdentity);
 
 /// <summary>
 /// Bounded apply evidence for independent re-reading. StepProofs contains at most one final
