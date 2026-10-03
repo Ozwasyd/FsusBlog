@@ -9,6 +9,14 @@
                 "src/migration/OfflineMigrationCurrentSchemaVerificationPorts.cs",
                 "src/migration/OfflineMigrationHost.cs",
                 "src/migration/OfflineMigrationHostOwnedConfiguration.cs",
+                "src/migration/OfflineMigrationMySqlNativeSession.cs",
+                "src/migration/MySqlCurrentSchemaCatalogObserver.cs",
+                "src/migration/MySqlCurrentSchemaPhysicalObserver.cs",
+                "src/migration/OfflineMigrationSqliteNativeSession.cs",
+                "src/migration/OfflineMigrationSqliteDatabaseIdentity.cs",
+                "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
+                "src/migration/OfflineMigrationStateStore.cs",
+                "src/migration/OfflineMigrationApplyJournalDialect.cs",
                 "src/migration/OfflineMigrationVerifyEvidence.cs"
             ],
             "reason": "Original migration verification surfaces preserve explicit deployment environment keys, provider selectors and native database identifiers while dispatching through the original owned read contexts; they do not rename those external contracts."

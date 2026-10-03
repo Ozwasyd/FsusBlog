@@ -251,7 +251,7 @@ internal static class OfflineMigrationCurrentSchemaIssuer
             context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false);
         await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
         CurrentSchemaReceipt receipt = await IssueInOwnedReadAsync(request, context.OriginalConnection,
-            context.OriginalTransaction, observed.Database, owners, cancellationToken).ConfigureAwait(false);
+            context.OriginalTransaction, observed.Database, owners, cancellationToken, mysqlReadContext: context).ConfigureAwait(false);
         await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return receipt;
@@ -322,7 +322,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
     private static async Task<CurrentSchemaReceipt> IssueInOwnedReadAsync(
         OfflineMigrationCurrentSchemaVerifyRequest request, DbConnection connection, DbTransaction transaction,
         CurrentSchemaDatabaseIdentity database, OfflineMigrationCurrentSchemaVerificationCapabilities owners,
-        CancellationToken cancellationToken, VerifyArtifactInputs? prepared = null)
+        CancellationToken cancellationToken, VerifyArtifactInputs? prepared = null,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext? mysqlReadContext = null)
     {
         VerifyArtifactInputs inputs = prepared ?? await ReadVerifyInputsAsync(request, owners, cancellationToken)
             .ConfigureAwait(false);
@@ -337,9 +338,20 @@ internal static class OfflineMigrationCurrentSchemaIssuer
 
         OfflineMigrationApplyJournalVerifier journal = CreateBoundJournalVerifier(
             plan, request.Plan, request.InvocationId, owners.Operations);
-        await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
-            database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
-            .ConfigureAwait(false);
+        if (mysqlReadContext is null)
+        {
+            await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
+                database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            // Only the original MySQL creator's opaque live read context selects this
+            // overload. The raw apply/writer transaction selector remains strict RR.
+            await OfflineMigrationStateStore.ReadApplyJournalAsync(mysqlReadContext, plan.ContentDigest,
+                database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
+                .ConfigureAwait(false);
+        }
         ValidateNativeProofs(plan, apply, journal);
         foreach (OfflineMigrationApplyCheckpoint checkpoint in exactCheckpoints)
         {

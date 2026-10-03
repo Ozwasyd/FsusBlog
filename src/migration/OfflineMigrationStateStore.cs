@@ -4,9 +4,14 @@ using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 
+using Microsoft.Data.Sqlite;
+using MySqlConnector;
+
 using SqlSugar;
 
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Migration;
 
@@ -20,31 +25,30 @@ internal static class OfflineMigrationStateStore
     internal const string HistoryTableName = "__fsus_schema_migration_history";
     internal const string StateTableName = "__fsus_schema_online_state";
     internal const string BackfillTableName = "__fsus_schema_backfill_progress";
-    internal const string ApplyJournalTableName = "__fsus_schema_offline_apply_journal";
+    internal const string ApplyJournalTableName = CurrentSchemaControlShape.ApplyJournalTableName;
     internal const string JournalCleanupFailuresKey = "FsusBlog.Migration.JournalCleanupFailures";
 
-    // The sealed route currently admits only PostgreSQL's transactional native session.
-    // Provider-specific journal/lock/DDL guarantees must be implemented before another
-    // provider is admitted; the legacy three-dialect DDL emitter is not that guarantee.
+    // One sole current control shape. Native provider transactions and locks do not
+    // grant missing compiled business operations or reinterpret sealed execution modes.
     internal static async Task EnsureApplyJournalAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        await using DbCommand command = NativeCommand(connection, transaction, $"""
-            CREATE TABLE IF NOT EXISTS public.{ApplyJournalTableName} (
-                plan_digest varchar(64) NOT NULL,
-                database_digest varchar(64) NOT NULL,
-                invocation_id varchar(160) NOT NULL,
-                sequence bigint NOT NULL CHECK (sequence > 0),
-                entry_digest varchar(64) NOT NULL,
-                parent_digest varchar(64) NOT NULL,
-                entry_payload text NOT NULL,
-                PRIMARY KEY (plan_digest, database_digest, invocation_id, sequence),
-                UNIQUE (plan_digest, database_digest, invocation_id, parent_digest),
-                UNIQUE (entry_digest)
-            )
-            """);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        await ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        CurrentSchemaProviderKind provider = NativeProvider(connection, transaction);
+        if (provider != CurrentSchemaProviderKind.PostgreSql)
+        {
+            if (!await OfflineMigrationApplyJournalDialect.ExistsAsync(provider, connection, transaction, cancellationToken).ConfigureAwait(false))
+            {
+                // MySQL CREATE TABLE would silently commit this admission transaction.
+                // Its owned bootstrap must provide the sole control first; do not execute
+                // implicit DDL or pretend that the sealed unit remains all-or-nothing.
+                if (provider == CurrentSchemaProviderKind.MySql)
+                    throw new InvalidOperationException("offline_apply_mysql_control_bootstrap_required");
+                await OfflineMigrationApplyJournalDialect.CreateSqliteAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+            }
+            await OfflineMigrationApplyJournalDialect.ValidateAsync(provider, connection, transaction, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
     }
 
     internal static async Task ReadApplyJournalAsync(
@@ -53,26 +57,68 @@ internal static class OfflineMigrationStateStore
         OfflineMigrationApplyRequest request, OfflineMigrationApplyJournalVerifier verifier,
         CancellationToken cancellationToken)
     {
-        await using (DbCommand available = NativeCommand(connection, transaction,
-            "SELECT to_regclass('public.__fsus_schema_offline_apply_journal') IS NOT NULL"))
+        CurrentSchemaProviderKind provider = NativeProvider(connection, transaction);
+        if (database.Provider != provider)
+            throw new InvalidOperationException("offline_apply_native_database_provider_mismatch");
+        if (!await OfflineMigrationApplyJournalDialect.ExistsAsync(provider, connection, transaction, cancellationToken).ConfigureAwait(false))
         {
-            if (!Convert.ToBoolean(await available.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+            if (request.Checkpoint is not null)
             {
-                if (request.Checkpoint is not null)
-                {
-                    throw new InvalidOperationException("offline_apply_checkpoint_missing");
-                }
-
-                return;
+                throw new InvalidOperationException("offline_apply_checkpoint_missing");
             }
+            return;
         }
 
         await ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        await ReadApplyJournalRowsAsync(provider, connection, transaction, planContentDigest,
+            database, request, verifier, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Only the original native read creator can supply this overload. Snapshot
+    // is never accepted by the raw transaction selector or any writing method.
+    internal static async Task ReadApplyJournalAsync(
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        string planContentDigest, CurrentSchemaDatabaseIdentity database,
+        OfflineMigrationApplyRequest request, OfflineMigrationApplyJournalVerifier verifier,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        if (database.Provider != CurrentSchemaProviderKind.MySql)
+            throw new InvalidOperationException("offline_apply_native_database_provider_mismatch");
+        if (!await OfflineMigrationApplyJournalDialect.ExistsAsync(CurrentSchemaProviderKind.MySql,
+            context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false))
+        {
+            if (request.Checkpoint is not null)
+                throw new InvalidOperationException("offline_apply_checkpoint_missing");
+        }
+        else
+        {
+            await ValidateApplyJournalAsync(context, cancellationToken).ConfigureAwait(false);
+            await ReadApplyJournalRowsAsync(CurrentSchemaProviderKind.MySql,
+                context.OriginalConnection, context.OriginalTransaction, planContentDigest,
+                database, request, verifier, cancellationToken).ConfigureAwait(false);
+        }
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    // The same original whole-chain SQL and verifier body serves both read paths.
+    // This private implementation is not a raw caller-owned admission surface.
+    private static async Task ReadApplyJournalRowsAsync(
+        CurrentSchemaProviderKind provider, DbConnection connection, DbTransaction transaction,
+        string planContentDigest, CurrentSchemaDatabaseIdentity database,
+        OfflineMigrationApplyRequest request, OfflineMigrationApplyJournalVerifier verifier,
+        CancellationToken cancellationToken)
+    {
         string databaseDigest = OfflineMigrationPlanValidation.Digest(database);
         await using DbCommand command = NativeCommand(connection, transaction, $"""
             SELECT invocation_id, sequence, entry_digest, parent_digest,
-                CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
-            FROM public.{ApplyJournalTableName}
+                CASE WHEN {PayloadByteLength(provider)} <= 1048576 THEN entry_payload ELSE NULL END
+            FROM {OfflineMigrationApplyJournalDialect.Table(provider)}
             WHERE plan_digest = @plan AND database_digest = @database
             ORDER BY invocation_id, sequence
             """);
@@ -121,8 +167,12 @@ internal static class OfflineMigrationStateStore
             throw new InvalidOperationException("offline_apply_journal_entry_oversized");
         }
 
+        CurrentSchemaProviderKind provider = NativeProvider(connection, transaction);
+        if (entry.Database.Provider != provider)
+            throw new InvalidOperationException("offline_apply_native_database_provider_mismatch");
+
         DbCommand command = NativeCommand(connection, transaction, $"""
-            INSERT INTO public.{ApplyJournalTableName}
+            INSERT INTO {OfflineMigrationApplyJournalDialect.Table(provider)}
                 (plan_digest, database_digest, invocation_id, sequence, entry_digest, parent_digest, entry_payload)
             VALUES (@plan, @database, @invocation, @sequence, @entry, @parent, @payload)
             """);
@@ -160,40 +210,28 @@ internal static class OfflineMigrationStateStore
     internal static async Task ValidateApplyJournalAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        // IF NOT EXISTS is not evidence that an existing control table has the required
-        // append-only keys. Validate the physical owner shape before reading or appending.
-        await using DbCommand command = NativeCommand(connection, transaction, """
-            WITH actual_columns AS (
-                SELECT attname::text AS name, format_type(atttypid, atttypmod) AS type, attnotnull AS required
-                FROM pg_attribute
-                WHERE attrelid = to_regclass('public.__fsus_schema_offline_apply_journal')
-                    AND attnum > 0 AND NOT attisdropped
-            ), expected_columns(name, type, required) AS (
-                VALUES ('plan_digest', 'character varying(64)', true),
-                    ('database_digest', 'character varying(64)', true),
-                    ('invocation_id', 'character varying(160)', true),
-                    ('sequence', 'bigint', true), ('entry_digest', 'character varying(64)', true),
-                    ('parent_digest', 'character varying(64)', true), ('entry_payload', 'text', true)
-            ), actual_constraints AS (
-                SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
-                WHERE conrelid = to_regclass('public.__fsus_schema_offline_apply_journal')
-            ), expected_constraints(definition) AS (
-                VALUES ('PRIMARY KEY (plan_digest, database_digest, invocation_id, sequence)'),
-                    ('UNIQUE (plan_digest, database_digest, invocation_id, parent_digest)'),
-                    ('UNIQUE (entry_digest)'), ('CHECK ((sequence > 0))')
-            )
-            SELECT NOT EXISTS (
-                (SELECT * FROM actual_columns EXCEPT SELECT * FROM expected_columns)
-                UNION ALL (SELECT * FROM expected_columns EXCEPT SELECT * FROM actual_columns)
-            ) AND NOT EXISTS (
-                (SELECT * FROM actual_constraints EXCEPT SELECT * FROM expected_constraints)
-                UNION ALL (SELECT * FROM expected_constraints EXCEPT SELECT * FROM actual_constraints)
-            )
-            """);
-        if (!Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+        CurrentSchemaProviderKind provider = NativeProvider(connection, transaction);
+        if (provider != CurrentSchemaProviderKind.PostgreSql)
         {
-            throw new InvalidOperationException("offline_apply_journal_physical_shape_changed");
+            await OfflineMigrationApplyJournalDialect.ValidateAsync(provider, connection, transaction, cancellationToken).ConfigureAwait(false);
+            return;
         }
+        await PgCurrentSchemaControlShape.ValidateApplyJournalAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task ValidateApplyJournalAsync(
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(context);
+        using CancellationTokenSource scope = context.CreateCancellationScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        await OfflineMigrationApplyJournalDialect.ValidateAsync(CurrentSchemaProviderKind.MySql,
+            context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     internal static void Parameter(DbCommand command, string name, object value)
@@ -203,6 +241,20 @@ internal static class OfflineMigrationStateStore
         parameter.Value = value;
         command.Parameters.Add(parameter);
     }
+
+    internal static CurrentSchemaProviderKind NativeProvider(DbConnection connection, DbTransaction transaction)
+        => connection switch
+        {
+            MySqlConnection when transaction is MySqlTransaction && transaction.Connection == connection
+                && transaction.IsolationLevel == IsolationLevel.RepeatableRead => CurrentSchemaProviderKind.MySql,
+            SqliteConnection when transaction is SqliteTransaction && transaction.Connection == connection
+                && transaction.IsolationLevel == IsolationLevel.Serializable => CurrentSchemaProviderKind.Sqlite,
+            MySqlConnection or SqliteConnection => throw new InvalidOperationException("offline_apply_original_native_transaction_required"),
+            _ => CurrentSchemaProviderKind.PostgreSql // Original PostgreSQL and its existing command-boundary fixtures.
+        };
+
+    private static string PayloadByteLength(CurrentSchemaProviderKind provider)
+        => provider == CurrentSchemaProviderKind.Sqlite ? "length(CAST(entry_payload AS BLOB))" : "octet_length(entry_payload)";
 
     internal sealed record BackfillSnapshot(
         string MigrationId,
