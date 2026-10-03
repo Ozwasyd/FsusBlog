@@ -440,3 +440,35 @@ test('component async correctness preparation awaits both original exact executa
     assert.deepEqual(result.command.slice(1), ['-e', '0']);
     assert.equal(result.environment.FSUSBLOG_TEST_RUN_ID, 'component-async-run');
 });
+
+test('controller factory refuses absent original retention and tool owners before preparation', async () =>
+{
+    const { prepareAuthenticatedNestedEnvelope } = await import('../../tools/test/run-deterministic-command.mjs');
+    await assert.rejects(prepareAuthenticatedNestedEnvelope({}), /original retained directory and complete private tool owner/u);
+});
+
+test('controller factory refuses an incomplete finalization owner before admission or preparation', async () =>
+{
+    const { prepareAuthenticatedNestedEnvelope } = await import('../../tools/test/run-deterministic-command.mjs');
+    let effects = 0;
+    await assert.rejects(prepareAuthenticatedNestedEnvelope({
+        assertAdmission: () => { effects += 1; }, retainAttempt: () => { effects += 1; },
+        preparationOwner: { executePreparation: () => { effects += 1; },
+            assertPreparationExecution: () => { effects += 1; } }
+    }), /complete private tool owner/u);
+    assert.equal(effects, 0);
+});
+
+test('controller factory preserves actual owner admission refusal without directory retention or tools', async () =>
+{
+    const { prepareAuthenticatedNestedEnvelope } = await import('../../tools/test/run-deterministic-command.mjs');
+    const refusal = new Error('component original owner admission refused');
+    let effects = 0;
+    await assert.rejects(prepareAuthenticatedNestedEnvelope({
+        assertAdmission: () => { throw refusal; }, retainAttempt: () => { effects += 1; },
+        preparationOwner: { executePreparation: () => { effects += 1; },
+            assertPreparationExecution: () => { effects += 1; },
+            assertFinalizablePreparation: () => { effects += 1; } }
+    }), (error) => error === refusal);
+    assert.equal(effects, 0);
+});
