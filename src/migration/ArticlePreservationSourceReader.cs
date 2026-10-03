@@ -55,17 +55,9 @@ internal static class ArticlePreservationSourceReader
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(observe);
         ArgumentNullException.ThrowIfNull(limits);
-        if (!Enum.IsDefined(provider) || connection.State != ConnectionState.Open
-            || transaction.Connection != connection
-            || transaction.IsolationLevel is not (IsolationLevel.RepeatableRead or IsolationLevel.Serializable))
-            throw new InvalidOperationException("article_preservation_consistent_source_session_required");
-        if (limits.MaximumArticles <= 0 || limits.MaximumTaxonomyRows <= 0 || limits.MaximumMetadataBytes <= 0
-            || readBudget <= TimeSpan.Zero || readBudget.TotalMilliseconds > uint.MaxValue - 1)
-            throw new ArgumentOutOfRangeException(nameof(readBudget), "Finite source limits and read budget are required.");
-        if (originArtifact is null || string.IsNullOrWhiteSpace(originArtifact.Reference)
-            || !ArticlePreservationSemanticReceipt.IsDigest(originArtifact.Sha256)
-            || documentBase is null || !documentBase.IsAbsoluteUri)
-            throw new InvalidOperationException("article_preservation_source_origin_required");
+        RequireReadSession(provider, connection, transaction);
+        RequireReadBudget(limits, readBudget);
+        RequireReadInputs(originArtifact, documentBase);
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(readBudget);
@@ -74,6 +66,9 @@ internal static class ArticlePreservationSourceReader
         OfflineMigrationSourceObservation observation = await observe(token).ConfigureAwait(false);
         if (OfflineMigrationSourceFingerprints.CreateRegistry().Match(observation).Id != OfflineMigrationSourceFingerprints.LegacyId)
             throw new InvalidOperationException("article_preservation_source_fingerprint_unsupported");
+        if (provider == CurrentSchemaProviderKind.Sqlite)
+            await SqliteArticlePreservationSourceReader.RequireBoundedTextAsync(
+                connection, transaction, limits, readBudget, token).ConfigureAwait(false);
 
         var budget = new ReadBudget(limits);
         ImmutableArray<LegacyArticlePreservationTaxonomy> categories = await ReadTaxonomyAsync(
@@ -158,6 +153,33 @@ internal static class ArticlePreservationSourceReader
             observation.ContentDigest, originArtifact, documentBase, articles.Count, categories.Length, tags.Length,
             articles.ToImmutable(), categories, tags, configuredSiteAuthor, discarded.ToImmutable());
         return new(data, observation, discarded.ToImmutable(), configuredSiteAuthor);
+    }
+
+    internal static void RequireReadSession(CurrentSchemaProviderKind provider,
+        DbConnection connection, DbTransaction transaction)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+        if (!Enum.IsDefined(provider) || connection.State != ConnectionState.Open
+            || transaction.Connection != connection
+            || transaction.IsolationLevel is not (IsolationLevel.RepeatableRead or IsolationLevel.Serializable))
+            throw new InvalidOperationException("article_preservation_consistent_source_session_required");
+    }
+
+    internal static void RequireReadBudget(ArticlePreservationLimits limits, TimeSpan readBudget)
+    {
+        ArgumentNullException.ThrowIfNull(limits);
+        if (limits.MaximumArticles <= 0 || limits.MaximumTaxonomyRows <= 0 || limits.MaximumMetadataBytes <= 0
+            || readBudget <= TimeSpan.Zero || readBudget.TotalMilliseconds > uint.MaxValue - 1)
+            throw new ArgumentOutOfRangeException(nameof(readBudget), "Finite source limits and read budget are required.");
+    }
+
+    internal static void RequireReadInputs(CurrentSchemaArtifactReference originArtifact, Uri documentBase)
+    {
+        if (originArtifact is null || string.IsNullOrWhiteSpace(originArtifact.Reference)
+            || !ArticlePreservationSemanticReceipt.IsDigest(originArtifact.Sha256)
+            || documentBase is null || !documentBase.IsAbsoluteUri)
+            throw new InvalidOperationException("article_preservation_source_origin_required");
     }
 
     private static async Task<ImmutableArray<LegacyArticlePreservationTaxonomy>> ReadTaxonomyAsync(
