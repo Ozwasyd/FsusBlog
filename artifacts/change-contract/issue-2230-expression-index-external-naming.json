@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+                "src/migration/CurrentSchemaBootstrapRecipeCompiler.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+            ],
+            "reason": "Preserve the registered source boundary and existing caller-visible database and serialized authority identities; internal typed key symbols remain C# PascalCase."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/database-migration.md"
+            ],
+            "reason": "Preserve existing external contract spellings and document anchors while describing the typed expression-key boundary."
+        }
+    ]
+}
