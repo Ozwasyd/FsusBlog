@@ -1,0 +1,86 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/runtime-cache-scenario-receipt.schema.json",
+                "config/testing/bounded-channel-delivery-contracts.json",
+                "config/testing/fixture-consumer-inventory.generated.json",
+                "config/testing/fixture-profile-matrix.generated.json",
+                "tests/fixtures/runtime-cache-related-reading-responses.json"
+            ],
+            "reason": "Preserve schema, fixture inventory and response wire keys consumed by existing test and runtime adapters; this declaration does not waive internal naming or authorize handwritten generated output."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/article-publication-consistency.md"
+            ],
+            "reason": "Review the registered Markdown naming surface without introducing or renaming any DOM selector or custom-property contract; internal adapters remain governed and this document is not visual acceptance."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/Cache/MessageCacheService.cs",
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs",
+                "src/backend/Services/Background/ArticleBodyRepairWorker.cs",
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.PrivateProjection.cs",
+                "src/backend/Services/Fixtures/AuthFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "src/backend/Services/Fixtures/MessagingFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+                "src/backend/Services/Security/AdminPrincipalService.cs",
+                "tools/test-fixtures/cli.mjs",
+                "tools/test-fixtures/orchestrator.mjs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs",
+                "tools/test-fixtures/producers/catalog-ports.mjs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs",
+                "tools/test-fixtures/producers/public-content-producer.mjs",
+                "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "tools/test-fixtures/receipt/postconditions.mjs",
+                "tools/test-fixtures/receipt/private-io.mjs",
+                "tools/test-fixtures/receipt/projection.mjs",
+                "tools/test-fixtures/receipt/schemas.mjs",
+                "tools/test-matrix/fixture-profile-contract.mjs",
+                "tools/test/check-comment-fixture-governance.mjs",
+                "tools/test/check-runtime-cache-evidence.mjs",
+                "tools/test/comment-fixture-governance.mjs",
+                "tools/test/run-comment-fixture-simulated-runtime.mjs",
+                "tools/test/run-mixed-performance-window.mjs",
+                "tools/test/run-runtime-cache-evidence.mjs",
+                "tools/test/runtime-cache-evidence-contract.mjs",
+                "tools/test/runtime-cache-scenarios/hot-featured-frame.mjs",
+                "tools/test/runtime-cache-scenarios/related-reading-contract.mjs",
+                "tools/test/runtime-cache-scenarios/related-reading.mjs",
+                "tools/testing/fixture-catalog.mjs",
+                "tools/testing/generate-fixture-catalog-artifacts.mjs"
+            ],
+            "reason": "Review the exact registered C# and JavaScript naming surfaces while preserving caller-visible process keys wherever used; internal identifiers and adapters remain governed by the repository mapping."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "Review the existing bootstrap process-key boundary while preserving acceptance-secret spelling; fixture exports remain registered and the unchanged data-driven runtime collector is not replaced."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/lanes/backend-qps.sh",
+                "tools/test/lanes/runtime-cache-evidence.sh"
+            ],
+            "reason": "Bind the exact changed Shell naming surfaces, including the retired lane path, to the existing exported-environment contract; retained process keys keep their external spelling and internal locals keep repository naming."
+        }
+    ]
+}
