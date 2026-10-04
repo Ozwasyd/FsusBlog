@@ -65,23 +65,75 @@ def execute(command, environment, candidates):
     raise saved_error or last_error
 
 
-def emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, entries, source_fd, alias_fd):
+def descriptor_mount_id(descriptor):
+    try:
+        with open(f"/proc/self/fdinfo/{descriptor}", encoding="utf8") as info:
+            text = info.read(4097)
+        if len(text) > 4096:
+            return {"status": "bounded-input-exceeded"}
+        values = [line.split(":", 1)[1].strip() for line in text.splitlines()
+                  if line.startswith("mnt_id:")]
+        if (len(values) != 1 or not values[0] or len(values[0]) > 20
+                or not all("0" <= character <= "9" for character in values[0])
+                or values[0].startswith("0")):
+            return {"status": "unavailable"}
+        return {"status": "observed", "mnt_id": values[0]}
+    except Exception:
+        return {"status": "unavailable"}
+
+
+def select_owned_private_tmp_mount(alias_fd, alias):
+    # The held alias FD identifies its actual mount, including a legal hidden stack.
+    entries = []
+    try:
+        identity = descriptor_mount_id(alias_fd)
+        with open("/proc/self/mountinfo", encoding="utf8") as mounts:
+            text = mounts.read(1048577)
+        if len(text.encode("utf8")) > 1048576:
+            return None, entries
+        records = text.split("\n")
+        entries = [line for line in records if len(line.split()) > 4 and line.split()[4] == "/tmp"]
+        if identity["status"] != "observed":
+            return None, entries
+        matches = [line for line in records if line.split(" ", 1)[0] == identity["mnt_id"]]
+        if len(matches) != 1:
+            return None, entries
+        selected = matches[0]
+        fields = selected.split(" ")
+        if (len(fields) < 10 or any(not field for field in fields)
+                or fields.count("-") != 1):
+            return None, entries
+        separator = fields.index("-")
+        if separator < 6 or len(fields) != separator + 4:
+            return None, entries
+        for field in fields:
+            cursor = 0
+            while cursor < len(field):
+                if ord(field[cursor]) < 33 or ord(field[cursor]) == 127:
+                    return None, entries
+                if field[cursor] == "\\":
+                    if field[cursor:cursor + 4] not in ("\\040", "\\011", "\\012", "\\134"):
+                        return None, entries
+                    cursor += 4
+                else:
+                    cursor += 1
+        if (len(fields[1]) > 20 or not all("0" <= character <= "9" for character in fields[1])
+                or str(int(fields[1])) != fields[1] or not fields[3].startswith("/")
+                or fields[4] != "/tmp"
+                or fields[2] != f"{os.major(alias.st_dev)}:{os.minor(alias.st_dev)}"):
+            return None, entries
+        for options in (fields[5].split(","), fields[-1].split(",")):
+            if "rw" not in options or "ro" in options or any(not option for option in options):
+                return None, entries
+        return selected, entries
+    except Exception:
+        return None, entries
+
+
+def emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, entries, source_fd, alias_fd,
+                                            selected_mount=None):
     # Refusal-only observation; neither stderr nor its failure is admission authority.
     try:
-        def descriptor_mount_id(descriptor):
-            try:
-                with open(f"/proc/self/fdinfo/{descriptor}", encoding="utf8") as info:
-                    text = info.read(4097)
-                if len(text) > 4096:
-                    return {"status": "bounded-input-exceeded"}
-                values = [line.split(":", 1)[1].strip() for line in text.splitlines()
-                          if line.startswith("mnt_id:")]
-                if (len(values) != 1 or not values[0] or len(values[0]) > 20
-                        or not all("0" <= character <= "9" for character in values[0])):
-                    return {"status": "unavailable"}
-                return {"status": "observed", "mnt_id": values[0]}
-            except Exception:
-                return {"status": "unavailable"}
 
         mount_lines = []
         mount_bytes = 0
@@ -101,8 +153,8 @@ def emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, en
                 "privateMountNamespace": namespace != plan["hostMountNamespace"],
                 "notHostTmpObject": (str(alias.st_dev), str(alias.st_ino)) !=
                                     (plan["hostTmpDevice"], plan["hostTmpInode"]),
-                "oneTmpMount": len(entries) == 1,
-                "tmpMountWritable": bool(entries) and "rw" in entries[0].split()[5].split(","),
+                "heldAliasMountSelected": selected_mount is not None,
+                "tmpMountWritable": selected_mount is not None and "rw" in selected_mount.split()[5].split(","),
             },
             "source": {"device": str(source.st_dev), "inode": str(source.st_ino),
                        "mode": stat.S_IMODE(source.st_mode), "uid": str(source.st_uid)},
@@ -140,21 +192,21 @@ def observe_owned_private_tmp(plan):
             source = os.fstat(source_fd)
             alias = os.fstat(alias_fd)
             namespace = os.readlink("/proc/self/ns/mnt")
-            with open("/proc/self/mountinfo", encoding="utf8") as mounts:
-                entries = [line.rstrip("\n") for line in mounts if line.split()[4] == "/tmp"]
+            selected_mount, entries = select_owned_private_tmp_mount(alias_fd, alias)
             if (str(source.st_dev) != plan["device"] or str(source.st_ino) != plan["inode"]
                     or (alias.st_dev, alias.st_ino) != (source.st_dev, source.st_ino)
                     or stat.S_IMODE(alias.st_mode) != 0o700 or str(alias.st_uid) != plan["uid"]
                     or namespace == plan["hostMountNamespace"]
                     or (str(alias.st_dev), str(alias.st_ino)) == (plan["hostTmpDevice"], plan["hostTmpInode"])
-                    or len(entries) != 1 or "rw" not in entries[0].split()[5].split(",")):
-                emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, entries, source_fd, alias_fd)
+                    or selected_mount is None):
+                emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, entries, source_fd, alias_fd,
+                                                        selected_mount)
                 raise RuntimeError("physical execution kernel owned /tmp alias is unverifiable")
             return {"plan": plan, "mountNamespace": namespace,
                     "sourceDevice": str(source.st_dev), "sourceInode": str(source.st_ino),
                     "aliasDevice": str(alias.st_dev), "aliasInode": str(alias.st_ino),
                     "aliasMode": stat.S_IMODE(alias.st_mode), "aliasUid": str(alias.st_uid),
-                    "mountInfo": entries[0]}
+                    "mountInfo": selected_mount}
         finally:
             os.close(alias_fd)
     finally:

@@ -657,3 +657,123 @@ print('original-refusal-preserved')
         });
     }
 });
+
+test('held alias mount selection refuses missing, malformed and mismatched native facts', {
+    skip: process.platform !== 'linux'
+}, async (context) =>
+{
+    // Component syscall-input simulations do not mint a systemd binding or native qualification.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-held-tmp-mount-facts-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const helper = fileURLToPath(new URL('../../tools/test/physical-execution-linux-preexec.py', import.meta.url));
+    const script = `
+import builtins, io, os, runpy, sys
+from unittest.mock import patch
+owner = runpy.run_path(sys.argv[1])
+descriptor = os.open(sys.argv[2], os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+try:
+    alias = os.fstat(descriptor)
+    device = f'{os.major(alias.st_dev)}:{os.minor(alias.st_dev)}'
+    selected = f'345 331 {device} /owned /tmp rw,nosuid - ext4 /dev/vda1 rw'
+    hidden = '331 42 0:88 / /tmp rw - tmpfs tmpfs rw'
+    mountinfo = hidden + '\\n' + selected + '\\n'
+    fdinfo = 'pos: 0\\nflags: 012000000\\nmnt_id: 345\\n'
+    mode = sys.argv[3]
+    accepted = mode in ['selected-first', 'selected-last', 'escaped-root']
+    if mode == 'selected-first': mountinfo = selected + '\\n' + hidden + '\\n'
+    if mode == 'escaped-root':
+        selected = selected.replace('/owned ', '/owned\\\\040root ')
+        mountinfo = hidden + '\\n' + selected + '\\n'
+    if mode == 'missing-id': fdinfo = 'pos: 0\\n'
+    if mode == 'duplicate-id': fdinfo += 'mnt_id: 345\\n'
+    if mode == 'bad-id': fdinfo = 'mnt_id: invalid\\n'
+    if mode == 'zero-id': fdinfo = 'mnt_id: 0\\n'
+    if mode == 'overflow-fdinfo': fdinfo += 'x' * 4097
+    if mode == 'unknown-id': fdinfo = 'mnt_id: 346\\n'
+    if mode == 'duplicate-record': mountinfo += selected + '\\n'
+    if mode == 'ro-selected': mountinfo = selected.replace('/tmp rw,', '/tmp ro,') + '\\n'
+    if mode == 'ro-superblock': mountinfo = selected[:-2] + 'ro\\n'
+    if mode == 'wrong-device': mountinfo = selected.replace(device, '0:999999') + '\\n'
+    if mode == 'selected-not-tmp': mountinfo = selected.replace('/tmp ', '/other ') + '\\n'
+    if mode == 'malformed-separator': mountinfo = selected.replace(' - ', ' ext4 ') + '\\n'
+    if mode == 'bad-escape': mountinfo = selected.replace('/owned ', '/owned\\\\999root ') + '\\n'
+    if mode == 'raw-control': mountinfo = selected.replace('/owned ', '/owned\\troot ') + '\\n'
+    if mode == 'overflow-mountinfo': mountinfo += 'x' * 1048577
+    original_open = builtins.open
+    def native_input(file, *args, **kwargs):
+        if file == f'/proc/self/fdinfo/{descriptor}': return io.StringIO(fdinfo)
+        if file == '/proc/self/mountinfo': return io.StringIO(mountinfo)
+        return original_open(file, *args, **kwargs)
+    with patch('builtins.open', native_input):
+        actual, _entries = owner['select_owned_private_tmp_mount'](descriptor, alias)
+    assert actual == (selected if accepted else None), (mode, actual)
+finally:
+    os.close(descriptor)
+print('held-mount-facts-checked')
+`;
+    for (const mode of ['selected-first', 'selected-last', 'escaped-root', 'missing-id', 'duplicate-id',
+        'bad-id', 'zero-id', 'overflow-fdinfo', 'unknown-id', 'duplicate-record', 'ro-selected',
+        'ro-superblock', 'wrong-device', 'selected-not-tmp', 'malformed-separator', 'bad-escape',
+        'raw-control', 'overflow-mountinfo'])
+    {
+        await context.test(mode, () =>
+        {
+            const result = spawnSync(process.env.FSUSBLOG_PYTHON ?? 'python3',
+                ['-I', '-S', '-c', script, helper, root, mode], { encoding: 'utf8', timeout: 5000, maxBuffer: 32768 });
+            assert.equal(result.error, undefined);
+            assert.equal(result.status, 0, result.stderr);
+            assert.equal(result.stdout, 'held-mount-facts-checked\n');
+        });
+    }
+});
+
+test('original preexec accepts the held native owned mount above hidden PrivateTmp', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    // Real kernel SOURCE control; requires a legal user/mount namespace, not simulated mount authority.
+    const parent = path.join(process.cwd(), '.tmp');
+    fs.mkdirSync(parent, { recursive: true });
+    const root = fs.mkdtempSync(path.join(parent, 'fsusblog-held-tmp-stack-'));
+    const source = path.join(root, 'owned');
+    fs.mkdirSync(source, { mode: 0o700 });
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const host = fs.statSync('/tmp', { bigint: true });
+    const binding = JSON.stringify({ hostMountNamespace: fs.readlinkSync('/proc/self/ns/mnt'),
+        hostTmpDevice: String(host.dev), hostTmpInode: String(host.ino) });
+    const helper = fileURLToPath(new URL('../../tools/test/physical-execution-linux-preexec.py', import.meta.url));
+    const script = `
+import json, os, runpy, subprocess, sys
+owner = runpy.run_path(sys.argv[1])
+source = os.path.realpath(sys.argv[2])
+plan = json.loads(sys.argv[3])
+subprocess.run(['/usr/bin/mount', '--make-rprivate', '/'], check=True)
+subprocess.run(['/usr/bin/mount', '-t', 'tmpfs', '-o', 'mode=1777', 'tmpfs', '/tmp'], check=True)
+subprocess.run(['/usr/bin/mount', '--bind', source, '/tmp'], check=True)
+metadata = os.stat(source)
+plan.update(destination='/tmp', source=source, device=str(metadata.st_dev),
+            inode=str(metadata.st_ino), uid=str(metadata.st_uid))
+actual = owner['observe_owned_private_tmp'](plan)
+assert actual['sourceDevice'] == actual['aliasDevice']
+assert actual['sourceInode'] == actual['aliasInode']
+assert actual['aliasMode'] == 0o700
+assert actual['mountNamespace'] != plan['hostMountNamespace']
+with open('/proc/self/mountinfo', encoding='utf8') as mounts:
+    rows = [line.rstrip('\\n') for line in mounts if line.split()[4] == '/tmp']
+assert len(rows) >= 2
+descriptor = os.open('/tmp', os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+try:
+    identity = owner['descriptor_mount_id'](descriptor)
+    assert actual['mountInfo'].split()[0] == identity['mnt_id']
+finally:
+    os.close(descriptor)
+assert owner['observe_owned_private_tmp'](plan) == actual
+print('native-held-stack-verified')
+`;
+    const result = spawnSync('/usr/bin/unshare', ['--user', '--map-root-user', '--mount',
+        process.env.FSUSBLOG_PYTHON ?? 'python3', '-I', '-S', '-c', script, helper, source, binding],
+    { encoding: 'utf8', timeout: 10000, maxBuffer: 32768 });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, 'native-held-stack-verified\n');
+});
