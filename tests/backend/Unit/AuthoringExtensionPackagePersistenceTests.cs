@@ -160,6 +160,89 @@ public sealed class AuthoringExtensionPackagePersistenceTests
             (await valid.VerifyAsync("acme", "key-1", archive, new byte[64], default)).Status);
     }
 
+    [Theory]
+    [InlineData(10, 60, 0, AuthoringPackageTrustStatus.Trusted, 10)]
+    [InlineData(10, 60, 10, AuthoringPackageTrustStatus.Revoked, 60)]
+    [InlineData(10, 60, 11, AuthoringPackageTrustStatus.Revoked, 60)]
+    [InlineData(10, 5, 0, AuthoringPackageTrustStatus.Trusted, 5)]
+    [InlineData(10, 5, 5, AuthoringPackageTrustStatus.Expired, 5)]
+    [InlineData(null, 60, 0, AuthoringPackageTrustStatus.Trusted, 60)]
+    [InlineData(-1, 60, 0, AuthoringPackageTrustStatus.Revoked, 60)]
+    public async Task EcdsaTrustVerifier_TrustedIntervalDoesNotOutliveKnownRevocation(
+        int? revocationMinutes,
+        int validityMinutes,
+        int evaluationMinutes,
+        AuthoringPackageTrustStatus expectedStatus,
+        int expectedValidityMinutes)
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        byte[] archive = Encoding.UTF8.GetBytes("scheduled revocation archive");
+        byte[] signature = signer.SignData(
+            archive,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        Assert.True(signer.VerifyData(
+            archive,
+            signature,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        var key = new AuthoringPackagePublisherKey(
+            "acme",
+            "key-1",
+            ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()),
+            s_now.AddHours(-1),
+            s_now.AddMinutes(validityMinutes),
+            revocationMinutes is { } minutes ? s_now.AddMinutes(minutes) : null);
+        var verifier = new EcdsaAuthoringPackageTrustVerifier(
+            new LocalAuthoringPackageKeyset([key]),
+            new FixedTimeProvider(s_now.AddMinutes(evaluationMinutes)));
+
+        AuthoringPackageTrustDecision decision = await verifier.VerifyAsync(
+            "acme", "key-1", archive, signature, default);
+
+        Assert.Equal(expectedStatus, decision.Status);
+        Assert.Equal(s_now.AddMinutes(evaluationMinutes), decision.EvaluatedAt);
+        Assert.Equal(s_now.AddMinutes(expectedValidityMinutes), decision.ValidUntil);
+        Assert.Equal(key.Publisher, decision.Publisher);
+        Assert.Equal(key.KeyId, decision.KeyId);
+        Assert.Matches("^[0-9a-f]{64}$", decision.KeysetIdentity);
+    }
+
+    [Fact]
+    public async Task EcdsaTrustVerifier_RevocationCutoffPreservesExactTicksAndKeysetIdentity()
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        byte[] archive = Encoding.UTF8.GetBytes("exact revocation cutoff");
+        byte[] signature = signer.SignData(
+            archive,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        DateTimeOffset revokedAt = s_now.AddTicks(1);
+        var keyset = new LocalAuthoringPackageKeyset(
+        [
+            new AuthoringPackagePublisherKey(
+                "acme",
+                "key-1",
+                ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()),
+                s_now.AddHours(-1),
+                s_now.AddHours(1),
+                revokedAt)
+        ]);
+        var before = new EcdsaAuthoringPackageTrustVerifier(keyset, new FixedTimeProvider(s_now));
+        var atCutoff = new EcdsaAuthoringPackageTrustVerifier(keyset, new FixedTimeProvider(revokedAt));
+
+        AuthoringPackageTrustDecision trusted = await before.VerifyAsync(
+            "acme", "key-1", archive, signature, default);
+        AuthoringPackageTrustDecision revoked = await atCutoff.VerifyAsync(
+            "acme", "key-1", archive, signature, default);
+
+        Assert.Equal(AuthoringPackageTrustStatus.Trusted, trusted.Status);
+        Assert.Equal(revokedAt, trusted.ValidUntil);
+        Assert.Equal(AuthoringPackageTrustStatus.Revoked, revoked.Status);
+        Assert.Equal(revokedAt, revoked.EvaluatedAt);
+        Assert.Equal(trusted.KeysetIdentity, revoked.KeysetIdentity);
+    }
+
     [Fact]
     public async Task EcdsaTrustVerifier_KeysetIdentityBindsCompletePublisherKeyset()
     {
