@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 
 const {digestMessagingFixtureValue, readMessagingFixtureContract} = await import(new URL('../../test/messaging-fixture-contract.mjs', import.meta.url));
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
+const { canonicalJson, digestCanonical } = await import(new URL('../receipt/canonical.mjs', import.meta.url));
 
 const PRODUCER_ID = 'account-messaging';
 const STRATEGY = 'transaction-fixture';
@@ -381,8 +382,9 @@ export function buildMessagingFixturePlan(context, {
     });
 }
 
-async function invokeCompositionRoot(context, plan, signal)
+async function invokeCompositionRoot(context, plan, signal, action = 'prepare')
 {
+    signal?.throwIfAborted();
     const baseUrl = String(context.handles?.baseUrl
         ?? context.handles?.debugBackendUrl
         ?? process.env.FSUSBLOG_BASE_URL
@@ -396,7 +398,7 @@ async function invokeCompositionRoot(context, plan, signal)
     {
         throw new Error('account-messaging composition root requires an explicit backend URL and local fixture secret');
     }
-    const response = await fetch(`${baseUrl}/api/local/messaging-fixture/prepare`, {
+    const response = await fetch(`${baseUrl}/api/local/messaging-fixture/${action}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -409,6 +411,7 @@ async function invokeCompositionRoot(context, plan, signal)
         signal
     });
     const text = await response.text();
+    signal?.throwIfAborted();
     // eslint-disable-next-line no-useless-assignment
     let payload = null;
     try
@@ -421,6 +424,10 @@ async function invokeCompositionRoot(context, plan, signal)
     }
     if (!response.ok)
     {
+        if (action === 'verify')
+        {
+            throw new Error(`account-messaging independent verification failed HTTP ${response.status}`);
+        }
         throw new Error(`account-messaging composition root failed HTTP ${response.status}: ${payload?.detail ?? text.slice(0, 400)}`);
     }
     return payload;
@@ -497,8 +504,79 @@ export async function prepareAccountMessaging(context, signal, { temporalResolve
     return Object.freeze(result);
 }
 
-export async function verifyAccountMessaging(context, producerResult)
+async function verifyLiveMessaging(context, result, verifiedIdentities, signal)
 {
+    const auth = context.producerReceipts?.['auth-session'];
+    const source = context.sourceIdentity ?? context.plan?.executionIdentity?.sourceIdentity;
+    const serviceGeneration = context.handles?.serviceGeneration;
+    const binding = {
+        runId: context.runIdentity, namespace: context.namespace, profileId: context.profileIdentity?.profileId,
+        sourceCommit: source?.commit, sourceFingerprint: source?.worktreeFingerprint, serviceGeneration,
+        catalogDigest: context.plan?.catalogDigest, expandedCapabilityDigest: context.plan?.expandedCapabilityDigest,
+        variantPlanDigest: context.plan?.variantPlanDigest,
+        producerVariantPlanDigest: context.variantPlan?.producerVariantPlanDigest,
+        temporalContextDigest: digestCanonical(context.temporalContext)
+    };
+    if (!/^[a-f0-9]{40}$/u.test(binding.sourceCommit ?? '')
+        || !['sourceFingerprint', 'serviceGeneration', 'catalogDigest', 'expandedCapabilityDigest',
+            'variantPlanDigest', 'producerVariantPlanDigest', 'temporalContextDigest'].every((key) => digestPattern.test(binding[key] ?? ''))
+        || !binding.runId || !binding.namespace || !binding.profileId
+        || !auth || auth.runId !== binding.runId || auth.namespace !== binding.namespace || auth.profileId !== binding.profileId
+        || canonicalJson(auth.source) !== canonicalJson(source) || auth.serviceGeneration !== serviceGeneration
+        || auth.fixtureCatalogDigest !== binding.catalogDigest || auth.expandedCapabilityDigest !== binding.expandedCapabilityDigest
+        || auth.variantPlanDigest !== binding.variantPlanDigest)
+    {
+        throw new Error('account-messaging live verification source/service/profile binding is incomplete or cross-owner');
+    }
+    const temporalRoles = await resolveTemporalRoles(context);
+    signal?.throwIfAborted();
+    const plan = buildMessagingFixturePlan(context, { temporalRoles });
+    if (plan.planDigest !== result.planDigest || temporalRoles.contentDigest !== result.temporalRoleArtifactDigest)
+    {
+        throw new Error('account-messaging live verification plan/temporal binding drift');
+    }
+    const roles = Object.fromEntries(result.observations.database.entities.filter((item) => item.kind === 'thread')
+        .map((item) => [item.semanticRole, item.id]));
+    const { producerReceiptDigest: ignoredDigest, ...unsignedAuth } = auth;
+    if (ignoredDigest !== digestCanonical(unsignedAuth))
+    {
+        throw new Error('account-messaging auth receipt canonical binding drift');
+    }
+    const read = await invokeCompositionRoot(context, { plan, binding, roles, cleanupReceipt: result.cleanupReceipt,
+        authReference: { receipt: auth, canonicalBody: canonicalJson(unsignedAuth) }, verifiedAuthReferences: verifiedIdentities }, signal, 'verify');
+    signal?.throwIfAborted();
+    if (!read || read.ok !== true || canonicalJson(read.binding) !== canonicalJson(binding)
+        || read.authSourceReceiptDigest !== auth.producerReceiptDigest || read.warnings?.length
+        || read.fallback || read.structuralOnly || read.warningOnly || read.stale)
+    {
+        throw new Error('account-messaging independent live verification is missing or cross-owner');
+    }
+    const live = read.result;
+    assertPrivacySafe(read);
+    if (live?.producerId !== PRODUCER_ID || live.strategy !== STRATEGY || live.planDigest !== plan.planDigest
+        || live.inventoryDigest !== plan.inventoryDigest || live.ownershipDigest !== plan.ownershipDigest
+        || canonicalJson(live.cleanupReceipt) !== canonicalJson(result.cleanupReceipt))
+    {
+        throw new Error('account-messaging independent live result/cleanup identity drift');
+    }
+    requireCapabilityProofs(live, plan.capabilities);
+    if (live.capabilityProofs.some((proof) => proof.cache !== 'exact' || proof.outbox !== 'exact'))
+    {
+        throw new Error('account-messaging independent cache/outbox proof is incomplete');
+    }
+    const typed = bindTypedVariants(context, live.entityIdentities, normalizeObservations(live, context));
+    if (canonicalJson(typed.entityIdentities) !== canonicalJson(result.entityIdentities)
+        || canonicalJson(typed.observations) !== canonicalJson(result.observations))
+    {
+        throw new Error('account-messaging independent live postcondition drift');
+    }
+    return { observations: typed.observations, entityIdentities: typed.entityIdentities,
+        readObservationDigest: digestCanonical(read) };
+}
+
+export async function verifyAccountMessaging(context, producerResult, signal = context.handles?.signal)
+{
+    signal?.throwIfAborted();
     if (!producerResult || producerResult.producerId !== PRODUCER_ID)
     {
         return { ok: false, producerId: PRODUCER_ID, reason: 'producer identity mismatch' };
@@ -531,24 +609,37 @@ export async function verifyAccountMessaging(context, producerResult)
         normalizeObservations(producerResult, context);
         assertPrivacySafe(producerResult);
         const adapter = context.handles?.accountMessagingAdapter;
-        if (adapter && typeof adapter.verify === 'function')
+        let live = {};
+        if (adapter)
         {
-            const verification = await adapter.verify({ ...context, messagingPlanDigest: producerResult.planDigest }, producerResult);
+            if (typeof adapter.verify !== 'function')
+            {
+                throw new Error('account-messaging adapter requires an independent verifier');
+            }
+            const verification = await adapter.verify({ ...context, messagingPlanDigest: producerResult.planDigest }, producerResult, signal);
+            signal?.throwIfAborted();
             if (!verification || verification.ok !== true || verification.warnings?.length)
             {
                 throw new Error(verification?.reason ?? 'independent adapter verification failed');
             }
         }
+        else
+        {
+            live = await verifyLiveMessaging(context, producerResult, verifiedIdentities, signal);
+        }
+        signal?.throwIfAborted();
         return {
             ok: true,
             producerId: PRODUCER_ID,
             identitySourceReceiptDigest: verifiedIdentities.sourceReceiptDigest,
             identityReferencesDigest: verifiedIdentities.digest,
-            warnings: []
+            warnings: [],
+            ...live
         };
     }
     catch (error)
     {
+        signal?.throwIfAborted();
         return { ok: false, producerId: PRODUCER_ID, reason: error.message };
     }
 }

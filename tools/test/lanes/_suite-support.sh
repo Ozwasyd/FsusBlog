@@ -369,14 +369,14 @@ PrepareSessionFixturesOnce() {
         "$CLIENT_DIR" \
         "$fixtureRoot/sessions" \
         env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" \
-            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/fixtures/prepare-playwright-sessions.mjs" --workers "$workers"
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/fixtures/prepare-playwright-sessions.mjs" --workers "$workers"
 }
 
 # Unique orchestrator entry for runtime lanes (#1709 + #1710 FixtureReceipt).
 InvokeLaneFixtureOrchestrator() {
     local profileId="${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:-${1:-}}"
     local profileSource="${FSUSBLOG_FIXTURE_PROFILE_SOURCE:-matrix}"
-    local fixtureRoot orchestratorPlan prepareState fixtureReceipt
+    local fixtureRoot orchestratorPlan prepareState fixtureReceipt artifactDirectory=""
     if [[ -z "$profileId" ]]; then
         Fail "lane fixture orchestrator requires sealed profile id (FSUSBLOG_SEALED_FIXTURE_PROFILE_ID)"
     fi
@@ -386,6 +386,18 @@ InvokeLaneFixtureOrchestrator() {
         export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="fsusblog-local-public-content-fixture-secret-${namespaceSlug}-${FSUSBLOG_TEST_RUN_ID:-local}"
     fi
     fixtureRoot="$(FixtureRootPath)"
+    if [[ "$profileSource" == "matrix" && -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" &&
+        ("$profileId" == "public-content-lifecycle" || "$profileId" == "runtime-cache-pagination") ]]; then
+        # The retained state is the cleanup authority, not a reusable success marker.
+        mkdir -p "$fixtureRoot"
+        fixtureRoot="$(
+            umask 077
+            mktemp -d "$fixtureRoot/runtime-cache-invocation.XXXXXXXX"
+        )"
+        artifactDirectory="$fixtureRoot/artifacts"
+        export FSUSBLOG_FIXTURE_ROOT="$fixtureRoot"
+        export FSUSBLOG_PUBLIC_ID_PROJECTION_FILE="$fixtureRoot/public-content-projection.json"
+    fi
     orchestratorPlan="$fixtureRoot/orchestrator-plan.json"
     prepareState="$fixtureRoot/prepare-state.json"
     fixtureReceipt="$fixtureRoot/fixture-receipt.json"
@@ -395,15 +407,28 @@ InvokeLaneFixtureOrchestrator() {
         --source "$profileSource"
         --plan-out "$orchestratorPlan"
         --prepare-state "$prepareState"
+        --private-carrier-dir "$fixtureRoot/auth-private-carriers"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
+        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture source commit is required}"
+        --source-fingerprint "sha256:${FSUSBLOG_TEST_SOURCE_FINGERPRINT#sha256:}"
+        --service-generation "sha256:${FSUSBLOG_FIXTURE_SERVICE_GENERATION#sha256:}"
         --base-url "${FSUSBLOG_BASE_URL:-${DEBUG_BACKEND_URL:-}}"
         --debug-backend-url "${FSUSBLOG_DEBUG_BACKEND_URL:-${DEBUG_BACKEND_URL:-}}"
         --frontend-url "${PLAYWRIGHT_BASE_URL:-${DEBUG_FRONTEND_URL:-}}"
         --pg-container "${FSUSBLOG_PG_CONTAINER:-}"
         --redis-container "${FSUSBLOG_REDIS_CONTAINER:-${FSUSBLOG_REDIS_CONTAINER_NAME:-}}"
     )
-    if [[ "$profileId" == "none" || "$profileId" == "comments-moderation" ]]; then
+    if [[ -n "$artifactDirectory" ]]; then
+        runArgs+=(--artifact-dir "$artifactDirectory"
+            --artifact-consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID")
+    fi
+    if [[ -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" ]]; then
+        runArgs+=(--runtime-cache-consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID"
+            --runtime-cache-input-dir "$fixtureRoot/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:?}"
+            --public-projection "$fixtureRoot/public-content-projection.json")
+    fi
+    if [[ "$profileId" == "none" || "$profileId" == "comments-moderation" || "$profileId" == "auth-basic" || "$profileId" == "public-content-lifecycle" || "$profileId" == "runtime-cache-pagination" ]]; then
         runArgs+=(--fixture-receipt "$fixtureReceipt")
     else
         # Honest partial: unrelated incomplete profiles remain prepare-state only.
@@ -423,7 +448,31 @@ InvokeLaneFixtureOrchestrator() {
         fi
     fi
     Log "lane fixture orchestrator profile=${profileId} source=${profileSource}"
+    if [[ -n "$artifactDirectory" ]]; then
+        Log "owned fixture recovery state: ${prepareState}"
+    fi
     "${FSUSBLOG_NODE:-node}" "${runArgs[@]}"
+    if [[ "$profileSource" == "matrix" && ("$profileId" == "public-content-lifecycle" || "$profileId" == "runtime-cache-pagination") ]]; then
+        export FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$fixtureRoot/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:?}"
+        local -a prerequisiteArgs=()
+        if [[ -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" &&
+            "${FSUSBLOG_SEALED_FIXTURE_PREREQUISITES:-[]}" != "[]" ]]; then
+            prerequisiteArgs+=(--prerequisite-inputs "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR/prerequisite-inputs.json")
+        fi
+        if [[ -n "$artifactDirectory" ]]; then
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                project-runtime-cache-input --receipt "$fixtureReceipt" \
+                --prepare-state "$prepareState" --public-projection "$fixtureRoot/public-content-projection.json" \
+                --consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID" \
+                --out "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR/$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID.json" \
+                "${prerequisiteArgs[@]}"
+        else
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                project-runtime-cache-profile-inputs --receipt "$fixtureReceipt" \
+                --prepare-state "$prepareState" --public-projection "$fixtureRoot/public-content-projection.json" \
+                --out-dir "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR" "${prerequisiteArgs[@]}"
+        fi
+    fi
     if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
         PrepareSessionFixturesOnce
     fi
@@ -530,8 +579,8 @@ PrepareFrontendFastGroupTimings() {
     timingScope="${FSUSBLOG_FRONTEND_FAST_TIMING_SCOPE:-${CURRENT_TIER:-frontend-fast}}"
     timingScope="$(printf '%s' "$timingScope" | tr -cs 'A-Za-z0-9_.-' '-' | sed -E 's/^-+|-+$//g')"
     [[ -n "$timingScope" && "$timingScope" != "." && "$timingScope" != ".." ]] || timingScope="frontend-fast"
-        FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.jsonl}"
-        FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.json}"
+    FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.jsonl}"
+    FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.json}"
     mkdir -p "$(dirname "$FRONTEND_FAST_GROUP_TIMINGS_JSONL")"
     : >"$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
     rm -f "$FRONTEND_FAST_GROUP_TIMINGS_JSON"
@@ -1525,10 +1574,11 @@ EnsureFrontendFsusUiBaseline() {
     if [[ "$useLocalFsusUi" == "0" ]] || [[ "$useLocalFsusUi" == "false" ]]; then
         Fail "frontend test lanes require the canonical local FsusUI baseline"
     fi
-    export FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
+    FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
         "${FSUSBLOG_NODE:-node}" "$CLIENT_DIR/scripts/fsusui-root.mjs" \
             --repository-root "$ROOT_DIR"
     )"
+    export FSUSBLOG_LOCAL_FSUSUI_ROOT
     Run "${FSUSBLOG_NODE:-node}" \
         "$ROOT_DIR/tests/browser-diagnostics/local-fsusui-identity.mjs" \
         --verify
@@ -1717,7 +1767,6 @@ RunFastOnly() {
     RunFastBackendLane
 }
 
-
 BeginLegacyRuntimeScenarioObservation() {
     local phase="$1"
     if [[ "${FSUSBLOG_RUNTIME_SCENARIO_COMPARE_VARIANT:-}" != "before" ]]; then
@@ -1836,8 +1885,6 @@ RunIntegrationOnly() {
     WriteRuntimeLaneSummary integration
 }
 
-
-
 RunCoverageBackendOnly() {
     Log "tier=coverage-backend | server xUnit coverage collection"
     Run bash "$ROOT_DIR/tools/coverage/collect-backend-coverage.sh"
@@ -1848,13 +1895,10 @@ RunCoverageFrontendOnly() {
     Run bash "$ROOT_DIR/tools/coverage/collect-frontend-coverage.sh"
 }
 
-
-
 RunCoverageMergeOnly() {
     Log "tier=coverage-merge | merge available coverage artifacts"
     Run bash "$ROOT_DIR/tools/coverage/merge-coverage.sh"
 }
-
 
 RunCoverageThresholdOnly() {
     Log "tier=coverage-threshold | enforce merged coverage thresholds"
@@ -1884,7 +1928,6 @@ RunCoverageThresholdOnly() {
         bash "$ROOT_DIR/tools/coverage/check-threshold.sh"
 }
 
-
 RunCoverageGateOnly() {
     Log "tier=coverage-gate | collect + merge + enforce thresholds"
     RunCoverageBackendOnly
@@ -1892,7 +1935,6 @@ RunCoverageGateOnly() {
     RunCoverageMergeOnly
     RunCoverageThresholdOnly
 }
-
 
 RunReleasePublicHydrationPrepareOnly() {
     Log "tier=release-public-hydration | settle AOT hydration writes before release preview readers"
@@ -1939,7 +1981,6 @@ RunReleaseOnly() {
     Log "release browser-only hydration/search/PWA risks are delegated to browser-contract (#1147)"
 }
 
-
 RunAcceptanceOnly() {
     if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" != "1" && "${MATRIX_JOB:-}" != "browser-diagnostics" ]]; then
         Fail "acceptance is diagnostics-only; use ./tools/test.sh browser-diagnostics"
@@ -1971,7 +2012,6 @@ RunAcceptanceOnly() {
     RunInClient npm run check:acceptance:auth
     RunInClient npm run check:acceptance:console
 }
-
 
 RunVisualOnly() {
     Log "tier=visual | dark/mobile visual gates"
@@ -2017,7 +2057,6 @@ RunVisualConsoleOnly() {
     RunVisualGroupCheck console npm run check:visual:console
 }
 
-
 RunSecurityStaticOnly() {
     Log "tier=security-static | matrices/supply-chain/network/SBOM policy gates"
     local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
@@ -2040,7 +2079,23 @@ RunSecurityRuntimeCoreOnly() {
         local label="$1"
         shift
         set +e
-        ("$@")
+        (
+            case "${1:-}" in
+                RunSecurityLegacyIsolatedClientCheck)
+                    shift
+                    RunSecurityLegacyIsolatedClientCheck "$@"
+                    ;;
+                CheckSecurityFirewallEvidence)
+                    shift
+                    CheckSecurityFirewallEvidence "$@"
+                    ;;
+                CheckExternalProductionExposure)
+                    shift
+                    CheckExternalProductionExposure "$@"
+                    ;;
+                *) "$@" ;;
+            esac
+        )
         local status=$?
         set -e
         if ((status != 0)); then
@@ -2064,13 +2119,11 @@ RunSecurityRuntimeCoreOnly() {
     }
 
     # Dispatched indirectly by the securityRuntimeJobs command specifications.
-    # shellcheck disable=SC2317
     CheckSecurityFirewallEvidence() {
         Run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
     }
 
     # Dispatched indirectly by the securityRuntimeJobs command specifications.
-    # shellcheck disable=SC2317
     CheckExternalProductionExposure() {
         local -a failures=()
         Run "$ROOT_DIR/tools/security/check-production-exposure-live.sh" || failures+=(live-check)
@@ -2153,7 +2206,6 @@ RunSecurityOnly() {
         "security-runtime-core::RunSecurityRuntimeCoreOnly"
 }
 
-
 RunResilienceOnly() {
     Log "tier=resilience | runtime/upload/search/notification-stream/binary resilience"
     RequireDebugStack
@@ -2183,7 +2235,6 @@ RunResilienceOnly() {
     fi
     WriteRuntimeLaneSummary resilience
 }
-
 
 RunLoadOnly() {
     Log "tier=load | lightweight public/api and notification stream concurrency checks"

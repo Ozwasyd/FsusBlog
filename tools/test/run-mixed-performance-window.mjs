@@ -10,16 +10,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   validateHotPathBenchmarkContract
 } from '../perf/run-backend-benchmark-regression.mjs'
-import { resolveManifestChildEnvironment } from './run-command-manifest.mjs'
+import { loadRuntimeCacheCatalog } from './runtime-cache-evidence-contract.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const performanceOutputRoot = path.resolve(
   process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? path.join(root, '.tmp/perf'))
-const qpsModes = Object.freeze([
-  'view-count-flush', 'visitlog-invalidation', 'cache-hit', 'comment-cursor', 'hotread',
-  'cache-miss-singleflight', 'risk-filter', 'related-reading', 'list-pagination',
-  'article-detail-miss', 'cache-registry', 'cache-invalidation-batch', 'index-plan'
-])
+const runtimeCacheCommand = 'tools/test/lanes/runtime-cache-evidence.sh'
+const runtimeCacheScenarioIds = Object.freeze(loadRuntimeCacheCatalog().scenarios.map((scenario) => scenario.id))
 
 export function buildMixedWindowPlan() {
   return {
@@ -35,7 +32,8 @@ export function buildMixedWindowPlan() {
         memoryWeight: 1
       },
       qps: {
-        modes: [...qpsModes],
+        command: runtimeCacheCommand,
+        scenarios: [...runtimeCacheScenarioIds],
         publicApiCommand: 'npm run check:load:public-api',
         cpuWeight: 1,
         memoryWeight: 1
@@ -439,86 +437,7 @@ async function runNotification(declaration, resource) {
   }
 }
 
-export function resolveQpsWorkerCapacity({
-  resource,
-  modeCount,
-  availableCpu = os.availableParallelism?.() ?? os.cpus().length,
-  totalMemoryGiB = os.totalmem() / (1024 ** 3)
-}) {
-  const hostCpu = Math.max(1, Math.floor(positiveNumber(availableCpu, 1, 'QPS available CPU')))
-  const hostMemoryGiB = positiveNumber(totalMemoryGiB, null, 'QPS total memory')
-  const cpuLimit = Math.max(1, Math.floor(Math.min(hostCpu, positiveNumber(resource?.cpuUnits, 1, 'QPS CPU grant'))))
-  const memoryGiBPerCpu = hostMemoryGiB / hostCpu
-  const memoryLimit = Math.max(1, Math.floor(
-    positiveNumber(resource?.memoryGiB, memoryGiBPerCpu, 'QPS memory grant') / memoryGiBPerCpu
-  ))
-  return {
-    workerCount: Math.min(Math.max(1, modeCount), cpuLimit, memoryLimit),
-    cpuLimit,
-    memoryLimit,
-    memoryGiBPerCpu
-  }
-}
-
-export async function runQpsModeQueue({
-  modes,
-  resource,
-  env = process.env,
-  availableCpu,
-  totalMemoryGiB,
-  executeMode,
-  executeAggregate
-}) {
-  if (!Array.isArray(modes) || modes.length === 0) throw new Error('QPS modes must be non-empty')
-  if (typeof executeMode !== 'function' || typeof executeAggregate !== 'function') {
-    throw new Error('QPS mode and aggregate executors are required')
-  }
-  const capacity = resolveQpsWorkerCapacity({ resource, modeCount: modes.length, availableCpu, totalMemoryGiB })
-  const parentEnv = { ...env, ...cohortEnvironment(resource) }
-  const childEnv = resolveManifestChildEnvironment({
-    env: parentEnv,
-    workers: capacity.workerCount,
-    concurrent: true
-  })
-  const aggregateEnv = resolveManifestChildEnvironment({
-    env: parentEnv,
-    workers: capacity.workerCount,
-    concurrent: false
-  })
-  const failures = []
-  let nextIndex = 0
-  const workers = Array.from({ length: capacity.workerCount }, async () => {
-    while (nextIndex < modes.length) {
-      const index = nextIndex
-      nextIndex += 1
-      try {
-        await executeMode(modes[index], childEnv)
-      } catch (error) {
-        failures.push({ index, error: new Error(`${modes[index]}: ${error instanceof Error ? error.message : String(error)}`) })
-      }
-    }
-  })
-  await Promise.all(workers)
-  try {
-    await executeAggregate(aggregateEnv)
-  } catch (error) {
-    failures.push({
-      index: modes.length,
-      error: new Error(`aggregate: ${error instanceof Error ? error.message : String(error)}`)
-    })
-  }
-  failures.sort((left, right) => left.index - right.index)
-  if (failures.length > 0) {
-    throw new AggregateError(
-      failures.map((failure) => failure.error),
-      `QPS cohort failed in ${failures.length} independent commands: ${failures.map((failure) => failure.error.message).join('; ')}`
-    )
-  }
-  return { capacity, childEnv, aggregateEnv }
-}
-
 async function runQps(resource, declaration) {
-  const capacity = resolveQpsWorkerCapacity({ resource, modeCount: qpsModes.length })
   const publicApiPromise = runPublicApi(
     declaration.publicApiCommand,
     cohortEnvironment(resource)
@@ -528,24 +447,14 @@ async function runQps(resource, declaration) {
       status: 'failed',
       failures: [error instanceof Error ? error.message : String(error)]
     }))
-  const qpsPromise = runQpsChecks(resource, capacity)
+  const qpsPromise = runRuntimeCacheCohort(resource)
   return Promise.all([publicApiPromise, qpsPromise])
 }
 
-async function runQpsChecks(
-  resource,
-  capacity = resolveQpsWorkerCapacity({ resource, modeCount: qpsModes.length })
-) {
+export async function runRuntimeCacheCohort(resource, { execute = command } = {}) {
   let failures = []
   try {
-    await runQpsModeQueue({
-      modes: qpsModes,
-      resource,
-      executeMode: async (mode, env) => {
-        await command(`tools/test/lanes/backend-qps.sh ${mode}`, { env })
-      },
-      executeAggregate: (env) => command('tools/test/lanes/backend-qps.sh aggregate', { env })
-    })
+    await execute(runtimeCacheCommand, { env: cohortEnvironment(resource) })
   } catch (error) {
     failures = (error instanceof AggregateError ? error.errors : [error])
       .map((cause) => cause instanceof Error ? cause.message : String(cause))
@@ -553,11 +462,18 @@ async function runQpsChecks(
   return {
     name: 'qps',
     status: failures.length > 0 ? 'failed' : 'ok',
-    modes: [...qpsModes],
-    sampleCount: qpsModes.length,
-    workerCount: capacity.workerCount,
+    command: runtimeCacheCommand,
+    scenarios: [...runtimeCacheScenarioIds],
+    sampleCount: failures.length > 0 ? null : runtimeCacheScenarioIds.length,
+    workerCount: 1,
     failures
   }
+}
+
+export function isCurrentRuntimeCacheCohort(cohort) {
+  return cohort?.name === 'qps' && cohort.status === 'ok'
+    && cohort.command === runtimeCacheCommand
+    && JSON.stringify(cohort.scenarios) === JSON.stringify(runtimeCacheScenarioIds)
 }
 
 export async function settleCohortExecutions(executions) {
@@ -628,7 +544,8 @@ async function main() {
     const actualCohorts = previous.cohorts.map((cohort) => cohort.name).sort()
     if (previous.status === 'ok'
       && JSON.stringify(actualCohorts) === JSON.stringify(expectedCohorts)
-      && previous.cohorts.every((cohort) => cohort.status === 'ok')) {
+      && previous.cohorts.every((cohort) => cohort.status === 'ok')
+      && isCurrentRuntimeCacheCohort(previous.cohorts.find((cohort) => cohort.name === 'qps'))) {
       console.log(`[mixed-performance-window] reused passed evidence elapsedMs=${previous.elapsedMs}`)
       return
     }

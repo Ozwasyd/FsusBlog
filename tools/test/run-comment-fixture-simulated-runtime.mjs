@@ -9,8 +9,12 @@ import { fileURLToPath } from 'node:url';
 import { digestCommentFixtureValue } from './comment-fixture-contract.mjs';
 import {
     buildCanonicalCommentFixtureRuntimeEvidence,
-    buildCommentFixtureCleanupReceipt
+    buildCommentFixtureModelReport,
+    resolveCommentFixtureSourceIdentity
 } from './comment-fixture-governance.mjs';
+const { createProducerContext } = await import(new URL('../test-fixtures/producer-port.mjs', import.meta.url));
+const { buildProducerReceipt, canonicalJson, digestCanonical, validateProducerReceipt } = await import(new URL('../test-fixtures/receipt/index.mjs', import.meta.url));
+const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs } = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 const {cleanupCommentModeration, prepareCommentModeration, verifyCommentModeration} = await import(new URL('../test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -31,14 +35,19 @@ function identityReference({ runId, namespace, role, capabilityId, publicId, pro
         capabilityId,
         role,
         publicId: String(publicId),
+        semanticRole: `consumer.comment-moderation.${role}`,
+        fixtureIdentity: `model:${namespace}:${role}`,
+        planDigests: {},
         producerResultDigest,
         verified: false
     };
     return Object.freeze({ ...body, digest: hex(JSON.stringify(body)) });
 }
 
-function contextFor(index, baseUrl)
+function contextFor(index, baseUrl, source)
 {
+    // Sealed shape/identity contract model only: no real auth or public allocation.
+    const catalogs = readFixtureCatalogs();
     const runId = `comment-sim-run-${index}`;
     const namespace = `comment-sim-${index}`;
     const producerResultDigest = hex(`auth:${runId}`);
@@ -47,52 +56,70 @@ function contextFor(index, baseUrl)
         identityReference({ runId, namespace, role: 'primary-author', capabilityId: 'auth.user.active', publicId: 11, producerResultDigest }),
         identityReference({ runId, namespace, role: 'secondary-author', capabilityId: 'auth.user.active', publicId: 12, producerResultDigest })
     ];
-    const capabilities = ['comment.moderation-matrix', 'comment.threaded', 'moderation.policy-matrix'];
-    const variants = capabilities.map((capabilityId) => ({
-        id: `comment-simulated-${capabilityId.replaceAll('.', '-')}`,
-        capabilityId
-    }));
-    return {
-        namespace,
-        runIdentity: runId,
+    const capabilities = ['auth.admin.full-permission', 'auth.user.active', 'comment.moderation-matrix',
+        'comment.threaded', 'moderation.policy-matrix', 'public.article.published'];
+    const variantIds = capabilities.map((capabilityId) => catalogs.variant.variants.find(
+        (item) => item.capabilityId === capabilityId && item.id.startsWith('canonical.')
+    ).id).sort();
+    const variantPlan = buildFixtureVariantPlan(variantIds, catalogs);
+    const plan = {
+        capabilities, variantIds, variantPlan, variantPlanDigest: variantPlan.variantPlanDigest,
+        expandedCapabilityDigest: digestCanonical(capabilities),
         profileIdentity: { profileId: 'comments-moderation' },
-        plan: {
-            capabilities,
-            expandedCapabilityDigest: `sha256:${hex('expanded-capabilities')}`,
-            variantPlanDigest: `sha256:${hex('variant-plan')}`
+        executionIdentity: { runId, namespace, sourceIdentity: source,
+            handles: { serviceGeneration: `sha256:${hex(`model-generation:${runId}`)}` } }
+    };
+    const producerOutputs = {
+        'auth-session': {
+            producerId: 'auth-session',
+            producerResultDigest,
+            identityPrepareReferences: refs
         },
-        variantPlan: {
-            variants,
-            producerVariantPlanDigest: `sha256:${hex('producer-variant-plan')}`
-        },
-        temporalContext: {
-            schema: 'fsusblog.test-temporal-context.v1',
-            authorityClass: 'local-simulated',
-            instantUtc: '2042-05-17T09:30:00.000Z'
-        },
-        producerOutputs: {
-            'auth-session': {
-                producerId: 'auth-session',
-                producerResultDigest,
-                identityPrepareReferences: refs
-            },
-            'public-content': {
-                producerId: 'public-content',
-                strategy: 'transaction-fixture',
-                structuralOnly: false,
-                fallback: false,
-                projection: { articleId: 42, slug: `comment-simulated-${index}` },
-                entityIdentities: [{ kind: 'article', id: '42' }],
-                observations: { database: {}, redis: {}, cache: {} },
-                temporalArtifacts: { bindingDigest: `sha256:${hex(`article:${runId}`)}` }
-            }
-        },
-        handles: {
+        'public-content': {
+            producerId: 'public-content',
+            strategy: 'transaction-fixture',
+            structuralOnly: false,
+            fallback: false,
+            projection: { articleId: 42, slug: `comment-simulated-${index}` },
+            entityIdentities: [{ kind: 'article', id: '42' }],
+            observations: { database: {}, redis: {}, cache: {} },
+            temporalArtifacts: { bindingDigest: `sha256:${hex(`article:${runId}`)}` }
+        }
+    };
+    const sealModelReceipt = (producerId, entities, providedCapabilities) =>
+    {
+        const slice = buildProducerFixtureVariantPlan({ producerId,
+            variantIds: variantIds.filter((id) => catalogs.variant.variants.find((item) => item.id === id).ownerProducerId === producerId),
+            fixtureVariantIds: variantIds, fixtureVariantPlanDigest: variantPlan.variantPlanDigest, catalogs });
+        const rows = entities.map(({ capabilityId, ...item }) => ({ ...item, owned: true,
+            variantId: slice.variants.find((variant) => variant.capabilityId === capabilityId).id, fields: {} }));
+        return buildProducerReceipt({ producerId, strategy: 'transaction-fixture', runId, namespace, source,
+            profileId: plan.profileIdentity.profileId, fixtureCatalogDigest: fixtureCatalogDigest(catalogs),
+            expandedCapabilityDigest: plan.expandedCapabilityDigest, fixtureVariantIds: variantIds,
+            variantPlanDigest: plan.variantPlanDigest, producerVariantPlanDigest: slice.producerVariantPlanDigest,
+            producedVariantIds: slice.variants.map((item) => item.id), providedCapabilities,
+            serviceGeneration: plan.executionIdentity.handles.serviceGeneration,
+            ownedStateDomains: catalogs.producer.producers.find((item) => item.id === producerId).stateDomains,
+            entityIdentities: rows.map(({ kind, id, variantId }) => ({ kind, id, variantId })),
+            databaseObservation: { namespace, schemaIdentity: 'model-only', entities: rows },
+            postconditionObservations: providedCapabilities.flatMap((capabilityId) => catalogs.capability.capabilities.find(
+                (item) => item.id === capabilityId
+            ).postconditionIds.map((postconditionId) => ({ capabilityId, postconditionId, ok: true }))), catalogs });
+    };
+    return createProducerContext({ plan, producerId: 'comment-moderation', producerOutputs, catalogs,
+        temporalContext: { schema: 'fsusblog.test-temporal-context.v1', authorityClass: 'local-simulated',
+            instantUtc: '2042-05-17T09:30:00.000Z' },
+        producerReceipts: {
+            'auth-session': sealModelReceipt('auth-session', refs.map((item) => ({ kind: item.role === 'admin' ? 'admin' : 'user',
+                id: item.publicId, semanticRole: item.semanticRole, fixtureIdentity: item.fixtureIdentity,
+                capabilityId: item.capabilityId })), ['auth.admin.full-permission', 'auth.user.active']),
+            'public-content': sealModelReceipt('public-content', [{ kind: 'article', id: '42', capabilityId: 'public.article.published' }], ['public.article.published'])
+        }, handles: {
+            ...plan.executionIdentity.handles,
             baseUrl,
             localCommentFixtureSecret: 'simulated-comment-secret',
             localPublicContentFixtureSecret: 'simulated-temporal-secret'
-        }
-    };
+        } });
 }
 
 function bindingFor(plan)
@@ -189,10 +216,11 @@ function requireInvocationHeaders(request)
     }
 }
 
-async function startBackend()
+async function startBackend({ mutateRead } = {})
 {
     const requests = [];
     const sessions = new Map();
+    const reads = new Map();
     const server = createServer(async (request, response) =>
     {
         try
@@ -207,7 +235,15 @@ async function startBackend()
                     throw new Error('simulated prepare run is unknown');
                 }
                 const result = rawResult(plan, index);
-                sessions.set(plan.testSession, plan.runId);
+                // A subsequent MODEL state is distinct from the prepare response. Verify only reads it.
+                // This is not a production mutation, cache freshness proof, or persistence claim.
+                const current = structuredClone(result);
+                current.cacheGenerationAfter = String(BigInt(current.cacheGenerationAfter) + 1n);
+                for (const entity of [...current.threadEntities, ...current.moderation.entities])
+                {
+                    entity.cacheGeneration = current.cacheGenerationAfter;
+                }
+                sessions.set(plan.testSession, { plan, result, current });
                 requests.push({ runId: plan.runId, method: 'POST', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
                 response.end(JSON.stringify(result));
@@ -215,11 +251,12 @@ async function startBackend()
             }
             if (request.method === 'GET' && request.url === '/__local/temporal-observation')
             {
-                const runId = sessions.get(String(request.headers['x-fsus-test-session'] ?? ''));
-                if (!runId)
+                const session = sessions.get(String(request.headers['x-fsus-test-session'] ?? ''));
+                if (!session)
                 {
                     throw new Error('simulated temporal observation is cross-run');
                 }
+                const runId = session.plan.runId;
                 requests.push({ runId, method: 'GET', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
                 response.end(JSON.stringify({
@@ -229,6 +266,43 @@ async function startBackend()
                 }));
                 return;
             }
+            if (request.method === 'POST' && request.url === '/api/local/comment-fixture/verify')
+            {
+                requireInvocationHeaders(request);
+                const body = await readJson(request);
+                const session = sessions.get(String(request.headers['x-fsus-test-session']));
+                if (!session || canonicalJson(body.plan) !== canonicalJson(session.plan)
+                    || canonicalJson(body.cleanupReceipt) !== canonicalJson(session.result.cleanupReceipt))
+                {
+                    throw new Error('model verify prepared session/ownership differs');
+                }
+                for (const [reference, producerId] of [[body.authReference, 'auth-session'], [body.publicReference, 'public-content']])
+                {
+                    const sealed = validateProducerReceipt(reference?.receipt);
+                    const unsigned = Object.fromEntries(Object.entries(sealed).filter(([key]) => key !== 'producerReceiptDigest'));
+                    if (sealed.producerId !== producerId || sealed.runId !== session.plan.runId
+                        || sealed.namespace !== session.plan.namespace || reference.canonicalBody !== canonicalJson(unsigned))
+                    {
+                        throw new Error('model verify sealed prerequisite differs');
+                    }
+                }
+                // A separate model read, sent through the actual HTTP verify export. It is NOT production data.
+                const current = structuredClone(session.current);
+                const read = { schema: 'fsusblog.comment-fixture-verification-result.v1', binding: bindingFor(session.plan),
+                    threadEntities: current.threadEntities, moderation: current.moderation, cacheGeneration: current.cacheGenerationAfter,
+                    crossDomainBefore: current.crossDomainBefore, crossDomainAfter: current.crossDomainAfterPrepare,
+                    authSourceReceiptDigest: body.authReference.receipt.producerReceiptDigest,
+                    publicSourceReceiptDigest: body.publicReference.receipt.producerReceiptDigest };
+                if (mutateRead)
+                {
+                    mutateRead(read);
+                }
+                reads.set(session.plan.runId, { request: body, response: structuredClone(read) });
+                requests.push({ runId: session.plan.runId, method: 'POST', path: request.url, status: 200 });
+                response.writeHead(200, { 'Content-Type': 'application/json' });
+                response.end(JSON.stringify(read));
+                return;
+            }
             if (request.method === 'POST' && request.url === '/api/local/comment-fixture/cleanup')
             {
                 requireInvocationHeaders(request);
@@ -236,7 +310,7 @@ async function startBackend()
                 const ids = Object.keys(receipt.ownedComments).map(Number);
                 requests.push({ runId: receipt.binding.runId, method: 'POST', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
-                response.end(JSON.stringify({
+                const cleanup = {
                     schema: 'fsusblog.comment-fixture-cleanup-result.v1',
                     binding: receipt.binding,
                     deletedCommentIds: ids,
@@ -253,7 +327,9 @@ async function startBackend()
                         softDeletedCommentIds: ids,
                         observationDigest: `sha256:${hex(`${receipt.binding.runId}:moderation-cleanup`)}`
                     }
-                }));
+                };
+                reads.set(`${receipt.binding.runId}:cleanup`, structuredClone(cleanup));
+                response.end(JSON.stringify(cleanup));
                 return;
             }
             response.writeHead(404);
@@ -274,6 +350,7 @@ async function startBackend()
     return {
         baseUrl: `http://127.0.0.1:${address.port}`,
         requests,
+        reads,
         close: () => new Promise((resolve, reject) =>
             server.close((error) => error ? reject(error) : resolve()))
     };
@@ -288,32 +365,50 @@ function expectedTransport(requests, runId)
     }));
 }
 
-export async function collectSimulatedCommentFixtureRuntimeEvidence()
+export async function collectSimulatedCommentFixtureRuntimeEvidence(options = {})
 {
-    const backend = await startBackend();
+    const source = resolveCommentFixtureSourceIdentity();
+    const backend = await startBackend(options);
     try
     {
-        const contexts = [contextFor(1, backend.baseUrl), contextFor(2, backend.baseUrl)];
+        const contexts = [contextFor(1, backend.baseUrl, source), contextFor(2, backend.baseUrl, source)];
         const completed = await Promise.all(contexts.map(async (context) =>
         {
             const result = await prepareCommentModeration(context);
-            const verified = await verifyCommentModeration(context, result);
-            if (verified?.ok !== true)
+            try
             {
-                throw new Error(`simulated comment producer verification failed: ${verified?.reason ?? 'unknown'}`);
+                const verified = await verifyCommentModeration(context, result);
+                if (verified?.ok !== true)
+                {
+                    throw new Error(`simulated comment producer verification failed: ${verified?.reason ?? 'unknown'}`);
+                }
+                const exchange = backend.reads.get(context.runIdentity);
+                if (!exchange || verified.readObservationDigest !== digestCanonical(exchange.response))
+                {
+                    throw new Error('model verify raw response/read digest differs');
+                }
+                return { result, verified, exchange };
             }
-            const cleanup = await cleanupCommentModeration(context, result);
-            return { result, cleanup };
+            finally
+            {
+                await cleanupCommentModeration(context, result);
+            }
         }));
-        const source = buildCommentFixtureCleanupReceipt().source;
-        const cleanups = completed.map((item) => item.cleanup);
+        // Cleanup response bytes are captured by the model transport below, not fabricated from prepare.
+        const cleanups = completed.map((item) => backend.reads.get(`${item.result.cleanupReceipt.binding.runId}:cleanup`));
         const runs = completed.map((item, index) =>
         {
-            const unsignedRun = { ...item.result };
+            const read = item.exchange.response;
+            const unsignedRun = { ...item.result, preparedResult: item.result,
+                threadEntities: read.threadEntities, moderation: read.moderation, cacheGenerationAfter: read.cacheGeneration,
+                crossDomainAfterPrepare: read.crossDomainAfter, observations: item.verified.observations,
+                entityIdentities: item.verified.entityIdentities,
+                verification: { ...item.verified, ...item.exchange } };
             const requests = expectedTransport(backend.requests, item.result.cleanupReceipt.binding.runId);
             const expected = [
                 { method: 'POST', path: '/api/local/comment-fixture/prepare', status: 200 },
                 { method: 'GET', path: '/__local/temporal-observation', status: 200 },
+                { method: 'POST', path: '/api/local/comment-fixture/verify', status: 200 },
                 { method: 'POST', path: '/api/local/comment-fixture/cleanup', status: 200 }
             ];
             if (JSON.stringify(requests) !== JSON.stringify(expected))
@@ -333,7 +428,10 @@ export async function collectSimulatedCommentFixtureRuntimeEvidence()
                 namespace: item.result.cleanupReceipt.binding.namespace,
                 requests,
                 producerResultDigest: digestCommentFixtureValue(unsignedRun),
-                cleanupResultDigest: digestCommentFixtureValue(item.cleanup)
+                cleanupResultDigest: digestCommentFixtureValue(cleanups[index]),
+                readObservationDigest: item.verified.readObservationDigest,
+                authSourceReceiptDigest: item.verified.authSourceReceiptDigest,
+                publicSourceReceiptDigest: item.verified.publicSourceReceiptDigest
             };
             return { ...unsignedRun, producerInvocation };
         });
@@ -341,6 +439,8 @@ export async function collectSimulatedCommentFixtureRuntimeEvidence()
         return {
             schema: 'fsusblog.comment-fixture-runtime-evidence.v2',
             authorityClass: 'local-simulated-producer-invocation',
+            scope: 'model-contract-only',
+            runtimeQualified: false,
             source,
             runs,
             cleanups,
@@ -357,13 +457,20 @@ async function main()
 {
     const output = path.resolve(
         process.cwd(),
-        process.argv[2] ?? '.tmp/test-evidence/comment-fixture-runtime.json');
+        process.argv[2] ?? '.tmp/test-evidence/comment-fixture-model.json');
     const evidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    const report = buildCommentFixtureModelReport(evidence);
+    if (report.status !== 'accepted')
+    {
+        throw new Error(`model contract rejected: ${JSON.stringify(report.violations)}`);
+    }
     mkdirSync(path.dirname(output), { recursive: true, mode: 0o700 });
-    writeFileSync(output, `${JSON.stringify(evidence, null, 4)}\n`, { mode: 0o600 });
+    writeFileSync(output, `${JSON.stringify({ ...evidence, modelContract: report }, null, 4)}\n`, { mode: 0o600 });
     process.stdout.write(`${JSON.stringify({
         status: 'recorded',
         authorityClass: evidence.authorityClass,
+        scope: evidence.scope,
+        runtimeQualified: false,
         runs: evidence.runs.length,
         cleanups: evidence.cleanups.length,
         output: path.relative(root, output),

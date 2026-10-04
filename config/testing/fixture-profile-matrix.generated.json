@@ -928,7 +928,17 @@
             "fixtureProfile": "public-content-lifecycle",
             "fixtureProfileReason": "binds-public-content-lifecycle",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
+            "fixtureMutatorAllowed": true,
+            "fixturePrerequisites": [
+                {
+                    "id": "typed-admin-session",
+                    "profileId": "auth-basic",
+                    "producerId": "auth-session",
+                    "capabilityId": "auth.admin.full-permission",
+                    "semanticRole": "admin.full-permission",
+                    "consumerId": "runtime-cache-hot-featured-frame"
+                }
+            ]
         },
         {
             "tierId": "runtime-cache-l1-residency",
@@ -1155,5 +1165,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:da5f46631236a6430572b9926c76bd183f43e6c1a825e8c6302da2655fb8dab0"
+    "digest": "sha256:3d23776d0e81f73d09030ec2095957dca8b5b054966f1db2b2c94644607e0921"
 }

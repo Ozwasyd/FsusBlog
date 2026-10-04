@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { relatedReadingResponseError } from './runtime-cache-scenarios/related-reading-contract.mjs';
+const { resolveSourceCommit, resolveWorktreeFingerprint } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
 
 const { validateJsonSchema } = await import(new URL('../test-matrix/schema-validator/validate.mjs', import.meta.url));
 
@@ -105,23 +106,13 @@ function git(args, repositoryRoot)
 
 export function currentSourceState(repositoryRoot = moduleRoot)
 {
-    const commit = git(['rev-parse', 'HEAD'], repositoryRoot);
+    const commit = resolveSourceCommit(repositoryRoot);
     const status = git(['status', '--porcelain=v1', '--untracked-files=all', '--', '.', ':(exclude).tmp'], repositoryRoot);
-    const trackedPatch = git(['diff', '--binary', 'HEAD', '--', '.', ':(exclude).tmp'], repositoryRoot);
-    const untracked = status.split(/\r?\n/u)
-        .filter((line) => line.startsWith('?? '))
-        .map((line) => line.slice(3))
-        .sort()
-        .map((relativePath) =>
-        {
-            const absolutePath = path.join(repositoryRoot, relativePath);
-            return `${relativePath}\0${fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile() ? digest(fs.readFileSync(absolutePath)) : 'non-file'}`;
-        });
     return {
         commit,
         dirty: status.length > 0,
         statusDigest: digest(status),
-        worktreeFingerprint: digest({ status, trackedPatch, untracked })
+        worktreeFingerprint: `sha256:${resolveWorktreeFingerprint(repositoryRoot)}`
     };
 }
 

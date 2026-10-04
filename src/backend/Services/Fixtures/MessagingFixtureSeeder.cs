@@ -1,9 +1,12 @@
 // fixture-catalog: producer account-messaging
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
@@ -24,6 +27,12 @@ public interface IMessagingFixtureSeeder
 
     Task CleanupAsync(
         MessagingFixtureCleanupReceipt receipt,
+        CancellationToken cancellationToken = default);
+
+    Task<MessagingFixtureVerificationResult> VerifyAsync(
+        MessagingFixtureVerificationRequest request,
+        IAuthFixtureSeeder authVerifier,
+        IAedsEncoder decoder,
         CancellationToken cancellationToken = default);
 }
 
@@ -122,6 +131,22 @@ public sealed record MessagingFixtureResult(
     MessagingFixtureObservations Observations,
     MessagingFixtureCleanupReceipt CleanupReceipt,
     object TemporalObservation);
+
+public sealed record MessagingFixtureVerificationBinding(
+    string RunId, string Namespace, string ProfileId, string SourceCommit, string SourceFingerprint,
+    string ServiceGeneration, string CatalogDigest, string ExpandedCapabilityDigest,
+    string VariantPlanDigest, string ProducerVariantPlanDigest, string TemporalContextDigest);
+
+public sealed record MessagingFixtureAuthReference(JsonElement Receipt, string CanonicalBody);
+
+public sealed record MessagingFixtureVerificationRequest(
+    MessagingFixturePlan Plan, MessagingFixtureVerificationBinding Binding,
+    MessagingFixtureCleanupReceipt CleanupReceipt, IReadOnlyDictionary<string, string> Roles,
+    MessagingFixtureAuthReference AuthReference, JsonElement VerifiedAuthReferences);
+
+public sealed record MessagingFixtureVerificationResult(
+    bool Ok, MessagingFixtureVerificationBinding Binding, string AuthSourceReceiptDigest,
+    MessagingFixtureResult Result, IReadOnlyList<string> Warnings);
 
 public sealed class MessagingFixtureSeeder(
     IMessageCommandService commands,
@@ -274,6 +299,230 @@ public sealed class MessagingFixtureSeeder(
                 empty,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public async Task<MessagingFixtureVerificationResult> VerifyAsync(
+        MessagingFixtureVerificationRequest request,
+        IAuthFixtureSeeder authVerifier,
+        IAedsEncoder decoder,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateVerificationAuthority(request);
+        JsonElement auth = request.AuthReference.Receipt;
+        AuthFixtureVerificationEntity[] actors = request.VerifiedAuthReferences.GetProperty("references")
+            .EnumerateArray().Select(item => new AuthFixtureVerificationEntity(
+                Text(item, "role") == "admin" ? "admin" : "user", Text(item, "publicId"),
+                Text(item, "semanticRole"), Text(item, "fixtureIdentity"), Text(item, "capabilityId"))).ToArray();
+        AuthFixtureVerificationResult authRead = await authVerifier.VerifyAsync(new(
+            Text(auth, "producerReceiptDigest"), request.Plan.PlanDigest,
+            ["auth.user.active", "auth.admin.full-permission"], actors), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!authRead.Ok || authRead.ReceiptDigest != Text(auth, "producerReceiptDigest"))
+        {
+            throw new InvalidOperationException("Messaging fixture live auth ownership drifted.");
+        }
+        int primary = ParsePositiveInt(request.Plan.IdentityReferences.PrimaryRecipientId, "primary recipient");
+        int secondary = ParsePositiveInt(request.Plan.IdentityReferences.SecondaryRecipientId, "secondary recipient");
+        int empty = ParsePositiveInt(request.Plan.IdentityReferences.EmptyRecipientId, "empty recipient");
+        Dictionary<string, long> roles = request.Roles.ToDictionary(static item => item.Key,
+            static item => ParsePositiveLong(item.Value, "conversation"), StringComparer.Ordinal);
+        long[] ids = roles.Values.Order().ToArray();
+        List<MessageConversation> conversations = await db.Queryable<MessageConversation>()
+            .Where(item => ids.Contains(item.Id)).ToListAsync(cancellationToken).ConfigureAwait(false);
+        string owner = BuildOwner(request.Plan.Namespace, request.Plan.RunId);
+        foreach ((string role, long id) in roles)
+        {
+            string operation = role[..^"-thread".Length];
+            int account = role == "single-thread" ? secondary : primary;
+            MessageConversation? conversation = conversations.SingleOrDefault(item => item.Id == id);
+            if (conversation is null || conversation.InitiatorAccountId != account
+                || conversation.ClientMutationPrincipalKind != MessageMutationPrincipalKinds.Account
+                || conversation.ClientMutationPrincipalId != account
+                || conversation.ClientMutationId != MutationId(owner, $"{operation}-create"))
+            {
+                throw new InvalidOperationException("Messaging fixture conversation ownership drifted.");
+            }
+        }
+        List<MessageMutationOutbox> deliveries = await db.Queryable<MessageMutationOutbox>()
+            .Where(item => ids.Contains(item.ConversationId)).OrderBy(item => item.Id)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        var events = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (MessageMutationOutbox delivery in deliveries)
+        {
+            long? eventId = await backlog.TryReadIdempotentEventIdAsync(delivery.DeliveryKey, cancellationToken).ConfigureAwait(false);
+            if (delivery.Status != MessageMutationOutboxStatus.Processed || !eventId.HasValue || eventId.Value <= 0
+                || !events.TryAdd(delivery.DeliveryKey, eventId.Value))
+            {
+                throw new InvalidOperationException("Messaging fixture outbox/stream is missing or not exact.");
+            }
+        }
+        if (events.Count == 0 || events.Values.Distinct().Count() != events.Count)
+        {
+            throw new InvalidOperationException("Messaging fixture outbox event identities are empty or duplicate.");
+        }
+        MessagingFixtureResult live = await BuildVerifiedResultAsync(request.Plan, roles, ids, deliveries,
+            events, primary, secondary, empty, cancellationToken, readOnly: true, decoder: decoder).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!JsonElement.DeepEquals(JsonSerializer.SerializeToElement(live.CleanupReceipt),
+                JsonSerializer.SerializeToElement(request.CleanupReceipt)))
+        {
+            throw new InvalidOperationException("Messaging fixture live identity graph differs from prepare ownership.");
+        }
+        return new(true, request.Binding, Text(auth, "producerReceiptDigest"), live, []);
+    }
+
+    internal static void ValidateVerificationAuthority(MessagingFixtureVerificationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Plan);
+        ArgumentNullException.ThrowIfNull(request.Plan.IdentityReferences);
+        ValidatePlan(request.Plan);
+        MessagingFixtureVerificationBinding binding = request.Binding;
+        static string? RuntimeDigest(string key)
+        {
+            string? value = Environment.GetEnvironmentVariable(key);
+            return value is null || value.StartsWith("sha256:", StringComparison.Ordinal) ? value : "sha256:" + value;
+        }
+        if (request.AuthReference is null || request.CleanupReceipt is null || request.Roles is null)
+        {
+            throw new InvalidOperationException("Messaging verify current source/run/service binding is invalid.");
+        }
+        RequireCurrentBinding(binding, request.Plan,
+            Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUN_ID"),
+            Environment.GetEnvironmentVariable("FSUSBLOG_TEST_NAMESPACE"),
+            Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_COMMIT"),
+            RuntimeDigest("FSUSBLOG_TEST_SOURCE_FINGERPRINT"),
+            RuntimeDigest("FSUSBLOG_FIXTURE_SERVICE_GENERATION"));
+        JsonElement temporalIdentity = request.Plan.TemporalRoles.GetProperty("contextIdentity");
+        if (Text(temporalIdentity, "sourceCommit") != binding.SourceCommit
+            || Text(temporalIdentity, "sourceFingerprint") != binding.SourceFingerprint
+            || Text(temporalIdentity, "schedulerRunId") != binding.RunId
+            || Text(temporalIdentity, "producerId") != ProducerId
+            || Text(temporalIdentity, "contextDigest") != binding.TemporalContextDigest)
+        {
+            throw new InvalidOperationException("Messaging verify temporal source/run binding differs.");
+        }
+        MessagingFixtureCleanupReceipt cleanup = request.CleanupReceipt;
+        string[] roles = ["single-thread", "multi-thread", "unread-thread", "read-thread", "closed-thread", "pagination-thread"];
+        if (cleanup.Schema != "fsusblog.messaging-fixture-cleanup.v1" || cleanup.PlanDigest != request.Plan.PlanDigest
+            || cleanup.RunId != binding.RunId || cleanup.Namespace != binding.Namespace
+            || cleanup.ConversationIds is not { Count: 6 } || cleanup.MessageIds is not { Count: > 0 and <= 512 }
+            || cleanup.EventIds is not { Count: > 0 and <= 512 } || cleanup.DeliveryKeys is not { Count: > 0 and <= 512 }
+            || cleanup.OwnedEntityIds is null
+            || !request.Roles.Keys.Order(StringComparer.Ordinal).SequenceEqual(roles.Order(StringComparer.Ordinal), StringComparer.Ordinal)
+            || request.Roles.Values.Distinct(StringComparer.Ordinal).Count() != roles.Length
+            || !request.Roles.Values.Order(StringComparer.Ordinal).SequenceEqual(cleanup.ConversationIds.Order(StringComparer.Ordinal), StringComparer.Ordinal)
+            || new[] { cleanup.ConversationIds, cleanup.MessageIds, cleanup.EventIds, cleanup.DeliveryKeys, cleanup.OwnedEntityIds }
+                .Any(static values => values.Distinct(StringComparer.Ordinal).Count() != values.Count)
+            || !cleanup.ConversationIds.Concat(cleanup.MessageIds).Order(StringComparer.Ordinal)
+                .SequenceEqual(cleanup.OwnedEntityIds.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("Messaging verify exact owned graph is invalid.");
+        }
+        ParseExactPositiveIds(cleanup.ConversationIds, "conversation");
+        ParseExactPositiveIds(cleanup.MessageIds, "message");
+        ParseExactPositiveIds(cleanup.EventIds, "event");
+        JsonElement auth = request.AuthReference.Receipt;
+        JsonObject unsigned = JsonNode.Parse(auth.GetRawText())!.AsObject();
+        unsigned.Remove("producerReceiptDigest");
+        using JsonDocument canonical = JsonDocument.Parse(request.AuthReference.CanonicalBody);
+        if (!JsonElement.DeepEquals(JsonSerializer.SerializeToElement(unsigned), canonical.RootElement)
+            || Text(auth, "producerReceiptDigest") != Hash(request.AuthReference.CanonicalBody)
+            || Text(auth, "schema") != "fsusblog.fixture-producer-receipt.v1" || Text(auth, "producerId") != "auth-session"
+            || Text(auth, "strategy") != Strategy || Text(auth, "runId") != binding.RunId || Text(auth, "namespace") != binding.Namespace
+            || Text(auth, "profileId") != binding.ProfileId || Text(auth, "serviceGeneration") != binding.ServiceGeneration
+            || Text(auth, "fixtureCatalogDigest") != binding.CatalogDigest || Text(auth, "expandedCapabilityDigest") != binding.ExpandedCapabilityDigest
+            || Text(auth, "variantPlanDigest") != binding.VariantPlanDigest
+            || Text(auth.GetProperty("source"), "commit") != binding.SourceCommit
+            || Text(auth.GetProperty("source"), "worktreeFingerprint") != binding.SourceFingerprint
+            || !auth.GetProperty("postconditionObservations").EnumerateArray().Any()
+            || auth.GetProperty("postconditionObservations").EnumerateArray().Any(item => !item.GetProperty("ok").GetBoolean()))
+        {
+            throw new InvalidOperationException("Messaging verify auth receipt is unsealed or cross-owner.");
+        }
+        JsonElement projection = request.VerifiedAuthReferences;
+        JsonElement[] refs = projection.GetProperty("references").EnumerateArray().ToArray();
+        string[] identityRoles = ["admin", "empty-recipient", "primary-recipient", "secondary-recipient"];
+        if (Text(projection, "schema") != "fsusblog.fixture-identity-references.v1" || !projection.GetProperty("verified").GetBoolean()
+            || Text(projection, "ownerProducerId") != "auth-session" || Text(projection, "consumerProducerId") != ProducerId
+            || Text(projection, "runId") != binding.RunId || Text(projection, "namespace") != binding.Namespace
+            || Text(projection, "profileId") != binding.ProfileId || Text(projection, "sourceReceiptDigest") != Text(auth, "producerReceiptDigest")
+            || !ValidIdentityDigest(projection)
+            || !refs.Select(item => Text(item, "role")).Order(StringComparer.Ordinal).SequenceEqual(identityRoles, StringComparer.Ordinal)
+            || !refs.Select(item => Text(item, "prepareReferenceDigest")).Order(StringComparer.Ordinal)
+                .SequenceEqual(request.Plan.IdentityReferences.PrepareReferenceDigests.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("Messaging verify allocated identity projection is inexact.");
+        }
+        foreach (JsonElement reference in refs)
+        {
+            string role = Text(reference, "role");
+            string id = role switch
+            {
+                "admin" => request.Plan.IdentityReferences.AdminId,
+                "empty-recipient" => request.Plan.IdentityReferences.EmptyRecipientId,
+                "primary-recipient" => request.Plan.IdentityReferences.PrimaryRecipientId,
+                _ => request.Plan.IdentityReferences.SecondaryRecipientId
+            };
+            if (Text(reference, "schema") != "fsusblog.fixture-identity-reference.v1" || !reference.GetProperty("verified").GetBoolean()
+                || Text(reference, "ownerProducerId") != "auth-session" || Text(reference, "consumerProducerId") != ProducerId
+                || Text(reference, "runId") != binding.RunId || Text(reference, "namespace") != binding.Namespace
+                || Text(reference, "profileId") != binding.ProfileId || Text(reference, "publicId") != id
+                || Text(reference, "semanticRole") != $"consumer.account-messaging.{role}"
+                || Text(reference, "capabilityId") != (role == "admin" ? "auth.admin.full-permission" : "auth.user.active")
+                || Text(reference, "producerResultDigest") != request.Plan.IdentityReferences.IdentityProducerResultDigest
+                || Text(reference, "sourceReceiptDigest") != Text(auth, "producerReceiptDigest") || !ValidIdentityDigest(reference)
+                || Text(reference, "fixtureIdentity") != AuthFixtureSeeder.OwnedAdminHandle(binding.Namespace, binding.RunId, Text(reference, "semanticRole"))
+                || Text(reference.GetProperty("planDigests"), "catalogDigest") != binding.CatalogDigest
+                || Text(reference.GetProperty("planDigests"), "fixtureVariantPlanDigest") != binding.VariantPlanDigest
+                || Text(reference.GetProperty("planDigests"), "producerVariantPlanDigest") != Text(auth, "producerVariantPlanDigest")
+                || !auth.GetProperty("observations").GetProperty("database").GetProperty("entities").EnumerateArray()
+                    .Any(item => Text(item, "id") == id && Text(item, "semanticRole") == Text(reference, "semanticRole")
+                        && Text(item, "fixtureIdentity") == Text(reference, "fixtureIdentity") && item.GetProperty("owned").GetBoolean()))
+            {
+                throw new InvalidOperationException("Messaging verify allocated role differs from its auth owner.");
+            }
+            if (role == "admin" && request.Plan.IdentityReferences.AdminActorAuditKey != Hash(string.Join('\0',
+                    "account-messaging-admin-actor-v1", Text(reference, "fixtureIdentity"), Text(reference, "prepareReferenceDigest"))))
+            {
+                throw new InvalidOperationException("Messaging verify admin audit ownership differs.");
+            }
+        }
+    }
+
+    private static string Text(JsonElement value, string name)
+        => value.GetProperty(name).GetString() ?? throw new InvalidOperationException("Messaging verify authority field is missing.");
+
+    internal static void RequireCurrentBinding(
+        MessagingFixtureVerificationBinding binding,
+        MessagingFixturePlan plan,
+        string? currentRunId,
+        string? currentNamespace,
+        string? currentSourceCommit,
+        string? currentFingerprint,
+        string? currentServiceGeneration)
+    {
+        if (binding is null || binding.RunId != plan.RunId || binding.Namespace != plan.Namespace
+            || binding.RunId != currentRunId || binding.Namespace != currentNamespace
+            || binding.SourceCommit != currentSourceCommit
+            || binding.SourceCommit is not { Length: 40 } || !binding.SourceCommit.All(Uri.IsHexDigit)
+            || binding.SourceFingerprint != currentFingerprint || binding.ServiceGeneration != currentServiceGeneration
+            || string.IsNullOrWhiteSpace(binding.ProfileId)
+            || new[] { binding.SourceFingerprint, binding.ServiceGeneration, binding.CatalogDigest,
+                binding.ExpandedCapabilityDigest, binding.VariantPlanDigest, binding.ProducerVariantPlanDigest,
+                binding.TemporalContextDigest }.Any(static value => !StringHasSha256Digest(value)))
+        {
+            throw new InvalidOperationException("Messaging verify current source/run/service binding is invalid.");
+        }
+    }
+
+    private static bool ValidIdentityDigest(JsonElement value)
+    {
+        JsonObject body = JsonNode.Parse(value.GetRawText())!.AsObject();
+        body.Remove("digest");
+        string json = body.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        return Text(value, "digest") == Hash(json)[7..];
     }
 
     public async Task CleanupAsync(
@@ -479,7 +728,9 @@ public sealed class MessagingFixtureSeeder(
         int primary,
         int secondary,
         int empty,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool readOnly = false,
+        IAedsEncoder? decoder = null)
     {
         PageResponse<ConversationListItemResponse> primaryInbox = await queries.GetAccountConversationsAsync(
             primary, 100, null, null, cancellationToken).ConfigureAwait(false);
@@ -529,7 +780,8 @@ public sealed class MessagingFixtureSeeder(
         var cacheEntries = new List<MessagingFixtureCacheEntryObservation>();
         foreach (int userId in new[] { primary, secondary, empty })
         {
-            int observed = await cache.GetUnreadOrRecoverAsync(
+            int observed = readOnly ? await cache.ReadUnreadAsync(userId, cancellationToken).ConfigureAwait(false)
+                : await cache.GetUnreadOrRecoverAsync(
                 userId,
                 () => Task.FromResult(databaseUnread.GetValueOrDefault(userId)))
                 .ConfigureAwait(false);
@@ -572,6 +824,10 @@ public sealed class MessagingFixtureSeeder(
             if (replay.MissedGap || replay.Frames.Count != expectedReplayEventIds.Length)
             {
                 throw new InvalidOperationException("Messaging notification cursor replay is duplicate, missing, or out of order.");
+            }
+            if (readOnly)
+            {
+                RequireReadonlyReplay(replay, expectedReplayEventIds, decoder);
             }
         }
         finally
@@ -826,6 +1082,33 @@ public sealed class MessagingFixtureSeeder(
         if (!expected.SequenceEqual(observed, StringComparer.Ordinal))
         {
             throw new InvalidOperationException("Messaging inbox projection membership is not exact.");
+        }
+    }
+
+    internal static void RequireReadonlyReplay(
+        NotificationStreamReplayBatch replay,
+        IReadOnlyList<long> expectedEventIds,
+        IAedsEncoder? decoder)
+    {
+        if (!replay.IsSuccessful || decoder is null)
+        {
+            throw new InvalidOperationException("Messaging independent notification replay failed.");
+        }
+        var observedIds = new List<long>();
+        foreach (SharedNotificationStreamFrame frame in replay.Frames)
+        {
+            var decoded = decoder.TryDecode(frame.Memory);
+            if (!decoded.IsSuccess || decoded.Value.FrameType != AedsFrameType.NotificationEvent
+                || decoded.Value.Payload.Length < 24)
+            {
+                throw new InvalidOperationException("Messaging independent notification frame is invalid.");
+            }
+            // The canonical AEDS decoder owns the frame; the shared envelope's first POD field is Id.
+            observedIds.Add(BinaryPrimitives.ReadInt64LittleEndian(decoded.Value.Payload.Span));
+        }
+        if (!observedIds.SequenceEqual(expectedEventIds))
+        {
+            throw new InvalidOperationException("Messaging independent notification replay identity/order drifted.");
         }
     }
 

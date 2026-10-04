@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
@@ -322,9 +323,12 @@ public static class JwtServiceExtensions
                 {
                     if (context.Principal?.IsAdminPrincipal() == true)
                     {
-                        string accessToken = context.SecurityToken is JwtSecurityToken jwtToken
-                            ? jwtToken.RawData
-                            : string.Empty;
+                        string accessToken = context.SecurityToken switch
+                        {
+                            JwtSecurityToken jwtToken => jwtToken.RawData,
+                            JsonWebToken jsonWebToken => jsonWebToken.EncodedToken,
+                            _ => string.Empty
+                        };
                         if (string.IsNullOrWhiteSpace(accessToken) &&
                             context.HttpContext.Items[AdminAccessTokenItemKey] is string cachedAdminAccessToken &&
                             !string.IsNullOrWhiteSpace(cachedAdminAccessToken))

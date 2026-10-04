@@ -19,6 +19,7 @@ import {
     validateRuntimeCacheReceipt,
     writeReceiptPreservingFirstFailure
 } from './runtime-cache-evidence-contract.mjs';
+const { readRuntimeCacheFixtureInput, verifyRuntimeCacheFixtureInput } = await import(new URL('../test-fixtures/receipt/projection.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const observationHeader = 'X-Fsus-Runtime-Evidence-Request';
@@ -203,11 +204,6 @@ export function collectDefaultExecutionIdentity({ repositoryRoot = root, baseUrl
     const postgresTopology = `container:${postgresContainer};database:${postgresDatabase}`;
     const redisTopology = `container:${redisContainer};role:${requireNonEmpty(redisFacts.role, 'Redis role')};replicas:${requireNonNegativeInteger(Number.parseInt(redisFacts.connected_slaves ?? '0', 10), 'Redis replica count')};cluster:${requireNonEmpty(redisFacts.cluster_enabled, 'Redis cluster mode')}`;
     const cpuModel = requireNonEmpty(os.cpus()[0]?.model, 'machine CPU model');
-    const fixtureFile = process.env.FSUSBLOG_RUNTIME_CACHE_FIXTURE_FILE ?? process.env.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE;
-    if (!fixtureFile || !fs.existsSync(fixtureFile) || !fs.statSync(fixtureFile).isFile())
-    {
-        throw new Error('a current fixture artifact is required through FSUSBLOG_RUNTIME_CACHE_FIXTURE_FILE or FSUSBLOG_PUBLIC_ID_PROJECTION_FILE');
-    }
 
     const runtimeDigest = sha256Bytes(fs.readFileSync(assembly));
     return {
@@ -239,8 +235,8 @@ export function collectDefaultExecutionIdentity({ repositoryRoot = root, baseUrl
             memoryBytes: os.totalmem(),
             runtime: `node ${process.version}`
         },
-        fixtureDigest: sha256Bytes(fs.readFileSync(fixtureFile)),
-        fixtureFile: path.resolve(fixtureFile),
+        fixtureDigest: null,
+        fixtureFile: null,
         redisContainer
     };
 }
@@ -970,7 +966,7 @@ export async function runRuntimeCacheProducer(options = {})
     const secret = requireNonEmpty(options.secret ?? process.env.FSUSBLOG_RUNTIME_CACHE_EVIDENCE_SECRET, 'FSUSBLOG_RUNTIME_CACHE_EVIDENCE_SECRET');
     const outputDirectory = path.resolve(options.outputDirectory ?? defaultOutputDirectory);
     const scenarioIds = options.scenarioIds ?? catalog.scenarios.map((scenario) => scenario.id);
-    const identity = options.identity ?? await (options.collectIdentity ?? collectDefaultExecutionIdentity)({ repositoryRoot, baseUrl, source });
+    const runtimeIdentity = options.identity ?? await (options.collectIdentity ?? collectDefaultExecutionIdentity)({ repositoryRoot, baseUrl, source });
     const runId = options.runId ?? process.env.FSUSBLOG_TEST_RUN_ID ?? randomUUID();
     const attemptNumber = options.attemptNumber ?? Number.parseInt(process.env.FSUSBLOG_RUNTIME_CACHE_ATTEMPT_NUMBER ?? '1', 10);
     const results = [];
@@ -984,6 +980,28 @@ export async function runRuntimeCacheProducer(options = {})
         const outputFile = path.join(outputDirectory, 'receipts', `${scenario.id}.json`);
         try
         {
+            let identity = runtimeIdentity;
+            let fixtureAdmission = null;
+            // Injected measurement identities belong to focused collector tests,
+            // not the CLI qualification path. The real path never accepts a
+            // caller's file hash or prepared projection as fixture authority.
+            if (!options.identity && !options.collectIdentity)
+            {
+                const directory = requireNonEmpty(options.fixtureInputDirectory
+                    ?? process.env.FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR, 'runtime cache fixture input directory');
+                fixtureAdmission = readRuntimeCacheFixtureInput(path.join(directory, `runtime-cache-${scenario.id}.json`), {
+                    consumerId: `runtime-cache-${scenario.id}`, root: repositoryRoot, source, runId,
+                    namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+                    serviceGeneration: `sha256:${String(process.env.FSUSBLOG_FIXTURE_SERVICE_GENERATION ?? '').replace(/^sha256:/u, '')}`,
+                    pgContainer: process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME ?? process.env.FSUSBLOG_PG_CONTAINER,
+                    redisContainer: runtimeIdentity.redisContainer
+                });
+                await verifyRuntimeCacheFixtureInput(fixtureAdmission, { handles: { baseUrl,
+                    localPublicContentFixtureSecret: process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET,
+                    localAuthFixtureSecret: process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET } });
+                identity = { ...runtimeIdentity, fixtureDigest: fixtureAdmission.contentDigest,
+                    fixtureFile: fixtureAdmission.fixtureFile };
+            }
             let producer = producePublicHotReadReceipt;
             if (scenario.id === 'article-detail-l1')
             {
@@ -1037,7 +1055,7 @@ export async function runRuntimeCacheProducer(options = {})
             {
                 throw new Error(`runtime scenario handler is absent for ${scenario.id}`);
             }
-            const receipt = await producer({ ...options, repositoryRoot, catalog, scenario, identity, baseUrl, secret, outputFile, runId, attemptNumber });
+            const receipt = await producer({ ...options, repositoryRoot, catalog, scenario, identity, fixtureAdmission, baseUrl, secret, outputFile, runId, attemptNumber });
             results.push({ scenarioId, status: receipt.status, outputFile });
         }
         catch (error)
@@ -1071,6 +1089,10 @@ function parseArgs(args)
         else if (argument === '--base-url')
         {
             parsed.baseUrl = requireNonEmpty(args[++index], '--base-url value');
+        }
+        else if (argument === '--fixture-input-dir')
+        {
+            parsed.fixtureInputDirectory = path.resolve(requireNonEmpty(args[++index], '--fixture-input-dir value'));
         }
         else
         {

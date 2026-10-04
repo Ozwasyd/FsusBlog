@@ -2,6 +2,46 @@
     "schema": "fsusblog.test-retention-replacements.v1",
     "deletedTests": [
         {
+            "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88",
+            "path": "tests/tools/backend-qps-runtime-cache-migration.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#retired-backend-qps-lane-is-absent-and-canonical-lane-re-af90876580"
+            ],
+            "reason": "Issue #1851 retires the legacy runner instead of retaining a forwarding wrapper. This replacement asserts that the old lane is absent and actually executes the canonical lane's rejection of mode and aggregate compatibility arguments before bootstrap. It covers argument rejection, not the separate retired-owner registry closure gate or qualification of the 13 runtime scenarios."
+        },
+        {
+            "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30",
+            "path": "tests/tools/backend-qps-runtime-cache-migration.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#runtime-cache-lane-owns-the-current-producer-and-indepen-c97e4f1f2b",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#canonical-shell-reaches-checker-after-producer-failure-a-df54353c6b",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#canonical-shell-rejects-checker-failure-and-retains-firs-f2a12cbfc9",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#canonical-shell-retains-independent-producer-and-checker-e346fadb18"
+            ],
+            "reason": "Issue #1851 forbids legacy-runner forwarding. The source assertion binds the canonical lane to the current producer with --all and independent checker. The three shell tests execute byte-identical canonical shell/support files in an isolated fixture with stub-node children: distinct producer/checker OS processes, exact arguments, checker reachability after producer failure, producer-only/checker-only/both failure combinations, nonzero shell exit, and stderr identifying each failure artifact. Repeated execution preserves the stub owners' first-failure artifact bytes; this is shell orchestration evidence, not official sealed runtime receipt preservation or qualification of the 13 runtime scenarios."
+        },
+        {
+            "id": "node-test:tests/tools/mixed-performance-window.test.mjs#qps-mode-workers-derive-from-the-cohort-cpu-and-live-mac-0b480e9ffc",
+            "path": "tests/tools/mixed-performance-window.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/mixed-performance-window.test.mjs#runtime-cache-cohort-delegates-once-with-the-complete-gr-0fc70d95a2"
+            ],
+            "reason": "Issue #1851 retires the old per-mode runner and worker partitioning; neither is restored as an equivalent runtime behavior. The replacement invokes the current mixed-cohort dispatch with a captured executor, proving exact-once canonical lane selection and forwarding of the complete admitted CPU/memory grant. It checks the current catalog's 13 scenario identities but does not execute their data owners, measure Redis commands, or qualify their runtime behavior."
+        },
+        {
+            "id": "node-test:tests/tools/mixed-performance-window.test.mjs#qps-mode-queue-rolls-all-modes-through-bounded-child-gra-39eebeafd2",
+            "path": "tests/tools/mixed-performance-window.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/mixed-performance-window.test.mjs#runtime-cache-cohort-delegates-once-with-the-complete-gr-0fc70d95a2",
+                "node-test:tests/tools/mixed-performance-window.test.mjs#runtime-cache-cohort-retains-canonical-lane-failures-and-e4414c8069",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#canonical-shell-reaches-checker-after-producer-failure-a-df54353c6b",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#canonical-shell-rejects-checker-failure-and-retains-firs-f2a12cbfc9",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#canonical-shell-retains-independent-producer-and-checker-e346fadb18",
+                "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#mixed-executor-retains-canonical-shell-stderr-and-report-0a1cace7a5"
+            ],
+            "reason": "Issue #1851 retires the per-mode queue, bounded child-grant partitioning, and mode/aggregate compatibility arguments. The current dispatch test retains one canonical lane invocation with the complete grant. The failure-cohort test proves injected AggregateError unwrapping, a null successful sample count on failure, and rejection of legacy passed cohorts; it does not prove that the real executor emits AggregateError. The actual canonical-shell tests independently reach both stub-node processes across producer-only/checker-only/both failures, return nonzero, expose both failures through stderr, and preserve stub-owned first-failure artifact bytes on repetition. The test-only extraction of the existing real mixed command executor confirms its single Error on nonzero child exit, inherited shell stderr, and checker failure artifact. These are orchestration replacements, not restoration of the retired queue, official sealed receipt preservation, qualification of the 13 runtime scenarios, or a waiver of the separate retired-owner registry closure gate."
+        },
+        {
             "id": "xunit:tests/backend/Unit/BackendPropertyTests.cs#BackendPropertyTests.UploadRangeProperty_NormalizesOverlapAndRequiresAllPartsForComplete",
             "path": "tests/backend/Unit/BackendPropertyTests.cs",
             "replacementTestIds": [

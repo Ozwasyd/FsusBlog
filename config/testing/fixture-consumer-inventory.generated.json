@@ -1226,6 +1226,16 @@
             ],
             "producerOwners": [
                 "public-content"
+            ],
+            "fixturePrerequisites": [
+                {
+                    "id": "typed-admin-session",
+                    "profileId": "auth-basic",
+                    "producerId": "auth-session",
+                    "capabilityId": "auth.admin.full-permission",
+                    "semanticRole": "admin.full-permission",
+                    "consumerId": "runtime-cache-hot-featured-frame"
+                }
             ]
         },
         {
