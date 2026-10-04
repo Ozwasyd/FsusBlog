@@ -381,7 +381,7 @@ function isForbiddenMachineField(normalized, qualification)
 {
     const canonical = forbiddenMachineFields.get(normalized)
     if (!canonical) return null
-    if (!qualification && ['expectedValue', 'baselineValue', 'verifiedAt', 'waiver'].includes(canonical)) return null
+    if (!qualification && ['expectedvalue', 'baselinevalue', 'verifiedat', 'waiver'].includes(normalized)) return null
     return canonical
 }
 
